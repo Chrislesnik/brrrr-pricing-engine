@@ -17,8 +17,23 @@ export async function POST(req: Request) {
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 400 })
+    let orgUuid = await getOrgUuidFromClerkId(orgId)
+    if (!orgUuid) {
+      // Create a minimal organization record when mapping is missing
+      const genId = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 10)) as string
+      const { data: createdOrg, error: orgErr } = await supabaseAdmin
+        .from("organizations")
+        .insert({
+          id: genId, // organizations.id is text in this project
+          clerk_organization_id: orgId,
+        })
+        .select("id")
+        .single()
+      if (orgErr || !createdOrg?.id) {
+        return NextResponse.json({ error: `Failed to ensure organization: ${orgErr?.message ?? "unknown"}` }, { status: 400 })
+      }
+      orgUuid = createdOrg.id as string
+    }
 
     const body = (await req.json().catch(() => null)) as SaveScenarioBody | null
     if (!body || !body.inputs) {
