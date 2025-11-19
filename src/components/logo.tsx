@@ -15,7 +15,7 @@ export function Logo({
       width={width}
       height={height}
       className={className}
-      alt="Shadcnblocks"
+      alt="Loan Pricing Engine"
     />
   )
 }

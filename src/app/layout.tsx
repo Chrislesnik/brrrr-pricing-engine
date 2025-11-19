@@ -10,8 +10,16 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Shadcnblocks - Admin Kit",
-  description: "Shadcnblocks - Admin Kit built with NextJS",
+  title: {
+    default: "Loan Pricing Engine",
+    template: "%s | Loan Pricing Engine",
+  },
+  description: "Loan Pricing Engine built with NextJS",
+  icons: {
+    icon: "/pricing-engine-tab-icon.svg",
+    shortcut: "/pricing-engine-tab-icon.svg",
+    apple: "/pricing-engine-tab-icon.svg",
+  },
 }
 
 export default function RootLayout({
