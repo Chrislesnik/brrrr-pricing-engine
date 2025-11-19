@@ -63,8 +63,6 @@ export async function POST(req: Request) {
         primary: isPrimary,
         user_id: userId,
         organization_id: orgUuid,
-        // Some environments enforce NOT NULL on `data`; mirror inputs there, too.
-        data: body.inputs ?? {},
         inputs: body.inputs ?? {},
       })
       .select("id")
