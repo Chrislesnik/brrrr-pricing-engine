@@ -1740,7 +1740,7 @@ function ResultCard({ r }: { r: ProgramResult }) {
           <AccordionTrigger className="text-sm">Details</AccordionTrigger>
           <AccordionContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-sm text-center">
                 <thead className="border-b">
                   <tr>
                     <th className="py-1 pr-3">Loan Price</th>
@@ -1757,12 +1757,12 @@ function ResultCard({ r }: { r: ProgramResult }) {
                       const hasLoanPrice = lp !== undefined && lp !== null && !Number.isNaN(lp as number)
                       return (
                       <tr key={i} className="border-b last:border-0">
-                        <td className="py-1 pr-3">{lp}</td>
-                        <td className="py-1 pr-3">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
-                        <td className="py-1 pr-3">{hasLoanPrice ? (loanAmount ?? "") : ""}</td>
-                        <td className="py-1 pr-3">{hasLoanPrice ? (ltv ?? "") : ""}</td>
-                        <td className="py-1 pr-3">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
-                        <td className="py-1 pr-3">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
+                        <td className="py-1 pr-3 text-center">{lp}</td>
+                        <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
+                        <td className="py-1 pr-3 text-center">{hasLoanPrice ? (loanAmount ?? "") : ""}</td>
+                        <td className="py-1 pr-3 text-center">{hasLoanPrice ? (ltv ?? "") : ""}</td>
+                        <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
+                        <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                       </tr>
                       )
                     })}
