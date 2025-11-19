@@ -25,7 +25,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { IconDots } from "@tabler/icons-react"
 
@@ -187,6 +186,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       const status = (row.getValue("status") as string | undefined)?.toLowerCase()
       const opposite = status === "active" ? "dead" : "active"
       const id = row.getValue("id") as string
+      const [confirmOpen, setConfirmOpen] = React.useState(false)
       async function setStatus(next: string) {
         try {
           const res = await fetch(`/api/loans/${id}`, {
@@ -234,12 +234,16 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
               <DropdownMenuItem>Term Sheets</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem className="text-red-600 focus:text-red-600">
-                    Delete
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  setConfirmOpen(true)
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+              <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete loan?</AlertDialogTitle>
@@ -249,7 +253,13 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={deleteLoan}>
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={() => {
+                        setConfirmOpen(false)
+                        void deleteLoan()
+                      }}
+                    >
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
