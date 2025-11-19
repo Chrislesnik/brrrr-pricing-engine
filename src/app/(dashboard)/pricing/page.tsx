@@ -25,6 +25,37 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 
+// Minimal Google Places typings used locally
+type GPlaces = {
+  AutocompleteSessionToken: new () => unknown
+  AutocompleteService: new () => {
+    getPlacePredictions: (
+      req: {
+        input: string
+        types?: string[]
+        componentRestrictions?: { country: string[] }
+        sessionToken?: unknown
+      },
+      cb: (res: PlacePrediction[] | null, status: string) => void
+    ) => void
+  }
+  PlacesService: new (el: HTMLElement) => {
+    getDetails: (
+      req: { placeId: string; fields?: string[]; sessionToken?: unknown },
+      cb: (
+        place:
+          | { address_components?: { short_name?: string; long_name?: string; types?: string[] }[] }
+          | null,
+        status: string
+      ) => void
+    ) => void
+  }
+}
+const getPlaces = (): GPlaces | undefined => {
+  const win = window as unknown as { google?: { maps?: { places?: GPlaces } } }
+  return win.google?.maps?.places
+}
+
 export default function PricingEnginePage() {
   // Subject Property dependent state
   const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
@@ -60,34 +91,6 @@ export default function PricingEnginePage() {
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
   const sessionTokenRef = useRef<unknown>(undefined)
-  // Minimal Google Places typings used locally to avoid 'any'
-  type GPlaces = {
-    AutocompleteSessionToken: new () => unknown
-    AutocompleteService: new () => {
-      getPlacePredictions: (
-        req: {
-          input: string
-          types?: string[]
-          componentRestrictions?: { country: string[] }
-          sessionToken?: unknown
-        },
-        cb: (res: PlacePrediction[] | null, status: string) => void
-      ) => void
-    }
-    PlacesService: new (el: HTMLElement) => {
-      getDetails: (
-        req: { placeId: string; fields?: string[]; sessionToken?: unknown },
-        cb: (
-          place: { address_components?: { short_name?: string; long_name?: string; types?: string[] }[] } | null,
-          status: string
-        ) => void
-      ) => void
-    }
-  }
-  const getPlaces = (): GPlaces | undefined => {
-    const win = window as unknown as { google?: { maps?: { places?: GPlaces } } }
-    return win.google?.maps?.places
-  }
   interface PlacePrediction {
     place_id: string
     description: string
@@ -140,6 +143,24 @@ export default function PricingEnginePage() {
         const pt = val("property-type", "property_type")
         if (typeof pt === "string" && pt) {
           setPropertyType(pt)
+        }
+        // Number of Units (validated against property-type)
+        const units = val("num-units", "num_units", "units")
+        if (units !== undefined && units !== null) {
+          const asNum = Number(units)
+          if (!Number.isNaN(asNum) && Number.isFinite(asNum)) {
+            const allowed =
+              pt === "mf2_4"
+                ? [2, 3, 4]
+                : pt === "mf5_10"
+                ? [5, 6, 7, 8, 9, 10]
+                : pt
+                ? [1]
+                : []
+            if (allowed.length === 0 || allowed.includes(asNum)) {
+              setNumUnits(asNum)
+            }
+          }
         }
         // GLA Sq Ft
         const gla = val("gla", "gla_sq_ft", "gla_sqft", "gla_sqft_ft")
