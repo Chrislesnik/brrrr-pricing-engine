@@ -108,11 +108,10 @@ export default function PricingEnginePage() {
   const [hoiPremium, setHoiPremium] = useState<string>("")
   const [floodPremium, setFloodPremium] = useState<string>("")
   const [emd, setEmd] = useState<string>("")
-  const [mortgageDebt, setMortgageDebt] = useState<string>("")
+  const [mortgageDebtValue, setMortgageDebtValue] = useState<string>("")
   const [rehabBudget, setRehabBudget] = useState<string>("")
   const [arv, setArv] = useState<string>("")
   const [aiv, setAiv] = useState<string>("")
-  const [mortgageDebt, setMortgageDebt] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
@@ -349,12 +348,12 @@ export default function PricingEnginePage() {
   }
 
   return (
-    <div data-layout="fixed" className="flex flex-1 flex-col gap-4 overflow-hidden">
+    <div data-layout="fixed" className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
 
-      <div className="flex h-full flex-1 gap-4 overflow-hidden">
+      <div className="flex h-full min-h-0 flex-1 gap-4 overflow-hidden">
         {/* Left 25% column: scrollable container with header and footer */}
-        <aside className="w-full lg:w-1/4">
+        <aside className="min-h-0 w-full lg:w-1/4">
           <div className="flex h-full min-h-0 flex-col rounded-md border">
             {/* Header */}
             <div className="grid grid-cols-[1fr_auto] items-end gap-2 border-b p-3">
@@ -384,7 +383,7 @@ export default function PricingEnginePage() {
             </div>
 
             {/* Scrollable content area */}
-            <div className="min-h-0 flex-1 overflow-auto p-3">
+            <div className="min-h-0 flex-1 overflow-auto p-3 pb-4">
               <Accordion
                 type="multiple"
                 defaultValue={[
@@ -510,8 +509,8 @@ export default function PricingEnginePage() {
                                 id="mortgage-debt"
                                 placeholder="0.00"
                                 className="pl-6"
-                                value={mortgageDebt}
-                                onValueChange={setMortgageDebt}
+                                value={mortgageDebtValue}
+                                onValueChange={setMortgageDebtValue}
                               />
                             </div>
                           </div>
@@ -1522,7 +1521,7 @@ export default function PricingEnginePage() {
         </aside>
 
         {/* Right 75% column: placeholder display area */}
-        <section className="hidden h-full w-full rounded-md border lg:block lg:w-3/4">
+        <section className="hidden h-full min-h-0 w-full overflow-auto rounded-md border p-3 pb-4 lg:block lg:w-3/4">
           {/* Display outputs from inputs here later */}
         </section>
       </div>
