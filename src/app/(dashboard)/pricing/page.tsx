@@ -821,9 +821,11 @@ export default function PricingEnginePage() {
                   </SelectTrigger>
                   <SelectContent>
                     {scenariosList.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="flex items-center gap-2">
-                        {s.primary ? <IconStarFilled className="mr-1 h-3 w-3 text-yellow-500" /> : null}
-                        {s.name ?? `Scenario ${new Date(s.created_at ?? "").toLocaleDateString()}`}
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex w-full items-center justify-between">
+                          <span>{s.name ?? `Scenario ${new Date(s.created_at ?? "").toLocaleDateString()}`}</span>
+                          {s.primary ? <IconStarFilled className="ml-2 h-3 w-3 text-yellow-500" /> : null}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -842,6 +844,30 @@ export default function PricingEnginePage() {
                   </>
                 ) : (
                   <>
+                    <Button
+                      aria-label="Toggle Primary"
+                      size="icon"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!selectedScenarioId) return
+                        try {
+                          const res = await fetch(`/api/scenarios/${selectedScenarioId}/primary`, { method: "POST" })
+                          if (!res.ok) return
+                          setScenariosList((prev) =>
+                            prev.map((s) => ({ ...s, primary: s.id === selectedScenarioId }))
+                          )
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      disabled={!selectedScenarioId}
+                    >
+                      {scenariosList.find((s) => s.id === selectedScenarioId)?.primary ? (
+                        <IconStarFilled className="h-4 w-4 text-yellow-500" />
+                      ) : (
+                        <IconStar className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
                 <Button aria-label="Save" size="icon" variant="secondary">
                   <IconDeviceFloppy />
                 </Button>
