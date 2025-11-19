@@ -63,9 +63,7 @@ export function PipelineTable({ columns, data }: Props) {
     }
   }
   const openTermSheets = (id: string) => {
-    if (typeof window !== "undefined") {
-      window.location.assign(`/terms?loanId=${encodeURIComponent(id)}`)
-    }
+    // no-op for now
   }
 
   const table = useReactTable({
