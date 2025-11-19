@@ -163,6 +163,8 @@ export default function PricingEnginePage() {
   const [programResults, setProgramResults] = useState<ProgramResult[]>([])
   const [isDispatching, setIsDispatching] = useState<boolean>(false)
   const [programPlaceholders, setProgramPlaceholders] = useState<Array<{ internal_name?: string; external_name?: string }>>([])
+  const [currentLoanId, setCurrentLoanId] = useState<string | undefined>(undefined)
+  const [selectedMainRow, setSelectedMainRow] = useState<SelectedRow | null>(null)
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
@@ -397,6 +399,48 @@ export default function PricingEnginePage() {
       setIsDispatching(false)
     }
   }
+  async function handleSaveAs() {
+    try {
+      const name = typeof window !== "undefined" ? window.prompt("Scenario name:") : undefined
+      if (!name || !name.trim()) return
+      const inputs = buildPayload()
+      let selected = selectedMainRow?.values
+      if (!selected) {
+        const first = programResults?.[0]?.data
+        if (first) {
+          const hi = Number(first.highlight_display ?? 0)
+          selected = {
+            loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
+            interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
+            loanAmount: first.loan_amount ?? null,
+            ltv: first.ltv ?? null,
+            pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
+            dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
+          }
+        }
+      }
+      const res = await fetch("/api/pricing/scenario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          inputs,
+          selected,
+          loanId: currentLoanId,
+        }),
+      })
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "")
+        throw new Error(msg || `Save failed (${res.status})`)
+      }
+      const j = (await res.json().catch(() => ({}))) as { loanId?: string; scenarioId?: string }
+      if (j?.loanId) setCurrentLoanId(j.loanId)
+      toast({ title: "Saved", description: `Scenario saved${j?.scenarioId ? ` (#${j.scenarioId})` : ""}.` })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      toast({ title: "Save failed", description: message, variant: "destructive" })
+    }
+  }
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
 
   const states = [
@@ -555,7 +599,7 @@ export default function PricingEnginePage() {
                 <Button aria-label="Save" size="icon" variant="secondary">
                   <IconDeviceFloppy />
                 </Button>
-                <Button aria-label="Save As" size="icon" variant="outline">
+                <Button aria-label="Save As" size="icon" variant="outline" onClick={handleSaveAs}>
                   <IconFileExport />
                 </Button>
               </div>
@@ -1705,7 +1749,7 @@ export default function PricingEnginePage() {
 
         {/* Right 75% column: results display */}
         <section className="hidden h-full min-h-0 w-full overflow-auto rounded-md border p-3 pb-4 lg:block lg:w-3/4">
-          <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} />
+          <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} onSelectedChange={setSelectedMainRow} />
         </section>
       </div>
     </div>
@@ -1928,12 +1972,17 @@ function ResultsPanel({
   results,
   loading,
   placeholders,
+  onSelectedChange,
 }: {
   results: ProgramResult[]
   loading?: boolean
   placeholders?: Array<{ internal_name?: string; external_name?: string }>
+  onSelectedChange?: (sel: SelectedRow | null) => void
 }) {
   const [selected, setSelected] = React.useState<SelectedRow | null>(null)
+  useEffect(() => {
+    onSelectedChange?.(selected)
+  }, [selected, onSelectedChange])
 
   if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
     return (
