@@ -8,7 +8,7 @@ const OrgInner = dynamic(() => import("./organization-switcher.inner"), {
   ssr: false,
 })
 
-type Props = React.ComponentProps<any>
+type Props = Record<string, unknown>
 
 export function OrganizationSwitcherIfEnabled(props: Props) {
   // Guard: only render when explicitly enabled to avoid dev crashes when

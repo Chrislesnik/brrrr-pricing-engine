@@ -39,8 +39,13 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       <DataTableColumnHeader column={column} title="Borrower" />
     ),
     cell: ({ row }) => {
-      const firstName = (row.original as any).firstName ?? (row.original as any).borrowerFirstName
-      const lastName = (row.original as any).lastName ?? (row.original as any).borrowerLastName
+      const firstName =
+        // Prefer canonical keys if present, otherwise fall back to alternate names
+        (row.original as { firstName?: string; borrowerFirstName?: string }).firstName ??
+        (row.original as { firstName?: string; borrowerFirstName?: string }).borrowerFirstName
+      const lastName =
+        (row.original as { lastName?: string; borrowerLastName?: string }).lastName ??
+        (row.original as { lastName?: string; borrowerLastName?: string }).borrowerLastName
       const display =
         [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
       return <div>{display}</div>

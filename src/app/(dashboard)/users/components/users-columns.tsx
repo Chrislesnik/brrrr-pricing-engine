@@ -154,10 +154,18 @@ export const columns: ColumnDef<User>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[160px]">
-            <DropdownMenuItem onClick={() => console.log("Pricing Engine", row.original.id)}>
+            <DropdownMenuItem
+              onClick={() =>
+                row.table.options.meta?.openPricingEngine?.(row.original.id)
+              }
+            >
               Pricing Engine
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => console.log("Term Sheets", row.original.id)}>
+            <DropdownMenuItem
+              onClick={() =>
+                row.table.options.meta?.openTermSheets?.(row.original.id)
+              }
+            >
               Term Sheets
             </DropdownMenuItem>
             <DropdownMenuItem

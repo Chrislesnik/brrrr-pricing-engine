@@ -5,7 +5,6 @@ import {
   IconUserScan,
   IconUsersGroup,
   IconUserShield,
-  IconUsersPlus,
   TablerIcon,
 } from "@tabler/icons-react"
 import { UserStatus } from "./schema"

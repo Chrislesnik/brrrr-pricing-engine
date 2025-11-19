@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const payload = await req.text()
   const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET as string)
 
-  let evt: any
+  let evt: unknown
   try {
     evt = wh.verify(payload, {
       "svix-id": svixId,
@@ -30,13 +30,18 @@ export async function POST(req: NextRequest) {
     return new Response("Invalid signature", { status: 400 })
   }
 
-  const type = evt.type as string
-  const data = evt.data as any
+  if (typeof evt !== "object" || evt === null) {
+    return new Response("Invalid event payload", { status: 400 })
+  }
+  const { type, data } = evt as {
+    type?: string
+    data?: Record<string, unknown>
+  }
 
   switch (type) {
     case "organization.created":
     case "organization.updated": {
-      const org = data
+      const org = data ?? {}
       const { error } = await supabaseAdmin
         .from("organizations")
         .upsert(
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
     case "organizationMembership.created":
     case "organizationMembership.updated": {
-      const m = data
+      const m = data ?? {}
       const userId = (m.user_id as string) ?? (m.public_user_data?.user_id as string)
       const organizationId = (m.organization_id as string) ?? (m.organization?.id as string)
       const role = (m.role as string) ?? "member"
@@ -89,7 +94,7 @@ export async function POST(req: NextRequest) {
       break
     }
     case "organizationMembership.deleted": {
-      const m = data
+      const m = data ?? {}
       const { error } = await supabaseAdmin.from("organization_members").delete().eq("id", m.id as string)
       if (error) return new Response(error.message, { status: 500 })
       break

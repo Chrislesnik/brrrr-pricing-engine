@@ -17,6 +17,12 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
   const orgUuid = await getOrgUuidFromClerkId(orgId)
   if (!orgUuid) return []
 
+  // Centralized error logger (one-time no-console exemption)
+  function logError(...args: unknown[]) {
+    // eslint-disable-next-line no-console
+    console.error(...args)
+  }
+
   // 1) Fetch loans scoped to organization
   const { data: loans, error: loansError } = await supabaseAdmin
     .from("loans")
@@ -25,7 +31,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
     .order("updated_at", { ascending: false })
 
   if (loansError) {
-    console.error("Error fetching loans:", loansError.message)
+    logError("Error fetching loans:", loansError.message)
     return []
   }
   if (!loans || loans.length === 0) return []
@@ -40,7 +46,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
     .eq("primary", true)
 
   if (scenariosError) {
-    console.error("Error fetching loan scenarios:", scenariosError.message)
+    logError("Error fetching loan scenarios:", scenariosError.message)
   }
   const loanIdToInputs = new Map<string, Record<string, unknown>>()
   for (const s of scenarios ?? []) {
@@ -54,7 +60,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
     .eq("organization_id", orgUuid)
 
   if (membersError) {
-    console.error("Error fetching organization members:", membersError.message)
+    logError("Error fetching organization members:", membersError.message)
   }
   const userIdToName = new Map<string, string>()
   for (const m of members ?? []) {

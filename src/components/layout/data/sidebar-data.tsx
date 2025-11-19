@@ -1,22 +1,4 @@
-import {
-  IconApps,
-  IconBarrierBlock,
-  IconBug,
-  IconChecklist,
-  IconCode,
-  IconCoin,
-  IconError404,
-  IconLayoutDashboard,
-  IconLock,
-  IconLockAccess,
-  IconNotification,
-  IconServerOff,
-  IconSettings,
-  IconTool,
-  IconUser,
-  IconUserOff,
-  IconUsers,
-} from "@tabler/icons-react"
+import { IconApps, IconSettings, IconUsers } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
