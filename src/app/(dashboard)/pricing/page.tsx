@@ -53,6 +53,7 @@ export default function PricingEnginePage() {
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
+  const pointerInMenuRef = useRef<boolean>(false)
   const sessionTokenRef = useRef<unknown>(undefined)
   // Minimal Google Places typings used locally to avoid 'any'
   type GPlaces = {
@@ -103,6 +104,7 @@ export default function PricingEnginePage() {
         city,
         state: stateCode ?? "",
         zip,
+        transaction_type: transactionType ?? "",
       }
       const res = await fetch("https://n8n.axora.info/webhook-test/c0d82736-8004-4c69-b9fc-fee54676ff46", {
         method: "POST",
@@ -533,8 +535,12 @@ export default function PricingEnginePage() {
                                 }
                               }}
                               onBlur={() => {
-                                // Defer hiding to allow click selection
-                                setTimeout(() => setShowPredictions(false), 150)
+                                // If the blur was caused by clicking inside the menu, don't close yet
+                                setTimeout(() => {
+                                  if (!pointerInMenuRef.current) {
+                                    setShowPredictions(false)
+                                  }
+                                }, 0)
                               }}
                               autoComplete="off"
                             />
@@ -543,6 +549,14 @@ export default function PricingEnginePage() {
                                 ref={predictionsMenuRef}
                                 className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow"
                                 role="listbox"
+                                onMouseDown={() => {
+                                  // Mark that the pointer is interacting within the menu (used by onBlur)
+                                  pointerInMenuRef.current = true
+                                }}
+                                onMouseUp={() => {
+                                  // Reset after click completes
+                                  pointerInMenuRef.current = false
+                                }}
                               >
                                 {predictions.map((p, idx) => (
                                   <button
@@ -552,8 +566,7 @@ export default function PricingEnginePage() {
                                       idx === activePredictionIdx ? "bg-accent" : ""
                                     }`}
                                     onMouseEnter={() => setActivePredictionIdx(idx)}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault()
+                                    onClick={() => {
                                       applyPlaceById(p.place_id)
                                     }}
                                   >
@@ -651,10 +664,6 @@ export default function PricingEnginePage() {
                             )}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">
-                            Select the collateral classification (SFR, Condo, Townhome/PUD, or Multifamily).
-                            This drives guideline logic and available unit counts.
-                          </p>
                         </div>
 
                         {propertyType === "condo" ? (
@@ -697,9 +706,6 @@ export default function PricingEnginePage() {
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="gla">GLA Sq Ft</Label>
                           <Input id="gla" inputMode="numeric" placeholder="0" />
-                          <p className="text-xs text-muted-foreground">
-                            Gross Living Area in square feet — habitable, above‑grade finished space only.
-                          </p>
                         </div>
                         {loanType === "dscr" && (
                           <>
@@ -804,9 +810,6 @@ export default function PricingEnginePage() {
                           </span>
                           <Input id="annual-taxes" inputMode="decimal" placeholder="0.00" className="pl-6" />
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Yearly property tax obligation. Use the latest tax bill; prorate if needed.
-                        </p>
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="annual-hoi">Annual HOI</Label>
@@ -976,9 +979,6 @@ export default function PricingEnginePage() {
                               />
                             </PopoverContent>
                           </Popover>
-                          <p className="text-xs text-muted-foreground">
-                            The date the property was acquired. Used for seasoning/hold period calculations.
-                          </p>
                         </div>
                       ) : (
                         <div className="hidden sm:block" />
@@ -1035,9 +1035,6 @@ export default function PricingEnginePage() {
                           </span>
                           <Input id="purchase-price" inputMode="decimal" placeholder="0.00" className="pl-6" />
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Contract price for the current purchase (exclude closing costs and credits).
-                        </p>
                       </div>
                       {transactionType !== "purchase" ? (
                         <>

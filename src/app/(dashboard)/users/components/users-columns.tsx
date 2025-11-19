@@ -144,7 +144,7 @@ export const columns: ColumnDef<User>[] = [
   {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => (
+    cell: ({ row, table }) => (
       <div className="flex justify-end">
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
@@ -156,21 +156,21 @@ export const columns: ColumnDef<User>[] = [
           <DropdownMenuContent align="end" className="w-[160px]">
             <DropdownMenuItem
               onClick={() =>
-                row.table.options.meta?.openPricingEngine?.(row.original.id)
+                table.options.meta?.openPricingEngine?.(row.original.id)
               }
             >
               Pricing Engine
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
-                row.table.options.meta?.openTermSheets?.(row.original.id)
+                table.options.meta?.openTermSheets?.(row.original.id)
               }
             >
               Term Sheets
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
-                row.table.options.meta?.toggleStatus?.(row.original.id)
+                table.options.meta?.toggleStatus?.(row.original.id)
               }
             >
               {`Switch to ${row.original.status === "active" ? "Dead" : "Active"}`}
