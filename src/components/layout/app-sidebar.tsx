@@ -46,7 +46,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   `text-sm group-data-[collapsible=icon]:sr-only ${isDark ? "text-white/90" : "text-muted-foreground"}`,
                 organizationPreviewAvatarBox:
                   "group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6",
-                organizationSwitcherPopoverCard: `w-80 ${isDark ? "text-white" : ""}`,
+                organizationSwitcherPopoverCard:
+                  `w-[--radix-popover-trigger-width] max-w-none ${isDark ? "text-white" : ""}`,
               },
             }}
           />
@@ -73,7 +74,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 userButtonText: `order-last text-base font-medium group-data-[collapsible=icon]:sr-only ${isDark ? "text-white" : ""}`,
                 userButtonOuterIdentifier:
                   "group-data-[collapsible=icon]:hidden", // hide the name when collapsed
-                userButtonPopoverCard: `w-80 ${isDark ? "text-white" : ""}`,
+                userButtonPopoverCard:
+                  `w-[--radix-popover-trigger-width] max-w-none pl-3 pb-2 ${isDark ? "text-white" : ""}`,
               },
             }}
           />
