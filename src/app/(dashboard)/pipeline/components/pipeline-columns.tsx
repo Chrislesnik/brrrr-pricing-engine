@@ -196,14 +196,12 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
           })
           if (!res.ok) {
             const t = await res.text()
-            // eslint-disable-next-line no-alert
             alert(`Failed to update status: ${t || res.status}`)
             return
           }
           // simple refresh
           window.location.reload()
-        } catch (e) {
-          // eslint-disable-next-line no-alert
+        } catch (_e) {
           alert(`Failed to update status`)
         }
       }
@@ -212,13 +210,11 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
           const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
           if (!res.ok) {
             const t = await res.text()
-            // eslint-disable-next-line no-alert
             alert(`Failed to delete: ${t || res.status}`)
             return
           }
           window.location.reload()
-        } catch {
-          // eslint-disable-next-line no-alert
+        } catch (_e) {
           alert(`Failed to delete`)
         }
       }
