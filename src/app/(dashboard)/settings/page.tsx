@@ -1,7 +1,8 @@
 import ContentSection from "./components/content-section"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { addProgramAction } from "./programs-actions"
+import { addProgramAction, deleteProgramAction, updateProgramAction } from "./programs-actions"
 import { AddProgramDialog } from "./components/add-program-dialog"
+import { ProgramRowActions } from "./components/program-row-actions"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
@@ -52,6 +53,7 @@ export default async function SettingsProgramsPage() {
               <TableHead className="w-[20%]">External Name</TableHead>
               <TableHead className="w-[20%]">Webhook URL</TableHead>
               <TableHead className="w-[10%]">Status</TableHead>
+              <TableHead className="w-[4%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -63,11 +65,19 @@ export default async function SettingsProgramsPage() {
                 <TableCell>{p.external_name}</TableCell>
                 <TableCell className="truncate">{p.webhook_url ?? ""}</TableCell>
                 <TableCell className="capitalize">{p.status}</TableCell>
+                <TableCell className="text-right">
+                  <ProgramRowActions
+                    program={p}
+                    updateAction={updateProgramAction}
+                    deleteAction={deleteProgramAction}
+                    orgId={orgId ?? null}
+                  />
+                </TableCell>
               </TableRow>
             ))}
             {programs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground">
+                <TableCell colSpan={7} className="text-muted-foreground">
                   No records yet. Add your first one above.
                 </TableCell>
               </TableRow>
