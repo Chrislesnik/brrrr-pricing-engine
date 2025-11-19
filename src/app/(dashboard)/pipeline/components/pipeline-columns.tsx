@@ -134,17 +134,9 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
     ),
-    cell: ({ row }) => {
-      const status = row.getValue("status") as string
-      const badgeColor = statusClass[status] ?? ""
-      return (
-        <div className="flex space-x-2">
-          <Badge variant="outline" className={cn("capitalize", badgeColor)}>
-            {status}
-          </Badge>
-        </div>
-      )
-    },
+    cell: ({ row }) => (
+      <StatusCell id={row.getValue("id") as string} initialStatus={row.getValue("status") as string} />
+    ),
     filterFn: "weakEquals",
     enableSorting: false,
     enableHiding: false,
@@ -196,7 +188,8 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
 
 function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
-  const opposite = status === "active" ? "dead" : "active"
+  const [localStatus, setLocalStatus] = React.useState(status ?? "active")
+  const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
 
   async function setStatus(next: string) {
     try {
@@ -210,7 +203,9 @@ function RowActions({ id, status }: { id: string; status?: string }) {
         alert(`Failed to update status: ${t || res.status}`)
         return
       }
-      window.location.reload()
+      // Optimistic local update + notify other cells
+      setLocalStatus(next)
+      window.dispatchEvent(new CustomEvent("loan-status-updated", { detail: { id, status: next } }))
     } catch {
       alert(`Failed to update status`)
     }
@@ -279,6 +274,28 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+function StatusCell({ id, initialStatus }: { id: string; initialStatus: string }) {
+  const [status, setStatus] = React.useState<string>(initialStatus)
+  React.useEffect(() => {
+    function onUpdate(e: Event) {
+      const ce = e as CustomEvent<{ id: string; status: string }>
+      if (ce.detail?.id === id) {
+        setStatus(ce.detail.status)
+      }
+    }
+    window.addEventListener("loan-status-updated", onUpdate as EventListener)
+    return () => window.removeEventListener("loan-status-updated", onUpdate as EventListener)
+  }, [id])
+  const badgeColor = statusClass[status] ?? ""
+  return (
+    <div className="flex space-x-2">
+      <Badge variant="outline" className={cn("capitalize", badgeColor)}>
+        {status}
+      </Badge>
     </div>
   )
 }
