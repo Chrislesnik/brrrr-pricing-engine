@@ -1,14 +1,16 @@
 import { clerkMiddleware } from "@clerk/nextjs/server"
 
-export default clerkMiddleware({
-  publicRoutes: ["/", "/sign-in(.*)", "/sign-up(.*)", "/api/webhooks/(.*)"],
-  afterAuth(auth, req) {
+export default clerkMiddleware(
+  (auth, req) => {
     // If signed in and hitting sign-in, redirect to pipeline
     if (auth.userId && new URL(req.url).pathname.startsWith("/sign-in")) {
       return Response.redirect(new URL("/pipeline", req.url))
     }
   },
-})
+  {
+    publicRoutes: ["/", "/sign-in(.*)", "/sign-up(.*)", "/api/webhooks/(.*)"],
+  }
+)
 
 export const config = {
   matcher: [
