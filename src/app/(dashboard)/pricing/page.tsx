@@ -1768,11 +1768,11 @@ function ResultCard({
   const d = r?.data ?? {}
   const pass = d?.pass === true
   const hi = Number(d?.highlight_display ?? 0)
-  const activeIdx = selected?.programIdx === programIdx ? selected.rowIdx : hi
-  const loanPrice = pick<number>(d?.loan_price, activeIdx)
-  const rate = pick<number>(d?.interest_rate, activeIdx)
-  const pitia = pick<number>(d?.pitia, activeIdx)
-  const dscr = pick<number>(d?.dscr, activeIdx)
+  // Program card widgets should always reflect the original highlight index from the API.
+  const loanPrice = pick<number>(d?.loan_price, hi)
+  const rate = pick<number>(d?.interest_rate, hi)
+  const pitia = pick<number>(d?.pitia, hi)
+  const dscr = pick<number>(d?.dscr, hi)
   const loanAmount = d?.loan_amount
   const ltv = d?.ltv
 
