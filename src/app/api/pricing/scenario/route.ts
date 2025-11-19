@@ -42,15 +42,8 @@ export async function POST(req: Request) {
       loanId = loanRow?.id as string
     }
 
-    // loan_scenarios schema:
-    // id (uuid), loan_id (uuid), primary (boolean), user_id (text), organization_id (text), inputs (jsonb), created_at (timestamptz)
-    const enrichedInputs = {
-      // keep the original payload under data
-      data: body.inputs,
-      // optional metadata we want to keep alongside
-      name: body.name ?? null,
-      selected: body.selected ?? null,
-    }
+    // loan_scenarios schema includes jsonb columns: inputs, selected
+    // Store raw inputs payload in inputs; selection (and name metadata) in selected/name fields
     const { data: scenario, error: scenErr } = await supabaseAdmin
       .from("loan_scenarios")
       .insert({
@@ -58,7 +51,8 @@ export async function POST(req: Request) {
         primary: false,
         user_id: userId,
         organization_id: orgUuid,
-        inputs: enrichedInputs,
+        inputs: body.inputs ?? {},
+        selected: body.selected ?? null,
       })
       .select("id")
       .single()
