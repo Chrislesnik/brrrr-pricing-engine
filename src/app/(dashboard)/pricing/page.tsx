@@ -149,7 +149,7 @@ export default function PricingEnginePage() {
         // Acquisition Date
         const acq = val("acq-date", "acq_date", "acquisition_date")
         if (typeof acq === "string" || acq instanceof Date || typeof acq === "number") {
-          const d = new Date(acq as any)
+          const d = acq instanceof Date ? acq : new Date(acq)
           if (!isNaN(d.getTime())) setAcquisitionDate(d)
         }
         // Purchase Price
