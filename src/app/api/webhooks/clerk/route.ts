@@ -56,11 +56,14 @@ export async function POST(req: NextRequest) {
       break
     }
     case "organization.deleted": {
-      const org = data
+      const orgId = (data as { id?: string } | undefined)?.id
+      if (!orgId) {
+        return new Response("Missing organization id", { status: 400 })
+      }
       const { error } = await supabaseAdmin
         .from("organizations")
         .delete()
-        .eq("clerk_organization_id", org.id as string)
+        .eq("clerk_organization_id", orgId as string)
       if (error) return new Response(error.message, { status: 500 })
       break
     }
