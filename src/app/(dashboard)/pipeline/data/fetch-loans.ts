@@ -50,7 +50,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
   }
   type ScenarioRow = { loan_id: string; inputs?: Record<string, unknown>; selected?: Record<string, unknown> }
   const loanIdToScenario = new Map<string, ScenarioRow>()
-  for (const s of (scenarios ?? []) as any[]) {
+  for (const s of (scenarios ?? []) as ScenarioRow[]) {
     loanIdToScenario.set(s.loan_id as string, {
       loan_id: s.loan_id as string,
       inputs: (s.inputs as Record<string, unknown>) ?? {},
