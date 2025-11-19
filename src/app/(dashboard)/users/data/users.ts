@@ -26,7 +26,7 @@ const generateUsers = () => {
       loanType: faker.helpers.arrayElement(["Fixed", "ARM", "Interest-Only"]),
       transactionType: faker.helpers.arrayElement(["Purchase", "Refinance", "Cash-Out Refi"]),
       loanAmount: faker.number.int({ min: 150000, max: 3000000 }),
-      rate: Number(faker.number.float({ min: 4, max: 12, precision: 0.001 }).toFixed(3)),
+      rate: faker.number.float({ min: 4, max: 12, fractionDigits: 3 }),
       assignedTo: `${faker.person.firstName()} ${faker.person.lastName()}`,
       email: faker.internet.email({ firstName }).toLocaleLowerCase(),
       phoneNumber: faker.phone.number({ style: "international" }),
