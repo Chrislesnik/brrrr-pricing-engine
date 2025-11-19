@@ -1495,11 +1495,11 @@ export default function PricingEnginePage() {
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="uw-exception">UW Exception</Label>
-                        <Select>
+                        <Select value={uwException} onValueChange={setUwException}>
                           <SelectTrigger id="uw-exception" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
-                          <SelectContent onEscapeKeyDown={()=>{}}>
+                          <SelectContent>
                             <SelectItem value="yes">Yes</SelectItem>
                             <SelectItem value="no">No</SelectItem>
                           </SelectContent>
