@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { DataTableColumnHeader } from "../../users/components/data-table-column-header"
 import { LoanRow } from "../data/fetch-loans"
+import * as React from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -184,96 +185,102 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     header: () => null,
     cell: ({ row }) => {
       const status = (row.getValue("status") as string | undefined)?.toLowerCase()
-      const opposite = status === "active" ? "dead" : "active"
       const id = row.getValue("id") as string
-      const [confirmOpen, setConfirmOpen] = React.useState(false)
-      async function setStatus(next: string) {
-        try {
-          const res = await fetch(`/api/loans/${id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: next }),
-          })
-          if (!res.ok) {
-            const t = await res.text()
-            alert(`Failed to update status: ${t || res.status}`)
-            return
-          }
-          // simple refresh
-          window.location.reload()
-        } catch (_e) {
-          alert(`Failed to update status`)
-        }
-      }
-      async function deleteLoan() {
-        try {
-          const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
-          if (!res.ok) {
-            const t = await res.text()
-            alert(`Failed to delete: ${t || res.status}`)
-            return
-          }
-          window.location.reload()
-        } catch (_e) {
-          alert(`Failed to delete`)
-        }
-      }
-      return (
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
-                <IconDots className="h-4 w-4" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Pricing Engine</DropdownMenuItem>
-              <DropdownMenuItem>Term Sheets</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-red-600 focus:text-red-600"
-                onSelect={(e) => {
-                  e.preventDefault()
-                  setConfirmOpen(true)
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
-              <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete loan?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete this loan and its primary scenario.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700"
-                      onClick={() => {
-                        setConfirmOpen(false)
-                        void deleteLoan()
-                      }}
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )
+      return <RowActions id={id} status={status} />
     },
     meta: { className: "w-10 text-right" },
     enableSorting: false,
     enableHiding: false,
   },
 ]
+
+function RowActions({ id, status }: { id: string; status?: string }) {
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const opposite = status === "active" ? "dead" : "active"
+
+  async function setStatus(next: string) {
+    try {
+      const res = await fetch(`/api/loans/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Failed to update status: ${t || res.status}`)
+        return
+      }
+      window.location.reload()
+    } catch {
+      alert(`Failed to update status`)
+    }
+  }
+
+  async function deleteLoan() {
+    try {
+      const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Failed to delete: ${t || res.status}`)
+        return
+      }
+      window.location.reload()
+    } catch {
+      alert(`Failed to delete`)
+    }
+  }
+
+  return (
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost" className="h-8 w-8">
+            <IconDots className="h-4 w-4" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>Pricing Engine</DropdownMenuItem>
+          <DropdownMenuItem>Term Sheets</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-red-600 focus:text-red-600"
+            onSelect={(e) => {
+              e.preventDefault()
+              setConfirmOpen(true)
+            }}
+          >
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete loan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this loan and its primary scenario.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                setConfirmOpen(false)
+                void deleteLoan()
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
 
 
