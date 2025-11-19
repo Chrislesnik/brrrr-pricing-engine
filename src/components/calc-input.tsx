@@ -37,7 +37,6 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 		const trimmed = expr.trim()
 		if (!isSafeExpression(trimmed)) return
 		try {
-			// eslint-disable-next-line no-new-func
 			const result = Function(`"use strict"; return (${trimmed});`)()
 			if (typeof result === "number" && Number.isFinite(result)) {
 				onValueChange(String(result))

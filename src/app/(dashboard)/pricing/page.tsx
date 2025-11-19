@@ -99,6 +99,15 @@ export default function PricingEnginePage() {
   const [annualFlood, setAnnualFlood] = useState<string>("")
   const [annualHoa, setAnnualHoa] = useState<string>("")
   const [annualMgmt, setAnnualMgmt] = useState<string>("")
+  const [loanAmount, setLoanAmount] = useState<string>("")
+  const [adminFee, setAdminFee] = useState<string>("")
+  const [payoffAmount, setPayoffAmount] = useState<string>("")
+  const [titleRecordingFee, setTitleRecordingFee] = useState<string>("")
+  const [assignmentFee, setAssignmentFee] = useState<string>("")
+  const [sellerConcessions, setSellerConcessions] = useState<string>("")
+  const [hoiPremium, setHoiPremium] = useState<string>("")
+  const [floodPremium, setFloodPremium] = useState<string>("")
+  const [emd, setEmd] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
@@ -999,16 +1008,15 @@ export default function PricingEnginePage() {
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
                                 </span>
-                                <Input
+                              <CalcInput
                                   id={`gross-${idx}`}
-                                  inputMode="decimal"
                                   placeholder="0.00"
                                   className="pl-6 w-full"
-                                  value={unitData[idx]?.gross ?? ""}
-                                  onChange={(e) =>
+                                value={unitData[idx]?.gross ?? ""}
+                                onValueChange={(v) =>
                                     setUnitData((prev) => {
                                       const next = [...prev]
-                                      next[idx] = { ...(next[idx] ?? {}), gross: e.target.value }
+                                    next[idx] = { ...(next[idx] ?? {}), gross: v }
                                       return next
                                     })
                                   }
@@ -1021,16 +1029,15 @@ export default function PricingEnginePage() {
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
                                 </span>
-                                <Input
+                              <CalcInput
                                   id={`market-${idx}`}
-                                  inputMode="decimal"
                                   placeholder="0.00"
                                   className="pl-6 w-full"
-                                  value={unitData[idx]?.market ?? ""}
-                                  onChange={(e) =>
+                                value={unitData[idx]?.market ?? ""}
+                                onValueChange={(v) =>
                                     setUnitData((prev) => {
                                       const next = [...prev]
-                                      next[idx] = { ...(next[idx] ?? {}), market: e.target.value }
+                                    next[idx] = { ...(next[idx] ?? {}), market: v }
                                       return next
                                     })
                                   }
@@ -1179,7 +1186,13 @@ export default function PricingEnginePage() {
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
                               </span>
-                              <Input id="payoff-amount" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                              <CalcInput
+                                id="payoff-amount"
+                                placeholder="0.00"
+                                className="pl-6"
+                                value={payoffAmount}
+                                onValueChange={setPayoffAmount}
+                              />
                             </div>
                           </div>
                         </>
@@ -1218,13 +1231,12 @@ export default function PricingEnginePage() {
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
                                 </span>
-                                <Input
+                                <CalcInput
                                   id="initial-loan-amount"
-                                  inputMode="decimal"
                                   placeholder="0.00"
                                   className="pl-6"
                                   value={initialLoanAmount}
-                                  onChange={(e) => setInitialLoanAmount(e.target.value)}
+                                  onValueChange={setInitialLoanAmount}
                                 />
                               </div>
                             </div>
@@ -1234,13 +1246,12 @@ export default function PricingEnginePage() {
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
                                 </span>
-                                <Input
+                                <CalcInput
                                   id="rehab-holdback"
-                                  inputMode="decimal"
                                   placeholder="0.00"
                                   className="pl-6"
                                   value={rehabHoldback}
-                                  onChange={(e) => setRehabHoldback(e.target.value)}
+                                  onValueChange={setRehabHoldback}
                                 />
                               </div>
                             </div>
@@ -1270,7 +1281,13 @@ export default function PricingEnginePage() {
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
                               </span>
-                              <Input id="loan-amount" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                              <CalcInput
+                                id="loan-amount"
+                                placeholder="0.00"
+                                className="pl-6"
+                                value={loanAmount}
+                                onValueChange={setLoanAmount}
+                              />
                             </div>
                           </div>
                         )
@@ -1292,7 +1309,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="admin-fee" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="admin-fee"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={adminFee}
+                            onValueChange={setAdminFee}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1382,7 +1405,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="title-recording" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="title-recording"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={titleRecordingFee}
+                            onValueChange={setTitleRecordingFee}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1391,7 +1420,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="assignment-fee" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="assignment-fee"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={assignmentFee}
+                            onValueChange={setAssignmentFee}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1400,7 +1435,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="seller-concessions" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="seller-concessions"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={sellerConcessions}
+                            onValueChange={setSellerConcessions}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1413,7 +1454,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="hoi-premium" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="hoi-premium"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={hoiPremium}
+                            onValueChange={setHoiPremium}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1422,7 +1469,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="flood-premium" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="flood-premium"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={floodPremium}
+                            onValueChange={setFloodPremium}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1431,7 +1484,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="emd" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="emd"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={emd}
+                            onValueChange={setEmd}
+                          />
                         </div>
                       </div>
                     </div>

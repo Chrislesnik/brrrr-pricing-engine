@@ -17,7 +17,6 @@ export function OrganizationSwitcherIfEnabled(props: Props) {
     return null
   }
   // Render the real component
-  // @ts-expect-error dynamic component
   return <OrgInner {...props} />
 }
 
