@@ -26,7 +26,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
   // 1) Fetch loans scoped to organization
   const { data: loans, error: loansError } = await supabaseAdmin
     .from("loans")
-    .select("id,status,assigned_to,organization_id,created_at,updated_at")
+    .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
     .order("updated_at", { ascending: false })
 
@@ -53,7 +53,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
     loanIdToInputs.set(s.loan_id as string, (s.inputs as Record<string, unknown>) ?? {})
   }
 
-  // 3) Fetch organization members to resolve assigned_to user name
+  // 3) Fetch organization members to resolve assigned_to_user_id -> user name
   const { data: members, error: membersError } = await supabaseAdmin
     .from("organization_members")
     .select("user_id, first_name, last_name")
@@ -73,7 +73,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
   // 4) Merge into final rows
   const rows: LoanRow[] = loans.map((l) => {
     const inputs = loanIdToInputs.get(l.id as string) ?? {}
-    const assignedToUserId = (l.assigned_to as string) ?? null
+    const assignedToUserId = (l.assigned_to_user_id as string) ?? null
     const assignedToName =
       assignedToUserId ? userIdToName.get(assignedToUserId) ?? assignedToUserId : null
 

@@ -23,7 +23,7 @@ export default clerkMiddleware(async (auth, req) => {
   // If an authenticated user visits /sign-in, send them to the app
   if (a.userId && req.nextUrl.pathname.startsWith("/sign-in")) {
     return NextResponse.redirect(new URL("/pipeline", req.url))
-  }
+    }
 
   return NextResponse.next()
 })

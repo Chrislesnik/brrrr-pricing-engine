@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         .from("loans")
         .insert({
           organization_id: orgUuid,
-          assigned_to: userId, // store Clerk user id as the assignee/owner
+          assigned_to_user_id: userId, // Clerk user id
         })
         .select("id")
         .single()

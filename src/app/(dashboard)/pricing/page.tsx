@@ -541,8 +541,8 @@ export default function PricingEnginePage() {
     const svc = new places.AutocompleteService()
     const req = {
       input: q,
-      types: ["address"],
-      componentRestrictions: { country: ["us"] },
+          types: ["address"],
+          componentRestrictions: { country: ["us"] },
       sessionToken: sessionTokenRef.current,
     }
     let cancelled = false
@@ -577,18 +577,18 @@ export default function PricingEnginePage() {
       type AddressComponent = { short_name?: string; long_name?: string; types?: string[] }
       const comps = (place?.address_components as AddressComponent[]) ?? []
       const get = (t: string) => comps.find((c: AddressComponent) => c.types?.includes(t))
-      const streetNumber = get("street_number")?.short_name ?? ""
-      const route = get("route")?.long_name ?? ""
-      const locality = get("locality")?.long_name ?? get("sublocality")?.long_name ?? ""
-      const admin1 = get("administrative_area_level_1")?.short_name ?? ""
-      const postal = get("postal_code")?.short_name ?? ""
-      const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
+          const streetNumber = get("street_number")?.short_name ?? ""
+          const route = get("route")?.long_name ?? ""
+          const locality = get("locality")?.long_name ?? get("sublocality")?.long_name ?? ""
+          const admin1 = get("administrative_area_level_1")?.short_name ?? ""
+          const postal = get("postal_code")?.short_name ?? ""
+          const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
 
-      setStreet([streetNumber, route].filter(Boolean).join(" "))
-      setCity(locality)
-      setStateCode(admin1 || undefined)
-      setZip(postal)
-      setCounty(countyName)
+          setStreet([streetNumber, route].filter(Boolean).join(" "))
+          setCity(locality)
+          setStateCode(admin1 || undefined)
+          setZip(postal)
+          setCounty(countyName)
       setPredictions([])
       setShowPredictions(false)
       // Prevent the next input value change from reopening the menu immediately
@@ -596,7 +596,7 @@ export default function PricingEnginePage() {
       // New token after a selection, per session semantics
       sessionTokenRef.current = new places.AutocompleteSessionToken()
     })
-  }
+    }
 
   return (
     <div data-layout="fixed" className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
@@ -628,16 +628,16 @@ export default function PricingEnginePage() {
                     className="h-9 w-full"
                   />
                 ) : (
-                  <Select>
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="base">Base</SelectItem>
-                      <SelectItem value="alt-1">Alt 1</SelectItem>
-                      <SelectItem value="alt-2">Alt 2</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <Select>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="base">Base</SelectItem>
+                    <SelectItem value="alt-1">Alt 1</SelectItem>
+                    <SelectItem value="alt-2">Alt 2</SelectItem>
+                  </SelectContent>
+                </Select>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -652,17 +652,17 @@ export default function PricingEnginePage() {
                   </>
                 ) : (
                   <>
-                    <Button aria-label="Save" size="icon" variant="secondary">
-                      <IconDeviceFloppy />
-                    </Button>
+                <Button aria-label="Save" size="icon" variant="secondary">
+                  <IconDeviceFloppy />
+                </Button>
                     <Button
                       aria-label="Save As"
                       size="icon"
                       variant="outline"
                       onClick={() => setIsNamingScenario(true)}
                     >
-                      <IconFileExport />
-                    </Button>
+                  <IconFileExport />
+                </Button>
                   </>
                 )}
               </div>
@@ -893,12 +893,12 @@ export default function PricingEnginePage() {
                         <div className="flex flex-col gap-1 sm:col-span-2">
                           <Label htmlFor="street">Street</Label>
                           <div className="relative">
-                            <Input
-                              id="street"
-                              placeholder="123 Main St"
-                              ref={streetInputRef}
-                              value={street}
-                              onChange={(e) => setStreet(e.target.value)}
+                          <Input
+                            id="street"
+                            placeholder="123 Main St"
+                            ref={streetInputRef}
+                            value={street}
+                            onChange={(e) => setStreet(e.target.value)}
                               onFocus={() => predictions.length && setShowPredictions(true)}
                               onKeyDown={(e) => {
                                 if (!showPredictions || predictions.length === 0) return
@@ -1317,7 +1317,7 @@ export default function PricingEnginePage() {
                                   id={`gross-${idx}`}
                                   placeholder="0.00"
                                   className="pl-6 w-full"
-                                value={unitData[idx]?.gross ?? ""}
+                                  value={unitData[idx]?.gross ?? ""}
                                 onValueChange={(v) =>
                                     setUnitData((prev) => {
                                       const next = [...prev]
@@ -1338,7 +1338,7 @@ export default function PricingEnginePage() {
                                   id={`market-${idx}`}
                                   placeholder="0.00"
                                   className="pl-6 w-full"
-                                value={unitData[idx]?.market ?? ""}
+                                  value={unitData[idx]?.market ?? ""}
                                 onValueChange={(v) =>
                                     setUnitData((prev) => {
                                       const next = [...prev]
