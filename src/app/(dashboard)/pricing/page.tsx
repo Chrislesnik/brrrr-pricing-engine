@@ -1715,12 +1715,19 @@ function ResultCard({ r }: { r: ProgramResult }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-bold">
-            {r.internal_name ?? "Program"}{" "}
-            <span className="ml-2 text-xs text-muted-foreground">({r.external_name ?? ""})</span>
+            {r.internal_name ?? "Program"}
           </div>
-          <div className="text-xs text-muted-foreground">{r.external_name}</div>
+          <div className="text-xs font-semibold">{r.external_name}</div>
         </div>
-        <div className={`text-xs font-semibold ${pass ? "text-green-600" : "text-red-600"}`}>{pass ? "PASS" : "FAIL"}</div>
+        <div
+          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
+            pass
+              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
+              : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100"
+          }`}
+        >
+          {pass ? "PASS" : "FAIL"}
+        </div>
       </div>
 
       {pass ? (
