@@ -1778,19 +1778,19 @@ function ResultCard({ r }: { r: ProgramResult }) {
                 </thead>
                 <tbody>
                   {Array.isArray(d?.loan_price) &&
-                    d.loan_price.map((lp: number, i: number) => {
-                      const hasLoanPrice = lp !== undefined && lp !== null && !Number.isNaN(lp as number)
-                      return (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-1 pr-3 text-center">{lp}</td>
-                        <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
-                        <td className="py-1 pr-3 text-center">{hasLoanPrice ? (loanAmount ?? "") : ""}</td>
-                        <td className="py-1 pr-3 text-center">{hasLoanPrice ? (ltv ?? "") : ""}</td>
-                        <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
-                        <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
-                      </tr>
-                      )
-                    })}
+                    d.loan_price
+                      .map((lp: number, i: number) => ({ lp, i }))
+                      .filter(({ lp }) => lp !== undefined && lp !== null && !Number.isNaN(lp as number))
+                      .map(({ lp, i }) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="py-1 pr-3 text-center">{lp}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
+                          <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
+                          <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
+                        </tr>
+                      ))}
                 </tbody>
               </table>
             </div>
