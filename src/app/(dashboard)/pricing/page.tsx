@@ -25,6 +25,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 
+// Shared minimal types for Google Places Autocomplete
+export interface PlacePrediction {
+  place_id: string
+  description: string
+  structured_formatting?: {
+    main_text?: string
+    secondary_text?: string
+  }
+}
+
 // Minimal Google Places typings used locally
 type GPlaces = {
   AutocompleteSessionToken: new () => unknown
@@ -91,15 +101,6 @@ export default function PricingEnginePage() {
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
   const sessionTokenRef = useRef<unknown>(undefined)
-  interface PlacePrediction {
-    place_id: string
-    description: string
-    structured_formatting?: {
-      main_text?: string
-      secondary_text?: string
-    }
-  }
-  
   async function handleSendToReApi(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
