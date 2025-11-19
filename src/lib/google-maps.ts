@@ -1,15 +1,44 @@
 // Lightweight loader for Google Maps JavaScript API (Places library)
 // Ensures the script is only injected once on the client.
 declare global {
-	interface Window {
-		google?: {
-			maps?: {
-				places?: unknown
-				event?: {
-					removeListener: (listener: unknown) => void
-				}
+	interface GooglePlacesAddressComponent {
+		short_name?: string
+		long_name?: string
+		types?: string[]
+	}
+
+	interface GooglePlacesResult {
+		address_components?: GooglePlacesAddressComponent[]
+		formatted_address?: string
+	}
+
+	interface GooglePlacesAutocomplete {
+		addListener: (eventName: "place_changed", handler: () => void) => unknown
+		getPlace: () => GooglePlacesResult
+	}
+
+	interface GoogleMapsPlaces {
+		Autocomplete: new (
+			input: HTMLInputElement,
+			opts?: {
+				types?: string[]
+				componentRestrictions?: { country: string[] }
+				fields?: string[]
 			}
-		}
+		) => GooglePlacesAutocomplete
+	}
+
+	interface GoogleMapsEvent {
+		removeListener: (listener: unknown) => void
+	}
+
+	interface GoogleMapsNamespace {
+		places?: GoogleMapsPlaces
+		event?: GoogleMapsEvent
+	}
+
+	interface Window {
+		google?: { maps?: GoogleMapsNamespace }
 		__gmapsLoader__?: Promise<void>
 	}
 }

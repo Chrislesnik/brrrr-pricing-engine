@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { IconDeviceFloppy, IconFileExport } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin } from "@tabler/icons-react"
 import {
   Select,
   SelectContent,
@@ -47,6 +47,20 @@ export default function PricingEnginePage() {
   const [zip, setZip] = useState<string>("")
   const [county, setCounty] = useState<string>("")
   const streetInputRef = useRef<HTMLInputElement | null>(null)
+  const [gmapsReady, setGmapsReady] = useState<boolean>(false)
+  const [showPredictions, setShowPredictions] = useState<boolean>(false)
+  const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
+  const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
+  const sessionTokenRef = useRef<unknown>(undefined)
+  interface PlacePrediction {
+    place_id: string
+    description: string
+    structured_formatting?: {
+      main_text?: string
+      secondary_text?: string
+    }
+  }
+  const [predictions, setPredictions] = useState<PlacePrediction[]>([])
 
   const states = [
     "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
@@ -80,53 +94,88 @@ export default function PricingEnginePage() {
     setUnitData(Array.from({ length: numUnits }, () => ({ leased: undefined, gross: "", market: "" })))
   }, [unitOptions, numUnits])
 
-  // Initialize Google Places Autocomplete on the Street field and auto-fill components
+  // Load Google Maps JS API (Places) once
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    let listener: unknown
-
     ;(async () => {
       try {
         await ensureGoogleMaps(apiKey)
-        if (!streetInputRef.current || !window.google?.maps?.places) return
-        const autocomplete = new window.google.maps.places.Autocomplete(streetInputRef.current, {
-          types: ["address"],
-          componentRestrictions: { country: ["us"] },
-          fields: ["address_components", "formatted_address"],
-        })
-        listener = autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace()
-          type AddressComponent = { short_name?: string; long_name?: string; types?: string[] }
-          const comps = (place?.address_components as AddressComponent[]) ?? []
-          const get = (t: string) => comps.find((c: AddressComponent) => c.types?.includes(t))
-          const streetNumber = get("street_number")?.short_name ?? ""
-          const route = get("route")?.long_name ?? ""
-          const locality = get("locality")?.long_name ?? get("sublocality")?.long_name ?? ""
-          const admin1 = get("administrative_area_level_1")?.short_name ?? ""
-          const postal = get("postal_code")?.short_name ?? ""
-          const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
-
-          setStreet([streetNumber, route].filter(Boolean).join(" "))
-          setCity(locality)
-          setStateCode(admin1 || undefined)
-          setZip(postal)
-          setCounty(countyName)
-        })
+        // Initialize a session token for a better billing experience
+        sessionTokenRef.current = new (window as any).google.maps.places.AutocompleteSessionToken()
+        setGmapsReady(true)
       } catch {
-        // ignore loader errors in UI for now
+        setGmapsReady(false)
       }
     })()
-
-    return () => {
-      if (listener) {
-        try {
-          window.google?.maps?.event?.removeListener(listener)
-        } catch {
-          // noop
-        }
-      }
-    }
   }, [])
+
+  // Fetch predictions as the user types, using our own UI
+  useEffect(() => {
+    if (!gmapsReady) return
+    const q = street.trim()
+    if (!q) {
+      setPredictions([])
+      return
+    }
+    const svc = new (window as any).google.maps.places.AutocompleteService()
+    const req = {
+      input: q,
+      types: ["address"],
+      componentRestrictions: { country: ["us"] },
+      sessionToken: sessionTokenRef.current,
+    }
+    let cancelled = false
+    svc.getPlacePredictions(req, (res: PlacePrediction[] | null, status: string) => {
+      if (cancelled) return
+      const ok =
+        status === (window as any).google.maps.places.PlacesServiceStatus?.OK ||
+        status === "OK" ||
+        status === "ZERO_RESULTS"
+      if (!ok || !res) {
+        setPredictions([])
+        return
+      }
+      setPredictions(res)
+      setShowPredictions(true)
+      setActivePredictionIdx(-1)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [street, gmapsReady])
+
+  function applyPlaceById(placeId: string) {
+    const svc = new (window as any).google.maps.places.PlacesService(document.createElement("div"))
+    const req = {
+      placeId,
+      fields: ["address_components", "formatted_address"],
+      sessionToken: sessionTokenRef.current,
+    }
+    svc.getDetails(req, (place: any, status: string) => {
+      const ok =
+        status === (window as any).google.maps.places.PlacesServiceStatus?.OK || status === "OK"
+      if (!ok || !place) return
+      type AddressComponent = { short_name?: string; long_name?: string; types?: string[] }
+      const comps = (place?.address_components as AddressComponent[]) ?? []
+      const get = (t: string) => comps.find((c: AddressComponent) => c.types?.includes(t))
+      const streetNumber = get("street_number")?.short_name ?? ""
+      const route = get("route")?.long_name ?? ""
+      const locality = get("locality")?.long_name ?? get("sublocality")?.long_name ?? ""
+      const admin1 = get("administrative_area_level_1")?.short_name ?? ""
+      const postal = get("postal_code")?.short_name ?? ""
+      const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
+
+      setStreet([streetNumber, route].filter(Boolean).join(" "))
+      setCity(locality)
+      setStateCode(admin1 || undefined)
+      setZip(postal)
+      setCounty(countyName)
+      setPredictions([])
+      setShowPredictions(false)
+      // New token after a selection, per session semantics
+      sessionTokenRef.current = new (window as any).google.maps.places.AutocompleteSessionToken()
+    })
+  }
 
   return (
     <div data-layout="fixed" className="flex flex-1 flex-col gap-4 overflow-hidden">
@@ -384,13 +433,76 @@ export default function PricingEnginePage() {
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="flex flex-col gap-1 sm:col-span-2">
                           <Label htmlFor="street">Street</Label>
-                          <Input
-                            id="street"
-                            placeholder="123 Main St"
-                            ref={streetInputRef}
-                            value={street}
-                            onChange={(e) => setStreet(e.target.value)}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="street"
+                              placeholder="123 Main St"
+                              ref={streetInputRef}
+                              value={street}
+                              onChange={(e) => setStreet(e.target.value)}
+                              onFocus={() => predictions.length && setShowPredictions(true)}
+                              onKeyDown={(e) => {
+                                if (!showPredictions || predictions.length === 0) return
+                                if (e.key === "ArrowDown") {
+                                  e.preventDefault()
+                                  setActivePredictionIdx((idx) =>
+                                    Math.min(idx + 1, predictions.length - 1),
+                                  )
+                                } else if (e.key === "ArrowUp") {
+                                  e.preventDefault()
+                                  setActivePredictionIdx((idx) => Math.max(idx - 1, 0))
+                                } else if (e.key === "Enter") {
+                                  if (activePredictionIdx >= 0) {
+                                    e.preventDefault()
+                                    const p = predictions[activePredictionIdx]
+                                    applyPlaceById(p.place_id)
+                                  }
+                                } else if (e.key === "Escape") {
+                                  setShowPredictions(false)
+                                }
+                              }}
+                              onBlur={() => {
+                                // Defer hiding to allow click selection
+                                setTimeout(() => setShowPredictions(false), 150)
+                              }}
+                              autoComplete="off"
+                            />
+                            {showPredictions && predictions.length > 0 && (
+                              <div
+                                ref={predictionsMenuRef}
+                                className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow"
+                                role="listbox"
+                              >
+                                {predictions.map((p, idx) => (
+                                  <button
+                                    key={p.place_id}
+                                    type="button"
+                                    className={`flex w-full items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
+                                      idx === activePredictionIdx ? "bg-accent" : ""
+                                    }`}
+                                    onMouseEnter={() => setActivePredictionIdx(idx)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
+                                      applyPlaceById(p.place_id)
+                                    }}
+                                  >
+                                    <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                    <div className="flex min-w-0 flex-col">
+                                      <span className="truncate text-sm font-medium">
+                                        {p.structured_formatting?.main_text ?? p.description}
+                                      </span>
+                                      <span className="truncate text-xs text-muted-foreground">
+                                        {p.structured_formatting?.secondary_text ?? ""}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
+                                <div className="border-t px-2 py-1 text-right text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  Powered by Google
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="apt">Apt #</Label>
