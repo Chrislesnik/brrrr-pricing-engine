@@ -32,27 +32,51 @@ export async function POST(req: NextRequest) {
     if (error) {
       return new NextResponse(`Query error: ${error}`, { status: 500 })
     }
-    const webhooks = (data ?? [])
-      .map((r) => String(r.webhook_url || "").trim())
-      .filter((u) => !!u)
+    const programs = (data ?? []).filter((p) => (p.webhook_url ?? "").trim() !== "")
 
     let delivered = 0
+    const results: any[] = []
     await Promise.all(
-      webhooks.map(async (url) => {
+      programs.map(async (p) => {
+        const url = String(p.webhook_url).trim()
+        if (!url) return
         try {
           const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(json.data),
           })
-          if (res.ok) delivered += 1
+          let body: any = null
+          try {
+            body = await res.json()
+          } catch {
+            body = null
+          }
+          const ok = res.ok
+          if (ok) delivered += 1
+          results.push({
+            internal_name: p.internal_name,
+            external_name: p.external_name,
+            webhook_url: url,
+            status: res.status,
+            ok,
+            data: body // whatever the webhook returned
+          })
         } catch {
           // swallow individual failures; aggregate count below
+          results.push({
+            internal_name: p.internal_name,
+            external_name: p.external_name,
+            webhook_url: url,
+            status: 0,
+            ok: false,
+            data: null
+          })
         }
       })
     )
 
-    return NextResponse.json({ delivered, attempted: webhooks.length })
+    return NextResponse.json({ delivered, attempted: programs.length, programs: results })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown error"
     return new NextResponse(`Server error: ${msg}`, { status: 500 })
@@ -62,7 +86,7 @@ export async function POST(req: NextRequest) {
 async function superFetchPrograms(orgUuid: string, loanType: string) {
   const { data, error } = await supabaseAdmin
     .from("programs")
-    .select("webhook_url")
+    .select("internal_name,external_name,webhook_url")
     .eq("organization_id", orgUuid)
     .eq("loan_type", loanType.toLowerCase())
     .eq("status", "active")

@@ -136,6 +136,7 @@ export default function PricingEnginePage() {
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
+  const [programResults, setProgramResults] = useState<any[]>([])
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
@@ -346,6 +347,8 @@ export default function PricingEnginePage() {
         throw new Error(txt || `Dispatch failed (${res.status})`)
       }
       const result = await res.json().catch(() => ({}))
+      // store results in state for display
+      setProgramResults(Array.isArray(result?.programs) ? result.programs : [])
       toast({ title: "Sent", description: `Webhook deliveries: ${result?.delivered ?? 0}` })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
@@ -1658,11 +1661,125 @@ export default function PricingEnginePage() {
           </div>
         </aside>
 
-        {/* Right 75% column: placeholder display area */}
+        {/* Right 75% column: results display */}
         <section className="hidden h-full min-h-0 w-full overflow-auto rounded-md border p-3 pb-4 lg:block lg:w-3/4">
-          {/* Display outputs from inputs here later */}
+          <ResultsPanel results={programResults} />
         </section>
       </div>
+    </div>
+  )
+}
+
+
+// ---------- Results UI ----------
+import * as React from "react"
+type ProgramResult = {
+  internal_name?: string
+  external_name?: string
+  webhook_url?: string
+  status?: number
+  ok?: boolean
+  data?: any
+}
+
+function pick<T = any>(arr: T[] | undefined, idx: number): T | undefined {
+  if (!Array.isArray(arr)) return undefined
+  if (idx < 0 || idx >= arr.length) return undefined
+  return arr[idx]
+}
+
+function ResultCard({ r }: { r: ProgramResult }) {
+  const d = r?.data ?? {}
+  const pass = d?.pass === true
+  const hi = Number(d?.highlight_display ?? 0)
+  const loanPrice = pick<number>(d?.loan_price, hi)
+  const rate = pick<number>(d?.interest_rate, hi)
+  const pitia = pick<number>(d?.pitia, hi)
+  const dscr = pick<number>(d?.dscr, hi)
+  const loanAmount = d?.loan_amount
+  const ltv = d?.ltv
+
+  return (
+    <div className="mb-3 rounded-md border p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-bold">
+            {r.internal_name ?? "Program"}{" "}
+            <span className="ml-2 text-xs text-muted-foreground">({r.external_name ?? ""})</span>
+          </div>
+          <div className="text-xs text-muted-foreground">{r.external_name}</div>
+        </div>
+        <div className={`text-xs font-semibold ${pass ? "text-green-600" : "text-red-600"}`}>{pass ? "PASS" : "FAIL"}</div>
+      </div>
+
+      {pass ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <Widget label="Loan Price" value={loanPrice} />
+          <Widget label="Interest Rate" value={rate} />
+          <Widget label="Loan Amount" value={loanAmount} />
+          <Widget label="LTV" value={ltv} />
+          <Widget label="PITIA" value={pitia} />
+          <Widget label="DSCR" value={dscr} />
+        </div>
+      ) : null}
+
+      {/* Details Table */}
+      <Accordion type="single" collapsible className="mt-2">
+        <AccordionItem value="details">
+          <AccordionTrigger className="text-sm">Details</AccordionTrigger>
+          <AccordionContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b">
+                  <tr>
+                    <th className="py-1 pr-3">Loan Price</th>
+                    <th className="py-1 pr-3">Interest Rate</th>
+                    <th className="py-1 pr-3">Loan Amount</th>
+                    <th className="py-1 pr-3">LTV</th>
+                    <th className="py-1 pr-3">PITIA</th>
+                    <th className="py-1 pr-3">DSCR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.isArray(d?.loan_price) &&
+                    d.loan_price.map((lp: any, i: number) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="py-1 pr-3">{lp}</td>
+                        <td className="py-1 pr-3">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
+                        <td className="py-1 pr-3">{loanAmount ?? ""}</td>
+                        <td className="py-1 pr-3">{ltv ?? ""}</td>
+                        <td className="py-1 pr-3">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
+                        <td className="py-1 pr-3">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </div>
+  )
+}
+
+function Widget({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-md border p-2">
+      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold">{value ?? ""}</div>
+    </div>
+  )
+}
+
+function ResultsPanel({ results }: { results: ProgramResult[] }) {
+  if (!results?.length) {
+    return <div className="text-sm text-muted-foreground">Results will appear here after you calculate.</div>
+  }
+  return (
+    <div>
+      {results.map((r, idx) => (
+        <ResultCard key={idx} r={r} />
+      ))}
     </div>
   )
 }
