@@ -11,7 +11,7 @@ export function Logo({
 }) {
   return (
     <Image
-      src="/shadcnblocks-admin-logo.svg"
+      src="/pricing-engine-tab-icon.svg"
       width={width}
       height={height}
       className={className}
