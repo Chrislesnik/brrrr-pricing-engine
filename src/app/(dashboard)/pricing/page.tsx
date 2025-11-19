@@ -136,7 +136,7 @@ export default function PricingEnginePage() {
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
-  const [programResults, setProgramResults] = useState<any[]>([])
+  const [programResults, setProgramResults] = useState<ProgramResult[]>([])
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
@@ -1673,16 +1673,27 @@ export default function PricingEnginePage() {
 
 // ---------- Results UI ----------
 import * as React from "react"
+type ProgramResponseData = {
+  pass?: boolean
+  highlight_display?: number
+  loan_price?: number[]
+  interest_rate?: number[]
+  loan_amount?: string
+  ltv?: string
+  pitia?: number[]
+  dscr?: number[]
+  [key: string]: unknown
+}
 type ProgramResult = {
   internal_name?: string
   external_name?: string
   webhook_url?: string
   status?: number
   ok?: boolean
-  data?: any
+  data?: ProgramResponseData | null
 }
 
-function pick<T = any>(arr: T[] | undefined, idx: number): T | undefined {
+function pick<T>(arr: T[] | undefined, idx: number): T | undefined {
   if (!Array.isArray(arr)) return undefined
   if (idx < 0 || idx >= arr.length) return undefined
   return arr[idx]
@@ -1742,7 +1753,7 @@ function ResultCard({ r }: { r: ProgramResult }) {
                 </thead>
                 <tbody>
                   {Array.isArray(d?.loan_price) &&
-                    d.loan_price.map((lp: any, i: number) => (
+                    d.loan_price.map((lp: number, i: number) => (
                       <tr key={i} className="border-b last:border-0">
                         <td className="py-1 pr-3">{lp}</td>
                         <td className="py-1 pr-3">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
@@ -1762,7 +1773,7 @@ function ResultCard({ r }: { r: ProgramResult }) {
   )
 }
 
-function Widget({ label, value }: { label: string; value: any }) {
+function Widget({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
     <div className="rounded-md border p-2">
       <div className="text-[10px] uppercase text-muted-foreground">{label}</div>

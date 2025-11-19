@@ -35,7 +35,14 @@ export async function POST(req: NextRequest) {
     const programs = (data ?? []).filter((p) => (p.webhook_url ?? "").trim() !== "")
 
     let delivered = 0
-    const results: any[] = []
+    const results: {
+      internal_name?: string
+      external_name?: string
+      webhook_url?: string
+      status?: number
+      ok?: boolean
+      data: Record<string, unknown> | null
+    }[] = []
     await Promise.all(
       programs.map(async (p) => {
         const url = String(p.webhook_url).trim()
@@ -46,9 +53,12 @@ export async function POST(req: NextRequest) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(json.data),
           })
-          let body: any = null
+          let body: Record<string, unknown> | null = null
           try {
-            body = await res.json()
+            const parsed = await res.json()
+            if (parsed && typeof parsed === "object") {
+              body = parsed as Record<string, unknown>
+            }
           } catch {
             body = null
           }
