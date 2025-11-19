@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { IconDeviceFloppy, IconFileExport, IconMapPin } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled } from "@tabler/icons-react"
+import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
   SelectContent,
@@ -68,6 +69,29 @@ const getPlaces = (): GPlaces | undefined => {
 }
 
 export default function PricingEnginePage() {
+  // Collapse the left app sidebar by default when entering this page.
+  // We snapshot the prior open state and restore it on unmount so other pages aren't affected.
+  const { open: sidebarOpen, setOpen: setSidebarOpen, isMobile } = useSidebar()
+  const prevSidebarOpenRef = useRef<boolean>(sidebarOpen)
+  const didInitSidebarEffectRef = useRef<boolean>(false)
+  useEffect(() => {
+    if (didInitSidebarEffectRef.current) return
+    didInitSidebarEffectRef.current = true
+    prevSidebarOpenRef.current = sidebarOpen
+    if (!isMobile && sidebarOpen) {
+      // Trigger the animated collapse on desktop
+      setSidebarOpen(false)
+    }
+    return () => {
+      // Restore previous state when leaving the page (desktop only)
+      if (!isMobile) {
+        setSidebarOpen(prevSidebarOpenRef.current)
+      }
+    }
+    // Run once on mount; internal refs ensure single execution
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile])
+
   // Subject Property dependent state
   const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
   const [numUnits, setNumUnits] = useState<number | undefined>(undefined)
@@ -1711,20 +1735,44 @@ type ProgramResult = {
   data?: ProgramResponseData | null
 }
 
+type SelectedRow = {
+  programIdx: number
+  rowIdx: number
+  values: {
+    loanPrice?: number | string | null
+    interestRate?: number | string | null
+    loanAmount?: string | number | null
+    ltv?: string | number | null
+    pitia?: number | string | null
+    dscr?: number | string | null
+  }
+}
+
 function pick<T>(arr: T[] | undefined, idx: number): T | undefined {
   if (!Array.isArray(arr)) return undefined
   if (idx < 0 || idx >= arr.length) return undefined
   return arr[idx]
 }
 
-function ResultCard({ r }: { r: ProgramResult }) {
+function ResultCard({
+  r,
+  programIdx,
+  selected,
+  onSelect,
+}: {
+  r: ProgramResult
+  programIdx: number
+  selected: SelectedRow | null
+  onSelect: (sel: SelectedRow) => void
+}) {
   const d = r?.data ?? {}
   const pass = d?.pass === true
   const hi = Number(d?.highlight_display ?? 0)
-  const loanPrice = pick<number>(d?.loan_price, hi)
-  const rate = pick<number>(d?.interest_rate, hi)
-  const pitia = pick<number>(d?.pitia, hi)
-  const dscr = pick<number>(d?.dscr, hi)
+  const activeIdx = selected?.programIdx === programIdx ? selected.rowIdx : hi
+  const loanPrice = pick<number>(d?.loan_price, activeIdx)
+  const rate = pick<number>(d?.interest_rate, activeIdx)
+  const pitia = pick<number>(d?.pitia, activeIdx)
+  const dscr = pick<number>(d?.dscr, activeIdx)
   const loanAmount = d?.loan_amount
   const ltv = d?.ltv
 
@@ -1768,6 +1816,7 @@ function ResultCard({ r }: { r: ProgramResult }) {
               <table className="w-full text-sm text-center">
                 <thead className="border-b">
                   <tr>
+                    <th className="py-1 pr-3 w-8 text-left"></th>
                     <th className="py-1 pr-3">Loan Price</th>
                     <th className="py-1 pr-3">Interest Rate</th>
                     <th className="py-1 pr-3">Loan Amount</th>
@@ -1782,7 +1831,37 @@ function ResultCard({ r }: { r: ProgramResult }) {
                       .map((lp: unknown, i: number) => ({ lp, i }))
                       .filter(({ lp }) => typeof lp === "number" && Number.isFinite(lp as number))
                       .map(({ lp, i }) => (
-                        <tr key={i} className="border-b last:border-0">
+                        <tr
+                          key={i}
+                          className={`border-b last:border-0 ${selected?.programIdx === programIdx && selected?.rowIdx === i ? "bg-accent/30" : ""}`}
+                        >
+                          <td className="py-1 pr-3 text-left">
+                            <button
+                              type="button"
+                              aria-label="Select row"
+                              className="inline-flex h-6 w-6 items-center justify-center text-yellow-500"
+                              onClick={() =>
+                                onSelect({
+                                  programIdx,
+                                  rowIdx: i,
+                                  values: {
+                                    loanPrice: lp as number,
+                                    interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
+                                    loanAmount: loanAmount ?? undefined,
+                                    ltv: ltv ?? undefined,
+                                    pitia: Array.isArray(d?.pitia) ? d.pitia[i] : undefined,
+                                    dscr: Array.isArray(d?.dscr) ? d.dscr[i] : undefined,
+                                  },
+                                })
+                              }
+                            >
+                              {selected?.programIdx === programIdx && selected?.rowIdx === i ? (
+                                <IconStarFilled className="h-5 w-5" />
+                              ) : (
+                                <IconStar className="h-5 w-5" />
+                              )}
+                            </button>
+                          </td>
                           <td className="py-1 pr-3 text-center">{lp as number}</td>
                           <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
                           <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
@@ -1848,6 +1927,8 @@ function ResultsPanel({
   loading?: boolean
   placeholders?: Array<{ internal_name?: string; external_name?: string }>
 }) {
+  const [selected, setSelected] = React.useState<SelectedRow | null>(null)
+
   if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
     return (
       <div>
@@ -1883,8 +1964,34 @@ function ResultsPanel({
   }
   return (
     <div>
+      {selected ? (
+        <div className="mb-3 rounded-md border p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold">Main</div>
+              <div className="text-xs font-semibold text-muted-foreground">
+                Selected: Program #{selected.programIdx + 1}, Row #{selected.rowIdx + 1}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Widget label="Loan Price" value={selected.values.loanPrice} />
+            <Widget label="Interest Rate" value={selected.values.interestRate} />
+            <Widget label="Loan Amount" value={selected.values.loanAmount} />
+            <Widget label="LTV" value={selected.values.ltv} />
+            <Widget label="PITIA" value={selected.values.pitia} />
+            <Widget label="DSCR" value={selected.values.dscr} />
+          </div>
+        </div>
+      ) : null}
       {results.map((r, idx) => (
-        <ResultCard key={idx} r={r} />
+        <ResultCard
+          key={idx}
+          r={r}
+          programIdx={idx}
+          selected={selected}
+          onSelect={(sel) => setSelected(sel)}
+        />
       ))}
     </div>
   )
