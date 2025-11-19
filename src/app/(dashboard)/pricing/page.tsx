@@ -586,14 +586,10 @@ export default function PricingEnginePage() {
                   <AccordionTrigger className="text-left text-base font-bold italic hover:no-underline">
                     <div className="flex items-center gap-3 pr-6">
                       <span>Subject Property</span>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="ml-auto h-7 not-italic"
-                        onClick={handleSendToReApi}
-                        disabled={sendingReApi}
-                      >
-                        {sendingReApi ? "Sending..." : "RE API"}
+                      <Button size="sm" variant="secondary" className="ml-auto h-7 not-italic" asChild>
+                        <span onClick={handleSendToReApi} aria-disabled={sendingReApi}>
+                          {sendingReApi ? "Sending..." : "RE API"}
+                        </span>
                       </Button>
                     </div>
                   </AccordionTrigger>

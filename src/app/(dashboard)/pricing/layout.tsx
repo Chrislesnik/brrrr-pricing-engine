@@ -8,7 +8,7 @@ export default function PricingLayout({ children }: Props) {
   return (
     <>
       <Header />
-      <main id="main-content" className="flex h-full flex-1 flex-col p-4">
+      <main id="main-content" className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
         {children}
       </main>
     </>

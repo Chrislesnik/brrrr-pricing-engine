@@ -1,10 +1,26 @@
 import { clerkMiddleware } from "@clerk/nextjs/server"
 
 export default clerkMiddleware(async (auth, req) => {
+  const url = new URL(req.url)
+  const pathname = url.pathname
+
+  // Public routes that should not require auth
+  const isPublic =
+    /^\/$/.test(pathname) ||
+    /^\/sign-in(\/.*)?$/.test(pathname) ||
+    /^\/sign-up(\/.*)?$/.test(pathname) ||
+    /^\/api\/webhooks(\/.*)?$/.test(pathname)
+
   const { userId } = await auth()
-  // If signed in and hitting sign-in, redirect to pipeline
-  if (userId && new URL(req.url).pathname.startsWith("/sign-in")) {
+
+  // Redirect authenticated users away from /sign-in back to app
+  if (userId && /^\/sign-in(\/.*)?$/.test(pathname)) {
     return Response.redirect(new URL("/pipeline", req.url))
+  }
+
+  // Protect everything that isn't public
+  if (!isPublic && !userId) {
+    return Response.redirect(new URL("/sign-in", req.url))
   }
 })
 
