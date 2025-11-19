@@ -72,7 +72,7 @@ const getPlaces = (): GPlaces | undefined => {
 export default function PricingEnginePage() {
   const searchParams = useSearchParams()
   const initialLoanId = searchParams.get("loanId") ?? undefined
-  const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; created_at?: string }[]>([])
+  const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
   // Collapse the left app sidebar by default when entering this page.
   // We snapshot the prior open state and restore it on unmount so other pages aren't affected.
@@ -577,9 +577,22 @@ export default function PricingEnginePage() {
       try {
         const res = await fetch(`/api/loans/${loanId}/scenarios`)
         if (!res.ok) return
-        const json = (await res.json()) as { scenarios?: { id: string; name?: string; created_at?: string }[] }
+        const json = (await res.json()) as { scenarios?: { id: string; name?: string; primary?: boolean; created_at?: string }[] }
         setScenariosList(json.scenarios ?? [])
-        setSelectedScenarioId(json.scenarios?.[0]?.id)
+        // Auto-select primary; else latest edited/created
+        const primary = json.scenarios?.find((s) => s.primary)
+        if (primary?.id) {
+          setSelectedScenarioId(primary.id)
+        } else if (json.scenarios && json.scenarios.length) {
+          const latest = [...json.scenarios].sort((a, b) => {
+            const da = new Date(a.created_at ?? 0).getTime()
+            const db = new Date(b.created_at ?? 0).getTime()
+            return db - da
+          })[0]
+          setSelectedScenarioId(latest?.id)
+        } else {
+          setSelectedScenarioId(undefined)
+        }
       } catch {
         // ignore
       }
@@ -808,7 +821,8 @@ export default function PricingEnginePage() {
                   </SelectTrigger>
                   <SelectContent>
                     {scenariosList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
+                      <SelectItem key={s.id} value={s.id} className="flex items-center gap-2">
+                        {s.primary ? <IconStarFilled className="mr-1 h-3 w-3 text-yellow-500" /> : null}
                         {s.name ?? `Scenario ${new Date(s.created_at ?? "").toLocaleDateString()}`}
                       </SelectItem>
                     ))}

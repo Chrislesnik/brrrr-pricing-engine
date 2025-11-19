@@ -13,7 +13,7 @@ export async function GET(_req: Request, context: unknown) {
     if (!id) return NextResponse.json({ error: "Missing loan id" }, { status: 400 })
     const { data, error } = await supabaseAdmin
       .from("loan_scenarios")
-      .select("id,name,created_at")
+      .select("id,name,primary,created_at")
       .eq("loan_id", id)
       .order("created_at", { ascending: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
