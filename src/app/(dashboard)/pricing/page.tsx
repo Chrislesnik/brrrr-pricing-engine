@@ -24,7 +24,6 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
-import { useAuth } from "@clerk/nextjs"
 import { CalcInput } from "@/components/calc-input"
 
 // Shared minimal types for Google Places Autocomplete
@@ -69,7 +68,6 @@ const getPlaces = (): GPlaces | undefined => {
 }
 
 export default function PricingEnginePage() {
-  const { orgId } = useAuth()
   // Subject Property dependent state
   const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
   const [numUnits, setNumUnits] = useState<number | undefined>(undefined)
