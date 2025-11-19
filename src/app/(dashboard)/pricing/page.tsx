@@ -589,6 +589,8 @@ export default function PricingEnginePage() {
 
   // Helper setters from inputs payload
   function applyInputsPayload(payload: Record<string, unknown>) {
+    // Prevent Google Places predictions from triggering while hydrating from Supabase
+    suppressPredictionsRef.current = true
     const addr = (payload["address"] as Record<string, unknown>) ?? {}
     if ("street" in addr) setStreet(String(addr["street"] ?? ""))
     if ("apt" in addr) setApt(String(addr["apt"] ?? ""))
