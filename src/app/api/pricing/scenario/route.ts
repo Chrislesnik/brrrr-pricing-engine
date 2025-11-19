@@ -17,22 +17,9 @@ export async function POST(req: Request) {
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
-    let orgUuid = await getOrgUuidFromClerkId(orgId)
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) {
-      // Create a minimal organization record when mapping is missing
-      const genId = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 10)) as string
-      const { data: createdOrg, error: orgErr } = await supabaseAdmin
-        .from("organizations")
-        .insert({
-          id: genId, // organizations.id is text in this project
-          clerk_organization_id: orgId,
-        })
-        .select("id")
-        .single()
-      if (orgErr || !createdOrg?.id) {
-        return NextResponse.json({ error: `Failed to ensure organization: ${orgErr?.message ?? "unknown"}` }, { status: 400 })
-      }
-      orgUuid = createdOrg.id as string
+      return NextResponse.json({ error: "Organization mapping not found for current Clerk org" }, { status: 400 })
     }
 
     const body = (await req.json().catch(() => null)) as SaveScenarioBody | null
@@ -59,15 +46,24 @@ export async function POST(req: Request) {
 
     // loan_scenarios schema includes jsonb columns: inputs, selected
     // Store raw inputs payload in inputs; selection (and name metadata) in selected/name fields
+    // Compute primary = true when this is the first scenario for the loan
+    let isPrimary = false
+    if (loanId) {
+      const { count } = await supabaseAdmin
+        .from("loan_scenarios")
+        .select("id", { count: "exact", head: true })
+        .eq("loan_id", loanId)
+      isPrimary = (count ?? 0) === 0
+    }
+
     const { data: scenario, error: scenErr } = await supabaseAdmin
       .from("loan_scenarios")
       .insert({
         loan_id: loanId,
-        primary: false,
+        primary: isPrimary,
         user_id: userId,
         organization_id: orgUuid,
         inputs: body.inputs ?? {},
-        selected: body.selected ?? null,
       })
       .select("id")
       .single()
