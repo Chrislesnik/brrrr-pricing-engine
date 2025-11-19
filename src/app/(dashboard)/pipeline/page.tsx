@@ -14,7 +14,7 @@ import { PipelineTable } from "./components/pipeline-table"
 import { getPipelineLoansForOrg } from "./data/fetch-loans"
 
 export default async function PipelinePage() {
-  const { orgId } = auth()
+  const { orgId } = await auth()
   const data = orgId ? await getPipelineLoansForOrg(orgId) : []
   return (
     <>
