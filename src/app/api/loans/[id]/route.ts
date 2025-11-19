@@ -4,9 +4,10 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
-type Params = { params: { id: string } }
-
-export async function PATCH(req: Request, { params }: Params) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -26,7 +27,10 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
