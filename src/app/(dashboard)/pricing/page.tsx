@@ -1753,16 +1753,19 @@ function ResultCard({ r }: { r: ProgramResult }) {
                 </thead>
                 <tbody>
                   {Array.isArray(d?.loan_price) &&
-                    d.loan_price.map((lp: number, i: number) => (
+                    d.loan_price.map((lp: number, i: number) => {
+                      const hasLoanPrice = lp !== undefined && lp !== null && !Number.isNaN(lp as number)
+                      return (
                       <tr key={i} className="border-b last:border-0">
                         <td className="py-1 pr-3">{lp}</td>
                         <td className="py-1 pr-3">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
-                        <td className="py-1 pr-3">{loanAmount ?? ""}</td>
-                        <td className="py-1 pr-3">{ltv ?? ""}</td>
+                        <td className="py-1 pr-3">{hasLoanPrice ? (loanAmount ?? "") : ""}</td>
+                        <td className="py-1 pr-3">{hasLoanPrice ? (ltv ?? "") : ""}</td>
                         <td className="py-1 pr-3">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
                         <td className="py-1 pr-3">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                 </tbody>
               </table>
             </div>
