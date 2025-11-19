@@ -1829,7 +1829,13 @@ function ResultCard({
                   {Array.isArray(d?.loan_price) &&
                     d.loan_price
                       .map((lp: unknown, i: number) => ({ lp, i }))
-                      .filter(({ lp }) => typeof lp === "number" && Number.isFinite(lp as number))
+                      .filter(({ lp }) => {
+                        if (lp === null || lp === undefined) return false
+                        const s = String(lp).trim()
+                        if (s.length === 0) return false
+                        const n = Number(s)
+                        return Number.isFinite(n)
+                      })
                       .map(({ lp, i }) => (
                         <tr
                           key={i}
@@ -1845,7 +1851,7 @@ function ResultCard({
                                   programIdx,
                                   rowIdx: i,
                                   values: {
-                                    loanPrice: lp as number,
+                                    loanPrice: typeof lp === "number" ? lp : String(lp),
                                     interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
                                     loanAmount: loanAmount ?? undefined,
                                     ltv: ltv ?? undefined,
@@ -1862,7 +1868,7 @@ function ResultCard({
                               )}
                             </button>
                           </td>
-                          <td className="py-1 pr-3 text-center">{lp as number}</td>
+                          <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
                           <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
                           <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
                           <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
