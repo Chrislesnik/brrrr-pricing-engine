@@ -2,7 +2,6 @@
 
 import { format } from "date-fns"
 import { ColumnDef } from "@tanstack/react-table"
-import { DotsHorizontalIcon } from "@radix-ui/react-icons"
 import LongText from "@/components/long-text"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -13,6 +12,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -26,6 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { IconDots } from "@tabler/icons-react"
 
 const statusClass: Record<string, string> = {
   active: "bg-green-100 text-green-800 border-green-200",
@@ -180,32 +182,29 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
   },
   {
     id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row, table }) => {
-      const loanId = row.original.id
-      const opposite = row.original.status === "active" ? "Dead" : "Active"
+    header: () => null,
+    cell: ({ row }) => {
+      const status = (row.getValue("status") as string | undefined)?.toLowerCase()
+      const opposite = status === "active" ? "dead" : "active"
       return (
         <div className="flex justify-end">
-          <DropdownMenu modal={false}>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <DotsHorizontalIcon className="h-4 w-4" />
-                <span className="sr-only">Open actions</span>
+              <Button size="icon" variant="ghost" className="h-8 w-8">
+                <IconDots className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
-              <DropdownMenuItem onClick={() => table.options.meta?.openPricingEngine?.(loanId)}>
-                Pricing Engine
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => table.options.meta?.openTermSheets?.(loanId)}>
-                Term Sheets
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => table.options.meta?.toggleStatus?.(loanId)}>
-                {`Set to ${opposite}`}
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Pricing Engine</DropdownMenuItem>
+              <DropdownMenuItem>Term Sheets</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>{`Set to ${opposite}`}</DropdownMenuItem>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <DropdownMenuItem className="text-red-600 focus:text-red-600">
                     Delete
                   </DropdownMenuItem>
                 </AlertDialogTrigger>
@@ -213,12 +212,12 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete loan?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently remove this loan from the pipeline.
+                      This action cannot be undone. This will permanently delete this loan and its primary scenario.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => table.options.meta?.deleteLoan?.(loanId)}>
+                    <AlertDialogAction className="bg-red-600 hover:bg-red-700">
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -229,9 +228,9 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
         </div>
       )
     },
+    meta: { className: "w-10 text-right" },
     enableSorting: false,
     enableHiding: false,
-    meta: { className: "w-10 text-right" },
   },
 ]
 

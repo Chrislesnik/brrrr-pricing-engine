@@ -41,30 +41,11 @@ interface Props {
 }
 
 export function PipelineTable({ columns, data }: Props) {
-  const [tableData, setTableData] = useState<LoanRow[]>(data)
+  const [tableData] = useState<LoanRow[]>(data)
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
-
-  const toggleStatus = (id: string) => {
-    setTableData((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: r.status === "active" ? "dead" : "active" } : r
-      )
-    )
-  }
-  const deleteLoan = (id: string) => {
-    setTableData((prev) => prev.filter((r) => r.id !== id))
-  }
-  const openPricingEngine = (id: string) => {
-    if (typeof window !== "undefined") {
-      window.location.assign(`/pricing?loanId=${encodeURIComponent(id)}`)
-    }
-  }
-  const openTermSheets = (id: string) => {
-    // no-op for now
-  }
 
   const table = useReactTable({
     data: tableData,
@@ -75,7 +56,6 @@ export function PipelineTable({ columns, data }: Props) {
       rowSelection,
       columnFilters,
     },
-    meta: { toggleStatus, deleteLoan, openPricingEngine, openTermSheets },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
