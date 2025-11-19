@@ -6,6 +6,7 @@ declare module "@tanstack/table-core" {
     openPricingEngine?: (id: string) => void
     openTermSheets?: (id: string) => void
     toggleStatus?: (id: string) => void
+    deleteLoan?: (id: string) => void
   }
 }
 
