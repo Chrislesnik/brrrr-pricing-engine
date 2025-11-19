@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export interface LoanRow {
   id: string
@@ -13,12 +14,14 @@ export interface LoanRow {
 
 export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> {
   if (!orgId) return []
+  const orgUuid = await getOrgUuidFromClerkId(orgId)
+  if (!orgUuid) return []
 
   // 1) Fetch loans scoped to organization
   const { data: loans, error: loansError } = await supabaseAdmin
     .from("loans")
     .select("id,status,assigned_to,organization_id,created_at,updated_at")
-    .eq("organization_id", orgId)
+    .eq("organization_id", orgUuid)
     .order("updated_at", { ascending: false })
 
   if (loansError) {
@@ -48,7 +51,7 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
   const { data: members, error: membersError } = await supabaseAdmin
     .from("organization_members")
     .select("user_id, first_name, last_name")
-    .eq("organization_id", orgId)
+    .eq("organization_id", orgUuid)
 
   if (membersError) {
     console.error("Error fetching organization members:", membersError.message)

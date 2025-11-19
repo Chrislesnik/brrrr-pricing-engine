@@ -4,6 +4,7 @@ import { addProgramAction } from "./programs-actions"
 import { AddProgramDialog } from "./components/add-program-dialog"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 interface ProgramRow {
   id: string
@@ -18,12 +19,15 @@ export default async function SettingsProgramsPage() {
   const { orgId } = auth()
   let programs: ProgramRow[] = []
   if (orgId) {
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+    if (orgUuid) {
     const { data } = await supabaseAdmin
       .from("programs")
       .select("id, loan_type, internal_name, external_name, webhook_url, status")
-      .eq("organization_id", orgId)
+        .eq("organization_id", orgUuid)
       .order("updated_at", { ascending: false })
-    programs = (data as ProgramRow[]) ?? []
+      programs = (data as ProgramRow[]) ?? []
+    }
   }
 
   return (

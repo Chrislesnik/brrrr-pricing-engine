@@ -3,6 +3,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export async function addProgramAction(formData: FormData) {
   const { userId, orgId: authOrgId } = auth()
@@ -27,6 +28,11 @@ export async function addProgramAction(formData: FormData) {
     return { ok: false, error: "Missing required fields" }
   }
 
+  const orgUuid = await getOrgUuidFromClerkId(orgId)
+  if (!orgUuid) {
+    return { ok: false, error: "Unable to resolve organization. Try reloading and selecting an org." }
+  }
+
   const { error } = await supabaseAdmin.from("programs").insert({
     loan_type: loanType,
     internal_name: internalName,
@@ -34,7 +40,7 @@ export async function addProgramAction(formData: FormData) {
     webhook_url: webhookUrl || null,
     status,
     user_id: userId,
-    organization_id: orgId,
+    organization_id: orgUuid,
   })
   if (error) {
     return { ok: false, error: error.message }
