@@ -1779,11 +1779,11 @@ function ResultCard({ r }: { r: ProgramResult }) {
                 <tbody>
                   {Array.isArray(d?.loan_price) &&
                     d.loan_price
-                      .map((lp: number, i: number) => ({ lp, i }))
-                      .filter(({ lp }) => lp !== undefined && lp !== null && !Number.isNaN(lp as number))
+                      .map((lp: unknown, i: number) => ({ lp, i }))
+                      .filter(({ lp }) => typeof lp === "number" && Number.isFinite(lp as number))
                       .map(({ lp, i }) => (
                         <tr key={i} className="border-b last:border-0">
-                          <td className="py-1 pr-3 text-center">{lp}</td>
+                          <td className="py-1 pr-3 text-center">{lp as number}</td>
                           <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
                           <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
                           <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
