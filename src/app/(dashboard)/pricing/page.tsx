@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -91,6 +91,43 @@ export default function PricingEnginePage() {
     // Run once on mount; internal refs ensure single execution
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
+
+  // ----- Resizable panels (inputs/results) -----
+  const [leftPanePct, setLeftPanePct] = useState<number>(0.25) // 25% default
+  const [isResizing, setIsResizing] = useState<boolean>(false)
+  const layoutRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!isResizing) return
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      let clientX: number | undefined
+      if ("touches" in ev) {
+        if (ev.touches.length === 0) return
+        clientX = ev.touches[0].clientX
+      } else {
+        clientX = (ev as MouseEvent).clientX
+      }
+      const root = layoutRef.current
+      if (!root || clientX === undefined) return
+      const rect = root.getBoundingClientRect()
+      const x = Math.min(Math.max(clientX - rect.left, 0), rect.width)
+      let pct = x / rect.width
+      // clamp to 25% - 50%
+      pct = Math.max(0.25, Math.min(0.5, pct))
+      setLeftPanePct(pct)
+      ev.preventDefault?.()
+    }
+    const stop = () => setIsResizing(false)
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("touchmove", onMove, { passive: false } as unknown as AddEventListenerOptions)
+    window.addEventListener("mouseup", stop)
+    window.addEventListener("touchend", stop)
+    return () => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("touchmove", onMove)
+      window.removeEventListener("mouseup", stop)
+      window.removeEventListener("touchend", stop)
+    }
+  }, [isResizing])
 
   // Subject Property dependent state
   const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
@@ -602,9 +639,9 @@ export default function PricingEnginePage() {
     <div data-layout="fixed" className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
 
-      <div className="flex h-full min-h-0 flex-1 gap-4 overflow-hidden">
+      <div ref={layoutRef} className="flex h-full min-h-0 flex-1 gap-4 overflow-hidden">
         {/* Left 25% column: scrollable container with header and footer */}
-        <aside className="min-h-0 w-full lg:w-1/4">
+        <aside className="min-h-0 w-full lg:shrink-0" style={isMobile ? undefined : { width: `${leftPanePct * 100}%` }}>
           <div className="flex h-full min-h-0 flex-col rounded-md border">
             {/* Header */}
             <div className="grid grid-cols-[1fr_auto] items-end gap-2 border-b p-3">
@@ -1810,8 +1847,27 @@ export default function PricingEnginePage() {
           </div>
         </aside>
 
-        {/* Right 75% column: results display */}
-        <section className="hidden h-full min-h-0 w-full overflow-auto rounded-md border p-3 pb-4 lg:block lg:w-3/4">
+        {/* Drag handle (desktop only) */}
+        <div className="relative hidden h-full items-stretch lg:flex">
+          <button
+            type="button"
+            aria-label="Resize panels"
+            className={`flex h-full w-4 cursor-col-resize items-center justify-center rounded hover:bg-accent ${isResizing ? "bg-accent" : ""}`}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              setIsResizing(true)
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault()
+              setIsResizing(true)
+            }}
+          >
+            <IconGripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Right column: results display (flexes to remaining space) */}
+        <section className="hidden h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block">
           <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} onSelectedChange={setSelectedMainRow} />
         </section>
       </div>
