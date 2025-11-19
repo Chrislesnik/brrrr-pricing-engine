@@ -274,46 +274,48 @@ export default function PricingEnginePage() {
       flood_premium: floodPremium,
       mortgage_debt: mortgageDebtValue,
       closing_date: closingDate ? closingDate.toISOString() : null,
+      // always include effective dates (can be null)
+      hoi_effective_date: hoiEffective ? hoiEffective.toISOString() : null,
+      flood_effective_date: floodEffective ? floodEffective.toISOString() : null,
+      // borrower + fees: always include (may be empty string)
+      borrower_type: borrowerType ?? "",
+      citizenship: citizenship ?? "",
+      fico,
+      borrower_name: borrowerName,
+      guarantors: (guarantorsStr || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      uw_exception: uwException ?? "",
+      lender_orig_percent: lenderOrig,
+      broker_orig_percent: brokerOrig,
+      title_recording_fee: titleRecordingFee,
+      assignment_fee: assignmentFee,
+      seller_concessions: sellerConcessions,
+      tax_escrow_months: taxEscrowMonths,
     }
-    // Optional / conditional extras
+    // Optional / conditional extras - include when section is visible
     if (transactionType !== "purchase") {
       payload["acquisition_date"] = acquisitionDate ? acquisitionDate.toISOString() : null
     }
     if (loanType === "bridge") {
       payload["bridge_type"] = bridgeType
-      if (term) payload["term"] = term
-      if (rentalsOwned) payload["rentals_owned"] = rentalsOwned
-      if (numFlips) payload["num_flips"] = numFlips
-      if (numGunc) payload["num_gunc"] = numGunc
-      if (otherExp) payload["other_exp"] = otherExp
+      payload["term"] = term ?? ""
+      payload["rentals_owned"] = rentalsOwned
+      payload["num_flips"] = numFlips
+      payload["num_gunc"] = numGunc
+      payload["other_exp"] = otherExp ?? ""
     }
     if (loanType === "dscr") {
-      if (fthb) payload["fthb"] = fthb
-      if (loanStructureType) payload["loan_structure_type"] = loanStructureType
-      if (ppp) payload["ppp"] = ppp
-      if (strValue) payload["str"] = strValue
-      if (decliningMarket) payload["declining_market"] = decliningMarket
+      payload["fthb"] = fthb ?? ""
+      payload["loan_structure_type"] = loanStructureType ?? ""
+      payload["ppp"] = ppp ?? ""
+      payload["str"] = strValue ?? ""
+      payload["declining_market"] = decliningMarket ?? ""
     }
-    if (propertyType === "condo" && warrantability) {
-      payload["warrantability"] = warrantability
+    if (propertyType === "condo") {
+      payload["warrantability"] = warrantability ?? ""
     }
-    if (fico) payload["fico"] = fico
-    if (borrowerType) payload["borrower_type"] = borrowerType
-    if (citizenship) payload["citizenship"] = citizenship
-    if (lenderOrig) payload["lender_orig_percent"] = lenderOrig
-    if (brokerOrig) payload["broker_orig_percent"] = brokerOrig
-    if (borrowerName) payload["borrower_name"] = borrowerName
-    if (guarantorsStr) {
-      const parts = (guarantorsStr || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-      if (parts.length) payload["guarantors"] = parts
-    }
-    if (uwException) payload["uw_exception"] = uwException
-    if (taxEscrowMonths) payload["tax_escrow_months"] = taxEscrowMonths
-    if (hoiEffective) payload["hoi_effective_date"] = hoiEffective.toISOString()
-    if (floodEffective) payload["flood_effective_date"] = floodEffective.toISOString()
     if (unitData?.length) {
       payload["unit_data"] = unitData.map((u) => ({
         leased: u.leased,
