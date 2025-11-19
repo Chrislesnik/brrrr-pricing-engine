@@ -1,10 +1,8 @@
 // Type augmentation for TanStack Table meta to support custom actions used in cells
-import type { RowData as ReactTableRowData } from "@tanstack/react-table"
+import type { RowData } from "@tanstack/table-core"
 
-// Some packages reference the react-table module for TableMeta,
-// so augment that module as well to satisfy type checking.
-declare module "@tanstack/react-table" {
-  interface TableMeta<TData extends ReactTableRowData> {
+declare module "@tanstack/table-core" {
+  interface TableMeta<_TData extends RowData> {
     openPricingEngine?: (id: string) => void
     openTermSheets?: (id: string) => void
     toggleStatus?: (id: string) => void

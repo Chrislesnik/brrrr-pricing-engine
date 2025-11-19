@@ -3,6 +3,11 @@
 import { format } from "date-fns"
 import { ColumnDef } from "@tanstack/react-table"
 import { DotsHorizontalIcon } from "@radix-ui/react-icons"
+import LongText from "@/components/long-text"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+import { DataTableColumnHeader } from "../../users/components/data-table-column-header"
+import { LoanRow } from "../data/fetch-loans"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,11 +15,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import LongText from "@/components/long-text"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import { DataTableColumnHeader } from "../../users/components/data-table-column-header"
-import { LoanRow } from "../data/fetch-loans"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const statusClass: Record<string, string> = {
   active: "bg-green-100 text-green-800 border-green-200",
@@ -170,49 +181,54 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
   {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row, table }) => (
-      <div className="flex justify-end">
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <DotsHorizontalIcon className="h-4 w-4" />
-              <span className="sr-only">Open actions</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[180px]">
-            <DropdownMenuItem
-              onClick={() =>
-                table.options.meta?.openPricingEngine?.(row.original.id)
-              }
-            >
-              Pricing Engine
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                table.options.meta?.openTermSheets?.(row.original.id)
-              }
-            >
-              Term Sheets
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                table.options.meta?.toggleStatus?.(row.original.id)
-              }
-            >
-              {`Set to ${row.original.status === "active" ? "Dead" : "Active"}`}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                const ok = typeof window !== "undefined" ? window.confirm("Delete this loan? This cannot be undone.") : false
-                if (ok) table.options.meta?.deleteLoan?.(row.original.id)
-              }}
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    ),
+    cell: ({ row, table }) => {
+      const loanId = row.original.id
+      const opposite = row.original.status === "active" ? "Dead" : "Active"
+      return (
+        <div className="flex justify-end">
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <DotsHorizontalIcon className="h-4 w-4" />
+                <span className="sr-only">Open actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[180px]">
+              <DropdownMenuItem onClick={() => table.options.meta?.openPricingEngine?.(loanId)}>
+                Pricing Engine
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => table.options.meta?.openTermSheets?.(loanId)}>
+                Term Sheets
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => table.options.meta?.toggleStatus?.(loanId)}>
+                {`Set to ${opposite}`}
+              </DropdownMenuItem>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete loan?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove this loan from the pipeline.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => table.options.meta?.deleteLoan?.(loanId)}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    },
     enableSorting: false,
     enableHiding: false,
     meta: { className: "w-10 text-right" },
