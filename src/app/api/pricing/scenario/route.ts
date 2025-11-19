@@ -35,6 +35,7 @@ export async function POST(req: Request) {
         .insert({
           organization_id: orgUuid,
           assigned_to_user_id: userId, // Clerk user id
+          status: "active",
         })
         .select("id")
         .single()

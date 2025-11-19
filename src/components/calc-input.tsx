@@ -32,6 +32,7 @@ function sanitizeCurrencyRaw(input: string): string {
 	if (only === "") return ""
 	// Keep first dot only
 	const firstDot = only.indexOf(".")
+	const trailingDot = firstDot !== -1 && only.endsWith(".")
 	let intPart = ""
 	let decPart = ""
 	if (firstDot === -1) {
@@ -45,7 +46,10 @@ function sanitizeCurrencyRaw(input: string): string {
 	// Limit decimals to 2
 	if (decPart.length > 2) decPart = decPart.slice(0, 2)
 	// Recombine
-	return decPart.length > 0 ? `${intPart || "0"}.${decPart}` : intPart
+	if (decPart.length > 0) return `${intPart || "0"}.${decPart}`
+	// Preserve a trailing '.' while typing (e.g., "123."), allow starting with "."
+	if (trailingDot) return `${intPart || "0"}.`
+	return intPart
 }
 
 function formatWithCommas(raw: string): string {
