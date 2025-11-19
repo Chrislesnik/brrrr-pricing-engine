@@ -112,6 +112,27 @@ export default function PricingEnginePage() {
   const [rehabBudget, setRehabBudget] = useState<string>("")
   const [arv, setArv] = useState<string>("")
   const [aiv, setAiv] = useState<string>("")
+  // Additional UI states to include in payload
+  const [borrowerType, setBorrowerType] = useState<string | undefined>(undefined)
+  const [citizenship, setCitizenship] = useState<string | undefined>(undefined)
+  const [fico, setFico] = useState<string>("")
+  const [fthb, setFthb] = useState<string | undefined>(undefined) // DSCR only
+  const [rentalsOwned, setRentalsOwned] = useState<string>("") // Bridge only
+  const [numFlips, setNumFlips] = useState<string>("") // Bridge only
+  const [numGunc, setNumGunc] = useState<string>("") // Bridge only
+  const [otherExp, setOtherExp] = useState<string | undefined>(undefined) // Bridge only
+  const [warrantability, setWarrantability] = useState<string | undefined>(undefined) // Condo only
+  const [strValue, setStrValue] = useState<string | undefined>(undefined) // DSCR only
+  const [decliningMarket, setDecliningMarket] = useState<string | undefined>(undefined) // DSCR only
+  const [loanStructureType, setLoanStructureType] = useState<string | undefined>(undefined) // DSCR
+  const [ppp, setPpp] = useState<string | undefined>(undefined) // DSCR
+  const [term, setTerm] = useState<string | undefined>(undefined) // Bridge
+  const [lenderOrig, setLenderOrig] = useState<string>("")
+  const [brokerOrig, setBrokerOrig] = useState<string>("")
+  const [borrowerName, setBorrowerName] = useState<string>("")
+  const [guarantorsStr, setGuarantorsStr] = useState<string>("")
+  const [uwException, setUwException] = useState<string | undefined>(undefined)
+  const [taxEscrowMonths, setTaxEscrowMonths] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
@@ -254,11 +275,51 @@ export default function PricingEnginePage() {
       mortgage_debt: mortgageDebtValue,
       closing_date: closingDate ? closingDate.toISOString() : null,
     }
+    // Optional / conditional extras
     if (transactionType !== "purchase") {
       payload["acquisition_date"] = acquisitionDate ? acquisitionDate.toISOString() : null
     }
     if (loanType === "bridge") {
       payload["bridge_type"] = bridgeType
+      if (term) payload["term"] = term
+      if (rentalsOwned) payload["rentals_owned"] = rentalsOwned
+      if (numFlips) payload["num_flips"] = numFlips
+      if (numGunc) payload["num_gunc"] = numGunc
+      if (otherExp) payload["other_exp"] = otherExp
+    }
+    if (loanType === "dscr") {
+      if (fthb) payload["fthb"] = fthb
+      if (loanStructureType) payload["loan_structure_type"] = loanStructureType
+      if (ppp) payload["ppp"] = ppp
+      if (strValue) payload["str"] = strValue
+      if (decliningMarket) payload["declining_market"] = decliningMarket
+    }
+    if (propertyType === "condo" && warrantability) {
+      payload["warrantability"] = warrantability
+    }
+    if (fico) payload["fico"] = fico
+    if (borrowerType) payload["borrower_type"] = borrowerType
+    if (citizenship) payload["citizenship"] = citizenship
+    if (lenderOrig) payload["lender_orig_percent"] = lenderOrig
+    if (brokerOrig) payload["broker_orig_percent"] = brokerOrig
+    if (borrowerName) payload["borrower_name"] = borrowerName
+    if (guarantorsStr) {
+      const parts = (guarantorsStr || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      if (parts.length) payload["guarantors"] = parts
+    }
+    if (uwException) payload["uw_exception"] = uwException
+    if (taxEscrowMonths) payload["tax_escrow_months"] = taxEscrowMonths
+    if (hoiEffective) payload["hoi_effective_date"] = hoiEffective.toISOString()
+    if (floodEffective) payload["flood_effective_date"] = floodEffective.toISOString()
+    if (unitData?.length) {
+      payload["unit_data"] = unitData.map((u) => ({
+        leased: u.leased,
+        gross: u.gross,
+        market: u.market,
+      }))
     }
     return payload
   }
@@ -532,7 +593,7 @@ export default function PricingEnginePage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-type">Borrower Type</Label>
-                        <Select>
+                        <Select value={borrowerType} onValueChange={setBorrowerType}>
                           <SelectTrigger id="borrower-type" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
@@ -544,7 +605,7 @@ export default function PricingEnginePage() {
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="citizenship">Citizenship</Label>
-                        <Select>
+                        <Select value={citizenship} onValueChange={setCitizenship}>
                           <SelectTrigger id="citizenship" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
@@ -560,7 +621,7 @@ export default function PricingEnginePage() {
                         <>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="fthb">FTHB</Label>
-                            <Select>
+                            <Select value={fthb} onValueChange={setFthb}>
                               <SelectTrigger id="fthb" className="h-9 w-full">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
@@ -596,6 +657,8 @@ export default function PricingEnginePage() {
                           min={300}
                           max={850}
                           placeholder="700"
+                          value={fico}
+                          onChange={(e) => setFico(e.target.value)}
                         />
                       </div>
                     </div>
@@ -616,6 +679,8 @@ export default function PricingEnginePage() {
                             inputMode="numeric"
                             pattern="[0-9]*"
                             placeholder="0"
+                            value={rentalsOwned}
+                            onChange={(e) => setRentalsOwned(e.target.value)}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -625,6 +690,8 @@ export default function PricingEnginePage() {
                             inputMode="numeric"
                             pattern="[0-9]*"
                             placeholder="0"
+                            value={numFlips}
+                            onChange={(e) => setNumFlips(e.target.value)}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -634,11 +701,13 @@ export default function PricingEnginePage() {
                             inputMode="numeric"
                             pattern="[0-9]*"
                             placeholder="0"
+                            value={numGunc}
+                            onChange={(e) => setNumGunc(e.target.value)}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="other-exp">Other</Label>
-                          <Select>
+                          <Select value={otherExp} onValueChange={setOtherExp}>
                             <SelectTrigger id="other-exp" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -832,7 +901,7 @@ export default function PricingEnginePage() {
                         {propertyType === "condo" ? (
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="warrantability">Warrantability</Label>
-                            <Select>
+                            <Select value={warrantability} onValueChange={setWarrantability}>
                               <SelectTrigger id="warrantability" className="h-9 w-full">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
@@ -878,7 +947,7 @@ export default function PricingEnginePage() {
                           <>
                             <div className="flex flex-col gap-1">
                               <Label htmlFor="str">STR</Label>
-                              <Select>
+                              <Select value={strValue} onValueChange={setStrValue}>
                                 <SelectTrigger id="str" className="h-9 w-full">
                                   <SelectValue placeholder="Select..." />
                                 </SelectTrigger>
@@ -890,7 +959,7 @@ export default function PricingEnginePage() {
                             </div>
                             <div className="flex flex-col gap-1">
                               <Label htmlFor="declining-market">Declining Market</Label>
-                              <Select>
+                              <Select value={decliningMarket} onValueChange={setDecliningMarket}>
                                 <SelectTrigger id="declining-market" className="h-9 w-full">
                                   <SelectValue placeholder="Select..." />
                                 </SelectTrigger>
@@ -1192,7 +1261,7 @@ export default function PricingEnginePage() {
                         <>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="loan-structure-type">Loan Structure</Label>
-                            <Select>
+                            <Select value={loanStructureType} onValueChange={setLoanStructureType}>
                               <SelectTrigger id="loan-structure-type" className="h-9 w-full">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
@@ -1204,7 +1273,7 @@ export default function PricingEnginePage() {
                           </div>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="ppp">PPP</Label>
-                            <Select>
+                            <Select value={ppp} onValueChange={setPpp}>
                               <SelectTrigger id="ppp" className="h-9 w-full">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
@@ -1220,7 +1289,7 @@ export default function PricingEnginePage() {
                       {loanType === "bridge" && (
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="term">Term</Label>
-                          <Select>
+                          <Select value={term} onValueChange={setTerm}>
                             <SelectTrigger id="term" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -1376,7 +1445,7 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="lender-orig">Lender Origination</Label>
                         <div className="relative">
-                          <Input id="lender-orig" inputMode="decimal" placeholder="0.00" className="pr-6" />
+                          <Input id="lender-orig" inputMode="decimal" placeholder="0.00" className="pr-6" value={lenderOrig} onChange={(e)=>setLenderOrig(e.target.value)} />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             %
                           </span>
@@ -1400,7 +1469,7 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="broker-orig">Broker Origination</Label>
                         <div className="relative">
-                          <Input id="broker-orig" inputMode="decimal" placeholder="0.00" className="pr-6" />
+                          <Input id="broker-orig" inputMode="decimal" placeholder="0.00" className="pr-6" value={brokerOrig} onChange={(e)=>setBrokerOrig(e.target.value)} />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             %
                           </span>
@@ -1418,11 +1487,11 @@ export default function PricingEnginePage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-name">Borrower Name</Label>
-                        <Input id="borrower-name" placeholder="Name" />
+                        <Input id="borrower-name" placeholder="Name" value={borrowerName} onChange={(e)=>setBorrowerName(e.target.value)} />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="guarantors">Guarantor(s)</Label>
-                        <Input id="guarantors" placeholder="Names separated by comma" />
+                        <Input id="guarantors" placeholder="Names separated by comma" value={guarantorsStr} onChange={(e)=>setGuarantorsStr(e.target.value)} />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="uw-exception">UW Exception</Label>
@@ -1430,7 +1499,7 @@ export default function PricingEnginePage() {
                           <SelectTrigger id="uw-exception" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent onEscapeKeyDown={()=>{}}>
                             <SelectItem value="yes">Yes</SelectItem>
                             <SelectItem value="no">No</SelectItem>
                           </SelectContent>
@@ -1525,7 +1594,7 @@ export default function PricingEnginePage() {
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="tax-escrow">Tax Escrow (months)</Label>
-                        <Input id="tax-escrow" inputMode="numeric" pattern="[0-9]*" placeholder="0" />
+                        <Input id="tax-escrow" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={taxEscrowMonths} onChange={(e)=>setTaxEscrowMonths(e.target.value)} />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="hoi-premium">HOI Premium</Label>

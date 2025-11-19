@@ -91,10 +91,46 @@ The payload contains only the currently-visible inputs (hidden/conditional field
   "mortgage_debt": "0.00",
 
   "closing_date": "2025-11-19T00:00:00.000Z",
+  "hoi_effective_date": "2025-11-01T00:00:00.000Z",
+  "flood_effective_date": "2025-11-01T00:00:00.000Z",
 
   // Included only when visible / applicable:
-  "acquisition_date": "2025-05-01T00:00:00.000Z",   // present when transaction_type !== "purchase"
-  "bridge_type": "bridge | bridge-rehab | ground-up" // present when loan_type === "bridge"
+  "acquisition_date": "2025-05-01T00:00:00.000Z",         // present when transaction_type !== "purchase"
+  "bridge_type": "bridge | bridge-rehab | ground-up",     // present when loan_type === "bridge"
+  "term": "12 | 15 | 18",                                 // bridge only
+  "rentals_owned": "0",                                   // bridge experience
+  "num_flips": "0",                                       // bridge experience
+  "num_gunc": "0",                                        // bridge experience
+  "other_exp": "yes | no",                                // bridge experience
+
+  // DSCR-only
+  "fthb": "yes | no",
+  "loan_structure_type": "fixed-30 | io",
+  "ppp": "5-4-3-2-1 | 3-2-1 | 1",
+  "str": "yes | no",
+  "declining_market": "yes | no",
+
+  // Condo-only
+  "warrantability": "warrantable | non-warrantable",
+
+  // Borrower/guarantor & fees (when provided)
+  "borrower_type": "entity | individual",
+  "citizenship": "us | pr | npr | fn",
+  "fico": "700",
+  "borrower_name": "Jane Smith",
+  "guarantors": ["Alice Example","Bob Example"],
+  "uw_exception": "yes | no",
+  "lender_orig_percent": "0.00",
+  "broker_orig_percent": "0.00",
+  "title_recording_fee": "0.00",
+  "assignment_fee": "0.00",
+  "seller_concessions": "0.00",
+  "tax_escrow_months": "0",
+
+  // Unit rows (when number of units > 0)
+  "unit_data": [
+    { "leased": "yes | no | undefined", "gross": "0.00", "market": "0.00" }
+  ]
 }
 ```
 
@@ -105,10 +141,9 @@ The payload contains only the currently-visible inputs (hidden/conditional field
 - **Transaction Type**
   - `purchase`, `delayed-purchase`, `rt-refi` (Refi Rate/Term), `co-refi` (Refi Cash Out)
 - **Borrower Type**
-  - `entity`, `individual` (UI only; not currently emitted in payload)
+  - `entity`, `individual`
 - **Citizenship**
-  - `us` (U.S. Citizen), `pr` (Permanent Resident), `npr` (Non‑Permanent Resident), `fn` (Foreign National)  
-  (UI only; not currently emitted in payload)
+  - `us` (U.S. Citizen), `pr` (Permanent Resident), `npr` (Non‑Permanent Resident), `fn` (Foreign National)
 - **Property Type**
   - `single`, `pud`, `condo`, `mf2_4`, `mf5_10`  
   Note: `mf5_10` is hidden when Loan Type is `dscr`.
@@ -127,7 +162,10 @@ The payload contains only the currently-visible inputs (hidden/conditional field
   - `12`, `15`, `18` (months)
 - **Booleans / Toggles**
   - Request Max Leverage → `true | false`
-  - Other yes/no toggles (e.g., STR, FTHB, Declining Market) are rendered in the UI but are not yet included in the webhook payload.
+  - STR → `yes | no` (DSCR only)
+  - FTHB → `yes | no` (DSCR only)
+  - Declining Market → `yes | no` (DSCR only)
+  - Warrantability → `warrantable | non-warrantable` (Condo only)
 
 ### Example Request Sent to Program Webhooks
 
@@ -170,4 +208,4 @@ Content-Type: application/json
 }
 ```
 
-If you need additional UI fields included in the payload (e.g., Borrower Type, STR/Declining toggles), add them to the `buildPayload()` function used by the Pricing Engine page and they will be forwarded to all matching Program webhooks.
+All fields above are included in the payload when visible/applicable. Hidden/irrelevant fields for the current scenario are omitted.
