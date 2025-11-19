@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ensureGoogleMaps } from "@/lib/google-maps"
+import { toast } from "@/hooks/use-toast"
 
 export default function PricingEnginePage() {
   // Subject Property dependent state
@@ -47,17 +48,86 @@ export default function PricingEnginePage() {
   const [zip, setZip] = useState<string>("")
   const [county, setCounty] = useState<string>("")
   const streetInputRef = useRef<HTMLInputElement | null>(null)
+  const [sendingReApi, setSendingReApi] = useState<boolean>(false)
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const sessionTokenRef = useRef<unknown>(undefined)
+  // Minimal Google Places typings used locally to avoid 'any'
+  type GPlaces = {
+    AutocompleteSessionToken: new () => unknown
+    AutocompleteService: new () => {
+      getPlacePredictions: (
+        req: {
+          input: string
+          types?: string[]
+          componentRestrictions?: { country: string[] }
+          sessionToken?: unknown
+        },
+        cb: (res: PlacePrediction[] | null, status: string) => void
+      ) => void
+    }
+    PlacesService: new (el: HTMLElement) => {
+      getDetails: (
+        req: { placeId: string; fields?: string[]; sessionToken?: unknown },
+        cb: (
+          place: { address_components?: { short_name?: string; long_name?: string; types?: string[] }[] } | null,
+          status: string
+        ) => void
+      ) => void
+    }
+  }
+  const getPlaces = (): GPlaces | undefined => {
+    const win = window as unknown as { google?: { maps?: { places?: GPlaces } } }
+    return win.google?.maps?.places
+  }
   interface PlacePrediction {
     place_id: string
     description: string
     structured_formatting?: {
       main_text?: string
       secondary_text?: string
+    }
+  }
+  
+  async function handleSendToReApi(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (sendingReApi) return
+    try {
+      setSendingReApi(true)
+      const payload = {
+        street,
+        apt,
+        city,
+        state: stateCode ?? "",
+        zip,
+      }
+      const res = await fetch("https://n8n.axora.info/webhook-test/c0d82736-8004-4c69-b9fc-fee54676ff46", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        throw new Error(text || `Request failed: ${res.status}`)
+      }
+      toast({
+        title: "Sent to RE API",
+        description: "Address submitted successfully.",
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      toast({
+        title: "Failed to send",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setSendingReApi(false)
     }
   }
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
@@ -101,7 +171,10 @@ export default function PricingEnginePage() {
       try {
         await ensureGoogleMaps(apiKey)
         // Initialize a session token for a better billing experience
-        sessionTokenRef.current = new (window as any).google.maps.places.AutocompleteSessionToken()
+        const places = getPlaces()
+        if (places) {
+          sessionTokenRef.current = new places.AutocompleteSessionToken()
+        }
         setGmapsReady(true)
       } catch {
         setGmapsReady(false)
@@ -117,7 +190,9 @@ export default function PricingEnginePage() {
       setPredictions([])
       return
     }
-    const svc = new (window as any).google.maps.places.AutocompleteService()
+    const places = getPlaces()
+    if (!places) return
+    const svc = new places.AutocompleteService()
     const req = {
       input: q,
       types: ["address"],
@@ -127,10 +202,7 @@ export default function PricingEnginePage() {
     let cancelled = false
     svc.getPlacePredictions(req, (res: PlacePrediction[] | null, status: string) => {
       if (cancelled) return
-      const ok =
-        status === (window as any).google.maps.places.PlacesServiceStatus?.OK ||
-        status === "OK" ||
-        status === "ZERO_RESULTS"
+      const ok = status === "OK" || status === "ZERO_RESULTS"
       if (!ok || !res) {
         setPredictions([])
         return
@@ -145,15 +217,16 @@ export default function PricingEnginePage() {
   }, [street, gmapsReady])
 
   function applyPlaceById(placeId: string) {
-    const svc = new (window as any).google.maps.places.PlacesService(document.createElement("div"))
+    const places = getPlaces()
+    if (!places) return
+    const svc = new places.PlacesService(document.createElement("div"))
     const req = {
       placeId,
       fields: ["address_components", "formatted_address"],
       sessionToken: sessionTokenRef.current,
     }
-    svc.getDetails(req, (place: any, status: string) => {
-      const ok =
-        status === (window as any).google.maps.places.PlacesServiceStatus?.OK || status === "OK"
+    svc.getDetails(req, (place, status: string) => {
+      const ok = status === "OK"
       if (!ok || !place) return
       type AddressComponent = { short_name?: string; long_name?: string; types?: string[] }
       const comps = (place?.address_components as AddressComponent[]) ?? []
@@ -173,7 +246,7 @@ export default function PricingEnginePage() {
       setPredictions([])
       setShowPredictions(false)
       // New token after a selection, per session semantics
-      sessionTokenRef.current = new (window as any).google.maps.places.AutocompleteSessionToken()
+      sessionTokenRef.current = new places.AutocompleteSessionToken()
     })
   }
 
@@ -415,16 +488,14 @@ export default function PricingEnginePage() {
                   <AccordionTrigger className="text-left text-base font-bold italic hover:no-underline">
                     <div className="flex items-center gap-3 pr-6">
                       <span>Subject Property</span>
-                      <Button asChild size="sm" variant="secondary" className="ml-auto h-7 not-italic">
-                        <span
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                          }}
-                          className="not-italic"
-                        >
-                          RE API
-                        </span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="ml-auto h-7 not-italic"
+                        onClick={handleSendToReApi}
+                        disabled={sendingReApi}
+                      >
+                        {sendingReApi ? "Sending..." : "RE API"}
                       </Button>
                     </div>
                   </AccordionTrigger>
