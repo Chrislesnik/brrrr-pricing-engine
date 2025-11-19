@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
@@ -69,6 +70,10 @@ const getPlaces = (): GPlaces | undefined => {
 }
 
 export default function PricingEnginePage() {
+  const searchParams = useSearchParams()
+  const initialLoanId = searchParams.get("loanId") ?? undefined
+  const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; created_at?: string }[]>([])
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
   // Collapse the left app sidebar by default when entering this page.
   // We snapshot the prior open state and restore it on unmount so other pages aren't affected.
   const { open: sidebarOpen, setOpen: setSidebarOpen, isMobile } = useSidebar()
@@ -560,6 +565,28 @@ export default function PricingEnginePage() {
     })()
   }, [])
 
+  // Load scenarios for a given loanId from query param
+  useEffect(() => {
+    const loanId = initialLoanId
+    if (!loanId) {
+      setScenariosList([])
+      setSelectedScenarioId(undefined)
+      return
+    }
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/loans/${loanId}/scenarios`)
+        if (!res.ok) return
+        const json = (await res.json()) as { scenarios?: { id: string; name?: string; created_at?: string }[] }
+        setScenariosList(json.scenarios ?? [])
+        setSelectedScenarioId(json.scenarios?.[0]?.id)
+      } catch {
+        // ignore
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLoanId])
+
   // Fetch predictions as the user types, using our own UI
   useEffect(() => {
     if (!gmapsReady) return
@@ -667,14 +694,16 @@ export default function PricingEnginePage() {
                     className="h-9 w-full"
                   />
                 ) : (
-                <Select>
+                <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="base">Base</SelectItem>
-                    <SelectItem value="alt-1">Alt 1</SelectItem>
-                    <SelectItem value="alt-2">Alt 2</SelectItem>
+                    {scenariosList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name ?? `Scenario ${new Date(s.created_at ?? "").toLocaleDateString()}`}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 )}

@@ -237,7 +237,9 @@ function RowActions({ id, status }: { id: string; status?: string }) {
         <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Pricing Engine</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => (window.location.href = `/pricing?loanId=${id}`)}>
+            Pricing Engine
+          </DropdownMenuItem>
           <DropdownMenuItem>Term Sheets</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
