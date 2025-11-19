@@ -66,14 +66,23 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Loan Type" />
     ),
-    cell: ({ row }) => <div>{row.getValue("loanType") ?? "-"}</div>,
+    cell: ({ row }) => {
+      const raw = (row.getValue("loanType") as string | undefined)?.toLowerCase()
+      const display =
+        raw === "dscr" ? "DSCR" : raw === "bridge" ? "Bridge" : raw ? raw : "-"
+      return <div>{display}</div>
+    },
   },
   {
     accessorKey: "transactionType",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Transaction Type" />
     ),
-    cell: ({ row }) => <div>{row.getValue("transactionType") ?? "-"}</div>,
+    cell: ({ row }) => {
+      const raw = (row.getValue("transactionType") as string | undefined) ?? "-"
+      const title = raw === "-" ? "-" : raw.replace(/\b\w+/g, (w) => w[0].toUpperCase() + w.slice(1))
+      return <div>{title}</div>
+    },
   },
   {
     accessorKey: "loanAmount",
