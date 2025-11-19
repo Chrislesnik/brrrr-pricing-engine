@@ -93,7 +93,7 @@ export default function PricingEnginePage() {
   }, [isMobile])
 
   // ----- Resizable panels (inputs/results) -----
-  const [leftPanePct, setLeftPanePct] = useState<number>(0.25) // 25% default
+  const [leftPanePct, setLeftPanePct] = useState<number>(0.3) // 30% default (clamped 25–50)
   const [isResizing, setIsResizing] = useState<boolean>(false)
   const layoutRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
