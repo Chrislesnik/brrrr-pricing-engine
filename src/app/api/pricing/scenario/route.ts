@@ -21,8 +21,8 @@ export async function POST(req: Request) {
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 400 })
 
     const body = (await req.json().catch(() => null)) as SaveScenarioBody | null
-    if (!body || !body.name || !body.inputs) {
-      return NextResponse.json({ error: "Missing name or inputs" }, { status: 400 })
+    if (!body || !body.inputs) {
+      return NextResponse.json({ error: "Missing inputs" }, { status: 400 })
     }
 
     let loanId = body.loanId
@@ -42,13 +42,23 @@ export async function POST(req: Request) {
       loanId = loanRow?.id as string
     }
 
+    // loan_scenarios schema:
+    // id (uuid), loan_id (uuid), primary (boolean), user_id (text), organization_id (text), inputs (jsonb), created_at (timestamptz)
+    const enrichedInputs = {
+      // keep the original payload under data
+      data: body.inputs,
+      // optional metadata we want to keep alongside
+      name: body.name ?? null,
+      selected: body.selected ?? null,
+    }
     const { data: scenario, error: scenErr } = await supabaseAdmin
       .from("loan_scenarios")
       .insert({
         loan_id: loanId,
-        name: body.name,
-        inputs: body.inputs,
-        selected: body.selected ?? null,
+        primary: false,
+        user_id: userId,
+        organization_id: orgUuid,
+        inputs: enrichedInputs,
       })
       .select("id")
       .single()
