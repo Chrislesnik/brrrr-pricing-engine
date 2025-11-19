@@ -129,7 +129,7 @@ export default function PricingEnginePage() {
         zip,
         transaction_type: transactionType ?? "",
       }
-      const res = await fetch("https://n8n.axora.info/webhook-test/c0d82736-8004-4c69-b9fc-fee54676ff46", {
+      const res = await fetch("https://n8n.axora.info/webhook/c0d82736-8004-4c69-b9fc-fee54676ff46", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -770,9 +770,7 @@ export default function PricingEnginePage() {
                               </SelectContent>
                             </Select>
                           </div>
-                        ) : (
-                          <div className="hidden sm:block" />
-                        )}
+                        ) : null}
 
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="num-units">Number of Units</Label>
@@ -1105,9 +1103,7 @@ export default function PricingEnginePage() {
                             </PopoverContent>
                           </Popover>
                         </div>
-                      ) : (
-                        <div className="hidden sm:block" />
-                      )}
+                      ) : null}
                       {loanType === "dscr" && (
                         <>
                           <div className="flex flex-col gap-1">
@@ -1196,12 +1192,7 @@ export default function PricingEnginePage() {
                             </div>
                           </div>
                         </>
-                      ) : (
-                        <>
-                          <div className="hidden sm:block" />
-                          <div className="hidden sm:block" />
-                        </>
-                      )}
+                      ) : null}
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="aiv">AIV</Label>
                         <div className="relative">
@@ -1291,9 +1282,7 @@ export default function PricingEnginePage() {
                             </div>
                           </div>
                         )
-                      ) : (
-                        <div className="hidden sm:block" />
-                      )}
+                      ) : null}
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="lender-orig">Lender Origination</Label>
                         <div className="relative">

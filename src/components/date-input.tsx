@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
 
-interface Props extends React.HTMLAttributes<HTMLDivElement> {
+interface Props extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
   value?: Date
   onChange: (date: Date) => void
   className?: string
