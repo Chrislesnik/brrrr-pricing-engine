@@ -190,7 +190,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       async function setStatus(next: string) {
         try {
           const res = await fetch(`/api/loans/${id}`, {
-            method: "PATCH",
+            method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: next }),
           })
