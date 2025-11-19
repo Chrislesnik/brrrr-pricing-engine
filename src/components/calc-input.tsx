@@ -24,6 +24,38 @@ function isSafeExpression(expression: string): boolean {
 	return depth === 0 && expression.trim().length > 0
 }
 
+// Normalize a user-typed currency string to a raw numeric string without commas,
+// with an optional single decimal point and at most two fractional digits.
+function sanitizeCurrencyRaw(input: string): string {
+	// Strip everything except digits and dots
+	const only = input.replace(/[^0-9.]/g, "")
+	if (only === "") return ""
+	// Keep first dot only
+	const firstDot = only.indexOf(".")
+	let intPart = ""
+	let decPart = ""
+	if (firstDot === -1) {
+		intPart = only
+	} else {
+		intPart = only.slice(0, firstDot)
+		decPart = only.slice(firstDot + 1).replace(/\./g, "")
+	}
+	// Remove leading zeros in integer part (but keep single zero if decimals exist or if all zeros)
+	intPart = intPart.replace(/^0+(?=\d)/, "")
+	// Limit decimals to 2
+	if (decPart.length > 2) decPart = decPart.slice(0, 2)
+	// Recombine
+	return decPart.length > 0 ? `${intPart || "0"}.${decPart}` : intPart
+}
+
+function formatWithCommas(raw: string): string {
+	if (!raw) return ""
+	const [i, d] = raw.split(".")
+	// Insert commas in integer part
+	const withCommas = i.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+	return d !== undefined ? `${withCommas}.${d}` : withCommas
+}
+
 export function CalcInput({ id, value, onValueChange, className, ...rest }: Props) {
 	const [calcMode, setCalcMode] = React.useState<boolean>(false)
 	const [expr, setExpr] = React.useState<string>("")
@@ -39,7 +71,9 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 		try {
 			const result = Function(`"use strict"; return (${trimmed});`)()
 			if (typeof result === "number" && Number.isFinite(result)) {
-				onValueChange(String(result))
+				// Store as raw currency with max 2 decimals
+				const normalized = sanitizeCurrencyRaw(String(result))
+				onValueChange(normalized)
 				setCalcMode(false)
 				setExpr("")
 			}
@@ -51,10 +85,11 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 	return (
 		<Input
 			id={id}
-			value={calcMode ? `=${expr}` : value}
+			value={calcMode ? `=${expr}` : formatWithCommas(value)}
 			onChange={(e) => {
 				if (!calcMode) {
-					onValueChange(e.target.value)
+					const raw = sanitizeCurrencyRaw(e.target.value)
+					onValueChange(raw)
 					return
 				}
 				const v = e.target.value
@@ -62,7 +97,8 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 				if (!v.startsWith("=")) {
 					setCalcMode(false)
 					setExpr("")
-					onValueChange(v)
+					const raw = sanitizeCurrencyRaw(v)
+					onValueChange(raw)
 				} else {
 					setExpr(v.slice(1))
 				}
@@ -84,6 +120,16 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 					setExpr("")
 				}
 			}}
+			onBlur={() => {
+				if (calcMode) return
+				if (!value) return
+				// Ensure we clamp to 2 decimals on blur, padding if needed
+				const num = Number(value)
+				if (!Number.isNaN(num) && Number.isFinite(num)) {
+					const fixed = num.toFixed(2)
+					onValueChange(sanitizeCurrencyRaw(fixed))
+				}
+			}}
 			className={cn(
 				calcMode
 					? "ring-2 ring-purple-500/60 border-purple-500/70 focus-visible:ring-purple-500"
@@ -91,6 +137,8 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 				className
 			)}
 			inputMode="decimal"
+			pattern="^[0-9]*\\.?[0-9]{0,2}$"
+			aria-label="Currency amount"
 			{...rest}
 		/>
 	)

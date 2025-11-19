@@ -41,16 +41,21 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
   // 2) Fetch primary scenarios for these loans
   const { data: scenarios, error: scenariosError } = await supabaseAdmin
     .from("loan_scenarios")
-    .select("loan_id, inputs")
+    .select("loan_id, inputs, selected")
     .in("loan_id", loanIds)
     .eq("primary", true)
 
   if (scenariosError) {
     logError("Error fetching loan scenarios:", scenariosError.message)
   }
-  const loanIdToInputs = new Map<string, Record<string, unknown>>()
-  for (const s of scenarios ?? []) {
-    loanIdToInputs.set(s.loan_id as string, (s.inputs as Record<string, unknown>) ?? {})
+  type ScenarioRow = { loan_id: string; inputs?: Record<string, unknown>; selected?: Record<string, unknown> }
+  const loanIdToScenario = new Map<string, ScenarioRow>()
+  for (const s of (scenarios ?? []) as any[]) {
+    loanIdToScenario.set(s.loan_id as string, {
+      loan_id: s.loan_id as string,
+      inputs: (s.inputs as Record<string, unknown>) ?? {},
+      selected: (s.selected as Record<string, unknown>) ?? {},
+    })
   }
 
   // 3) Fetch organization members to resolve assigned_to_user_id -> user name
@@ -72,7 +77,9 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
 
   // 4) Merge into final rows
   const rows: LoanRow[] = loans.map((l) => {
-    const inputs = loanIdToInputs.get(l.id as string) ?? {}
+    const scenario = loanIdToScenario.get(l.id as string)
+    const inputs = scenario?.inputs ?? {}
+    const selected = scenario?.selected ?? {}
     const assignedToUserId = (l.assigned_to_user_id as string) ?? null
     const assignedToName =
       assignedToUserId ? userIdToName.get(assignedToUserId) ?? assignedToUserId : null
@@ -83,6 +90,35 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
       assignedTo: assignedToName,
       createdAt: l.created_at as string,
       updatedAt: l.updated_at as string,
+      // Derived columns for the pipeline table
+      propertyAddress: (() => {
+        const addr = inputs["address"] as { street?: string; city?: string; state?: string; zip?: string } | undefined
+        if (!addr) return undefined
+        const parts = [addr.street, addr.city, addr.state, addr.zip].filter(Boolean)
+        return parts.length ? parts.join(", ") : undefined
+      })(),
+      borrowerFirstName: (inputs["borrower_name"] as string | undefined)?.split(" ")[0],
+      borrowerLastName: (() => {
+        const name = inputs["borrower_name"] as string | undefined
+        if (!name) return undefined
+        const parts = name.trim().split(/\s+/)
+        return parts.length > 1 ? parts.slice(1).join(" ") : undefined
+      })(),
+      guarantors: Array.isArray(inputs["guarantors"]) ? (inputs["guarantors"] as string[]) : [],
+      loanType: inputs["loan_type"] as string | undefined,
+      transactionType: inputs["transaction_type"] as string | undefined,
+      loanAmount: (() => {
+        // support both selected.loan_amount and legacy selected.loanAmount
+        const v = (selected["loan_amount"] ?? selected["loanAmount"]) as string | number | undefined
+        const num = typeof v === "string" ? Number(v.toString().replace(/[$,]/g, "")) : (v as number | undefined)
+        return Number.isFinite(num as number) ? (num as number) : undefined
+      })(),
+      rate: (() => {
+        // support both selected.rate and legacy selected.interestRate
+        const v = (selected["rate"] ?? selected["interestRate"]) as string | number | undefined
+        const num = typeof v === "string" ? Number(v.toString().replace(/[%]/g, "")) : (v as number | undefined)
+        return Number.isFinite(num as number) ? (num as number) : undefined
+      })(),
       ...(inputs as Record<string, unknown>),
     }
   })
