@@ -49,11 +49,16 @@ export default function PricingEnginePage() {
   const [county, setCounty] = useState<string>("")
   const streetInputRef = useRef<HTMLInputElement | null>(null)
   const [sendingReApi, setSendingReApi] = useState<boolean>(false)
+  // Controlled fields for webhook responses
+  const [glaSqFt, setGlaSqFt] = useState<string>("0")
+  const [purchasePrice, setPurchasePrice] = useState<string>("")
+  const [annualTaxes, setAnnualTaxes] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
+  const suppressPredictionsRef = useRef<boolean>(false)
   const sessionTokenRef = useRef<unknown>(undefined)
   // Minimal Google Places typings used locally to avoid 'any'
   type GPlaces = {
@@ -116,6 +121,47 @@ export default function PricingEnginePage() {
       if (!res.ok) {
         const text = await res.text().catch(() => "")
         throw new Error(text || `Request failed: ${res.status}`)
+      }
+      // Try to parse JSON and populate fields if present
+      let data: Record<string, unknown> | undefined
+      try {
+        data = await res.json()
+      } catch {
+        data = undefined
+      }
+      if (data) {
+        const val = (...keys: string[]) => {
+          for (const k of keys) {
+            if (k in data!) return data![k] as unknown
+          }
+          return undefined
+        }
+        // Property Type
+        const pt = val("property-type", "property_type")
+        if (typeof pt === "string" && pt) {
+          setPropertyType(pt)
+        }
+        // GLA Sq Ft
+        const gla = val("gla", "gla_sq_ft", "gla_sqft", "gla_sqft_ft")
+        if (gla !== undefined && gla !== null) {
+          setGlaSqFt(String(gla))
+        }
+        // Acquisition Date
+        const acq = val("acq-date", "acq_date", "acquisition_date")
+        if (typeof acq === "string" || acq instanceof Date || typeof acq === "number") {
+          const d = new Date(acq as any)
+          if (!isNaN(d.getTime())) setAcquisitionDate(d)
+        }
+        // Purchase Price
+        const pp = val("purchase-price", "purchase_price")
+        if (pp !== undefined && pp !== null) {
+          setPurchasePrice(String(pp))
+        }
+        // Annual Taxes
+        const at = val("annual-taxes", "annual_taxes")
+        if (at !== undefined && at !== null) {
+          setAnnualTaxes(String(at))
+        }
       }
       toast({
         title: "Sent to RE API",
@@ -187,6 +233,13 @@ export default function PricingEnginePage() {
   // Fetch predictions as the user types, using our own UI
   useEffect(() => {
     if (!gmapsReady) return
+    // Suppress one prediction fetch cycle right after a programmatic selection
+    if (suppressPredictionsRef.current) {
+      suppressPredictionsRef.current = false
+      setPredictions([])
+      setShowPredictions(false)
+      return
+    }
     const q = street.trim()
     if (!q) {
       setPredictions([])
@@ -247,6 +300,8 @@ export default function PricingEnginePage() {
       setCounty(countyName)
       setPredictions([])
       setShowPredictions(false)
+      // Prevent the next input value change from reopening the menu immediately
+      suppressPredictionsRef.current = true
       // New token after a selection, per session semantics
       sessionTokenRef.current = new places.AutocompleteSessionToken()
     })
@@ -705,7 +760,13 @@ export default function PricingEnginePage() {
 
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="gla">GLA Sq Ft</Label>
-                          <Input id="gla" inputMode="numeric" placeholder="0" />
+                          <Input
+                            id="gla"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={glaSqFt}
+                            onChange={(e) => setGlaSqFt(e.target.value)}
+                          />
                         </div>
                         {loanType === "dscr" && (
                           <>
@@ -808,7 +869,14 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="annual-taxes" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <Input
+                            id="annual-taxes"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={annualTaxes}
+                            onChange={(e) => setAnnualTaxes(e.target.value)}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1033,7 +1101,14 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="purchase-price" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <Input
+                            id="purchase-price"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={purchasePrice}
+                            onChange={(e) => setPurchasePrice(e.target.value)}
+                          />
                         </div>
                       </div>
                       {transactionType !== "purchase" ? (

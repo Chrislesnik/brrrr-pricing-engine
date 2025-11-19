@@ -18,6 +18,12 @@ import { callTypes } from "../data/data"
 import { User } from "../data/schema"
 import { DataTableColumnHeader } from "./data-table-column-header"
 
+type TableMetaActions = {
+  openPricingEngine: (id: string) => void
+  openTermSheets: (id: string) => void
+  toggleStatus: (id: string) => void
+}
+
 const currency = new Intl.NumberFormat(undefined, {
   style: "currency",
   currency: "USD",
@@ -156,21 +162,27 @@ export const columns: ColumnDef<User>[] = [
           <DropdownMenuContent align="end" className="w-[160px]">
             <DropdownMenuItem
               onClick={() =>
-                table.options.meta?.openPricingEngine?.(row.original.id)
+                (table.options.meta as Partial<TableMetaActions> | undefined)?.openPricingEngine?.(
+                  row.original.id
+                )
               }
             >
               Pricing Engine
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
-                table.options.meta?.openTermSheets?.(row.original.id)
+                (table.options.meta as Partial<TableMetaActions> | undefined)?.openTermSheets?.(
+                  row.original.id
+                )
               }
             >
               Term Sheets
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
-                table.options.meta?.toggleStatus?.(row.original.id)
+                (table.options.meta as Partial<TableMetaActions> | undefined)?.toggleStatus?.(
+                  row.original.id
+                )
               }
             >
               {`Switch to ${row.original.status === "active" ? "Dead" : "Active"}`}
