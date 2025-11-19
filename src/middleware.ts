@@ -1,7 +1,7 @@
 import { clerkMiddleware } from "@clerk/nextjs/server"
 
-export default clerkMiddleware((auth, req) => {
-  const { userId } = auth()
+export default clerkMiddleware(async (auth, req) => {
+  const { userId } = await auth()
   // If signed in and hitting sign-in, redirect to pipeline
   if (userId && new URL(req.url).pathname.startsWith("/sign-in")) {
     return Response.redirect(new URL("/pipeline", req.url))
