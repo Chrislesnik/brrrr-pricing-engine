@@ -587,6 +587,112 @@ export default function PricingEnginePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoanId])
 
+  // Helper setters from inputs payload
+  function applyInputsPayload(payload: Record<string, unknown>) {
+    const addr = (payload["address"] as Record<string, unknown>) ?? {}
+    if ("street" in addr) setStreet(String(addr["street"] ?? ""))
+    if ("apt" in addr) setApt(String(addr["apt"] ?? ""))
+    if ("city" in addr) setCity(String(addr["city"] ?? ""))
+    if ("state" in addr) setStateCode((addr["state"] as string) ?? undefined)
+    if ("zip" in addr) setZip(String(addr["zip"] ?? ""))
+    if ("county" in addr) setCounty(String(addr["county"] ?? ""))
+
+    if ("loan_type" in payload) setLoanType((payload["loan_type"] as string) ?? undefined)
+    if ("transaction_type" in payload) setTransactionType((payload["transaction_type"] as string) ?? undefined)
+    if ("property_type" in payload) setPropertyType((payload["property_type"] as string) ?? undefined)
+    if ("num_units" in payload) {
+      const n = Number(payload["num_units"])
+      if (Number.isFinite(n)) setNumUnits(n)
+    }
+    if ("request_max_leverage" in payload) setRequestMaxLeverage(Boolean(payload["request_max_leverage"]))
+
+    if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
+    if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
+    if ("loan_amount" in payload) setLoanAmount(String(payload["loan_amount"] ?? ""))
+    if ("admin_fee" in payload) setAdminFee(String(payload["admin_fee"] ?? ""))
+    if ("payoff_amount" in payload) setPayoffAmount(String(payload["payoff_amount"] ?? ""))
+    if ("aiv" in payload) setAiv(String(payload["aiv"] ?? ""))
+    if ("arv" in payload) setArv(String(payload["arv"] ?? ""))
+    if ("rehab_budget" in payload) setRehabBudget(String(payload["rehab_budget"] ?? ""))
+    if ("rehab_holdback" in payload) setRehabHoldback(String(payload["rehab_holdback"] ?? ""))
+    if ("emd" in payload) setEmd(String(payload["emd"] ?? ""))
+    if ("taxes_annual" in payload) setAnnualTaxes(String(payload["taxes_annual"] ?? ""))
+    if ("hoi_annual" in payload) setAnnualHoi(String(payload["hoi_annual"] ?? ""))
+    if ("flood_annual" in payload) setAnnualFlood(String(payload["flood_annual"] ?? ""))
+    if ("hoa_annual" in payload) setAnnualHoa(String(payload["hoa_annual"] ?? ""))
+    if ("hoi_premium" in payload) setHoiPremium(String(payload["hoi_premium"] ?? ""))
+    if ("flood_premium" in payload) setFloodPremium(String(payload["flood_premium"] ?? ""))
+    if ("mortgage_debt" in payload) setMortgageDebtValue(String(payload["mortgage_debt"] ?? ""))
+    if ("tax_escrow_months" in payload) setTaxEscrowMonths(String(payload["tax_escrow_months"] ?? ""))
+
+    if ("borrower_type" in payload) setBorrowerType((payload["borrower_type"] as string) ?? undefined)
+    if ("citizenship" in payload) setCitizenship((payload["citizenship"] as string) ?? undefined)
+    if ("fico" in payload) setFico(String(payload["fico"] ?? ""))
+    if ("borrower_name" in payload) setBorrowerName(String(payload["borrower_name"] ?? ""))
+    if ("guarantors" in payload && Array.isArray(payload["guarantors"])) {
+      setGuarantorsStr((payload["guarantors"] as string[]).join(", "))
+    }
+    if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
+    if ("lender_orig_percent" in payload) setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
+    if ("broker_orig_percent" in payload) setBrokerOrig(String(payload["broker_orig_percent"] ?? ""))
+    if ("title_recording_fee" in payload) setTitleRecordingFee(String(payload["title_recording_fee"] ?? ""))
+    if ("seller_concessions" in payload) setSellerConcessions(String(payload["seller_concessions"] ?? ""))
+
+    function parseDate(val: unknown): Date | undefined {
+      if (typeof val === "string" || typeof val === "number") {
+        const d = new Date(val)
+        return isNaN(d.getTime()) ? undefined : d
+      }
+      return undefined
+    }
+    const hoiEff = parseDate(payload["hoi_effective_date"])
+    if (hoiEff) setHoiEffective(hoiEff)
+    const floodEff = parseDate(payload["flood_effective_date"])
+    if (floodEff) setFloodEffective(floodEff)
+
+    if ("bridge_type" in payload) setBridgeType((payload["bridge_type"] as string) ?? undefined)
+    if ("fthb" in payload) setFthb((payload["fthb"] as string) ?? undefined)
+    if ("loan_structure_type" in payload) setLoanStructureType((payload["loan_structure_type"] as string) ?? undefined)
+    if ("ppp" in payload) setPpp((payload["ppp"] as string) ?? undefined)
+    if ("str" in payload) setStrValue((payload["str"] as string) ?? undefined)
+    if ("declining_market" in payload) setDecliningMarket((payload["declining_market"] as string) ?? undefined)
+    if ("rentals_owned" in payload) setRentalsOwned(String(payload["rentals_owned"] ?? ""))
+    if ("num_flips" in payload) setNumFlips(String(payload["num_flips"] ?? ""))
+    if ("num_gunc" in payload) setNumGunc(String(payload["num_gunc"] ?? ""))
+    if ("other_exp" in payload) setOtherExp((payload["other_exp"] as string) ?? undefined)
+    if ("warrantability" in payload) setWarrantability((payload["warrantability"] as string) ?? undefined)
+  }
+
+  // When scenario is selected, load inputs/selected and hydrate UI
+  useEffect(() => {
+    const sid = selectedScenarioId
+    if (!sid) return
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/scenarios/${sid}`)
+        if (!res.ok) return
+        const json = (await res.json()) as { scenario?: { inputs?: Record<string, unknown>; selected?: Record<string, unknown> } }
+        const inputs = json.scenario?.inputs ?? {}
+        applyInputsPayload(inputs as Record<string, unknown>)
+        const sel = json.scenario?.selected ?? {}
+        setSelectedMainRow({
+          programIdx: 0,
+          rowIdx: 0,
+          values: {
+            loanPrice: (sel["loan_price"] as number | string | null) ?? null,
+            interestRate: (sel["rate"] ?? sel["interestRate"]) as number | string | null,
+            loanAmount: (sel["loan_amount"] ?? sel["loanAmount"]) as number | string | null,
+            ltv: sel["ltv"] as number | string | null,
+            pitia: sel["pitia"] as number | string | null,
+            dscr: sel["dscr"] as number | string | null,
+          },
+        })
+      } catch {
+        // ignore errors
+      }
+    })()
+  }, [selectedScenarioId])
+
   // Fetch predictions as the user types, using our own UI
   useEffect(() => {
     if (!gmapsReady) return
