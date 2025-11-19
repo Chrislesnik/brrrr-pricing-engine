@@ -60,10 +60,12 @@ export async function POST(req: Request) {
       .from("loan_scenarios")
       .insert({
         loan_id: loanId,
+        name: body.name ?? null,
         primary: isPrimary,
         user_id: userId,
         organization_id: orgUuid,
         inputs: body.inputs ?? {},
+        selected: body.selected ?? {},
       })
       .select("id")
       .single()
