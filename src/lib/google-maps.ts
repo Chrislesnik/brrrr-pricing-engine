@@ -2,7 +2,14 @@
 // Ensures the script is only injected once on the client.
 declare global {
 	interface Window {
-		google?: any
+		google?: {
+			maps?: {
+				places?: unknown
+				event?: {
+					removeListener: (listener: unknown) => void
+				}
+			}
+		}
 		__gmapsLoader__?: Promise<void>
 	}
 }

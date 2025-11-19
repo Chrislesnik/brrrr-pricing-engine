@@ -83,7 +83,7 @@ export default function PricingEnginePage() {
   // Initialize Google Places Autocomplete on the Street field and auto-fill components
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    let listener: any
+    let listener: unknown
 
     ;(async () => {
       try {
@@ -96,8 +96,9 @@ export default function PricingEnginePage() {
         })
         listener = autocomplete.addListener("place_changed", () => {
           const place = autocomplete.getPlace()
-          const comps = place?.address_components ?? []
-          const get = (t: string) => comps.find((c: any) => c.types?.includes(t))
+          type AddressComponent = { short_name?: string; long_name?: string; types?: string[] }
+          const comps = (place?.address_components as AddressComponent[]) ?? []
+          const get = (t: string) => comps.find((c: AddressComponent) => c.types?.includes(t))
           const streetNumber = get("street_number")?.short_name ?? ""
           const route = get("route")?.long_name ?? ""
           const locality = get("locality")?.long_name ?? get("sublocality")?.long_name ?? ""
