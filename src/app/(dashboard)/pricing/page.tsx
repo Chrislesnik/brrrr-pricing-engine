@@ -138,6 +138,7 @@ export default function PricingEnginePage() {
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
   const [programResults, setProgramResults] = useState<ProgramResult[]>([])
   const [isDispatching, setIsDispatching] = useState<boolean>(false)
+  const [programPlaceholders, setProgramPlaceholders] = useState<Array<{ internal_name?: string; external_name?: string }>>([])
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
@@ -336,7 +337,18 @@ export default function PricingEnginePage() {
       }
       // show results container with loader
       setProgramResults([])
+      setProgramPlaceholders([])
       setIsDispatching(true)
+      // Prefetch programs to render per-program loaders
+      try {
+        const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}`, { method: "GET" })
+        if (pre.ok) {
+          const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ internal_name?: string; external_name?: string }> }
+          setProgramPlaceholders(Array.isArray(pj?.programs) ? pj.programs : [])
+        }
+      } catch {
+        // ignore prefetch errors; we'll still show a generic loader
+      }
       const payload = buildPayload()
       const res = await fetch("/api/pricing/dispatch", {
         method: "POST",
@@ -1669,7 +1681,7 @@ export default function PricingEnginePage() {
 
         {/* Right 75% column: results display */}
         <section className="hidden h-full min-h-0 w-full overflow-auto rounded-md border p-3 pb-4 lg:block lg:w-3/4">
-          <ResultsPanel results={programResults} loading={isDispatching} />
+          <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} />
         </section>
       </div>
     </div>
@@ -1798,19 +1810,68 @@ function Widget({ label, value }: { label: string; value: string | number | null
   )
 }
 
-function ResultsPanel({ results, loading }: { results: ProgramResult[]; loading?: boolean }) {
+function ResultCardLoader({ meta }: { meta?: { internal_name?: string; external_name?: string } }) {
+  return (
+    <div className="mb-3 rounded-md border p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-bold">{meta?.internal_name ?? "Program"}</div>
+          <div className="text-xs font-semibold">{meta?.external_name ?? ""}</div>
+        </div>
+        <div className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">Generating</div>
+      </div>
+      <div className="mt-3 flex flex-col items-center">
+        <div className="loader-wrapper">
+          <span className="loader-letter">G</span>
+          <span className="loader-letter">e</span>
+          <span className="loader-letter">n</span>
+          <span className="loader-letter">e</span>
+          <span className="loader-letter">r</span>
+          <span className="loader-letter">a</span>
+          <span className="loader-letter">t</span>
+          <span className="loader-letter">i</span>
+          <span className="loader-letter">n</span>
+          <span className="loader-letter">g</span>
+          <span className="loader" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ResultsPanel({
+  results,
+  loading,
+  placeholders,
+}: {
+  results: ProgramResult[]
+  loading?: boolean
+  placeholders?: Array<{ internal_name?: string; external_name?: string }>
+}) {
+  if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
+    return (
+      <div>
+        {placeholders.map((p, idx) => (
+          <ResultCardLoader key={idx} meta={p} />
+        ))}
+        <LoaderStyles />
+      </div>
+    )
+  }
   if (loading) {
     return (
       <div className="flex flex-col items-center">
         <div className="loader-wrapper">
-          <span className="loader-letter">P</span>
-          <span className="loader-letter">R</span>
-          <span className="loader-letter">O</span>
           <span className="loader-letter">G</span>
-          <span className="loader-letter">R</span>
-          <span className="loader-letter">A</span>
-          <span className="loader-letter">M</span>
-          <span className="loader-letter">S</span>
+          <span className="loader-letter">e</span>
+          <span className="loader-letter">n</span>
+          <span className="loader-letter">e</span>
+          <span className="loader-letter">r</span>
+          <span className="loader-letter">a</span>
+          <span className="loader-letter">t</span>
+          <span className="loader-letter">i</span>
+          <span className="loader-letter">n</span>
+          <span className="loader-letter">g</span>
           <span className="loader" />
         </div>
         <LoaderStyles />
@@ -1832,7 +1893,17 @@ function ResultsPanel({ results, loading }: { results: ProgramResult[]; loading?
 function LoaderStyles() {
   return (
     <style jsx global>{`
-      /* Loader styles (supports light/dark) */
+      /* Loader styles with warm gradient (supports light/dark) */
+      :root {
+        --warm-red: #ff3b30;
+        --warm-orange: #ff6a00;
+        --warm-yellow: #ffd60a;
+      }
+      .dark {
+        --warm-red: #ff453a;
+        --warm-orange: #ff7a1a;
+        --warm-yellow: #ffd60a;
+      }
       .loader-wrapper {
         position: relative;
         display: flex;
@@ -1872,11 +1943,11 @@ function LoaderStyles() {
         width: 100%;
         height: 100%;
         background-image:
-          radial-gradient(circle at 50% 50%, #ff0 0%, transparent 50%),
-          radial-gradient(circle at 45% 45%, #f00 0%, transparent 45%),
-          radial-gradient(circle at 55% 55%, #0ff 0%, transparent 45%),
-          radial-gradient(circle at 45% 55%, #0f0 0%, transparent 45%),
-          radial-gradient(circle at 55% 45%, #00f 0%, transparent 45%);
+          radial-gradient(circle at 50% 50%, var(--warm-yellow) 0%, transparent 50%),
+          radial-gradient(circle at 45% 45%, var(--warm-red) 0%, transparent 45%),
+          radial-gradient(circle at 55% 55%, var(--warm-orange) 0%, transparent 45%),
+          radial-gradient(circle at 45% 55%, var(--warm-orange) 0%, transparent 45%),
+          radial-gradient(circle at 55% 45%, var(--warm-yellow) 0%, transparent 45%);
         -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
         mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
         animation: transform-animation 2s infinite alternate, opacity-animation 4s infinite;
