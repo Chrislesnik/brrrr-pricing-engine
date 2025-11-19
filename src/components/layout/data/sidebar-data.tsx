@@ -12,7 +12,7 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: "Shadcnblocks - Admin Kit",
+      name: "Loan Pricing Engine",
       logo: ({ className }: { className: string }) => (
         <Logo className={cn("invert dark:invert-0", className)} />
       ),

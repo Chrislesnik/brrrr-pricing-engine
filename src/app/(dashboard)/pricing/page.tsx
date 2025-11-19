@@ -24,6 +24,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
+import { useAuth } from "@clerk/nextjs"
 import { CalcInput } from "@/components/calc-input"
 
 // Shared minimal types for Google Places Autocomplete
@@ -68,6 +69,7 @@ const getPlaces = (): GPlaces | undefined => {
 }
 
 export default function PricingEnginePage() {
+  const { orgId } = useAuth()
   // Subject Property dependent state
   const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
   const [numUnits, setNumUnits] = useState<number | undefined>(undefined)
@@ -216,6 +218,77 @@ export default function PricingEnginePage() {
       })
     } finally {
       setSendingReApi(false)
+    }
+  }
+
+  // Build payload of current, visible inputs
+  function buildPayload() {
+    const payload: Record<string, unknown> = {
+      loan_type: loanType,
+      transaction_type: transactionType,
+      property_type: propertyType,
+      num_units: numUnits,
+      request_max_leverage: requestMaxLeverage,
+      address: {
+        street,
+        apt,
+        city,
+        state: stateCode,
+        zip,
+        county,
+      },
+      gla_sq_ft: glaSqFt,
+      purchase_price: purchasePrice,
+      loan_amount: loanAmount,
+      admin_fee: adminFee,
+      payoff_amount: payoffAmount,
+      aiv,
+      arv,
+      rehab_budget: rehabBudget,
+      rehab_holdback: rehabHoldback,
+      emd,
+      taxes_annual: annualTaxes,
+      hoi_annual: annualHoi,
+      flood_annual: annualFlood,
+      hoa_annual: annualHoa,
+      hoi_premium: hoiPremium,
+      flood_premium: floodPremium,
+      mortgage_debt: mortgageDebtValue,
+      closing_date: closingDate ? closingDate.toISOString() : null,
+    }
+    if (transactionType !== "purchase") {
+      payload["acquisition_date"] = acquisitionDate ? acquisitionDate.toISOString() : null
+    }
+    if (loanType === "bridge") {
+      payload["bridge_type"] = bridgeType
+    }
+    return payload
+  }
+
+  async function handleCalculate() {
+    try {
+      if (!loanType) {
+        toast({ title: "Missing loan type", description: "Select a Loan Type before calculating.", variant: "destructive" })
+        return
+      }
+      const payload = buildPayload()
+      const res = await fetch("/api/pricing/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loanType,
+          data: payload,
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "")
+        throw new Error(txt || `Dispatch failed (${res.status})`)
+      }
+      const result = await res.json().catch(() => ({}))
+      toast({ title: "Sent", description: `Webhook deliveries: ${result?.delivered ?? 0}` })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      toast({ title: "Failed to send", description: message, variant: "destructive" })
     }
   }
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
@@ -1510,7 +1583,7 @@ export default function PricingEnginePage() {
             {/* Footer */}
             <div className="border-t p-3">
               <div className="flex justify-end">
-                <Button>Calculate</Button>
+                <Button onClick={handleCalculate}>Calculate</Button>
               </div>
             </div>
           </div>

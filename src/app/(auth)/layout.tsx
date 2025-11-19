@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: Props) {
       <div className="mx-auto flex w-full flex-col justify-center space-y-2 sm:w-[480px] lg:p-8">
         <div className="mb-4 flex items-center justify-center">
           <Logo width={24} height={24} className="mr-2" />
-          <h1 className="text-xl font-medium">Shadcnblocks - Admin Kit</h1>
+          <h1 className="text-xl font-medium">Loan Pricing Engine</h1>
         </div>
         {children}
       </div>
