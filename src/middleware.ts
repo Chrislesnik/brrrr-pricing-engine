@@ -1,0 +1,27 @@
+import { clerkMiddleware } from "@clerk/nextjs/server"
+
+export default clerkMiddleware({
+  publicRoutes: ["/", "/sign-in(.*)", "/sign-up(.*)", "/api/webhooks/(.*)"],
+  afterAuth(auth, req) {
+    // If signed in and hitting sign-in, redirect to pipeline
+    if (auth.userId && new URL(req.url).pathname.startsWith("/sign-in")) {
+      return Response.redirect(new URL("/pipeline", req.url))
+    }
+  },
+})
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!.+\\.[\\w]+$|_next).*)",
+    "/",
+    "/(api|trpc)(.*)",
+  ],
+}
+
+
