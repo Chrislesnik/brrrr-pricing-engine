@@ -1,26 +1,23 @@
-import { clerkMiddleware } from "@clerk/nextjs/server"
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import { NextResponse } from "next/server"
 
-export default clerkMiddleware(async (auth, req) => {
-  const url = new URL(req.url)
-  const pathname = url.pathname
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks(.*)",
+])
 
-  // Public routes that should not require auth
-  const isPublic =
-    /^\/$/.test(pathname) ||
-    /^\/sign-in(\/.*)?$/.test(pathname) ||
-    /^\/sign-up(\/.*)?$/.test(pathname) ||
-    /^\/api\/webhooks(\/.*)?$/.test(pathname)
-
-  const { userId } = await auth()
-
-  // Redirect authenticated users away from /sign-in back to app
-  if (userId && /^\/sign-in(\/.*)?$/.test(pathname)) {
-    return Response.redirect(new URL("/pipeline", req.url))
+export default clerkMiddleware((auth, req) => {
+  // Protect all non-public routes (Clerk will handle redirection)
+  if (!isPublicRoute(req)) {
+    auth().protect()
   }
 
-  // Protect everything that isn't public
-  if (!isPublic && !userId) {
-    return Response.redirect(new URL("/sign-in", req.url))
+  // If an authenticated user visits /sign-in, send them to the app
+  const { userId } = auth()
+  if (userId && req.nextUrl.pathname.startsWith("/sign-in")) {
+    return NextResponse.redirect(new URL("/pipeline", req.url))
   }
 })
 
