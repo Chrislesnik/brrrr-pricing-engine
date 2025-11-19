@@ -639,7 +639,7 @@ export default function PricingEnginePage() {
     <div data-layout="fixed" className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
 
-      <div ref={layoutRef} className="flex h-full min-h-0 flex-1 gap-4 overflow-hidden">
+      <div ref={layoutRef} className="flex h-full min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Left 25% column: scrollable container with header and footer */}
         <aside className="min-h-0 w-full lg:shrink-0" style={isMobile ? undefined : { width: `${leftPanePct * 100}%` }}>
           <div className="flex h-full min-h-0 flex-col rounded-md border">
@@ -1852,7 +1852,7 @@ export default function PricingEnginePage() {
           <button
             type="button"
             aria-label="Resize panels"
-            className={`flex h-full w-4 cursor-col-resize items-center justify-center rounded hover:bg-accent ${isResizing ? "bg-accent" : ""}`}
+            className={`flex h-full w-3 cursor-col-resize items-center justify-center hover:bg-accent ${isResizing ? "bg-accent" : ""}`}
             onMouseDown={(e) => {
               e.preventDefault()
               setIsResizing(true)
