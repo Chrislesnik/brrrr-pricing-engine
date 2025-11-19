@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { IconDeviceFloppy, IconFileExport } from "@tabler/icons-react"
 import {
@@ -22,6 +22,7 @@ import { DateInput } from "@/components/date-input"
 import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ensureGoogleMaps } from "@/lib/google-maps"
 
 export default function PricingEnginePage() {
   // Subject Property dependent state
@@ -37,6 +38,15 @@ export default function PricingEnginePage() {
   const [floodEffective, setFloodEffective] = useState<Date | undefined>(undefined)
   const [initialLoanAmount, setInitialLoanAmount] = useState<string>("")
   const [rehabHoldback, setRehabHoldback] = useState<string>("")
+
+  // Address fields (hooked to Google Places)
+  const [street, setStreet] = useState<string>("")
+  const [apt, setApt] = useState<string>("")
+  const [city, setCity] = useState<string>("")
+  const [stateCode, setStateCode] = useState<string | undefined>(undefined)
+  const [zip, setZip] = useState<string>("")
+  const [county, setCounty] = useState<string>("")
+  const streetInputRef = useRef<HTMLInputElement | null>(null)
 
   const states = [
     "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
@@ -69,6 +79,53 @@ export default function PricingEnginePage() {
     }
     setUnitData(Array.from({ length: numUnits }, () => ({ leased: undefined, gross: "", market: "" })))
   }, [unitOptions, numUnits])
+
+  // Initialize Google Places Autocomplete on the Street field and auto-fill components
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    let listener: any
+
+    ;(async () => {
+      try {
+        await ensureGoogleMaps(apiKey)
+        if (!streetInputRef.current || !window.google?.maps?.places) return
+        const autocomplete = new window.google.maps.places.Autocomplete(streetInputRef.current, {
+          types: ["address"],
+          componentRestrictions: { country: ["us"] },
+          fields: ["address_components", "formatted_address"],
+        })
+        listener = autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace()
+          const comps = place?.address_components ?? []
+          const get = (t: string) => comps.find((c: any) => c.types?.includes(t))
+          const streetNumber = get("street_number")?.short_name ?? ""
+          const route = get("route")?.long_name ?? ""
+          const locality = get("locality")?.long_name ?? get("sublocality")?.long_name ?? ""
+          const admin1 = get("administrative_area_level_1")?.short_name ?? ""
+          const postal = get("postal_code")?.short_name ?? ""
+          const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
+
+          setStreet([streetNumber, route].filter(Boolean).join(" "))
+          setCity(locality)
+          setStateCode(admin1 || undefined)
+          setZip(postal)
+          setCounty(countyName)
+        })
+      } catch {
+        // ignore loader errors in UI for now
+      }
+    })()
+
+    return () => {
+      if (listener) {
+        try {
+          window.google?.maps?.event?.removeListener(listener)
+        } catch {
+          // noop
+        }
+      }
+    }
+  }, [])
 
   return (
     <div data-layout="fixed" className="flex flex-1 flex-col gap-4 overflow-hidden">
@@ -326,19 +383,35 @@ export default function PricingEnginePage() {
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="flex flex-col gap-1 sm:col-span-2">
                           <Label htmlFor="street">Street</Label>
-                          <Input id="street" placeholder="123 Main St" />
+                          <Input
+                            id="street"
+                            placeholder="123 Main St"
+                            ref={streetInputRef}
+                            value={street}
+                            onChange={(e) => setStreet(e.target.value)}
+                          />
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="apt">Apt #</Label>
-                          <Input id="apt" placeholder="Unit/Apt" />
+                          <Input
+                            id="apt"
+                            placeholder="Unit/Apt"
+                            value={apt}
+                            onChange={(e) => setApt(e.target.value)}
+                          />
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="city">City</Label>
-                          <Input id="city" placeholder="City" />
+                          <Input
+                            id="city"
+                            placeholder="City"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                          />
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="state">State</Label>
-                          <Select>
+                          <Select value={stateCode} onValueChange={setStateCode}>
                             <SelectTrigger id="state" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -359,11 +432,18 @@ export default function PricingEnginePage() {
                             maxLength={5}
                             pattern="[0-9]*"
                             placeholder="12345"
+                            value={zip}
+                            onChange={(e) => setZip(e.target.value)}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="county">County</Label>
-                          <Input id="county" placeholder="County" />
+                          <Input
+                            id="county"
+                            placeholder="County"
+                            value={county}
+                            onChange={(e) => setCounty(e.target.value)}
+                          />
                         </div>
                       </div>
 

@@ -16,7 +16,7 @@ interface ProgramRow {
 }
 
 export default async function SettingsProgramsPage() {
-  const { orgId } = auth()
+  const { orgId } = await auth()
   let programs: ProgramRow[] = []
   if (orgId) {
     const orgUuid = await getOrgUuidFromClerkId(orgId)
