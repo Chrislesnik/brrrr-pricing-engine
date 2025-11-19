@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -165,6 +165,16 @@ export default function PricingEnginePage() {
   const [programPlaceholders, setProgramPlaceholders] = useState<Array<{ internal_name?: string; external_name?: string }>>([])
   const [currentLoanId, setCurrentLoanId] = useState<string | undefined>(undefined)
   const [selectedMainRow, setSelectedMainRow] = useState<SelectedRow | null>(null)
+  // Scenario naming UI state
+  const [isNamingScenario, setIsNamingScenario] = useState<boolean>(false)
+  const [scenarioName, setScenarioName] = useState<string>("")
+  const scenarioInputRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    if (isNamingScenario) {
+      // focus when entering naming mode
+      setTimeout(() => scenarioInputRef.current?.focus(), 0)
+    }
+  }, [isNamingScenario])
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
@@ -399,9 +409,9 @@ export default function PricingEnginePage() {
       setIsDispatching(false)
     }
   }
-  async function handleSaveAs() {
+  async function handleSaveAs(nameFromUi?: string) {
     try {
-      const name = typeof window !== "undefined" ? window.prompt("Scenario name:") : undefined
+      const name = nameFromUi ?? (typeof window !== "undefined" ? window.prompt("Scenario name:") : undefined)
       if (!name || !name.trim()) return
       const inputs = buildPayload()
       let selected = selectedMainRow?.values
@@ -440,6 +450,24 @@ export default function PricingEnginePage() {
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Save failed", description: message, variant: "destructive" })
     }
+  }
+
+  function handleConfirmSave() {
+    const trimmed = scenarioName.trim()
+    if (!trimmed) {
+      toast({ title: "Missing name", description: "Please enter a scenario name.", variant: "destructive" })
+      scenarioInputRef.current?.focus()
+      return
+    }
+    handleSaveAs(trimmed).finally(() => {
+      setIsNamingScenario(false)
+      setScenarioName("")
+    })
+  }
+
+  function handleCancelSave() {
+    setIsNamingScenario(false)
+    setScenarioName("")
   }
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
 
@@ -584,24 +612,59 @@ export default function PricingEnginePage() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Scenarios
                 </label>
-                <Select>
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="base">Base</SelectItem>
-                    <SelectItem value="alt-1">Alt 1</SelectItem>
-                    <SelectItem value="alt-2">Alt 2</SelectItem>
-                  </SelectContent>
-                </Select>
+                {isNamingScenario ? (
+                  <Input
+                    ref={scenarioInputRef}
+                    placeholder="Scenario name"
+                    value={scenarioName}
+                    onChange={(e) => setScenarioName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleConfirmSave()
+                      } else if (e.key === "Escape") {
+                        handleCancelSave()
+                      }
+                    }}
+                    className="h-9 w-full"
+                  />
+                ) : (
+                  <Select>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="base">Base</SelectItem>
+                      <SelectItem value="alt-1">Alt 1</SelectItem>
+                      <SelectItem value="alt-2">Alt 2</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                <Button aria-label="Save" size="icon" variant="secondary">
-                  <IconDeviceFloppy />
-                </Button>
-                <Button aria-label="Save As" size="icon" variant="outline" onClick={handleSaveAs}>
-                  <IconFileExport />
-                </Button>
+                {isNamingScenario ? (
+                  <>
+                    <Button aria-label="Save Scenario" size="icon" variant="secondary" onClick={handleConfirmSave}>
+                      <IconCheck />
+                    </Button>
+                    <Button aria-label="Cancel" size="icon" variant="outline" onClick={handleCancelSave}>
+                      <IconX />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button aria-label="Save" size="icon" variant="secondary">
+                      <IconDeviceFloppy />
+                    </Button>
+                    <Button
+                      aria-label="Save As"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setIsNamingScenario(true)}
+                    >
+                      <IconFileExport />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
