@@ -61,7 +61,7 @@ export function UsersDeactivateDialog({
             <br />
             This action will remove the user with the role of{" "}
             <span className="font-bold">
-              {currentRow.role.toUpperCase()}
+              {(currentRow.role ?? "unknown").toUpperCase()}
             </span>{" "}
             from the system. Please proceed with caution.
           </p>
