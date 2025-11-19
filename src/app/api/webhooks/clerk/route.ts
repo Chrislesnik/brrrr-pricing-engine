@@ -69,10 +69,18 @@ export async function POST(req: NextRequest) {
     }
     case "organizationMembership.created":
     case "organizationMembership.updated": {
-      const m = data ?? {}
-      const userId = (m.user_id as string) ?? (m.public_user_data?.user_id as string)
-      const organizationId = (m.organization_id as string) ?? (m.organization?.id as string)
-      const role = (m.role as string) ?? "member"
+      type ClerkMembershipPayload = {
+        id?: string
+        user_id?: string
+        public_user_data?: { user_id?: string }
+        organization_id?: string
+        organization?: { id?: string }
+        role?: string
+      }
+      const m = (data ?? {}) as ClerkMembershipPayload
+      const userId = m.user_id ?? m.public_user_data?.user_id ?? ""
+      const organizationId = m.organization_id ?? m.organization?.id ?? ""
+      const role = m.role ?? "member"
       // Resolve Supabase org UUID by Clerk organization id
       const { data: orgRow, error: orgErr } = await supabaseAdmin
         .from("organizations")

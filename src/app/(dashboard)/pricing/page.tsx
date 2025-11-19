@@ -24,6 +24,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
+import { CalcInput } from "@/components/calc-input"
 
 // Shared minimal types for Google Places Autocomplete
 export interface PlacePrediction {
@@ -94,6 +95,10 @@ export default function PricingEnginePage() {
   const [glaSqFt, setGlaSqFt] = useState<string>("0")
   const [purchasePrice, setPurchasePrice] = useState<string>("")
   const [annualTaxes, setAnnualTaxes] = useState<string>("")
+  const [annualHoi, setAnnualHoi] = useState<string>("")
+  const [annualFlood, setAnnualFlood] = useState<string>("")
+  const [annualHoa, setAnnualHoa] = useState<string>("")
+  const [annualMgmt, setAnnualMgmt] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
@@ -891,13 +896,12 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input
+                          <CalcInput
                             id="annual-taxes"
-                            inputMode="decimal"
                             placeholder="0.00"
                             className="pl-6"
                             value={annualTaxes}
-                            onChange={(e) => setAnnualTaxes(e.target.value)}
+                            onValueChange={setAnnualTaxes}
                           />
                         </div>
                       </div>
@@ -907,7 +911,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="annual-hoi" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="annual-hoi"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={annualHoi}
+                            onValueChange={setAnnualHoi}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -916,7 +926,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="annual-flood" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="annual-flood"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={annualFlood}
+                            onValueChange={setAnnualFlood}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -925,7 +941,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="annual-hoa" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="annual-hoa"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={annualHoa}
+                            onValueChange={setAnnualHoa}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -934,7 +956,13 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input id="annual-mgmt" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                          <CalcInput
+                            id="annual-mgmt"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={annualMgmt}
+                            onValueChange={setAnnualMgmt}
+                          />
                         </div>
                       </div>
                     </div>
@@ -1123,13 +1151,12 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
                           </span>
-                          <Input
+                          <CalcInput
                             id="purchase-price"
-                            inputMode="decimal"
                             placeholder="0.00"
                             className="pl-6"
                             value={purchasePrice}
-                            onChange={(e) => setPurchasePrice(e.target.value)}
+                            onValueChange={setPurchasePrice}
                           />
                         </div>
                       </div>
