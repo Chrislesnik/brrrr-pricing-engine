@@ -4,8 +4,9 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
-export async function PATCH(req: Request, { params }: any) {
+export async function PATCH(req: Request, context: unknown) {
   try {
+    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const id = params.id
@@ -24,13 +25,14 @@ export async function PATCH(req: Request, { params }: any) {
   }
 }
 
-export async function POST(req: Request, { params }: any) {
+export async function POST(req: Request, context: unknown) {
   // Support POST for status updates, per consumer requirement
-  return PATCH(req, { params })
+  return PATCH(req, context)
 }
 
-export async function DELETE(_req: Request, { params }: any) {
+export async function DELETE(_req: Request, context: unknown) {
   try {
+    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const id = params.id

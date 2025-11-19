@@ -185,6 +185,7 @@ export default function PricingEnginePage() {
   const [warrantability, setWarrantability] = useState<string | undefined>(undefined) // Condo only
   const [strValue, setStrValue] = useState<string | undefined>(undefined) // DSCR only
   const [decliningMarket, setDecliningMarket] = useState<string | undefined>(undefined) // DSCR only
+  const [rural, setRural] = useState<string | undefined>(undefined) // Yes/No
   const [loanStructureType, setLoanStructureType] = useState<string | undefined>(undefined) // DSCR
   const [ppp, setPpp] = useState<string | undefined>(undefined) // DSCR
   const [term, setTerm] = useState<string | undefined>(undefined) // Bridge
@@ -357,6 +358,7 @@ export default function PricingEnginePage() {
       borrower_type: borrowerType ?? "",
       citizenship: citizenship ?? "",
       fico,
+      rural: rural ?? "",
       borrower_name: borrowerName,
       guarantors: (guarantorsStr || "")
         .split(",")
@@ -1133,6 +1135,18 @@ export default function PricingEnginePage() {
                             value={glaSqFt}
                             onChange={(e) => setGlaSqFt(e.target.value)}
                           />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor="rural">Rural</Label>
+                          <Select value={rural} onValueChange={setRural}>
+                            <SelectTrigger id="rural" className="h-9 w-full">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="yes">Yes</SelectItem>
+                              <SelectItem value="no">No</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         {loanType === "dscr" && (
                           <>
