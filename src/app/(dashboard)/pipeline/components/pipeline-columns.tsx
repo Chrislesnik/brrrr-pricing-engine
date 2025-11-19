@@ -186,6 +186,42 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     cell: ({ row }) => {
       const status = (row.getValue("status") as string | undefined)?.toLowerCase()
       const opposite = status === "active" ? "dead" : "active"
+      const id = row.getValue("id") as string
+      async function setStatus(next: string) {
+        try {
+          const res = await fetch(`/api/loans/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: next }),
+          })
+          if (!res.ok) {
+            const t = await res.text()
+            // eslint-disable-next-line no-alert
+            alert(`Failed to update status: ${t || res.status}`)
+            return
+          }
+          // simple refresh
+          window.location.reload()
+        } catch (e) {
+          // eslint-disable-next-line no-alert
+          alert(`Failed to update status`)
+        }
+      }
+      async function deleteLoan() {
+        try {
+          const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
+          if (!res.ok) {
+            const t = await res.text()
+            // eslint-disable-next-line no-alert
+            alert(`Failed to delete: ${t || res.status}`)
+            return
+          }
+          window.location.reload()
+        } catch {
+          // eslint-disable-next-line no-alert
+          alert(`Failed to delete`)
+        }
+      }
       return (
         <div className="flex justify-end">
           <DropdownMenu>
@@ -201,7 +237,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
               <DropdownMenuItem>Pricing Engine</DropdownMenuItem>
               <DropdownMenuItem>Term Sheets</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>{`Set to ${opposite}`}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <DropdownMenuItem className="text-red-600 focus:text-red-600">
@@ -217,7 +253,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-red-600 hover:bg-red-700">
+                    <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={deleteLoan}>
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
