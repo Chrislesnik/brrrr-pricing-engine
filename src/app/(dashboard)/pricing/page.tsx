@@ -651,6 +651,10 @@ export default function PricingEnginePage() {
                             )}
                             </SelectContent>
                           </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Select the collateral classification (SFR, Condo, Townhome/PUD, or Multifamily).
+                            This drives guideline logic and available unit counts.
+                          </p>
                         </div>
 
                         {propertyType === "condo" ? (
@@ -693,6 +697,9 @@ export default function PricingEnginePage() {
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="gla">GLA Sq Ft</Label>
                           <Input id="gla" inputMode="numeric" placeholder="0" />
+                          <p className="text-xs text-muted-foreground">
+                            Gross Living Area in square feet — habitable, above‑grade finished space only.
+                          </p>
                         </div>
                         {loanType === "dscr" && (
                           <>
@@ -797,6 +804,9 @@ export default function PricingEnginePage() {
                           </span>
                           <Input id="annual-taxes" inputMode="decimal" placeholder="0.00" className="pl-6" />
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          Yearly property tax obligation. Use the latest tax bill; prorate if needed.
+                        </p>
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="annual-hoi">Annual HOI</Label>
@@ -966,6 +976,9 @@ export default function PricingEnginePage() {
                               />
                             </PopoverContent>
                           </Popover>
+                          <p className="text-xs text-muted-foreground">
+                            The date the property was acquired. Used for seasoning/hold period calculations.
+                          </p>
                         </div>
                       ) : (
                         <div className="hidden sm:block" />
@@ -1022,6 +1035,9 @@ export default function PricingEnginePage() {
                           </span>
                           <Input id="purchase-price" inputMode="decimal" placeholder="0.00" className="pl-6" />
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          Contract price for the current purchase (exclude closing costs and credits).
+                        </p>
                       </div>
                       {transactionType !== "purchase" ? (
                         <>

@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export async function addProgramAction(formData: FormData) {
-  const { userId, orgId: authOrgId } = auth()
+  const { userId, orgId: authOrgId } = await auth()
   // Prefer orgId sent from the page (since middleware may not run for server actions),
   // and fall back to auth().orgId.
   const formOrgId = String(formData.get("orgId") || "") || null
