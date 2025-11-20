@@ -426,7 +426,6 @@ const DscrTermSheet = (): JSX.Element => {
 };
 
 export default DscrTermSheet;
-"use client"
 
 import * as React from "react"
 
