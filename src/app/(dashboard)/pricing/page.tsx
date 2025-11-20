@@ -629,26 +629,23 @@ export default function PricingEnginePage() {
       payload["num_gunc"] = numGunc
       payload["other_exp"] = otherExp ?? ""
 
-      // Include fields that are conditionally visible for rehab/ground-up paths
-      if (bridgeType === "bridge-rehab" || bridgeType === "ground-up") {
-        payload["gla_expansion"] = glaExpansion ?? ""
-        payload["change_of_use"] = changeOfUse ?? ""
-        // Keep explicit aliases for clarity
-        payload["rehab_budget"] = rehabBudget
-        payload["arv"] = arv
-        payload["initial_loan_amount"] = initialLoanAmount
-        payload["rehab_holdback"] = rehabHoldback
-        const total = (() => {
-          const a = Number(initialLoanAmount || "0")
-          const b = Number(rehabHoldback || "0")
-          const sum = Number.isFinite(a) && Number.isFinite(b) ? a + b : 0
-          return sum.toFixed(2)
-        })()
-        payload["total_loan_amount"] = total
-      } else {
-        // Non-rehab bridge uses a single loan amount input
-        payload["loan_amount"] = loanAmount
-      }
+      // Always include potential rehab-related inputs so webhooks receive them when visible
+      payload["gla_expansion"] = glaExpansion ?? ""
+      payload["change_of_use"] = changeOfUse ?? ""
+      payload["initial_loan_amount"] = initialLoanAmount
+      payload["rehab_holdback"] = rehabHoldback
+      const total = (() => {
+        const a = Number(initialLoanAmount || "0")
+        const b = Number(rehabHoldback || "0")
+        const sum = Number.isFinite(a) && Number.isFinite(b) ? a + b : 0
+        return sum.toFixed(2)
+      })()
+      payload["total_loan_amount"] = total
+      // Keep single-loan amount value too (empty string if using rehab path)
+      payload["loan_amount"] = loanAmount
+      // Ensure aliases are present
+      payload["rehab_budget"] = rehabBudget
+      payload["arv"] = arv
     }
     if (loanType === "dscr") {
       payload["fthb"] = fthb ?? ""
