@@ -2993,6 +2993,7 @@ type ProgramResult = {
 type SelectedRow = {
   programIdx: number
   rowIdx: number
+  programName?: string | null
   values: {
     loanPrice?: number | string | null
     interestRate?: number | string | null
@@ -3150,6 +3151,7 @@ function ResultCard({
                                 onSelect({
                                   programIdx,
                                   rowIdx: i,
+                                  programName: r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`,
                                   values: {
                                     loanPrice: typeof lp === "number" ? lp : String(lp),
                                     interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
@@ -3347,7 +3349,10 @@ function ResultsPanel({
             <div>
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
-                Selected: Program #{selected.programIdx + 1}, Row #{selected.rowIdx + 1}
+                {(() => {
+                  const name = selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name
+                  return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
+                })()}
               </div>
             </div>
           </div>
@@ -3384,7 +3389,10 @@ function ResultsPanel({
             <div>
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
-                Selected: Program #{selected.programIdx + 1}, Row #{selected.rowIdx + 1}
+                {(() => {
+                  const name = selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name
+                  return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
+                })()}
               </div>
             </div>
           </div>
