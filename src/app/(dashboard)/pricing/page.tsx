@@ -78,7 +78,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-start justify-center pb-6"
+      className="w-full h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-start justify-center py-4"
     >
       <div
         style={{
@@ -3367,12 +3367,13 @@ function ResultCard({
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       /* Slightly reduce height to avoid fractional overflow that creates a blank extra page */
-      #page { width: 816px; height: 1048px; margin: 0 auto; border: 1px solid #000; box-sizing: border-box; overflow: hidden; }
+      #page { width: 816px; height: 1048px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       @page { size: 816px 1056px; margin: 0; }
       @media print {
         html, body { width: 816px; height: 1056px; overflow: hidden; }
-        #page { box-shadow: none; }
+        /* Remove border in the PDF to avoid a heavy black line at the bottom edge */
+        #page { box-shadow: none; border: none; }
       }
     </style>
   </head>
