@@ -212,6 +212,7 @@ const DscrTermSheet = (): JSX.Element => {
 };
 
 export default DscrTermSheet;
+/* Legacy DSCRTermSheet implementation (commented out)
 import * as React from "react"
 
 type Value = string | number | null | undefined
@@ -516,4 +517,4 @@ export default function DSCRTermSheet(props: DSCRTermSheetProps) {
   )
 }
 
-
+*/
