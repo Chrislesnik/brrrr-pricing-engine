@@ -2374,95 +2374,9 @@ function ResultCard({
   const loanAmount = d?.loan_amount
   const ltv = d?.ltv
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
-  const MCP_PROMPT = `Implement these 44 designs from Figma.
+  const MCP_PROMPT = `Implement this design from Figma.
 
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-37&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-32&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-30&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-29&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-28&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-24&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-18&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-14&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-13&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-36&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-8&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-33&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-7&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-35&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-39&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-5&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-31&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-12&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-17&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-40&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-6&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-19&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-4&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-20&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-3&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-27&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-23&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-44&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-16&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-25&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-22&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-41&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-15&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-9&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-34&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-21&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-10&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-42&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-26&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-11&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-38&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-45&m=dev
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-43&m=dev`
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=45-2&m=dev`
 
   return (
     <div className="mb-3 rounded-md border p-3">
