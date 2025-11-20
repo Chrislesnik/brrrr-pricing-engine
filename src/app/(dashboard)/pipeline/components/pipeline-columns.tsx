@@ -76,6 +76,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       <LongText className="max-w-28">{row.getValue("id")}</LongText>
     ),
     meta: { className: "w-28" },
+    enableSorting: false,
   },
   {
     accessorKey: "propertyAddress",
@@ -83,10 +84,11 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       <DataTableColumnHeader column={column} title="Property Address" />
     ),
     cell: ({ row }) => (
-      <LongText className="max-w-64">
+      <LongText className="max-w-[520px]">
         {row.getValue("propertyAddress") ?? "-"}
       </LongText>
     ),
+    enableSorting: false,
   },
   {
     id: "borrower",
@@ -116,6 +118,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
         [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
       return <div>{display}</div>
     },
+    enableSorting: false,
   },
   {
     accessorKey: "guarantors",
@@ -133,6 +136,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       const joined = gs.join(", ").toLowerCase()
       return joined.includes(term)
     },
+    enableSorting: false,
   },
   {
     accessorKey: "loanType",
@@ -145,6 +149,8 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
         raw === "dscr" ? "DSCR" : raw === "bridge" ? "Bridge" : raw ? raw : "-"
       return <div>{display}</div>
     },
+    filterFn: "weakEquals",
+    enableSorting: false,
   },
   {
     accessorKey: "transactionType",
@@ -168,6 +174,8 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
           .replace(/\b\w/g, (c) => c.toUpperCase())
       return <div>{title}</div>
     },
+    filterFn: "weakEquals",
+    enableSorting: false,
   },
   {
     accessorKey: "loanAmount",
@@ -208,9 +216,16 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
   {
     accessorKey: "assignedTo",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Assigned to" />
+      <DataTableColumnHeader column={column} title="Assigned To" />
     ),
     cell: ({ row }) => <div>{row.getValue("assignedTo") ?? "-"}</div>,
+    filterFn: (row, columnId, filterValue) => {
+      const selected = Array.isArray(filterValue) ? (filterValue as string[]) : []
+      if (selected.length === 0) return true
+      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
+      return selected.some((name) => cell.includes(String(name).toLowerCase()))
+    },
+    enableSorting: false,
   },
   {
     accessorKey: "updatedAt",
@@ -222,7 +237,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       const date = typeof raw === "string" ? new Date(raw) : (raw as Date)
       return <div className="w-fit text-nowrap">{format(date, "dd MMM, yyyy")}</div>
     },
-    enableSorting: false,
+    enableSorting: true,
   },
   {
     accessorKey: "createdAt",
@@ -234,7 +249,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       const date = typeof raw === "string" ? new Date(raw) : (raw as Date)
       return <div className="w-fit text-nowrap">{format(date, "dd MMM, yyyy")}</div>
     },
-    enableSorting: false,
+    enableSorting: true,
   },
   {
     id: "actions",

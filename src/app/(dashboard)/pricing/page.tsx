@@ -1769,7 +1769,7 @@ export default function PricingEnginePage() {
                               setPropertyType(v)
                             }}
                           >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "border-2 border-amber-500/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                           <SelectContent>
@@ -1809,7 +1809,7 @@ export default function PricingEnginePage() {
                               setNumUnits(parseInt(v))
                             }}
                           >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "border-2 border-amber-500/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1833,7 +1833,7 @@ export default function PricingEnginePage() {
                               clearReAuto("glaSqFt")
                               setGlaSqFt(e.target.value)
                             }}
-                            className={`${reAuto.glaSqFt ? "border-amber-500/70" : ""}`}
+                            className={`${reAuto.glaSqFt ? "border-2 border-amber-500/70" : ""}`}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -2204,7 +2204,7 @@ export default function PricingEnginePage() {
                                   clearReAuto("acquisitionDate")
                                   setAcquisitionDate(d)
                                 }}
-                                className={`${reAuto.acquisitionDate ? "border-amber-500/70" : ""}`}
+                                className={`${reAuto.acquisitionDate ? "border-2 border-amber-500/70" : ""}`}
                               />
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">

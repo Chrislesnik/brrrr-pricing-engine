@@ -15,6 +15,23 @@ interface Props<TData> {
 export function PipelineToolbar({ table }: Props<LoanRow>) {
   const isFiltered = table.getState().columnFilters.length > 0
 
+  // Build dynamic options for Assigned To from visible dataset
+  const assignedOptions = (() => {
+    const set = new Set<string>()
+    const rows = table.getPreFilteredRowModel().flatRows
+    for (const r of rows) {
+      const v = (r.getValue("assignedTo") as string | null) || ""
+      if (!v) continue
+      for (const name of v.split(",")) {
+        const n = name.trim()
+        if (n) set.add(n)
+      }
+    }
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b))
+      .map((n) => ({ label: n, value: n }))
+  })()
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
@@ -38,6 +55,35 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
                 { label: "Active", value: "active" },
                 { label: "Dead", value: "dead" },
               ]}
+            />
+          )}
+          {table.getColumn("loanType") && (
+            <DataTableFacetedFilter
+              column={table.getColumn("loanType")}
+              title="Loan Type"
+              options={[
+                { label: "DSCR", value: "dscr" },
+                { label: "Bridge", value: "bridge" },
+              ]}
+            />
+          )}
+          {table.getColumn("transactionType") && (
+            <DataTableFacetedFilter
+              column={table.getColumn("transactionType")}
+              title="Transaction Type"
+              options={[
+                { label: "Purchase", value: "purchase" },
+                { label: "Delayed Purchase", value: "delayed-purchase" },
+                { label: "Refinance Rate/Term", value: "rt-refi" },
+                { label: "Refinance Cash Out", value: "co-refi" },
+              ]}
+            />
+          )}
+          {table.getColumn("assignedTo") && assignedOptions.length > 0 && (
+            <DataTableFacetedFilter
+              column={table.getColumn("assignedTo")}
+              title="Assigned To"
+              options={assignedOptions}
             />
           )}
         </div>
