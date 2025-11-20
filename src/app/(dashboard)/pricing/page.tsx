@@ -2771,10 +2771,14 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="sm:max-w-[min(1000px,calc(100vw-2rem))] max-h-[90vh] p-4">
+        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] p-4">
           <DialogHeader>
-            <DialogTitle>Cursor MCP Prompt</DialogTitle>
-            <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Term Sheet</DialogTitle>
+              <Button size="icon" variant="ghost" aria-label="Download term sheet">
+                <IconDownload className="h-4 w-4" />
+              </Button>
+            </div>
           </DialogHeader>
           <div className="space-y-3">
             <ScaledTermSheetPreview
