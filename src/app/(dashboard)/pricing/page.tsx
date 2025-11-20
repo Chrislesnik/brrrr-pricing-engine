@@ -271,6 +271,8 @@ export default function PricingEnginePage() {
   const [guarantorsStr, setGuarantorsStr] = useState<string>("")
   const [uwException, setUwException] = useState<string | undefined>(undefined)
   const [section8, setSection8] = useState<string | undefined>(undefined)
+  const [glaExpansion, setGlaExpansion] = useState<string | undefined>(undefined) // Bridge rehab
+  const [changeOfUse, setChangeOfUse] = useState<string | undefined>(undefined) // Bridge rehab
   const [taxEscrowMonths, setTaxEscrowMonths] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
@@ -320,6 +322,8 @@ export default function PricingEnginePage() {
       guarantorsStr: "First Last" as string,
       uwException: "no" as string,
       section8: "no" as string,
+      glaExpansion: "no" as string,
+      changeOfUse: "no" as string,
       hoiEffective: addDays(new Date(), 24) as Date,
       floodEffective: addDays(new Date(), 24) as Date,
       taxEscrowMonths: "3" as string,
@@ -373,6 +377,8 @@ export default function PricingEnginePage() {
     setIfUnsetString(guarantorsStr, (v) => setGuarantorsStr(v), DEFAULTS.guarantorsStr)
     setIfUnsetString(uwException, (v) => setUwException(v), DEFAULTS.uwException)
     setIfUnsetString(section8, (v) => setSection8(v), DEFAULTS.section8)
+    setIfUnsetString(glaExpansion, (v) => setGlaExpansion(v), DEFAULTS.glaExpansion)
+    setIfUnsetString(changeOfUse, (v) => setChangeOfUse(v), DEFAULTS.changeOfUse)
     setIfUnsetDate(hoiEffective, (v) => setHoiEffective(v), DEFAULTS.hoiEffective)
     setIfUnsetDate(floodEffective, (v) => setFloodEffective(v), DEFAULTS.floodEffective)
     setIfUnsetString(taxEscrowMonths, (v) => setTaxEscrowMonths(v), DEFAULTS.taxEscrowMonths)
@@ -396,6 +402,8 @@ export default function PricingEnginePage() {
     guarantorsStr,
     uwException,
     section8,
+    glaExpansion,
+    changeOfUse,
     hoiEffective,
     floodEffective,
     taxEscrowMonths,
@@ -406,7 +414,7 @@ export default function PricingEnginePage() {
   const isBridge = loanType === "bridge"
   const isPurchase = transactionType === "purchase" || transactionType === "delayed-purchase"
   const isRefi = transactionType === "co-refi" || transactionType === "rt-refi"
-  const isFicoRequired = citizenship === "us" || citizenship === "pr"
+  const isFicoRequired = (isDscr || isBridge) && (citizenship === "us" || citizenship === "pr")
   // Compute default/placeholder for Title & Recording Fee when untouched
   const computedTitleRecording = useMemo(() => {
     const parse = (s: string): number => {
@@ -423,12 +431,8 @@ export default function PricingEnginePage() {
     }
     return ""
   }, [isPurchase, isRefi, purchasePrice, aiv])
-  useEffect(() => {
-    if (touched.titleRecordingFee) return
-    if (!titleRecordingFee && computedTitleRecording) {
-      setTitleRecordingFee(computedTitleRecording)
-    }
-  }, [computedTitleRecording, titleRecordingFee, touched.titleRecordingFee])
+  // Do not auto-write Title & Recording Fee while user types other fields.
+  // We will use the computed default in payload if the user left it untouched.
   // Ensure default Term when Bridge is selected
   useEffect(() => {
     if (isBridge && (!term || term === "")) {
@@ -607,7 +611,7 @@ export default function PricingEnginePage() {
       uw_exception: uwException ?? "",
       lender_orig_percent: lenderOrig,
       broker_orig_percent: brokerOrig,
-      title_recording_fee: titleRecordingFee,
+      title_recording_fee: titleRecordingFee || computedTitleRecording,
       assignment_fee: assignmentFee,
       seller_concessions: sellerConcessions,
       tax_escrow_months: taxEscrowMonths,
@@ -872,6 +876,8 @@ export default function PricingEnginePage() {
     if (isRefi && !has(aiv)) return false
     if (rehabPathVisible && !has(initialLoanAmount)) return false
     if (loanAmountPathVisible && !has(loanAmount)) return false
+    // Treat computed defaults as satisfying requirements for fee-like optional fields
+    // Even if user did not type them, they will be sent in the payload.
     return true
   }, [
     loanType,
@@ -1988,8 +1994,17 @@ export default function PricingEnginePage() {
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="gla-expansion">{">20% GLA Expansion"}</Label>
-                            <Select defaultValue="no">
-                              <SelectTrigger id="gla-expansion" className="h-9 w-full">
+                            <Select
+                              value={glaExpansion}
+                              onValueChange={(v) => {
+                                setGlaExpansion(v)
+                                setTouched((t) => ({ ...t, glaExpansion: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="gla-expansion"
+                                className={`h-9 w-full ${!touched.glaExpansion && glaExpansion === DEFAULTS.glaExpansion ? "text-muted-foreground" : ""}`}
+                              >
                                 <SelectValue placeholder="No" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2000,8 +2015,17 @@ export default function PricingEnginePage() {
                           </div>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="change-of-use">Change of Use</Label>
-                            <Select defaultValue="no">
-                              <SelectTrigger id="change-of-use" className="h-9 w-full">
+                            <Select
+                              value={changeOfUse}
+                              onValueChange={(v) => {
+                                setChangeOfUse(v)
+                                setTouched((t) => ({ ...t, changeOfUse: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="change-of-use"
+                                className={`h-9 w-full ${!touched.changeOfUse && changeOfUse === DEFAULTS.changeOfUse ? "text-muted-foreground" : ""}`}
+                              >
                                 <SelectValue placeholder="No" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2346,8 +2370,14 @@ export default function PricingEnginePage() {
                           <Label htmlFor="term">
                             Term <span className="text-red-600">*</span>
                           </Label>
-                          <Select value={term} onValueChange={setTerm}>
-                            <SelectTrigger id="term" className="h-9 w-full">
+                          <Select
+                            value={term}
+                            onValueChange={(v) => {
+                              setTerm(v)
+                              setTouched((t) => ({ ...t, term: true }))
+                            }}
+                          >
+                            <SelectTrigger id="term" className={`h-9 w-full ${!touched.term && term === "12" ? "text-muted-foreground" : ""}`}>
                               <SelectValue placeholder="12 months" />
                             </SelectTrigger>
                             <SelectContent>
@@ -2616,7 +2646,10 @@ export default function PricingEnginePage() {
                               id="section-8"
                               className={`h-9 w-full ${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
                             >
-                              <SelectValue placeholder="No" />
+                              <SelectValue
+                                placeholder="No"
+                                className={`${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
+                              />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="yes">Yes</SelectItem>
@@ -2684,7 +2717,7 @@ export default function PricingEnginePage() {
                           <CalcInput
                             id="title-recording"
                             placeholder={computedTitleRecording || "0.00"}
-                            className="pl-6"
+                            className={`pl-6 ${!touched.titleRecordingFee && titleRecordingFee === computedTitleRecording ? "text-muted-foreground" : ""}`}
                             value={titleRecordingFee}
                             onValueChange={(v) => {
                               setTitleRecordingFee(v)
