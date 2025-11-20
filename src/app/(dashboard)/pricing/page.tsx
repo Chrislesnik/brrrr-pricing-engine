@@ -433,6 +433,8 @@ export default function PricingEnginePage() {
 
   async function handleCalculate() {
     try {
+      // Clear any previously selected row so a fresh calculation doesn't preselect anything
+      setSelectedMainRow(null)
       if (!loanType) {
         toast({ title: "Missing loan type", description: "Select a Loan Type before calculating.", variant: "destructive" })
         return
