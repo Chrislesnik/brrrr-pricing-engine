@@ -510,7 +510,24 @@ export default function PricingEnginePage() {
         throw new Error(msg || `Save failed (${res.status})`)
       }
       const j = (await res.json().catch(() => ({}))) as { loanId?: string; scenarioId?: string }
-      if (j?.loanId) setCurrentLoanId(j.loanId)
+      if (j?.loanId) {
+        setCurrentLoanId(j.loanId)
+        // Refresh scenarios list for this loan so the new scenario appears
+        try {
+          const listRes = await fetch(`/api/loans/${j.loanId}/scenarios`)
+          if (listRes.ok) {
+            const json = (await listRes.json().catch(() => ({}))) as {
+              scenarios?: { id: string; name?: string; primary?: boolean; created_at?: string }[]
+            }
+            setScenariosList(json.scenarios ?? [])
+          }
+        } catch {
+          // ignore refresh errors
+        }
+      }
+      if (j?.scenarioId) {
+        setSelectedScenarioId(j.scenarioId)
+      }
       toast({ title: "Saved", description: `Scenario saved${j?.scenarioId ? ` (#${j.scenarioId})` : ""}.` })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"

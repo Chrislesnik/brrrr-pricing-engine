@@ -80,14 +80,16 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
     const scenario = loanIdToScenario.get(l.id as string)
     const inputs = scenario?.inputs ?? {}
     const selected = scenario?.selected ?? {}
-    const assignedToUserId = (l.assigned_to_user_id as string) ?? null
-    const assignedToName =
-      assignedToUserId ? userIdToName.get(assignedToUserId) ?? assignedToUserId : null
+    const assignedToUserIds = Array.isArray(l.assigned_to_user_id)
+      ? (l.assigned_to_user_id as string[])
+      : []
+    const assignedToNames = assignedToUserIds.map((id) => userIdToName.get(id) ?? id)
+    const assignedToDisplay = assignedToNames.length ? assignedToNames.join(", ") : null
 
     return {
       id: l.id as string,
       status: l.status as "active" | "dead",
-      assignedTo: assignedToName,
+      assignedTo: assignedToDisplay,
       createdAt: l.created_at as string,
       updatedAt: l.updated_at as string,
       // Derived columns for the pipeline table
