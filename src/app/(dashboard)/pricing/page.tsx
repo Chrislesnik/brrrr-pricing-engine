@@ -31,6 +31,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { DateInput } from "@/components/date-input"
 import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
@@ -2365,6 +2373,96 @@ function ResultCard({
   const dscr = pick<number>(d?.dscr, hi)
   const loanAmount = d?.loan_amount
   const ltv = d?.ltv
+  const [mcpOpen, setMcpOpen] = useState<boolean>(false)
+  const MCP_PROMPT = `Implement these 44 designs from Figma.
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-37&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-32&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-30&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-29&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-28&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-24&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-18&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-14&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-13&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-36&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-8&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-33&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-7&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-35&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-39&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-5&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-31&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-12&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-17&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-40&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-6&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-19&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-4&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-20&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-3&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-27&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-23&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-44&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-16&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-25&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-22&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-41&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-15&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-9&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-34&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-21&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-10&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-42&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-26&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-11&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-38&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-45&m=dev
+
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-43&m=dev`
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -2376,7 +2474,7 @@ function ResultCard({
           <div className="text-xs font-semibold">{r.external_name}</div>
         </div>
         <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" aria-label="Preview">
+          <Button size="icon" variant="ghost" aria-label="Preview" onClick={() => setMcpOpen(true)}>
             <IconEye className="h-4 w-4" />
           </Button>
           <Button size="icon" variant="ghost" aria-label="Download">
@@ -2475,7 +2573,7 @@ function ResultCard({
                           <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                           <td className="py-1 pr-3 text-left">
                             <div className="flex items-center gap-1">
-                              <Button size="icon" variant="ghost" aria-label="Preview row">
+                              <Button size="icon" variant="ghost" aria-label="Preview row" onClick={() => setMcpOpen(true)}>
                                 <IconEye className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" aria-label="Download row">
@@ -2491,6 +2589,32 @@ function ResultCard({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cursor MCP Prompt</DialogTitle>
+            <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto">
+            <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => {
+                try {
+                  navigator.clipboard?.writeText(MCP_PROMPT)
+                  // no toast here to keep this component independent of hooks; the UX will still succeed
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              Copy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
