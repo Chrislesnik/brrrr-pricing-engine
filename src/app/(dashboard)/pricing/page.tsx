@@ -3054,7 +3054,7 @@ function ResultsPanel({
   if (!results?.length) {
     return selected ? (
       <div>
-        <div className="mb-3 rounded-md border p-3">
+        <div className="mb-3 rounded-md border p-3 bg-muted/40">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-bold">Main</div>
@@ -3080,7 +3080,7 @@ function ResultsPanel({
   return (
     <div>
       {selected ? (
-        <div className="mb-3 rounded-md border p-3">
+        <div className="mb-3 rounded-md border p-3 bg-muted/40">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-bold">Main</div>

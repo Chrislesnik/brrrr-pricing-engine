@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { LoanRow } from "../data/fetch-loans"
 import { PipelineToolbar } from "./pipeline-toolbar"
@@ -82,7 +83,10 @@ export function PipelineTable({ columns, data }: Props) {
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className={header.column.columnDef.meta?.className ?? ""}
+                      className={cn(
+                        "px-3 text-[13px] font-medium text-muted-foreground whitespace-nowrap",
+                        header.column.columnDef.meta?.className ?? ""
+                      )}
                     >
                       {header.isPlaceholder
                         ? null
@@ -106,7 +110,10 @@ export function PipelineTable({ columns, data }: Props) {
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={cell.column.columnDef.meta?.className ?? ""}
+                      className={cn(
+                        "px-3 whitespace-nowrap",
+                        cell.column.columnDef.meta?.className ?? ""
+                      )}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
