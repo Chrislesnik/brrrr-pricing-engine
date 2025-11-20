@@ -68,16 +68,13 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
     return () => ro.disconnect()
   }, [])
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-[60vh] sm:h-[70vh] overflow-hidden rounded-md border p-2 bg-white"
-    >
+    <div ref={containerRef} className="w-full h-[70vh] overflow-hidden rounded-md border p-2 bg-white flex items-start justify-center">
       <div
         style={{
           width: 816,
           height: 1056,
           transform: `scale(${scale})`,
-          transformOrigin: "top left",
+          transformOrigin: "top center",
         }}
       >
         <DSCRTermSheet {...sheetProps} />
@@ -2638,11 +2635,6 @@ function ResultCard({
   const loanAmount = d?.loan_amount
   const ltv = d?.ltv
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
-  const MCP_PROMPT = `Implement this design from Figma.
-
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=45-3&m=dev
-
-https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=45-3&m=dev`
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -2780,7 +2772,7 @@ https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?n
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-[min(1000px,calc(100vw-2rem))] max-h-[90vh] p-4">
           <DialogHeader>
             <DialogTitle>Cursor MCP Prompt</DialogTitle>
             <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
@@ -2795,23 +2787,7 @@ https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?n
                 dscr: dscr,
               }}
             />
-            <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
           </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              onClick={() => {
-                try {
-                  navigator.clipboard?.writeText(MCP_PROMPT)
-                  // no toast here to keep this component independent of hooks; the UX will still succeed
-                } catch {
-                  // ignore
-                }
-              }}
-            >
-              Copy
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

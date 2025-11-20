@@ -253,6 +253,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
             Pricing Engine
           </DropdownMenuItem>
           <DropdownMenuItem>Term Sheets</DropdownMenuItem>
+          <DropdownMenuItem>Assigned To</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
           <DropdownMenuItem
