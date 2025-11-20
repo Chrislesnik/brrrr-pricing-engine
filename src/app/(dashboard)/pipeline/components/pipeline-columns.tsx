@@ -100,8 +100,20 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       <DataTableColumnHeader column={column} title="Transaction Type" />
     ),
     cell: ({ row }) => {
-      const raw = (row.getValue("transactionType") as string | undefined) ?? "-"
-      const title = raw === "-" ? "-" : raw.replace(/\b\w+/g, (w) => w[0].toUpperCase() + w.slice(1))
+      const raw = (row.getValue("transactionType") as string | undefined) ?? ""
+      if (!raw) return <div>-</div>
+      const lower = raw.toLowerCase()
+      const mapping: Record<string, string> = {
+        "delayed-purchase": "Delayed Purchase",
+        "rt-refi": "Refinance Rate/Term",
+        "co-refi": "Refinance Cash Out",
+        purchase: "Purchase",
+      }
+      const title =
+        mapping[lower] ??
+        raw
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
       return <div>{title}</div>
     },
   },
