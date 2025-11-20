@@ -3353,16 +3353,21 @@ function ResultCard({
                 const node = previewRef.current
                 if (!node) return
                 const htmlInside = node.innerHTML
+                // Capture current styles (Tailwind + globals) so printed output matches on-screen
+                const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+                  .map((el) => (el as HTMLElement).outerHTML)
+                  .join("\\n")
                 const doc = `<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Term Sheet</title>
+    ${headStyles}
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #000; box-sizing: border-box; }
-      * { color: #000; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       @page { size: 816px 1056px; margin: 0; }
       @media print {
         html, body { width: 816px; height: 1056px; }
