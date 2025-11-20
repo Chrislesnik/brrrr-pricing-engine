@@ -3075,11 +3075,13 @@ function ResultCard({
   programIdx,
   selected,
   onSelect,
+  getInputs,
 }: {
   r: ProgramResult
   programIdx: number
   selected: SelectedRow | null
   onSelect: (sel: SelectedRow) => void
+  getInputs?: () => Record<string, unknown>
 }) {
   const d = r?.data ?? {}
   const pass = d?.pass === true
@@ -3584,6 +3586,7 @@ function ResultsPanel({
           programIdx={idx}
           selected={selected}
           onSelect={(sel) => setSelected(sel)}
+          getInputs={getInputs}
         />
       ))}
     </div>
