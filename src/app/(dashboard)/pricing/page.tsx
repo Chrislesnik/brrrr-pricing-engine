@@ -3356,7 +3356,7 @@ function ResultCard({
                 // Capture current styles (Tailwind + globals) so printed output matches on-screen
                 const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
                   .map((el) => (el as HTMLElement).outerHTML)
-                  .join("\\n")
+                  .join("\n")
                 const doc = `<!doctype html>
 <html>
   <head>
