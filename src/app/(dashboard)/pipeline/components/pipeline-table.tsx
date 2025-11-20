@@ -98,6 +98,22 @@ export function PipelineTable({ columns, data }: Props) {
       window.removeEventListener("loan-status-updated", onStatusUpdated as EventListener)
   }, [])
 
+  // Update Assigned To when members are changed
+  useEffect(() => {
+    function onAssigneesUpdated(e: Event) {
+      const ce = e as CustomEvent<{ id: string; assignedTo?: string }>
+      const id = ce.detail?.id
+      if (!id) return
+      const assignedTo = ce.detail?.assignedTo ?? ""
+      setTableData((prev) =>
+        prev.map((row) => (row.id === id ? ({ ...row, assignedTo } as LoanRow) : row))
+      )
+    }
+    window.addEventListener("loan-assignees-updated", onAssigneesUpdated as EventListener)
+    return () =>
+      window.removeEventListener("loan-assignees-updated", onAssigneesUpdated as EventListener)
+  }, [])
+
   const table = useReactTable({
     data: tableData,
     columns,

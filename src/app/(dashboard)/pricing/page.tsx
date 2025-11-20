@@ -416,7 +416,7 @@ export default function PricingEnginePage() {
     const formatter = (n: number) => n.toFixed(2)
     if (isPurchase) {
       const price = parse(purchasePrice)
-      if (price > 0) return formatter(price * 0.8 * 0.0125)
+      if (price > 0) return formatter(price * 0.75 * 0.0125)
     } else if (isRefi) {
       const v = parse(aiv)
       if (v > 0) return formatter(v * 0.75 * 0.0125)
@@ -429,6 +429,12 @@ export default function PricingEnginePage() {
       setTitleRecordingFee(computedTitleRecording)
     }
   }, [computedTitleRecording, titleRecordingFee, touched.titleRecordingFee])
+  // Ensure default Term when Bridge is selected
+  useEffect(() => {
+    if (isBridge && (!term || term === "")) {
+      setTerm("12")
+    }
+  }, [isBridge, term])
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -612,7 +618,7 @@ export default function PricingEnginePage() {
     }
     if (loanType === "bridge") {
       payload["bridge_type"] = bridgeType
-      payload["term"] = term ?? ""
+      payload["term"] = term ?? "12"
       payload["rentals_owned"] = rentalsOwned
       payload["num_flips"] = numFlips
       payload["num_gunc"] = numGunc
@@ -851,6 +857,8 @@ export default function PricingEnginePage() {
     if (!has(loanType)) return false
     if (!has(transactionType)) return false
     if (isBridge && !has(bridgeType)) return false
+    // Term becomes required for Bridge; default to "12" if not set
+    if (isBridge && !has(term)) return false
     if (!has(borrowerType)) return false
     if (!has(citizenship)) return false
     if (isFicoRequired && !has(fico)) return false
@@ -870,6 +878,7 @@ export default function PricingEnginePage() {
     transactionType,
     isBridge,
     bridgeType,
+    term,
     borrowerType,
     citizenship,
     isFicoRequired,
@@ -1979,9 +1988,9 @@ export default function PricingEnginePage() {
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="gla-expansion">{">20% GLA Expansion"}</Label>
-                            <Select>
+                            <Select defaultValue="no">
                               <SelectTrigger id="gla-expansion" className="h-9 w-full">
-                                <SelectValue placeholder="Select..." />
+                                <SelectValue placeholder="No" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="yes">Yes</SelectItem>
@@ -1990,10 +1999,10 @@ export default function PricingEnginePage() {
                             </Select>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="change-of-use">Change of use</Label>
-                            <Select>
+                            <Label htmlFor="change-of-use">Change of Use</Label>
+                            <Select defaultValue="no">
                               <SelectTrigger id="change-of-use" className="h-9 w-full">
-                                <SelectValue placeholder="Select..." />
+                                <SelectValue placeholder="No" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="yes">Yes</SelectItem>
@@ -2334,10 +2343,12 @@ export default function PricingEnginePage() {
                       )}
                       {loanType === "bridge" && (
                         <div className="flex flex-col gap-1">
-                          <Label htmlFor="term">Term</Label>
+                          <Label htmlFor="term">
+                            Term <span className="text-red-600">*</span>
+                          </Label>
                           <Select value={term} onValueChange={setTerm}>
                             <SelectTrigger id="term" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
+                              <SelectValue placeholder="12 months" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="12">12 months</SelectItem>

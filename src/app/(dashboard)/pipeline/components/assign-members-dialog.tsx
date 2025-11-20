@@ -72,6 +72,20 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
       })
       if (!res.ok) throw new Error(await res.text())
       onOpenChange(false)
+      // Dispatch a global event so tables can update row values and refresh filters without reload
+      try {
+        const names = members
+          .filter((m) => selected.has(m.user_id))
+          .map((m) => [m.first_name, m.last_name].filter(Boolean).join(" ").trim() || m.user_id)
+          .join(", ")
+        window.dispatchEvent(
+          new CustomEvent("loan-assignees-updated", {
+            detail: { id: loanId, userIds: Array.from(selected), assignedTo: names },
+          })
+        )
+      } catch {
+        // ignore event errors
+      }
       if (onSaved) onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save")

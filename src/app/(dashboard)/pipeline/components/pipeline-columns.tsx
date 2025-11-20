@@ -368,7 +368,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
         loanId={id}
         open={assignOpen}
         onOpenChange={setAssignOpen}
-        onSaved={() => window.location.reload()}
+        onSaved={() => {}}
       />
     </div>
   )
