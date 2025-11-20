@@ -2415,13 +2415,13 @@ function ResultCard({
                 <thead className="border-b">
                   <tr>
                     <th className="py-1 pr-3 w-8 text-left"></th>
-                    <th className="py-1 pr-3 w-14 text-left"></th>
                     <th className="py-1 pr-3">Loan Price</th>
                     <th className="py-1 pr-3">Interest Rate</th>
                     <th className="py-1 pr-3">Loan Amount</th>
                     <th className="py-1 pr-3">LTV</th>
                     <th className="py-1 pr-3">PITIA</th>
                     <th className="py-1 pr-3">DSCR</th>
+                    <th className="py-1 pr-3 w-14 text-left"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2467,6 +2467,12 @@ function ResultCard({
                               )}
                             </button>
                           </td>
+                          <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
+                          <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
+                          <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                           <td className="py-1 pr-3 text-left">
                             <div className="flex items-center gap-1">
                               <Button size="icon" variant="ghost" aria-label="Preview row">
@@ -2477,12 +2483,6 @@ function ResultCard({
                               </Button>
                             </div>
                           </td>
-                          <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
-                          <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
-                          <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                         </tr>
                       ))}
                 </tbody>
