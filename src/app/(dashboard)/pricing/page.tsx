@@ -647,7 +647,6 @@ export default function PricingEnginePage() {
         // ignore
       }
     })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoanId])
 
   // Helper setters from inputs payload
@@ -692,11 +691,13 @@ export default function PricingEnginePage() {
     // Units (leased/gross/market) from scenario inputs
     const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
     if (Array.isArray(unitsFromPayload)) {
-      const normalized = unitsFromPayload.map((u: any) => ({
+      const normalized = unitsFromPayload.map(
+        (u: { leased?: "yes" | "no"; gross?: string | number | null; market?: string | number | null }) => ({
         leased: (u?.leased as "yes" | "no" | undefined) ?? undefined,
-        gross: u?.gross != null ? String(u.gross) : "",
-        market: u?.market != null ? String(u.market) : "",
-      }))
+          gross: u?.gross != null ? String(u.gross) : "",
+          market: u?.market != null ? String(u.market) : "",
+        })
+      )
       hydrateUnitsRef.current = normalized
       if (normalized.length > 0) {
         setNumUnits(normalized.length)
