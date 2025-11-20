@@ -2377,8 +2377,6 @@ function ResultCard({
   const MCP_PROMPT = `Implement this design from Figma.
 
 @https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev`
-  const FIGMA_SHARE_URL =
-    "https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev"
   // Use provided embed code (embed.figma.com) instead of the older www.figma.com/embed variant
   const FIGMA_EMBED_URL =
     "https://embed.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev&embed-host=share"
