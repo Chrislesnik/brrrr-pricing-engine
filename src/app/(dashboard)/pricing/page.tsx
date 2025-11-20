@@ -3353,8 +3353,6 @@ function ResultCard({
                 const node = previewRef.current
                 if (!node) return
                 const htmlInside = node.innerHTML
-                const win = window.open("", "_blank", "noopener,noreferrer")
-                if (!win) return
                 const doc = `<!doctype html>
 <html>
   <head>
@@ -3364,6 +3362,7 @@ function ResultCard({
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #000; box-sizing: border-box; }
+      * { color: #000; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; }
       @page { size: 816px 1056px; margin: 0; }
       @media print {
         html, body { width: 816px; height: 1056px; }
@@ -3373,14 +3372,25 @@ function ResultCard({
   </head>
   <body>
     <div id="page">${htmlInside}</div>
-    <script>
-      window.onload = function() { window.focus(); window.print(); };
-    </script>
   </body>
 </html>`
-                win.document.open()
-                win.document.write(doc)
-                win.document.close()
+                const iframe = document.createElement("iframe")
+                iframe.style.position = "fixed"
+                iframe.style.right = "0"
+                iframe.style.bottom = "0"
+                iframe.style.width = "0"
+                iframe.style.height = "0"
+                iframe.style.border = "0"
+                iframe.setAttribute("srcdoc", doc)
+                document.body.appendChild(iframe)
+                iframe.onload = () => {
+                  try {
+                    iframe.contentWindow?.focus()
+                    iframe.contentWindow?.print()
+                  } finally {
+                    setTimeout(() => document.body.removeChild(iframe), 500)
+                  }
+                }
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unknown error"
                 toast({ title: "Download failed", description: message, variant: "destructive" })
