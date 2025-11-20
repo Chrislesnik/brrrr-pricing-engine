@@ -763,13 +763,23 @@ export default function PricingEnginePage() {
           }
         }
       }
+      // Attach metadata about which program/row was chosen when saving
+      const selectedWithMeta = {
+        ...selected,
+        program_name:
+          selectedMainRow?.programName ??
+          programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+          programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+        program_index: selectedMainRow?.programIdx ?? 0,
+        row_index: selectedMainRow?.rowIdx ?? 0,
+      }
       const res = await fetch("/api/pricing/scenario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           inputs,
-          selected,
+          selected: selectedWithMeta,
           loanId: currentLoanId,
         }),
       })
@@ -1122,7 +1132,8 @@ export default function PricingEnginePage() {
           "funded_pitia" in sel
         setSelectedMainRow({
           programIdx: 0,
-          rowIdx: 0,
+          rowIdx: (sel["row_index"] as number | undefined) ?? (sel["rowIndex"] as number | undefined) ?? 0,
+          programName: (sel["program_name"] as string | undefined) ?? (sel["programName"] as string | undefined),
           values: isBridgeSel
             ? {
                 loanPrice: ((sel["loan_price"] ?? sel["loanPrice"]) as number | string | null) ?? null,
@@ -1464,7 +1475,20 @@ export default function PricingEnginePage() {
                           const res = await fetch("/api/pricing/scenario", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name: nameOverride ?? "Scenario", inputs, selected, loanId: currentLoanId }),
+                            body: JSON.stringify({
+                              name: nameOverride ?? "Scenario",
+                              inputs,
+                              selected: {
+                                ...selected,
+                                program_name:
+                                  selectedMainRow?.programName ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                program_index: selectedMainRow?.programIdx ?? 0,
+                                row_index: selectedMainRow?.rowIdx ?? 0,
+                              },
+                              loanId: currentLoanId,
+                            }),
                           })
                           if (res.ok) {
                             const json = (await res.json().catch(() => ({}))) as { scenarioId?: string }
@@ -1477,7 +1501,20 @@ export default function PricingEnginePage() {
                           const res = await fetch(`/api/scenarios/${selectedScenarioId}`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name: nameOverride, inputs, selected, loanId: currentLoanId }),
+                            body: JSON.stringify({
+                              name: nameOverride,
+                              inputs,
+                              selected: {
+                                ...selected,
+                                program_name:
+                                  selectedMainRow?.programName ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                program_index: selectedMainRow?.programIdx ?? 0,
+                                row_index: selectedMainRow?.rowIdx ?? 0,
+                              },
+                              loanId: currentLoanId,
+                            }),
                           })
                           if (res.ok) {
                             setPendingScenarioName(undefined)
@@ -3305,10 +3342,43 @@ function ResultsPanel({
     onSelectedChange?.(selected)
   }, [selected, onSelectedChange])
   useEffect(() => {
-    if (selectedFromProps) {
+    if (!selectedFromProps) return
+    // If a program name was saved, remap to current results order and nearest row by price
+    if (selectedFromProps.programName && Array.isArray(results) && results.length > 0) {
+      const progIdx =
+        results.findIndex(
+          (r) =>
+            r.internal_name === selectedFromProps.programName ||
+            r.external_name === selectedFromProps.programName
+        ) >= 0
+          ? results.findIndex(
+              (r) =>
+                r.internal_name === selectedFromProps.programName ||
+                r.external_name === selectedFromProps.programName
+            )
+          : selectedFromProps.programIdx ?? 0
+      const d = results[progIdx]?.data ?? {}
+      const lpArr = Array.isArray((d as any).loan_price) ? ((d as any).loan_price as Array<string | number>) : []
+      const target = Number(String(selectedFromProps.values.loanPrice ?? "").replace(/[^0-9.-]/g, ""))
+      let rowIdx = (selectedFromProps.rowIdx ?? 0)
+      if (lpArr.length > 0 && Number.isFinite(target)) {
+        let best = 0
+        let bestDiff = Infinity
+        lpArr.forEach((v, i) => {
+          const n = Number(String(v).replace(/[^0-9.-]/g, ""))
+          const diff = Math.abs(n - target)
+          if (diff < bestDiff) {
+            bestDiff = diff
+            best = i
+          }
+        })
+        rowIdx = best
+      }
+      setSelected({ ...selectedFromProps, programIdx: progIdx, rowIdx })
+    } else {
       setSelected(selectedFromProps)
     }
-  }, [selectedFromProps])
+  }, [selectedFromProps, results])
 
   if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
     return (
