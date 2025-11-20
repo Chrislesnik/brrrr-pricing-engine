@@ -621,12 +621,34 @@ export default function PricingEnginePage() {
       payload["acquisition_date"] = acquisitionDate ? acquisitionDate.toISOString() : null
     }
     if (loanType === "bridge") {
+      // Always include bridge-specific selections
       payload["bridge_type"] = bridgeType
       payload["term"] = term ?? "12"
       payload["rentals_owned"] = rentalsOwned
       payload["num_flips"] = numFlips
       payload["num_gunc"] = numGunc
       payload["other_exp"] = otherExp ?? ""
+
+      // Include fields that are conditionally visible for rehab/ground-up paths
+      if (bridgeType === "bridge-rehab" || bridgeType === "ground-up") {
+        payload["gla_expansion"] = glaExpansion ?? ""
+        payload["change_of_use"] = changeOfUse ?? ""
+        // Keep explicit aliases for clarity
+        payload["rehab_budget"] = rehabBudget
+        payload["arv"] = arv
+        payload["initial_loan_amount"] = initialLoanAmount
+        payload["rehab_holdback"] = rehabHoldback
+        const total = (() => {
+          const a = Number(initialLoanAmount || "0")
+          const b = Number(rehabHoldback || "0")
+          const sum = Number.isFinite(a) && Number.isFinite(b) ? a + b : 0
+          return sum.toFixed(2)
+        })()
+        payload["total_loan_amount"] = total
+      } else {
+        // Non-rehab bridge uses a single loan amount input
+        payload["loan_amount"] = loanAmount
+      }
     }
     if (loanType === "dscr") {
       payload["fthb"] = fthb ?? ""
