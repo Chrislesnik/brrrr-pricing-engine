@@ -2377,9 +2377,7 @@ function ResultCard({
   const MCP_PROMPT = `Implement this design from Figma.
 
 @https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev`
-  // Use provided embed code (embed.figma.com) instead of the older www.figma.com/embed variant
-  const FIGMA_EMBED_URL =
-    "https://embed.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev&embed-host=share"
+  const [previewRowIdx, setPreviewRowIdx] = useState<number | null>(null)
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -2391,7 +2389,15 @@ function ResultCard({
           <div className="text-xs font-semibold">{r.external_name}</div>
         </div>
         <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" aria-label="Preview" onClick={() => setMcpOpen(true)}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Preview"
+            onClick={() => {
+              setPreviewRowIdx(Number.isFinite(hi) ? hi : 0)
+              setMcpOpen(true)
+            }}
+          >
             <IconEye className="h-4 w-4" />
           </Button>
           <Button size="icon" variant="ghost" aria-label="Download">
@@ -2490,7 +2496,15 @@ function ResultCard({
                           <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                           <td className="py-1 pr-3 text-left">
                             <div className="flex items-center gap-1">
-                              <Button size="icon" variant="ghost" aria-label="Preview row" onClick={() => setMcpOpen(true)}>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label="Preview row"
+                                onClick={() => {
+                                  setPreviewRowIdx(i)
+                                  setMcpOpen(true)
+                                }}
+                              >
                                 <IconEye className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" aria-label="Download row">
@@ -2513,12 +2527,46 @@ function ResultCard({
             <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <iframe
-              src={FIGMA_EMBED_URL}
-              className="w-full h-[70vh] rounded-md"
-              style={{ border: "1px solid rgba(0, 0, 0, 0.1)" }}
-              allowFullScreen
-            />
+            <div className="rounded-md border p-4">
+              <div className="mb-3">
+                <div className="text-sm font-bold">Preliminary Term Sheet</div>
+                <div className="text-xs text-muted-foreground">
+                  Program {r.internal_name ?? ""} • Row {((previewRowIdx ?? hi) as number) + 1}
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Widget
+                  label="Loan Price"
+                  value={
+                    Array.isArray(d?.loan_price)
+                      ? d.loan_price[(previewRowIdx ?? hi) as number]
+                      : loanPrice
+                  }
+                />
+                <Widget
+                  label="Interest Rate"
+                  value={
+                    Array.isArray(d?.interest_rate)
+                      ? d.interest_rate[(previewRowIdx ?? hi) as number]
+                      : rate
+                  }
+                />
+                <Widget label="Loan Amount" value={loanAmount} />
+                <Widget label="LTV" value={ltv} />
+                <Widget
+                  label="PITIA"
+                  value={
+                    Array.isArray(d?.pitia) ? d.pitia[(previewRowIdx ?? hi) as number] : pitia
+                  }
+                />
+                <Widget
+                  label="DSCR"
+                  value={
+                    Array.isArray(d?.dscr) ? d.dscr[(previewRowIdx ?? hi) as number] : dscr
+                  }
+                />
+              </div>
+            </div>
             <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
           </div>
           <DialogFooter>
