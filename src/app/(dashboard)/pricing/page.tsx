@@ -270,6 +270,7 @@ export default function PricingEnginePage() {
   const [borrowerName, setBorrowerName] = useState<string>("")
   const [guarantorsStr, setGuarantorsStr] = useState<string>("")
   const [uwException, setUwException] = useState<string | undefined>(undefined)
+  const [section8, setSection8] = useState<string | undefined>(undefined)
   const [taxEscrowMonths, setTaxEscrowMonths] = useState<string>("")
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
@@ -318,6 +319,7 @@ export default function PricingEnginePage() {
       borrowerName: "Example LLC" as string,
       guarantorsStr: "First Last" as string,
       uwException: "no" as string,
+      section8: "no" as string,
       hoiEffective: addDays(new Date(), 24) as Date,
       floodEffective: addDays(new Date(), 24) as Date,
       taxEscrowMonths: "3" as string,
@@ -370,6 +372,7 @@ export default function PricingEnginePage() {
     setIfUnsetString(borrowerName, (v) => setBorrowerName(v), DEFAULTS.borrowerName)
     setIfUnsetString(guarantorsStr, (v) => setGuarantorsStr(v), DEFAULTS.guarantorsStr)
     setIfUnsetString(uwException, (v) => setUwException(v), DEFAULTS.uwException)
+    setIfUnsetString(section8, (v) => setSection8(v), DEFAULTS.section8)
     setIfUnsetDate(hoiEffective, (v) => setHoiEffective(v), DEFAULTS.hoiEffective)
     setIfUnsetDate(floodEffective, (v) => setFloodEffective(v), DEFAULTS.floodEffective)
     setIfUnsetString(taxEscrowMonths, (v) => setTaxEscrowMonths(v), DEFAULTS.taxEscrowMonths)
@@ -392,6 +395,7 @@ export default function PricingEnginePage() {
     borrowerName,
     guarantorsStr,
     uwException,
+    section8,
     hoiEffective,
     floodEffective,
     taxEscrowMonths,
@@ -620,6 +624,7 @@ export default function PricingEnginePage() {
       payload["ppp"] = ppp ?? ""
       payload["str"] = strValue ?? ""
       payload["declining_market"] = decliningMarket ?? ""
+      payload["section8"] = section8 ?? ""
     }
     if (propertyType === "condo") {
       payload["warrantability"] = warrantability ?? ""
@@ -1004,6 +1009,7 @@ export default function PricingEnginePage() {
       setGuarantorsStr((payload["guarantors"] as string[]).join(", "))
     }
     if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
+    if ("section8" in payload) setSection8((payload["section8"] as string) ?? undefined)
     if ("lender_orig_percent" in payload) setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
     if ("broker_orig_percent" in payload) setBrokerOrig(String(payload["broker_orig_percent"] ?? ""))
     if ("title_recording_fee" in payload) setTitleRecordingFee(String(payload["title_recording_fee"] ?? ""))
@@ -2585,6 +2591,29 @@ export default function PricingEnginePage() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {isDscr && (
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor="section-8">Section 8</Label>
+                          <Select
+                            value={section8}
+                            onValueChange={(v) => {
+                              setSection8(v)
+                              setTouched((t) => ({ ...t, section8: true }))
+                            }}
+                          >
+                            <SelectTrigger
+                              id="section-8"
+                              className={`h-9 w-full ${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
+                            >
+                              <SelectValue placeholder="No" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="yes">Yes</SelectItem>
+                              <SelectItem value="no">No</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="hoi-effective">HOI Effective</Label>
                         <Popover>
