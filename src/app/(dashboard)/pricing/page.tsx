@@ -78,7 +78,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-start justify-center py-4"
+      className="w-full max-h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-start justify-center py-2"
     >
       <div
         style={{
