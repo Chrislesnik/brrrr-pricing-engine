@@ -59,7 +59,9 @@ export function DataTableViewOptions<TData>({ table }: Props<TData>) {
           .getAllColumns()
           .filter(
             (column) =>
-              typeof column.accessorFn !== "undefined" && column.getCanHide()
+              typeof column.accessorFn !== "undefined" &&
+              column.getCanHide() &&
+              column.id !== "search"
           )
           .map((column) => {
             return (
@@ -67,6 +69,8 @@ export function DataTableViewOptions<TData>({ table }: Props<TData>) {
                 key={column.id}
                 className=""
                 checked={column.getIsVisible()}
+                // Keep menu open after toggling
+                onSelect={(e) => e.preventDefault()}
                 onCheckedChange={(value) => column.toggleVisibility(!!value)}
               >
                 {toTitle(column.id)}
