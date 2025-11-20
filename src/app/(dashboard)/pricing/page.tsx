@@ -2232,7 +2232,7 @@ export default function PricingEnginePage() {
 
         {/* Right column: results display (flexes to remaining space) */}
         <section className="hidden h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block">
-          <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} onSelectedChange={setSelectedMainRow} />
+          <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} onSelectedChange={setSelectedMainRow} selectedFromProps={selectedMainRow} />
         </section>
       </div>
     </div>
@@ -2456,16 +2456,23 @@ function ResultsPanel({
   loading,
   placeholders,
   onSelectedChange,
+  selectedFromProps,
 }: {
   results: ProgramResult[]
   loading?: boolean
   placeholders?: Array<{ internal_name?: string; external_name?: string }>
   onSelectedChange?: (sel: SelectedRow | null) => void
+  selectedFromProps?: SelectedRow | null
 }) {
   const [selected, setSelected] = React.useState<SelectedRow | null>(null)
   useEffect(() => {
     onSelectedChange?.(selected)
   }, [selected, onSelectedChange])
+  useEffect(() => {
+    if (selectedFromProps) {
+      setSelected(selectedFromProps)
+    }
+  }, [selectedFromProps])
 
   if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
     return (
@@ -2497,8 +2504,32 @@ function ResultsPanel({
       </div>
     )
   }
+  // Always show the Main selected panel when available, even without results
   if (!results?.length) {
-    return <div className="text-sm text-muted-foreground">Results will appear here after you calculate.</div>
+    return selected ? (
+      <div>
+        <div className="mb-3 rounded-md border p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold">Main</div>
+              <div className="text-xs font-semibold text-muted-foreground">
+                Selected: Program #{selected.programIdx + 1}, Row #{selected.rowIdx + 1}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Widget label="Loan Price" value={selected.values.loanPrice} />
+            <Widget label="Interest Rate" value={selected.values.interestRate} />
+            <Widget label="Loan Amount" value={selected.values.loanAmount} />
+            <Widget label="LTV" value={selected.values.ltv} />
+            <Widget label="PITIA" value={selected.values.pitia} />
+            <Widget label="DSCR" value={selected.values.dscr} />
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="text-sm text-muted-foreground">Results will appear here after you calculate.</div>
+    )
   }
   return (
     <div>
