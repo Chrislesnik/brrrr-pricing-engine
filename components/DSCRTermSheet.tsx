@@ -1,6 +1,6 @@
 import React from "react";
 
-const DscrTermSheet = (): JSX.Element => {
+const DscrTermSheet = () => {
   const borrowerGuarantorsData = [
     { label: "Borrower", value: "{{ borrower_name }}" },
     { label: "Guarantor(s)", value: "{{ guarantor_name }}" },
