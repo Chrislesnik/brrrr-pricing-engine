@@ -317,7 +317,7 @@ export default function DSCRTermSheet(props: DSCRTermSheetProps) {
       role="document"
       aria-label="DSCR Term Sheet"
     >
-      {/* Header */}
+      {/* Header * /}
       <div className="mb-3">
         <div className="text-[13px] font-bold">Preliminary Term Sheet</div>
         <div className="text-[12px] text-amber-600 font-semibold">
@@ -325,9 +325,9 @@ export default function DSCRTermSheet(props: DSCRTermSheetProps) {
         </div>
       </div>
 
-      {/* Two columns */}
+      {/* Two columns * /}
       <div className="grid grid-cols-2 gap-6">
-        {/* Left column */}
+        {/* Left column * /}
         <div>
           <div className="text-[12px] font-semibold mb-1">Loan Summary</div>
           <div className="h-[1px] bg-black mb-2" />
@@ -504,7 +504,7 @@ export default function DSCRTermSheet(props: DSCRTermSheetProps) {
         </div>
       </div>
 
-      {/* Disclaimer */}
+      {/* Disclaimer * /}
       <div className="mt-4 border p-2 text-[9px] leading-snug text-black/70">
         Pricing of initial rate is indicative and subject to a pricing at Lender&apos;s discretion based on factors that may
         include, but are not limited to: history, liquidity, credit, experience, income, and property characteristics.
