@@ -1769,7 +1769,7 @@ export default function PricingEnginePage() {
                               setPropertyType(v)
                             }}
                           >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                           <SelectContent>
@@ -1809,7 +1809,7 @@ export default function PricingEnginePage() {
                               setNumUnits(parseInt(v))
                             }}
                           >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1833,7 +1833,7 @@ export default function PricingEnginePage() {
                               clearReAuto("glaSqFt")
                               setGlaSqFt(e.target.value)
                             }}
-                            className={`${reAuto.glaSqFt ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}
+                            className={`${reAuto.glaSqFt ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -2204,7 +2204,7 @@ export default function PricingEnginePage() {
                                   clearReAuto("acquisitionDate")
                                   setAcquisitionDate(d)
                                 }}
-                                className={`${reAuto.acquisitionDate ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}
+                                className={`${reAuto.acquisitionDate ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}
                               />
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -2932,14 +2932,14 @@ function ResultCard({
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
         <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] p-4">
-          <DialogHeader className="relative pr-16">
+          <DialogHeader>
             <DialogTitle>Term Sheet</DialogTitle>
-            <div className="absolute top-4 right-14">
-              <Button size="icon" variant="ghost" aria-label="Download term sheet">
-                <IconDownload className="h-4 w-4" />
-              </Button>
-            </div>
           </DialogHeader>
+          <div className="absolute top-4 right-14">
+            <Button size="icon" variant="ghost" aria-label="Download term sheet">
+              <IconDownload className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="space-y-3">
             <ScaledTermSheetPreview
               sheetProps={{
