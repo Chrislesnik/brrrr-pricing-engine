@@ -727,32 +727,40 @@ export default function PricingEnginePage() {
       const inputs = buildPayload()
       let selected = selectedMainRow?.values
       if (!selected) {
-        const first = programResults?.[0]?.data
+        const first = programResults?.[0]?.data as ProgramResponseData | undefined
         if (first) {
           const hi = Number(first.highlight_display ?? 0)
           const isBridgeStyle =
-            Array.isArray((first as any)?.total_loan_amount) ||
-            Array.isArray((first as any)?.initial_loan_amount) ||
-            Array.isArray((first as any)?.funded_pitia)
-          selected = isBridgeStyle
-            ? {
-                loanPrice: Array.isArray(first.loan_price) ? (first.loan_price as any)[hi] : null,
-                interestRate: Array.isArray(first.interest_rate) ? (first.interest_rate as any)[hi] : null,
-                initialLoanAmount: Array.isArray((first as any).initial_loan_amount) ? (first as any).initial_loan_amount[hi] : null,
-                rehabHoldback: Array.isArray((first as any).rehab_holdback) ? (first as any).rehab_holdback[hi] : null,
-                loanAmount: Array.isArray((first as any).total_loan_amount) ? (first as any).total_loan_amount[hi] : null,
-                pitia: Array.isArray((first as any).funded_pitia) ? (first as any).funded_pitia[hi] : null,
-                ltv: null,
-                dscr: null,
-              }
-            : {
-                loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
-                interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
-                loanAmount: first.loan_amount ?? null,
-                ltv: first.ltv ?? null,
-                pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
-                dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
-              }
+            Array.isArray(first.total_loan_amount) ||
+            Array.isArray(first.initial_loan_amount) ||
+            Array.isArray(first.funded_pitia)
+          if (isBridgeStyle) {
+            const loanPrice = pick<string | number>(first.loan_price, hi) ?? null
+            const rate = pick<string | number>(first.interest_rate, hi) ?? null
+            const init = pick<string | number>(first.initial_loan_amount, hi) ?? null
+            const hold = pick<string | number>(first.rehab_holdback, hi) ?? null
+            const tot = pick<string | number>(first.total_loan_amount, hi) ?? null
+            const fpitia = pick<string | number>(first.funded_pitia, hi) ?? null
+            selected = {
+              loanPrice,
+              interestRate: rate,
+              initialLoanAmount: init,
+              rehabHoldback: hold,
+              loanAmount: tot,
+              pitia: fpitia,
+              ltv: null,
+              dscr: null,
+            }
+          } else {
+            selected = {
+              loanPrice: pick<string | number>(first.loan_price, hi) ?? null,
+              interestRate: pick<string | number>(first.interest_rate, hi) ?? null,
+              loanAmount: (first.loan_amount as string | number | null | undefined) ?? null,
+              ltv: (first.ltv as string | number | null | undefined) ?? null,
+              pitia: pick<string | number>(first.pitia, hi) ?? null,
+              dscr: pick<string | number>(first.dscr, hi) ?? null,
+            }
+          }
         }
       }
       const res = await fetch("/api/pricing/scenario", {
@@ -1407,28 +1415,29 @@ export default function PricingEnginePage() {
                           const first = programResults?.[0]?.data
                           if (first) {
                             const hi = Number(first.highlight_display ?? 0)
+                            const resp = first as ProgramResponseData
                             const isBridgeStyle =
-                              Array.isArray((first as any)?.total_loan_amount) ||
-                              Array.isArray((first as any)?.initial_loan_amount) ||
-                              Array.isArray((first as any)?.funded_pitia)
+                              Array.isArray(resp.total_loan_amount) ||
+                              Array.isArray(resp.initial_loan_amount) ||
+                              Array.isArray(resp.funded_pitia)
                             selected = isBridgeStyle
                               ? {
-                                  loanPrice: Array.isArray(first.loan_price) ? (first.loan_price as any)[hi] : null,
-                                  interestRate: Array.isArray(first.interest_rate) ? (first.interest_rate as any)[hi] : null,
-                                  initialLoanAmount: Array.isArray((first as any).initial_loan_amount) ? (first as any).initial_loan_amount[hi] : null,
-                                  rehabHoldback: Array.isArray((first as any).rehab_holdback) ? (first as any).rehab_holdback[hi] : null,
-                                  loanAmount: Array.isArray((first as any).total_loan_amount) ? (first as any).total_loan_amount[hi] : null,
-                                  pitia: Array.isArray((first as any).funded_pitia) ? (first as any).funded_pitia[hi] : null,
+                                  loanPrice: pick<string | number>(resp.loan_price, hi) ?? null,
+                                  interestRate: pick<string | number>(resp.interest_rate, hi) ?? null,
+                                  initialLoanAmount: pick<string | number>(resp.initial_loan_amount, hi) ?? null,
+                                  rehabHoldback: pick<string | number>(resp.rehab_holdback, hi) ?? null,
+                                  loanAmount: pick<string | number>(resp.total_loan_amount, hi) ?? null,
+                                  pitia: pick<string | number>(resp.funded_pitia, hi) ?? null,
                                   ltv: null,
                                   dscr: null,
                                 }
                               : {
-                                  loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
-                                  interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
-                                  loanAmount: first.loan_amount ?? null,
-                                  ltv: first.ltv ?? null,
-                                  pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
-                                  dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
+                                  loanPrice: pick<string | number>(resp.loan_price, hi) ?? null,
+                                  interestRate: pick<string | number>(resp.interest_rate, hi) ?? null,
+                                  loanAmount: (resp.loan_amount as string | number | null | undefined) ?? null,
+                                  ltv: (resp.ltv as string | number | null | undefined) ?? null,
+                                  pitia: pick<string | number>(resp.pitia, hi) ?? null,
+                                  dscr: pick<string | number>(resp.dscr, hi) ?? null,
                                 }
                           }
                         }
