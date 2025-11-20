@@ -17,6 +17,29 @@ interface Props<TData> {
 }
 
 export function DataTableViewOptions<TData>({ table }: Props<TData>) {
+  const toTitle = (id: string): string => {
+    const map: Record<string, string> = {
+      id: "ID",
+      search: "Search",
+      propertyAddress: "Property Address",
+      borrower: "Borrower",
+      guarantors: "Guarantors",
+      loanType: "Loan Type",
+      transactionType: "Transaction Type",
+      loanAmount: "Loan Amount",
+      rate: "Rate",
+      assignedTo: "Assigned To",
+      updatedAt: "Updated At",
+      createdAt: "Created At",
+    }
+    if (map[id]) return map[id]
+    // Fallback: convert camelCase/PascalCase/snake_case to Title Case
+    const spaced = id
+      .replace(/[_-]+/g, " ")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+    return spaced.replace(/\b\w/g, (m) => m.toUpperCase())
+  }
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -42,11 +65,11 @@ export function DataTableViewOptions<TData>({ table }: Props<TData>) {
             return (
               <DropdownMenuCheckboxItem
                 key={column.id}
-                className="capitalize"
+                className=""
                 checked={column.getIsVisible()}
                 onCheckedChange={(value) => column.toggleVisibility(!!value)}
               >
-                {column.id}
+                {toTitle(column.id)}
               </DropdownMenuCheckboxItem>
             )
           })}

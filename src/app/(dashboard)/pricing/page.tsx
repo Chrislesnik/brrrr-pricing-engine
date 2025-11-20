@@ -134,6 +134,22 @@ export default function PricingEnginePage() {
   const [mobileView, setMobileView] = useState<"inputs" | "programs">("inputs")
   const prevSidebarOpenRef = useRef<boolean>(sidebarOpen)
   const didInitSidebarEffectRef = useRef<boolean>(false)
+  // Persist mobile Inputs/Programs view across sessions
+  useEffect(() => {
+    try {
+      const saved = typeof window !== "undefined" ? window.localStorage.getItem("pricing.mobileView") : null
+      if (saved === "inputs" || saved === "programs") setMobileView(saved)
+    } catch {
+      // ignore
+    }
+  }, [])
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") window.localStorage.setItem("pricing.mobileView", mobileView)
+    } catch {
+      // ignore
+    }
+  }, [mobileView])
   useEffect(() => {
     if (didInitSidebarEffectRef.current) return
     didInitSidebarEffectRef.current = true
@@ -387,6 +403,28 @@ export default function PricingEnginePage() {
   const isPurchase = transactionType === "purchase" || transactionType === "delayed-purchase"
   const isRefi = transactionType === "co-refi" || transactionType === "rt-refi"
   const isFicoRequired = citizenship === "us" || citizenship === "pr"
+  // Compute default/placeholder for Title & Recording Fee when untouched
+  const computedTitleRecording = useMemo(() => {
+    const parse = (s: string): number => {
+      const n = Number(String(s ?? "").replace(/[^0-9.-]/g, ""))
+      return Number.isFinite(n) ? n : 0
+    }
+    const formatter = (n: number) => n.toFixed(2)
+    if (isPurchase) {
+      const price = parse(purchasePrice)
+      if (price > 0) return formatter(price * 0.8 * 0.0125)
+    } else if (isRefi) {
+      const v = parse(aiv)
+      if (v > 0) return formatter(v * 0.75 * 0.0125)
+    }
+    return ""
+  }, [isPurchase, isRefi, purchasePrice, aiv])
+  useEffect(() => {
+    if (touched.titleRecordingFee) return
+    if (!titleRecordingFee && computedTitleRecording) {
+      setTitleRecordingFee(computedTitleRecording)
+    }
+  }, [computedTitleRecording, titleRecordingFee, touched.titleRecordingFee])
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -1165,8 +1203,8 @@ export default function PricingEnginePage() {
                   />
                 ) : (
                 <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder="Select..." />
+                  <SelectTrigger disabled={scenariosList.length === 0} className="h-9 w-full">
+                    <SelectValue placeholder={scenariosList.length === 0 ? "No scenarios" : "Select..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {scenariosList.map((s) => (
@@ -2605,10 +2643,13 @@ export default function PricingEnginePage() {
                           </span>
                           <CalcInput
                             id="title-recording"
-                            placeholder="0.00"
+                            placeholder={computedTitleRecording || "0.00"}
                             className="pl-6"
                             value={titleRecordingFee}
-                            onValueChange={setTitleRecordingFee}
+                            onValueChange={(v) => {
+                              setTitleRecordingFee(v)
+                              setTouched((t) => ({ ...t, titleRecordingFee: true }))
+                            }}
                           />
                         </div>
                       </div>

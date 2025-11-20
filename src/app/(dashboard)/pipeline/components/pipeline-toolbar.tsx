@@ -47,16 +47,6 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           className="h-8 w-[150px] lg:w-[250px]"
         />
         <div className="flex gap-x-2">
-          {table.getColumn("status") && (
-            <DataTableFacetedFilter
-              column={table.getColumn("status")}
-              title="Status"
-              options={[
-                { label: "Active", value: "active" },
-                { label: "Dead", value: "dead" },
-              ]}
-            />
-          )}
           {table.getColumn("loanType") && (
             <DataTableFacetedFilter
               column={table.getColumn("loanType")}
@@ -76,6 +66,16 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
                 { label: "Delayed Purchase", value: "delayed-purchase" },
                 { label: "Refinance Rate/Term", value: "rt-refi" },
                 { label: "Refinance Cash Out", value: "co-refi" },
+              ]}
+            />
+          )}
+          {table.getColumn("status") && (
+            <DataTableFacetedFilter
+              column={table.getColumn("status")}
+              title="Status"
+              options={[
+                { label: "Active", value: "active" },
+                { label: "Dead", value: "dead" },
               ]}
             />
           )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -47,6 +47,40 @@ export function PipelineTable({ columns, data }: Props) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+
+  // Persist table "view" (visibility, filters, sorting) across sessions
+  const STORAGE_KEY = "pipeline.table.view.v1"
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null
+      if (!raw) return
+      const parsed = JSON.parse(raw) as {
+        visibility?: VisibilityState
+        filters?: ColumnFiltersState
+        sorting?: SortingState
+      }
+      if (parsed?.visibility) setColumnVisibility(parsed.visibility)
+      if (parsed?.filters) setColumnFilters(parsed.filters)
+      if (parsed?.sorting) setSorting(parsed.sorting)
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    try {
+      const payload = JSON.stringify({
+        visibility: columnVisibility,
+        filters: columnFilters,
+        sorting,
+      })
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, payload)
+      }
+    } catch {
+      // ignore
+    }
+  }, [columnVisibility, columnFilters, sorting])
 
   const table = useReactTable({
     data: tableData,
