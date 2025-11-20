@@ -46,9 +46,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
-import TermSheetPreview from "@/components/term-sheet/TermSheetPreview"
+import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
 
-function ScaledTermSheetPreview() {
+function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState<number>(1)
   useEffect(() => {
@@ -75,7 +75,7 @@ function ScaledTermSheetPreview() {
           transformOrigin: "top left",
         }}
       >
-        <TermSheetPreview />
+        <DSCRTermSheet {...sheetProps} />
       </div>
     </div>
   )
@@ -270,6 +270,97 @@ export default function PricingEnginePage() {
   const [renameDraft, setRenameDraft] = useState<string>("")
   const [pendingScenarioName, setPendingScenarioName] = useState<string | undefined>(undefined)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false)
+
+  // Defaults for a brand-new loan (from "New Loan" button).
+  // These should be visible as greyed values but still included in all POST payloads.
+  const addDays = (dt: Date, days: number) => {
+    const d = new Date(dt)
+    d.setDate(d.getDate() + days)
+    return d
+  }
+  const isSameDay = (a?: Date, b?: Date) => {
+    if (!a || !b) return false
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  }
+  const DEFAULTS = React.useMemo(
+    () => ({
+      borrowerType: "entity" as string,
+      fthb: "no" as string,
+      citizenship: "us" as string,
+      mortgageDebtValue: "0" as string,
+      rural: "no" as string,
+      strValue: "no" as string,
+      decliningMarket: "no" as string,
+      annualFlood: "0" as string,
+      annualHoa: "0" as string,
+      annualMgmt: "0" as string,
+      closingDate: addDays(new Date(), 24) as Date,
+      loanStructureType: "fixed-30" as string,
+      ppp: "5-4-3-2-1" as string,
+      borrowerName: "Example LLC" as string,
+      guarantorsStr: "First Last" as string,
+      uwException: "no" as string,
+      hoiEffective: addDays(new Date(), 24) as Date,
+      floodEffective: addDays(new Date(), 24) as Date,
+      taxEscrowMonths: "3" as string,
+    }),
+    []
+  )
+  const defaultsAppliedRef = useRef<boolean>(false)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    if (defaultsAppliedRef.current) return
+    // Only apply defaults when arriving via "New Loan" (no loanId present)
+    if (initialLoanId) return
+    // Guard against overriding any prefilled values
+    const setIfUnsetString = (current: string | undefined, setter: (v: string) => void, value: string) => {
+      if (current === undefined || current === "") setter(value)
+    }
+    const setIfUnsetDate = (current: Date | undefined, setter: (v: Date) => void, value: Date) => {
+      if (!current) setter(value)
+    }
+    setIfUnsetString(borrowerType, (v) => setBorrowerType(v), DEFAULTS.borrowerType)
+    setIfUnsetString(fthb, (v) => setFthb(v), DEFAULTS.fthb)
+    setIfUnsetString(citizenship, (v) => setCitizenship(v), DEFAULTS.citizenship)
+    setIfUnsetString(mortgageDebtValue, (v) => setMortgageDebtValue(v), DEFAULTS.mortgageDebtValue)
+    setIfUnsetString(rural, (v) => setRural(v), DEFAULTS.rural)
+    setIfUnsetString(strValue, (v) => setStrValue(v), DEFAULTS.strValue)
+    setIfUnsetString(decliningMarket, (v) => setDecliningMarket(v), DEFAULTS.decliningMarket)
+    setIfUnsetString(annualFlood, (v) => setAnnualFlood(v), DEFAULTS.annualFlood)
+    setIfUnsetString(annualHoa, (v) => setAnnualHoa(v), DEFAULTS.annualHoa)
+    setIfUnsetString(annualMgmt, (v) => setAnnualMgmt(v), DEFAULTS.annualMgmt)
+    setIfUnsetDate(closingDate, (v) => setClosingDate(v), DEFAULTS.closingDate)
+    setIfUnsetString(loanStructureType, (v) => setLoanStructureType(v), DEFAULTS.loanStructureType)
+    setIfUnsetString(ppp, (v) => setPpp(v), DEFAULTS.ppp)
+    setIfUnsetString(borrowerName, (v) => setBorrowerName(v), DEFAULTS.borrowerName)
+    setIfUnsetString(guarantorsStr, (v) => setGuarantorsStr(v), DEFAULTS.guarantorsStr)
+    setIfUnsetString(uwException, (v) => setUwException(v), DEFAULTS.uwException)
+    setIfUnsetDate(hoiEffective, (v) => setHoiEffective(v), DEFAULTS.hoiEffective)
+    setIfUnsetDate(floodEffective, (v) => setFloodEffective(v), DEFAULTS.floodEffective)
+    setIfUnsetString(taxEscrowMonths, (v) => setTaxEscrowMonths(v), DEFAULTS.taxEscrowMonths)
+    defaultsAppliedRef.current = true
+  }, [
+    initialLoanId,
+    borrowerType,
+    fthb,
+    citizenship,
+    mortgageDebtValue,
+    rural,
+    strValue,
+    decliningMarket,
+    annualFlood,
+    annualHoa,
+    annualMgmt,
+    closingDate,
+    loanStructureType,
+    ppp,
+    borrowerName,
+    guarantorsStr,
+    uwException,
+    hoiEffective,
+    floodEffective,
+    taxEscrowMonths,
+  ])
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -1241,8 +1332,17 @@ export default function PricingEnginePage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-type">Borrower Type</Label>
-                        <Select value={borrowerType} onValueChange={setBorrowerType}>
-                          <SelectTrigger id="borrower-type" className="h-9 w-full">
+                        <Select
+                          value={borrowerType}
+                          onValueChange={(v) => {
+                            setBorrowerType(v)
+                            setTouched((t) => ({ ...t, borrowerType: true }))
+                          }}
+                        >
+                          <SelectTrigger
+                            id="borrower-type"
+                            className={`h-9 w-full ${!touched.borrowerType && borrowerType === DEFAULTS.borrowerType ? "text-muted-foreground" : ""}`}
+                          >
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -1253,8 +1353,17 @@ export default function PricingEnginePage() {
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="citizenship">Citizenship</Label>
-                        <Select value={citizenship} onValueChange={setCitizenship}>
-                          <SelectTrigger id="citizenship" className="h-9 w-full">
+                        <Select
+                          value={citizenship}
+                          onValueChange={(v) => {
+                            setCitizenship(v)
+                            setTouched((t) => ({ ...t, citizenship: true }))
+                          }}
+                        >
+                          <SelectTrigger
+                            id="citizenship"
+                            className={`h-9 w-full ${!touched.citizenship && citizenship === DEFAULTS.citizenship ? "text-muted-foreground" : ""}`}
+                          >
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -1269,8 +1378,17 @@ export default function PricingEnginePage() {
                         <>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="fthb">FTHB</Label>
-                            <Select value={fthb} onValueChange={setFthb}>
-                              <SelectTrigger id="fthb" className="h-9 w-full">
+                            <Select
+                              value={fthb}
+                              onValueChange={(v) => {
+                                setFthb(v)
+                                setTouched((t) => ({ ...t, fthb: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="fthb"
+                                className={`h-9 w-full ${!touched.fthb && fthb === DEFAULTS.fthb ? "text-muted-foreground" : ""}`}
+                              >
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
                               <SelectContent>
@@ -1288,9 +1406,12 @@ export default function PricingEnginePage() {
                               <CalcInput
                                 id="mortgage-debt"
                                 placeholder="0.00"
-                                className="pl-6"
+                                className={`pl-6 ${!touched.mortgageDebt && mortgageDebtValue === DEFAULTS.mortgageDebtValue ? "text-muted-foreground" : ""}`}
                                 value={mortgageDebtValue}
-                                onValueChange={setMortgageDebtValue}
+                                onValueChange={(v) => {
+                                  setMortgageDebtValue(v)
+                                  setTouched((t) => ({ ...t, mortgageDebt: true }))
+                                }}
                               />
                             </div>
                           </div>
@@ -1593,8 +1714,17 @@ export default function PricingEnginePage() {
                         </div>
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="rural">Rural</Label>
-                          <Select value={rural} onValueChange={setRural}>
-                            <SelectTrigger id="rural" className="h-9 w-full">
+                        <Select
+                          value={rural}
+                          onValueChange={(v) => {
+                            setRural(v)
+                            setTouched((t) => ({ ...t, rural: true }))
+                          }}
+                        >
+                          <SelectTrigger
+                            id="rural"
+                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural ? "text-muted-foreground" : ""}`}
+                          >
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1607,8 +1737,17 @@ export default function PricingEnginePage() {
                           <>
                             <div className="flex flex-col gap-1">
                               <Label htmlFor="str">STR</Label>
-                              <Select value={strValue} onValueChange={setStrValue}>
-                                <SelectTrigger id="str" className="h-9 w-full">
+                            <Select
+                              value={strValue}
+                              onValueChange={(v) => {
+                                setStrValue(v)
+                                setTouched((t) => ({ ...t, strValue: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="str"
+                                className={`h-9 w-full ${!touched.strValue && strValue === DEFAULTS.strValue ? "text-muted-foreground" : ""}`}
+                              >
                                   <SelectValue placeholder="Select..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1619,8 +1758,17 @@ export default function PricingEnginePage() {
                             </div>
                             <div className="flex flex-col gap-1">
                               <Label htmlFor="declining-market">Declining Market</Label>
-                              <Select value={decliningMarket} onValueChange={setDecliningMarket}>
-                                <SelectTrigger id="declining-market" className="h-9 w-full">
+                            <Select
+                              value={decliningMarket}
+                              onValueChange={(v) => {
+                                setDecliningMarket(v)
+                                setTouched((t) => ({ ...t, decliningMarket: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="declining-market"
+                                className={`h-9 w-full ${!touched.decliningMarket && decliningMarket === DEFAULTS.decliningMarket ? "text-muted-foreground" : ""}`}
+                              >
                                   <SelectValue placeholder="Select..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1734,7 +1882,7 @@ export default function PricingEnginePage() {
                           <CalcInput
                             id="annual-hoi"
                             placeholder="0.00"
-                            className="pl-6"
+                            className={`pl-6`}
                             value={annualHoi}
                             onValueChange={setAnnualHoi}
                           />
@@ -1749,9 +1897,12 @@ export default function PricingEnginePage() {
                           <CalcInput
                             id="annual-flood"
                             placeholder="0.00"
-                            className="pl-6"
+                            className={`pl-6 ${!touched.annualFlood && annualFlood === DEFAULTS.annualFlood ? "text-muted-foreground" : ""}`}
                             value={annualFlood}
-                            onValueChange={setAnnualFlood}
+                            onValueChange={(v) => {
+                              setAnnualFlood(v)
+                              setTouched((t) => ({ ...t, annualFlood: true }))
+                            }}
                           />
                         </div>
                       </div>
@@ -1764,9 +1915,12 @@ export default function PricingEnginePage() {
                           <CalcInput
                             id="annual-hoa"
                             placeholder="0.00"
-                            className="pl-6"
+                            className={`pl-6 ${!touched.annualHoa && annualHoa === DEFAULTS.annualHoa ? "text-muted-foreground" : ""}`}
                             value={annualHoa}
-                            onValueChange={setAnnualHoa}
+                            onValueChange={(v) => {
+                              setAnnualHoa(v)
+                              setTouched((t) => ({ ...t, annualHoa: true }))
+                            }}
                           />
                         </div>
                       </div>
@@ -1779,9 +1933,12 @@ export default function PricingEnginePage() {
                           <CalcInput
                             id="annual-mgmt"
                             placeholder="0.00"
-                            className="pl-6"
+                            className={`pl-6 ${!touched.annualMgmt && annualMgmt === DEFAULTS.annualMgmt ? "text-muted-foreground" : ""}`}
                             value={annualMgmt}
-                            onValueChange={setAnnualMgmt}
+                            onValueChange={(v) => {
+                              setAnnualMgmt(v)
+                              setTouched((t) => ({ ...t, annualMgmt: true }))
+                            }}
                           />
                         </div>
                       </div>
@@ -2556,7 +2713,15 @@ https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?n
             <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <ScaledTermSheetPreview />
+            <ScaledTermSheetPreview
+              sheetProps={{
+                program: r.internal_name ?? r.external_name,
+                interest_rate: rate,
+                leverage_ltv: ltv,
+                loan_amount: loanAmount,
+                dscr: dscr,
+              }}
+            />
             <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
           </div>
           <DialogFooter>
