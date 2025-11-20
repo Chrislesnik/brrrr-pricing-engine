@@ -623,6 +623,8 @@ export default function PricingEnginePage() {
       setSelectedScenarioId(undefined)
       return
     }
+    // Ensure currentLoanId sticks to the page session when coming from pipeline
+    setCurrentLoanId(loanId)
     ;(async () => {
       try {
         const res = await fetch(`/api/loans/${loanId}/scenarios`)
