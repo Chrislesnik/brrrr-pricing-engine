@@ -36,6 +36,39 @@ const statusClass: Record<string, string> = {
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [
+  // Hidden combined search column to enable single-input OR filtering across fields
+  {
+    id: "search",
+    accessorFn: (row) => {
+      const borrowerFirst =
+        (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
+        (row as { firstName?: string; borrowerFirstName?: string }).borrowerFirstName ??
+        ""
+      const borrowerLast =
+        (row as { lastName?: string; borrowerLastName?: string }).lastName ??
+        (row as { lastName?: string; borrowerLastName?: string }).borrowerLastName ??
+        ""
+      const borrower = [borrowerFirst, borrowerLast].filter(Boolean).join(" ").trim()
+      const guarantors = Array.isArray((row as { guarantors?: string[] }).guarantors)
+        ? ((row as { guarantors?: string[] }).guarantors as string[]).join(", ")
+        : ""
+      const address = (row as { propertyAddress?: string }).propertyAddress ?? ""
+      const id = (row as { id?: string }).id ?? ""
+      return [id, address, borrower, guarantors].filter(Boolean).join(" ").toLowerCase()
+    },
+    header: () => null,
+    cell: () => null,
+    filterFn: (row, columnId, filterValue) => {
+      const haystack = String(row.getValue(columnId) ?? "")
+      const needle = String(filterValue ?? "").toLowerCase()
+      if (!needle) return true
+      return haystack.includes(needle)
+    },
+    // Hide via CSS so it doesn't affect layout or visibility
+    meta: { className: "hidden" },
+    enableSorting: false,
+    enableHiding: true,
+  },
   {
     accessorKey: "id",
     header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,

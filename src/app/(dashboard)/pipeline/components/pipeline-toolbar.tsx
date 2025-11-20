@@ -21,17 +21,11 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
         <Input
           placeholder="Search by ID, property address, borrower, or guarantor..."
           value={
-            (table.getColumn("propertyAddress")?.getFilterValue() as string) ??
-            (table.getColumn("id")?.getFilterValue() as string) ??
-            (table.getColumn("borrower")?.getFilterValue() as string) ??
-            (table.getColumn("guarantors")?.getFilterValue() as string) ??
+            (table.getColumn("search")?.getFilterValue() as string) ??
             ""
           }
           onChange={(event) => {
-            table.getColumn("propertyAddress")?.setFilterValue(event.target.value)
-            table.getColumn("id")?.setFilterValue(event.target.value)
-            table.getColumn("borrower")?.setFilterValue(event.target.value)
-            table.getColumn("guarantors")?.setFilterValue(event.target.value)
+            table.getColumn("search")?.setFilterValue(event.target.value)
           }}
           className="h-8 w-[150px] lg:w-[250px]"
         />
