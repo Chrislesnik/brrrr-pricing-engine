@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -2375,14 +2375,22 @@ function ResultCard({
           </div>
           <div className="text-xs font-semibold">{r.external_name}</div>
         </div>
-        <div
+        <div className="flex items-center gap-1">
+          <Button size="icon" variant="ghost" aria-label="Preview">
+            <IconEye className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="ghost" aria-label="Download">
+            <IconDownload className="h-4 w-4" />
+          </Button>
+          <div
           className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
             pass
               ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
               : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100"
           }`}
-        >
-          {pass ? "PASS" : "FAIL"}
+          >
+            {pass ? "PASS" : "FAIL"}
+          </div>
         </div>
       </div>
 
@@ -2407,6 +2415,7 @@ function ResultCard({
                 <thead className="border-b">
                   <tr>
                     <th className="py-1 pr-3 w-8 text-left"></th>
+                    <th className="py-1 pr-3 w-14 text-left"></th>
                     <th className="py-1 pr-3">Loan Price</th>
                     <th className="py-1 pr-3">Interest Rate</th>
                     <th className="py-1 pr-3">Loan Amount</th>
@@ -2457,6 +2466,16 @@ function ResultCard({
                                 <IconStar className="h-5 w-5" />
                               )}
                             </button>
+                          </td>
+                          <td className="py-1 pr-3 text-left">
+                            <div className="flex items-center gap-1">
+                              <Button size="icon" variant="ghost" aria-label="Preview row">
+                                <IconEye className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" aria-label="Download row">
+                                <IconDownload className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </td>
                           <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
                           <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
