@@ -770,6 +770,10 @@ export default function PricingEnginePage() {
           selectedMainRow?.programName ??
           programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
           programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+        program_id:
+          selectedMainRow?.programId ??
+          programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+          programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
         program_index: selectedMainRow?.programIdx ?? 0,
         row_index: selectedMainRow?.rowIdx ?? 0,
       }
@@ -1131,9 +1135,10 @@ export default function PricingEnginePage() {
           "initialLoanAmount" in sel ||
           "funded_pitia" in sel
         setSelectedMainRow({
-          programIdx: 0,
+          programIdx: (sel["program_index"] as number | undefined) ?? 0,
           rowIdx: (sel["row_index"] as number | undefined) ?? (sel["rowIndex"] as number | undefined) ?? 0,
           programName: (sel["program_name"] as string | undefined) ?? (sel["programName"] as string | undefined),
+          programId: (sel["program_id"] as string | undefined) ?? (sel["programId"] as string | undefined),
           values: isBridgeSel
             ? {
                 loanPrice: ((sel["loan_price"] ?? sel["loanPrice"]) as number | string | null) ?? null,
@@ -1484,6 +1489,10 @@ export default function PricingEnginePage() {
                                   selectedMainRow?.programName ??
                                   programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
                                   programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                program_id:
+                                  selectedMainRow?.programId ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
                                 program_index: selectedMainRow?.programIdx ?? 0,
                                 row_index: selectedMainRow?.rowIdx ?? 0,
                               },
@@ -1508,6 +1517,10 @@ export default function PricingEnginePage() {
                                 ...selected,
                                 program_name:
                                   selectedMainRow?.programName ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                program_id:
+                                  selectedMainRow?.programId ??
                                   programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
                                   programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
                                 program_index: selectedMainRow?.programIdx ?? 0,
@@ -3031,6 +3044,7 @@ type SelectedRow = {
   programIdx: number
   rowIdx: number
   programName?: string | null
+  programId?: string | null
   values: {
     loanPrice?: number | string | null
     interestRate?: number | string | null
@@ -3189,6 +3203,7 @@ function ResultCard({
                                   programIdx,
                                   rowIdx: i,
                                   programName: r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`,
+                                  programId: r.internal_name ?? r.external_name ?? null,
                                   values: {
                                     loanPrice: typeof lp === "number" ? lp : String(lp),
                                     interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
@@ -3344,23 +3359,25 @@ function ResultsPanel({
   useEffect(() => {
     if (!selectedFromProps) return
     // If a program name was saved, remap to current results order and nearest row by price
-    if (selectedFromProps.programName && Array.isArray(results) && results.length > 0) {
-      const progIdx =
-        results.findIndex(
-          (r) =>
-            r.internal_name === selectedFromProps.programName ||
-            r.external_name === selectedFromProps.programName
-        ) >= 0
-          ? results.findIndex(
-              (r) =>
-                r.internal_name === selectedFromProps.programName ||
-                r.external_name === selectedFromProps.programName
-            )
-          : selectedFromProps.programIdx ?? 0
+    if (Array.isArray(results) && results.length > 0) {
+      let progIdx = selectedFromProps.programIdx ?? 0
+      // Prefer explicit program id if present
+      if (selectedFromProps.programId) {
+        const idxById = results.findIndex(
+          (r) => r.internal_name === selectedFromProps.programId || r.external_name === selectedFromProps.programId
+        )
+        if (idxById >= 0) progIdx = idxById
+      } else if (selectedFromProps.programName) {
+        const idxByName = results.findIndex(
+          (r) => r.internal_name === selectedFromProps.programName || r.external_name === selectedFromProps.programName
+        )
+        if (idxByName >= 0) progIdx = idxByName
+      }
+      if (progIdx < 0 || progIdx >= results.length) progIdx = 0
       const d = (results[progIdx]?.data ?? {}) as ProgramResponseData
       const lpArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
       const target = Number(String(selectedFromProps.values.loanPrice ?? "").replace(/[^0-9.-]/g, ""))
-      let rowIdx = (selectedFromProps.rowIdx ?? 0)
+      let rowIdx = selectedFromProps.rowIdx ?? 0
       if (lpArr.length > 0 && Number.isFinite(target)) {
         let best = 0
         let bestDiff = Infinity
