@@ -2771,9 +2771,9 @@ function ResultCard({
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
         <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] p-4">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>Term Sheet</DialogTitle>
+          <DialogHeader className="relative pr-14">
+            <DialogTitle>Term Sheet</DialogTitle>
+            <div className="absolute top-0 right-10">
               <Button size="icon" variant="ghost" aria-label="Download term sheet">
                 <IconDownload className="h-4 w-4" />
               </Button>

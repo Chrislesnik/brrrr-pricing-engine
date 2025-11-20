@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { IconDots } from "@tabler/icons-react"
+import { AssignMembersDialog } from "./assign-members-dialog"
 
 const statusClass: Record<string, string> = {
   active: "bg-green-100 text-green-800 border-green-200",
@@ -202,6 +203,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
   const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
+  const [assignOpen, setAssignOpen] = React.useState(false)
 
   async function setStatus(next: string) {
     try {
@@ -253,7 +255,14 @@ function RowActions({ id, status }: { id: string; status?: string }) {
             Pricing Engine
           </DropdownMenuItem>
           <DropdownMenuItem>Term Sheets</DropdownMenuItem>
-          <DropdownMenuItem>Assigned To</DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setAssignOpen(true)
+            }}
+          >
+            Assigned To
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
           <DropdownMenuItem
@@ -289,6 +298,12 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AssignMembersDialog
+        loanId={id}
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        onSaved={() => window.location.reload()}
+      />
     </div>
   )
 }
