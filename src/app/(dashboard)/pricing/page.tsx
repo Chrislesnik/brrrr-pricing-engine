@@ -552,6 +552,10 @@ export default function PricingEnginePage() {
   const [unitData, setUnitData] = useState<
     { leased?: "yes" | "no"; gross?: string; market?: string }[]
   >([])
+  // When hydrating from a scenario, stash unit rows so the resizing effect can populate them once.
+  const hydrateUnitsRef = useRef<
+    { leased?: "yes" | "no"; gross?: string; market?: string }[] | null
+  >(null)
 
   // Keep numUnits within allowed options and resize unit rows accordingly
   useEffect(() => {
@@ -563,10 +567,34 @@ export default function PricingEnginePage() {
     if (!numUnits || !unitOptions.includes(numUnits)) {
       const next = unitOptions[0]
       setNumUnits(next)
-      setUnitData(Array.from({ length: next }, () => ({ leased: undefined, gross: "", market: "" })))
+      // If we have saved data to hydrate, prefer that; else blank rows.
+      const saved = hydrateUnitsRef.current
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        const rows = Array.from({ length: next }, (_, i) => ({
+          leased: saved[i]?.leased,
+          gross: saved[i]?.gross ?? "",
+          market: saved[i]?.market ?? "",
+        }))
+        setUnitData(rows)
+        hydrateUnitsRef.current = null
+      } else {
+        setUnitData(Array.from({ length: next }, () => ({ leased: undefined, gross: "", market: "" })))
+      }
       return
     }
-    setUnitData(Array.from({ length: numUnits }, () => ({ leased: undefined, gross: "", market: "" })))
+    // Maintain length; populate with saved values if present
+    const saved = hydrateUnitsRef.current
+    if (saved && Array.isArray(saved) && saved.length > 0) {
+      const rows = Array.from({ length: numUnits }, (_, i) => ({
+        leased: saved[i]?.leased,
+        gross: saved[i]?.gross ?? "",
+        market: saved[i]?.market ?? "",
+      }))
+      setUnitData(rows)
+      hydrateUnitsRef.current = null
+    } else {
+      setUnitData(Array.from({ length: numUnits }, () => ({ leased: undefined, gross: "", market: "" })))
+    }
   }, [unitOptions, numUnits])
 
   // Load Google Maps JS API (Places) once
@@ -661,6 +689,19 @@ export default function PricingEnginePage() {
     if ("flood_premium" in payload) setFloodPremium(String(payload["flood_premium"] ?? ""))
     if ("mortgage_debt" in payload) setMortgageDebtValue(String(payload["mortgage_debt"] ?? ""))
     if ("tax_escrow_months" in payload) setTaxEscrowMonths(String(payload["tax_escrow_months"] ?? ""))
+    // Units (leased/gross/market) from scenario inputs
+    const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
+    if (Array.isArray(unitsFromPayload)) {
+      const normalized = unitsFromPayload.map((u: any) => ({
+        leased: (u?.leased as "yes" | "no" | undefined) ?? undefined,
+        gross: u?.gross != null ? String(u.gross) : "",
+        market: u?.market != null ? String(u.market) : "",
+      }))
+      hydrateUnitsRef.current = normalized
+      if (normalized.length > 0) {
+        setNumUnits(normalized.length)
+      }
+    }
 
     if ("borrower_type" in payload) setBorrowerType((payload["borrower_type"] as string) ?? undefined)
     if ("citizenship" in payload) setCitizenship((payload["citizenship"] as string) ?? undefined)
@@ -716,7 +757,7 @@ export default function PricingEnginePage() {
           programIdx: 0,
           rowIdx: 0,
           values: {
-            loanPrice: (sel["loan_price"] as number | string | null) ?? null,
+            loanPrice: ((sel["loan_price"] ?? sel["loanPrice"]) as number | string | null) ?? null,
             interestRate: (sel["rate"] ?? sel["interestRate"]) as number | string | null,
             loanAmount: (sel["loan_amount"] ?? sel["loanAmount"]) as number | string | null,
             ltv: sel["ltv"] as number | string | null,
@@ -816,8 +857,8 @@ export default function PricingEnginePage() {
         <aside className="min-h-0 w-full lg:shrink-0" style={isMobile ? undefined : { width: `${leftPanePct * 100}%` }}>
           <div className="flex h-full min-h-0 flex-col rounded-md border">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_auto] items-end gap-2 border-b p-3">
-              <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-[1fr_auto] items-end gap-2 border-b p-3 overflow-hidden">
+              <div className="flex min-w-0 flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">
                   Scenarios
                 </label>
@@ -870,7 +911,7 @@ export default function PricingEnginePage() {
                 </Select>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 {isNamingScenario || isRenamingScenario ? (
                   <>
                     {isRenamingScenario ? (

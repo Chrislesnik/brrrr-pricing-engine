@@ -1,4 +1,29 @@
 import { NextResponse } from "next/server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+
+type Params = { params: { id: string } }
+
+export async function POST(_req: Request, { params }: Params) {
+  const id = params?.id
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+  // Find the scenario to get its loan_id
+  const { data: scen, error: err1 } = await supabaseAdmin
+    .from("loan_scenarios")
+    .select("id, loan_id")
+    .eq("id", id)
+    .single()
+  if (err1 || !scen) return NextResponse.json({ error: err1?.message || "Not found" }, { status: 404 })
+  const loanId = scen.loan_id as string | null
+  if (loanId) {
+    // Clear others
+    await supabaseAdmin.from("loan_scenarios").update({ primary: false }).eq("loan_id", loanId)
+  }
+  const { error: err2 } = await supabaseAdmin.from("loan_scenarios").update({ primary: true }).eq("id", id)
+  if (err2) return NextResponse.json({ error: err2.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
+import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
