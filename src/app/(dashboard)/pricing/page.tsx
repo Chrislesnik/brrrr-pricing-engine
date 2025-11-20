@@ -3004,7 +3004,14 @@ export default function PricingEnginePage() {
 
         {/* Right column: results display (flexes to remaining space) */}
         <section className={`${isMobile && mobileView === "programs" ? "block" : "hidden"} h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block`}>
-          <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} onSelectedChange={setSelectedMainRow} selectedFromProps={selectedMainRow} />
+          <ResultsPanel
+            results={programResults}
+            loading={isDispatching}
+            placeholders={programPlaceholders}
+            onSelectedChange={setSelectedMainRow}
+            selectedFromProps={selectedMainRow}
+            getInputs={() => buildPayload()}
+          />
         </section>
       </div>
     </div>
@@ -3090,6 +3097,48 @@ function ResultCard({
   const loanAmount = isBridgeResp ? pick<string | number>(d?.total_loan_amount, hi) : d?.loan_amount
   const ltv = d?.ltv
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
+  const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
+  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
+
+  async function openTermSheetPreview(rowIndex?: number) {
+    try {
+      const inputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
+      const idx = rowIndex ?? Number(d?.highlight_display ?? 0)
+      const payloadRow: Record<string, unknown> = {
+        loan_price: pick<string | number>(d?.loan_price, idx),
+        interest_rate: pick<string | number>(d?.interest_rate, idx),
+      }
+      if (isBridgeResp) {
+        payloadRow["initial_loan_amount"] = pick<string | number>(d?.initial_loan_amount, idx)
+        payloadRow["rehab_holdback"] = pick<string | number>(d?.rehab_holdback, idx)
+        payloadRow["total_loan_amount"] = pick<string | number>(d?.total_loan_amount, idx)
+        payloadRow["funded_pitia"] = pick<string | number>(d?.funded_pitia, idx)
+      } else {
+        payloadRow["loan_amount"] = loanAmount
+        payloadRow["ltv"] = ltv
+        payloadRow["pitia"] = pick<string | number>(d?.pitia, idx)
+        payloadRow["dscr"] = pick<string | number>(d?.dscr, idx)
+      }
+      const body = {
+        program: r.internal_name ?? r.external_name ?? "Program",
+        program_id: r.internal_name ?? r.external_name ?? null,
+        row_index: idx,
+        inputs,
+        row: payloadRow,
+      }
+      const res = await fetch(TERMSHEET_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const json = (await res.json().catch(() => ({}))) as DSCRTermSheetProps
+      setSheetProps(json && typeof json === "object" ? json : {})
+      setMcpOpen(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load term sheet"
+      toast({ title: "Preview failed", description: message, variant: "destructive" })
+    }
+  }
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -3105,7 +3154,7 @@ function ResultCard({
             size="icon"
             variant="ghost"
             aria-label="Preview"
-            onClick={() => setMcpOpen(true)}
+            onClick={() => openTermSheetPreview()}
           >
             <IconEye className="h-4 w-4" />
           </Button>
@@ -3255,7 +3304,7 @@ function ResultCard({
                                 size="icon"
                                 variant="ghost"
                                 aria-label="Preview row"
-                                onClick={() => setMcpOpen(true)}
+                                onClick={() => openTermSheetPreview(i)}
                               >
                                 <IconEye className="h-4 w-4" />
                               </Button>
@@ -3286,13 +3335,17 @@ function ResultCard({
           </button>
           <div className="space-y-3">
             <ScaledTermSheetPreview
-              sheetProps={{
-                program: r.internal_name ?? r.external_name,
-                interest_rate: rate,
-                leverage_ltv: ltv,
-                loan_amount: loanAmount,
-                dscr: dscr,
-              }}
+              sheetProps={
+                Object.keys(sheetProps ?? {}).length
+                  ? sheetProps
+                  : {
+                      program: r.internal_name ?? r.external_name,
+                      interest_rate: rate,
+                      leverage_ltv: ltv,
+                      loan_amount: loanAmount,
+                      dscr: dscr,
+                    }
+              }
             />
           </div>
         </DialogContent>
@@ -3345,12 +3398,14 @@ function ResultsPanel({
   placeholders,
   onSelectedChange,
   selectedFromProps,
+  getInputs,
 }: {
   results: ProgramResult[]
   loading?: boolean
   placeholders?: Array<{ internal_name?: string; external_name?: string }>
   onSelectedChange?: (sel: SelectedRow | null) => void
   selectedFromProps?: SelectedRow | null
+  getInputs?: () => Record<string, unknown>
 }) {
   const [selected, setSelected] = React.useState<SelectedRow | null>(null)
   useEffect(() => {
