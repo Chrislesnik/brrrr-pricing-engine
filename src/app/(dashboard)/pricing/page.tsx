@@ -45,6 +45,7 @@ import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -130,6 +131,7 @@ export default function PricingEnginePage() {
   // Collapse the left app sidebar by default when entering this page.
   // We snapshot the prior open state and restore it on unmount so other pages aren't affected.
   const { open: sidebarOpen, setOpen: setSidebarOpen, isMobile } = useSidebar()
+  const [mobileView, setMobileView] = useState<"inputs" | "programs">("inputs")
   const prevSidebarOpenRef = useRef<boolean>(sidebarOpen)
   const didInitSidebarEffectRef = useRef<boolean>(false)
   useEffect(() => {
@@ -1103,11 +1105,26 @@ export default function PricingEnginePage() {
 
   return (
     <div data-layout="fixed" className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-      <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
+        {/* Mobile-only view switch: Inputs / Programs */}
+        <div className="lg:hidden">
+          <Tabs value={mobileView} onValueChange={(v) => setMobileView(v as "inputs" | "programs")}>
+            <TabsList className="grid h-8 grid-cols-2 p-[3px]">
+              <TabsTrigger className="h-7 px-3" value="inputs">
+                Inputs
+              </TabsTrigger>
+              <TabsTrigger className="h-7 px-3" value="programs">
+                Programs
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
 
       <div ref={layoutRef} className="flex h-full min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Left 25% column: scrollable container with header and footer */}
-        <aside className="min-h-0 w-full lg:shrink-0" style={isMobile ? undefined : { width: `${leftPanePct * 100}%` }}>
+        <aside className={`${isMobile && mobileView === "programs" ? "hidden" : "block"} min-h-0 w-full lg:shrink-0`} style={isMobile ? undefined : { width: `${leftPanePct * 100}%` }}>
           <div className="flex h-full min-h-0 flex-col rounded-md border">
             {/* Header */}
             <div className="grid grid-cols-[1fr_auto] items-end gap-2 border-b p-3 overflow-hidden">
@@ -2722,7 +2739,7 @@ export default function PricingEnginePage() {
         </div>
 
         {/* Right column: results display (flexes to remaining space) */}
-        <section className="hidden h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block">
+        <section className={`${isMobile && mobileView === "programs" ? "block" : "hidden"} h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block`}>
           <ResultsPanel results={programResults} loading={isDispatching} placeholders={programPlaceholders} onSelectedChange={setSelectedMainRow} selectedFromProps={selectedMainRow} />
         </section>
       </div>
