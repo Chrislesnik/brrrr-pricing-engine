@@ -42,7 +42,7 @@ interface Props {
 }
 
 export function PipelineTable({ columns, data }: Props) {
-  const [tableData] = useState<LoanRow[]>(data)
+  const [tableData, setTableData] = useState<LoanRow[]>(data)
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -81,6 +81,22 @@ export function PipelineTable({ columns, data }: Props) {
       // ignore
     }
   }, [columnVisibility, columnFilters, sorting])
+
+  // Update local table data when a loan's status changes so filters/faceted counts refresh
+  useEffect(() => {
+    function onStatusUpdated(e: Event) {
+      const ce = e as CustomEvent<{ id: string; status: string }>
+      const id = ce.detail?.id
+      const status = ce.detail?.status
+      if (!id || !status) return
+      setTableData((prev) =>
+        prev.map((row) => (row.id === id ? { ...row, status } as LoanRow : row))
+      )
+    }
+    window.addEventListener("loan-status-updated", onStatusUpdated as EventListener)
+    return () =>
+      window.removeEventListener("loan-status-updated", onStatusUpdated as EventListener)
+  }, [])
 
   const table = useReactTable({
     data: tableData,
