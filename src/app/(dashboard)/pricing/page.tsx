@@ -2376,7 +2376,12 @@ function ResultCard({
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const MCP_PROMPT = `Implement this design from Figma.
 
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=45-2&m=dev`
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev`
+  const FIGMA_SHARE_URL =
+    "https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev"
+  // Use provided embed code (embed.figma.com) instead of the older www.figma.com/embed variant
+  const FIGMA_EMBED_URL =
+    "https://embed.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev&embed-host=share"
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -2509,7 +2514,13 @@ function ResultCard({
             <DialogTitle>Cursor MCP Prompt</DialogTitle>
             <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-auto">
+          <div className="space-y-3">
+            <iframe
+              src={FIGMA_EMBED_URL}
+              className="w-full h-[70vh] rounded-md"
+              style={{ border: "1px solid rgba(0, 0, 0, 0.1)" }}
+              allowFullScreen
+            />
             <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
           </div>
           <DialogFooter>
