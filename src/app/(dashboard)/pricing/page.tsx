@@ -730,14 +730,29 @@ export default function PricingEnginePage() {
         const first = programResults?.[0]?.data
         if (first) {
           const hi = Number(first.highlight_display ?? 0)
-          selected = {
-            loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
-            interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
-            loanAmount: first.loan_amount ?? null,
-            ltv: first.ltv ?? null,
-            pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
-            dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
-          }
+          const isBridgeStyle =
+            Array.isArray((first as any)?.total_loan_amount) ||
+            Array.isArray((first as any)?.initial_loan_amount) ||
+            Array.isArray((first as any)?.funded_pitia)
+          selected = isBridgeStyle
+            ? {
+                loanPrice: Array.isArray(first.loan_price) ? (first.loan_price as any)[hi] : null,
+                interestRate: Array.isArray(first.interest_rate) ? (first.interest_rate as any)[hi] : null,
+                initialLoanAmount: Array.isArray((first as any).initial_loan_amount) ? (first as any).initial_loan_amount[hi] : null,
+                rehabHoldback: Array.isArray((first as any).rehab_holdback) ? (first as any).rehab_holdback[hi] : null,
+                loanAmount: Array.isArray((first as any).total_loan_amount) ? (first as any).total_loan_amount[hi] : null,
+                pitia: Array.isArray((first as any).funded_pitia) ? (first as any).funded_pitia[hi] : null,
+                ltv: null,
+                dscr: null,
+              }
+            : {
+                loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
+                interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
+                loanAmount: first.loan_amount ?? null,
+                ltv: first.ltv ?? null,
+                pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
+                dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
+              }
         }
       }
       const res = await fetch("/api/pricing/scenario", {
@@ -1392,14 +1407,29 @@ export default function PricingEnginePage() {
                           const first = programResults?.[0]?.data
                           if (first) {
                             const hi = Number(first.highlight_display ?? 0)
-                            selected = {
-                              loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
-                              interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
-                              loanAmount: first.loan_amount ?? null,
-                              ltv: first.ltv ?? null,
-                              pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
-                              dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
-                            }
+                            const isBridgeStyle =
+                              Array.isArray((first as any)?.total_loan_amount) ||
+                              Array.isArray((first as any)?.initial_loan_amount) ||
+                              Array.isArray((first as any)?.funded_pitia)
+                            selected = isBridgeStyle
+                              ? {
+                                  loanPrice: Array.isArray(first.loan_price) ? (first.loan_price as any)[hi] : null,
+                                  interestRate: Array.isArray(first.interest_rate) ? (first.interest_rate as any)[hi] : null,
+                                  initialLoanAmount: Array.isArray((first as any).initial_loan_amount) ? (first as any).initial_loan_amount[hi] : null,
+                                  rehabHoldback: Array.isArray((first as any).rehab_holdback) ? (first as any).rehab_holdback[hi] : null,
+                                  loanAmount: Array.isArray((first as any).total_loan_amount) ? (first as any).total_loan_amount[hi] : null,
+                                  pitia: Array.isArray((first as any).funded_pitia) ? (first as any).funded_pitia[hi] : null,
+                                  ltv: null,
+                                  dscr: null,
+                                }
+                              : {
+                                  loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
+                                  interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
+                                  loanAmount: first.loan_amount ?? null,
+                                  ltv: first.ltv ?? null,
+                                  pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
+                                  dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
+                                }
                           }
                         }
                         const nameOverride =
@@ -2945,6 +2975,8 @@ type SelectedRow = {
     ltv?: string | number | null
     pitia?: number | string | null
     dscr?: number | string | null
+    initialLoanAmount?: string | number | null
+    rehabHoldback?: string | number | null
   }
 }
 
@@ -3099,6 +3131,12 @@ function ResultCard({
                                     loanAmount: isBridgeResp
                                       ? (Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : undefined)
                                       : (loanAmount ?? undefined),
+                                    initialLoanAmount: isBridgeResp
+                                      ? (Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[i] : undefined)
+                                      : undefined,
+                                    rehabHoldback: isBridgeResp
+                                      ? (Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[i] : undefined)
+                                      : undefined,
                                     ltv: isBridgeResp ? undefined : (ltv ?? undefined),
                                     pitia: isBridgeResp
                                       ? (Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : undefined)
@@ -3288,14 +3326,25 @@ function ResultsPanel({
               </div>
             </div>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Widget label="Loan Price" value={selected.values.loanPrice} />
-            <Widget label="Interest Rate" value={selected.values.interestRate} />
-            <Widget label="Loan Amount" value={selected.values.loanAmount} />
-            <Widget label="LTV" value={selected.values.ltv} />
-            <Widget label="PITIA" value={selected.values.pitia} />
-            <Widget label="DSCR" value={selected.values.dscr} />
-          </div>
+          {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Interest Rate" value={selected.values.interestRate} />
+              <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
+              <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
+              <Widget label="Total Loan Amount" value={selected.values.loanAmount} />
+              <Widget label="Funded PITIA" value={selected.values.pitia} />
+            </div>
+          ) : (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Interest Rate" value={selected.values.interestRate} />
+              <Widget label="Loan Amount" value={selected.values.loanAmount} />
+              <Widget label="LTV" value={selected.values.ltv} />
+              <Widget label="PITIA" value={selected.values.pitia} />
+              <Widget label="DSCR" value={selected.values.dscr} />
+            </div>
+          )}
         </div>
       </div>
     ) : (
@@ -3314,14 +3363,25 @@ function ResultsPanel({
               </div>
             </div>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Widget label="Loan Price" value={selected.values.loanPrice} />
-            <Widget label="Interest Rate" value={selected.values.interestRate} />
-            <Widget label="Loan Amount" value={selected.values.loanAmount} />
-            <Widget label="LTV" value={selected.values.ltv} />
-            <Widget label="PITIA" value={selected.values.pitia} />
-            <Widget label="DSCR" value={selected.values.dscr} />
-          </div>
+          {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Interest Rate" value={selected.values.interestRate} />
+              <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
+              <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
+              <Widget label="Total Loan Amount" value={selected.values.loanAmount} />
+              <Widget label="Funded PITIA" value={selected.values.pitia} />
+            </div>
+          ) : (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Interest Rate" value={selected.values.interestRate} />
+              <Widget label="Loan Amount" value={selected.values.loanAmount} />
+              <Widget label="LTV" value={selected.values.ltv} />
+              <Widget label="PITIA" value={selected.values.pitia} />
+              <Widget label="DSCR" value={selected.values.dscr} />
+            </div>
+          )}
         </div>
       ) : null}
       {results.map((r, idx) => (
