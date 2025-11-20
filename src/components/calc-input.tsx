@@ -139,7 +139,7 @@ export function CalcInput({ id, value, onValueChange, className, highlighted, ..
 				calcMode
 					? "ring-2 ring-purple-500/60 border-purple-500/70 focus-visible:ring-purple-500"
 					: "",
-				!calcMode && highlighted ? "ring-1 ring-amber-500/70 border-amber-500/70" : "",
+				!calcMode && highlighted ? "ring-1 ring-amber-500/70 border-amber-500/70 ring-offset-1 ring-offset-background" : "",
 				className
 			)}
 			inputMode="decimal"

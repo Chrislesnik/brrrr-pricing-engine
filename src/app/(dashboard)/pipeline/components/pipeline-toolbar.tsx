@@ -19,15 +19,19 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
     <div className="flex items-center justify-between">
       <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
         <Input
-          placeholder="Search by property address or ID..."
+          placeholder="Search by ID, property address, borrower, or guarantor..."
           value={
             (table.getColumn("propertyAddress")?.getFilterValue() as string) ??
             (table.getColumn("id")?.getFilterValue() as string) ??
+            (table.getColumn("borrower")?.getFilterValue() as string) ??
+            (table.getColumn("guarantors")?.getFilterValue() as string) ??
             ""
           }
           onChange={(event) => {
             table.getColumn("propertyAddress")?.setFilterValue(event.target.value)
             table.getColumn("id")?.setFilterValue(event.target.value)
+            table.getColumn("borrower")?.setFilterValue(event.target.value)
+            table.getColumn("guarantors")?.setFilterValue(event.target.value)
           }}
           className="h-8 w-[150px] lg:w-[250px]"
         />

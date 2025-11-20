@@ -57,6 +57,17 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
   },
   {
     id: "borrower",
+    accessorFn: (row) => {
+      const firstName =
+        // Prefer canonical keys if present, otherwise fall back to alternate names
+        (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
+        (row as { firstName?: string; borrowerFirstName?: string }).borrowerFirstName
+      const lastName =
+        (row as { lastName?: string; borrowerLastName?: string }).lastName ??
+        (row as { lastName?: string; borrowerLastName?: string }).borrowerLastName
+      const display = [firstName, lastName].filter(Boolean).join(" ").trim()
+      return display
+    },
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Borrower" />
     ),
@@ -81,6 +92,13 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     cell: ({ row }) => {
       const gs = (row.getValue("guarantors") as string[]) ?? []
       return <LongText className="max-w-48">{gs.length ? gs.join(", ") : "-"}</LongText>
+    },
+    filterFn: (row, columnId, filterValue) => {
+      const term = String(filterValue ?? "").toLowerCase()
+      if (!term) return true
+      const gs = (row.getValue(columnId) as string[]) ?? []
+      const joined = gs.join(", ").toLowerCase()
+      return joined.includes(term)
     },
   },
   {

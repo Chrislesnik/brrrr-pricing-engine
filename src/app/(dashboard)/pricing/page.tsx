@@ -1769,7 +1769,7 @@ export default function PricingEnginePage() {
                               setPropertyType(v)
                             }}
                           >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-1 ring-amber-500/70 border-amber-500/70 ring-offset-1 ring-offset-background" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                           <SelectContent>
@@ -1809,7 +1809,7 @@ export default function PricingEnginePage() {
                               setNumUnits(parseInt(v))
                             }}
                           >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-1 ring-amber-500/70 border-amber-500/70 ring-offset-1 ring-offset-background" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1833,7 +1833,7 @@ export default function PricingEnginePage() {
                               clearReAuto("glaSqFt")
                               setGlaSqFt(e.target.value)
                             }}
-                            className={`${reAuto.glaSqFt ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}
+                            className={`${reAuto.glaSqFt ? "ring-1 ring-amber-500/70 border-amber-500/70 ring-offset-1 ring-offset-background" : ""}`}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -2204,7 +2204,7 @@ export default function PricingEnginePage() {
                                   clearReAuto("acquisitionDate")
                                   setAcquisitionDate(d)
                                 }}
-                                className={`${reAuto.acquisitionDate ? "ring-1 ring-amber-500/70 border-amber-500/70" : ""}`}
+                                className={`${reAuto.acquisitionDate ? "ring-1 ring-amber-500/70 border-amber-500/70 ring-offset-1 ring-offset-background" : ""}`}
                               />
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -2935,11 +2935,13 @@ function ResultCard({
           <DialogHeader>
             <DialogTitle>Term Sheet</DialogTitle>
           </DialogHeader>
-          <div className="absolute top-4 right-14">
-            <Button size="icon" variant="ghost" aria-label="Download term sheet">
-              <IconDownload className="h-4 w-4" />
-            </Button>
-          </div>
+          <button
+            type="button"
+            aria-label="Download term sheet"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+          >
+            <IconDownload />
+          </button>
           <div className="space-y-3">
             <ScaledTermSheetPreview
               sheetProps={{
