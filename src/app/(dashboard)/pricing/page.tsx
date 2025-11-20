@@ -57,8 +57,11 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
       const width = el.clientWidth
       const height = el.clientHeight
       if (width <= 0 || height <= 0) return
-      // Compute scale to fit both width and height of the container
-      const s = Math.min(width / 816, height / 1056, 1)
+      // Compute scale to fit both width and height of the container.
+      // Apply a small reduction to avoid clipping the bottom edge in the dialog.
+      const paddingAllowance = 16 // px allowance for container padding/borders
+      const s =
+        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.93
       setScale(s)
     }
     update()
@@ -67,7 +70,10 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
     return () => ro.disconnect()
   }, [])
   return (
-    <div ref={containerRef} className="w-full h-[70vh] overflow-hidden rounded-md border p-2 bg-white flex items-start justify-center">
+    <div
+      ref={containerRef}
+      className="w-full h-[75vh] overflow-auto rounded-md bg-transparent flex items-start justify-center"
+    >
       <div
         style={{
           width: 816,
@@ -75,6 +81,7 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
           transform: `scale(${scale})`,
           transformOrigin: "top center",
         }}
+        className="border border-black/20 bg-white shadow-xl rounded-sm"
       >
         <DSCRTermSheet {...sheetProps} />
       </div>
