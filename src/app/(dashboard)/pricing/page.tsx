@@ -1114,18 +1114,34 @@ export default function PricingEnginePage() {
         const json = (await res.json()) as { scenario?: { inputs?: Record<string, unknown>; selected?: Record<string, unknown> } }
         const inputs = json.scenario?.inputs ?? {}
         applyInputsPayload(inputs as Record<string, unknown>)
-        const sel = json.scenario?.selected ?? {}
+        const sel = (json.scenario?.selected ?? {}) as Record<string, unknown>
+        // Normalize potential key variants saved previously
+        const isBridgeSel =
+          "total_loan_amount" in sel ||
+          "initialLoanAmount" in sel ||
+          "funded_pitia" in sel
         setSelectedMainRow({
           programIdx: 0,
           rowIdx: 0,
-          values: {
-            loanPrice: ((sel["loan_price"] ?? sel["loanPrice"]) as number | string | null) ?? null,
-            interestRate: (sel["rate"] ?? sel["interestRate"]) as number | string | null,
-            loanAmount: (sel["loan_amount"] ?? sel["loanAmount"]) as number | string | null,
-            ltv: sel["ltv"] as number | string | null,
-            pitia: sel["pitia"] as number | string | null,
-            dscr: sel["dscr"] as number | string | null,
-          },
+          values: isBridgeSel
+            ? {
+                loanPrice: ((sel["loan_price"] ?? sel["loanPrice"]) as number | string | null) ?? null,
+                interestRate: (sel["rate"] ?? sel["interestRate"]) as number | string | null,
+                initialLoanAmount: (sel["initial_loan_amount"] ?? sel["initialLoanAmount"]) as number | string | null,
+                rehabHoldback: (sel["rehab_holdback"] ?? sel["rehabHoldback"]) as number | string | null,
+                loanAmount: (sel["total_loan_amount"] ?? sel["loanAmount"]) as number | string | null,
+                pitia: (sel["funded_pitia"] ?? sel["pitia"]) as number | string | null,
+                ltv: null,
+                dscr: null,
+              }
+            : {
+                loanPrice: ((sel["loan_price"] ?? sel["loanPrice"]) as number | string | null) ?? null,
+                interestRate: (sel["rate"] ?? sel["interestRate"]) as number | string | null,
+                loanAmount: (sel["loan_amount"] ?? sel["loanAmount"]) as number | string | null,
+                ltv: sel["ltv"] as number | string | null,
+                pitia: sel["pitia"] as number | string | null,
+                dscr: sel["dscr"] as number | string | null,
+              },
         })
       } catch {
         // ignore errors
