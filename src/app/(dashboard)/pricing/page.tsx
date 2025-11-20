@@ -56,8 +56,10 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
     if (!el) return
     const update = () => {
       const width = el.clientWidth
-      if (width <= 0) return
-      const s = Math.min(width / 816, 1)
+      const height = el.clientHeight
+      if (width <= 0 || height <= 0) return
+      // Compute scale to fit both width and height of the container
+      const s = Math.min(width / 816, height / 1056, 1)
       setScale(s)
     }
     update()
@@ -66,7 +68,10 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
     return () => ro.disconnect()
   }, [])
   return (
-    <div ref={containerRef} className="w-full overflow-auto rounded-md border p-2 bg-white">
+    <div
+      ref={containerRef}
+      className="w-full h-[60vh] sm:h-[70vh] overflow-hidden rounded-md border p-2 bg-white"
+    >
       <div
         style={{
           width: 816,
