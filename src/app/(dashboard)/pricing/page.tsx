@@ -2894,6 +2894,12 @@ type ProgramResponseData = {
   ltv?: string
   pitia?: number[]
   dscr?: number[]
+  // Bridge payload variants
+  initial_loan_amount?: (string | number)[]
+  rehab_holdback?: (string | number)[]
+  total_loan_amount?: (string | number)[]
+  initial_pitia?: (string | number)[]
+  funded_pitia?: (string | number)[]
   [key: string]: unknown
 }
 type ProgramResult = {
@@ -2938,12 +2944,17 @@ function ResultCard({
   const d = r?.data ?? {}
   const pass = d?.pass === true
   const hi = Number(d?.highlight_display ?? 0)
+  // Detect bridge-style response vs DSCR
+  const isBridgeResp =
+    Array.isArray(d?.total_loan_amount) ||
+    Array.isArray(d?.initial_loan_amount) ||
+    Array.isArray(d?.funded_pitia)
   // Program card widgets should always reflect the original highlight index from the API.
-  const loanPrice = pick<number>(d?.loan_price, hi)
-  const rate = pick<number>(d?.interest_rate, hi)
-  const pitia = pick<number>(d?.pitia, hi)
-  const dscr = pick<number>(d?.dscr, hi)
-  const loanAmount = d?.loan_amount
+  const loanPrice = pick<any>(d?.loan_price as any, hi)
+  const rate = pick<any>(d?.interest_rate as any, hi)
+  const pitia = isBridgeResp ? pick<any>(d?.funded_pitia as any, hi) : pick<any>(d?.pitia as any, hi)
+  const dscr = isBridgeResp ? undefined : pick<any>(d?.dscr as any, hi)
+  const loanAmount = isBridgeResp ? pick<any>(d?.total_loan_amount as any, hi) : (d?.loan_amount as any)
   const ltv = d?.ltv
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
 
@@ -2981,14 +2992,25 @@ function ResultCard({
       </div>
 
       {pass ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Widget label="Loan Price" value={loanPrice} />
-          <Widget label="Interest Rate" value={rate} />
-          <Widget label="Loan Amount" value={loanAmount} />
-          <Widget label="LTV" value={ltv} />
-          <Widget label="PITIA" value={pitia} />
-          <Widget label="DSCR" value={dscr} />
-        </div>
+        isBridgeResp ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Widget label="Loan Price" value={loanPrice} />
+            <Widget label="Interest Rate" value={rate} />
+            <Widget label="Initial Loan Amount" value={pick<any>(d?.initial_loan_amount as any, hi)} />
+            <Widget label="Rehab Holdback" value={pick<any>(d?.rehab_holdback as any, hi)} />
+            <Widget label="Total Loan Amount" value={loanAmount} />
+            <Widget label="Funded PITIA" value={pitia} />
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Widget label="Loan Price" value={loanPrice} />
+            <Widget label="Interest Rate" value={rate} />
+            <Widget label="Loan Amount" value={loanAmount} />
+            <Widget label="LTV" value={ltv} />
+            <Widget label="PITIA" value={pitia} />
+            <Widget label="DSCR" value={dscr} />
+          </div>
+        )
       ) : null}
 
       {/* Details Table */}
@@ -3003,10 +3025,21 @@ function ResultCard({
                     <th className="py-1 pr-3 w-8 text-left"></th>
                     <th className="py-1 pr-3">Loan Price</th>
                     <th className="py-1 pr-3">Interest Rate</th>
-                    <th className="py-1 pr-3">Loan Amount</th>
-                    <th className="py-1 pr-3">LTV</th>
-                    <th className="py-1 pr-3">PITIA</th>
-                    <th className="py-1 pr-3">DSCR</th>
+                    {isBridgeResp ? (
+                      <>
+                        <th className="py-1 pr-3">Initial Loan</th>
+                        <th className="py-1 pr-3">Holdback</th>
+                        <th className="py-1 pr-3">Total Loan</th>
+                        <th className="py-1 pr-3">Funded PITIA</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="py-1 pr-3">Loan Amount</th>
+                        <th className="py-1 pr-3">LTV</th>
+                        <th className="py-1 pr-3">PITIA</th>
+                        <th className="py-1 pr-3">DSCR</th>
+                      </>
+                    )}
                     <th className="py-1 pr-3 w-14 text-left"></th>
                   </tr>
                 </thead>
@@ -3018,8 +3051,9 @@ function ResultCard({
                         if (lp === null || lp === undefined) return false
                         const s = String(lp).trim()
                         if (s.length === 0) return false
+                        // Bridge may return string values like "99.000"
                         const n = Number(s)
-                        return Number.isFinite(n)
+                        return Number.isFinite(n) || s.length > 0
                       })
                       .map(({ lp, i }) => (
                         <tr
@@ -3037,11 +3071,15 @@ function ResultCard({
                                   rowIdx: i,
                                   values: {
                                     loanPrice: typeof lp === "number" ? lp : String(lp),
-                                    interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
-                                    loanAmount: loanAmount ?? undefined,
-                                    ltv: ltv ?? undefined,
-                                    pitia: Array.isArray(d?.pitia) ? d.pitia[i] : undefined,
-                                    dscr: Array.isArray(d?.dscr) ? d.dscr[i] : undefined,
+                                    interestRate: Array.isArray(d?.interest_rate) ? (d.interest_rate as any)[i] : undefined,
+                                    loanAmount: isBridgeResp
+                                      ? (Array.isArray(d?.total_loan_amount) ? (d.total_loan_amount as any)[i] : undefined)
+                                      : (loanAmount ?? undefined),
+                                    ltv: isBridgeResp ? undefined : (ltv ?? undefined),
+                                    pitia: isBridgeResp
+                                      ? (Array.isArray(d?.funded_pitia) ? (d.funded_pitia as any)[i] : undefined)
+                                      : (Array.isArray(d?.pitia) ? (d.pitia as any)[i] : undefined),
+                                    dscr: isBridgeResp ? undefined : (Array.isArray(d?.dscr) ? (d.dscr as any)[i] : undefined),
                                   },
                                 })
                               }
@@ -3054,11 +3092,22 @@ function ResultCard({
                             </button>
                           </td>
                           <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
-                          <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
-                          <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? (d.interest_rate as any)[i] : ""}</td>
+                          {isBridgeResp ? (
+                            <>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.initial_loan_amount) ? (d.initial_loan_amount as any)[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.rehab_holdback) ? (d.rehab_holdback as any)[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.total_loan_amount) ? (d.total_loan_amount as any)[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.funded_pitia) ? (d.funded_pitia as any)[i] : ""}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
+                              <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? (d.pitia as any)[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? (d.dscr as any)[i] : ""}</td>
+                            </>
+                          )}
                           <td className="py-1 pr-3 text-left">
                             <div className="flex items-center gap-1">
                               <Button
