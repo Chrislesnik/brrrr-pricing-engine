@@ -79,7 +79,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
   ];
 
   return (
-    <div className="flex justify-center w-full min-h-screen bg-white p-8">
+    <div className="flex justify-center w-full min-h-screen bg-white px-8 pt-8 pb-4">
       <div className="w-full max-w-[816px]">
         <header className="mb-8">
           <h1 className="text-2xl font-bold mb-2">Preliminary Term Sheet</h1>
@@ -214,7 +214,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </section>
         </div>
 
-        <footer className="mt-8">
+        <footer className="mt-2">
           <p className="text-[8px] leading-tight">
             *Pricing of initial rate is indicative and subject to re-pricing at Lender&#39;s discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower&#39;s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression of interest is subject to our internal credit, legal and investment approval process. Lender is in the business of exclusively originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </p>
