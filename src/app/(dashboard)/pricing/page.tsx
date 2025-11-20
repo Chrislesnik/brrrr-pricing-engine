@@ -308,6 +308,23 @@ export default function PricingEnginePage() {
   )
   const defaultsAppliedRef = useRef<boolean>(false)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [reAuto, setReAuto] = useState<Record<string, boolean>>({})
+  function markReAuto(keys: string[]) {
+    if (!Array.isArray(keys) || keys.length === 0) return
+    setReAuto((prev) => {
+      const next: Record<string, boolean> = { ...prev }
+      for (const k of keys) next[k] = true
+      return next
+    })
+  }
+  function clearReAuto(key: string) {
+    setReAuto((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
   useEffect(() => {
     if (defaultsAppliedRef.current) return
     // Only apply defaults when arriving via "New Loan" (no loanId present)
@@ -361,6 +378,13 @@ export default function PricingEnginePage() {
     floodEffective,
     taxEscrowMonths,
   ])
+
+  // Simple derived flags for label required markers
+  const isDscr = loanType === "dscr"
+  const isBridge = loanType === "bridge"
+  const isPurchase = transactionType === "purchase" || transactionType === "delayed-purchase"
+  const isRefi = transactionType === "co-refi" || transactionType === "rt-refi"
+  const isFicoRequired = citizenship === "us" || citizenship === "pr"
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -404,6 +428,7 @@ export default function PricingEnginePage() {
         data = undefined
       }
       if (data) {
+        const autoKeys: string[] = []
         const val = (...keys: string[]) => {
           for (const k of keys) {
             if (k in data!) return data![k] as unknown
@@ -414,6 +439,7 @@ export default function PricingEnginePage() {
         const pt = val("property-type", "property_type")
         if (typeof pt === "string" && pt) {
           setPropertyType(pt)
+          autoKeys.push("propertyType")
         }
         // Number of Units (validated against property-type)
         const units = val("num-units", "num_units", "units")
@@ -430,6 +456,7 @@ export default function PricingEnginePage() {
                 : []
             if (allowed.length === 0 || allowed.includes(asNum)) {
               setNumUnits(asNum)
+              autoKeys.push("numUnits")
             }
           }
         }
@@ -437,22 +464,31 @@ export default function PricingEnginePage() {
         const gla = val("gla", "gla_sq_ft", "gla_sqft", "gla_sqft_ft")
         if (gla !== undefined && gla !== null) {
           setGlaSqFt(String(gla))
+          autoKeys.push("glaSqFt")
         }
         // Acquisition Date
         const acq = val("acq-date", "acq_date", "acquisition_date")
         if (typeof acq === "string" || acq instanceof Date || typeof acq === "number") {
           const d = acq instanceof Date ? acq : new Date(acq)
-          if (!isNaN(d.getTime())) setAcquisitionDate(d)
+          if (!isNaN(d.getTime())) {
+            setAcquisitionDate(d)
+            autoKeys.push("acquisitionDate")
+          }
         }
         // Purchase Price
         const pp = val("purchase-price", "purchase_price")
         if (pp !== undefined && pp !== null) {
           setPurchasePrice(String(pp))
+          autoKeys.push("purchasePrice")
         }
         // Annual Taxes
         const at = val("annual-taxes", "annual_taxes")
         if (at !== undefined && at !== null) {
           setAnnualTaxes(String(at))
+          autoKeys.push("annualTaxes")
+        }
+        if (autoKeys.length > 0) {
+          markReAuto(autoKeys)
         }
       }
       toast({
@@ -748,6 +784,68 @@ export default function PricingEnginePage() {
       setUnitData(Array.from({ length: numUnits }, () => ({ leased: undefined, gross: "", market: "" })))
     }
   }, [unitOptions, numUnits])
+
+  // Derived requiredness and validation for Calculate button (placed after unitData declaration)
+  const rehabPathVisible =
+    !requestMaxLeverage && isBridge && (bridgeType === "bridge-rehab" || bridgeType === "ground-up")
+  const loanAmountPathVisible = !requestMaxLeverage && !rehabPathVisible
+  const areUnitRowsVisible = (numUnits ?? 0) > 0
+  const unitsComplete = useMemo(() => {
+    if (!areUnitRowsVisible) return true
+    return unitData.every(
+      (u) =>
+        (u.leased === "yes" || u.leased === "no") &&
+        typeof u.gross === "string" &&
+        u.gross !== "" &&
+        typeof u.market === "string" &&
+        u.market !== ""
+    )
+  }, [areUnitRowsVisible, unitData])
+  const canCalculate = useMemo(() => {
+    const has = (v: unknown) => !(v === undefined || v === null || v === "")
+    if (!has(loanType)) return false
+    if (!has(transactionType)) return false
+    if (isBridge && !has(bridgeType)) return false
+    if (!has(borrowerType)) return false
+    if (!has(citizenship)) return false
+    if (isFicoRequired && !has(fico)) return false
+    if (!has(stateCode)) return false
+    if (!has(propertyType)) return false
+    if (!has(annualTaxes)) return false
+    if (!has(annualHoi)) return false
+    if (!unitsComplete) return false
+    if (isDscr && (!has(loanStructureType) || !has(ppp))) return false
+    if (isPurchase && !has(purchasePrice)) return false
+    if (isRefi && !has(aiv)) return false
+    if (rehabPathVisible && !has(initialLoanAmount)) return false
+    if (loanAmountPathVisible && !has(loanAmount)) return false
+    return true
+  }, [
+    loanType,
+    transactionType,
+    isBridge,
+    bridgeType,
+    borrowerType,
+    citizenship,
+    isFicoRequired,
+    fico,
+    stateCode,
+    propertyType,
+    annualTaxes,
+    annualHoi,
+    unitsComplete,
+    isDscr,
+    loanStructureType,
+    ppp,
+    isPurchase,
+    purchasePrice,
+    isRefi,
+    aiv,
+    rehabPathVisible,
+    initialLoanAmount,
+    loanAmountPathVisible,
+    loanAmount,
+  ])
 
   // Load Google Maps JS API (Places) once
   useEffect(() => {
@@ -1276,7 +1374,9 @@ export default function PricingEnginePage() {
                   <AccordionContent>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="loan-type">Loan Type</Label>
+                        <Label htmlFor="loan-type">
+                          Loan Type <span className="text-red-600">*</span>
+                        </Label>
                         <Select value={loanType} onValueChange={setLoanType}>
                           <SelectTrigger id="loan-type" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
@@ -1288,7 +1388,9 @@ export default function PricingEnginePage() {
                         </Select>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="transaction-type">Transaction Type</Label>
+                        <Label htmlFor="transaction-type">
+                          Transaction Type <span className="text-red-600">*</span>
+                        </Label>
                         <Select
                           value={transactionType}
                           onValueChange={setTransactionType}
@@ -1306,7 +1408,9 @@ export default function PricingEnginePage() {
                       </div>
                       {loanType === "bridge" && (
                         <div className="flex flex-col gap-1">
-                          <Label htmlFor="bridge-type">Bridge Type</Label>
+                          <Label htmlFor="bridge-type">
+                            Bridge Type <span className="text-red-600">*</span>
+                          </Label>
                           <Select value={bridgeType} onValueChange={setBridgeType}>
                             <SelectTrigger id="bridge-type" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
@@ -1331,7 +1435,9 @@ export default function PricingEnginePage() {
                   <AccordionContent>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="borrower-type">Borrower Type</Label>
+                        <Label htmlFor="borrower-type">
+                          Borrower Type <span className="text-red-600">*</span>
+                        </Label>
                         <Select
                           value={borrowerType}
                           onValueChange={(v) => {
@@ -1352,7 +1458,9 @@ export default function PricingEnginePage() {
                         </Select>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="citizenship">Citizenship</Label>
+                        <Label htmlFor="citizenship">
+                          Citizenship <span className="text-red-600">*</span>
+                        </Label>
                         <Select
                           value={citizenship}
                           onValueChange={(v) => {
@@ -1418,7 +1526,9 @@ export default function PricingEnginePage() {
                         </>
                       )}
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="fico">FICO Score</Label>
+                        <Label htmlFor="fico">
+                          FICO Score{isFicoRequired ? <span className="text-red-600"> *</span> : null}
+                        </Label>
                         <Input
                           id="fico"
                           type="number"
@@ -1608,7 +1718,9 @@ export default function PricingEnginePage() {
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <Label htmlFor="state">State</Label>
+                          <Label htmlFor="state">
+                            State <span className="text-red-600">*</span>
+                          </Label>
                           <Select value={stateCode} onValueChange={setStateCode}>
                             <SelectTrigger id="state" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
@@ -1647,12 +1759,17 @@ export default function PricingEnginePage() {
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="flex flex-col gap-1">
-                          <Label htmlFor="property-type">Property Type</Label>
+                        <Label htmlFor="property-type">
+                          Property Type <span className="text-red-600">*</span>
+                        </Label>
                           <Select
                             value={propertyType}
-                            onValueChange={setPropertyType}
+                            onValueChange={(v) => {
+                              clearReAuto("propertyType")
+                              setPropertyType(v)
+                            }}
                           >
-                            <SelectTrigger id="property-type" className="h-9 w-full">
+                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                           <SelectContent>
@@ -1687,9 +1804,12 @@ export default function PricingEnginePage() {
                           <Select
                             disabled={unitOptions.length === 0}
                             value={numUnits ? String(numUnits) : undefined}
-                            onValueChange={(v) => setNumUnits(parseInt(v))}
+                            onValueChange={(v) => {
+                              clearReAuto("numUnits")
+                              setNumUnits(parseInt(v))
+                            }}
                           >
-                            <SelectTrigger id="num-units" className="h-9 w-full">
+                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1709,7 +1829,11 @@ export default function PricingEnginePage() {
                             inputMode="numeric"
                             placeholder="0"
                             value={glaSqFt}
-                            onChange={(e) => setGlaSqFt(e.target.value)}
+                            onChange={(e) => {
+                              clearReAuto("glaSqFt")
+                              setGlaSqFt(e.target.value)
+                            }}
+                            className={`${reAuto.glaSqFt ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -1859,7 +1983,9 @@ export default function PricingEnginePage() {
                     <AccordionContent>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-taxes">Annual Taxes</Label>
+                        <Label htmlFor="annual-taxes">
+                          Annual Taxes <span className="text-red-600">*</span>
+                        </Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -1869,12 +1995,18 @@ export default function PricingEnginePage() {
                             placeholder="0.00"
                             className="pl-6"
                             value={annualTaxes}
-                            onValueChange={setAnnualTaxes}
+                            highlighted={!!reAuto.annualTaxes}
+                            onValueChange={(v) => {
+                              clearReAuto("annualTaxes")
+                              setAnnualTaxes(v)
+                            }}
                           />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-hoi">Annual HOI</Label>
+                        <Label htmlFor="annual-hoi">
+                          Annual HOI <span className="text-red-600">*</span>
+                        </Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -1950,7 +2082,9 @@ export default function PricingEnginePage() {
                           <div key={idx} className="grid grid-cols-[max-content_1fr_1fr_1fr] items-end gap-3">
                             <div className="self-center mt-6 text-sm font-medium">#{idx + 1}</div>
                             <div className="flex flex-col gap-1">
-                              <Label htmlFor={`leased-${idx}`}>Leased</Label>
+                              <Label htmlFor={`leased-${idx}`}>
+                                Leased <span className="text-red-600">*</span>
+                              </Label>
                               <Select
                                 value={unitData[idx]?.leased}
                                 onValueChange={(v: "yes" | "no") => {
@@ -1971,7 +2105,9 @@ export default function PricingEnginePage() {
                               </Select>
                             </div>
                             <div className="flex flex-col gap-1">
-                              <Label htmlFor={`gross-${idx}`}>Gross Rent</Label>
+                              <Label htmlFor={`gross-${idx}`}>
+                                Gross Rent <span className="text-red-600">*</span>
+                              </Label>
                               <div className="relative">
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
@@ -1992,7 +2128,9 @@ export default function PricingEnginePage() {
                               </div>
                             </div>
                             <div className="flex flex-col gap-1">
-                              <Label htmlFor={`market-${idx}`}>Market Rent</Label>
+                              <Label htmlFor={`market-${idx}`}>
+                                Market Rent <span className="text-red-600">*</span>
+                              </Label>
                               <div className="relative">
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
@@ -2031,7 +2169,7 @@ export default function PricingEnginePage() {
                   <AccordionContent>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="proj-close">Projected Closing Date</Label>
+                          <Label htmlFor="proj-close">Projected Closing Date</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <DateInput
@@ -2062,7 +2200,11 @@ export default function PricingEnginePage() {
                             <PopoverTrigger asChild>
                               <DateInput
                                 value={acquisitionDate}
-                                onChange={(d) => setAcquisitionDate(d)}
+                                onChange={(d) => {
+                                  clearReAuto("acquisitionDate")
+                                  setAcquisitionDate(d)
+                                }}
+                                className={`${reAuto.acquisitionDate ? "ring-2 ring-amber-500/70 border-amber-500/70" : ""}`}
                               />
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -2081,7 +2223,9 @@ export default function PricingEnginePage() {
                       {loanType === "dscr" && (
                         <>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="loan-structure-type">Loan Structure</Label>
+                            <Label htmlFor="loan-structure-type">
+                              Loan Structure <span className="text-red-600">*</span>
+                            </Label>
                             <Select
                               value={loanStructureType}
                               onValueChange={(v) => {
@@ -2102,7 +2246,9 @@ export default function PricingEnginePage() {
                             </Select>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="ppp">PPP</Label>
+                            <Label htmlFor="ppp">
+                              PPP <span className="text-red-600">*</span>
+                            </Label>
                             <Select
                               value={ppp}
                               onValueChange={(v) => {
@@ -2141,7 +2287,10 @@ export default function PricingEnginePage() {
                         </div>
                       )}
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="purchase-price">Purchase Price</Label>
+                        <Label htmlFor="purchase-price">
+                          Purchase Price
+                          {isPurchase ? <span className="text-red-600"> *</span> : null}
+                        </Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -2151,7 +2300,11 @@ export default function PricingEnginePage() {
                             placeholder="0.00"
                             className="pl-6"
                             value={purchasePrice}
-                            onValueChange={setPurchasePrice}
+                            highlighted={!!reAuto.purchasePrice}
+                            onValueChange={(v) => {
+                              clearReAuto("purchasePrice")
+                              setPurchasePrice(v)
+                            }}
                           />
                         </div>
                       </div>
@@ -2186,7 +2339,9 @@ export default function PricingEnginePage() {
                         </>
                       ) : null}
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="aiv">AIV</Label>
+                        <Label htmlFor="aiv">
+                          AIV{isRefi ? <span className="text-red-600"> *</span> : null}
+                        </Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -2215,7 +2370,9 @@ export default function PricingEnginePage() {
                         (bridgeType === "bridge-rehab" || bridgeType === "ground-up") ? (
                           <>
                             <div className="flex flex-col gap-1">
-                              <Label htmlFor="initial-loan-amount">Initial Loan Amount</Label>
+                              <Label htmlFor="initial-loan-amount">
+                                Initial Loan Amount <span className="text-red-600">*</span>
+                              </Label>
                               <div className="relative">
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
@@ -2265,7 +2422,9 @@ export default function PricingEnginePage() {
                           </>
                         ) : (
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="loan-amount">Loan Amount</Label>
+                            <Label htmlFor="loan-amount">
+                              Loan Amount <span className="text-red-600">*</span>
+                            </Label>
                             <div className="relative">
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
@@ -2535,7 +2694,9 @@ export default function PricingEnginePage() {
             {/* Footer */}
             <div className="border-t p-3">
               <div className="flex justify-end">
-                <Button onClick={handleCalculate}>Calculate</Button>
+                <Button onClick={handleCalculate} disabled={!canCalculate || isDispatching}>
+                  Calculate
+                </Button>
               </div>
             </div>
           </div>
@@ -2771,9 +2932,9 @@ function ResultCard({
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
         <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] p-4">
-          <DialogHeader className="relative pr-14">
+          <DialogHeader className="relative pr-16">
             <DialogTitle>Term Sheet</DialogTitle>
-            <div className="absolute top-0 right-10">
+            <div className="absolute top-4 right-14">
               <Button size="icon" variant="ghost" aria-label="Download term sheet">
                 <IconDownload className="h-4 w-4" />
               </Button>

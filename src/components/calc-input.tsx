@@ -7,6 +7,7 @@ interface Props extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value
 	value: string
 	onValueChange: (next: string) => void
 	className?: string
+	highlighted?: boolean
 }
 
 function isSafeExpression(expression: string): boolean {
@@ -60,7 +61,7 @@ function formatWithCommas(raw: string): string {
 	return d !== undefined ? `${withCommas}.${d}` : withCommas
 }
 
-export function CalcInput({ id, value, onValueChange, className, ...rest }: Props) {
+export function CalcInput({ id, value, onValueChange, className, highlighted, ...rest }: Props) {
 	const [calcMode, setCalcMode] = React.useState<boolean>(false)
 	const [expr, setExpr] = React.useState<string>("")
 
@@ -138,6 +139,7 @@ export function CalcInput({ id, value, onValueChange, className, ...rest }: Prop
 				calcMode
 					? "ring-2 ring-purple-500/60 border-purple-500/70 focus-visible:ring-purple-500"
 					: "",
+				!calcMode && highlighted ? "ring-2 ring-amber-500/70 border-amber-500/70" : "",
 				className
 			)}
 			inputMode="decimal"
