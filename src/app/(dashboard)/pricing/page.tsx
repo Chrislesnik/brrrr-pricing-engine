@@ -2888,12 +2888,12 @@ import * as React from "react"
 type ProgramResponseData = {
   pass?: boolean
   highlight_display?: number
-  loan_price?: number[]
-  interest_rate?: number[]
+  loan_price?: (number | string)[]
+  interest_rate?: (number | string)[]
   loan_amount?: string
   ltv?: string
-  pitia?: number[]
-  dscr?: number[]
+  pitia?: (number | string)[]
+  dscr?: (number | string)[]
   // Bridge payload variants
   initial_loan_amount?: (string | number)[]
   rehab_holdback?: (string | number)[]
@@ -2950,11 +2950,11 @@ function ResultCard({
     Array.isArray(d?.initial_loan_amount) ||
     Array.isArray(d?.funded_pitia)
   // Program card widgets should always reflect the original highlight index from the API.
-  const loanPrice = pick<any>(d?.loan_price as any, hi)
-  const rate = pick<any>(d?.interest_rate as any, hi)
-  const pitia = isBridgeResp ? pick<any>(d?.funded_pitia as any, hi) : pick<any>(d?.pitia as any, hi)
-  const dscr = isBridgeResp ? undefined : pick<any>(d?.dscr as any, hi)
-  const loanAmount = isBridgeResp ? pick<any>(d?.total_loan_amount as any, hi) : (d?.loan_amount as any)
+  const loanPrice = pick<string | number>(d?.loan_price, hi)
+  const rate = pick<string | number>(d?.interest_rate, hi)
+  const pitia = isBridgeResp ? pick<string | number>(d?.funded_pitia, hi) : pick<string | number>(d?.pitia, hi)
+  const dscr = isBridgeResp ? undefined : pick<string | number>(d?.dscr, hi)
+  const loanAmount = isBridgeResp ? pick<string | number>(d?.total_loan_amount, hi) : d?.loan_amount
   const ltv = d?.ltv
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
 
@@ -2996,8 +2996,8 @@ function ResultCard({
           <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Widget label="Loan Price" value={loanPrice} />
             <Widget label="Interest Rate" value={rate} />
-            <Widget label="Initial Loan Amount" value={pick<any>(d?.initial_loan_amount as any, hi)} />
-            <Widget label="Rehab Holdback" value={pick<any>(d?.rehab_holdback as any, hi)} />
+            <Widget label="Initial Loan Amount" value={pick<string | number>(d?.initial_loan_amount, hi)} />
+            <Widget label="Rehab Holdback" value={pick<string | number>(d?.rehab_holdback, hi)} />
             <Widget label="Total Loan Amount" value={loanAmount} />
             <Widget label="Funded PITIA" value={pitia} />
           </div>
@@ -3071,15 +3071,15 @@ function ResultCard({
                                   rowIdx: i,
                                   values: {
                                     loanPrice: typeof lp === "number" ? lp : String(lp),
-                                    interestRate: Array.isArray(d?.interest_rate) ? (d.interest_rate as any)[i] : undefined,
+                                    interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
                                     loanAmount: isBridgeResp
-                                      ? (Array.isArray(d?.total_loan_amount) ? (d.total_loan_amount as any)[i] : undefined)
+                                      ? (Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : undefined)
                                       : (loanAmount ?? undefined),
                                     ltv: isBridgeResp ? undefined : (ltv ?? undefined),
                                     pitia: isBridgeResp
-                                      ? (Array.isArray(d?.funded_pitia) ? (d.funded_pitia as any)[i] : undefined)
-                                      : (Array.isArray(d?.pitia) ? (d.pitia as any)[i] : undefined),
-                                    dscr: isBridgeResp ? undefined : (Array.isArray(d?.dscr) ? (d.dscr as any)[i] : undefined),
+                                      ? (Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : undefined)
+                                      : (Array.isArray(d?.pitia) ? d.pitia[i] : undefined),
+                                    dscr: isBridgeResp ? undefined : (Array.isArray(d?.dscr) ? d.dscr[i] : undefined),
                                   },
                                 })
                               }
@@ -3092,20 +3092,20 @@ function ResultCard({
                             </button>
                           </td>
                           <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? (d.interest_rate as any)[i] : ""}</td>
+                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
                           {isBridgeResp ? (
                             <>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.initial_loan_amount) ? (d.initial_loan_amount as any)[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.rehab_holdback) ? (d.rehab_holdback as any)[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.total_loan_amount) ? (d.total_loan_amount as any)[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.funded_pitia) ? (d.funded_pitia as any)[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : ""}</td>
                             </>
                           ) : (
                             <>
                               <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
                               <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? (d.pitia as any)[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? (d.dscr as any)[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
+                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
                             </>
                           )}
                           <td className="py-1 pr-3 text-left">
