@@ -48,6 +48,39 @@ import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import TermSheetPreview from "@/components/term-sheet/TermSheetPreview"
 
+function ScaledTermSheetPreview() {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [scale, setScale] = useState<number>(1)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      const width = el.clientWidth
+      if (width <= 0) return
+      const s = Math.min(width / 816, 1)
+      setScale(s)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={containerRef} className="w-full overflow-auto rounded-md border p-2 bg-white">
+      <div
+        style={{
+          width: 816,
+          height: 1056,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        <TermSheetPreview />
+      </div>
+    </div>
+  )
+}
+
 // Shared minimal types for Google Places Autocomplete
 export interface PlacePrediction {
   place_id: string
@@ -2377,7 +2410,9 @@ function ResultCard({
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const MCP_PROMPT = `Implement this design from Figma.
 
-@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev`
+@https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=45-3&m=dev
+
+https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=45-3&m=dev`
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -2521,7 +2556,7 @@ function ResultCard({
             <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <TermSheetPreview />
+            <ScaledTermSheetPreview />
             <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
           </div>
           <DialogFooter>
