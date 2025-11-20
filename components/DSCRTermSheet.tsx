@@ -3,69 +3,79 @@ import React from "react";
 // Minimal props shape for preview/typing; accepts any placeholder tokens
 export type DSCRTermSheetProps = Record<string, string | number | null | undefined>;
 
-const DscrTermSheet = () => {
+// Helper to render prop value or the merge tag when missing
+const asText = (props: DSCRTermSheetProps, ...keys: string[]) => {
+  for (const k of keys) {
+    const v = props[k];
+    if (v !== undefined && v !== null && String(v) !== "") return String(v);
+  }
+  // fall back to the primary key as a merge tag
+  return `{{ ${keys[0]} }}`;
+};
+
+const DscrTermSheet = (props: DSCRTermSheetProps) => {
   const borrowerGuarantorsData = [
-    { label: "Borrower", value: "{{ borrower_name }}" },
-    { label: "Guarantor(s)", value: "{{ guarantor_name }}" },
-    { label: "FICO", value: "{{ fico_score }}" },
-    { label: "Experience", value: "{{ experience }}" },
-    { label: "Citizenship", value: "{{ citizenship }}" },
+    { label: "Borrower", value: asText(props, "borrower_name") },
+    { label: "Guarantor(s)", value: asText(props, "guarantor_name") },
+    { label: "FICO", value: asText(props, "fico_score") },
+    { label: "Experience", value: asText(props, "experience") },
+    { label: "Citizenship", value: asText(props, "citizenship") },
   ];
 
   const subjectPropertyData = [
-    { label: "Street", value: "{{ street }}" },
-    { label: "City, State, Zip", value: "{{ city_state_zip }}" },
-    { label: "Property Type", value: "{{ property_type }}" },
-    { label: "Sq Footage", value: "{{ sq_footage }}" },
-    { label: "Date Purchased (refi only)", value: "{{ date_purchased }}" },
+    { label: "Street", value: asText(props, "street") },
+    { label: "City, State, Zip", value: asText(props, "city_state_zip") },
+    { label: "Property Type", value: asText(props, "property_type") },
+    { label: "Sq Footage", value: asText(props, "sq_footage") },
+    { label: "Date Purchased (refi only)", value: asText(props, "date_purchased") },
   ];
 
   const loanStructureData = [
-    { label: "Transaction Type", value: "{{ transaction_type }}" },
-    { label: "Loan Structure", value: "{{ loan_structure }}" },
-    { label: "IO Period", value: "{{ io_period }}" },
-    { label: "Pre-Pay Penalty", value: "{{ ppp }}" },
-    { label: "Interest Rates", value: "{{ interest_rate }}" },
-    { label: "Leverage (LTV)", value: "{{ leverage }}" },
-    { label: "Loan Amount", value: "{{ loan_amount }}" },
+    { label: "Transaction Type", value: asText(props, "transaction_type") },
+    { label: "Loan Structure", value: asText(props, "loan_structure") },
+    { label: "IO Period", value: asText(props, "io_period") },
+    { label: "Pre-Pay Penalty", value: asText(props, "ppp") },
+    { label: "Interest Rates", value: asText(props, "interest_rate") },
+    { label: "Leverage (LTV)", value: asText(props, "leverage") },
+    { label: "Loan Amount", value: asText(props, "loan_amount") },
   ];
 
   const lenderFeesData = [
-    { label: "Origination", value: "{{ origination }}" },
-    { label: "Rate Buy Down", value: "{{ rate_buydown }}" },
-    { label: "Underwriting", value: "{{ underwriting_fee }}" },
-    { label: "Legal & Doc Prep", value: "{{ legal_fee }}" },
+    { label: "Origination", value: asText(props, "origination") },
+    { label: "Rate Buy Down", value: asText(props, "rate_buydown", "lender_fee_rbd", "lender_fee_rate_buy_down") },
+    { label: "Underwriting", value: asText(props, "underwriting_fee") },
+    { label: "Legal & Doc Prep", value: asText(props, "legal_fee") },
   ];
 
   const liquidityRequirementData = [
-    { label: "Liquidity Requirement", value: "{{ liquidity_required }}" },
-    { label: "Cash to Close", value: "{{ cash_to_close }}" },
-    { label: "{{ downpayment_payoff_label|wnpayment_payoff_payment }}", value: "" },
-    { label: "Escrows", value: "{{ escrows }}" },
-    { label: "{{ reserves_label }}", value: "{{ reserves }}" },
-    { label: "Mortgage Debt - 100%", value: "{{ mortgage_debt }}" },
-    { label: "Cash Out", value: "{{ cash_out }}" },
+    { label: "Liquidity Requirement", value: asText(props, "liquidity_required") },
+    { label: "Cash to Close", value: asText(props, "cash_to_close") },
+    { label: asText(props, "downpayment_payoff_label"), value: asText(props, "downpayment_payoff_payment") },
+    { label: "Escrows", value: asText(props, "escrows") },
+    { label: asText(props, "reserves_label"), value: asText(props, "reserves") },
+    { label: "Mortgage Debt - 100%", value: asText(props, "mortgage_debt") },
+    { label: "Cash Out", value: asText(props, "cash_out") },
   ];
 
   const creditsData = [
-    { label: "Loan Proceeds", value: "{{ loan_proceeds }}" },
-    { label: "Cash Due @ Closing", value: "{{ cash_due_at_closing }}" },
+    { label: "Loan Proceeds", value: asText(props, "loan_proceeds") },
+    { label: "Cash Due @ Closing", value: asText(props, "cash_due_at_closing") },
   ];
 
   const debitsData = [
-    { label: "{{ purchaseprice_payoff_label }}", value: "{{ purchaseprice_payoff }}" },
-    { label: "Lender Fee - Origination", value: "{{ lender_fee_origination }}" },
-    { label: "Broker Fee - Origination", value: "{{ broker_fee_origination }}" },
-    { label: "Lender Fee - Rate Buy Down", value: "{{ lender_fee_legal }}" },
-    { label: "Lender Fee - Diligence & Legal", value: "{{ hoi_escrow }}" },
-    { label: "{{ hoi_escrow_label }}", value: "{{ flood_escrow }}" },
-    { label: "{{ flood_escrow_label }}", value: "{{ tax_escrow }}" },
-    { label: "{{ tax_escrow_label }}", value: "{{ pitia_escrow }}" },
-    { label: "{{ pitia_escrow_label }}", value: "{{ hoi_premium }}" },
-    { label: "HOI Premium - Balance Due", value: "{{ flood_premium }}" },
-    { label: "Flood Insurance Premium", value: "{{ per_diem }}" },
-    { label: "{{ per_diem_label }}", value: "{{ lawyer_fee }}" },
-    { label: "Title Insurance & Recording Fees", value: "{{ title_fee }}" },
+    { label: asText(props, "purchaseprice_payoff_label"), value: asText(props, "purchaseprice_payoff") },
+    { label: "Lender Fee - Origination", value: asText(props, "lender_fee_origination") },
+    { label: "Broker Fee - Origination", value: asText(props, "broker_fee_origination") },
+    { label: "Lender Fee - Rate Buy Down", value: asText(props, "lender_fee_rbd", "lender_fee_rate_buy_down", "rate_buydown") },
+    { label: "Lender Fee - Diligence & Legal", value: asText(props, "lender_fee_legal") },
+    { label: asText(props, "hoi_escrow_label"), value: asText(props, "hoi_escrow") },
+    { label: asText(props, "flood_escrow_label"), value: asText(props, "flood_escrow") },
+    { label: asText(props, "tax_escrow_label"), value: asText(props, "tax_escrow") },
+    { label: asText(props, "pitia_escrow_label"), value: asText(props, "pitia_escrow") },
+    { label: "HOI Premium - Balance Due", value: asText(props, "hoi_premium") },
+    { label: "Flood Insurance Premium", value: asText(props, "flood_premium") },
+    { label: asText(props, "per_diem_label"), value: asText(props, "per_diem") },
+    { label: "Title Insurance & Recording Fees", value: asText(props, "title_fee") },
   ];
 
   return (
@@ -73,7 +83,7 @@ const DscrTermSheet = () => {
       <div className="w-full max-w-[816px]">
         <header className="mb-8">
           <h1 className="text-2xl font-bold mb-2">Preliminary Term Sheet</h1>
-          <p className="text-orange-500 font-semibold">{"{{ program }}"}</p>
+          <p className="text-orange-500 font-semibold">{asText(props, "program")}</p>
         </header>
 
         <div className="grid grid-cols-2 gap-8">

@@ -3133,8 +3133,9 @@ function ResultCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      const json = (await res.json().catch(() => ({}))) as DSCRTermSheetProps
-      setSheetProps(json && typeof json === "object" ? json : {})
+      const raw = await res.json().catch(() => ({}))
+      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetProps) : (raw as DSCRTermSheetProps)
+      setSheetProps(json && typeof json === "object" && !Array.isArray(json) ? json : {})
       setMcpOpen(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load term sheet"
