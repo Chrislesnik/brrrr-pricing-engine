@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -20,6 +20,17 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { DateInput } from "@/components/date-input"
 import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
@@ -212,6 +223,11 @@ export default function PricingEnginePage() {
   const [isNamingScenario, setIsNamingScenario] = useState<boolean>(false)
   const [scenarioName, setScenarioName] = useState<string>("")
   const scenarioInputRef = useRef<HTMLInputElement | null>(null)
+  // Scenario rename state (local only until Save)
+  const [isRenamingScenario, setIsRenamingScenario] = useState<boolean>(false)
+  const [renameDraft, setRenameDraft] = useState<string>("")
+  const [pendingScenarioName, setPendingScenarioName] = useState<string | undefined>(undefined)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false)
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -400,11 +416,17 @@ export default function PricingEnginePage() {
       payload["warrantability"] = warrantability ?? ""
     }
     if (unitData?.length) {
-      payload["unit_data"] = unitData.map((u) => ({
+      const units = unitData.map((u) => ({
         leased: u.leased,
         gross: u.gross,
         market: u.market,
+        // explicit aliases for clarity in saved scenarios
+        gross_rent: u.gross,
+        market_rent: u.market,
       }))
+      payload["unit_data"] = units
+      // add a more descriptive alias without impacting downstream usage
+      payload["units"] = units
     }
     return payload
   }
@@ -799,17 +821,33 @@ export default function PricingEnginePage() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Scenarios
                 </label>
-                {isNamingScenario ? (
+                {isNamingScenario || isRenamingScenario ? (
                   <Input
                     ref={scenarioInputRef}
-                    placeholder="Scenario name"
-                    value={scenarioName}
-                    onChange={(e) => setScenarioName(e.target.value)}
+                    placeholder={isRenamingScenario ? "Rename scenario" : "Scenario name"}
+                    value={isRenamingScenario ? renameDraft : scenarioName}
+                    onChange={(e) => (isRenamingScenario ? setRenameDraft(e.target.value) : setScenarioName(e.target.value))}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleConfirmSave()
-                      } else if (e.key === "Escape") {
-                        handleCancelSave()
+                      if (isRenamingScenario) {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          const trimmed = renameDraft.trim()
+                          if (trimmed && selectedScenarioId) {
+                            setPendingScenarioName(trimmed)
+                            setScenariosList((prev) => prev.map((s) => (s.id === selectedScenarioId ? { ...s, name: trimmed } : s)))
+                          }
+                          setIsRenamingScenario(false)
+                        } else if (e.key === "Escape") {
+                          e.preventDefault()
+                          setIsRenamingScenario(false)
+                          setRenameDraft("")
+                        }
+                      } else {
+                        if (e.key === "Enter") {
+                          handleConfirmSave()
+                        } else if (e.key === "Escape") {
+                          handleCancelSave()
+                        }
                       }
                     }}
                     className="h-9 w-full"
@@ -833,14 +871,47 @@ export default function PricingEnginePage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {isNamingScenario ? (
+                {isNamingScenario || isRenamingScenario ? (
                   <>
-                    <Button aria-label="Save Scenario" size="icon" variant="secondary" onClick={handleConfirmSave}>
-                      <IconCheck />
-                    </Button>
-                    <Button aria-label="Cancel" size="icon" variant="outline" onClick={handleCancelSave}>
-                      <IconX />
-                    </Button>
+                    {isRenamingScenario ? (
+                      <>
+                        <Button
+                          aria-label="Confirm rename"
+                          size="icon"
+                          variant="secondary"
+                          onClick={() => {
+                            const trimmed = renameDraft.trim()
+                            if (trimmed && selectedScenarioId) {
+                              setPendingScenarioName(trimmed)
+                              setScenariosList((prev) => prev.map((s) => (s.id === selectedScenarioId ? { ...s, name: trimmed } : s)))
+                            }
+                            setIsRenamingScenario(false)
+                          }}
+                        >
+                          <IconCheck />
+                        </Button>
+                        <Button
+                          aria-label="Cancel rename"
+                          size="icon"
+                          variant="outline"
+                          onClick={() => {
+                            setIsRenamingScenario(false)
+                            setRenameDraft("")
+                          }}
+                        >
+                          <IconX />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button aria-label="Save Scenario" size="icon" variant="secondary" onClick={handleConfirmSave}>
+                          <IconCheck />
+                        </Button>
+                        <Button aria-label="Cancel" size="icon" variant="outline" onClick={handleCancelSave}>
+                          <IconX />
+                        </Button>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -868,7 +939,109 @@ export default function PricingEnginePage() {
                         <IconStar className="h-4 w-4 text-muted-foreground" />
                       )}
                     </Button>
-                <Button aria-label="Save" size="icon" variant="secondary">
+                    <Button
+                      aria-label="Rename"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        if (!selectedScenarioId) return
+                        const name = scenariosList.find((s) => s.id === selectedScenarioId)?.name ?? ""
+                        setRenameDraft(name)
+                        setIsRenamingScenario(true)
+                        setTimeout(() => scenarioInputRef.current?.focus(), 0)
+                      }}
+                      disabled={!selectedScenarioId}
+                    >
+                      <IconPencil />
+                    </Button>
+                    <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button aria-label="Delete scenario" size="icon" variant="ghost" disabled={!selectedScenarioId}>
+                          <IconTrash />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete scenario?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently remove the scenario from this loan. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              if (!selectedScenarioId) return
+                              try {
+                                const res = await fetch(`/api/scenarios/${selectedScenarioId}`, { method: "DELETE" })
+                                if (!res.ok) return
+                                setScenariosList((prev) => prev.filter((s) => s.id !== selectedScenarioId))
+                                setSelectedScenarioId(undefined)
+                                setPendingScenarioName(undefined)
+                                toast({ title: "Deleted", description: "Scenario removed." })
+                              } catch {
+                                toast({ title: "Delete failed", description: "Could not delete scenario.", variant: "destructive" })
+                              }
+                            }}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
+                      try {
+                        const inputs = buildPayload()
+                        let selected = selectedMainRow?.values
+                        if (!selected) {
+                          const first = programResults?.[0]?.data
+                          if (first) {
+                            const hi = Number(first.highlight_display ?? 0)
+                            selected = {
+                              loanPrice: Array.isArray(first.loan_price) ? first.loan_price[hi] : null,
+                              interestRate: Array.isArray(first.interest_rate) ? first.interest_rate[hi] : null,
+                              loanAmount: first.loan_amount ?? null,
+                              ltv: first.ltv ?? null,
+                              pitia: Array.isArray(first.pitia) ? first.pitia[hi] : null,
+                              dscr: Array.isArray(first.dscr) ? first.dscr[hi] : null,
+                            }
+                          }
+                        }
+                        const nameOverride =
+                          pendingScenarioName ?? scenariosList.find((s) => s.id === selectedScenarioId)?.name ?? undefined
+                        if (!selectedScenarioId) {
+                          // If no scenario selected, behave like Save As (create)
+                          const res = await fetch("/api/pricing/scenario", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: nameOverride ?? "Scenario", inputs, selected, loanId: currentLoanId }),
+                          })
+                          if (res.ok) {
+                            const json = (await res.json().catch(() => ({}))) as { scenarioId?: string }
+                            if (json?.scenarioId) {
+                              setSelectedScenarioId(json.scenarioId)
+                            }
+                          }
+                        } else {
+                          // Update existing scenario (including rename if pending)
+                          const res = await fetch(`/api/scenarios/${selectedScenarioId}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: nameOverride, inputs, selected, loanId: currentLoanId }),
+                          })
+                          if (res.ok) {
+                            setPendingScenarioName(undefined)
+                            toast({ title: "Saved", description: "Scenario updated." })
+                          } else {
+                            const msg = await res.text().catch(() => "")
+                            throw new Error(msg || "Save failed")
+                          }
+                        }
+                      } catch (err) {
+                        const message = err instanceof Error ? err.message : "Unknown error"
+                        toast({ title: "Save failed", description: message, variant: "destructive" })
+                      }
+                    }}>
                   <IconDeviceFloppy />
                 </Button>
                     <Button
