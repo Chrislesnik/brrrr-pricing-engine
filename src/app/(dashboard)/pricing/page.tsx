@@ -46,6 +46,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
+import TermSheetPreview from "@/components/term-sheet/TermSheetPreview"
 
 // Shared minimal types for Google Places Autocomplete
 export interface PlacePrediction {
@@ -2527,46 +2528,7 @@ function ResultCard({
             <DialogDescription>Copy and paste into Cursor MCP.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-md border p-4">
-              <div className="mb-3">
-                <div className="text-sm font-bold">Preliminary Term Sheet</div>
-                <div className="text-xs text-muted-foreground">
-                  Program {r.internal_name ?? ""} • Row {((previewRowIdx ?? hi) as number) + 1}
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Widget
-                  label="Loan Price"
-                  value={
-                    Array.isArray(d?.loan_price)
-                      ? d.loan_price[(previewRowIdx ?? hi) as number]
-                      : loanPrice
-                  }
-                />
-                <Widget
-                  label="Interest Rate"
-                  value={
-                    Array.isArray(d?.interest_rate)
-                      ? d.interest_rate[(previewRowIdx ?? hi) as number]
-                      : rate
-                  }
-                />
-                <Widget label="Loan Amount" value={loanAmount} />
-                <Widget label="LTV" value={ltv} />
-                <Widget
-                  label="PITIA"
-                  value={
-                    Array.isArray(d?.pitia) ? d.pitia[(previewRowIdx ?? hi) as number] : pitia
-                  }
-                />
-                <Widget
-                  label="DSCR"
-                  value={
-                    Array.isArray(d?.dscr) ? d.dscr[(previewRowIdx ?? hi) as number] : dscr
-                  }
-                />
-              </div>
-            </div>
+            <TermSheetPreview />
             <pre className="whitespace-pre-wrap break-words text-xs">{MCP_PROMPT}</pre>
           </div>
           <DialogFooter>
