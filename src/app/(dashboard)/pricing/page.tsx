@@ -844,7 +844,8 @@ export default function PricingEnginePage() {
   const rehabPathVisible =
     !requestMaxLeverage && isBridge && (bridgeType === "bridge-rehab" || bridgeType === "ground-up")
   const loanAmountPathVisible = !requestMaxLeverage && !rehabPathVisible
-  const areUnitRowsVisible = (numUnits ?? 0) > 0
+  // Units table is only applicable to DSCR income analysis
+  const areUnitRowsVisible = isDscr && (numUnits ?? 0) > 0
   const unitsComplete = useMemo(() => {
     if (!areUnitRowsVisible) return true
     return unitData.every(
@@ -868,8 +869,9 @@ export default function PricingEnginePage() {
     if (isFicoRequired && !has(fico)) return false
     if (!has(stateCode)) return false
     if (!has(propertyType)) return false
-    if (!has(annualTaxes)) return false
-    if (!has(annualHoi)) return false
+    // Taxes/HOI are only required for DSCR
+    if (isDscr && !has(annualTaxes)) return false
+    if (isDscr && !has(annualHoi)) return false
     if (!unitsComplete) return false
     if (isDscr && (!has(loanStructureType) || !has(ppp))) return false
     if (isPurchase && !has(purchasePrice)) return false
