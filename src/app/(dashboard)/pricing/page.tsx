@@ -278,7 +278,7 @@ export default function PricingEnginePage() {
     d.setDate(d.getDate() + days)
     return d
   }
-  const isSameDay = (a?: Date, b?: Date) => {
+  const _isSameDay = (a?: Date, b?: Date) => {
     if (!a || !b) return false
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
   }
@@ -2036,7 +2036,11 @@ export default function PricingEnginePage() {
                           <PopoverTrigger asChild>
                             <DateInput
                               value={closingDate}
-                              onChange={(d) => setClosingDate(d)}
+                              onChange={(d) => {
+                                setClosingDate(d)
+                                setTouched((t) => ({ ...t, closingDate: true }))
+                              }}
+                              className={`${!touched.closingDate && closingDate && _isSameDay(closingDate, DEFAULTS.closingDate) ? "text-muted-foreground" : ""}`}
                             />
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -2078,8 +2082,17 @@ export default function PricingEnginePage() {
                         <>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="loan-structure-type">Loan Structure</Label>
-                            <Select value={loanStructureType} onValueChange={setLoanStructureType}>
-                              <SelectTrigger id="loan-structure-type" className="h-9 w-full">
+                            <Select
+                              value={loanStructureType}
+                              onValueChange={(v) => {
+                                setLoanStructureType(v)
+                                setTouched((t) => ({ ...t, loanStructureType: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="loan-structure-type"
+                                className={`h-9 w-full ${!touched.loanStructureType && loanStructureType === DEFAULTS.loanStructureType ? "text-muted-foreground" : ""}`}
+                              >
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
                               <SelectContent>
@@ -2090,8 +2103,17 @@ export default function PricingEnginePage() {
                           </div>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="ppp">PPP</Label>
-                            <Select value={ppp} onValueChange={setPpp}>
-                              <SelectTrigger id="ppp" className="h-9 w-full">
+                            <Select
+                              value={ppp}
+                              onValueChange={(v) => {
+                                setPpp(v)
+                                setTouched((t) => ({ ...t, ppp: true }))
+                              }}
+                            >
+                              <SelectTrigger
+                                id="ppp"
+                                className={`h-9 w-full ${!touched.ppp && ppp === DEFAULTS.ppp ? "text-muted-foreground" : ""}`}
+                              >
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
                               <SelectContent>
@@ -2304,16 +2326,43 @@ export default function PricingEnginePage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-name">Borrower Name</Label>
-                        <Input id="borrower-name" placeholder="Name" value={borrowerName} onChange={(e)=>setBorrowerName(e.target.value)} />
+                        <Input
+                          id="borrower-name"
+                          placeholder="Name"
+                          value={borrowerName}
+                          onChange={(e) => {
+                            setBorrowerName(e.target.value)
+                            setTouched((t) => ({ ...t, borrowerName: true }))
+                          }}
+                          className={`${!touched.borrowerName && borrowerName === DEFAULTS.borrowerName ? "text-muted-foreground" : ""}`}
+                        />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="guarantors">Guarantor(s)</Label>
-                        <Input id="guarantors" placeholder="Names separated by comma" value={guarantorsStr} onChange={(e)=>setGuarantorsStr(e.target.value)} />
+                        <Input
+                          id="guarantors"
+                          placeholder="Names separated by comma"
+                          value={guarantorsStr}
+                          onChange={(e) => {
+                            setGuarantorsStr(e.target.value)
+                            setTouched((t) => ({ ...t, guarantorsStr: true }))
+                          }}
+                          className={`${!touched.guarantorsStr && guarantorsStr === DEFAULTS.guarantorsStr ? "text-muted-foreground" : ""}`}
+                        />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="uw-exception">UW Exception</Label>
-                        <Select value={uwException} onValueChange={setUwException}>
-                          <SelectTrigger id="uw-exception" className="h-9 w-full">
+                        <Select
+                          value={uwException}
+                          onValueChange={(v) => {
+                            setUwException(v)
+                            setTouched((t) => ({ ...t, uwException: true }))
+                          }}
+                        >
+                          <SelectTrigger
+                            id="uw-exception"
+                            className={`h-9 w-full ${!touched.uwException && uwException === DEFAULTS.uwException ? "text-muted-foreground" : ""}`}
+                          >
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -2328,7 +2377,11 @@ export default function PricingEnginePage() {
                           <PopoverTrigger asChild>
                             <DateInput
                               value={hoiEffective}
-                              onChange={(d) => setHoiEffective(d)}
+                              onChange={(d) => {
+                                setHoiEffective(d)
+                                setTouched((t) => ({ ...t, hoiEffective: true }))
+                              }}
+                              className={`${!touched.hoiEffective && hoiEffective && _isSameDay(hoiEffective, DEFAULTS.hoiEffective) ? "text-muted-foreground" : ""}`}
                             />
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -2349,7 +2402,11 @@ export default function PricingEnginePage() {
                           <PopoverTrigger asChild>
                             <DateInput
                               value={floodEffective}
-                              onChange={(d) => setFloodEffective(d)}
+                              onChange={(d) => {
+                                setFloodEffective(d)
+                                setTouched((t) => ({ ...t, floodEffective: true }))
+                              }}
+                              className={`${!touched.floodEffective && floodEffective && _isSameDay(floodEffective, DEFAULTS.floodEffective) ? "text-muted-foreground" : ""}`}
                             />
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -2411,7 +2468,18 @@ export default function PricingEnginePage() {
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="tax-escrow">Tax Escrow (months)</Label>
-                        <Input id="tax-escrow" inputMode="numeric" pattern="[0-9]*" placeholder="0" value={taxEscrowMonths} onChange={(e)=>setTaxEscrowMonths(e.target.value)} />
+                        <Input
+                          id="tax-escrow"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={taxEscrowMonths}
+                          onChange={(e) => {
+                            setTaxEscrowMonths(e.target.value)
+                            setTouched((t) => ({ ...t, taxEscrowMonths: true }))
+                          }}
+                          className={`${!touched.taxEscrowMonths && taxEscrowMonths === DEFAULTS.taxEscrowMonths ? "text-muted-foreground" : ""}`}
+                        />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="hoi-premium">HOI Premium</Label>

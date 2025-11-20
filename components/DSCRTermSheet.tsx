@@ -293,7 +293,7 @@ export default function DSCRTermSheet(props: DSCRTermSheetProps) {
 
       {/* Disclaimer */}
       <div className="mt-4 border p-2 text-[9px] leading-snug text-black/70">
-        Pricing of initial rate is indicative and subject to a pricing at Lender's discretion based on factors that may
+        Pricing of initial rate is indicative and subject to a pricing at Lender&apos;s discretion based on factors that may
         include, but are not limited to: history, liquidity, credit, experience, income, and property characteristics.
         Terms are subject to final underwriting and market conditions and may change without notice. Any loan approval is
         subject to satisfactory appraisal, clear title, and other standard due diligence items. This term sheet is for
