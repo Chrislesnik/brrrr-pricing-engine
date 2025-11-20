@@ -47,7 +47,13 @@ import { CalcInput } from "@/components/calc-input"
 import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps }) {
+function ScaledTermSheetPreview({
+  sheetProps,
+  pageRef,
+}: {
+  sheetProps: DSCRTermSheetProps
+  pageRef?: React.Ref<HTMLDivElement>
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState<number>(1)
   useEffect(() => {
@@ -59,9 +65,9 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
       if (width <= 0 || height <= 0) return
       // Compute scale to fit both width and height of the container.
       // Apply a small reduction to avoid clipping the bottom edge in the dialog.
-      const paddingAllowance = 16 // px allowance for container padding/borders
+      const paddingAllowance = 24 // px allowance for container padding/borders
       const s =
-        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.93
+        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.9
       setScale(s)
     }
     update()
@@ -72,7 +78,7 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
   return (
     <div
       ref={containerRef}
-      className="w-full h-[75vh] overflow-auto rounded-md bg-transparent flex items-start justify-center"
+      className="w-full h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-start justify-center pb-6"
     >
       <div
         style={{
@@ -82,6 +88,7 @@ function ScaledTermSheetPreview({ sheetProps }: { sheetProps: DSCRTermSheetProps
           transformOrigin: "top center",
         }}
         className="border border-black/20 bg-white shadow-xl rounded-sm"
+        ref={pageRef}
       >
         <DSCRTermSheet {...sheetProps} />
       </div>
@@ -3108,6 +3115,7 @@ function ResultCard({
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
   const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
+  const previewRef = useRef<HTMLDivElement | null>(null)
 
   async function openTermSheetPreview(rowIndex?: number) {
     try {
@@ -3340,6 +3348,43 @@ function ResultCard({
             type="button"
             aria-label="Download term sheet"
             className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            onClick={() => {
+              try {
+                const node = previewRef.current
+                if (!node) return
+                const htmlInside = node.innerHTML
+                const win = window.open("", "_blank", "noopener,noreferrer")
+                if (!win) return
+                const doc = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Term Sheet</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #fff; }
+      #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #000; box-sizing: border-box; }
+      @page { size: 816px 1056px; margin: 0; }
+      @media print {
+        html, body { width: 816px; height: 1056px; }
+        #page { box-shadow: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="page">${htmlInside}</div>
+    <script>
+      window.onload = function() { window.focus(); window.print(); };
+    </script>
+  </body>
+</html>`
+                win.document.open()
+                win.document.write(doc)
+                win.document.close()
+              } catch (e) {
+                console.error(e)
+              }
+            }}
           >
             <IconDownload />
           </button>
@@ -3356,6 +3401,7 @@ function ResultCard({
                       dscr: dscr,
                     }
               }
+              pageRef={previewRef}
             />
           </div>
         </DialogContent>
