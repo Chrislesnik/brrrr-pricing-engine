@@ -3382,7 +3382,8 @@ function ResultCard({
                 win.document.write(doc)
                 win.document.close()
               } catch (e) {
-                console.error(e)
+                const message = e instanceof Error ? e.message : "Unknown error"
+                toast({ title: "Download failed", description: message, variant: "destructive" })
               }
             }}
           >
