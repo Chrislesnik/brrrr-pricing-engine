@@ -2378,7 +2378,6 @@ function ResultCard({
   const MCP_PROMPT = `Implement this design from Figma.
 
 @https://www.figma.com/design/saHLRKApyiFH88Qygp1JvS/DSCR---Term-Sheet-Template?node-id=1-2&m=dev`
-  const [previewRowIdx, setPreviewRowIdx] = useState<number | null>(null)
 
   return (
     <div className="mb-3 rounded-md border p-3">
@@ -2394,10 +2393,7 @@ function ResultCard({
             size="icon"
             variant="ghost"
             aria-label="Preview"
-            onClick={() => {
-              setPreviewRowIdx(Number.isFinite(hi) ? hi : 0)
-              setMcpOpen(true)
-            }}
+            onClick={() => setMcpOpen(true)}
           >
             <IconEye className="h-4 w-4" />
           </Button>
@@ -2501,10 +2497,7 @@ function ResultCard({
                                 size="icon"
                                 variant="ghost"
                                 aria-label="Preview row"
-                                onClick={() => {
-                                  setPreviewRowIdx(i)
-                                  setMcpOpen(true)
-                                }}
+                                onClick={() => setMcpOpen(true)}
                               >
                                 <IconEye className="h-4 w-4" />
                               </Button>
