@@ -860,8 +860,8 @@ export default function PricingEnginePage() {
   }, [unitOptions, numUnits])
 
   // Derived requiredness and validation for Calculate button (placed after unitData declaration)
-  const rehabPathVisible =
-    !requestMaxLeverage && isBridge && (bridgeType === "bridge-rehab" || bridgeType === "ground-up")
+  const rehabSectionVisible = isBridge && (bridgeType === "bridge-rehab" || bridgeType === "ground-up")
+  const rehabPathVisible = !requestMaxLeverage && rehabSectionVisible
   const loanAmountPathVisible = !requestMaxLeverage && !rehabPathVisible
   // Units table is only applicable to DSCR income analysis
   const areUnitRowsVisible = isDscr && (numUnits ?? 0) > 0
@@ -895,6 +895,10 @@ export default function PricingEnginePage() {
     if (isDscr && (!has(loanStructureType) || !has(ppp))) return false
     if (isPurchase && !has(purchasePrice)) return false
     if (isRefi && !has(aiv)) return false
+    if (rehabSectionVisible) {
+      if (!has(rehabBudget)) return false
+      if (!has(arv)) return false
+    }
     if (rehabPathVisible && !has(initialLoanAmount)) return false
     if (loanAmountPathVisible && !has(loanAmount)) return false
     // Treat computed defaults as satisfying requirements for fee-like optional fields
@@ -1634,7 +1638,18 @@ export default function PricingEnginePage() {
                           max={850}
                           placeholder="700"
                           value={fico}
-                          onChange={(e) => setFico(e.target.value)}
+                          onChange={(e) => {
+                            // Allow typing, but restrict to digits
+                            const cleaned = e.target.value.replace(/[^0-9]/g, "")
+                            setFico(cleaned)
+                          }}
+                          onBlur={() => {
+                            // Clamp to 300–850 on blur
+                            const n = Number(fico)
+                            if (!Number.isFinite(n)) return
+                            const clamped = Math.min(850, Math.max(300, Math.round(n)))
+                            setFico(String(clamped))
+                          }}
                         />
                       </div>
                     </div>
@@ -1656,7 +1671,10 @@ export default function PricingEnginePage() {
                             pattern="[0-9]*"
                             placeholder="0"
                             value={rentalsOwned}
-                            onChange={(e) => setRentalsOwned(e.target.value)}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/[^0-9]/g, "")
+                              setRentalsOwned(digits)
+                            }}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -1667,7 +1685,10 @@ export default function PricingEnginePage() {
                             pattern="[0-9]*"
                             placeholder="0"
                             value={numFlips}
-                            onChange={(e) => setNumFlips(e.target.value)}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/[^0-9]/g, "")
+                              setNumFlips(digits)
+                            }}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -1678,7 +1699,10 @@ export default function PricingEnginePage() {
                             pattern="[0-9]*"
                             placeholder="0"
                             value={numGunc}
-                            onChange={(e) => setNumGunc(e.target.value)}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/[^0-9]/g, "")
+                              setNumGunc(digits)
+                            }}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -2056,7 +2080,7 @@ export default function PricingEnginePage() {
                             </Select>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="rehab-budget">Rehab Budget</Label>
+                            <Label htmlFor="rehab-budget">Rehab Budget <span className="text-red-600">*</span></Label>
                             <div className="relative">
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
@@ -2071,7 +2095,7 @@ export default function PricingEnginePage() {
                             </div>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="arv">ARV</Label>
+                            <Label htmlFor="arv">ARV <span className="text-red-600">*</span></Label>
                             <div className="relative">
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
