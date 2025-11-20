@@ -1,5 +1,8 @@
 import React from "react";
 
+// Minimal props shape for preview/typing; accepts any placeholder tokens
+export type DSCRTermSheetProps = Record<string, string | number | null | undefined>;
+
 const DscrTermSheet = () => {
   const borrowerGuarantorsData = [
     { label: "Borrower", value: "{{ borrower_name }}" },
