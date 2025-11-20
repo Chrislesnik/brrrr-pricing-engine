@@ -3357,8 +3357,8 @@ function ResultsPanel({
                 r.external_name === selectedFromProps.programName
             )
           : selectedFromProps.programIdx ?? 0
-      const d = results[progIdx]?.data ?? {}
-      const lpArr = Array.isArray((d as any).loan_price) ? ((d as any).loan_price as Array<string | number>) : []
+      const d = (results[progIdx]?.data ?? {}) as ProgramResponseData
+      const lpArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
       const target = Number(String(selectedFromProps.values.loanPrice ?? "").replace(/[^0-9.-]/g, ""))
       let rowIdx = (selectedFromProps.rowIdx ?? 0)
       if (lpArr.length > 0 && Number.isFinite(target)) {
