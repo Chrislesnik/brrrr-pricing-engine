@@ -3391,9 +3391,27 @@ function ResultsPanel({
         })
         rowIdx = best
       }
-      setSelected({ ...selectedFromProps, programIdx: progIdx, rowIdx })
+      const next = { ...selectedFromProps, programIdx: progIdx, rowIdx }
+      // Avoid infinite update loop by only updating local state when it actually changes
+      if (
+        !selected ||
+        selected.programIdx !== next.programIdx ||
+        selected.rowIdx !== next.rowIdx ||
+        selected.programName !== next.programName ||
+        selected.programId !== next.programId
+      ) {
+        setSelected(next)
+      }
     } else {
-      setSelected(selectedFromProps)
+      if (
+        !selected ||
+        selected.programIdx !== (selectedFromProps.programIdx ?? 0) ||
+        selected.rowIdx !== (selectedFromProps.rowIdx ?? 0) ||
+        selected.programName !== selectedFromProps.programName ||
+        selected.programId !== selectedFromProps.programId
+      ) {
+        setSelected(selectedFromProps)
+      }
     }
   }, [selectedFromProps, results])
 
