@@ -79,19 +79,19 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
   ];
 
   return (
-    <div className="flex justify-center w-full min-h-screen bg-white px-8 pt-8 pb-4">
+    <div className="flex justify-center w-full min-h-screen bg-white px-7 pt-6 pb-1">
       <div className="w-full max-w-[816px]">
-        <header className="mb-8">
+        <header className="mb-6">
           <h1 className="text-2xl font-bold mb-2">Preliminary Term Sheet</h1>
           <p className="text-orange-500 font-semibold">{asText(props, "program")}</p>
         </header>
 
         <div className="grid grid-cols-2 gap-8">
           <section>
-            <div className="mb-6">
+            <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Borrower & Guarantors</h3>
                 <div className="space-y-1">
                   {borrowerGuarantorsData.map((item, index) => (
@@ -103,7 +103,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Subject Property</h3>
                 <div className="space-y-1">
                   {subjectPropertyData.map((item, index) => (
@@ -115,7 +115,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Loan Structure</h3>
                 <div className="space-y-1">
                   {loanStructureData.map((item, index) => (
@@ -127,7 +127,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Lender Fees</h3>
                 <div className="space-y-1">
                   {lenderFeesData.map((item, index) => (
@@ -162,10 +162,10 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </section>
 
           <section>
-            <div className="mb-6">
+            <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <div className="bg-black text-white px-2 py-1 mb-2">
                   <h3 className="text-sm font-bold italic">CREDITS</h3>
                 </div>
@@ -179,14 +179,14 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              <div className="bg-gray-100 px-2 py-1 mb-4">
+              <div className="bg-gray-100 px-2 py-1 mb-3">
                 <div className="flex justify-between text-xs font-bold">
                   <span>TOTAL SOURCES</span>
                   <span>{"{{ total_sources }}"}</span>
                 </div>
               </div>
 
-              <div className="mb-4">
+              <div className="mb-3">
                 <div className="bg-black text-white px-2 py-1 mb-2">
                   <h3 className="text-sm font-bold italic">DEBITS</h3>
                 </div>
@@ -198,7 +198,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-xs mt-2">
+                <div className="flex justify-between text-xs mt-1">
                   <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
                   <span>{"{{ cash_out_to_borrower }}"}</span>
                 </div>
@@ -214,7 +214,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </section>
         </div>
 
-        <footer className="mt-2">
+        <footer className="mt-1">
           <p className="text-[8px] leading-tight">
             *Pricing of initial rate is indicative and subject to re-pricing at Lender&#39;s discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower&#39;s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression of interest is subject to our internal credit, legal and investment approval process. Lender is in the business of exclusively originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </p>
