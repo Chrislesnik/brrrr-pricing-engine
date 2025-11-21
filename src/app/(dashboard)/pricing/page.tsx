@@ -67,7 +67,7 @@ function ScaledTermSheetPreview({
       // Apply a small reduction to avoid clipping the bottom edge in the dialog.
       const paddingAllowance = 24 // px allowance for container padding/borders
       const s =
-        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.9
+        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.93
       setScale(s)
     }
     update()
@@ -78,7 +78,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-auto max-h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-center justify-center py-2"
+      className="w-full h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-center justify-center py-4"
     >
       <div
         style={{
@@ -3044,6 +3044,7 @@ type ProgramResponseData = {
   ltv?: string
   pitia?: (number | string)[]
   dscr?: (number | string)[]
+  validations?: (string | null | undefined)[]
   // Bridge payload variants
   initial_loan_amount?: (string | number)[]
   rehab_holdback?: (string | number)[]
@@ -3116,6 +3117,11 @@ function ResultCard({
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
   const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
   const previewRef = useRef<HTMLDivElement | null>(null)
+  const validationList: string[] = Array.isArray((d as any)?.validations)
+    ? ((d as any).validations as unknown[])
+        .filter((v) => typeof v === "string" && String(v).trim().length > 0)
+        .map((v) => String(v))
+    : []
 
   async function openTermSheetPreview(rowIndex?: number) {
     try {
@@ -3213,129 +3219,138 @@ function ResultCard({
         )
       ) : null}
 
-      {/* Details Table */}
+      {/* Details */}
       <Accordion type="single" collapsible className="mt-2">
         <AccordionItem value="details">
           <AccordionTrigger className="text-sm">Details</AccordionTrigger>
           <AccordionContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-center">
-                <thead className="border-b">
-                  <tr>
-                    <th className="py-1 pr-3 w-8 text-left"></th>
-                    <th className="py-1 pr-3">Loan Price</th>
-                    <th className="py-1 pr-3">Interest Rate</th>
-                    {isBridgeResp ? (
-                      <>
-                        <th className="py-1 pr-3">Initial Loan</th>
-                        <th className="py-1 pr-3">Holdback</th>
-                        <th className="py-1 pr-3">Total Loan</th>
-                        <th className="py-1 pr-3">Funded PITIA</th>
-                      </>
-                    ) : (
-                      <>
-                        <th className="py-1 pr-3">Loan Amount</th>
-                        <th className="py-1 pr-3">LTV</th>
-                        <th className="py-1 pr-3">PITIA</th>
-                        <th className="py-1 pr-3">DSCR</th>
-                      </>
-                    )}
-                    <th className="py-1 pr-3 w-14 text-left"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.isArray(d?.loan_price) &&
-                    d.loan_price
-                      .map((lp: unknown, i: number) => ({ lp, i }))
-                      .filter(({ lp }) => {
-                        if (lp === null || lp === undefined) return false
-                        const s = String(lp).trim()
-                        if (s.length === 0) return false
-                        // Bridge may return string values like "99.000"
-                        const n = Number(s)
-                        return Number.isFinite(n) || s.length > 0
-                      })
-                      .map(({ lp, i }) => (
-                        <tr
-                          key={i}
-                          className={`border-b last:border-0 ${selected?.programIdx === programIdx && selected?.rowIdx === i ? "bg-accent/30" : ""}`}
-                        >
-                          <td className="py-1 pr-3 text-left">
-                            <button
-                              type="button"
-                              aria-label="Select row"
-                              className="inline-flex h-6 w-6 items-center justify-center text-yellow-500"
-                              onClick={() =>
-                                onSelect({
-                                  programIdx,
-                                  rowIdx: i,
-                                  programName: r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`,
-                                  programId: r.internal_name ?? r.external_name ?? null,
-                                  values: {
-                                    loanPrice: typeof lp === "number" ? lp : String(lp),
-                                    interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
-                                    loanAmount: isBridgeResp
-                                      ? (Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : undefined)
-                                      : (loanAmount ?? undefined),
-                                    initialLoanAmount: isBridgeResp
-                                      ? (Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[i] : undefined)
-                                      : undefined,
-                                    rehabHoldback: isBridgeResp
-                                      ? (Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[i] : undefined)
-                                      : undefined,
-                                    ltv: isBridgeResp ? undefined : (ltv ?? undefined),
-                                    pitia: isBridgeResp
-                                      ? (Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : undefined)
-                                      : (Array.isArray(d?.pitia) ? d.pitia[i] : undefined),
-                                    dscr: isBridgeResp ? undefined : (Array.isArray(d?.dscr) ? d.dscr[i] : undefined),
-                                  },
-                                })
-                              }
-                            >
-                              {selected?.programIdx === programIdx && selected?.rowIdx === i ? (
-                                <IconStarFilled className="h-5 w-5" />
-                              ) : (
-                                <IconStar className="h-5 w-5" />
-                              )}
-                            </button>
-                          </td>
-                          <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
-                          <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
-                          {isBridgeResp ? (
-                            <>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : ""}</td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
-                              <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
-                              <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
-                            </>
-                          )}
-                          <td className="py-1 pr-3 text-left">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Preview row"
-                                onClick={() => openTermSheetPreview(i)}
+            {!pass ? (
+              validationList.length ? (
+                <ol className="list-decimal pl-4 text-sm space-y-1">
+                  {validationList.map((v, i) => (
+                    <li key={i}>{v}</li>
+                  ))}
+                </ol>
+              ) : null
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-center">
+                  <thead className="border-b">
+                    <tr>
+                      <th className="py-1 pr-3 w-8 text-left"></th>
+                      <th className="py-1 pr-3">Loan Price</th>
+                      <th className="py-1 pr-3">Interest Rate</th>
+                      {isBridgeResp ? (
+                        <>
+                          <th className="py-1 pr-3">Initial Loan</th>
+                          <th className="py-1 pr-3">Holdback</th>
+                          <th className="py-1 pr-3">Total Loan</th>
+                          <th className="py-1 pr-3">Funded PITIA</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="py-1 pr-3">Loan Amount</th>
+                          <th className="py-1 pr-3">LTV</th>
+                          <th className="py-1 pr-3">PITIA</th>
+                          <th className="py-1 pr-3">DSCR</th>
+                        </>
+                      )}
+                      <th className="py-1 pr-3 w-14 text-left"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(d?.loan_price) &&
+                      d.loan_price
+                        .map((lp: unknown, i: number) => ({ lp, i }))
+                        .filter(({ lp }) => {
+                          if (lp === null || lp === undefined) return false
+                          const s = String(lp).trim()
+                          if (s.length === 0) return false
+                          const n = Number(s)
+                          return Number.isFinite(n) || s.length > 0
+                        })
+                        .map(({ lp, i }) => (
+                          <tr
+                            key={i}
+                            className={`border-b last:border-0 ${selected?.programIdx === programIdx && selected?.rowIdx === i ? "bg-accent/30" : ""}`}
+                          >
+                            <td className="py-1 pr-3 text-left">
+                              <button
+                                type="button"
+                                aria-label="Select row"
+                                className="inline-flex h-6 w-6 items-center justify-center text-yellow-500"
+                                onClick={() =>
+                                  onSelect({
+                                    programIdx,
+                                    rowIdx: i,
+                                    programName: r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`,
+                                    programId: r.internal_name ?? r.external_name ?? null,
+                                    values: {
+                                      loanPrice: typeof lp === "number" ? lp : String(lp),
+                                      interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
+                                      loanAmount: isBridgeResp
+                                        ? (Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : undefined)
+                                        : (loanAmount ?? undefined),
+                                      initialLoanAmount: isBridgeResp
+                                        ? (Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[i] : undefined)
+                                        : undefined,
+                                      rehabHoldback: isBridgeResp
+                                        ? (Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[i] : undefined)
+                                        : undefined,
+                                      ltv: isBridgeResp ? undefined : (ltv ?? undefined),
+                                      pitia: isBridgeResp
+                                        ? (Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : undefined)
+                                        : (Array.isArray(d?.pitia) ? d.pitia[i] : undefined),
+                                      dscr: isBridgeResp ? undefined : (Array.isArray(d?.dscr) ? d.dscr[i] : undefined),
+                                    },
+                                  })
+                                }
                               >
-                                <IconEye className="h-4 w-4" />
-                              </Button>
-                              <Button size="icon" variant="ghost" aria-label="Download row">
-                                <IconDownload className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                </tbody>
-              </table>
-            </div>
+                                {selected?.programIdx === programIdx && selected?.rowIdx === i ? (
+                                  <IconStarFilled className="h-5 w-5" />
+                                ) : (
+                                  <IconStar className="h-5 w-5" />
+                                )}
+                              </button>
+                            </td>
+                            <td className="py-1 pr-3 text-center">{typeof lp === "number" ? lp : String(lp)}</td>
+                            <td className="py-1 pr-3 text-center">{Array.isArray(d?.interest_rate) ? d.interest_rate[i] : ""}</td>
+                            {isBridgeResp ? (
+                              <>
+                                <td className="py-1 pr-3 text-center">{Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[i] : ""}</td>
+                                <td className="py-1 pr-3 text-center">{Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[i] : ""}</td>
+                                <td className="py-1 pr-3 text-center">{Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[i] : ""}</td>
+                                <td className="py-1 pr-3 text-center">{Array.isArray(d?.funded_pitia) ? d.funded_pitia[i] : ""}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-1 pr-3 text-center">{loanAmount ?? ""}</td>
+                                <td className="py-1 pr-3 text-center">{ltv ?? ""}</td>
+                                <td className="py-1 pr-3 text-center">{Array.isArray(d?.pitia) ? d.pitia[i] : ""}</td>
+                                <td className="py-1 pr-3 text-center">{Array.isArray(d?.dscr) ? d.dscr[i] : ""}</td>
+                              </>
+                            )}
+                            <td className="py-1 pr-3 text-left">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label="Preview row"
+                                  onClick={() => openTermSheetPreview(i)}
+                                >
+                                  <IconEye className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" aria-label="Download row">
+                                  <IconDownload className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>
