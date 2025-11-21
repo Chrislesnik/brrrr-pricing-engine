@@ -3707,26 +3707,7 @@ function ResultsPanel({
       </div>
     )
   }
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center">
-        <div className="loader-wrapper">
-          <span className="loader-letter">G</span>
-          <span className="loader-letter">e</span>
-          <span className="loader-letter">n</span>
-          <span className="loader-letter">e</span>
-          <span className="loader-letter">r</span>
-          <span className="loader-letter">a</span>
-          <span className="loader-letter">t</span>
-          <span className="loader-letter">i</span>
-          <span className="loader-letter">n</span>
-          <span className="loader-letter">g</span>
-          <span className="loader" />
-        </div>
-        <LoaderStyles />
-      </div>
-    )
-  }
+  // Intentionally no global loading state; we only show per-program loaders above.
   // Always show the Main selected panel when available, even without results
   if (!results?.length) {
     return selected ? (
