@@ -178,7 +178,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                <div className="bg-gray-100 px-2 py-0.5 border-2 border-black">
+                <div className="bg-gray-100 px-2 py-0.5">
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL SOURCES</span>
                     <span>{"{{ total_sources }}"}</span>
@@ -204,7 +204,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                   <span>{"{{ cash_out_to_borrower }}"}</span>
                 </div>
                 {/* Keep TOTAL USES locked to column bottom for alignment with DSCR baseline */}
-                <div className="bg-gray-100 px-2 py-0.5 border-2 border-black mt-auto">
+                <div className="bg-gray-100 px-2 py-0.5 mt-auto">
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL USES</span>
                     <span>{"{{ total_uses }}"}</span>
