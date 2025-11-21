@@ -86,8 +86,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           <p className="text-orange-500 font-semibold">{asText(props, "program")}</p>
         </header>
 
-        <div className="grid grid-cols-2 gap-8">
-          <section>
+        <div className="grid grid-cols-2 gap-8 items-stretch">
+          <section className="flex flex-col">
             <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
@@ -98,12 +98,12 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     <div key={`borrower-${index}`} className="flex justify-between text-xs">
                       <span className="pl-4">{item.label}</span>
                       <span>{item.value}</span>
-                    </div>
+    </div>
                   ))}
-                </div>
-              </div>
+      </div>
+    </div>
 
-              <div className="mb-3">
+      <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Subject Property</h3>
                 <div className="space-y-1">
                   {subjectPropertyData.map((item, index) => (
@@ -112,8 +112,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                       <span>{item.value}</span>
                     </div>
                   ))}
-                </div>
-              </div>
+        </div>
+      </div>
 
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Loan Structure</h3>
@@ -125,7 +125,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-              </div>
+          </div>
 
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Lender Fees</h3>
@@ -137,7 +137,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-              </div>
+          </div>
 
               <div className="mb-4">
                 <h3 className="text-sm font-bold italic mb-2">Liquidity Requirement</h3>
@@ -149,7 +149,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-              </div>
+          </div>
 
               <div>
                 <h3 className="text-sm font-bold italic mb-2">Debt Service (DSCR)</h3>
@@ -158,10 +158,10 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                   <span>{"{{ dscr }}"}</span>
                 </div>
               </div>
-            </div>
+          </div>
           </section>
 
-          <section>
+          <section className="flex flex-col h-full">
             <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
@@ -177,9 +177,14 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-              </div>
+          </div>
 
-              {/* Total Sources moved to bottom to align with DSCR section height */}
+              <div className="bg-gray-100 px-2 py-1 mb-3">
+                <div className="flex justify-between text-xs font-bold">
+                  <span>TOTAL SOURCES</span>
+                  <span>{"{{ total_sources }}"}</span>
+          </div>
+        </div>
 
               <div className="mb-3">
                 <div className="bg-black text-white px-2 py-1 mb-2">
@@ -196,24 +201,19 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 <div className="flex justify-between text-xs mt-1">
                   <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
                   <span>{"{{ cash_out_to_borrower }}"}</span>
-                </div>
+          </div>
               </div>
 
-              <div className="bg-gray-100 px-2 py-1 border border-black">
-                <div className="flex justify-between text-xs font-bold">
-                  <span>TOTAL USES</span>
-                  <span>{"{{ total_uses }}"}</span>
-                </div>
-              </div>
-              <div className="bg-gray-100 px-2 py-1 border border-black mt-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span>TOTAL SOURCES</span>
-                  <span>{"{{ total_sources }}"}</span>
-                </div>
+              {/* The TOTAL USES box is moved outside this block, aligned to bottom via mt-auto */}
+            </div>
+            <div className="bg-gray-100 px-2 py-1 border border-black mt-auto">
+              <div className="flex justify-between text-xs font-bold">
+                <span>TOTAL USES</span>
+                <span>{"{{ total_uses }}"}</span>
               </div>
             </div>
           </section>
-        </div>
+      </div>
 
         <footer className="mt-1">
           <p className="text-[8px] leading-tight">
