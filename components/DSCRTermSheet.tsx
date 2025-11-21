@@ -166,7 +166,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
               {/* Credits container with border (covers Credits through Total Sources) */}
-              <div className="border border-black p-2 mb-3">
+              <div className="border border-black mb-3">
                 <div className="bg-black text-white px-2 py-1 mb-2">
                   <h3 className="text-sm font-bold italic">CREDITS</h3>
                 </div>
@@ -187,7 +187,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
               </div>
 
               {/* Debits container with border (covers Debits through Total Uses) */}
-              <div className="border border-black p-2 flex flex-col flex-1">
+              <div className="border border-black flex flex-col flex-1">
                 <div className="bg-black text-white px-2 py-1 mb-2">
                   <h3 className="text-sm font-bold italic">DEBITS</h3>
                 </div>
@@ -203,7 +203,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                   <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
                   <span>{"{{ cash_out_to_borrower }}"}</span>
                 </div>
-                <div className="bg-gray-100 px-2 py-1 border border-black mt-auto mb-0.5">
+                <div className="bg-gray-100 px-2 py-1 border border-black mt-auto mb-1">
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL USES</span>
                     <span>{"{{ total_uses }}"}</span>
