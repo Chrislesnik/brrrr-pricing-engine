@@ -179,12 +179,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              <div className="bg-gray-100 px-2 py-1 mb-3">
-                <div className="flex justify-between text-xs font-bold">
-                  <span>TOTAL SOURCES</span>
-                  <span>{"{{ total_sources }}"}</span>
-                </div>
-              </div>
+              {/* Total Sources moved to bottom to align with DSCR section height */}
 
               <div className="mb-3">
                 <div className="bg-black text-white px-2 py-1 mb-2">
@@ -208,6 +203,12 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 <div className="flex justify-between text-xs font-bold">
                   <span>TOTAL USES</span>
                   <span>{"{{ total_uses }}"}</span>
+                </div>
+              </div>
+              <div className="bg-gray-100 px-2 py-1 border border-black mt-2">
+                <div className="flex justify-between text-xs font-bold">
+                  <span>TOTAL SOURCES</span>
+                  <span>{"{{ total_sources }}"}</span>
                 </div>
               </div>
             </div>
