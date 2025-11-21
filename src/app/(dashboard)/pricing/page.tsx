@@ -600,7 +600,7 @@ export default function PricingEnginePage() {
       transaction_type: transactionType,
       property_type: propertyType,
       num_units: numUnits,
-      request_max_leverage: requestMaxLeverage,
+      request_max_leverage: requestMaxLeverage ? "yes" : "no",
       address: {
         street,
         apt,

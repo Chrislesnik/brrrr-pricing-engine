@@ -62,14 +62,22 @@ export async function POST(req: NextRequest) {
       data: Record<string, unknown> | null
     }[] = []
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
+    const requestIdBase = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
     await Promise.all(
-      programs.map(async (p) => {
+      programs.map(async (p, idx) => {
         const url = String(p.webhook_url).trim()
         if (!url) return
         try {
+          const requestId = `${requestIdBase}-${idx}`
           const res = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache",
+              "Pragma": "no-cache",
+              "X-Request-Id": requestId,
+            },
             body: JSON.stringify(normalizedData),
           })
           let body: Record<string, unknown> | null = null
