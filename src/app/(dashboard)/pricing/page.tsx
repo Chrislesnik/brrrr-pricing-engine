@@ -3133,9 +3133,23 @@ function ResultCard({
         .map((v) => String(v))
     : []
 
+  const toYesNoDeep = (value: unknown): unknown => {
+    if (typeof value === "boolean") return value ? "yes" : "no"
+    if (Array.isArray(value)) return value.map((v) => toYesNoDeep(v))
+    if (value && typeof value === "object") {
+      const src = value as Record<string, unknown>
+      const out: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(src)) {
+        out[k] = toYesNoDeep(v)
+      }
+      return out
+    }
+    return value
+  }
+
   async function openTermSheetPreview(rowIndex?: number) {
     try {
-      const inputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
+      const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
       const idx = rowIndex ?? Number(d?.highlight_display ?? 0)
       const payloadRow: Record<string, unknown> = {
         loan_price: pick<string | number>(d?.loan_price, idx),
@@ -3152,12 +3166,14 @@ function ResultCard({
         payloadRow["pitia"] = pick<string | number>(d?.pitia, idx)
         payloadRow["dscr"] = pick<string | number>(d?.dscr, idx)
       }
+      const inputs = toYesNoDeep(rawInputs) as Record<string, unknown>
+      const normalizedRow = toYesNoDeep(payloadRow) as Record<string, unknown>
       const body = {
         program: r.internal_name ?? r.external_name ?? "Program",
         program_id: r.internal_name ?? r.external_name ?? null,
         row_index: idx,
         inputs,
-        row: payloadRow,
+        row: normalizedRow,
       }
       const res = await fetch(TERMSHEET_WEBHOOK, {
         method: "POST",

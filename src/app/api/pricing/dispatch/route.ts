@@ -5,6 +5,24 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export const runtime = "nodejs"
 
+function booleanToYesNoDeep(value: unknown): unknown {
+  if (typeof value === "boolean") {
+    return value ? "yes" : "no"
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => booleanToYesNoDeep(v))
+  }
+  if (value && typeof value === "object") {
+    const src = value as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(src)) {
+      out[k] = booleanToYesNoDeep(v)
+    }
+    return out
+  }
+  return value
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { userId, orgId } = await auth()
@@ -43,6 +61,7 @@ export async function POST(req: NextRequest) {
       ok?: boolean
       data: Record<string, unknown> | null
     }[] = []
+    const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
     await Promise.all(
       programs.map(async (p) => {
         const url = String(p.webhook_url).trim()
@@ -51,7 +70,7 @@ export async function POST(req: NextRequest) {
           const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(json.data),
+            body: JSON.stringify(normalizedData),
           })
           let body: Record<string, unknown> | null = null
           try {

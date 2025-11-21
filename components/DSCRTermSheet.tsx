@@ -170,7 +170,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 <div className="bg-black text-white px-2 py-1">
                   <h3 className="text-sm font-bold italic">CREDITS</h3>
                 </div>
-                <div className="space-y-1.5 px-2 pt-1">
+                <div className="space-y-1 px-2 pt-1">
                   {creditsData.map((item, index) => (
                     <div key={`credits-${index}`} className="flex justify-between text-xs leading-5">
                       <span className="pl-2">{item.label}</span>
@@ -191,7 +191,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 <div className="bg-black text-white px-2 py-1">
                   <h3 className="text-sm font-bold italic">DEBITS</h3>
                 </div>
-                <div className="space-y-1.5 px-2 pt-1 pb-1.5">
+                <div className="space-y-1 px-2 pt-1 pb-1">
                   {debitsData.map((item, index) => (
                     <div key={`debits-${index}`} className="flex justify-between text-xs leading-5">
                       <span className="pl-2">{item.label}</span>
