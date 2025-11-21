@@ -762,9 +762,11 @@ export default function PricingEnginePage() {
       }
       const result = await res.json().catch(() => ({}))
       // store results in state for display (sorted: PASS first, then by Loan Amount desc, then Interest Rate asc)
-      const sortedPrograms = (Array.isArray(result?.programs) ? result.programs : []).slice().sort((a: any, b: any) => {
-        const da = (a?.data ?? {}) as any
-        const db = (b?.data ?? {}) as any
+      const sortedPrograms = (Array.isArray(result?.programs) ? result.programs : [])
+        .slice()
+        .sort((a: ProgramResult, b: ProgramResult) => {
+        const da = (a?.data ?? null) as ProgramResponseData | null
+        const db = (b?.data ?? null) as ProgramResponseData | null
         const passA = da?.pass === true ? 1 : 0
         const passB = db?.pass === true ? 1 : 0
         if (passA !== passB) return passB - passA
@@ -774,13 +776,13 @@ export default function PricingEnginePage() {
           const hiB = Number(db?.highlight_display ?? 0)
           const isBridgeA = Array.isArray(da?.total_loan_amount) || Array.isArray(da?.initial_loan_amount) || Array.isArray(da?.funded_pitia)
           const isBridgeB = Array.isArray(db?.total_loan_amount) || Array.isArray(db?.initial_loan_amount) || Array.isArray(db?.funded_pitia)
-          const loanAmtA = isBridgeA ? pick<string | number>(da?.total_loan_amount, hiA) : da?.loan_amount
-          const loanAmtB = isBridgeB ? pick<string | number>(db?.total_loan_amount, hiB) : db?.loan_amount
+          const loanAmtA = isBridgeA ? pick<string | number>(da?.total_loan_amount as (string|number)[] | undefined, hiA) : da?.loan_amount
+          const loanAmtB = isBridgeB ? pick<string | number>(db?.total_loan_amount as (string|number)[] | undefined, hiB) : db?.loan_amount
           const loanA = Number(String(loanAmtA ?? "").toString().replace(/[^0-9.-]/g, ""))
           const loanB = Number(String(loanAmtB ?? "").toString().replace(/[^0-9.-]/g, ""))
           if (Number.isFinite(loanA) && Number.isFinite(loanB) && loanA !== loanB) return loanB - loanA
-          const rateA = Number(String(pick<string | number>(da?.interest_rate, hiA) ?? "").toString().replace(/[^0-9.-]/g, ""))
-          const rateB = Number(String(pick<string | number>(db?.interest_rate, hiB) ?? "").toString().replace(/[^0-9.-]/g, ""))
+          const rateA = Number(String(pick<string | number>(da?.interest_rate as (string|number)[] | undefined, hiA) ?? "").toString().replace(/[^0-9.-]/g, ""))
+          const rateB = Number(String(pick<string | number>(db?.interest_rate as (string|number)[] | undefined, hiB) ?? "").toString().replace(/[^0-9.-]/g, ""))
           if (Number.isFinite(rateA) && Number.isFinite(rateB) && rateA !== rateB) return rateA - rateB
         }
         return 0
