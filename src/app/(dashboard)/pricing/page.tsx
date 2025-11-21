@@ -80,17 +80,20 @@ function ScaledTermSheetPreview({
       ref={containerRef}
       className="w-full h-[80vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-center justify-center py-4"
     >
-      <div
-        style={{
-          width: 816,
-          height: 1056,
-          transform: `scale(${scale})`,
-          transformOrigin: "top center",
-        }}
-        className="border border-black/20 bg-white shadow-xl rounded-sm"
-        ref={pageRef}
-      >
-        <DSCRTermSheet {...sheetProps} />
+      {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
+      <div style={{ width: 816 * scale, height: 1056 * scale }}>
+        <div
+          style={{
+            width: 816,
+            height: 1056,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+          className="border border-black/20 bg-white shadow-xl rounded-sm"
+          ref={pageRef}
+        >
+          <DSCRTermSheet {...sheetProps} />
+        </div>
       </div>
     </div>
   )
@@ -261,6 +264,7 @@ export default function PricingEnginePage() {
   const [emd, setEmd] = useState<string>("")
   const [mortgageDebtValue, setMortgageDebtValue] = useState<string>("")
   const [rehabBudget, setRehabBudget] = useState<string>("")
+  const [rehabCompleted, setRehabCompleted] = useState<string>("")
   const [arv, setArv] = useState<string>("")
   const [aiv, setAiv] = useState<string>("")
   // Additional UI states to include in payload
@@ -599,6 +603,7 @@ export default function PricingEnginePage() {
       aiv,
       arv,
       rehab_budget: rehabBudget,
+      rehab_completed: rehabCompleted,
       rehab_holdback: rehabHoldback,
       emd,
       taxes_annual: annualTaxes,
@@ -2584,7 +2589,13 @@ export default function PricingEnginePage() {
                                 <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                   $
                                 </span>
-                                <Input id="rehab-completed" inputMode="decimal" placeholder="0.00" className="pl-6" />
+                                <CalcInput
+                                  id="rehab-completed"
+                                  placeholder="0.00"
+                                  className="pl-6"
+                                  value={rehabCompleted}
+                                  onValueChange={setRehabCompleted}
+                                />
                               </div>
                             </div>
                           )}
