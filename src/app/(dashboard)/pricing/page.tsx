@@ -761,8 +761,31 @@ export default function PricingEnginePage() {
         throw new Error(txt || `Dispatch failed (${res.status})`)
       }
       const result = await res.json().catch(() => ({}))
-      // store results in state for display
-      setProgramResults(Array.isArray(result?.programs) ? result.programs : [])
+      // store results in state for display (sorted: PASS first, then by Loan Amount desc, then Interest Rate asc)
+      const sortedPrograms = (Array.isArray(result?.programs) ? result.programs : []).slice().sort((a: any, b: any) => {
+        const da = (a?.data ?? {}) as any
+        const db = (b?.data ?? {}) as any
+        const passA = da?.pass === true ? 1 : 0
+        const passB = db?.pass === true ? 1 : 0
+        if (passA !== passB) return passB - passA
+        // Only further sort among PASS programs; otherwise preserve original order
+        if (passA === 1 && passB === 1) {
+          const hiA = Number(da?.highlight_display ?? 0)
+          const hiB = Number(db?.highlight_display ?? 0)
+          const isBridgeA = Array.isArray(da?.total_loan_amount) || Array.isArray(da?.initial_loan_amount) || Array.isArray(da?.funded_pitia)
+          const isBridgeB = Array.isArray(db?.total_loan_amount) || Array.isArray(db?.initial_loan_amount) || Array.isArray(db?.funded_pitia)
+          const loanAmtA = isBridgeA ? pick<string | number>(da?.total_loan_amount, hiA) : da?.loan_amount
+          const loanAmtB = isBridgeB ? pick<string | number>(db?.total_loan_amount, hiB) : db?.loan_amount
+          const loanA = Number(String(loanAmtA ?? "").toString().replace(/[^0-9.-]/g, ""))
+          const loanB = Number(String(loanAmtB ?? "").toString().replace(/[^0-9.-]/g, ""))
+          if (Number.isFinite(loanA) && Number.isFinite(loanB) && loanA !== loanB) return loanB - loanA
+          const rateA = Number(String(pick<string | number>(da?.interest_rate, hiA) ?? "").toString().replace(/[^0-9.-]/g, ""))
+          const rateB = Number(String(pick<string | number>(db?.interest_rate, hiB) ?? "").toString().replace(/[^0-9.-]/g, ""))
+          if (Number.isFinite(rateA) && Number.isFinite(rateB) && rateA !== rateB) return rateA - rateB
+        }
+        return 0
+      })
+      setProgramResults(sortedPrograms)
       toast({ title: "Sent", description: `Webhook deliveries: ${result?.delivered ?? 0}` })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
