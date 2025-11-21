@@ -3098,7 +3098,7 @@ function ResultCard({
   onSelect: (sel: SelectedRow) => void
   getInputs?: () => Record<string, unknown>
 }) {
-  const d = r?.data ?? {}
+  const d = (r?.data ?? {}) as ProgramResponseData
   const pass = d?.pass === true
   const hi = Number(d?.highlight_display ?? 0)
   // Detect bridge-style response vs DSCR
@@ -3117,8 +3117,8 @@ function ResultCard({
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
   const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
   const previewRef = useRef<HTMLDivElement | null>(null)
-  const validationList: string[] = Array.isArray((d as any)?.validations)
-    ? ((d as any).validations as unknown[])
+  const validationList: string[] = Array.isArray(d.validations)
+    ? (d.validations as (string | null | undefined)[])
         .filter((v) => typeof v === "string" && String(v).trim().length > 0)
         .map((v) => String(v))
     : []
