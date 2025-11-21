@@ -47,6 +47,20 @@ import { CalcInput } from "@/components/calc-input"
 import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+function toYesNoDeepGlobal(value: unknown): unknown {
+  if (typeof value === "boolean") return value ? "yes" : "no"
+  if (Array.isArray(value)) return value.map((v) => toYesNoDeepGlobal(v))
+  if (value && typeof value === "object") {
+    const src = value as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(src)) {
+      out[k] = toYesNoDeepGlobal(v)
+    }
+    return out
+  }
+  return value
+}
+
 function ScaledTermSheetPreview({
   sheetProps,
   pageRef,
@@ -486,7 +500,7 @@ export default function PricingEnginePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>),
       })
       if (!res.ok) {
         const text = await res.text().catch(() => "")
