@@ -78,7 +78,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[80vh] overflow-auto rounded-md bg-neutral-100/40 flex items-center justify-center py-4"
+      className="w-full h-[80vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-center justify-center py-4"
     >
       <div
         style={{
@@ -605,6 +605,7 @@ export default function PricingEnginePage() {
       hoi_annual: annualHoi,
       flood_annual: annualFlood,
       hoa_annual: annualHoa,
+      mgmt_annual: annualMgmt,
       hoi_premium: hoiPremium,
       flood_premium: floodPremium,
       mortgage_debt: mortgageDebtValue,
