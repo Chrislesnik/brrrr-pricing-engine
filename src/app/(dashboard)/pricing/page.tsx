@@ -2023,9 +2023,7 @@ export default function PricingEnginePage() {
                               <SelectItem value="pud">Townhome/PUD</SelectItem>
                               <SelectItem value="condo">Condominium</SelectItem>
                               <SelectItem value="mf2_4">Multifamily 2-4 Units</SelectItem>
-                            {loanType !== "dscr" && (
                               <SelectItem value="mf5_10">Multifamily 5-10 Units</SelectItem>
-                            )}
                             </SelectContent>
                           </Select>
                         </div>
