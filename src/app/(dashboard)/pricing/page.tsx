@@ -495,10 +495,15 @@ export default function PricingEnginePage() {
         zip,
         transaction_type: transactionType ?? "",
       }
-      const res = await fetch("https://n8n.axora.info/webhook/c0d82736-8004-4c69-b9fc-fee54676ff46", {
+      const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const res = await fetch(`https://n8n.axora.info/webhook/c0d82736-8004-4c69-b9fc-fee54676ff46?_=${encodeURIComponent(nonce)}`, {
         method: "POST",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+          "X-Client-Request-Id": nonce,
         },
         body: JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>),
       })
@@ -722,7 +727,12 @@ export default function PricingEnginePage() {
       setIsDispatching(true)
       // Prefetch programs to render per-program loaders
       try {
-        const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}`, { method: "GET" })
+        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
+        })
         if (pre.ok) {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ internal_name?: string; external_name?: string }> }
           setProgramPlaceholders(Array.isArray(pj?.programs) ? pj.programs : [])
@@ -731,9 +741,16 @@ export default function PricingEnginePage() {
         // ignore prefetch errors; we'll still show a generic loader
       }
       const payload = buildPayload()
-      const res = await fetch("/api/pricing/dispatch", {
+      const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const res = await fetch(`/api/pricing/dispatch?_=${encodeURIComponent(nonce)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+          "X-Client-Request-Id": nonce,
+        },
         body: JSON.stringify({
           loanType,
           data: payload,
@@ -3196,9 +3213,16 @@ function ResultCard({
         inputs,
         row: normalizedRow,
       }
-      const res = await fetch(TERMSHEET_WEBHOOK, {
+      const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const res = await fetch(`${TERMSHEET_WEBHOOK}?_=${encodeURIComponent(nonce)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+          "X-Client-Request-Id": nonce,
+        },
         body: JSON.stringify(body),
       })
       const raw = await res.json().catch(() => ({}))
