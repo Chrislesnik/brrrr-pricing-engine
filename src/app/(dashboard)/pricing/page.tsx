@@ -982,7 +982,7 @@ export default function PricingEnginePage() {
     if (!unitsComplete) return false
     if (isDscr && (!has(loanStructureType) || !has(ppp))) return false
     if (isPurchase && !has(purchasePrice)) return false
-    if (isRefi && !has(aiv)) return false
+    if (!has(aiv)) return false
     if (rehabSectionVisible) {
       if (!has(rehabBudget)) return false
       if (!has(arv)) return false
@@ -2654,7 +2654,7 @@ export default function PricingEnginePage() {
                       ) : null}
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="aiv">
-                          AIV{isRefi ? <span className="text-red-600"> *</span> : null}
+                          AIV<span className="text-red-600"> *</span>
                         </Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -2666,6 +2666,8 @@ export default function PricingEnginePage() {
                             className="pl-6"
                             value={aiv}
                             onValueChange={setAiv}
+                            required
+                            aria-required="true"
                           />
                         </div>
                       </div>
