@@ -1078,16 +1078,19 @@ export default function PricingEnginePage() {
     const el = inputsAreaRef.current
     if (!el) return
     const markDirty = () => {
-      if (isDispatching) return
-      if (!programResults || programResults.length === 0) return
-      try {
-        const key = JSON.stringify(buildPayload())
-        if (lastCalculatedKey && key !== lastCalculatedKey) {
+      // Defer comparison to the next tick so React has time to commit input state
+      setTimeout(() => {
+        if (isDispatching) return
+        if (!programResults || programResults.length === 0) return
+        try {
+          const key = JSON.stringify(buildPayload())
+          if (lastCalculatedKey && key !== lastCalculatedKey) {
+            setResultsStale(true)
+          }
+        } catch {
           setResultsStale(true)
         }
-      } catch {
-        setResultsStale(true)
-      }
+      }, 0)
     }
     el.addEventListener("input", markDirty, true)
     el.addEventListener("change", markDirty, true)
