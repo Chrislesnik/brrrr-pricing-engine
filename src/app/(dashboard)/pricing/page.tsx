@@ -203,6 +203,7 @@ export default function PricingEnginePage() {
   const [leftPanePct, setLeftPanePct] = useState<number>(0.3) // 30% default (clamped 25–50)
   const [isResizing, setIsResizing] = useState<boolean>(false)
   const layoutRef = useRef<HTMLDivElement | null>(null)
+  const inputsAreaRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!isResizing) return
     const onMove = (ev: MouseEvent | TouchEvent) => {
@@ -312,6 +313,9 @@ export default function PricingEnginePage() {
   const [programResults, setProgramResults] = useState<ProgramResult[]>([])
   const [isDispatching, setIsDispatching] = useState<boolean>(false)
   const [programPlaceholders, setProgramPlaceholders] = useState<Array<{ internal_name?: string; external_name?: string }>>([])
+  // Track when shown results are out-of-sync with edited inputs
+  const [lastCalculatedKey, setLastCalculatedKey] = useState<string | null>(null)
+  const [resultsStale, setResultsStale] = useState<boolean>(false)
   const [currentLoanId, setCurrentLoanId] = useState<string | undefined>(undefined)
   const [selectedMainRow, setSelectedMainRow] = useState<SelectedRow | null>(null)
   // Scenario naming UI state
@@ -717,6 +721,7 @@ export default function PricingEnginePage() {
     try {
       // Clear any previously selected row so a fresh calculation doesn't preselect anything
       setSelectedMainRow(null)
+      setResultsStale(false)
       if (!loanType) {
         toast({ title: "Missing loan type", description: "Select a Loan Type before calculating.", variant: "destructive" })
         return
@@ -741,6 +746,12 @@ export default function PricingEnginePage() {
         // ignore prefetch errors; we'll still show a generic loader
       }
       const payload = buildPayload()
+      try {
+        setLastCalculatedKey(JSON.stringify(payload))
+      } catch {
+        // ignore serialization issues
+        setLastCalculatedKey(String(Date.now()))
+      }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
       const res = await fetch(`/api/pricing/dispatch?_=${encodeURIComponent(nonce)}`, {
         method: "POST",
@@ -1062,6 +1073,29 @@ export default function PricingEnginePage() {
       }
     })()
   }, [])
+  // Mark results as stale when user edits any input after we have results
+  useEffect(() => {
+    const el = inputsAreaRef.current
+    if (!el) return
+    const markDirty = () => {
+      if (isDispatching) return
+      if (!programResults || programResults.length === 0) return
+      try {
+        const key = JSON.stringify(buildPayload())
+        if (lastCalculatedKey && key !== lastCalculatedKey) {
+          setResultsStale(true)
+        }
+      } catch {
+        setResultsStale(true)
+      }
+    }
+    el.addEventListener("input", markDirty, true)
+    el.addEventListener("change", markDirty, true)
+    return () => {
+      el.removeEventListener("input", markDirty, true)
+      el.removeEventListener("change", markDirty, true)
+    }
+  }, [isDispatching, programResults, lastCalculatedKey])
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
@@ -1641,7 +1675,7 @@ export default function PricingEnginePage() {
             </div>
 
             {/* Scrollable content area */}
-            <div className="min-h-0 flex-1 overflow-auto p-3 pb-4">
+            <div ref={inputsAreaRef} className="min-h-0 flex-1 overflow-auto p-3 pb-4">
               <Accordion
                 type="multiple"
                 defaultValue={[
@@ -3093,6 +3127,11 @@ export default function PricingEnginePage() {
 
         {/* Right column: results display (flexes to remaining space) */}
         <section className={`${isMobile && mobileView === "programs" ? "block" : "hidden"} h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block`}>
+          {resultsStale && !isDispatching ? (
+            <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
+              Terms may be outdated based on recent input changes. Please recalculate to update results.
+            </div>
+          ) : null}
           <ResultsPanel
             results={programResults}
             loading={isDispatching}
