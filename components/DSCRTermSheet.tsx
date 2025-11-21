@@ -162,7 +162,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </section>
 
           <section className="flex flex-col h-full">
-            <div className="mb-5">
+            <div className="flex flex-col flex-1">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
               {/* Credits container with tighter spacing and thicker border */}
