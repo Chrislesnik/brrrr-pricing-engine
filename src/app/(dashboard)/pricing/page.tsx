@@ -3658,9 +3658,49 @@ function ResultsPanel({
   }, [selectedFromProps, results])
 
   if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
+    const selectedKey = selected?.programId ?? selected?.programName ?? null
+    const filtered = selectedKey
+      ? placeholders.filter(
+          (p) => p.internal_name !== selectedKey && p.external_name !== selectedKey
+        )
+      : placeholders
     return (
       <div>
-        {placeholders.map((p, idx) => (
+        {selected ? (
+          <div className="mb-3 rounded-md border p-3 bg-muted/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold">Main</div>
+                <div className="text-xs font-semibold text-muted-foreground">
+                  {(() => {
+                    const name = selected.programName ?? selected.programId ?? "Program"
+                    return `Selected: ${name ?? `Program #${(selected.programIdx ?? 0) + 1}`}, Row #${(selected.rowIdx ?? 0) + 1}`
+                  })()}
+                </div>
+              </div>
+            </div>
+            {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <Widget label="Loan Price" value={selected.values.loanPrice} />
+                <Widget label="Interest Rate" value={selected.values.interestRate} />
+                <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
+                <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
+                <Widget label="Total Loan Amount" value={selected.values.loanAmount} />
+                <Widget label="Funded PITIA" value={selected.values.pitia} />
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <Widget label="Loan Price" value={selected.values.loanPrice} />
+                <Widget label="Interest Rate" value={selected.values.interestRate} />
+                <Widget label="Loan Amount" value={selected.values.loanAmount} />
+                <Widget label="LTV" value={selected.values.ltv} />
+                <Widget label="PITIA" value={selected.values.pitia} />
+                <Widget label="DSCR" value={selected.values.dscr} />
+              </div>
+            )}
+          </div>
+        ) : null}
+        {filtered.map((p, idx) => (
           <ResultCardLoader key={idx} meta={p} />
         ))}
         <LoaderStyles />
