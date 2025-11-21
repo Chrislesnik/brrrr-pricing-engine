@@ -600,7 +600,7 @@ export default function PricingEnginePage() {
       transaction_type: transactionType,
       property_type: propertyType,
       num_units: numUnits,
-      request_max_leverage: requestMaxLeverage ? "yes" : "no",
+      max_leverage_requested: requestMaxLeverage ? "yes" : "no",
       address: {
         street,
         apt,
@@ -1076,7 +1076,14 @@ export default function PricingEnginePage() {
       const n = Number(payload["num_units"])
       if (Number.isFinite(n)) setNumUnits(n)
     }
-    if ("request_max_leverage" in payload) setRequestMaxLeverage(Boolean(payload["request_max_leverage"]))
+    if ("max_leverage_requested" in payload) {
+      const v = payload["max_leverage_requested"]
+      setRequestMaxLeverage(v === "yes" || v === true)
+    } else if ("request_max_leverage" in payload) {
+      // backward compatibility with older payloads
+      const v = payload["request_max_leverage"]
+      setRequestMaxLeverage(v === "yes" || v === true)
+    }
 
     if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
     if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
