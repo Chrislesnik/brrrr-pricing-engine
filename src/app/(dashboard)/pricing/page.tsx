@@ -1082,14 +1082,8 @@ export default function PricingEnginePage() {
       setTimeout(() => {
         if (isDispatching) return
         if (!programResults || programResults.length === 0) return
-        try {
-          const key = JSON.stringify(buildPayload())
-          if (lastCalculatedKey && key !== lastCalculatedKey) {
-            setResultsStale(true)
-          }
-        } catch {
-          setResultsStale(true)
-        }
+        // Any user edit after results are shown marks results as potentially stale.
+        setResultsStale(true)
       }, 0)
     }
     el.addEventListener("input", markDirty, true)
