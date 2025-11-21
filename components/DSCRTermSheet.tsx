@@ -146,9 +146,9 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     <div key={`liquidity-${index}`} className="flex justify-between text-xs">
                       <span className="pl-4">{item.label}</span>
                       <span>{item.value}</span>
-                    </div>
+          </div>
                   ))}
-                </div>
+          </div>
           </div>
 
               <div>
@@ -156,8 +156,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 <div className="flex justify-between text-xs">
                   <span className="pl-4">DSCR</span>
                   <span>{"{{ dscr }}"}</span>
-                </div>
-              </div>
+          </div>
+        </div>
           </div>
           </section>
 
@@ -165,7 +165,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
             <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
-              <div className="mb-3">
+              {/* Credits container with border (covers Credits through Total Sources) */}
+              <div className="border border-black p-2 mb-3">
                 <div className="bg-black text-white px-2 py-1 mb-2">
                   <h3 className="text-sm font-bold italic">CREDITS</h3>
                 </div>
@@ -177,16 +178,16 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-          </div>
+                <div className="bg-gray-100 px-2 py-1 mt-3 border border-black">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span>TOTAL SOURCES</span>
+                    <span>{"{{ total_sources }}"}</span>
+                  </div>
+                </div>
+              </div>
 
-              <div className="bg-gray-100 px-2 py-1 mb-3">
-                <div className="flex justify-between text-xs font-bold">
-                  <span>TOTAL SOURCES</span>
-                  <span>{"{{ total_sources }}"}</span>
-          </div>
-        </div>
-
-              <div className="mb-3">
+              {/* Debits container with border (covers Debits through Total Uses) */}
+              <div className="border border-black p-2 flex flex-col flex-1">
                 <div className="bg-black text-white px-2 py-1 mb-2">
                   <h3 className="text-sm font-bold italic">DEBITS</h3>
                 </div>
@@ -201,15 +202,13 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 <div className="flex justify-between text-xs mt-1">
                   <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
                   <span>{"{{ cash_out_to_borrower }}"}</span>
-          </div>
+                </div>
+                <div className="bg-gray-100 px-2 py-1 border border-black mt-auto mb-0.5">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span>TOTAL USES</span>
+                    <span>{"{{ total_uses }}"}</span>
               </div>
-
-              {/* The TOTAL USES box is moved outside this block, aligned to bottom via mt-auto */}
             </div>
-            <div className="bg-gray-100 px-2 py-1 border border-black mt-auto">
-              <div className="flex justify-between text-xs font-bold">
-                <span>TOTAL USES</span>
-                <span>{"{{ total_uses }}"}</span>
               </div>
             </div>
           </section>

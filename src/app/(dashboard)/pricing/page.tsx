@@ -3125,7 +3125,7 @@ function ResultCard({
   const ltv = d?.ltv
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
-  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
+  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
   const previewRef = useRef<HTMLDivElement | null>(null)
   const validationList: string[] = Array.isArray(d.validations)
     ? (d.validations as (string | null | undefined)[])
