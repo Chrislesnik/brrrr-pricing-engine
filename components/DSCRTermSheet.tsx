@@ -165,12 +165,12 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
             <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
-              {/* Credits container with border (covers Credits through Total Sources) */}
-              <div className="border border-black mb-3">
-                <div className="bg-black text-white px-2 py-1 mb-2">
+              {/* Credits container with tighter spacing and thicker border */}
+              <div className="border-2 border-black mb-2">
+                <div className="bg-black text-white px-2 py-1">
                   <h3 className="text-sm font-bold italic">CREDITS</h3>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 px-2">
                   {creditsData.map((item, index) => (
                     <div key={`credits-${index}`} className="flex justify-between text-xs">
                       <span className="pl-2">{item.label}</span>
@@ -178,7 +178,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                <div className="bg-gray-100 px-2 py-1 mt-3 border border-black">
+                <div className="bg-gray-100 px-2 py-0.5 border-2 border-black">
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL SOURCES</span>
                     <span>{"{{ total_sources }}"}</span>
@@ -186,12 +186,12 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              {/* Debits container with border (covers Debits through Total Uses) */}
-              <div className="border border-black flex flex-col flex-1">
-                <div className="bg-black text-white px-2 py-1 mb-2">
+              {/* Debits container with thicker border; minimal inner padding */}
+              <div className="border-2 border-black flex flex-col flex-1">
+                <div className="bg-black text-white px-2 py-1">
                   <h3 className="text-sm font-bold italic">DEBITS</h3>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 px-2">
                   {debitsData.map((item, index) => (
                     <div key={`debits-${index}`} className="flex justify-between text-xs">
                       <span className="pl-2">{item.label}</span>
@@ -203,7 +203,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                   <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
                   <span>{"{{ cash_out_to_borrower }}"}</span>
                 </div>
-                <div className="bg-gray-100 px-2 py-1 border border-black mt-auto mb-1">
+                {/* Keep TOTAL USES locked to column bottom for alignment with DSCR baseline */}
+                <div className="bg-gray-100 px-2 py-0.5 border-2 border-black mt-auto">
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL USES</span>
                     <span>{"{{ total_uses }}"}</span>
