@@ -46,7 +46,7 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           }}
           className="h-8 w-[150px] lg:w-[250px]"
         />
-        <div className="flex gap-x-2">
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-x-2 w-full">
           {table.getColumn("loanType") && (
             <DataTableFacetedFilter
               column={table.getColumn("loanType")}
