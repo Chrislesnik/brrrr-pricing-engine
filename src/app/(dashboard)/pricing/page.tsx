@@ -77,11 +77,13 @@ function ScaledTermSheetPreview({
       const width = el.clientWidth
       const height = el.clientHeight
       if (width <= 0 || height <= 0) return
-      // Compute scale to fit both width and height of the container.
-      // Apply a small reduction to avoid clipping the bottom edge in the dialog.
+      // Compute scale to fit both width and height of the container precisely.
       const paddingAllowance = 24 // px allowance for container padding/borders
-      const s =
-        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.93
+      const s = Math.min(
+        (width - paddingAllowance) / 816,
+        (height - paddingAllowance) / 1056,
+        1
+      )
       setScale(s)
     }
     update()
