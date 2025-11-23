@@ -103,8 +103,12 @@ function ScaledTermSheetPreview({
             transform: `scale(${scale})`,
             transformOrigin: "top left",
           }}
-          className="border border-black/20 bg-white shadow-xl rounded-sm"
+          className="border border-black/20 bg-white shadow-xl rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           ref={pageRef}
+          contentEditable
+          suppressContentEditableWarning
+          spellCheck={false}
+          tabIndex={0}
         >
           <DSCRTermSheet {...sheetProps} />
         </div>
