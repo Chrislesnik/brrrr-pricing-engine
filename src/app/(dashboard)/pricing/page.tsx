@@ -89,6 +89,51 @@ function ScaledTermSheetPreview({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  // Enable inline editing on leaf text nodes within the preview, while freezing layout boxes
+  useEffect(() => {
+    const node = (pageRef as React.RefObject<HTMLDivElement> | undefined)?.current
+    if (!node) return
+    const candidates = Array.from(
+      node.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6,p,span,th,td,div")
+    )
+    const edited: HTMLElement[] = []
+    candidates.forEach((el) => {
+      // Only make leaf elements with real text editable
+      if (el.childElementCount === 0) {
+        const text = (el.textContent || "").trim()
+        if (text.length > 0) {
+          // Freeze current box so alignment stays put during edits
+          const rect = el.getBoundingClientRect()
+          const cs = window.getComputedStyle(el)
+          if (rect.width > 0 && rect.height > 0) {
+            // Preserve block elements; only adjust inline
+            if (cs.display === "inline" || cs.display === "inline-block") {
+              el.style.display = "inline-block"
+              el.style.width = `${rect.width}px`
+              el.style.whiteSpace = "nowrap"
+              el.style.overflow = "hidden"
+              el.style.verticalAlign = "top"
+            }
+          }
+          el.setAttribute("contenteditable", "true")
+          el.classList.add("ts-edit")
+          edited.push(el)
+        }
+      }
+    })
+    return () => {
+      edited.forEach((el) => {
+        el.removeAttribute("contenteditable")
+        el.classList.remove("ts-edit")
+        el.style.display = ""
+        el.style.width = ""
+        el.style.whiteSpace = ""
+        el.style.overflow = ""
+        el.style.verticalAlign = ""
+      })
+    }
+    // Re-evaluate when sheet content changes
+  }, [pageRef, sheetProps])
   return (
     <div
       ref={containerRef}
@@ -105,13 +150,30 @@ function ScaledTermSheetPreview({
           }}
           className="border border-black/20 bg-white shadow-xl rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           ref={pageRef}
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck={false}
           tabIndex={0}
         >
           <DSCRTermSheet {...sheetProps} />
         </div>
+        {/* Editable text boxes styling (screen-only; hidden on print/download) */}
+        <style jsx global>{`
+          .ts-edit {
+            border: 1px dashed rgba(245, 158, 11, 0.6);
+            background: rgba(245, 158, 11, 0.06);
+            border-radius: 2px;
+            padding: 1px 2px;
+          }
+          .ts-edit:focus {
+            outline: 2px solid #f59e0b;
+            outline-offset: 0;
+          }
+          @media print {
+            .ts-edit {
+              border-color: transparent !important;
+              background: transparent !important;
+              outline: none !important;
+            }
+          }
+        `}</style>
       </div>
     </div>
   )
