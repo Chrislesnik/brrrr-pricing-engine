@@ -83,8 +83,8 @@ function ScaledTermSheetPreview({
         (width - paddingAllowance) / 816,
         (height - paddingAllowance) / 1056,
         1
-      ) * 0.9
-      setScale(s)
+      ) * 0.84
+      setScale(s) // preview scale includes 0.84 fit factor
     }
     update()
     const ro = new ResizeObserver(update)
