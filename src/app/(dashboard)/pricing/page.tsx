@@ -83,7 +83,7 @@ function ScaledTermSheetPreview({
         (width - paddingAllowance) / 816,
         (height - paddingAllowance) / 1056,
         1
-      ) * 0.96
+      ) * 0.92
       setScale(s)
     }
     update()
