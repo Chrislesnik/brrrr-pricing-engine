@@ -1093,6 +1093,18 @@ export default function PricingEnginePage() {
       el.removeEventListener("change", markDirty, true)
     }
   }, [isDispatching, programResults, lastCalculatedKey])
+  // Also detect programmatic/default changes that don't emit input/change events
+  useEffect(() => {
+    if (!lastCalculatedKey) return
+    if (isDispatching) return
+    if (!programResults || programResults.length === 0) return
+    try {
+      const key = JSON.stringify(buildPayload())
+      if (key !== lastCalculatedKey) setResultsStale(true)
+    } catch {
+      setResultsStale(true)
+    }
+  })
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
