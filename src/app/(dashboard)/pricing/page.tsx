@@ -92,7 +92,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[70dvh] sm:h-[80vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-center justify-center py-2 sm:py-4"
+      className="w-full h-[80vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-center justify-center py-4 max-sm:h-[70dvh] max-sm:py-2"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div style={{ width: 816 * scale, height: 1056 * scale }}>
@@ -3489,7 +3489,7 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[95dvh] sm:max-h-[90vh] p-3 sm:p-4">
+        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] p-4 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:p-3">
           <DialogHeader>
             <DialogTitle>Term Sheet</DialogTitle>
           </DialogHeader>
