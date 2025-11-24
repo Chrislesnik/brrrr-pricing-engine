@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -3945,6 +3945,9 @@ function ResultsPanel({
                 </div>
               </div>
             <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Approved document">
+                <IconFileCheck className="h-4 w-4" />
+              </Button>
               <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
                 <IconEye className="h-4 w-4" />
               </Button>
@@ -4021,6 +4024,9 @@ function ResultsPanel({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Approved document">
+                <IconFileCheck className="h-4 w-4" />
+              </Button>
               <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
                 <IconEye className="h-4 w-4" />
               </Button>
@@ -4074,6 +4080,9 @@ function ResultsPanel({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Approved document">
+                <IconFileCheck className="h-4 w-4" />
+              </Button>
               <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
                 <IconEye className="h-4 w-4" />
               </Button>
