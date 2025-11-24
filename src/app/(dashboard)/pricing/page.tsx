@@ -3581,7 +3581,7 @@ function ResultCard({
               try {
                 const node = previewRef.current
                 if (!node) return
-                const htmlInside = node.innerHTML
+                const htmlInside = (node as HTMLElement).outerHTML
                 // Capture current styles (Tailwind + globals) so printed output matches on-screen
                 const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
                   .map((el) => (el as HTMLElement).outerHTML)
@@ -3597,6 +3597,8 @@ function ResultCard({
       html, body { margin: 0; padding: 0; background: #fff; }
       /* Exact printable canvas size (one page) */
       #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
+      /* Ensure the exported preview container is reset to print dimensions */
+      #page > * { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
