@@ -3635,7 +3635,7 @@ function ResultCard({
           >
             <IconDownload />
           </button>
-          <div className="space-y-3">
+          <div className="space-y-3 -mt-3 sm:-mt-4">
             <ScaledTermSheetPreview
               sheetProps={
                 Object.keys(sheetProps ?? {}).length
