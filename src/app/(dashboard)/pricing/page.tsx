@@ -65,9 +65,11 @@ function toYesNoDeepGlobal(value: unknown): unknown {
 function ScaledTermSheetPreview({
   sheetProps,
   pageRef,
+  forceLoanType,
 }: {
   sheetProps: DSCRTermSheetProps
   pageRef?: React.Ref<HTMLDivElement>
+  forceLoanType?: string
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState<number>(1)
@@ -155,7 +157,10 @@ function ScaledTermSheetPreview({
           ref={pageRef}
           tabIndex={0}
         >
-          {String(sheetProps?.loan_type ?? "").toLowerCase().includes("bridge") ? (
+          {(() => {
+            const lt = String(forceLoanType ?? sheetProps?.loan_type ?? "").toLowerCase()
+            return lt.includes("bridge")
+          })() ? (
             <BridgeTermSheet {...sheetProps} />
           ) : (
             <DSCRTermSheet {...sheetProps} />
@@ -3302,6 +3307,9 @@ function ResultCard({
     Array.isArray(d?.total_loan_amount) ||
     Array.isArray(d?.initial_loan_amount) ||
     Array.isArray(d?.funded_pitia)
+  // Also detect Bridge by program name to be robust
+  const programName = (r?.internal_name ?? r?.external_name ?? "") as string
+  const isBridgeProgramName = String(programName).toLowerCase().includes("bridge")
   // Program card widgets should always reflect the original highlight index from the API.
   const loanPrice = pick<string | number>(d?.loan_price, hi)
   const rate = pick<string | number>(d?.interest_rate, hi)
@@ -3375,7 +3383,11 @@ function ResultCard({
       })
       const raw = await res.json().catch(() => ({}))
       const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetProps) : (raw as DSCRTermSheetProps)
-      setSheetProps(json && typeof json === "object" && !Array.isArray(json) ? json : {})
+      const enriched =
+        json && typeof json === "object" && !Array.isArray(json)
+          ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
+          : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetProps)
+      setSheetProps(enriched)
       setMcpOpen(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load term sheet"
@@ -3649,21 +3661,17 @@ function ResultCard({
             <IconDownload />
           </button>
           <div className="space-y-3 -mt-10 sm:-mt-12">
-            <ScaledTermSheetPreview
-              sheetProps={
-                Object.keys(sheetProps ?? {}).length
-                  ? sheetProps
-                  : {
-                      loan_type: "dscr",
-                      program: r.internal_name ?? r.external_name,
-                      interest_rate: rate,
-                      leverage_ltv: ltv,
-                      loan_amount: loanAmount,
-                      dscr: dscr,
-                    }
-              }
-              pageRef={previewRef}
-            />
+            {Object.keys(sheetProps ?? {}).length ? (
+              <ScaledTermSheetPreview
+                sheetProps={sheetProps as DSCRTermSheetProps}
+                pageRef={previewRef}
+                forceLoanType={(isBridgeResp || isBridgeProgramName) ? "bridge" : undefined}
+              />
+            ) : (
+              <div className="flex h-[70vh] items-center justify-center">
+                <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
