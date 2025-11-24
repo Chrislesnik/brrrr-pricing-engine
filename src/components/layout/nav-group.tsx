@@ -27,7 +27,8 @@ import { useAuth } from "@clerk/nextjs"
 export function NavGroup({ title, items }: NavGroup) {
   const { setOpenMobile } = useSidebar()
   const pathname = usePathname()
-  const { has } = useAuth()
+  const { has, orgRole, isLoaded } = useAuth()
+  const isOwner = orgRole === "org:owner" || orgRole === "owner"
 
   const [allowed, setAllowed] = React.useState<Record<string, boolean>>({})
 
@@ -44,25 +45,33 @@ export function NavGroup({ title, items }: NavGroup) {
         })
       }
     })
-    Promise.all(
-      Array.from(keys).map(async (key) => ({
-        key,
-        ok: typeof has === "function" ? await has({ permission: key }) : false,
-      }))
-    ).then((results) => {
-      if (!active) return
+    if (isOwner) {
+      // Owners can see all items regardless of explicit permissions
       const next: Record<string, boolean> = {}
-      results.forEach(({ key, ok }) => {
-        next[key] = ok
-      })
+      Array.from(keys).forEach((k) => (next[k] = true))
       setAllowed(next)
-    })
+    } else if (typeof has === "function" && isLoaded) {
+      Promise.all(
+        Array.from(keys).map(async (key) => ({
+          key,
+          ok: await has({ permission: key }),
+        }))
+      ).then((results) => {
+        if (!active) return
+        const next: Record<string, boolean> = {}
+        results.forEach(({ key, ok }) => {
+          next[key] = ok
+        })
+        setAllowed(next)
+      })
+    }
     return () => {
       active = false
     }
-  }, [items, has])
+  }, [items, has, isOwner, isLoaded])
 
   const isVisible = (item: { requiredPermission?: string }) => {
+    if (isOwner) return true
     if (!item.requiredPermission) return true
     return !!allowed[item.requiredPermission]
   }

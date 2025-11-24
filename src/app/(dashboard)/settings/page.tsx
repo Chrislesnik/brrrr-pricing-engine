@@ -18,10 +18,11 @@ interface ProgramRow {
 }
 
 export default async function SettingsProgramsPage() {
-  const { orgId, has } = await auth()
+  const { orgId, orgRole, has } = await auth()
 
   // Gate access to Programs by Clerk permission granted via Feature "Manage Programs"
-  const canAccess = await has({ permission: "org:manage_programs" })
+  const isOwner = orgRole === "org:owner" || orgRole === "owner"
+  const canAccess = isOwner || (await has({ permission: "org:manage_programs" }))
   if (!canAccess) {
     notFound()
   }
