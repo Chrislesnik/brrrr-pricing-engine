@@ -12,8 +12,10 @@ export interface LoanRow {
   [key: string]: any
 }
 
-export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> {
+export async function getPipelineLoansForOrg(orgId: string, userId?: string): Promise<LoanRow[]> {
   if (!orgId) return []
+  // If no user is provided, show nothing per requirement
+  if (!userId) return []
   const orgUuid = await getOrgUuidFromClerkId(orgId)
   if (!orgUuid) return []
 
@@ -28,6 +30,8 @@ export async function getPipelineLoansForOrg(orgId: string): Promise<LoanRow[]> 
     .from("loans")
     .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
+    // Only loans assigned to the current user (assigned_to_user_id is a text[] column)
+    .contains("assigned_to_user_id", [userId])
     .order("updated_at", { ascending: false })
 
   if (loansError) {
