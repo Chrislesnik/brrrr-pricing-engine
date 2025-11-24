@@ -3595,9 +3595,11 @@ function ResultCard({
     ${headStyles}
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
-      /* Slightly reduce height to avoid fractional overflow that creates a blank extra page */
-      #page { width: 816px; height: 1048px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
+      /* Exact printable canvas size (one page) */
+      #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* Hide on-screen edit affordances inside print */
+      .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
       @page { size: 816px 1056px; margin: 0; }
       @media print {
         html, body { width: 816px; height: 1056px; overflow: hidden; }
