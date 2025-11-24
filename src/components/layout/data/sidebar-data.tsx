@@ -46,6 +46,7 @@ export const sidebarData: SidebarData = {
               title: "Programs",
               icon: IconApps,
               url: "/settings",
+              requiredPermission: "org:manage_programs",
             },
           ],
         }

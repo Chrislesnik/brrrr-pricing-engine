@@ -14,6 +14,11 @@ interface BaseNavItem {
   title: string
   badge?: string
   icon?: React.ElementType
+  /**
+   * Optional Clerk permission key required to view this nav item.
+   * Example: "org:manage_programs"
+   */
+  requiredPermission?: string
 }
 
 export type NavItem =

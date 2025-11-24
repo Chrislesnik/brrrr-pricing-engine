@@ -4,6 +4,7 @@ import { addProgramAction, deleteProgramAction, updateProgramAction } from "./pr
 import { AddProgramDialog } from "./components/add-program-dialog"
 import { ProgramRowActions } from "./components/program-row-actions"
 import { auth } from "@clerk/nextjs/server"
+import { notFound } from "next/navigation"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
@@ -17,7 +18,14 @@ interface ProgramRow {
 }
 
 export default async function SettingsProgramsPage() {
-  const { orgId } = await auth()
+  const { orgId, has } = await auth()
+
+  // Gate access to Programs by Clerk permission granted via Feature "Manage Programs"
+  const canAccess = await has({ permission: "org:manage_programs" })
+  if (!canAccess) {
+    notFound()
+  }
+
   let programs: ProgramRow[] = []
   if (orgId) {
     const orgUuid = await getOrgUuidFromClerkId(orgId)

@@ -1,6 +1,7 @@
 "use client"
 
 import { ReactNode } from "react"
+import React from "react"
 import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -22,15 +23,56 @@ import {
 } from "@/components/ui/sidebar"
 import { Badge } from "../ui/badge"
 import { NavItem, type NavGroup } from "./types"
+import { useAuth } from "@clerk/nextjs"
 
 export function NavGroup({ title, items }: NavGroup) {
   const { setOpenMobile } = useSidebar()
   const pathname = usePathname()
+  const { has } = useAuth()
+
+  const [allowed, setAllowed] = React.useState<Record<string, boolean>>({})
+
+  React.useEffect(() => {
+    let active = true
+    const keys = new Set<string>()
+    items.forEach((item) => {
+      if ("requiredPermission" in item && item.requiredPermission) {
+        keys.add(item.requiredPermission)
+      }
+      if ("items" in item && item.items?.length) {
+        item.items.forEach((sub) => {
+          if (sub.requiredPermission) keys.add(sub.requiredPermission)
+        })
+      }
+    })
+    Promise.all(
+      Array.from(keys).map(async (key) => ({
+        key,
+        ok: await has({ permission: key }),
+      }))
+    ).then((results) => {
+      if (!active) return
+      const next: Record<string, boolean> = {}
+      results.forEach(({ key, ok }) => {
+        next[key] = ok
+      })
+      setAllowed(next)
+    })
+    return () => {
+      active = false
+    }
+  }, [items, has])
+
+  const isVisible = (item: { requiredPermission?: string }) => {
+    if (!item.requiredPermission) return true
+    return !!allowed[item.requiredPermission]
+  }
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{title}</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => {
+        {items.filter(isVisible).map((item) => {
           if (!item.items) {
             return (
               <SidebarMenuItem key={item.title}>
@@ -66,7 +108,7 @@ export function NavGroup({ title, items }: NavGroup) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="CollapsibleContent">
                   <SidebarMenuSub>
-                    {item.items.map((subItem) => (
+                    {item.items.filter(isVisible).map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton
                           asChild
