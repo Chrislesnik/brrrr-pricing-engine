@@ -716,6 +716,8 @@ export default function PricingEnginePage() {
       flood_premium: floodPremium,
       mortgage_debt: mortgageDebtValue,
       closing_date: closingDate ? closingDate.toISOString() : null,
+      // also send projected note date for downstream webhooks
+      projected_note_date: closingDate ? closingDate.toISOString() : null,
       // always include effective dates (can be null)
       hoi_effective_date: hoiEffective ? hoiEffective.toISOString() : null,
       flood_effective_date: floodEffective ? floodEffective.toISOString() : null,

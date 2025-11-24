@@ -47,7 +47,7 @@ export function NavGroup({ title, items }: NavGroup) {
     Promise.all(
       Array.from(keys).map(async (key) => ({
         key,
-        ok: await has({ permission: key }),
+        ok: typeof has === "function" ? await has({ permission: key }) : false,
       }))
     ).then((results) => {
       if (!active) return
