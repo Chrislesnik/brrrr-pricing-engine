@@ -3569,7 +3569,7 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-2 pb-4 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-1 max-sm:pb-3">
+        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-1 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-0.5 max-sm:pb-2">
           <DialogHeader>
             <DialogTitle>Term Sheet</DialogTitle>
           </DialogHeader>
@@ -3635,7 +3635,7 @@ function ResultCard({
           >
             <IconDownload />
           </button>
-          <div className="space-y-3 -mt-6 sm:-mt-8">
+          <div className="space-y-3 -mt-10 sm:-mt-12">
             <ScaledTermSheetPreview
               sheetProps={
                 Object.keys(sheetProps ?? {}).length
