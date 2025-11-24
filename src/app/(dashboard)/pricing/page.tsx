@@ -3795,6 +3795,133 @@ function ResultsPanel({
     }
   }, [selectedFromProps, results])
 
+  // Main panel term sheet preview/download state
+  const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
+  const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetProps>({})
+  const previewRefMain = useRef<HTMLDivElement | null>(null)
+  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
+
+  async function openMainTermSheetPreview(opts?: { autoPrint?: boolean }) {
+    try {
+      if (!selected) return
+      const d = (results?.[selected.programIdx]?.data ?? {}) as ProgramResponseData
+      const isBridgeResp =
+        Array.isArray(d?.total_loan_amount) ||
+        Array.isArray(d?.initial_loan_amount) ||
+        Array.isArray(d?.funded_pitia)
+      const idx = selected.rowIdx ?? Number(d?.highlight_display ?? 0)
+      const loanAmount = isBridgeResp ? (Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[idx] : undefined) : d?.loan_amount
+      const ltv = d?.ltv
+      const payloadRow: Record<string, unknown> = {
+        loan_price: Array.isArray(d?.loan_price) ? d.loan_price[idx] : undefined,
+        interest_rate: Array.isArray(d?.interest_rate) ? d.interest_rate[idx] : undefined,
+      }
+      if (isBridgeResp) {
+        payloadRow["initial_loan_amount"] = Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[idx] : undefined
+        payloadRow["rehab_holdback"] = Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[idx] : undefined
+        payloadRow["total_loan_amount"] = Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[idx] : undefined
+        payloadRow["funded_pitia"] = Array.isArray(d?.funded_pitia) ? d.funded_pitia[idx] : undefined
+      } else {
+        payloadRow["loan_amount"] = loanAmount
+        payloadRow["ltv"] = ltv
+        payloadRow["pitia"] = Array.isArray(d?.pitia) ? d.pitia[idx] : undefined
+        payloadRow["dscr"] = Array.isArray(d?.dscr) ? d.dscr[idx] : undefined
+      }
+      const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
+      const inputs = toYesNoDeepGlobal(rawInputs) as Record<string, unknown>
+      const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
+      const r = results?.[selected.programIdx]
+      const body = {
+        program: r?.internal_name ?? r?.external_name ?? "Program",
+        program_id: r?.internal_name ?? r?.external_name ?? null,
+        row_index: idx,
+        inputs,
+        row: normalizedRow,
+      }
+      const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const res = await fetch(`${TERMSHEET_WEBHOOK_MAIN}?_=${encodeURIComponent(nonce)}`, {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+          "X-Client-Request-Id": nonce,
+        },
+        body: JSON.stringify(body),
+      })
+      const raw = await res.json().catch(() => ({}))
+      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetProps) : (raw as DSCRTermSheetProps)
+      const enriched =
+        json && typeof json === "object" && !Array.isArray(json)
+          ? ({ loan_type: isBridgeResp ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
+          : ({ loan_type: isBridgeResp ? "bridge" : "dscr" } as DSCRTermSheetProps)
+      setSheetPropsMain(enriched)
+      setMcpOpenMain(true)
+      if (opts?.autoPrint) {
+        setTimeout(() => {
+          try {
+            const node = previewRefMain.current
+            if (!node) return
+            const htmlInside = (node as HTMLElement).outerHTML
+            const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+              .map((el) => (el as HTMLElement).outerHTML)
+              .join("\n")
+            const doc = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Term Sheet</title>
+    ${headStyles}
+    <style>
+      html, body { margin: 0; padding: 0; background: #fff; }
+      #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
+      #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
+      #inner { width: 816px; height: 1056px; transform: scale(0.98); transform-origin: top left; overflow: hidden; }
+      #inner > div { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
+      @page { size: 816px 1056px; margin: 0; }
+      @media print {
+        html, body { width: 816px; height: 1056px; overflow: hidden; }
+        #page { box-shadow: none; border: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="page"><div class="reset"><div id="inner">${htmlInside}</div></div></div>
+  </body>
+</html>`
+            const iframe = document.createElement("iframe")
+            iframe.style.position = "fixed"
+            iframe.style.right = "0"
+            iframe.style.bottom = "0"
+            iframe.style.width = "0"
+            iframe.style.height = "0"
+            iframe.style.border = "0"
+            iframe.setAttribute("srcdoc", doc)
+            document.body.appendChild(iframe)
+            iframe.onload = () => {
+              try {
+                iframe.contentWindow?.focus()
+                iframe.contentWindow?.print()
+              } finally {
+                setTimeout(() => document.body.removeChild(iframe), 500)
+              }
+            }
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Unknown error"
+            toast({ title: "Download failed", description: message, variant: "destructive" })
+          }
+        }, 300)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load term sheet"
+      toast({ title: "Preview failed", description: message, variant: "destructive" })
+    }
+  }
+
   if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
     const selectedKey = selected?.programId ?? selected?.programName ?? null
     const filtered = selectedKey
@@ -3805,6 +3932,7 @@ function ResultsPanel({
     return (
       <div>
         {selected ? (
+          <>
           <div className="mb-3 rounded-md border p-3 bg-muted/40">
             <div className="flex items-center justify-between">
               <div>
@@ -3816,6 +3944,19 @@ function ResultsPanel({
                   })()}
                 </div>
               </div>
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                <IconEye className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Download main"
+                onClick={() => openMainTermSheetPreview({ autoPrint: true })}
+              >
+                <IconDownload className="h-4 w-4" />
+              </Button>
+            </div>
             </div>
             {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -3837,6 +3978,24 @@ function ResultsPanel({
               </div>
             )}
           </div>
+          <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
+            <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-1 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-0.5 max-sm:pb-2">
+              <DialogHeader>
+                <DialogTitle>Term Sheet</DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-3">
+                {Object.keys(sheetPropsMain ?? {}).length ? (
+                  <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} />
+                ) : (
+                  <div className="flex h-[70vh] items-center justify-center">
+                    <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          </>
         ) : null}
         {filtered.map((p, idx) => (
           <ResultCardLoader key={idx} meta={p} />
@@ -3860,6 +4019,19 @@ function ResultsPanel({
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                <IconEye className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Download main"
+                onClick={() => openMainTermSheetPreview({ autoPrint: true })}
+              >
+                <IconDownload className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
@@ -3901,6 +4073,19 @@ function ResultsPanel({
                 })()}
               </div>
             </div>
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                <IconEye className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Download main"
+                onClick={() => openMainTermSheetPreview({ autoPrint: true })}
+              >
+                <IconDownload className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -3933,6 +4118,22 @@ function ResultsPanel({
           getInputs={getInputs}
         />
       ))}
+        <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
+          <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-1 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-0.5 max-sm:pb-2">
+            <DialogHeader>
+              <DialogTitle>Term Sheet</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              {Object.keys(sheetPropsMain ?? {}).length ? (
+                <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} />
+              ) : (
+                <div className="flex h-[70vh] items-center justify-center">
+                  <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
     </div>
   )
 }
