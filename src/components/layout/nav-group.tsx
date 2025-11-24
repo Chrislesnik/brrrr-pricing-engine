@@ -1,7 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
-import React from "react"
+import React, { ReactNode } from "react"
 import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
