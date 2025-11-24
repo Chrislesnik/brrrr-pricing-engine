@@ -142,7 +142,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-start justify-center pt-0 pb-2 max-sm:h-[64dvh] max-sm:pt-0 max-sm:pb-1"
+      className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-start justify-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div style={{ width: 816 * scale, height: 1056 * scale }}>
