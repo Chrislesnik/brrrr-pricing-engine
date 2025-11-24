@@ -84,8 +84,14 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white">
       <div className="w-full max-w-[816px] mx-auto p-[34px] relative">
-        <Separator className="mb-8" />
-        <Separator className="mb-4" />
+        {/* Option number bracketed by solid black rules */}
+        <div className="mb-4">
+          <div className="h-[2px] bg-black" />
+          <div className="text-center text-lg font-bold italic text-black my-2">
+            {asText(props, "option_number")}
+          </div>
+          <div className="h-[2px] bg-black" />
+        </div>
 
         <Card className="border-2 border-dashed border-black mb-6">
           <CardContent className="p-4">
@@ -95,8 +101,6 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             </p>
           </CardContent>
         </Card>
-
-        <div className="text-center text-lg font-bold italic text-black mb-6">{asText(props, "option_number")}</div>
 
         <div className="grid grid-cols-2 gap-6">
           <section className="border-2 border-solid border-black">
