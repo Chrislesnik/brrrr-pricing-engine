@@ -142,7 +142,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[78vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-center justify-center py-2 max-sm:h-[70dvh] max-sm:py-1"
+      className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 flex items-center justify-center py-2 max-sm:h-[64dvh] max-sm:py-1"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div style={{ width: 816 * scale, height: 1056 * scale }}>
@@ -3660,7 +3660,7 @@ function ResultCard({
           >
             <IconDownload />
           </button>
-          <div className="space-y-3 -mt-10 sm:-mt-12">
+          <div className="space-y-3">
             {Object.keys(sheetProps ?? {}).length ? (
               <ScaledTermSheetPreview
                 sheetProps={sheetProps as DSCRTermSheetProps}
