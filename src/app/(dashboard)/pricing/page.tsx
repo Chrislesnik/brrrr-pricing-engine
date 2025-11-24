@@ -45,6 +45,7 @@ import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
+import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 function toYesNoDeepGlobal(value: unknown): unknown {
@@ -154,7 +155,11 @@ function ScaledTermSheetPreview({
           ref={pageRef}
           tabIndex={0}
         >
-          <DSCRTermSheet {...sheetProps} />
+          {String(sheetProps?.loan_type ?? "").toLowerCase().includes("bridge") ? (
+            <BridgeTermSheet {...sheetProps} />
+          ) : (
+            <DSCRTermSheet {...sheetProps} />
+          )}
         </div>
         {/* Editable text boxes styling (screen-only; hidden on print/download) */}
         <style jsx global>{`
@@ -3649,6 +3654,7 @@ function ResultCard({
                 Object.keys(sheetProps ?? {}).length
                   ? sheetProps
                   : {
+                      loan_type: "dscr",
                       program: r.internal_name ?? r.external_name,
                       interest_rate: rate,
                       leverage_ltv: ltv,
