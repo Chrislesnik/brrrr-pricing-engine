@@ -3599,8 +3599,8 @@ function ResultCard({
       #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
       /* Ensure the exported preview container is reset to print dimensions */
       #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      /* Gently scale down inner content to provide safe margins on printers */
-      #inner { width: 816px; height: 1056px; transform: scale(0.96); transform-origin: top left; }
+      /* Fit exactly to the page for print/export */
+      #inner { width: 816px; height: 1056px; transform: scale(1); transform-origin: top left; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
