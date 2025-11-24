@@ -165,7 +165,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               <h2 className="text-[15px] font-bold text-center">CLOSING STATEMENT ESTIMATE</h2>
             </header>
             <div className="p-4">
-              <div className="bg-black text-white p-2 mb-2">
+              <div className="bg-black text-white p-2 mb-2 mx-[-16px] px-4">
                 <h3 className="text-[15px] font-bold italic">CREDITS</h3>
               </div>
               <div className="mb-4">
@@ -177,14 +177,14 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <div className="bg-[#808080] border-2 border-solid border-black text-white p-2 mb-2">
+              <div className="bg-[#808080] border-2 border-solid border-black text-white p-2 mb-2 mx-[-16px] px-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
                   <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
                 </div>
               </div>
 
-              <div className="bg-black text-white p-2 mb-2">
+              <div className="bg-black text-white p-2 mb-2 mx-[-16px] px-4">
                 <h3 className="text-[15px] font-bold italic">DEBITS</h3>
               </div>
               <div className="mb-4">
@@ -196,7 +196,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <div className="bg-[#808080] border-2 border-solid border-black text-white p-2">
+              <div className="bg-[#808080] border-2 border-solid border-black text-white p-2 mx-[-16px] px-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
                   <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
