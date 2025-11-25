@@ -86,7 +86,7 @@ function ScaledTermSheetPreview({
         (width - paddingAllowance) / 816,
         (height - paddingAllowance) / 1056,
         1
-      ) * 0.94 // zoom out slightly for comfortable margins in the modal
+      ) * 0.90 // further zoom out in the modal
       setScale(s)
     }
     update()
@@ -3680,7 +3680,7 @@ function ResultCard({
       #page { width: 816px; height: 1056px; margin: 0 auto; box-sizing: border-box; overflow: hidden; display: block; }
       #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       #inner { width: 816px; height: 1056px; overflow: hidden; margin: 0 auto; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; }
+      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: scale(0.90); transform-origin: top left; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
@@ -3949,7 +3949,7 @@ function ResultsPanel({
       #page { width: 816px; height: 1056px; margin: 0 auto; box-sizing: border-box; overflow: hidden; display: block; }
       #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       #inner { width: 816px; height: 1056px; overflow: hidden; margin: 0 auto; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; }
+      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: scale(0.90); transform-origin: top left; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
       @page { size: 816px 1056px; margin: 0; }
