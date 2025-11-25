@@ -83,7 +83,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
 
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white text-black">
-      <div className="w-full max-w-[816px] mx-auto p-[34px] relative">
+      <div className="w-[816px] max-w-none mx-auto p-[34px] relative print:p-2">
         {/* Option number bracketed by solid black rules */}
         <div className="mb-4">
           <div className="h-[2px] bg-black" />
