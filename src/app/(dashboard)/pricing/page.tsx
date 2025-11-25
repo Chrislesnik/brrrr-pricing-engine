@@ -81,13 +81,13 @@ function ScaledTermSheetPreview({
       const height = el.clientHeight
       if (width <= 0 || height <= 0) return
       // Compute scale to fit both width and height of the container precisely.
-      const paddingAllowance = 24 // px allowance for container padding/borders
+      const paddingAllowance = 8 // px allowance for container padding/borders
       const s = Math.min(
         (width - paddingAllowance) / 816,
         (height - paddingAllowance) / 1056,
         1
-      ) * 0.78
-      setScale(s) // preview scale includes a slight reduction to fit comfortably
+      )
+      setScale(s)
     }
     update()
     const ro = new ResizeObserver(update)
