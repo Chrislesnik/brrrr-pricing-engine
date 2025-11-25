@@ -3669,17 +3669,17 @@ function ResultCard({
     ${headStyles}
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
-      /* Exact printable canvas size (one page) using pixel units (96dpi => 816x1056) */
-      #page { width: 816px; height: 1056px; margin: 0 auto; box-sizing: border-box; overflow: hidden; display: block; }
-      #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      #inner { width: 816px; height: 1056px; overflow: hidden; }
-      #inner > div { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; }
+      /* Render exactly one page; scale to full printable area */
+      #page { width: 100%; height: 100%; margin: 0 auto; box-sizing: border-box; overflow: hidden; display: block; }
+      #page > .reset { width: 100% !important; height: 100% !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
+      #inner { width: 100%; height: 100%; overflow: hidden; }
+      #inner > div { width: 100% !important; height: 100% !important; transform: none !important; transform-origin: top left !important; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
-      @page { size: 816px 1056px; margin: 0; }
+      @page { size: 8.5in 11in; margin: 0; }
       @media print {
-        html, body { width: 816px; height: 1056px; overflow: hidden; }
+        html, body { width: 8.5in; height: 11in; overflow: hidden; }
         /* Remove border in the PDF to avoid a heavy black line at the bottom edge */
         #page { box-shadow: none; border: none; }
       }
