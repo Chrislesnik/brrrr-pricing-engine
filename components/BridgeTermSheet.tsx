@@ -110,9 +110,9 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             <header className="bg-black text-white py-1.5 px-2">
               <h2 className="text-[15px] font-bold text-center leading-tight">LOAN DETAILS</h2>
             </header>
-            <div className="p-3">
-              <h3 className="text-[13px] font-bold italic text-black mb-2">Subject Property</h3>
-              <div className="mb-6">
+            <div className="p-2">
+              <h3 className="text-[13px] font-bold italic text-black mb-1">Subject Property</h3>
+              <div className="mb-3">
                 {subjectPropertyData.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[16px]">
                     <span>{item.label}</span>
@@ -121,8 +121,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <h3 className="text-[13px] font-bold italic text-black mb-2">Borrower &amp; Guarantor(s)</h3>
-              <div className="mb-6">
+              <h3 className="text-[13px] font-bold italic text-black mb-1">Borrower &amp; Guarantor(s)</h3>
+              <div className="mb-3">
                 {borrowerGuarantorData.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[16px]">
                     <span>{item.label}</span>
@@ -131,8 +131,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <h3 className="text-[13px] font-bold italic text-black mb-2">Loan Structure I</h3>
-              <div className="mb-6">
+              <h3 className="text-[13px] font-bold italic text-black mb-1">Loan Structure I</h3>
+              <div className="mb-3">
                 {loanStructureData.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[16px]">
                     <span>{item.label}</span>
@@ -141,8 +141,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <h3 className="text-[13px] font-bold italic text-black mb-2">Monthly Payment</h3>
-              <div className="mb-6">
+              <h3 className="text-[13px] font-bold italic text-black mb-1">Monthly Payment</h3>
+              <div className="mb-3">
                 {monthlyPaymentData.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[16px]">
                     <span>{item.label}</span>
@@ -151,7 +151,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <h3 className="text-[13px] font-bold italic text-black mb-2">Liquidity Requirement</h3>
+              <h3 className="text-[13px] font-bold italic text-black mb-1">Liquidity Requirement</h3>
               <div>
                 {liquidityRequirementData.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[16px]">
@@ -159,22 +159,6 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     <span className="text-right">{item.value}</span>
                   </div>
                 ))}
-              </div>
-              {/* Move disclaimer paragraph under left column only */}
-              <div className="mt-3 text-[6px] font-medium text-black leading-[8px]">
-                <p>
-                  *Pricing of initial rate is indicative and subject to re-pricing at Lender&apos;s discretion based on factors
-                  that may include, but are not limited to, prevailing market conditions and underwriting/diligence review.
-                  Factors that may affect your rate include but are not limited to your credit history/score, Loan-to-Value
-                  ratios, borrower&apos;s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to
-                  qualified borrowers in accordance with our guidelines at the time of application. Property factors and
-                  geographic limitations are subject to change at any time without notice. Stated rates and Loan-to-Value ratios
-                  are only available to qualified applicants. This is a non-binding expression of interest and does not create
-                  any legally binding commitment or obligation on the part of Lender. This expression of interest is subject to
-                  our internal credit, legal and investment approval process. Lender is in the business of exclusively
-                  originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans
-                  referenced herein are non-consumer loans.
-                </p>
               </div>
             </div>
           </section>
@@ -228,6 +212,22 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               </div>
             </div>
           </section>
+        </div>
+        {/* Disclaimer under left column only (outside left border) */}
+        <div className="mt-2 text-[6px] font-medium text-black leading-[8px]">
+          <p>
+            *Pricing of initial rate is indicative and subject to re-pricing at Lender&apos;s discretion based on factors
+            that may include, but are not limited to, prevailing market conditions and underwriting/diligence review.
+            Factors that may affect your rate include but are not limited to your credit history/score, Loan-to-Value
+            ratios, borrower&apos;s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to
+            qualified borrowers in accordance with our guidelines at the time of application. Property factors and
+            geographic limitations are subject to change at any time without notice. Stated rates and Loan-to-Value ratios
+            are only available to qualified applicants. This is a non-binding expression of interest and does not create
+            any legally binding commitment or obligation on the part of Lender. This expression of interest is subject to
+            our internal credit, legal and investment approval process. Lender is in the business of exclusively
+            originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans
+            referenced herein are non-consumer loans.
+          </p>
         </div>
       </div>
     </div>
