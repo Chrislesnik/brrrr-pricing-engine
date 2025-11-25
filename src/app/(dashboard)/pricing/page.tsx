@@ -775,8 +775,8 @@ export default function PricingEnginePage() {
         return dt ? dt.toISOString() : null
       })(),
       // always include effective dates (can be null)
-      hoi_effective_date: hoiEffective ? hoiEffective.toISOString() : null,
-      flood_effective_date: floodEffective ? floodEffective.toISOString() : null,
+      hoi_effective_date: (hoiEffective ?? DEFAULTS.hoiEffective)?.toISOString() ?? null,
+      flood_effective_date: (floodEffective ?? DEFAULTS.floodEffective)?.toISOString() ?? null,
       // borrower + fees: always include (may be empty string)
       borrower_type: borrowerType ?? "",
       citizenship: citizenship ?? "",
