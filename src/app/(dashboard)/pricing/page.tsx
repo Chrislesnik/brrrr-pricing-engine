@@ -2332,7 +2332,7 @@ export default function PricingEnginePage() {
                         >
                           <SelectTrigger
                             id="rural"
-                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural ? "text-muted-foreground" : ""}`}
+                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "border-2 border-amber-500/70" : ""}`}
                           >
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
