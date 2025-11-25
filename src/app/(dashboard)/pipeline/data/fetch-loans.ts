@@ -26,19 +26,22 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   }
 
   // 1) Fetch loans scoped to organization
-  const { data: loans, error: loansError } = await supabaseAdmin
+  const { data: loansRaw, error: loansError } = await supabaseAdmin
     .from("loans")
     .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
-    // Only loans assigned to the current user (assigned_to_user_id is a text[] column)
-    .contains("assigned_to_user_id", [userId])
     .order("updated_at", { ascending: false })
 
   if (loansError) {
     logError("Error fetching loans:", loansError.message)
     return []
   }
-  if (!loans || loans.length === 0) return []
+  // Filter by assignment to current user (assigned_to_user_id is a jsonb array of Clerk user IDs)
+  const loans = (loansRaw ?? []).filter((l) => {
+    const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
+    return arr.includes(userId)
+  })
+  if (loans.length === 0) return []
 
   const loanIds = loans.map((l) => l.id as string)
 
