@@ -3700,8 +3700,6 @@ function ResultCard({
                 document.body.appendChild(iframe)
                 iframe.onload = () => {
                   try {
-                    const doc = iframe.contentDocument
-                    const inner = doc?.getElementById("inner") as HTMLElement | null
                     // No runtime scaling; content is rendered at exact 816x1056 canvas
                     iframe.contentWindow?.focus()
                     // Wait one frame so layout recalculates at the new scale
@@ -3962,8 +3960,6 @@ function ResultsPanel({
             document.body.appendChild(iframe)
             iframe.onload = () => {
               try {
-                const doc = iframe.contentDocument
-                const inner = doc?.getElementById("inner") as HTMLElement | null
             // No runtime scaling; content is rendered at exact 816x1056 canvas
                 iframe.contentWindow?.focus()
                 setTimeout(() => iframe.contentWindow?.print(), 50)
