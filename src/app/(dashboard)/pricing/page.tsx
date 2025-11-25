@@ -533,6 +533,15 @@ export default function PricingEnginePage() {
     taxEscrowMonths,
   ])
 
+  // Keep Tax Escrow (months) default in sync with loan type until user edits it
+  useEffect(() => {
+    const currentDefault = loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
+    if (!touched.taxEscrowMonths) {
+      setTaxEscrowMonths((v) => (v === "" || v === "0" || v === "3" ? currentDefault : v))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loanType])
+
   // Keep calendar month in sync with typed/selected dates
   useEffect(() => {
     setClosingCalMonth(closingDate ?? undefined)
