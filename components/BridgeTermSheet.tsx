@@ -79,6 +79,9 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
     { label: asText(props, "buyer_credit_emd_label"), value: asText(props, "buyer_credit_emd") },
     { label: asText(props, "cash_out_to_borrower_label"), value: asText(props, "cash_out_to_borrower") },
   ]
+  // Split debits so we can insert spacer rows before the last few lines
+  const debitsHead = debitsData.slice(0, debitsData.length - 3)
+  const debitsTail = debitsData.slice(debitsData.length - 3)
 
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white text-black">
@@ -195,8 +198,26 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
               </div>
               <div className="mb-4">
-                {debitsData.map((item, index) => (
+                {debitsHead.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                    <span>{item.label}</span>
+                    <span className="text-right">{item.value}</span>
+                  </div>
+                ))}
+                {/* Add spacer lines so TOTAL USES aligns with the left column bottom */}
+                <div className="space-y-1 my-1">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={`spacer-${i}`}
+                      className="flex justify-between text-[11px] font-medium leading-[16px] border-t border-dotted border-black/40"
+                    >
+                      <span>&nbsp;</span>
+                      <span className="text-right">&nbsp;</span>
+                    </div>
+                  ))}
+                </div>
+                {debitsTail.map((item, index) => (
+                  <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
                     <span>{item.label}</span>
                     <span className="text-right">{item.value}</span>
                   </div>
