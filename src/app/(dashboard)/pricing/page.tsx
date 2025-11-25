@@ -597,33 +597,13 @@ export default function PricingEnginePage() {
         transaction_type: transactionType ?? "",
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-      const res = await fetch(`https://n8n.axora.info/webhook/c0d82736-8004-4c69-b9fc-fee54676ff46?_=${encodeURIComponent(nonce)}`, {
-        method: "POST",
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          "Pragma": "no-cache",
-          "X-Client-Request-Id": nonce,
-        },
-        body: JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>),
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => "")
-        throw new Error(text || `Request failed: ${res.status}`)
-      }
-      // Try to parse JSON and populate fields if present
-      let data: Record<string, unknown> | undefined
-      try {
-        data = await res.json()
-      } catch {
-        data = undefined
-      }
-      if (data) {
+
+      // Helper to map RE API data back into form fields
+      const applyReApiResponse = (data: Record<string, unknown>) => {
         const autoKeys: string[] = []
         const val = (...keys: string[]) => {
           for (const k of keys) {
-            if (k in data!) return data![k] as unknown
+            if (k in data) return data[k] as unknown
           }
           return undefined
         }
@@ -698,6 +678,43 @@ export default function PricingEnginePage() {
         if (autoKeys.length > 0) {
           markReAuto(autoKeys)
         }
+      }
+
+      const urls = [
+        `https://n8n.axora.info/webhook/c0d82736-8004-4c69-b9fc-fee54676ff46?_=${encodeURIComponent(nonce)}`,
+        `https://n8n.axora.info/webhook/7459a9a6-3e04-42d4-9465-1dd42bf91cc3?_=${encodeURIComponent(nonce)}`,
+      ]
+      const body = JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>)
+      const headers = {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "X-Client-Request-Id": nonce,
+      }
+
+      const results = await Promise.allSettled(
+        urls.map(async (url) => {
+          const r = await fetch(url, { method: "POST", cache: "no-store", headers, body })
+          // Try to parse JSON regardless of ok; network 200 with non-JSON should not throw
+          let data: Record<string, unknown> | undefined
+          try {
+            data = await r.json()
+          } catch {
+            data = undefined
+          }
+          if (r.ok && data && typeof data === "object") {
+            applyReApiResponse(data)
+          } else if (!r.ok) {
+            const t = await r.text().catch(() => "")
+            throw new Error(t || `Request failed: ${r.status}`)
+          }
+          return r.ok
+        })
+      )
+      const anySuccess = results.some((res) => res.status === "fulfilled")
+      if (!anySuccess) {
+        const firstErr = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined
+        throw new Error(firstErr?.reason?.message || "Both RE API requests failed")
       }
       toast({
         title: "Sent to RE API",
