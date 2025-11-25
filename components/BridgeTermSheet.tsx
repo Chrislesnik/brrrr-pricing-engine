@@ -83,31 +83,35 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
 
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white text-black">
-      <div className="w-[816px] max-w-none mx-auto p-[34px] relative print:p-2">
+      {/* Reduce page padding to 'zoom out' slightly */}
+      <div className="w-[816px] max-w-none mx-auto p-3 relative print:p-2">
         {/* Option number bracketed by solid black rules */}
-        <div className="mb-4">
+        <div className="mb-3">
           <div className="h-[2px] bg-black" />
-          <div className="text-center text-lg font-bold italic text-black my-2">
+          {/* Tighten vertical padding around option number */}
+          <div className="text-center text-lg font-bold italic text-black my-1">
             {asText(props, "option_number")}
           </div>
           <div className="h-[2px] bg-black" />
         </div>
 
-        <Card className="border-2 border-dashed border-black mb-6">
-          <CardContent className="p-4">
-            <h1 className="text-center text-lg font-semibold text-black mb-2">PRELIMINARY TERM SHEET</h1>
+        {/* Dotted box with tighter padding */}
+        <Card className="border-2 border-dashed border-black mb-4">
+          <CardContent className="p-3">
+            <h1 className="text-center text-lg font-semibold text-black mb-1">PRELIMINARY TERM SHEET</h1>
             <p className="text-center text-[11px] font-medium text-black">
               Terms &amp; Conditions Displayed as of {asText(props, "date")} @ {asText(props, "time")}
             </p>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-5">
           <section className="border-2 border-solid border-black">
-            <header className="bg-black text-white p-2">
-              <h2 className="text-[15px] font-bold text-center">LOAN DETAILS</h2>
+            {/* Make header bar a bit shorter */}
+            <header className="bg-black text-white py-1.5 px-2">
+              <h2 className="text-[15px] font-bold text-center leading-tight">LOAN DETAILS</h2>
             </header>
-            <div className="p-4">
+            <div className="p-3">
               <h3 className="text-[13px] font-bold italic text-black mb-2">Subject Property</h3>
               <div className="mb-6">
                 {subjectPropertyData.map((item, index) => (
@@ -161,12 +165,13 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
           </section>
 
           <section className="border-2 border-solid border-black">
-            <header className="bg-black text-white p-2">
-              <h2 className="text-[15px] font-bold text-center">CLOSING STATEMENT ESTIMATE</h2>
+            <header className="bg-black text-white py-1.5 px-2">
+              <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
-            <div className="p-4">
-              <div className="bg-black text-white p-2 mb-2 mx-[-16px] px-4">
-                <h3 className="text-[15px] font-bold italic">CREDITS</h3>
+            <div className="p-3">
+              {/* CREDITS header height smaller */}
+              <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
+                <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
               </div>
               <div className="mb-4">
                 {creditsData.map((item, index) => (
@@ -177,15 +182,17 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <div className="bg-[#808080] border-2 border-solid border-black text-white p-2 mb-2 mx-[-16px] px-4">
+              {/* TOTAL SOURCES height smaller */}
+              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mb-2 mx-[-12px]">
                 <div className="flex justify-between items-center">
                   <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
                   <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
                 </div>
               </div>
 
-              <div className="bg-black text-white p-2 mb-2 mx-[-16px] px-4">
-                <h3 className="text-[15px] font-bold italic">DEBITS</h3>
+              {/* DEBITS header height smaller */}
+              <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
+                <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
               </div>
               <div className="mb-4">
                 {debitsData.map((item, index) => (
@@ -196,7 +203,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
               </div>
 
-              <div className="bg-[#808080] border-2 border-solid border-black text-white p-2 mx-[-16px] px-4">
+              {/* TOTAL USES height smaller */}
+              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-[-12px]">
                 <div className="flex justify-between items-center">
                   <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
                   <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
