@@ -326,6 +326,11 @@ export default function PricingEnginePage() {
   const [requestMaxLeverage, setRequestMaxLeverage] = useState<boolean>(false)
   const [hoiEffective, setHoiEffective] = useState<Date | undefined>(undefined)
   const [floodEffective, setFloodEffective] = useState<Date | undefined>(undefined)
+  // Calendar visible months (controlled so arrows work and typing syncs view)
+  const [closingCalMonth, setClosingCalMonth] = useState<Date | undefined>(undefined)
+  const [acqCalMonth, setAcqCalMonth] = useState<Date | undefined>(undefined)
+  const [hoiCalMonth, setHoiCalMonth] = useState<Date | undefined>(undefined)
+  const [floodCalMonth, setFloodCalMonth] = useState<Date | undefined>(undefined)
   const [initialLoanAmount, setInitialLoanAmount] = useState<string>("")
   const [rehabHoldback, setRehabHoldback] = useState<string>("")
 
@@ -522,6 +527,20 @@ export default function PricingEnginePage() {
     floodEffective,
     taxEscrowMonths,
   ])
+
+  // Keep calendar month in sync with typed/selected dates
+  useEffect(() => {
+    setClosingCalMonth(closingDate ?? undefined)
+  }, [closingDate])
+  useEffect(() => {
+    setAcqCalMonth(acquisitionDate ?? undefined)
+  }, [acquisitionDate])
+  useEffect(() => {
+    setHoiCalMonth(hoiEffective ?? undefined)
+  }, [hoiEffective])
+  useEffect(() => {
+    setFloodCalMonth(floodEffective ?? undefined)
+  }, [floodEffective])
 
   // Simple derived flags for label required markers
   const isDscr = loanType === "dscr"
@@ -2636,6 +2655,8 @@ export default function PricingEnginePage() {
                             <Calendar
                               mode="single"
                               selected={closingDate}
+                              month={closingCalMonth}
+                              onMonthChange={setClosingCalMonth}
                               onSelect={(d) => d && setClosingDate(d)}
                               initialFocus
                             />
@@ -2660,6 +2681,8 @@ export default function PricingEnginePage() {
                               <Calendar
                                 mode="single"
                                 selected={acquisitionDate}
+                                month={acqCalMonth}
+                                onMonthChange={setAcqCalMonth}
                                 onSelect={(d) => d && setAcquisitionDate(d)}
                                 initialFocus
                               />
@@ -3036,6 +3059,8 @@ export default function PricingEnginePage() {
                             <Calendar
                               mode="single"
                               selected={hoiEffective}
+                              month={hoiCalMonth}
+                              onMonthChange={setHoiCalMonth}
                               onSelect={(d) => d && setHoiEffective(d)}
                               initialFocus
                             />
@@ -3059,6 +3084,8 @@ export default function PricingEnginePage() {
                             <Calendar
                               mode="single"
                               selected={floodEffective}
+                              month={floodCalMonth}
+                              onMonthChange={setFloodCalMonth}
                               onSelect={(d) => d && setFloodEffective(d)}
                               initialFocus
                             />
