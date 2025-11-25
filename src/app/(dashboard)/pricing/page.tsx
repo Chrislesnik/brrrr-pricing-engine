@@ -3420,6 +3420,10 @@ function ResultCard({
 
   async function openTermSheetPreview(rowIndex?: number) {
     try {
+      // Open modal immediately with loader while webhook response is fetched
+      setSheetProps({} as DSCRTermSheetProps)
+      setMcpOpen(true)
+
       const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
       const idx = rowIndex ?? Number(d?.highlight_display ?? 0)
       const payloadRow: Record<string, unknown> = {
@@ -3465,7 +3469,6 @@ function ResultCard({
           ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
           : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetProps)
       setSheetProps(enriched)
-      setMcpOpen(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load term sheet"
       toast({ title: "Preview failed", description: message, variant: "destructive" })
