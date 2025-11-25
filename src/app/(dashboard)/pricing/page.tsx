@@ -3661,11 +3661,17 @@ function ResultCard({
                 const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
                   .map((el) => (el as HTMLElement).outerHTML)
                   .join("\n")
+                const htmlClass = document.documentElement.className || ""
+                const bodyClass = document.body.className || ""
+                const htmlAttrs = Array.from(document.documentElement.attributes)
+                  .map((a) => `${a.name}="${a.value}"`)
+                  .join(" ")
                 const doc = `<!doctype html>
-<html>
+<html class="${htmlClass}" ${htmlAttrs}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="${location.origin}">
     <title>Term Sheet</title>
     ${headStyles}
     <style>
@@ -3686,7 +3692,7 @@ function ResultCard({
       }
     </style>
   </head>
-  <body>
+  <body class="${bodyClass}">
     <div id="page"><div class="reset"><div id="inner">${htmlInside}</div></div></div>
   </body>
 </html>`
@@ -3925,11 +3931,17 @@ function ResultsPanel({
             const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
               .map((el) => (el as HTMLElement).outerHTML)
               .join("\n")
+            const htmlClass = document.documentElement.className || ""
+            const bodyClass = document.body.className || ""
+            const htmlAttrs = Array.from(document.documentElement.attributes)
+              .map((a) => `${a.name}="${a.value}"`)
+              .join(" ")
             const doc = `<!doctype html>
-<html>
+<html class="${htmlClass}" ${htmlAttrs}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="${location.origin}">
     <title>Term Sheet</title>
     ${headStyles}
     <style>
@@ -3947,7 +3959,7 @@ function ResultsPanel({
       }
     </style>
   </head>
-  <body>
+  <body class="${bodyClass}">
     <div id="page"><div class="reset"><div id="inner">${htmlInside}</div></div></div>
   </body>
 </html>`
