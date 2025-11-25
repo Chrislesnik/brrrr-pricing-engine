@@ -2950,9 +2950,15 @@ export default function PricingEnginePage() {
                                   id="total-loan-amount"
                                   readOnly
                                   value={(() => {
-                                    const a = parseFloat(initialLoanAmount) || 0
-                                    const b = parseFloat(rehabHoldback) || 0
-                                    return (a + b).toFixed(2)
+                                    const toNum = (v: string | number | undefined) =>
+                                      Number(String(v ?? "0").toString().replace(/[^0-9.-]/g, "")) || 0
+                                    const a = toNum(initialLoanAmount)
+                                    const b = toNum(rehabHoldback)
+                                    const total = a + b
+                                    return total.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })
                                   })()}
                                   className="pl-6"
                                 />
