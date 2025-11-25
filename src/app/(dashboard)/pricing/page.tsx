@@ -500,7 +500,12 @@ export default function PricingEnginePage() {
     setIfUnsetString(changeOfUse, (v) => setChangeOfUse(v), DEFAULTS.changeOfUse)
     setIfUnsetDate(hoiEffective, (v) => setHoiEffective(v), DEFAULTS.hoiEffective)
     setIfUnsetDate(floodEffective, (v) => setFloodEffective(v), DEFAULTS.floodEffective)
-    setIfUnsetString(taxEscrowMonths, (v) => setTaxEscrowMonths(v), DEFAULTS.taxEscrowMonths)
+    // Bridge defaults to 0 months; DSCR defaults to 3
+    setIfUnsetString(
+      taxEscrowMonths,
+      (v) => setTaxEscrowMonths(v),
+      loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
+    )
     defaultsAppliedRef.current = true
   }, [
     initialLoanId,
@@ -3211,7 +3216,7 @@ export default function PricingEnginePage() {
                             setTaxEscrowMonths(e.target.value)
                             setTouched((t) => ({ ...t, taxEscrowMonths: true }))
                           }}
-                          className={`${!touched.taxEscrowMonths && taxEscrowMonths === DEFAULTS.taxEscrowMonths ? "text-muted-foreground" : ""}`}
+                          className={`${!touched.taxEscrowMonths && taxEscrowMonths === (loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths) ? "text-muted-foreground" : ""}`}
                         />
                       </div>
                       <div className="flex flex-col gap-1">
