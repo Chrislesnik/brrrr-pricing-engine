@@ -84,8 +84,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
       className="flex justify-center w-full min-h-screen bg-white text-black dark:text-black px-7 pt-6 pb-1 print:px-0 print:pt-0 print:pb-0 print:min-h-0"
     >
       <div className="w-[816px] max-w-none print:w-[816px]">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Preliminary Term Sheet</h1>
+        <header className="mt-2 mb-5">
+          <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
           <p className="text-orange-500 font-semibold">{asText(props, "program")}</p>
         </header>
 

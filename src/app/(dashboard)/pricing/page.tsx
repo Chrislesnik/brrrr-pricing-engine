@@ -735,16 +735,17 @@ export default function PricingEnginePage() {
   // Build payload of current, visible inputs
   function buildPayload() {
     const payload: Record<string, unknown> = {
-      loan_type: loanType,
-      transaction_type: transactionType,
-      property_type: propertyType,
-      num_units: numUnits,
+      // Ensure keys are always present in JSON (no undefined values)
+      loan_type: loanType ?? "",
+      transaction_type: transactionType ?? "",
+      property_type: propertyType ?? "",
+      num_units: numUnits ?? null,
       max_leverage_requested: requestMaxLeverage ? "yes" : "no",
       address: {
         street,
         apt,
         city,
-        state: stateCode,
+        state: stateCode ?? "",
         zip,
         county,
       },
@@ -800,7 +801,7 @@ export default function PricingEnginePage() {
     }
     if (loanType === "bridge") {
       // Always include bridge-specific selections
-      payload["bridge_type"] = bridgeType
+      payload["bridge_type"] = bridgeType ?? ""
       payload["term"] = term ?? "12"
       payload["rentals_owned"] = rentalsOwned
       payload["num_flips"] = numFlips
@@ -888,6 +889,25 @@ export default function PricingEnginePage() {
         setLastCalculatedKey(String(Date.now()))
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+      // Also POST all inputs (including defaults/placeholders) to the external webhook
+      // This call is non-blocking and won't affect the main dispatch flow.
+      try {
+        const webhookBody = JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>)
+        void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
+          method: "POST",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "X-Client-Request-Id": nonce,
+          },
+          body: webhookBody,
+        }).catch(() => {})
+      } catch {
+        // do not block calculation if webhook serialization fails
+      }
       const res = await fetch(`/api/pricing/dispatch?_=${encodeURIComponent(nonce)}`, {
         method: "POST",
         cache: "no-store",
