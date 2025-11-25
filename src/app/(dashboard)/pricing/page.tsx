@@ -2636,8 +2636,6 @@ export default function PricingEnginePage() {
                             <Calendar
                               mode="single"
                               selected={closingDate}
-                              defaultMonth={closingDate}
-                              month={closingDate}
                               onSelect={(d) => d && setClosingDate(d)}
                               initialFocus
                             />
@@ -2662,8 +2660,6 @@ export default function PricingEnginePage() {
                               <Calendar
                                 mode="single"
                                 selected={acquisitionDate}
-                                defaultMonth={acquisitionDate}
-                                month={acquisitionDate}
                                 onSelect={(d) => d && setAcquisitionDate(d)}
                                 initialFocus
                               />
@@ -3040,8 +3036,6 @@ export default function PricingEnginePage() {
                             <Calendar
                               mode="single"
                               selected={hoiEffective}
-                              defaultMonth={hoiEffective}
-                              month={hoiEffective}
                               onSelect={(d) => d && setHoiEffective(d)}
                               initialFocus
                             />
@@ -3065,8 +3059,6 @@ export default function PricingEnginePage() {
                             <Calendar
                               mode="single"
                               selected={floodEffective}
-                              defaultMonth={floodEffective}
-                              month={floodEffective}
                               onSelect={(d) => d && setFloodEffective(d)}
                               initialFocus
                             />
