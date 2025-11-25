@@ -86,7 +86,7 @@ function ScaledTermSheetPreview({
         (width - paddingAllowance) / 816,
         (height - paddingAllowance) / 1056,
         1
-      )
+      ) * 0.94 // zoom out slightly for comfortable margins in the modal
       setScale(s)
     }
     update()
@@ -3710,7 +3710,7 @@ function ResultCard({
                       // Compute scale to ensure the content fits entirely within 8.5x11 (816x1056 px)
                       const contentWidth = Math.max(target.scrollWidth, target.offsetWidth, 1)
                       const contentHeight = Math.max(target.scrollHeight, target.offsetHeight, 1)
-                      const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.99
+                      const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.97
                       inner.style.transform = `scale(${scale})`
                       inner.style.transformOrigin = "top left"
                     }
@@ -3979,7 +3979,7 @@ function ResultsPanel({
                 if (inner && target) {
                   const contentWidth = Math.max(target.scrollWidth, target.offsetWidth, 1)
                   const contentHeight = Math.max(target.scrollHeight, target.offsetHeight, 1)
-                  const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.99
+                  const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.97
                   inner.style.transform = `scale(${scale})`
                   inner.style.transformOrigin = "top left"
                 }
