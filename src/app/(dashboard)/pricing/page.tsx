@@ -86,7 +86,7 @@ function ScaledTermSheetPreview({
         (width - paddingAllowance) / 816,
         (height - paddingAllowance) / 1056,
         1
-      ) * 0.90 // further zoom out in the modal
+      ) * 0.88 // slightly further zoom out in the modal
       setScale(s)
     }
     update()
