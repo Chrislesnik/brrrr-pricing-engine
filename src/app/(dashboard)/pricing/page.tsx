@@ -3703,8 +3703,20 @@ function ResultCard({
                 document.body.appendChild(iframe)
                 iframe.onload = () => {
                   try {
+                    const doc = iframe.contentDocument
+                    const inner = doc?.getElementById("inner") as HTMLElement | null
+                    const target = inner?.firstElementChild as HTMLElement | null
+                    if (inner && target) {
+                      // Compute scale to ensure the content fits entirely within 8.5x11 (816x1056 px)
+                      const contentWidth = Math.max(target.scrollWidth, target.offsetWidth, 1)
+                      const contentHeight = Math.max(target.scrollHeight, target.offsetHeight, 1)
+                      const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.99
+                      inner.style.transform = `scale(${scale})`
+                      inner.style.transformOrigin = "top left"
+                    }
                     iframe.contentWindow?.focus()
-                    iframe.contentWindow?.print()
+                    // Wait one frame so layout recalculates at the new scale
+                    setTimeout(() => iframe.contentWindow?.print(), 50)
                   } finally {
                     setTimeout(() => document.body.removeChild(iframe), 500)
                   }
@@ -3961,8 +3973,18 @@ function ResultsPanel({
             document.body.appendChild(iframe)
             iframe.onload = () => {
               try {
+                const doc = iframe.contentDocument
+                const inner = doc?.getElementById("inner") as HTMLElement | null
+                const target = inner?.firstElementChild as HTMLElement | null
+                if (inner && target) {
+                  const contentWidth = Math.max(target.scrollWidth, target.offsetWidth, 1)
+                  const contentHeight = Math.max(target.scrollHeight, target.offsetHeight, 1)
+                  const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.99
+                  inner.style.transform = `scale(${scale})`
+                  inner.style.transformOrigin = "top left"
+                }
                 iframe.contentWindow?.focus()
-                iframe.contentWindow?.print()
+                setTimeout(() => iframe.contentWindow?.print(), 50)
               } finally {
                 setTimeout(() => document.body.removeChild(iframe), 500)
               }
