@@ -3669,20 +3669,20 @@ function ResultCard({
     ${headStyles}
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
-      /* Exact printable canvas size (one page) */
-      #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
+      /* Exact printable canvas size (one page) in inches to align with browser settings */
+      #page { width: 8.5in; height: 11in; margin: 0 auto; box-sizing: border-box; overflow: hidden; }
       /* Ensure the exported preview container is reset to print dimensions */
-      #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
+      #page > .reset { width: 8.5in !important; height: 11in !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       /* Fit page with safety to prevent bottom clipping on some printers */
-      #inner { width: 816px; height: 1056px; transform: scale(0.98); transform-origin: top left; overflow: hidden; }
+      #inner { width: 8.5in; height: 11in; transform: scale(0.995); transform-origin: top left; overflow: hidden; }
       /* Override the on-screen scaled preview element captured in outerHTML */
-      #inner > div { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; }
+      #inner > div { width: 8.5in !important; height: 11in !important; transform: none !important; transform-origin: top left !important; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
-      @page { size: 816px 1056px; margin: 0; }
+      @page { size: Letter; margin: 0; }
       @media print {
-        html, body { width: 816px; height: 1056px; overflow: hidden; }
+        html, body { width: 8.5in; height: 11in; overflow: hidden; }
         /* Remove border in the PDF to avoid a heavy black line at the bottom edge */
         #page { box-shadow: none; border: none; }
       }
@@ -3710,7 +3710,7 @@ function ResultCard({
                       // Compute scale to ensure the content fits entirely within 8.5x11 (816x1056 px)
                       const contentWidth = Math.max(target.scrollWidth, target.offsetWidth, 1)
                       const contentHeight = Math.max(target.scrollHeight, target.offsetHeight, 1)
-                      const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.97
+                      const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.995
                       inner.style.transform = `scale(${scale})`
                       inner.style.transformOrigin = "top left"
                     }
@@ -3945,15 +3945,15 @@ function ResultsPanel({
     ${headStyles}
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
-      #page { width: 816px; height: 1056px; margin: 0 auto; border: 1px solid #e5e7eb; box-sizing: border-box; overflow: hidden; }
-      #page > .reset { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      #inner { width: 816px; height: 1056px; transform: scale(0.98); transform-origin: top left; overflow: hidden; }
-      #inner > div { width: 816px !important; height: 1056px !important; transform: none !important; transform-origin: top left !important; }
+      #page { width: 8.5in; height: 11in; margin: 0 auto; box-sizing: border-box; overflow: hidden; }
+      #page > .reset { width: 8.5in !important; height: 11in !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
+      #inner { width: 8.5in; height: 11in; transform: scale(0.995); transform-origin: top left; overflow: hidden; }
+      #inner > div { width: 8.5in !important; height: 11in !important; transform: none !important; transform-origin: top left !important; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
-      @page { size: 816px 1056px; margin: 0; }
+      @page { size: Letter; margin: 0; }
       @media print {
-        html, body { width: 816px; height: 1056px; overflow: hidden; }
+        html, body { width: 8.5in; height: 11in; overflow: hidden; }
         #page { box-shadow: none; border: none; }
       }
     </style>
@@ -3979,7 +3979,7 @@ function ResultsPanel({
                 if (inner && target) {
                   const contentWidth = Math.max(target.scrollWidth, target.offsetWidth, 1)
                   const contentHeight = Math.max(target.scrollHeight, target.offsetHeight, 1)
-                  const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.97
+                const scale = Math.min(816 / contentWidth, 1056 / contentHeight, 1) * 0.995
                   inner.style.transform = `scale(${scale})`
                   inner.style.transformOrigin = "top left"
                 }
