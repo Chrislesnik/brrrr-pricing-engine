@@ -679,6 +679,22 @@ export default function PricingEnginePage() {
           setAnnualTaxes(String(at))
           autoKeys.push("annualTaxes")
         }
+        // Rural flag (expects Yes/No from RE API; normalize to 'yes' | 'no')
+        const ruralIncoming = val("rural", "is_rural", "rural_flag", "rural-indicator", "rural_indicator")
+        if (ruralIncoming !== undefined && ruralIncoming !== null) {
+          const toYesNo = (v: unknown): "yes" | "no" | undefined => {
+            if (typeof v === "boolean") return v ? "yes" : "no"
+            const s = String(v).trim().toLowerCase()
+            if (["yes", "y", "true", "1"].includes(s)) return "yes"
+            if (["no", "n", "false", "0"].includes(s)) return "no"
+            return undefined
+          }
+          const yn = toYesNo(ruralIncoming)
+          if (yn) {
+            setRural(yn)
+            autoKeys.push("rural")
+          }
+        }
         if (autoKeys.length > 0) {
           markReAuto(autoKeys)
         }
