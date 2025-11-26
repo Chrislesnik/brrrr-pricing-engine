@@ -168,7 +168,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
 
           {/* Right column border stops after TOTAL USES since content ends there */}
           <section className="border-2 border-solid border-black">
-            <header className="bg-black text-white py-1.5 px-2">
+            <header className="bg-black text-white py-1 px-2">
               <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
             <div className="p-3">
