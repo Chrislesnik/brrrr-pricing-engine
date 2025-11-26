@@ -79,6 +79,9 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
     { label: asText(props, "buyer_credit_emd_label"), value: asText(props, "buyer_credit_emd") },
     { label: asText(props, "cash_out_to_borrower_label"), value: asText(props, "cash_out_to_borrower") },
   ]
+  // Split debits around the buyer credit rows to allow inserting blank spacing before them
+  const debitsBeforeSpacer = debitsData.slice(0, debitsData.length - 3)
+  const debitsAfterSpacer = debitsData.slice(debitsData.length - 3)
 
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white text-black">
@@ -196,8 +199,16 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                   <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
                 </div>
                 <div className="">
-                  {debitsData.map((item, index) => (
+                  {debitsBeforeSpacer.map((item, index) => (
                     <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                      <span>{item.label}</span>
+                      <span className="text-right">{item.value}</span>
+                    </div>
+                  ))}
+                  {/* Blank space so TOTAL USES aligns with left column bottom */}
+                  <div className="h-20" />
+                  {debitsAfterSpacer.map((item, index) => (
+                    <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
                       <span>{item.label}</span>
                       <span className="text-right">{item.value}</span>
                     </div>
