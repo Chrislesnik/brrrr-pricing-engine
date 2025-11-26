@@ -79,9 +79,6 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
     { label: asText(props, "buyer_credit_emd_label"), value: asText(props, "buyer_credit_emd") },
     { label: asText(props, "cash_out_to_borrower_label"), value: asText(props, "cash_out_to_borrower") },
   ]
-  // Split debits so we can insert spacer rows before the last few lines
-  const debitsHead = debitsData.slice(0, debitsData.length - 3)
-  const debitsTail = debitsData.slice(debitsData.length - 3)
 
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white text-black">
@@ -171,61 +168,45 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             <header className="bg-black text-white py-1 px-2">
               <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
-            <div className="p-3">
-              {/* CREDITS header height smaller */}
-              <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
-              </div>
-              <div className="mb-4">
-                {creditsData.map((item, index) => (
-                  <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                    <span>{item.label}</span>
-                    <span className="text-right">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* TOTAL SOURCES height smaller */}
-              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
-                  <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
+            <div className="p-3 flex flex-col">
+              <div className="flex-1">
+                {/* CREDITS header height smaller */}
+                <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
+                  <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
                 </div>
-              </div>
-
-              {/* DEBITS header height smaller */}
-              <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
-              </div>
-              <div className="mb-4">
-                {debitsHead.map((item, index) => (
-                  <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                    <span>{item.label}</span>
-                    <span className="text-right">{item.value}</span>
-                  </div>
-                ))}
-                {/* Add spacer lines so TOTAL USES aligns with the left column bottom */}
-                <div className="space-y-1 my-1">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={`spacer-${i}`}
-                      className="flex justify-between text-[11px] font-medium leading-[16px] border-t border-dotted border-black/40"
-                    >
-                      <span>&nbsp;</span>
-                      <span className="text-right">&nbsp;</span>
+                <div className="mb-3">
+                  {creditsData.map((item, index) => (
+                    <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                      <span>{item.label}</span>
+                      <span className="text-right">{item.value}</span>
                     </div>
                   ))}
                 </div>
-                {debitsTail.map((item, index) => (
-                  <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                    <span>{item.label}</span>
-                    <span className="text-right">{item.value}</span>
+
+                {/* TOTAL SOURCES height smaller */}
+                <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mb-2 mx-[-12px]">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
+                    <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
                   </div>
-                ))}
+                </div>
+
+                {/* DEBITS header height smaller */}
+                <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
+                  <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
+                </div>
+                <div className="">
+                  {debitsData.map((item, index) => (
+                    <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                      <span>{item.label}</span>
+                      <span className="text-right">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* TOTAL USES height smaller */}
-              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-[-12px]">
+              {/* TOTAL USES anchored to bottom, no extra spacer lines */}
+              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-[-12px] mt-2">
                 <div className="flex justify-between items-center">
                   <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
                   <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
