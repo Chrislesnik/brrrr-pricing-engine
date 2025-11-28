@@ -937,8 +937,12 @@ export default function PricingEnginePage() {
           // leave placeholder as-is for failed requests
         }
       })
-      await Promise.allSettled(requests)
-      toast({ title: "Sent", description: `Requests dispatched: ${list.length}` })
+      // Let cards update as each request resolves; don't block UI with a global loader
+      Promise.allSettled(requests).then(() => {
+        toast({ title: "Finished", description: `Requests dispatched: ${list.length}` })
+      })
+      // Remove global loading overlay so ready programs render immediately
+      setIsDispatching(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Failed to send", description: message, variant: "destructive" })
