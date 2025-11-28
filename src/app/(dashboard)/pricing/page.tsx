@@ -4264,11 +4264,13 @@ function LoaderStyles() {
         --warm-red: #ff3b30;
         --warm-orange: #ff6a00;
         --warm-yellow: #ffd60a;
+        --wave-rgb: 255, 138, 76; /* base orange for stripes */
       }
       .dark {
         --warm-red: #ff453a;
         --warm-orange: #ff7a1a;
         --warm-yellow: #ffd60a;
+        --wave-rgb: 255, 179, 64;
       }
       .loader-wrapper {
         position: relative;
@@ -4290,43 +4292,22 @@ function LoaderStyles() {
           color: #111;
         }
       }
+      /* Simpler, robust moving stripe "wave" */
       .loader {
         position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        width: 100%;
+        inset: 0;
         z-index: 1;
-        background-color: transparent;
-        -webkit-mask: repeating-linear-gradient(90deg, transparent 0, transparent 6px, black 7px, black 8px);
-        mask: repeating-linear-gradient(90deg, transparent 0, transparent 6px, black 7px, black 8px);
+        background-image: repeating-linear-gradient(
+          90deg,
+          rgba(var(--wave-rgb), 0.18) 0 8px,
+          transparent 8px 22px
+        );
+        animation: warm-wave 1.2s linear infinite;
+        border-radius: 6px;
       }
-      .loader::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image:
-          radial-gradient(circle at 50% 50%, var(--warm-yellow) 0%, transparent 50%),
-          radial-gradient(circle at 45% 45%, var(--warm-red) 0%, transparent 45%),
-          radial-gradient(circle at 55% 55%, var(--warm-orange) 0%, transparent 45%),
-          radial-gradient(circle at 45% 55%, var(--warm-orange) 0%, transparent 45%),
-          radial-gradient(circle at 55% 45%, var(--warm-yellow) 0%, transparent 45%);
-        -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
-        mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
-        animation: transform-animation 2s infinite alternate, opacity-animation 4s infinite;
-        animation-timing-function: cubic-bezier(0.6, 0.8, 0.5, 1);
-      }
-      @keyframes transform-animation {
-        0% { transform: translate(-55%); }
-        100% { transform: translate(55%); }
-      }
-      @keyframes opacity-animation {
-        0%, 100% { opacity: 0; }
-        15% { opacity: 1; }
-        65% { opacity: 0; }
+      @keyframes warm-wave {
+        from { background-position-x: -44px; }
+        to   { background-position-x: 44px; }
       }
       .loader-letter {
         display: inline-block;
