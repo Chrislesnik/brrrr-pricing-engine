@@ -881,6 +881,7 @@ export default function PricingEnginePage() {
       setProgramPlaceholders([])
       setIsDispatching(true)
       // Prefetch programs to render per-program loaders
+      let placeholdersLocal: Array<{ internal_name?: string; external_name?: string }> = []
       try {
         const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
         const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
@@ -891,6 +892,7 @@ export default function PricingEnginePage() {
         if (pre.ok) {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ internal_name?: string; external_name?: string }> }
           const ph = Array.isArray(pj?.programs) ? pj.programs : []
+          placeholdersLocal = ph
           setProgramPlaceholders(ph)
           // initialize result slots in same order so containers render in place
           setProgramResults(ph.map((p) => ({ internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
@@ -926,7 +928,7 @@ export default function PricingEnginePage() {
         // do not block calculation if webhook serialization fails
       }
       // Kick off per-program dispatch requests so each card fills as soon as it's ready
-      const currentPlaceholders = (programPlaceholders ?? []).slice()
+      const currentPlaceholders = placeholdersLocal.slice()
       await Promise.all(
         currentPlaceholders.map(async (p, idx) => {
           try {
