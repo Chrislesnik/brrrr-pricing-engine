@@ -3811,6 +3811,8 @@ function ResultCardLoader({ meta }: { meta?: { internal_name?: string; external_
           <span className="loader" />
         </div>
       </div>
+      {/* Ensure global loader styles are present even during per-card loading */}
+      <LoaderStyles />
     </div>
   )
 }
