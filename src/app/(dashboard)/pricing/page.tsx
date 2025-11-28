@@ -4174,6 +4174,40 @@ function ResultsPanel({
       <div className="text-sm text-muted-foreground">Results will appear here after you calculate.</div>
     )
   }
+  // Compute ordered list: PASS first, then highest loan amount, then lowest rate.
+  const orderedResults = React.useMemo(() => {
+    const parseNum = (v: unknown): number => {
+      const n = Number(String(v ?? "").toString().replace(/[^0-9.-]/g, ""))
+      return Number.isFinite(n) ? n : NaN
+    }
+    const pickLoanAndRate = (r: ProgramResult): { loan: number; rate: number } => {
+      const d = (r?.data ?? {}) as ProgramResponseData
+      const hi = Number(d?.highlight_display ?? 0)
+      const isBridgeResp =
+        Array.isArray(d?.total_loan_amount) ||
+        Array.isArray(d?.initial_loan_amount) ||
+        Array.isArray(d?.funded_pitia)
+      const loan = isBridgeResp
+        ? parseNum(pick<string | number>(d?.total_loan_amount as (string | number)[] | undefined, hi))
+        : parseNum(d?.loan_amount)
+      const rate = parseNum(pick<string | number>(d?.interest_rate as (string | number)[] | undefined, hi))
+      return { loan, rate }
+    }
+    const arr = (results ?? []).slice()
+    arr.sort((a, b) => {
+      const scoreA = a?.data ? (a.data?.pass ? 2 : 1) : 0
+      const scoreB = b?.data ? (b.data?.pass ? 2 : 1) : 0
+      if (scoreA !== scoreB) return scoreB - scoreA
+      if (scoreA === 0 && scoreB === 0) return 0
+      const { loan: loanA, rate: rateA } = pickLoanAndRate(a)
+      const { loan: loanB, rate: rateB } = pickLoanAndRate(b)
+      if (!Number.isNaN(loanA) && !Number.isNaN(loanB) && loanA !== loanB) return loanB - loanA
+      if (!Number.isNaN(rateA) && !Number.isNaN(rateB) && rateA !== rateB) return rateA - rateB
+      return 0
+    })
+    return arr
+  }, [results])
+
   return (
     <div>
       {selected ? (
@@ -4226,7 +4260,7 @@ function ResultsPanel({
           )}
         </div>
       ) : null}
-      {results.map((r, idx) => (
+      {orderedResults.map((r, idx) => (
         <ResultCard
           key={idx}
           r={r}
