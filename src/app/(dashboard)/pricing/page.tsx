@@ -3383,6 +3383,10 @@ function ResultCard({
   onSelect: (sel: SelectedRow) => void
   getInputs?: () => Record<string, unknown>
 }) {
+  // If this program hasn't returned yet, keep showing the generating loader inside the same container.
+  if (!r?.data) {
+    return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} />
+  }
   const d = (r?.data ?? {}) as ProgramResponseData
   const pass = d?.pass === true
   const hi = Number(d?.highlight_display ?? 0)
