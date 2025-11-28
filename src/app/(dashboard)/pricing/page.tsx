@@ -4028,7 +4028,8 @@ function ResultsPanel({
     }
   }
 
-  if (loading && Array.isArray(placeholders) && placeholders.length > 0) {
+  // While loading, show placeholder-only list ONLY when we don't yet have any result slots.
+  if (loading && (!results || results.length === 0) && Array.isArray(placeholders) && placeholders.length > 0) {
     const selectedKey = selected?.programId ?? selected?.programName ?? null
     const filtered = selectedKey
       ? placeholders.filter(
