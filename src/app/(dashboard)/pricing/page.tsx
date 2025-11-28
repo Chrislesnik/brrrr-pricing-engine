@@ -4299,15 +4299,18 @@ function LoaderStyles() {
         z-index: 1;
         background-image: repeating-linear-gradient(
           90deg,
-          rgba(var(--wave-rgb), 0.18) 0 8px,
-          transparent 8px 22px
+          rgba(var(--wave-rgb), 0.38) 0 10px,
+          transparent 10px 30px
         );
+        background-size: 40px 100%;
+        background-position: 0 0;
         animation: warm-wave 1.2s linear infinite;
         border-radius: 6px;
+        mix-blend-mode: screen;
       }
       @keyframes warm-wave {
-        from { background-position-x: -44px; }
-        to   { background-position-x: 44px; }
+        from { background-position-x: -60px; }
+        to   { background-position-x: 60px; }
       }
       .loader-letter {
         display: inline-block;
