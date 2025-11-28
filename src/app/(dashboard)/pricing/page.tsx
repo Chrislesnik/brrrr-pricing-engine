@@ -904,71 +904,41 @@ export default function PricingEnginePage() {
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // Also POST all inputs (including defaults/placeholders) to the external webhook
-      // This call is non-blocking and won't affect the main dispatch flow.
-      try {
-        const webhookBody = JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>)
-        void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
-          method: "POST",
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "X-Client-Request-Id": nonce,
-          },
-          body: webhookBody,
-        }).catch(() => {})
-      } catch {
-        // do not block calculation if webhook serialization fails
-      }
-      const res = await fetch(`/api/pricing/dispatch?_=${encodeURIComponent(nonce)}`, {
-        method: "POST",
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          "Pragma": "no-cache",
-          "X-Client-Request-Id": nonce,
-        },
-        body: JSON.stringify({
-          loanType,
-          data: payload,
-        }),
-      })
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "")
-        throw new Error(txt || `Dispatch failed (${res.status})`)
-      }
-      const result = await res.json().catch(() => ({}))
-      // store results in state for display (sorted: PASS first, then by Loan Amount desc, then Interest Rate asc)
-      const sortedPrograms = (Array.isArray(result?.programs) ? result.programs : [])
-        .slice()
-        .sort((a: ProgramResult, b: ProgramResult) => {
-        const da = (a?.data ?? null) as ProgramResponseData | null
-        const db = (b?.data ?? null) as ProgramResponseData | null
-        const passA = da?.pass === true ? 1 : 0
-        const passB = db?.pass === true ? 1 : 0
-        if (passA !== passB) return passB - passA
-        // Only further sort among PASS programs; otherwise preserve original order
-        if (passA === 1 && passB === 1) {
-          const hiA = Number(da?.highlight_display ?? 0)
-          const hiB = Number(db?.highlight_display ?? 0)
-          const isBridgeA = Array.isArray(da?.total_loan_amount) || Array.isArray(da?.initial_loan_amount) || Array.isArray(da?.funded_pitia)
-          const isBridgeB = Array.isArray(db?.total_loan_amount) || Array.isArray(db?.initial_loan_amount) || Array.isArray(db?.funded_pitia)
-          const loanAmtA = isBridgeA ? pick<string | number>(da?.total_loan_amount as (string|number)[] | undefined, hiA) : da?.loan_amount
-          const loanAmtB = isBridgeB ? pick<string | number>(db?.total_loan_amount as (string|number)[] | undefined, hiB) : db?.loan_amount
-          const loanA = Number(String(loanAmtA ?? "").toString().replace(/[^0-9.-]/g, ""))
-          const loanB = Number(String(loanAmtB ?? "").toString().replace(/[^0-9.-]/g, ""))
-          if (Number.isFinite(loanA) && Number.isFinite(loanB) && loanA !== loanB) return loanB - loanA
-          const rateA = Number(String(pick<string | number>(da?.interest_rate as (string|number)[] | undefined, hiA) ?? "").toString().replace(/[^0-9.-]/g, ""))
-          const rateB = Number(String(pick<string | number>(db?.interest_rate as (string|number)[] | undefined, hiB) ?? "").toString().replace(/[^0-9.-]/g, ""))
-          if (Number.isFinite(rateA) && Number.isFinite(rateB) && rateA !== rateB) return rateA - rateB
+      // Fire off one request per program so results render as they arrive
+      const list = programPlaceholders
+      setProgramResults(list.map((p) => ({ internal_name: p.internal_name, external_name: p.external_name, data: null })))
+      const requests = list.map(async (p, idx) => {
+        try {
+          const resp = await fetch(`/api/pricing/dispatch/program?_=${encodeURIComponent(nonce)}-${idx}`, {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache",
+              "Pragma": "no-cache",
+              "X-Client-Request-Id": `${nonce}-${idx}`,
+            },
+            body: JSON.stringify({ loanType, data: payload, program: p }),
+          })
+          const j = (await resp.json().catch(() => ({}))) as ProgramResult
+          setProgramResults((prev) => {
+            const next = prev.slice()
+            next[idx] = {
+              internal_name: j.internal_name ?? p.internal_name,
+              external_name: j.external_name ?? p.external_name,
+              webhook_url: j.webhook_url,
+              status: j.status,
+              ok: j.ok,
+              data: (j.data as ProgramResponseData) ?? null,
+            }
+            return next
+          })
+        } catch {
+          // leave placeholder as-is for failed requests
         }
-        return 0
       })
-      setProgramResults(sortedPrograms)
-      toast({ title: "Sent", description: `Webhook deliveries: ${result?.delivered ?? 0}` })
+      await Promise.allSettled(requests)
+      toast({ title: "Sent", description: `Requests dispatched: ${list.length}` })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Failed to send", description: message, variant: "destructive" })
