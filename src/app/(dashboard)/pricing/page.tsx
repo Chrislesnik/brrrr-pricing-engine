@@ -3383,6 +3383,10 @@ function ResultCard({
   onSelect: (sel: SelectedRow) => void
   getInputs?: () => Record<string, unknown>
 }) {
+  // Hooks must be called unconditionally at the top of the component.
+  const [mcpOpen, setMcpOpen] = useState<boolean>(false)
+  const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
+  const previewRef = useRef<HTMLDivElement | null>(null)
   // If this program hasn't returned yet, keep showing the generating loader inside the same container.
   if (!r?.data) {
     return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} />
@@ -3405,10 +3409,7 @@ function ResultCard({
   const dscr = isBridgeResp ? undefined : pick<string | number>(d?.dscr, hi)
   const loanAmount = isBridgeResp ? pick<string | number>(d?.total_loan_amount, hi) : d?.loan_amount
   const ltv = d?.ltv
-  const [mcpOpen, setMcpOpen] = useState<boolean>(false)
-  const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
   const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
-  const previewRef = useRef<HTMLDivElement | null>(null)
   const validationList: string[] = Array.isArray(d.validations)
     ? (d.validations as (string | null | undefined)[])
         .filter((v) => typeof v === "string" && String(v).trim().length > 0)
