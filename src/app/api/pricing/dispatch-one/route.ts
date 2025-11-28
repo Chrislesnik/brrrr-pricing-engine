@@ -23,40 +23,43 @@ export async function POST(req: NextRequest) {
     if (!userId) return new NextResponse("Unauthorized", { status: 401 })
     if (!orgId) return new NextResponse("No active organization", { status: 400 })
 
-    const body = (await req.json().catch(() => null)) as
-      | {
-          loanType?: string
-          data?: Record<string, unknown>
-          program?: { internal_name?: string; external_name?: string }
-        }
-      | null
-
-    if (!body || !body.loanType || !body.data || !body.program) {
+    const json = (await req.json().catch(() => null)) as {
+      loanType?: string
+      programId?: string
+      data?: Record<string, unknown>
+    } | null
+    if (!json?.loanType || !json?.programId || !json?.data) {
       return new NextResponse("Missing payload", { status: 400 })
     }
-    const loanType = String(body.loanType).toLowerCase()
-    const programName = body.program.internal_name || body.program.external_name || ""
-    if (!programName) return new NextResponse("Missing program name", { status: 400 })
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return new NextResponse("Organization not found", { status: 400 })
 
-    // Look up webhook for this program
-    const { data: programRow, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("programs")
       .select("internal_name,external_name,webhook_url")
       .eq("organization_id", orgUuid)
-      .eq("loan_type", loanType)
-      .or(`internal_name.eq.${programName},external_name.eq.${programName}`)
-      .limit(1)
-      .maybeSingle()
-
+      .eq("loan_type", String(json.loanType).toLowerCase())
+      .eq("status", "active")
     if (error) return new NextResponse(error.message, { status: 500 })
-    const url = String(programRow?.webhook_url || "").trim()
-    if (!url) return new NextResponse("Program webhook not configured", { status: 400 })
 
-    const normalized = booleanToYesNoDeep(body.data) as Record<string, unknown>
-    const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    const match = (data ?? []).find(
+      (p) =>
+        p.internal_name === json.programId ||
+        p.external_name === json.programId
+    )
+    if (!match || !String(match.webhook_url || "").trim()) {
+      return NextResponse.json({
+        internal_name: match?.internal_name,
+        external_name: match?.external_name,
+        ok: false,
+        status: 0,
+        data: null,
+      })
+    }
+
+    const url = String(match.webhook_url).trim()
+    const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
     const res = await fetch(url, {
       method: "POST",
       cache: "no-store",
@@ -64,26 +67,22 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
-        "X-Request-Id": requestId,
       },
-      body: JSON.stringify(normalized),
+      body: JSON.stringify(normalizedData),
     })
-
-    let data: Record<string, unknown> | null = null
+    let body: Record<string, unknown> | null = null
     try {
       const parsed = await res.json()
-      if (parsed && typeof parsed === "object") data = parsed as Record<string, unknown>
+      if (parsed && typeof parsed === "object") body = parsed as Record<string, unknown>
     } catch {
-      data = null
+      body = null
     }
-
     return NextResponse.json({
-      ok: res.ok,
+      internal_name: match.internal_name,
+      external_name: match.external_name,
       status: res.status,
-      webhook_url: url,
-      internal_name: programRow?.internal_name,
-      external_name: programRow?.external_name,
-      data,
+      ok: res.ok,
+      data: body,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"

@@ -890,7 +890,10 @@ export default function PricingEnginePage() {
         })
         if (pre.ok) {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ internal_name?: string; external_name?: string }> }
-          setProgramPlaceholders(Array.isArray(pj?.programs) ? pj.programs : [])
+          const ph = Array.isArray(pj?.programs) ? pj.programs : []
+          setProgramPlaceholders(ph)
+          // initialize result slots in same order so containers render in place
+          setProgramResults(ph.map((p) => ({ internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
         }
       } catch {
         // ignore prefetch errors; we'll still show a generic loader
@@ -904,44 +907,53 @@ export default function PricingEnginePage() {
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // Fire off one request per program so results render as they arrive
-      const list = programPlaceholders
-      setProgramResults(list.map((p) => ({ internal_name: p.internal_name, external_name: p.external_name, data: null })))
-      const requests = list.map(async (p, idx) => {
-        try {
-          const resp = await fetch(`/api/pricing/dispatch/program?_=${encodeURIComponent(nonce)}-${idx}`, {
-            method: "POST",
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "no-cache",
-              "Pragma": "no-cache",
-              "X-Client-Request-Id": `${nonce}-${idx}`,
-            },
-            body: JSON.stringify({ loanType, data: payload, program: p }),
-          })
-          const j = (await resp.json().catch(() => ({}))) as ProgramResult
-          setProgramResults((prev) => {
-            const next = prev.slice()
-            next[idx] = {
-              internal_name: j.internal_name ?? p.internal_name,
-              external_name: j.external_name ?? p.external_name,
-              webhook_url: j.webhook_url,
-              status: j.status,
-              ok: j.ok,
-              data: (j.data as ProgramResponseData) ?? null,
-            }
-            return next
-          })
-        } catch {
-          // leave placeholder as-is for failed requests
-        }
-      })
-      // Keep generating animation for cards that are still pending; finalize when all return
-      Promise.allSettled(requests).then(() => {
-        setIsDispatching(false)
-        toast({ title: "Finished", description: `Requests dispatched: ${list.length}` })
-      })
+      // Also POST all inputs (including defaults/placeholders) to the external webhook
+      // This call is non-blocking and won't affect the main dispatch flow.
+      try {
+        const webhookBody = JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>)
+        void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
+          method: "POST",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "X-Client-Request-Id": nonce,
+          },
+          body: webhookBody,
+        }).catch(() => {})
+      } catch {
+        // do not block calculation if webhook serialization fails
+      }
+      // Kick off per-program dispatch requests so each card fills as soon as it's ready
+      const currentPlaceholders = (programPlaceholders ?? []).slice()
+      await Promise.all(
+        currentPlaceholders.map(async (p, idx) => {
+          try {
+            const res = await fetch(`/api/pricing/dispatch-one?_=${encodeURIComponent(nonce)}-${idx}`, {
+              method: "POST",
+              cache: "no-store",
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+                "X-Client-Request-Id": `${nonce}-${idx}`,
+              },
+              body: JSON.stringify({ loanType, programId: p.internal_name ?? p.external_name, data: payload }),
+            })
+            const single = (await res.json().catch(() => ({}))) as ProgramResult
+            // place result in its slot (do not reorder to preserve container positions)
+            setProgramResults((prev) => {
+              const next = prev.slice()
+              next[idx] = { ...next[idx], ...single }
+              return next
+            })
+          } catch {
+            // leave the loader if a single program fails; others will still resolve
+          }
+        })
+      )
+      toast({ title: "Sent", description: "Webhooks dispatched" })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Failed to send", description: message, variant: "destructive" })
