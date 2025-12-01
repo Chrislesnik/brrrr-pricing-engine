@@ -41,6 +41,7 @@ import { DateInput } from "@/components/date-input"
 import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
@@ -3330,6 +3331,9 @@ type ProgramResponseData = {
   pitia?: (number | string)[]
   dscr?: (number | string)[]
   validations?: (string | null | undefined)[]
+  // Optional warnings from webhook response
+  warning?: (string | null | undefined)[]
+  warnings?: (string | null | undefined)[]
   // Bridge payload variants
   initial_loan_amount?: (string | number)[]
   rehab_holdback?: (string | number)[]
@@ -3415,6 +3419,14 @@ function ResultCard({
         .filter((v) => typeof v === "string" && String(v).trim().length > 0)
         .map((v) => String(v))
     : []
+  const rawWarn = Array.isArray(d.warning)
+    ? d.warning
+    : Array.isArray((d as Record<string, unknown>)?.warnings as unknown[])
+    ? ((d as Record<string, unknown>).warnings as (string | null | undefined)[])
+    : []
+  const warningList: string[] = rawWarn
+    .filter((v) => typeof v === "string" && String(v).trim().length > 0)
+    .map((v) => String(v))
 
   const toYesNoDeep = (value: unknown): unknown => {
     if (typeof value === "boolean") return value ? "yes" : "no"
@@ -3508,6 +3520,39 @@ function ResultCard({
           <Button size="icon" variant="ghost" aria-label="Download">
             <IconDownload className="h-4 w-4" />
           </Button>
+          {warningList.length > 0 ? (
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="inline-flex cursor-pointer items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900 dark:text-amber-100"
+                        aria-label="Warnings"
+                        title="View warnings"
+                      >
+                        WARNING
+                      </div>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="max-w-xs p-2">
+                    <ul className="list-disc pl-5 text-xs">
+                      {warningList.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+                <TooltipContent>
+                  <ul className="list-disc pl-5 text-xs">
+                    {warningList.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
           <div
           className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
             pass
