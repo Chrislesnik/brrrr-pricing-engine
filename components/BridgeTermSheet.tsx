@@ -83,6 +83,23 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
   const debitsBeforeSpacer = debitsData.slice(0, debitsData.length - 3)
   const debitsAfterSpacer = debitsData.slice(debitsData.length - 3)
 
+  // Render a block of empty rows to visually pad the table while preserving alignment
+  function EmptyRows({ count, prefix }: { count: number; prefix: string }) {
+    return (
+      <>
+        {Array.from({ length: count }).map((_, idx) => (
+          <div
+            key={`${prefix}-${idx}`}
+            className="flex justify-between text-[11px] font-medium leading-[18px]"
+          >
+            <span>&nbsp;</span>
+            <span className="text-right">&nbsp;</span>
+          </div>
+        ))}
+      </>
+    )
+  }
+
   return (
     <div className="overflow-x-hidden w-full min-w-[816px] min-h-[1056px] flex bg-white text-black">
       {/* Reduce page padding to 'zoom out' slightly */}
@@ -205,9 +222,18 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     <span className="text-right">{item.value}</span>
                   </div>
                 ))}
-                  {/* Blank space so TOTAL USES aligns with left column bottom */}
-                  <div className="h-20" />
-                  {debitsAfterSpacer.map((item, index) => (
+                  {/* Add empty rows under HOI Premium - Balance Due for alignment */}
+                  <EmptyRows count={8} prefix="spacer-under-hoi" />
+                  {/* Show the first buyer credit row, then add more empty rows before the remaining rows */}
+                  {debitsAfterSpacer.length > 0 && (
+                    <div className="flex justify-between text-[11px] font-medium leading-[18px]">
+                      <span>{debitsAfterSpacer[0].label}</span>
+                      <span className="text-right">{debitsAfterSpacer[0].value}</span>
+                    </div>
+                  )}
+                  {/* Additional spacer rows between buyer credit (seller concession) and the remaining items */}
+                  <EmptyRows count={6} prefix="spacer-between-buyer-credit" />
+                  {debitsAfterSpacer.slice(1).map((item, index) => (
                     <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
                       <span>{item.label}</span>
                       <span className="text-right">{item.value}</span>
