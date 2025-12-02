@@ -3724,9 +3724,9 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-1 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-0.5 max-sm:pb-2">
-          <DialogHeader>
-            <DialogTitle>Term Sheet</DialogTitle>
+        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+          <DialogHeader className="mb-1">
+            <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
           <button
             type="button"
