@@ -66,6 +66,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             showName
             appearance={{
               elements: {
+                // Hide "Secured by Clerk" watermark/footer in the user menu (Pro plan allows this)
+                userButtonPopoverFooter: { display: "none" },
                 userButtonTrigger:
                   `w-full flex flex-row items-center justify-start gap-3 rounded-md px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
                    group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0

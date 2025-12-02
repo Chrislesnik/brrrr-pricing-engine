@@ -24,7 +24,21 @@ export function Providers({ children }: Props) {
   }, [])
 
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        // Global appearance overrides for Clerk components
+        elements: {
+          // Hide "Secured by Clerk" in UserButton popover (allowed on Pro plan)
+          userButtonPopoverFooter: {
+            display: "none",
+          },
+          // Hide component footers that can contain Clerk branding on auth pages
+          footer: {
+            display: "none",
+          },
+        },
+      }}
+    >
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
