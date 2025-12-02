@@ -216,7 +216,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     ))}
                   </div>
                   {/* TOTAL SOURCES height smaller */}
-                  <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-0">
+                  <div className="bg-[#808080] text-white py-1 px-4 mx-0 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black">
                     <div className="flex justify-between items-center">
                       <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
                       <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
