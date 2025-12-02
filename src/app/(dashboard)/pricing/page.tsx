@@ -796,7 +796,7 @@ export default function PricingEnginePage() {
       borrower_type: borrowerType ?? "",
       citizenship: citizenship ?? "",
       fico,
-      rural: rural ?? "",
+      rural: rural ?? DEFAULTS.rural,
       borrower_name: borrowerName,
       guarantors: (guarantorsStr || "")
         .split(",")
@@ -1368,6 +1368,7 @@ export default function PricingEnginePage() {
     if ("guarantors" in payload && Array.isArray(payload["guarantors"])) {
       setGuarantorsStr((payload["guarantors"] as string[]).join(", "))
     }
+    if ("rural" in payload) setRural((payload["rural"] as string) ?? undefined)
     if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
     if ("section8" in payload) setSection8((payload["section8"] as string) ?? undefined)
     if ("lender_orig_percent" in payload) setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
@@ -2356,7 +2357,7 @@ export default function PricingEnginePage() {
                             id="rural"
                             className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "border-2 border-amber-500/70" : ""}`}
                           >
-                              <SelectValue placeholder="Select..." />
+                              <SelectValue placeholder="No" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="yes">Yes</SelectItem>
