@@ -199,72 +199,78 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             <header className="bg-black text-white py-1 px-2">
               <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
-            <div className="px-3 pt-3 pb-0 flex flex-col">
-              <div className="flex-1">
-                {/* CREDITS header height smaller */}
-                <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                  <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
-              </div>
-                <div className="mb-3">
-                {creditsData.map((item, index) => (
-                  <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                    <span>{item.label}</span>
-                    <span className="text-right">{item.value}</span>
+            <div className="px-3 pt-3 pb-0 flex flex-col gap-3">
+              {/* Box 1: Credits + Total Sources */}
+              <div className="border-2 border-solid border-black">
+                <div className="p-2">
+                  {/* CREDITS header height smaller */}
+                  <div className="bg-black text-white py-1 px-4 mb-2 -mx-2">
+                    <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
                   </div>
-                ))}
-              </div>
-
-                {/* TOTAL SOURCES height smaller */}
-                <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
-                  <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
+                  <div className="mb-3">
+                    {creditsData.map((item, index) => (
+                      <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                        <span>{item.label}</span>
+                        <span className="text-right">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* TOTAL SOURCES height smaller */}
+                  <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 -mx-2">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
+                      <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-                {/* DEBITS header height smaller */}
-                <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                  <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
-              </div>
-                <div className="">
-                  {debitsBeforeSpacer.map((item, index) => (
-                  <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                    <span>{item.label}</span>
-                    <span className="text-right">{item.value}</span>
+              {/* Box 2: Debits + Total Uses */}
+              <div className="border-2 border-solid border-black">
+                <div className="p-2">
+                  {/* DEBITS header height smaller */}
+                  <div className="bg-black text-white py-1 px-4 mb-2 -mx-2">
+                    <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
                   </div>
-                ))}
-                  {/* Optional spacer rows under HOI Premium - Balance Due (none) */}
-                  <EmptyRows count={0} prefix="spacer-under-hoi" />
-                  {/* Extra rows injected above seller concession (if labels/values provided they will render; otherwise show placeholders) */}
-                  {extraRows.map((item, index) => (
-                    <div key={`extra-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                      <span>{item.label}</span>
-                      <span className="text-right">{item.value}</span>
+                  <div className="">
+                    {debitsBeforeSpacer.map((item, index) => (
+                      <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                        <span>{item.label}</span>
+                        <span className="text-right">{item.value}</span>
+                      </div>
+                    ))}
+                    {/* Optional spacer rows under HOI Premium - Balance Due (none) */}
+                    <EmptyRows count={0} prefix="spacer-under-hoi" />
+                    {/* Extra rows injected above seller concession */}
+                    {extraRows.map((item, index) => (
+                      <div key={`extra-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                        <span>{item.label}</span>
+                        <span className="text-right">{item.value}</span>
+                      </div>
+                    ))}
+                    {/* Show the first buyer credit row, then remaining */}
+                    {debitsAfterSpacer.length > 0 && (
+                      <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-2">
+                        <span>{debitsAfterSpacer[0].label}</span>
+                        <span className="text-right">{debitsAfterSpacer[0].value}</span>
+                      </div>
+                    )}
+                    {/* Additional spacer between rows (none) */}
+                    <EmptyRows count={0} prefix="spacer-between-buyer-credit" />
+                    {debitsAfterSpacer.slice(1).map((item, index) => (
+                      <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                        <span>{item.label}</span>
+                        <span className="text-right">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* TOTAL USES anchored to bottom of this inner box */}
+                  <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 -mx-2 mt-2">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
+                      <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
                     </div>
-                  ))}
-                  {/* Show the first buyer credit row, then add more empty rows before the remaining rows */}
-                  {debitsAfterSpacer.length > 0 && (
-                    <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-2">
-                      <span>{debitsAfterSpacer[0].label}</span>
-                      <span className="text-right">{debitsAfterSpacer[0].value}</span>
-                    </div>
-                  )}
-                  {/* Additional spacer between buyer credit (seller concession) and the remaining items (none) */}
-                  <EmptyRows count={0} prefix="spacer-between-buyer-credit" />
-                  {debitsAfterSpacer.slice(1).map((item, index) => (
-                    <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                      <span>{item.label}</span>
-                      <span className="text-right">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* TOTAL USES anchored to bottom, no extra spacer lines */}
-              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-[-12px] mt-0">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
-                  <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
+                  </div>
                 </div>
               </div>
             </div>
