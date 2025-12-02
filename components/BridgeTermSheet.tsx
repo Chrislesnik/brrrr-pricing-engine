@@ -130,7 +130,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             <header className="bg-black text-white py-1.5 px-2">
               <h2 className="text-[15px] font-bold text-center leading-tight">LOAN DETAILS</h2>
             </header>
-            <div className="p-2">
+            <div className="px-2 pt-2 pb-0">
               <h3 className="text-[13px] font-bold italic text-black mb-1">Subject Property</h3>
               <div className="mb-3">
                 {subjectPropertyData.map((item, index) => (
