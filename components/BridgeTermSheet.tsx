@@ -126,8 +126,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
         </div>
 
         {/* Dotted box with tighter padding */}
-        <Card className="border-2 border-dashed border-black mb-4">
-          <CardContent className="p-3">
+        <Card className="border-2 border-dashed border-black mb-4 bg-white dark:bg-white">
+          <CardContent className="p-3 bg-white dark:bg-white">
             <h1 className="text-center text-lg font-semibold text-black mb-1">PRELIMINARY TERM SHEET</h1>
             <p className="text-center text-[11px] font-medium text-black">
               Terms &amp; Conditions Displayed as of {asText(props, "date")} @ {asText(props, "time")}
