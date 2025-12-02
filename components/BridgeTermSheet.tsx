@@ -201,13 +201,13 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             </header>
             <div className="px-3 pt-3 pb-0 flex flex-col">
               {/* Box the Credits + Total Sources section together */}
-              <div className="border-2 border-solid border-black mb-2">
-                <div className="p-2">
+              <div className="border-2 border-solid border-black mb-2 mx-[-12px]">
+                <div className="p-0">
                   {/* CREDITS header height smaller */}
-                  <div className="bg-black text-white py-1 px-4 mb-2 -mx-2">
+                  <div className="bg-black text-white py-1 px-4 mb-1 mx-0">
                     <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
                   </div>
-                  <div className="mb-3">
+                  <div className="mb-0">
                     {creditsData.map((item, index) => (
                       <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
                         <span>{item.label}</span>
@@ -216,7 +216,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     ))}
                   </div>
                   {/* TOTAL SOURCES height smaller */}
-                  <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 -mx-2">
+                  <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-0">
                     <div className="flex justify-between items-center">
                       <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
                       <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
