@@ -36,6 +36,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             afterLeaveOrganizationUrl="/sign-in"
             appearance={{
               elements: {
+                // Hide branding footer in the org switcher popover
+                organizationSwitcherPopoverFooter: { display: "none" },
                 organizationSwitcherTrigger:
                   `w-full h-12 justify-start gap-3 rounded-md px-3 py-3 text-base hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
                    group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0

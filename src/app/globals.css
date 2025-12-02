@@ -190,3 +190,11 @@
     color: #fff !important;
   }
 }
+
+/* Clerk Pro — hide branding/watermark across all Clerk components */
+/* This targets the shared footer element used in popovers and modals */
+.cl-footer,
+.cl-organizationSwitcherPopoverFooter,
+.cl-userButtonPopoverFooter {
+  display: none !important;
+}

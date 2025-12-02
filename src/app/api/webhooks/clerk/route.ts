@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       type ClerkMembershipPayload = {
         id?: string
         user_id?: string
-        public_user_data?: { user_id?: string }
+        public_user_data?: { user_id?: string; first_name?: string | null; last_name?: string | null }
         organization_id?: string
         organization?: { id?: string }
         role?: string
@@ -81,6 +81,8 @@ export async function POST(req: NextRequest) {
       const userId = m.user_id ?? m.public_user_data?.user_id ?? ""
       const organizationId = m.organization_id ?? m.organization?.id ?? ""
       const role = m.role ?? "member"
+      const firstName = (m.public_user_data?.first_name ?? "") || null
+      const lastName = (m.public_user_data?.last_name ?? "") || null
       // Resolve Supabase org UUID by Clerk organization id
       const { data: orgRow, error: orgErr } = await supabaseAdmin
         .from("organizations")
@@ -98,9 +100,26 @@ export async function POST(req: NextRequest) {
           organization_id: orgUuid,
           user_id: userId,
           role,
+          first_name: firstName,
+          last_name: lastName,
         },
         { onConflict: "id" }
       )
+      if (error) return new Response(error.message, { status: 500 })
+      break
+    }
+    case "user.updated":
+    case "user.created": {
+      const u = (data ?? {}) as { id?: string; first_name?: string | null; last_name?: string | null }
+      const userId = u.id as string | undefined
+      if (!userId) break
+      const { error } = await supabaseAdmin
+        .from("organization_members")
+        .update({
+          first_name: (u.first_name ?? "") || null,
+          last_name: (u.last_name ?? "") || null,
+        })
+        .eq("user_id", userId)
       if (error) return new Response(error.message, { status: 500 })
       break
     }
