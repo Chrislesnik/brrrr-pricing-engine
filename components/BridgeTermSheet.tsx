@@ -253,7 +253,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
           </section>
         </div>
         {/* Disclaimer under left column only (outside left border) */}
-        <div className="mt-2 text-[6px] font-medium text-black leading-[8px]">
+        <div className="mt-2 w-1/2 text-left text-[6px] font-medium text-black leading-[8px]">
           <p>
             *Pricing of initial rate is indicative and subject to re-pricing at Lender&apos;s discretion based on factors
             that may include, but are not limited to, prevailing market conditions and underwriting/diligence review.
