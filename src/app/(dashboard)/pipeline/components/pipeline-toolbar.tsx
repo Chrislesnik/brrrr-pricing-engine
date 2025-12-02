@@ -18,18 +18,22 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
   // Build dynamic options for Assigned To from visible dataset
   const assignedOptions = (() => {
     const set = new Set<string>()
+    const counts = new Map<string, number>()
     const rows = table.getPreFilteredRowModel().flatRows
     for (const r of rows) {
       const v = (r.getValue("assignedTo") as string | null) || ""
       if (!v) continue
       for (const name of v.split(",")) {
         const n = name.trim()
-        if (n) set.add(n)
+        if (n) {
+          set.add(n)
+          counts.set(n, (counts.get(n) ?? 0) + 1)
+        }
       }
     }
     return Array.from(set)
       .sort((a, b) => a.localeCompare(b))
-      .map((n) => ({ label: n, value: n }))
+      .map((n) => ({ label: n, value: n, count: counts.get(n) ?? 0 }))
   })()
 
   return (
