@@ -200,24 +200,28 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
             <div className="px-3 pt-3 pb-0 flex flex-col">
-              {/* CREDITS header height smaller */}
-              <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
-              </div>
-              <div className="mb-3">
-                {creditsData.map((item, index) => (
-                  <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
-                    <span>{item.label}</span>
-                    <span className="text-right">{item.value}</span>
+              {/* Box the Credits + Total Sources section together */}
+              <div className="border-2 border-solid border-black mb-2">
+                <div className="p-2">
+                  {/* CREDITS header height smaller */}
+                  <div className="bg-black text-white py-1 px-4 mb-2 -mx-2">
+                    <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
                   </div>
-                ))}
-              </div>
-
-              {/* TOTAL SOURCES height smaller */}
-              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mb-2 mx-[-12px]">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
-                  <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
+                  <div className="mb-3">
+                    {creditsData.map((item, index) => (
+                      <div key={index} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                        <span>{item.label}</span>
+                        <span className="text-right">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* TOTAL SOURCES height smaller */}
+                  <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 -mx-2">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
+                      <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
