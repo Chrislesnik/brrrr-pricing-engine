@@ -188,7 +188,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             <header className="bg-black text-white py-1 px-2">
               <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
-            <div className="p-3 flex flex-col">
+            <div className="px-3 pt-3 pb-0 flex flex-col">
               <div className="flex-1">
                 {/* CREDITS header height smaller */}
                 <div className="bg-black text-white py-1 px-4 mb-2 mx-[-12px]">
@@ -222,17 +222,17 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     <span className="text-right">{item.value}</span>
                   </div>
                 ))}
-                  {/* Add a few empty rows under HOI Premium - Balance Due for alignment */}
-                  <EmptyRows count={3} prefix="spacer-under-hoi" />
+                  {/* Optional spacer rows under HOI Premium - Balance Due (none) */}
+                  <EmptyRows count={0} prefix="spacer-under-hoi" />
                   {/* Show the first buyer credit row, then add more empty rows before the remaining rows */}
                   {debitsAfterSpacer.length > 0 && (
-                    <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-48">
+                    <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-2">
                       <span>{debitsAfterSpacer[0].label}</span>
                       <span className="text-right">{debitsAfterSpacer[0].value}</span>
                     </div>
                   )}
-                  {/* Additional small spacer between buyer credit (seller concession) and the remaining items */}
-                  <EmptyRows count={2} prefix="spacer-between-buyer-credit" />
+                  {/* Additional spacer between buyer credit (seller concession) and the remaining items (none) */}
+                  <EmptyRows count={0} prefix="spacer-between-buyer-credit" />
                   {debitsAfterSpacer.slice(1).map((item, index) => (
                     <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
                       <span>{item.label}</span>
