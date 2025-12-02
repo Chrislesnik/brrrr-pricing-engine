@@ -183,7 +183,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               </div>
 
               <h3 className="text-[13px] font-bold italic text-black mb-1">Liquidity Requirement</h3>
-              <div>
+              <div className="pb-1">
                 {liquidityRequirementData.map((item, index) => (
                   <div key={index} className="flex justify-between text-[11px] font-medium leading-[16px]">
                     <span>{item.label}</span>
