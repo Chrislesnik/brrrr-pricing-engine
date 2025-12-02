@@ -226,7 +226,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                   <EmptyRows count={3} prefix="spacer-under-hoi" />
                   {/* Show the first buyer credit row, then add more empty rows before the remaining rows */}
                   {debitsAfterSpacer.length > 0 && (
-                    <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-32">
+                    <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-48">
                       <span>{debitsAfterSpacer[0].label}</span>
                       <span className="text-right">{debitsAfterSpacer[0].value}</span>
                     </div>
