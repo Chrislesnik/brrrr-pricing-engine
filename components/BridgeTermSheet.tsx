@@ -83,6 +83,15 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
   const debitsBeforeSpacer = debitsData.slice(0, debitsData.length - 3)
   const debitsAfterSpacer = debitsData.slice(debitsData.length - 3)
 
+  // Optional extra rows to display above the seller concession row
+  const extraRows = [
+    { label: asText(props, "extra_row_1_label"), value: asText(props, "extra_row_1") },
+    { label: asText(props, "extra_row_2_label"), value: asText(props, "extra_row_2") },
+    { label: asText(props, "extra_row_3_label"), value: asText(props, "extra_row_3") },
+    { label: asText(props, "extra_row_4_label"), value: asText(props, "extra_row_4") },
+    { label: asText(props, "extra_row_5_label"), value: asText(props, "extra_row_5") },
+  ]
+
   // Render a block of empty rows to visually pad the table while preserving alignment
   function EmptyRows({ count, prefix }: { count: number; prefix: string }) {
     return (
@@ -224,6 +233,13 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 ))}
                   {/* Optional spacer rows under HOI Premium - Balance Due (none) */}
                   <EmptyRows count={0} prefix="spacer-under-hoi" />
+                  {/* Extra rows injected above seller concession (if labels/values provided they will render; otherwise show placeholders) */}
+                  {extraRows.map((item, index) => (
+                    <div key={`extra-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
+                      <span>{item.label}</span>
+                      <span className="text-right">{item.value}</span>
+                    </div>
+                  ))}
                   {/* Show the first buyer credit row, then add more empty rows before the remaining rows */}
                   {debitsAfterSpacer.length > 0 && (
                     <div className="flex justify-between text-[11px] font-medium leading-[18px] pt-2">
