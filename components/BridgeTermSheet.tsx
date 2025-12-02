@@ -222,8 +222,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     <span className="text-right">{item.value}</span>
                   </div>
                 ))}
-                  {/* Add empty rows under HOI Premium - Balance Due for alignment */}
-                  <EmptyRows count={8} prefix="spacer-under-hoi" />
+                  {/* Add a few empty rows under HOI Premium - Balance Due for alignment */}
+                  <EmptyRows count={3} prefix="spacer-under-hoi" />
                   {/* Show the first buyer credit row, then add more empty rows before the remaining rows */}
                   {debitsAfterSpacer.length > 0 && (
                     <div className="flex justify-between text-[11px] font-medium leading-[18px]">
@@ -231,8 +231,8 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                       <span className="text-right">{debitsAfterSpacer[0].value}</span>
                     </div>
                   )}
-                  {/* Additional spacer rows between buyer credit (seller concession) and the remaining items */}
-                  <EmptyRows count={6} prefix="spacer-between-buyer-credit" />
+                  {/* Additional small spacer between buyer credit (seller concession) and the remaining items */}
+                  <EmptyRows count={2} prefix="spacer-between-buyer-credit" />
                   {debitsAfterSpacer.slice(1).map((item, index) => (
                     <div key={`tail-${index}`} className="flex justify-between text-[11px] font-medium leading-[18px]">
                       <span>{item.label}</span>
@@ -243,7 +243,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               </div>
 
               {/* TOTAL USES anchored to bottom, no extra spacer lines */}
-              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-[-12px] mt-2">
+              <div className="bg-[#808080] border-2 border-solid border-black text-white py-1 px-4 mx-[-12px] mt-0">
                 <div className="flex justify-between items-center">
                   <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
                   <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
