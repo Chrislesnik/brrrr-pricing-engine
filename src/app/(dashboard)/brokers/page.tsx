@@ -1,5 +1,5 @@
 import ContentSection from "@/app/(dashboard)/settings/components/content-section"
-import { Button } from "@/components/ui/button"
+import { DefaultBrokerSettingsDialog } from "./components/default-broker-settings-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export default function BrokersPage() {
@@ -13,9 +13,7 @@ export default function BrokersPage() {
     >
       <div className="flex w-full flex-col gap-4">
         <div className="flex w-full justify-end">
-          <Button variant="default" size="sm" type="button">
-            Default Broker Settings
-          </Button>
+          <DefaultBrokerSettingsDialog />
         </div>
 
         <Table>
