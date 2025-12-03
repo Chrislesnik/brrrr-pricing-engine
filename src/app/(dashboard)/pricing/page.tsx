@@ -3413,11 +3413,16 @@ function ResultCard({
     // PDF-only style overrides
     const style = document.createElement("style")
     style.textContent = `
-      /* Hide edit highlight boxes and borders in PDF */
-      .ts-edit { background: transparent !important; border-color: transparent !important; outline: none !important; }
-      .ts-edit * { background: transparent !important; }
-      /* Vertically center any content that was inside highlighted boxes */
-      .ts-edit, .ts-edit span { display: inline-flex !important; align-items: center !important; }
+      /* Hide on-screen orange edit boxes in PDF, keep only text */
+      .ts-edit {
+        background: transparent !important;
+        border-color: transparent !important;
+        outline: none !important;
+        padding: 0 !important;               /* remove extra vertical padding */
+        display: inline-block !important;     /* avoid flex baseline shifts */
+        line-height: inherit !important;      /* keep text centered within the line box */
+        vertical-align: middle !important;    /* align text to the middle of the line */
+      }
       /* Tighten general spacing a bit for PDF render */
       .mb-3 { margin-bottom: 0.35rem !important; }
       /* Keep headers closer to their sections */
@@ -4062,9 +4067,15 @@ function ResultsPanel({
     // PDF-only style overrides
     const style = document.createElement("style")
     style.textContent = `
-      .ts-edit { background: transparent !important; border-color: transparent !important; outline: none !important; }
-      .ts-edit * { background: transparent !important; }
-      .ts-edit, .ts-edit span { display: inline-flex !important; align-items: center !important; }
+      .ts-edit {
+        background: transparent !important;
+        border-color: transparent !important;
+        outline: none !important;
+        padding: 0 !important;
+        display: inline-block !important;
+        line-height: inherit !important;
+        vertical-align: middle !important;
+      }
       .mb-3 { margin-bottom: 0.35rem !important; }
       h3 + div { margin-top: 0.15rem !important; }
     `
