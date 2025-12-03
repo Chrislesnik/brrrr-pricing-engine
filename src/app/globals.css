@@ -191,6 +191,22 @@
   }
 }
 
+/* Clerk overlays/popovers - ensure they sit above app dialogs on mobile */
+.cl-modalBackdrop,
+.cl-modal,
+.cl-userButtonPopoverRoot,
+.cl-organizationSwitcherPopoverRoot,
+.cl-organizationSwitcherPopoverCard,
+.cl-userButtonPopoverCard {
+  z-index: 100000 !important;
+}
+/* Prevent clipping by parent overflow on small screens */
+.cl-userButtonPopoverRoot,
+.cl-organizationSwitcherPopoverRoot {
+  position: fixed !important;
+  inset: auto auto auto auto;
+}
+
 /* Clerk Pro — hide branding/watermark across all Clerk components */
 /* This targets the shared footer element used in popovers and modals */
 .cl-footer,
