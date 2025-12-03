@@ -141,21 +141,20 @@ function ProgramsList() {
   }
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_auto_auto] gap-2 rounded-md border bg-muted/30 p-2 text-xs font-semibold uppercase text-muted-foreground">
+      <div className="grid grid-cols-[1fr_160px_120px] gap-2 rounded-md border bg-muted/30 p-2 text-xs font-semibold uppercase text-muted-foreground">
         <div>Program</div>
-        <div>Loan Type</div>
-        <div>Visibility</div>
+        <div className="text-left">Loan Type</div>
+        <div className="text-center">Visibility</div>
       </div>
       <div className="space-y-1">
         {items.map((p) => (
-          <div key={p.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-md border p-2 text-sm">
+          <div key={p.id} className="grid grid-cols-[1fr_160px_120px] items-center gap-2 rounded-md border p-2 text-sm">
             <div className="min-w-0">
               <div className="truncate font-semibold">{p.internal_name}</div>
               <div className="truncate text-muted-foreground text-xs">{p.external_name}</div>
             </div>
-            <div className="uppercase text-xs md:text-sm">{p.loan_type}</div>
-            <div className="flex items-center gap-2 justify-end">
-              <span className="text-xs text-muted-foreground">Visibility</span>
+            <div className="uppercase text-xs md:text-sm text-left">{p.loan_type}</div>
+            <div className="flex items-center justify-center">
               <Switch
                 checked={!!visibilityMap[p.id]}
                 onCheckedChange={(v) => setVisibilityMap((m) => ({ ...m, [p.id]: v }))}
