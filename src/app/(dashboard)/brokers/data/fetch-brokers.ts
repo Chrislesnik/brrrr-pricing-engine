@@ -44,7 +44,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // 1) Brokers in this org where account_manager_ids contains this org member id
   let query = supabaseAdmin
     .from("brokers")
-    .select("id, organization_id, organization_member_id, account_manager_ids, joined_at")
+    .select("id, organization_id, organization_member_id, account_manager_ids, email, joined_at")
     .eq("organization_id", orgUuid)
   if (orgMemberId) {
     // Only brokers this member manages
@@ -126,7 +126,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       id: b.id as string,
       name: fullName,
       company: (owner?.company as string) ?? null,
-      email: (owner?.email as string) ?? null,
+      // Prefer direct broker row email if present, else fall back to owner member email
+      email: ((b as any).email as string | null) ?? ((owner?.email as string) ?? null),
       managers,
       permissions,
       status,
