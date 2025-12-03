@@ -3406,49 +3406,29 @@ function ResultCard({
     container.style.height = "1056px"
     container.style.overflow = "hidden"
     container.style.background = "#ffffff"
+    container.className = "pdf-sandbox"
     const clone = root.cloneNode(true) as HTMLElement
     clone.style.width = "816px"
     clone.style.height = "auto"
     container.appendChild(clone)
-    // PDF-only style overrides
+    // PDF-only style overrides for cleaner output
     const style = document.createElement("style")
     style.textContent = `
-      /* Normalize design tokens to hex/HSL values so html2canvas doesn't encounter oklch() */
-      :host, :root, .pdf-sandbox, .pdf-sandbox * {
-        --background: #ffffff;
-        --foreground: #000000;
-        --card: #ffffff;
-        --card-foreground: #000000;
-        --popover: #ffffff;
-        --popover-foreground: #000000;
-        --primary: #000000;
-        --primary-foreground: #ffffff;
-        --secondary: #f2f4f7;
-        --secondary-foreground: #111111;
-        --muted: #f2f4f7;
-        --muted-foreground: #6b7280;
-        --accent: #f2f4f7;
-        --accent-foreground: #111111;
-        --destructive: #ef4444;
-        --destructive-foreground: #ffffff;
-        --border: #e5e7eb;
-        --input: #e5e7eb;
-        --ring: #111111;
-      }
-      /* Hide on-screen orange edit boxes in PDF, keep only text */
-      .ts-edit {
+      /* Hide orange edit affordances; keep only text */
+      .pdf-sandbox .ts-edit {
         background: transparent !important;
         border-color: transparent !important;
         outline: none !important;
-        padding: 0 !important;               /* remove extra vertical padding */
-        display: inline-block !important;     /* avoid flex baseline shifts */
-        line-height: inherit !important;      /* keep text centered within the line box */
-        vertical-align: middle !important;    /* align text to the middle of the line */
+        padding: 0 !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+        line-height: inherit !important;
       }
-      /* Tighten general spacing a bit for PDF render */
-      .mb-3 { margin-bottom: 0.35rem !important; }
-      /* Keep headers closer to their sections */
-      h3 + div { margin-top: 0.15rem !important; }
+      /* Ensure row text is vertically centered */
+      .pdf-sandbox [data-termsheet-root] .flex.justify-between { align-items: center !important; }
+      /* Slightly tighten margins to reduce spacing between sections */
+      .pdf-sandbox [data-termsheet-root] .mb-3 { margin-bottom: 0.35rem !important; }
+      .pdf-sandbox [data-termsheet-root] h3 + div { margin-top: 0.15rem !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
@@ -4082,45 +4062,26 @@ function ResultsPanel({
     container.style.height = "1056px"
     container.style.overflow = "hidden"
     container.style.background = "#ffffff"
+    container.className = "pdf-sandbox"
     const clone = root.cloneNode(true) as HTMLElement
     clone.style.width = "816px"
     clone.style.height = "auto"
     container.appendChild(clone)
-    // PDF-only style overrides
+    // PDF-only style overrides for cleaner output
     const style = document.createElement("style")
     style.textContent = `
-      :host, :root, .pdf-sandbox, .pdf-sandbox * {
-        --background: #ffffff;
-        --foreground: #000000;
-        --card: #ffffff;
-        --card-foreground: #000000;
-        --popover: #ffffff;
-        --popover-foreground: #000000;
-        --primary: #000000;
-        --primary-foreground: #ffffff;
-        --secondary: #f2f4f7;
-        --secondary-foreground: #111111;
-        --muted: #f2f4f7;
-        --muted-foreground: #6b7280;
-        --accent: #f2f4f7;
-        --accent-foreground: #111111;
-        --destructive: #ef4444;
-        --destructive-foreground: #ffffff;
-        --border: #e5e7eb;
-        --input: #e5e7eb;
-        --ring: #111111;
-      }
-      .ts-edit {
+      .pdf-sandbox .ts-edit {
         background: transparent !important;
         border-color: transparent !important;
         outline: none !important;
         padding: 0 !important;
         display: inline-block !important;
-        line-height: inherit !important;
         vertical-align: middle !important;
+        line-height: inherit !important;
       }
-      .mb-3 { margin-bottom: 0.35rem !important; }
-      h3 + div { margin-top: 0.15rem !important; }
+      .pdf-sandbox [data-termsheet-root] .flex.justify-between { align-items: center !important; }
+      .pdf-sandbox [data-termsheet-root] .mb-3 { margin-bottom: 0.35rem !important; }
+      .pdf-sandbox [data-termsheet-root] h3 + div { margin-top: 0.15rem !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
