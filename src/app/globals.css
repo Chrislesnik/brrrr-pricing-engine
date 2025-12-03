@@ -207,6 +207,21 @@
   inset: auto auto auto auto;
 }
 
+/* Make sure taps go to Clerk popovers on mobile */
+.cl-userButtonPopoverCard,
+.cl-organizationSwitcherPopoverCard,
+.cl-userButtonPopoverCard *,
+.cl-organizationSwitcherPopoverCard * {
+  pointer-events: auto !important;
+}
+.cl-userButtonPopoverCard,
+.cl-organizationSwitcherPopoverCard {
+  position: fixed !important;
+  z-index: 2147483647 !important; /* max */
+  -webkit-transform: translateZ(0); /* create new compositing layer for iOS */
+  transform: translateZ(0);
+}
+
 /* Clerk Pro — hide branding/watermark across all Clerk components */
 /* This targets the shared footer element used in popovers and modals */
 .cl-footer,
