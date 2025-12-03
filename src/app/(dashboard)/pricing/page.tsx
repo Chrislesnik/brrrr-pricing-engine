@@ -3765,7 +3765,15 @@ function ResultCard({
       #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
       #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: 1056px !important; box-sizing: border-box !important; transform: ${transformRule}; transform-origin: center center; margin: 0 !important; }
+      #inner [data-termsheet-root] {
+        width: 816px !important;
+        height: 1056px !important;
+        box-sizing: border-box !important;
+        transform: ${transformRule};
+        transform-origin: center center;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
@@ -4039,7 +4047,15 @@ function ResultsPanel({
       #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
       #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: 1056px !important; box-sizing: border-box !important; transform: ${transformRule}; transform-origin: center center; margin: 0 !important; }
+      #inner [data-termsheet-root] {
+        width: 816px !important;
+        height: 1056px !important;
+        box-sizing: border-box !important;
+        transform: ${transformRule};
+        transform-origin: center center;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
       @page { size: 816px 1056px; margin: 0; }
