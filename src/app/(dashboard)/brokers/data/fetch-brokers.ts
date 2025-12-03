@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export type BrokerPermission = "default" | "custom"
 export type BrokerStatus = "active" | "inactive" | "pending"
@@ -14,7 +15,9 @@ export interface BrokerRow {
   joinedAt: string | null
 }
 
-export async function getBrokersForOrg(_orgId?: string): Promise<BrokerRow[]> {
+export async function getBrokersForOrg(orgId: string, userId?: string): Promise<BrokerRow[]> {
+  const orgUuid = await getOrgUuidFromClerkId(orgId)
+  if (!orgUuid) return []
 
   function logError(...args: unknown[]) {
     // eslint-disable-next-line no-console
@@ -22,10 +25,33 @@ export async function getBrokersForOrg(_orgId?: string): Promise<BrokerRow[]> {
   }
 
   // 1) Brokers in this org
-  const { data: brokers, error: brokersErr } = await supabaseAdmin
+  // resolve current user's organization_member_id (may be null if not yet created)
+  let currentOrgMemberId: string | null = null
+  if (userId) {
+    const { data: member, error: memErr } = await supabaseAdmin
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", orgUuid)
+      .eq("user_id", userId)
+      .maybeSingle()
+    if (memErr) {
+      logError("fetch member error:", memErr.message)
+    }
+    currentOrgMemberId = (member?.id as string) ?? null
+  }
+
+  let brokersQuery = supabaseAdmin
     .from("brokers")
     .select("id, organization_id, organization_member_id, account_manager_ids, joined_at")
+    .eq("organization_id", orgUuid)
     .order("created_at", { ascending: true })
+
+  // Only show brokers where this member is listed in account_manager_ids
+  if (currentOrgMemberId) {
+    brokersQuery = brokersQuery.contains("account_manager_ids", [currentOrgMemberId])
+  }
+
+  const { data: brokers, error: brokersErr } = await brokersQuery
 
   if (brokersErr) {
     logError("fetch brokers error:", brokersErr.message)

@@ -1,9 +1,12 @@
+import { auth } from "@clerk/nextjs/server"
 import ContentSection from "@/app/(dashboard)/settings/components/content-section"
 import { DefaultBrokerSettingsDialog } from "./components/default-broker-settings-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { getBrokersForOrg } from "./data/fetch-brokers"
 
-export default function BrokersPage() {
-  // UI only placeholder matching Programs layout
+export default async function BrokersPage() {
+  const { orgId, userId } = await auth()
+  const rows = orgId ? await getBrokersForOrg(orgId, userId ?? undefined) : []
   return (
     <ContentSection
       title="Brokers"
@@ -30,16 +33,32 @@ export default function BrokersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell colSpan={8} className="text-muted-foreground">
-                No brokers yet.
-              </TableCell>
-            </TableRow>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-muted-foreground">
+                  No brokers yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                  <TableCell>{r.name ?? ""}</TableCell>
+                  <TableCell>{r.company ?? ""}</TableCell>
+                  <TableCell>{r.email ?? ""}</TableCell>
+                  <TableCell>{r.managers ?? ""}</TableCell>
+                  <TableCell className="uppercase text-xs">{r.permissions}</TableCell>
+                  <TableCell className={r.status === "active" ? "text-green-600" : r.status === "inactive" ? "text-red-600" : "text-muted-foreground"}>
+                    {r.status}
+                  </TableCell>
+                  <TableCell>{r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : ""}</TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
     </ContentSection>
   )
 }
-
 
