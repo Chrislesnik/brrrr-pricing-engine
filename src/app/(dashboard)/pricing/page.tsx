@@ -3738,6 +3738,11 @@ function ResultCard({
                 if (!node) return
                 const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
                 const htmlInside = (root ?? node).outerHTML
+                const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
+                const isBridgeRoot = rootType.includes("bridge")
+                const pagePad = isBridgeRoot ? 8 : 0
+                const innerH = `calc(1056px - ${pagePad * 2}px)`
+                const transformRule = isBridgeRoot ? "scale(0.985)" : "none"
                 // Capture current styles (Tailwind + globals) so printed output matches on-screen
                 const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
                   .map((el) => (el as HTMLElement).outerHTML)
@@ -3758,10 +3763,10 @@ function ResultCard({
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       /* Render exactly one Letter page at 816x1056 and center it */
-      #page { width: 816px; height: 1056px; margin: 0 auto; padding: 8px 0; box-sizing: border-box; overflow: hidden; display: block; }
-      #page > .reset { width: 816px !important; height: calc(1056px - 16px) !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      #inner { width: 816px; height: calc(1056px - 16px); overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: scale(0.985); transform-origin: center center; }
+      #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
+      #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
+      #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: ${transformRule}; transform-origin: center center; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
@@ -4011,6 +4016,11 @@ function ResultsPanel({
             if (!node) return
             const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
             const htmlInside = (root ?? node).outerHTML
+            const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
+            const isBridgeRoot = rootType.includes("bridge")
+            const pagePad = isBridgeRoot ? 8 : 0
+            const innerH = `calc(1056px - ${pagePad * 2}px)`
+            const transformRule = isBridgeRoot ? "scale(0.985)" : "none"
             const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
               .map((el) => (el as HTMLElement).outerHTML)
               .join("\n")
@@ -4029,10 +4039,10 @@ function ResultsPanel({
     ${headStyles}
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
-      #page { width: 816px; height: 1056px; margin: 0 auto; padding: 8px 0; box-sizing: border-box; overflow: hidden; display: block; }
-      #page > .reset { width: 816px !important; height: calc(1056px - 16px) !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      #inner { width: 816px; height: calc(1056px - 16px); overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: scale(0.985); transform-origin: center center; }
+      #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
+      #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
+      #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: ${transformRule}; transform-origin: center center; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
       @page { size: 816px 1056px; margin: 0; }
