@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export function DefaultBrokerSettingsDialog() {
   const [open, setOpen] = useState(false)
@@ -140,31 +141,37 @@ function ProgramsList() {
     return <div className="text-sm text-muted-foreground">No active programs.</div>
   }
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_160px_120px] gap-2 rounded-md border bg-muted/30 p-2 text-xs font-semibold uppercase text-muted-foreground">
-        <div>Program</div>
-        <div className="text-left">Loan Type</div>
-        <div className="text-center">Visibility</div>
-      </div>
-      <div className="space-y-1">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[70%]">Program</TableHead>
+          <TableHead className="w-[20%] text-left">Loan Type</TableHead>
+          <TableHead className="w-[10%] text-center">Visibility</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {items.map((p) => (
-          <div key={p.id} className="grid grid-cols-[1fr_160px_120px] items-center gap-2 rounded-md border p-2 text-sm">
-            <div className="min-w-0">
-              <div className="truncate font-semibold">{p.internal_name}</div>
-              <div className="truncate text-muted-foreground text-xs">{p.external_name}</div>
-            </div>
-            <div className="uppercase text-xs md:text-sm text-left">{p.loan_type}</div>
-            <div className="flex items-center justify-center">
-              <Switch
-                checked={!!visibilityMap[p.id]}
-                onCheckedChange={(v) => setVisibilityMap((m) => ({ ...m, [p.id]: v }))}
-                aria-label={`Toggle visibility for ${p.internal_name}`}
-              />
-            </div>
-          </div>
+          <TableRow key={p.id}>
+            <TableCell>
+              <div className="min-w-0">
+                <div className="truncate font-semibold">{p.internal_name}</div>
+                <div className="truncate text-muted-foreground text-xs">{p.external_name}</div>
+              </div>
+            </TableCell>
+            <TableCell className="uppercase">{p.loan_type}</TableCell>
+            <TableCell>
+              <div className="flex justify-center">
+                <Switch
+                  checked={!!visibilityMap[p.id]}
+                  onCheckedChange={(v) => setVisibilityMap((m) => ({ ...m, [p.id]: v }))}
+                  aria-label={`Toggle visibility for ${p.internal_name}`}
+                />
+              </div>
+            </TableCell>
+          </TableRow>
         ))}
-      </div>
-    </div>
+      </TableBody>
+    </Table>
   )
 }
 
