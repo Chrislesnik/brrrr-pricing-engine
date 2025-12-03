@@ -3413,6 +3413,28 @@ function ResultCard({
     // PDF-only style overrides
     const style = document.createElement("style")
     style.textContent = `
+      /* Normalize design tokens to hex/HSL values so html2canvas doesn't encounter oklch() */
+      :host, :root, .pdf-sandbox, .pdf-sandbox * {
+        --background: #ffffff;
+        --foreground: #000000;
+        --card: #ffffff;
+        --card-foreground: #000000;
+        --popover: #ffffff;
+        --popover-foreground: #000000;
+        --primary: #000000;
+        --primary-foreground: #ffffff;
+        --secondary: #f2f4f7;
+        --secondary-foreground: #111111;
+        --muted: #f2f4f7;
+        --muted-foreground: #6b7280;
+        --accent: #f2f4f7;
+        --accent-foreground: #111111;
+        --destructive: #ef4444;
+        --destructive-foreground: #ffffff;
+        --border: #e5e7eb;
+        --input: #e5e7eb;
+        --ring: #111111;
+      }
       /* Hide on-screen orange edit boxes in PDF, keep only text */
       .ts-edit {
         background: transparent !important;
@@ -4067,6 +4089,27 @@ function ResultsPanel({
     // PDF-only style overrides
     const style = document.createElement("style")
     style.textContent = `
+      :host, :root, .pdf-sandbox, .pdf-sandbox * {
+        --background: #ffffff;
+        --foreground: #000000;
+        --card: #ffffff;
+        --card-foreground: #000000;
+        --popover: #ffffff;
+        --popover-foreground: #000000;
+        --primary: #000000;
+        --primary-foreground: #ffffff;
+        --secondary: #f2f4f7;
+        --secondary-foreground: #111111;
+        --muted: #f2f4f7;
+        --muted-foreground: #6b7280;
+        --accent: #f2f4f7;
+        --accent-foreground: #111111;
+        --destructive: #ef4444;
+        --destructive-foreground: #ffffff;
+        --border: #e5e7eb;
+        --input: #e5e7eb;
+        --ring: #111111;
+      }
       .ts-edit {
         background: transparent !important;
         border-color: transparent !important;
