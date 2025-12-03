@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
+import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export function DefaultBrokerSettingsDialog() {
@@ -176,50 +177,169 @@ function ProgramsList() {
 }
 
 function RatesFeesTable() {
+  const [editing, setEditing] = useState<boolean>(false)
+  const [rows, setRows] = useState<
+    { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[]
+  >([])
+
+  const addRow = () => {
+    setRows((r) => [
+      ...r,
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, minUpb: "", maxUpb: "", origination: "", adminFee: "", ysp: "" },
+    ])
+  }
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[20%] text-center">
-            <div className="leading-tight">
-              <div>Min. UPB</div>
-              <div>($)</div>
-            </div>
-          </TableHead>
-          <TableHead className="w-[20%] text-center">
-            <div className="leading-tight">
-              <div>Max. UPB</div>
-              <div>($)</div>
-            </div>
-          </TableHead>
-          <TableHead className="w-[20%] text-center">
-            <div className="leading-tight">
-              <div>Origination</div>
-              <div>(%)</div>
-            </div>
-          </TableHead>
-          <TableHead className="w-[20%] text-center">
-            <div className="leading-tight">
-              <div>Admin Fee</div>
-              <div>($)</div>
-            </div>
-          </TableHead>
-          <TableHead className="w-[20%] text-center">
-            <div className="leading-tight">
-              <div>YSP</div>
-              <div>(%)</div>
-            </div>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow>
-          <TableCell colSpan={5} className="text-muted-foreground">
-            No rates/fees configured.
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+    <div className="space-y-2">
+      <div className="flex items-center justify-end">
+        <Button size="sm" variant="outline" onClick={() => setEditing((e) => !e)}>
+          {editing ? "Done" : "Edit"}
+        </Button>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[20%] text-center">
+              <div className="leading-tight">
+                <div>Min. UPB</div>
+                <div>($)</div>
+              </div>
+            </TableHead>
+            <TableHead className="w-[20%] text-center">
+              <div className="leading-tight">
+                <div>Max. UPB</div>
+                <div>($)</div>
+              </div>
+            </TableHead>
+            <TableHead className="w-[20%] text-center">
+              <div className="leading-tight">
+                <div>Origination</div>
+                <div>(%)</div>
+              </div>
+            </TableHead>
+            <TableHead className="w-[20%] text-center">
+              <div className="leading-tight">
+                <div>Admin Fee</div>
+                <div>($)</div>
+              </div>
+            </TableHead>
+            <TableHead className="w-[20%] text-center">
+              <div className="leading-tight">
+                <div>YSP</div>
+                <div>(%)</div>
+              </div>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 && !editing ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-muted-foreground">
+                No rates/fees configured.
+              </TableCell>
+            </TableRow>
+          ) : null}
+          {rows.map((row, idx) => (
+            <TableRow key={row.id}>
+              <TableCell className="text-center">
+                {editing ? (
+                  <Input
+                    value={row.minUpb ?? ""}
+                    onChange={(e) =>
+                      setRows((r) => {
+                        const next = r.slice()
+                        next[idx] = { ...next[idx], minUpb: e.target.value }
+                        return next
+                      })
+                    }
+                    placeholder="0"
+                  />
+                ) : (
+                  <span>{row.minUpb ?? ""}</span>
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                {editing ? (
+                  <Input
+                    value={row.maxUpb ?? ""}
+                    onChange={(e) =>
+                      setRows((r) => {
+                        const next = r.slice()
+                        next[idx] = { ...next[idx], maxUpb: e.target.value }
+                        return next
+                      })
+                    }
+                    placeholder="0"
+                  />
+                ) : (
+                  <span>{row.maxUpb ?? ""}</span>
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                {editing ? (
+                  <Input
+                    value={row.origination ?? ""}
+                    onChange={(e) =>
+                      setRows((r) => {
+                        const next = r.slice()
+                        next[idx] = { ...next[idx], origination: e.target.value }
+                        return next
+                      })
+                    }
+                    placeholder="0.00"
+                  />
+                ) : (
+                  <span>{row.origination ?? ""}</span>
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                {editing ? (
+                  <Input
+                    value={row.adminFee ?? ""}
+                    onChange={(e) =>
+                      setRows((r) => {
+                        const next = r.slice()
+                        next[idx] = { ...next[idx], adminFee: e.target.value }
+                        return next
+                      })
+                    }
+                    placeholder="0"
+                  />
+                ) : (
+                  <span>{row.adminFee ?? ""}</span>
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                {editing ? (
+                  <Input
+                    value={row.ysp ?? ""}
+                    onChange={(e) =>
+                      setRows((r) => {
+                        const next = r.slice()
+                        next[idx] = { ...next[idx], ysp: e.target.value }
+                        return next
+                      })
+                    }
+                    placeholder="0.00"
+                  />
+                ) : (
+                  <span>{row.ysp ?? ""}</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+          {editing ? (
+            <TableRow>
+              <TableCell colSpan={5}>
+                <Button variant="ghost" size="sm" onClick={addRow}>
+                  + Add Row
+                </Button>
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </div>
   )
 }
 
