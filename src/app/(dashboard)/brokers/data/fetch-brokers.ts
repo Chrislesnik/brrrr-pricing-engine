@@ -16,6 +16,7 @@ export interface BrokerRow {
 }
 
 export async function getBrokersForOrg(orgId: string, userId?: string): Promise<BrokerRow[]> {
+  if (!orgId) return []
   const orgUuid = await getOrgUuidFromClerkId(orgId)
   if (!orgUuid) return []
 
@@ -24,64 +25,55 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     console.error(...args)
   }
 
-  // 1) Brokers in this org
-  // resolve current user's organization_member_id (may be null if not yet created)
-  let currentOrgMemberId: string | null = null
+  // Resolve this user's organization_member_id (may be null if not created yet)
+  let orgMemberId: string | null = null
   if (userId) {
-    const { data: member, error: memErr } = await supabaseAdmin
+    const { data: m, error: memErr } = await supabaseAdmin
       .from("organization_members")
       .select("id")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
       .maybeSingle()
     if (memErr) {
-      logError("fetch member error:", memErr.message)
+      logError("fetch org member error:", memErr.message)
+    } else {
+      orgMemberId = (m?.id as string) ?? null
     }
-    currentOrgMemberId = (member?.id as string) ?? null
   }
 
-  let brokersQuery = supabaseAdmin
+  // 1) Brokers in this org where account_manager_ids contains this org member id
+  let query = supabaseAdmin
     .from("brokers")
-    .select("id, organization_id, member_id, account_manager_uids, joined_at, email")
+    .select("id, organization_id, organization_member_id, account_manager_ids, joined_at")
     .eq("organization_id", orgUuid)
-    .order("created_at", { ascending: true })
-
-  // Only show brokers where this member is listed in account_manager_ids
-  if (currentOrgMemberId) {
-    brokersQuery = brokersQuery.contains("account_manager_uids", [currentOrgMemberId])
+  if (orgMemberId) {
+    // Only brokers this member manages
+    query = query.contains("account_manager_ids", [orgMemberId])
   }
+  const { data: brokers, error: brokersErr } = await query.order("created_at", { ascending: true })
 
-  const { data: brokers, error: brokersErr } = await brokersQuery
-  let brokerRows = brokers ?? []
   if (brokersErr) {
-    logError("fetch brokers error (fallback):", brokersErr.message)
-    const { data: fallback, error: fbErr } = await supabaseAdmin
-      .from("brokers")
-      .select("id, organization_id, email, joined_at")
-      .eq("organization_id", orgUuid)
-      .order("created_at", { ascending: true })
-    if (fbErr) {
-      logError("fallback fetch brokers error:", fbErr.message)
-      return []
-    }
-    brokerRows = fallback ?? []
+    logError("fetch brokers error:", brokersErr.message)
+    return []
   }
+  const brokerRows = brokers ?? []
   if (brokerRows.length === 0) return []
 
   // Collect all member ids we need to resolve names/emails/companies (owner + managers)
   const memberIds = new Set<string>()
   for (const b of brokerRows) {
-    const mid = (b as any).member_id as string | null
+    const mid = b.organization_member_id as string | null
     if (mid) memberIds.add(mid)
-    const mgrs = ((b as any).account_manager_uids as string[] | null) ?? []
+    const mgrs = (b.account_manager_ids as string[] | null) ?? []
     for (const m of mgrs) memberIds.add(m)
   }
   const memberIdsArr = Array.from(memberIds)
 
-  // 2) Members in this org (resolve names/emails/company/status)
+  // 2) Members in this org (resolve names/emails/company)
   const { data: members, error: membersErr } = await supabaseAdmin
     .from("organization_members")
-    .select("id, first_name, last_name, company, email, status")
+    .select("id, organization_id, first_name, last_name, company, email")
+    .eq("organization_id", orgUuid)
     .in("id", memberIdsArr.length ? memberIdsArr : ["00000000-0000-0000-0000-000000000000"]) // safe guard
 
   if (membersErr) {
@@ -96,7 +88,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   const brokerIds = brokerRows.map((b) => b.id as string)
   const { data: custom, error: customErr } = await supabaseAdmin
     .from("custom_broker_settings")
-    .select("broker_id, is_default")
+    .select('broker_id, \"default\"')
+    .eq("organization_id", orgUuid)
     .in("broker_id", brokerIds.length ? brokerIds : ["00000000-0000-0000-0000-000000000000"])
 
   if (customErr) {
@@ -104,17 +97,17 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
   const customByBroker = new Map<string, any>()
   for (const c of custom ?? []) {
-    customByBroker.set(c.broker_id as string, c)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row: any = c
+    customByBroker.set(row.broker_id as string, row)
   }
 
   // 4) Build rows
   const rows: BrokerRow[] = brokerRows.map((b) => {
-    const ownerId = (b as any).member_id as string | null
-    const owner = ownerId ? memberById.get(ownerId) : null
+    const owner = b.organization_member_id ? memberById.get(b.organization_member_id as string) : null
     const fullName =
       owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
-    const displayEmail = (b as any)?.email ?? (owner?.email as string) ?? null
-    const managers = (((b as any).account_manager_uids as string[] | null) ?? [])
+    const managers = ((b.account_manager_ids as string[] | null) ?? [])
       .map((id) => {
         const m = memberById.get(id)
         if (!m) return null
@@ -124,24 +117,16 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       .filter(Boolean)
       .join(", ") || null
 
-    const cs = customByBroker.get(b.id as string) as { is_default?: boolean } | undefined
-    const permissions: BrokerPermission = cs
-      ? cs.is_default === false
-        ? "custom"
-        : "default"
-      : "default"
+    const cs = customByBroker.get(b.id as string) as { default?: boolean } | undefined
+    const permissions: BrokerPermission = cs ? (cs.default === false ? "custom" : "default") : "default"
 
-    let status: BrokerStatus = "pending"
-    if (owner?.status) {
-      const s = String(owner.status).toLowerCase()
-      status = s === "active" ? "active" : s === "inactive" ? "inactive" : "pending"
-    }
+    const status: BrokerStatus = owner ? "active" : "pending"
 
     return {
       id: b.id as string,
       name: fullName,
       company: (owner?.company as string) ?? null,
-      email: displayEmail,
+      email: (owner?.email as string) ?? null,
       managers,
       permissions,
       status,

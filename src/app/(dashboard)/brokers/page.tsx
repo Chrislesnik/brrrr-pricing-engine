@@ -7,6 +7,7 @@ import { getBrokersForOrg } from "./data/fetch-brokers"
 export default async function BrokersPage() {
   const { orgId, userId } = await auth()
   const rows = orgId ? await getBrokersForOrg(orgId, userId ?? undefined) : []
+
   return (
     <ContentSection
       title="Brokers"
@@ -48,10 +49,10 @@ export default async function BrokersPage() {
                   <TableCell>{r.email ?? ""}</TableCell>
                   <TableCell>{r.managers ?? ""}</TableCell>
                   <TableCell className="uppercase text-xs">{r.permissions}</TableCell>
-                  <TableCell className={r.status === "active" ? "text-green-600" : r.status === "inactive" ? "text-red-600" : "text-muted-foreground"}>
+                  <TableCell className={r.status === 'active' ? 'text-green-600' : r.status === 'inactive' ? 'text-red-600' : 'text-muted-foreground'}>
                     {r.status}
                   </TableCell>
-                  <TableCell>{r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : ""}</TableCell>
+                  <TableCell>{r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : ''}</TableCell>
                 </TableRow>
               ))
             )}
@@ -61,4 +62,5 @@ export default async function BrokersPage() {
     </ContentSection>
   )
 }
+
 
