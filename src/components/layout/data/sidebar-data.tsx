@@ -48,6 +48,11 @@ export const sidebarData: SidebarData = {
               url: "/settings",
               requiredPermission: "org:manage_programs",
             },
+            {
+              title: "Broker",
+              icon: IconApps,
+              url: "/settings/broker",
+            },
           ],
         }
       ],
