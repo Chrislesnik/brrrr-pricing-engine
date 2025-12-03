@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
@@ -34,6 +34,8 @@ export function DefaultBrokerSettingsDialog() {
       <Button variant="default" size="sm" type="button" onClick={() => setOpen(true)}>
         Default Broker Settings
       </Button>
+      {/* Fetch programs when Programs tab becomes active and dialog is open */}
+      {open && tab === "programs" ? <ProgramsLoader /> : null}
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Large modal with split sidebar/content, matching Clerk Organizations vibe */}
         <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden">
@@ -61,7 +63,7 @@ export function DefaultBrokerSettingsDialog() {
               </header>
               <div className="min-h-[440px] p-6">
                 {tab === "programs" ? (
-                  <div className="text-sm text-muted-foreground">Programs settings (placeholder)</div>
+                  <ProgramsList />
                 ) : tab === "rates" ? (
                   <div className="text-sm text-muted-foreground">Rates/Fees settings (placeholder)</div>
                 ) : (
@@ -73,6 +75,78 @@ export function DefaultBrokerSettingsDialog() {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+// Lightweight loader to prefetch data
+function ProgramsLoader() {
+  useEffect(() => {
+    void fetch("/api/org/programs").catch(() => undefined)
+  }, [])
+  return null
+}
+
+function ProgramsList() {
+  const [items, setItems] = useState<
+    { id: string; internal_name: string; external_name: string; loan_type: string }[] | null
+  >(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/org/programs", { cache: "no-store" })
+        const json = (await res.json()) as { items?: unknown[]; error?: string }
+        if (cancelled) return
+        if (json?.error) {
+          setError(json.error)
+          setItems([])
+          return
+        }
+        const arr = Array.isArray(json?.items) ? json.items : []
+        const mapped = arr
+          .map((p) => p as Record<string, unknown>)
+          .map((p) => ({
+            id: String(p.id ?? ""),
+            internal_name: String(p.internal_name ?? ""),
+            external_name: String(p.external_name ?? ""),
+            loan_type: String(p.loan_type ?? ""),
+          }))
+        setItems(mapped)
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load programs")
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  if (!items && !error) {
+    return <div className="text-sm text-muted-foreground">Loading programs…</div>
+  }
+  if (error) {
+    return <div className="text-sm text-destructive">Failed to load programs: {error}</div>
+  }
+  if (!items?.length) {
+    return <div className="text-sm text-muted-foreground">No active programs.</div>
+  }
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-md border bg-muted/30 p-2 text-xs font-semibold uppercase text-muted-foreground">
+        <div>External Name</div>
+        <div>Internal Name</div>
+        <div>Loan Type</div>
+      </div>
+      <div className="space-y-1">
+        {items.map((p) => (
+          <div key={p.id} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-md border p-2 text-sm">
+            <div className="truncate">{p.external_name}</div>
+            <div className="truncate">{p.internal_name}</div>
+            <div className="uppercase">{p.loan_type}</div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
