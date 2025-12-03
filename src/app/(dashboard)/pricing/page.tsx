@@ -3738,11 +3738,15 @@ function ResultCard({
                 if (!node) return
                 const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
                 const htmlInside = (root ?? node).outerHTML
-                // Compute dynamic scale for DSCR to ensure full component fits 816x1056
-                const pagePad = 0
-                const innerH = "1056px"
-                let transformRule = "none"
-                if (root && (root.getAttribute("data-termsheet-root") || "").toLowerCase().includes("dscr")) {
+                // Compute sizing based on sheet type
+                const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
+                const isDscr = rootType.includes("dscr")
+                const isBridge = rootType.includes("bridge")
+                const pagePad = isBridge ? 8 : 0
+                const innerH = isBridge ? `calc(1056px - ${pagePad * 2}px)` : "1056px"
+                let transformRule = isBridge ? "scale(0.985)" : "none"
+                // For DSCR, dynamically scale down to fit the 816x1056 canvas, never scale up
+                if (isDscr && root) {
                   const naturalW = (root.scrollWidth || root.offsetWidth || 816)
                   const naturalH = (root.scrollHeight || root.offsetHeight || 1056)
                   const scaleW = 816 / (naturalW || 816)
@@ -4023,10 +4027,13 @@ function ResultsPanel({
             if (!node) return
             const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
             const htmlInside = (root ?? node).outerHTML
-            const pagePad = 0
-            const innerH = "1056px"
-            let transformRule = "none"
-            if (root && (root.getAttribute("data-termsheet-root") || "").toLowerCase().includes("dscr")) {
+            const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
+            const isDscr = rootType.includes("dscr")
+            const isBridge = rootType.includes("bridge")
+            const pagePad = isBridge ? 8 : 0
+            const innerH = isBridge ? `calc(1056px - ${pagePad * 2}px)` : "1056px"
+            let transformRule = isBridge ? "scale(0.985)" : "none"
+            if (isDscr && root) {
               const naturalW = (root.scrollWidth || root.offsetWidth || 816)
               const naturalH = (root.scrollHeight || root.offsetHeight || 1056)
               const scaleW = 816 / (naturalW || 816)
