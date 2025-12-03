@@ -3739,7 +3739,7 @@ function ResultCard({
                 const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
                 const htmlInside = (root ?? node).outerHTML
                 // Compute dynamic scale for DSCR to ensure full component fits 816x1056
-                let pagePad = 0
+                const pagePad = 0
                 const innerH = "1056px"
                 let transformRule = "none"
                 if (root && (root.getAttribute("data-termsheet-root") || "").toLowerCase().includes("dscr")) {
@@ -4023,7 +4023,7 @@ function ResultsPanel({
             if (!node) return
             const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
             const htmlInside = (root ?? node).outerHTML
-            let pagePad = 0
+            const pagePad = 0
             const innerH = "1056px"
             let transformRule = "none"
             if (root && (root.getAttribute("data-termsheet-root") || "").toLowerCase().includes("dscr")) {
