@@ -207,11 +207,37 @@ function RatesFeesTable() {
     return n.toFixed(2)
   }
   const clampPercentStr = (s: string): string => {
-    const raw = sanitize(s)
-    const n = Number(stripCommas(raw))
-    if (!Number.isFinite(n)) return ""
-    const clamped = Math.min(100, Math.max(0, n))
-    return clamped.toString()
+    // Allow decimals while typing, clamp numeric value to 0..100
+    let raw = s.replace(/[^\d.]/g, "")
+    if (raw.length === 0) return ""
+    // Keep only the first dot
+    const firstDot = raw.indexOf(".")
+    if (firstDot !== -1) {
+      const left = raw.slice(0, firstDot)
+      const right = raw.slice(firstDot + 1).replace(/\./g, "")
+      raw = `${left}.${right}`
+    }
+    let hadDot = raw.includes(".")
+    let [intPart, decPart = ""] = raw.split(".")
+    if (intPart === "") intPart = "0"
+    // Remove leading zeros from int part
+    intPart = intPart.replace(/^0+(?=\d)/, "")
+    if (intPart === "") intPart = "0"
+    const intNum = Number(intPart)
+    if (!Number.isFinite(intNum)) return ""
+    if (intNum > 100) {
+      return "100"
+    }
+    if (intNum === 100) {
+      // 100 cannot have decimals
+      return "100"
+    }
+    // Under 100 - allow up to 2 decimals
+    decPart = decPart.slice(0, 2)
+    if (hadDot) {
+      return `${intPart}.${decPart}`
+    }
+    return `${intPart}`
   }
   // Keep raw numeric string in state; render with $ prefix so it never duplicates.
 
