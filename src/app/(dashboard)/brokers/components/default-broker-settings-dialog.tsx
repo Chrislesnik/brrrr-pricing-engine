@@ -117,6 +117,7 @@ export function DefaultBrokerSettingsDialog() {
                         const j = await res.json().catch(() => ({}))
                         if (!res.ok) throw new Error(j?.error ?? "Failed to save")
                         toast({ title: "Saved", description: "Default broker settings updated." })
+                        setOpen(false)
                       } catch (e) {
                         toast({
                           title: "Save failed",
