@@ -52,12 +52,20 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
 
   const { data: brokers, error: brokersErr } = await brokersQuery
-
+  let brokerRows = brokers ?? []
   if (brokersErr) {
-    logError("fetch brokers error:", brokersErr.message)
-    return []
+    logError("fetch brokers error (fallback):", brokersErr.message)
+    const { data: fallback, error: fbErr } = await supabaseAdmin
+      .from("brokers")
+      .select("id, organization_id, email, joined_at")
+      .eq("organization_id", orgUuid)
+      .order("created_at", { ascending: true })
+    if (fbErr) {
+      logError("fallback fetch brokers error:", fbErr.message)
+      return []
+    }
+    brokerRows = fallback ?? []
   }
-  const brokerRows = brokers ?? []
   if (brokerRows.length === 0) return []
 
   // Collect all member ids we need to resolve names/emails/companies (owner + managers)
