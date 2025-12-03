@@ -3738,11 +3738,10 @@ function ResultCard({
                 if (!node) return
                 const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
                 const htmlInside = (root ?? node).outerHTML
-                const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
-                const isBridgeRoot = rootType.includes("bridge")
-                const pagePad = isBridgeRoot ? 8 : 0
-                const innerH = `calc(1056px - ${pagePad * 2}px)`
-                const transformRule = isBridgeRoot ? "scale(0.985)" : "none"
+                // Render at exact Letter size (816x1056) with no scaling for all types
+                const pagePad = 0
+                const innerH = "1056px"
+                const transformRule = "none"
                 // Capture current styles (Tailwind + globals) so printed output matches on-screen
                 const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
                   .map((el) => (el as HTMLElement).outerHTML)
@@ -3766,7 +3765,7 @@ function ResultCard({
       #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
       #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: ${transformRule}; transform-origin: center center; }
+      #inner [data-termsheet-root] { width: 816px !important; height: 1056px !important; box-sizing: border-box !important; transform: ${transformRule}; transform-origin: center center; margin: 0 !important; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Hide on-screen edit affordances inside print */
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
@@ -4016,11 +4015,9 @@ function ResultsPanel({
             if (!node) return
             const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
             const htmlInside = (root ?? node).outerHTML
-            const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
-            const isBridgeRoot = rootType.includes("bridge")
-            const pagePad = isBridgeRoot ? 8 : 0
-            const innerH = `calc(1056px - ${pagePad * 2}px)`
-            const transformRule = isBridgeRoot ? "scale(0.985)" : "none"
+            const pagePad = 0
+            const innerH = "1056px"
+            const transformRule = "none"
             const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
               .map((el) => (el as HTMLElement).outerHTML)
               .join("\n")
@@ -4042,7 +4039,7 @@ function ResultsPanel({
       #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
       #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
       #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; transform: ${transformRule}; transform-origin: center center; }
+      #inner [data-termsheet-root] { width: 816px !important; height: 1056px !important; box-sizing: border-box !important; transform: ${transformRule}; transform-origin: center center; margin: 0 !important; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
       @page { size: 816px 1056px; margin: 0; }
