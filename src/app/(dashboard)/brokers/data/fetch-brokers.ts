@@ -1,5 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { supabase } from "@/lib/supabase-admin"
 
 export type BrokerPermission = "default" | "custom"
 export type BrokerStatus = "active" | "inactive" | "pending"
@@ -15,10 +14,7 @@ export interface BrokerRow {
   joinedAt: string | null
 }
 
-export async function getBrokersForOrg(orgId: string): Promise<BrokerRow[]> {
-  if (!orgId) return []
-  const orgUuid = await getOrgUuidFromClerkId(orgId)
-  if (!orgUuid) return []
+export async function getBrokersForOrg(_orgId?: string): Promise<BrokerRow[]> {
 
   function logError(...args: unknown[]) {
     // eslint-disable-next-line no-console
@@ -26,10 +22,9 @@ export async function getBrokersForOrg(orgId: string): Promise<BrokerRow[]> {
   }
 
   // 1) Brokers in this org
-  const { data: brokers, error: brokersErr } = await supabaseAdmin
+  const { data: brokers, error: brokersErr } = await supabase
     .from("brokers")
     .select("id, organization_id, organization_member_id, account_manager_ids, joined_at")
-    .eq("organization_id", orgUuid)
     .order("created_at", { ascending: true })
 
   if (brokersErr) {
@@ -50,10 +45,9 @@ export async function getBrokersForOrg(orgId: string): Promise<BrokerRow[]> {
   const memberIdsArr = Array.from(memberIds)
 
   // 2) Members in this org (resolve names/emails/company/status)
-  const { data: members, error: membersErr } = await supabaseAdmin
+  const { data: members, error: membersErr } = await supabase
     .from("organization_members")
     .select("id, first_name, last_name, company, email, status")
-    .eq("organization_id", orgUuid)
     .in("id", memberIdsArr.length ? memberIdsArr : ["00000000-0000-0000-0000-000000000000"]) // safe guard
 
   if (membersErr) {
@@ -66,10 +60,9 @@ export async function getBrokersForOrg(orgId: string): Promise<BrokerRow[]> {
 
   // 3) Custom settings for brokers
   const brokerIds = brokerRows.map((b) => b.id as string)
-  const { data: custom, error: customErr } = await supabaseAdmin
+  const { data: custom, error: customErr } = await supabase
     .from("custom_broker_settings")
     .select("broker_id, is_default")
-    .eq("organization_id", orgUuid)
     .in("broker_id", brokerIds.length ? brokerIds : ["00000000-0000-0000-0000-000000000000"])
 
   if (customErr) {
