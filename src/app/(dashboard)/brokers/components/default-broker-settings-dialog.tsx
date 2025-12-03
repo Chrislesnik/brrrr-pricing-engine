@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 export function DefaultBrokerSettingsDialog() {
@@ -35,27 +35,39 @@ export function DefaultBrokerSettingsDialog() {
         Default Broker Settings
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Default Broker Settings</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-[220px_1fr] gap-4">
-            <aside className="rounded-md border p-2">
+        {/* Large modal with split sidebar/content, matching Clerk Organizations vibe */}
+        <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden">
+          <div className="grid grid-cols-[260px_1fr]">
+            {/* Left rail */}
+            <aside className="border-r bg-muted/40 p-4">
+              <div className="mb-3 px-1">
+                <div className="text-lg font-semibold">Default Broker Settings</div>
+                <div className="text-xs text-muted-foreground">Manage default broker configuration.</div>
+              </div>
               <nav className="space-y-1">
-                <div className="px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">General</div>
+                <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  General
+                </div>
                 <NavItem id="programs" label="Programs" />
                 <NavItem id="rates" label="Rates/Fees" />
                 <NavItem id="additional" label="Additional" />
               </nav>
             </aside>
-            <section className="rounded-md border p-4">
-              {tab === "programs" ? (
-                <div className="text-sm text-muted-foreground">Programs settings (placeholder)</div>
-              ) : tab === "rates" ? (
-                <div className="text-sm text-muted-foreground">Rates/Fees settings (placeholder)</div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Additional settings (placeholder)</div>
-              )}
+
+            {/* Right content */}
+            <section className="bg-background">
+              <header className="flex h-12 items-center border-b px-6 text-sm font-semibold">
+                {tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}
+              </header>
+              <div className="min-h-[440px] p-6">
+                {tab === "programs" ? (
+                  <div className="text-sm text-muted-foreground">Programs settings (placeholder)</div>
+                ) : tab === "rates" ? (
+                  <div className="text-sm text-muted-foreground">Rates/Fees settings (placeholder)</div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Additional settings (placeholder)</div>
+                )}
+              </div>
             </section>
           </div>
         </DialogContent>

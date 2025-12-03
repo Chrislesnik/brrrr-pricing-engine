@@ -19,16 +19,19 @@ export default function BrokersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[24%]">ID</TableHead>
-              <TableHead className="w-[22%]">Managers</TableHead>
-              <TableHead className="w-[20%]">Permissions</TableHead>
-              <TableHead className="w-[14%]">Status</TableHead>
-              <TableHead className="w-[20%]">Joined At</TableHead>
+              <TableHead className="w-[12%]">ID</TableHead>
+              <TableHead className="w-[18%]">Name</TableHead>
+              <TableHead className="w-[18%]">Company</TableHead>
+              <TableHead className="w-[18%]">Email</TableHead>
+              <TableHead className="w-[12%]">Managers</TableHead>
+              <TableHead className="w-[10%]">Permissions</TableHead>
+              <TableHead className="w-[6%]">Status</TableHead>
+              <TableHead className="w-[6%]">Joined At</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={5} className="text-muted-foreground">
+              <TableCell colSpan={8} className="text-muted-foreground">
                 No brokers yet.
               </TableCell>
             </TableRow>
