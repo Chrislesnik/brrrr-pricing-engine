@@ -67,7 +67,7 @@ export function DefaultBrokerSettingsDialog() {
                 {tab === "programs" ? (
                   <ProgramsList />
                 ) : tab === "rates" ? (
-                  <div className="text-sm text-muted-foreground">Rates/Fees settings (placeholder)</div>
+                  <RatesFeesTable />
                 ) : (
                   <div className="text-sm text-muted-foreground">Additional settings (placeholder)</div>
                 )}
@@ -170,6 +170,54 @@ function ProgramsList() {
             </TableCell>
           </TableRow>
         ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function RatesFeesTable() {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[20%] text-center">
+            <div className="leading-tight">
+              <div>Min. UPB</div>
+              <div>($)</div>
+            </div>
+          </TableHead>
+          <TableHead className="w-[20%] text-center">
+            <div className="leading-tight">
+              <div>Max. UPB</div>
+              <div>($)</div>
+            </div>
+          </TableHead>
+          <TableHead className="w-[20%] text-center">
+            <div className="leading-tight">
+              <div>Origination</div>
+              <div>(%)</div>
+            </div>
+          </TableHead>
+          <TableHead className="w-[20%] text-center">
+            <div className="leading-tight">
+              <div>Admin Fee</div>
+              <div>($)</div>
+            </div>
+          </TableHead>
+          <TableHead className="w-[20%] text-center">
+            <div className="leading-tight">
+              <div>YSP</div>
+              <div>(%)</div>
+            </div>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell colSpan={5} className="text-muted-foreground">
+            No rates/fees configured.
+          </TableCell>
+        </TableRow>
       </TableBody>
     </Table>
   )
