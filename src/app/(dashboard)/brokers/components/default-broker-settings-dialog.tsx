@@ -287,14 +287,6 @@ function RatesFeesTable() {
             </Button>
             <Button
               size="sm"
-              onClick={() => {
-                // no-op for now; placeholder for persisting settings
-              }}
-            >
-              Save
-            </Button>
-            <Button
-              size="sm"
               variant="outline"
               onClick={() => {
                 setSnapshot(null)
