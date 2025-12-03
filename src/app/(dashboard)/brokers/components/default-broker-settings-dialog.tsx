@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { Switch } from "@/components/ui/switch"
 
 export function DefaultBrokerSettingsDialog() {
   const [open, setOpen] = useState(false)
@@ -91,6 +92,7 @@ function ProgramsList() {
     { id: string; internal_name: string; external_name: string; loan_type: string }[] | null
   >(null)
   const [error, setError] = useState<string | null>(null)
+  const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({})
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -113,6 +115,13 @@ function ProgramsList() {
             loan_type: String(p.loan_type ?? ""),
           }))
         setItems(mapped)
+        setVisibilityMap((prev) => {
+          const next = { ...prev }
+          mapped.forEach((p) => {
+            if (next[p.id] === undefined) next[p.id] = true
+          })
+          return next
+        })
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load programs")
       }
@@ -132,17 +141,27 @@ function ProgramsList() {
   }
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-md border bg-muted/30 p-2 text-xs font-semibold uppercase text-muted-foreground">
-        <div>External Name</div>
-        <div>Internal Name</div>
+      <div className="grid grid-cols-[1fr_auto_auto] gap-2 rounded-md border bg-muted/30 p-2 text-xs font-semibold uppercase text-muted-foreground">
+        <div>Program</div>
         <div>Loan Type</div>
+        <div>Visibility</div>
       </div>
       <div className="space-y-1">
         {items.map((p) => (
-          <div key={p.id} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-md border p-2 text-sm">
-            <div className="truncate">{p.external_name}</div>
-            <div className="truncate">{p.internal_name}</div>
-            <div className="uppercase">{p.loan_type}</div>
+          <div key={p.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-md border p-2 text-sm">
+            <div className="min-w-0">
+              <div className="truncate font-semibold">{p.internal_name}</div>
+              <div className="truncate text-muted-foreground text-xs">{p.external_name}</div>
+            </div>
+            <div className="uppercase text-xs md:text-sm">{p.loan_type}</div>
+            <div className="flex items-center gap-2 justify-end">
+              <span className="text-xs text-muted-foreground">Visibility</span>
+              <Switch
+                checked={!!visibilityMap[p.id]}
+                onCheckedChange={(v) => setVisibilityMap((m) => ({ ...m, [p.id]: v }))}
+                aria-label={`Toggle visibility for ${p.internal_name}`}
+              />
+            </div>
           </div>
         ))}
       </div>
