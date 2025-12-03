@@ -3414,20 +3414,31 @@ function ResultCard({
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
     const style = document.createElement("style")
     style.textContent = `
+      /* Remove orange editing affordances only; preserve text alignment and flow */
       .pdf-sandbox .ts-edit {
         background: transparent !important;
         border-color: transparent !important;
         outline: none !important;
         padding: 0 !important;
-        display: inline-block !important;
-        vertical-align: middle !important;
-        line-height: inherit !important;
+        display: inline !important;
       }
-      /* Vertically center text and values within each row without changing text-align */
-      .pdf-sandbox [data-termsheet-root] .flex.justify-between { align-items: center !important; }
-      /* Slightly tighten spacing in the left column sections */
-      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.35rem !important; }
-      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.15rem !important; }
+      /* Remove viewport-based vertical centering from BridgeTermSheet root so there's no extra top gap */
+      .pdf-sandbox [data-termsheet-root] {
+        min-height: 0 !important;
+        height: auto !important;
+        display: block !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .pdf-sandbox [data-termsheet-root] > div {
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+      /* Slightly tighten spacing in the left column sections only */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.3rem !important; }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
@@ -4073,13 +4084,23 @@ function ResultsPanel({
         border-color: transparent !important;
         outline: none !important;
         padding: 0 !important;
-        display: inline-block !important;
-        vertical-align: middle !important;
-        line-height: inherit !important;
+        display: inline !important;
       }
-      .pdf-sandbox [data-termsheet-root] .flex.justify-between { align-items: center !important; }
-      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.35rem !important; }
-      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.15rem !important; }
+      .pdf-sandbox [data-termsheet-root] {
+        min-height: 0 !important;
+        height: auto !important;
+        display: block !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .pdf-sandbox [data-termsheet-root] > div {
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.3rem !important; }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
