@@ -42,7 +42,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
 
   let brokersQuery = supabaseAdmin
     .from("brokers")
-    .select("id, organization_id, organization_member_id, account_manager_ids, joined_at")
+    .select("id, organization_id, organization_member_id, account_manager_ids, joined_at, email")
     .eq("organization_id", orgUuid)
     .order("created_at", { ascending: true })
 
@@ -104,6 +104,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     const owner = b.organization_member_id ? memberById.get(b.organization_member_id as string) : null
     const fullName =
       owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
+    const displayEmail = (b as any)?.email ?? (owner?.email as string) ?? null
     const managers = ((b.account_manager_ids as string[] | null) ?? [])
       .map((id) => {
         const m = memberById.get(id)
@@ -131,7 +132,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       id: b.id as string,
       name: fullName,
       company: (owner?.company as string) ?? null,
-      email: (owner?.email as string) ?? null,
+      email: displayEmail,
       managers,
       permissions,
       status,
