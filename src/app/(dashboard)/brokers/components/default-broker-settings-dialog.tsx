@@ -206,6 +206,13 @@ function RatesFeesTable() {
     if (!Number.isFinite(n)) return s ?? ""
     return n.toFixed(2)
   }
+  const clampPercentStr = (s: string): string => {
+    const raw = sanitize(s)
+    const n = Number(stripCommas(raw))
+    if (!Number.isFinite(n)) return ""
+    const clamped = Math.min(100, Math.max(0, n))
+    return clamped.toString()
+  }
   // Keep raw numeric string in state; render with $ prefix so it never duplicates.
 
   return (
@@ -341,7 +348,7 @@ function RatesFeesTable() {
                     onChange={(e) =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], origination: sanitize(e.target.value) }
+                        next[idx] = { ...next[idx], origination: clampPercentStr(e.target.value) }
                         return next
                       })
                     }
@@ -389,7 +396,7 @@ function RatesFeesTable() {
                     onChange={(e) =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], ysp: sanitize(e.target.value) }
+                        next[idx] = { ...next[idx], ysp: clampPercentStr(e.target.value) }
                         return next
                       })
                     }
