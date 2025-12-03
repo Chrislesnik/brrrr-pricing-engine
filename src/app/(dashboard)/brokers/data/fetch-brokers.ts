@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase-admin"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export type BrokerPermission = "default" | "custom"
 export type BrokerStatus = "active" | "inactive" | "pending"
@@ -22,7 +22,7 @@ export async function getBrokersForOrg(_orgId?: string): Promise<BrokerRow[]> {
   }
 
   // 1) Brokers in this org
-  const { data: brokers, error: brokersErr } = await supabase
+  const { data: brokers, error: brokersErr } = await supabaseAdmin
     .from("brokers")
     .select("id, organization_id, organization_member_id, account_manager_ids, joined_at")
     .order("created_at", { ascending: true })
@@ -45,7 +45,7 @@ export async function getBrokersForOrg(_orgId?: string): Promise<BrokerRow[]> {
   const memberIdsArr = Array.from(memberIds)
 
   // 2) Members in this org (resolve names/emails/company/status)
-  const { data: members, error: membersErr } = await supabase
+  const { data: members, error: membersErr } = await supabaseAdmin
     .from("organization_members")
     .select("id, first_name, last_name, company, email, status")
     .in("id", memberIdsArr.length ? memberIdsArr : ["00000000-0000-0000-0000-000000000000"]) // safe guard
@@ -60,7 +60,7 @@ export async function getBrokersForOrg(_orgId?: string): Promise<BrokerRow[]> {
 
   // 3) Custom settings for brokers
   const brokerIds = brokerRows.map((b) => b.id as string)
-  const { data: custom, error: customErr } = await supabase
+  const { data: custom, error: customErr } = await supabaseAdmin
     .from("custom_broker_settings")
     .select("broker_id, is_default")
     .in("broker_id", brokerIds.length ? brokerIds : ["00000000-0000-0000-0000-000000000000"])
