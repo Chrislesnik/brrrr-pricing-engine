@@ -71,7 +71,7 @@ export function DefaultBrokerSettingsDialog() {
                 ) : tab === "rates" ? (
                   <RatesFeesTable />
                 ) : (
-                  <div className="text-sm text-muted-foreground">Additional settings (placeholder)</div>
+                  <AdditionalSettings />
                 )}
               </div>
             </section>
@@ -79,6 +79,24 @@ export function DefaultBrokerSettingsDialog() {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function AdditionalSettings() {
+  const [allowYsp, setAllowYsp] = useState<boolean>(false)
+  const [allowBuydown, setAllowBuydown] = useState<boolean>(false)
+  return (
+    <div className="max-w-xl space-y-4">
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <div className="text-sm font-medium">Allow broker to add YSP</div>
+        <Switch checked={allowYsp} onCheckedChange={setAllowYsp} aria-label="Allow broker to add YSP" />
+      </div>
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <div className="text-sm font-medium">Allow brokers to buydown rate</div>
+        <Switch checked={allowBuydown} onCheckedChange={setAllowBuydown} aria-label="Allow brokers to buydown rate" />
+      </div>
+      <p className="text-xs text-muted-foreground">Note: Toggles are UI-only for now.</p>
+    </div>
   )
 }
 
