@@ -200,10 +200,26 @@ function RatesFeesTable() {
     if (!Number.isFinite(n)) return s ?? ""
     return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
   }
+  const fmtMoneyDollar = (s: string): string => `$${fmtMoney(s)}`
   const fmtPercent = (s: string): string => {
     const n = Number(stripCommas(s))
     if (!Number.isFinite(n)) return s ?? ""
     return n.toFixed(2)
+  }
+  // Live currency formatting while typing; keeps up to 2 decimals and adds $ prefix
+  const formatCurrencyInput = (s: string): string => {
+    const raw = s.replace(/[^0-9.]/g, "")
+    if (raw.length === 0) return "$0"
+    const parts = raw.split(".")
+    let intPart = parts[0] ?? "0"
+    // Remove leading zeros
+    intPart = intPart.replace(/^0+(?=\d)/, "")
+    const decPart = (parts[1] ?? "").slice(0, 2)
+    const intNumber = Number(intPart || "0")
+    const intFormatted = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
+      Number.isFinite(intNumber) ? intNumber : 0
+    )
+    return `$${intFormatted}${raw.includes(".") ? `.${decPart}` : ""}`
   }
 
   return (
@@ -294,63 +310,49 @@ function RatesFeesTable() {
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={row.minUpb ?? ""}
-                    onFocus={(e) =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], minUpb: stripCommas(next[idx].minUpb ?? "") }
-                        return next
-                      })
-                    }
+                    value={row.minUpb ?? "$0"}
                     onChange={(e) =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], minUpb: sanitize(e.target.value) }
+                        next[idx] = { ...next[idx], minUpb: formatCurrencyInput(e.target.value) }
                         return next
                       })
                     }
                     onBlur={() =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], minUpb: fmtMoney(next[idx].minUpb ?? "") }
+                        next[idx] = { ...next[idx], minUpb: fmtMoneyDollar(next[idx].minUpb ?? "") }
                         return next
                       })
                     }
                     placeholder="0"
                   />
                 ) : (
-                  <span>{fmtMoney(row.minUpb ?? "")}</span>
+                  <span>{fmtMoneyDollar(row.minUpb ?? "")}</span>
                 )}
               </TableCell>
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={row.maxUpb ?? ""}
-                    onFocus={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], maxUpb: stripCommas(next[idx].maxUpb ?? "") }
-                        return next
-                      })
-                    }
+                    value={row.maxUpb ?? "$0"}
                     onChange={(e) =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], maxUpb: sanitize(e.target.value) }
+                        next[idx] = { ...next[idx], maxUpb: formatCurrencyInput(e.target.value) }
                         return next
                       })
                     }
                     onBlur={() =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], maxUpb: fmtMoney(next[idx].maxUpb ?? "") }
+                        next[idx] = { ...next[idx], maxUpb: fmtMoneyDollar(next[idx].maxUpb ?? "") }
                         return next
                       })
                     }
                     placeholder="0"
                   />
                 ) : (
-                  <span>{fmtMoney(row.maxUpb ?? "")}</span>
+                  <span>{fmtMoneyDollar(row.maxUpb ?? "")}</span>
                 )}
               </TableCell>
               <TableCell className="text-center">
@@ -387,32 +389,25 @@ function RatesFeesTable() {
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={row.adminFee ?? ""}
-                    onFocus={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], adminFee: stripCommas(next[idx].adminFee ?? "") }
-                        return next
-                      })
-                    }
+                    value={row.adminFee ?? "$0"}
                     onChange={(e) =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], adminFee: sanitize(e.target.value) }
+                        next[idx] = { ...next[idx], adminFee: formatCurrencyInput(e.target.value) }
                         return next
                       })
                     }
                     onBlur={() =>
                       setRows((r) => {
                         const next = r.slice()
-                        next[idx] = { ...next[idx], adminFee: fmtMoney(next[idx].adminFee ?? "") }
+                        next[idx] = { ...next[idx], adminFee: fmtMoneyDollar(next[idx].adminFee ?? "") }
                         return next
                       })
                     }
                     placeholder="0"
                   />
                 ) : (
-                  <span>{fmtMoney(row.adminFee ?? "")}</span>
+                  <span>{fmtMoneyDollar(row.adminFee ?? "")}</span>
                 )}
               </TableCell>
               <TableCell className="text-center">
