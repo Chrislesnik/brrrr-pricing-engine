@@ -6,7 +6,7 @@ export default function SettingsBrokerPage() {
   // UI only placeholder page matching Programs layout
   return (
     <ContentSection
-      title="Broker"
+      title="Brokers"
       desc="Organization brokers."
       className="w-full lg:max-w-full"
       showHeader={false}

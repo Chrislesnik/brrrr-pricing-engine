@@ -49,7 +49,7 @@ export const sidebarData: SidebarData = {
               requiredPermission: "org:manage_programs",
             },
             {
-              title: "Broker",
+              title: "Brokers",
               icon: IconApps,
               url: "/settings/broker",
             },
