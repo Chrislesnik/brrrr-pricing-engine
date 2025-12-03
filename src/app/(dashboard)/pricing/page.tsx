@@ -3856,7 +3856,9 @@ function ResultCardLoader({ meta }: { meta?: { internal_name?: string; external_
           <div className="text-sm font-bold">{meta?.internal_name ?? "Program"}</div>
           <div className="text-xs font-semibold">{meta?.external_name ?? ""}</div>
         </div>
-        <div className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">Generating</div>
+        <div className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border text-black border-white dark:text-white dark:border-black bg-transparent">
+          Generating
+        </div>
       </div>
       <div className="mt-3 flex flex-col items-center">
         <div className="loader-wrapper">
