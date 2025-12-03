@@ -39,6 +39,11 @@ export const sidebarData: SidebarData = {
           icon: IconUsers,
         },
         {
+          title: "Brokers",
+          url: "/brokers",
+          icon: IconApps,
+        },
+        {
           title: "Settings",
           icon: IconSettings,
           items: [
@@ -47,11 +52,6 @@ export const sidebarData: SidebarData = {
               icon: IconApps,
               url: "/settings",
               requiredPermission: "org:manage_programs",
-            },
-            {
-              title: "Brokers",
-              icon: IconApps,
-              url: "/settings/broker",
             },
           ],
         }

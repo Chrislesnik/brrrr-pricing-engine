@@ -1,9 +1,9 @@
-import ContentSection from "../components/content-section"
+import ContentSection from "@/app/(dashboard)/settings/components/content-section"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-export default function SettingsBrokerPage() {
-  // UI only placeholder page matching Programs layout
+export default function BrokersPage() {
+  // UI only placeholder matching Programs layout
   return (
     <ContentSection
       title="Brokers"
