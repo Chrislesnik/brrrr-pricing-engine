@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3 } from "@tabler/icons-react"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -3518,6 +3518,30 @@ function ResultCard({
           >
             <IconEye className="h-4 w-4" />
           </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Share"
+            onClick={async () => {
+              try {
+                const url = typeof window !== "undefined" ? window.location.href : ""
+                const title = "Term Sheet"
+                const text = "Check out this term sheet."
+                const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
+                if (nav?.share) {
+                  await nav.share({ title, text, url })
+                } else {
+                  await navigator.clipboard.writeText(url)
+                  toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                }
+              } catch (e) {
+                const message = e instanceof Error ? e.message : "Unable to share"
+                toast({ title: "Share failed", description: message, variant: "destructive" })
+              }
+            }}
+          >
+            <IconShare3 className="h-4 w-4" />
+          </Button>
           <Button size="icon" variant="ghost" aria-label="Download">
             <IconDownload className="h-4 w-4" />
           </Button>
@@ -3709,6 +3733,30 @@ function ResultCard({
                                 >
                                   <IconEye className="h-4 w-4" />
                                 </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label="Share row"
+                                onClick={async () => {
+                                  try {
+                                    const url = typeof window !== "undefined" ? window.location.href : ""
+                                    const title = "Term Sheet"
+                                    const text = "Check out this term sheet."
+                                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
+                                    if (nav?.share) {
+                                      await nav.share({ title, text, url })
+                                    } else {
+                                      await navigator.clipboard.writeText(url)
+                                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                                    }
+                                  } catch (e) {
+                                    const message = e instanceof Error ? e.message : "Unable to share"
+                                    toast({ title: "Share failed", description: message, variant: "destructive" })
+                                  }
+                                }}
+                              >
+                                <IconShare3 className="h-4 w-4" />
+                              </Button>
                                 <Button size="icon" variant="ghost" aria-label="Download row">
                                   <IconDownload className="h-4 w-4" />
                                 </Button>
@@ -3728,6 +3776,30 @@ function ResultCard({
           <DialogHeader className="mb-1">
             <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
+          <button
+            type="button"
+            aria-label="Share term sheet"
+            className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            onClick={async () => {
+              try {
+                const url = typeof window !== "undefined" ? window.location.href : ""
+                const title = "Term Sheet"
+                const text = "Check out this term sheet."
+                const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
+                if (nav?.share) {
+                  await nav.share({ title, text, url })
+                } else {
+                  await navigator.clipboard.writeText(url)
+                  toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                }
+              } catch (e) {
+                const message = e instanceof Error ? e.message : "Unable to share"
+                toast({ title: "Share failed", description: message, variant: "destructive" })
+              }
+            }}
+          >
+            <IconShare3 />
+          </button>
           <button
             type="button"
             aria-label="Download term sheet"
@@ -4175,6 +4247,30 @@ function ResultsPanel({
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label="Share main"
+                onClick={async () => {
+                  try {
+                    const url = typeof window !== "undefined" ? window.location.href : ""
+                    const title = "Term Sheet"
+                    const text = "Check out this term sheet."
+                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
+                    if (nav?.share) {
+                      await nav.share({ title, text, url })
+                    } else {
+                      await navigator.clipboard.writeText(url)
+                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                    }
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : "Unable to share"
+                    toast({ title: "Share failed", description: message, variant: "destructive" })
+                  }
+                }}
+              >
+                <IconShare3 className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoPrint: true })}
               >
@@ -4254,6 +4350,30 @@ function ResultsPanel({
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label="Share main"
+                onClick={async () => {
+                  try {
+                    const url = typeof window !== "undefined" ? window.location.href : ""
+                    const title = "Term Sheet"
+                    const text = "Check out this term sheet."
+                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
+                    if (nav?.share) {
+                      await nav.share({ title, text, url })
+                    } else {
+                      await navigator.clipboard.writeText(url)
+                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                    }
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : "Unable to share"
+                    toast({ title: "Share failed", description: message, variant: "destructive" })
+                  }
+                }}
+              >
+                <IconShare3 className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoPrint: true })}
               >
@@ -4308,6 +4428,30 @@ function ResultsPanel({
               </Button>
               <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
                 <IconEye className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Share main"
+                onClick={async () => {
+                  try {
+                    const url = typeof window !== "undefined" ? window.location.href : ""
+                    const title = "Term Sheet"
+                    const text = "Check out this term sheet."
+                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
+                    if (nav?.share) {
+                      await nav.share({ title, text, url })
+                    } else {
+                      await navigator.clipboard.writeText(url)
+                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                    }
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : "Unable to share"
+                    toast({ title: "Share failed", description: message, variant: "destructive" })
+                  }
+                }}
+              >
+                <IconShare3 className="h-4 w-4" />
               </Button>
               <Button
                 size="icon"
