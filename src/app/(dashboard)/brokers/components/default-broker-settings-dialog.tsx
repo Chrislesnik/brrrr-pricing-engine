@@ -8,10 +8,18 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { IconMinus } from "@tabler/icons-react"
+import { toast } from "@/hooks/use-toast"
 
 export function DefaultBrokerSettingsDialog() {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<"programs" | "rates" | "additional">("programs")
+  // Aggregated state across tabs
+  const [programVisibility, setProgramVisibility] = useState<Record<string, boolean>>({})
+  const [rateRows, setRateRows] = useState<
+    { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[]
+  >([])
+  const [allowYsp, setAllowYsp] = useState<boolean>(false)
+  const [allowBuydown, setAllowBuydown] = useState<boolean>(false)
 
   const NavItem = ({
     id,
@@ -67,18 +75,56 @@ export function DefaultBrokerSettingsDialog() {
               </header>
               <div className="min-h-[440px] p-6">
                 {tab === "programs" ? (
-                  <ProgramsList />
+                  <ProgramsList
+                    value={programVisibility}
+                    onChange={(m) => setProgramVisibility(m)}
+                  />
                 ) : tab === "rates" ? (
-                  <RatesFeesTable />
+                  <RatesFeesTable rows={rateRows} onRowsChange={setRateRows} />
                 ) : (
-                  <AdditionalSettings />
+                  <AdditionalSettings
+                    allowYsp={allowYsp}
+                    allowBuydown={allowBuydown}
+                    onAllowYsp={setAllowYsp}
+                    onAllowBuydown={setAllowBuydown}
+                  />
                 )}
               </div>
               {/* bottom action bar */}
               <div className="border-t px-6 py-3 flex justify-end">
                 <Button
                   onClick={() => {
-                    // placeholder for persistence
+                    // Persist via API (upsert by (organization_id, organization_member_id))
+                    ;(async () => {
+                      try {
+                        const body = {
+                          allow_ysp: allowYsp,
+                          allow_buydown_rate: allowBuydown,
+                          program_visibility: programVisibility,
+                          rates: rateRows.map((r) => ({
+                            min_upb: r.minUpb ?? "",
+                            max_upb: r.maxUpb ?? "",
+                            origination: r.origination ?? "",
+                            admin_fee: r.adminFee ?? "",
+                            ysp: r.ysp ?? "",
+                          })),
+                        }
+                        const res = await fetch("/api/brokers/default-settings", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(body),
+                        })
+                        const j = await res.json().catch(() => ({}))
+                        if (!res.ok) throw new Error(j?.error ?? "Failed to save")
+                        toast({ title: "Saved", description: "Default broker settings updated." })
+                      } catch (e) {
+                        toast({
+                          title: "Save failed",
+                          description: e instanceof Error ? e.message : "Unknown error",
+                          variant: "destructive",
+                        })
+                      }
+                    })()
                   }}
                 >
                   Save
@@ -92,18 +138,26 @@ export function DefaultBrokerSettingsDialog() {
   )
 }
 
-function AdditionalSettings() {
-  const [allowYsp, setAllowYsp] = useState<boolean>(false)
-  const [allowBuydown, setAllowBuydown] = useState<boolean>(false)
+function AdditionalSettings({
+  allowYsp,
+  allowBuydown,
+  onAllowYsp,
+  onAllowBuydown,
+}: {
+  allowYsp: boolean
+  allowBuydown: boolean
+  onAllowYsp: (v: boolean) => void
+  onAllowBuydown: (v: boolean) => void
+}) {
   return (
     <div className="max-w-xl space-y-4">
       <div className="flex items-center justify-between rounded-md border p-3">
         <div className="text-sm font-medium">Allow broker to add YSP</div>
-        <Switch checked={allowYsp} onCheckedChange={setAllowYsp} aria-label="Allow broker to add YSP" />
+        <Switch checked={allowYsp} onCheckedChange={onAllowYsp} aria-label="Allow broker to add YSP" />
       </div>
       <div className="flex items-center justify-between rounded-md border p-3">
         <div className="text-sm font-medium">Allow brokers to buydown rate</div>
-        <Switch checked={allowBuydown} onCheckedChange={setAllowBuydown} aria-label="Allow brokers to buydown rate" />
+        <Switch checked={allowBuydown} onCheckedChange={onAllowBuydown} aria-label="Allow brokers to buydown rate" />
       </div>
       <p className="text-xs text-muted-foreground">Note: Toggles are UI-only for now.</p>
     </div>
@@ -118,12 +172,18 @@ function ProgramsLoader() {
   return null
 }
 
-function ProgramsList() {
+function ProgramsList({
+  value,
+  onChange,
+}: {
+  value: Record<string, boolean>
+  onChange: (m: Record<string, boolean>) => void
+}) {
   const [items, setItems] = useState<
     { id: string; internal_name: string; external_name: string; loan_type: string }[] | null
   >(null)
   const [error, setError] = useState<string | null>(null)
-  const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({})
+  const visibilityMap = value
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -146,13 +206,11 @@ function ProgramsList() {
             loan_type: String(p.loan_type ?? ""),
           }))
         setItems(mapped)
-        setVisibilityMap((prev) => {
-          const next = { ...prev }
-          mapped.forEach((p) => {
-            if (next[p.id] === undefined) next[p.id] = true
-          })
-          return next
+        const next = { ...value }
+        mapped.forEach((p) => {
+          if (next[p.id] === undefined) next[p.id] = true
         })
+        onChange(next)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load programs")
       }
@@ -193,7 +251,7 @@ function ProgramsList() {
               <div className="flex justify-center">
                 <Switch
                   checked={!!visibilityMap[p.id]}
-                  onCheckedChange={(v) => setVisibilityMap((m) => ({ ...m, [p.id]: v }))}
+                  onCheckedChange={(v) => onChange({ ...visibilityMap, [p.id]: v })}
                   aria-label={`Toggle visibility for ${p.internal_name}`}
                 />
               </div>
@@ -205,18 +263,21 @@ function ProgramsList() {
   )
 }
 
-function RatesFeesTable() {
+function RatesFeesTable({
+  rows,
+  onRowsChange,
+}: {
+  rows: { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[]
+  onRowsChange: (
+    rows: { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[]
+  ) => void
+}) {
   const [editing, setEditing] = useState<boolean>(false)
-  const [snapshot, setSnapshot] = useState<
-    { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[] | null
-  >(null)
-  const [rows, setRows] = useState<
-    { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[]
-  >([])
+  const [snapshot, setSnapshot] = useState<typeof rows | null>(null)
 
   const addRow = () => {
-    setRows((r) => [
-      ...r,
+    onRowsChange([
+      ...rows,
       { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, minUpb: "", maxUpb: "", origination: "", adminFee: "", ysp: "" },
     ])
   }
@@ -235,10 +296,8 @@ function RatesFeesTable() {
     return n.toFixed(2)
   }
   const clampPercentStr = (s: string): string => {
-    // Allow decimals while typing, clamp numeric value to 0..100
     let raw = s.replace(/[^\d.]/g, "")
     if (raw.length === 0) return ""
-    // Keep only the first dot
     const firstDot = raw.indexOf(".")
     if (firstDot !== -1) {
       const left = raw.slice(0, firstDot)
@@ -248,7 +307,6 @@ function RatesFeesTable() {
     let hadDot = raw.includes(".")
     let [intPart, decPart = ""] = raw.split(".")
     if (intPart === "") intPart = "0"
-    // Remove leading zeros from int part
     intPart = intPart.replace(/^0+(?=\d)/, "")
     if (intPart === "") intPart = "0"
     const intNum = Number(intPart)
@@ -257,17 +315,14 @@ function RatesFeesTable() {
       return "100"
     }
     if (intNum === 100) {
-      // 100 cannot have decimals
       return "100"
     }
-    // Under 100 - allow up to 2 decimals
     decPart = decPart.slice(0, 2)
     if (hadDot) {
       return `${intPart}.${decPart}`
     }
     return `${intPart}`
   }
-  // Keep raw numeric string in state; render with $ prefix so it never duplicates.
 
   return (
     <div className="space-y-2">
@@ -289,7 +344,7 @@ function RatesFeesTable() {
               size="sm"
               variant="ghost"
               onClick={() => {
-                if (snapshot) setRows(snapshot.map((r) => ({ ...r })))
+                if (snapshot) onRowsChange(snapshot.map((r) => ({ ...r })))
                 setEditing(false)
               }}
             >
@@ -359,11 +414,7 @@ function RatesFeesTable() {
                   <Input
                     value={fmtMoneyDollar(row.minUpb ?? "0")}
                     onChange={(e) =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], minUpb: sanitize(e.target.value) }
-                        return next
-                      })
+                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, minUpb: sanitize(e.target.value) } : r)))
                     }
                     placeholder="0"
                   />
@@ -376,11 +427,7 @@ function RatesFeesTable() {
                   <Input
                     value={fmtMoneyDollar(row.maxUpb ?? "0")}
                     onChange={(e) =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], maxUpb: sanitize(e.target.value) }
-                        return next
-                      })
+                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, maxUpb: sanitize(e.target.value) } : r)))
                     }
                     placeholder="0"
                   />
@@ -392,26 +439,10 @@ function RatesFeesTable() {
                 {editing ? (
                   <Input
                     value={row.origination ?? ""}
-                    onFocus={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], origination: stripCommas(next[idx].origination ?? "") }
-                        return next
-                      })
-                    }
                     onChange={(e) =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], origination: clampPercentStr(e.target.value) }
-                        return next
-                      })
-                    }
-                    onBlur={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], origination: fmtPercent(next[idx].origination ?? "") }
-                        return next
-                      })
+                      onRowsChange(
+                        rows.map((r, rIdx) => (rIdx === idx ? { ...r, origination: clampPercentStr(e.target.value) } : r))
+                      )
                     }
                     placeholder="0.00"
                   />
@@ -424,11 +455,7 @@ function RatesFeesTable() {
                   <Input
                     value={fmtMoneyDollar(row.adminFee ?? "0")}
                     onChange={(e) =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], adminFee: sanitize(e.target.value) }
-                        return next
-                      })
+                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, adminFee: sanitize(e.target.value) } : r)))
                     }
                     placeholder="0"
                   />
@@ -440,26 +467,8 @@ function RatesFeesTable() {
                 {editing ? (
                   <Input
                     value={row.ysp ?? ""}
-                    onFocus={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], ysp: stripCommas(next[idx].ysp ?? "") }
-                        return next
-                      })
-                    }
                     onChange={(e) =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], ysp: clampPercentStr(e.target.value) }
-                        return next
-                      })
-                    }
-                    onBlur={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next[idx] = { ...next[idx], ysp: fmtPercent(next[idx].ysp ?? "") }
-                        return next
-                      })
+                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, ysp: clampPercentStr(e.target.value) } : r)))
                     }
                     placeholder="0.00"
                   />
@@ -472,13 +481,7 @@ function RatesFeesTable() {
                   <Button
                     variant="destructive"
                     size="icon"
-                    onClick={() =>
-                      setRows((r) => {
-                        const next = r.slice()
-                        next.splice(idx, 1)
-                        return next
-                      })
-                    }
+                    onClick={() => onRowsChange(rows.filter((_, rIdx) => rIdx !== idx))}
                     aria-label="Remove row"
                   >
                     <IconMinus className="h-4 w-4" />
@@ -489,7 +492,7 @@ function RatesFeesTable() {
           ))}
           {editing ? (
             <TableRow>
-              <TableCell colSpan={editing ? 6 : 5}>
+              <TableCell colSpan={6}>
                 <Button variant="ghost" size="sm" onClick={addRow}>
                   + Add Row
                 </Button>
