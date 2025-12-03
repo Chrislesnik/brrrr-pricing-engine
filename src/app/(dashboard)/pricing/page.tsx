@@ -3411,10 +3411,9 @@ function ResultCard({
     clone.style.width = "816px"
     clone.style.height = "auto"
     container.appendChild(clone)
-    // PDF-only style overrides for cleaner output
+    // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
     const style = document.createElement("style")
     style.textContent = `
-      /* Hide orange edit affordances; keep only text */
       .pdf-sandbox .ts-edit {
         background: transparent !important;
         border-color: transparent !important;
@@ -3424,11 +3423,11 @@ function ResultCard({
         vertical-align: middle !important;
         line-height: inherit !important;
       }
-      /* Ensure row text is vertically centered */
+      /* Vertically center text and values within each row without changing text-align */
       .pdf-sandbox [data-termsheet-root] .flex.justify-between { align-items: center !important; }
-      /* Slightly tighten margins to reduce spacing between sections */
-      .pdf-sandbox [data-termsheet-root] .mb-3 { margin-bottom: 0.35rem !important; }
-      .pdf-sandbox [data-termsheet-root] h3 + div { margin-top: 0.15rem !important; }
+      /* Slightly tighten spacing in the left column sections */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.35rem !important; }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.15rem !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
@@ -4067,7 +4066,6 @@ function ResultsPanel({
     clone.style.width = "816px"
     clone.style.height = "auto"
     container.appendChild(clone)
-    // PDF-only style overrides for cleaner output
     const style = document.createElement("style")
     style.textContent = `
       .pdf-sandbox .ts-edit {
@@ -4080,8 +4078,8 @@ function ResultsPanel({
         line-height: inherit !important;
       }
       .pdf-sandbox [data-termsheet-root] .flex.justify-between { align-items: center !important; }
-      .pdf-sandbox [data-termsheet-root] .mb-3 { margin-bottom: 0.35rem !important; }
-      .pdf-sandbox [data-termsheet-root] h3 + div { margin-top: 0.15rem !important; }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.35rem !important; }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.15rem !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
