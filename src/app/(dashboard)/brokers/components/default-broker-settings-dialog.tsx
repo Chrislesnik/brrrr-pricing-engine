@@ -61,7 +61,7 @@ export function DefaultBrokerSettingsDialog() {
             </aside>
 
             {/* Right content */}
-            <section className="bg-background">
+            <section className="bg-background flex flex-col">
               <header className="flex h-12 items-center border-b px-6 text-sm font-semibold">
                 {tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}
               </header>
@@ -73,6 +73,16 @@ export function DefaultBrokerSettingsDialog() {
                 ) : (
                   <AdditionalSettings />
                 )}
+              </div>
+              {/* bottom action bar */}
+              <div className="border-t px-6 py-3 flex justify-end">
+                <Button
+                  onClick={() => {
+                    // placeholder for persistence
+                  }}
+                >
+                  Save
+                </Button>
               </div>
             </section>
           </div>
