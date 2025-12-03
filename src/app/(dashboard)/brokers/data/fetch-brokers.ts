@@ -81,7 +81,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
   const memberById = new Map<string, any>()
   for (const m of members ?? []) {
-    memberById.set(m.id as string, m)
+    const key = String(m.id).toLowerCase()
+    memberById.set(key, m)
   }
 
   // 3) Custom settings for brokers
@@ -109,10 +110,11 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
     const managers = ((b.account_manager_ids as string[] | null) ?? [])
       .map((id) => {
-        const m = memberById.get(id)
+        const m = memberById.get(String(id).toLowerCase())
         if (!m) return null
         const nm = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
-        return nm || null
+        // Show email if no name, else fallback to id
+        return nm || (m.email as string | undefined) || String(id)
       })
       .filter(Boolean)
       .join(", ") || null
