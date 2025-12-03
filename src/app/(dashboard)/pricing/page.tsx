@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3 } from "@tabler/icons-react"
+import html2canvas from "html2canvas"
+import { jsPDF } from "jspdf"
 import { useSidebar } from "@/components/ui/sidebar"
 import {
   Select,
@@ -3392,6 +3394,36 @@ function ResultCard({
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
   const previewRef = useRef<HTMLDivElement | null>(null)
+  // Render the currently open preview into a PDF File
+  const renderPreviewToPdf = async (): Promise<File | null> => {
+    const root = (previewRef.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
+    if (!root) return null
+    const container = document.createElement("div")
+    container.style.position = "fixed"
+    container.style.left = "-10000px"
+    container.style.top = "0"
+    container.style.width = "816px"
+    container.style.height = "1056px"
+    container.style.overflow = "hidden"
+    container.style.background = "#ffffff"
+    const clone = root.cloneNode(true) as HTMLElement
+    clone.style.width = "816px"
+    clone.style.height = "auto"
+    container.appendChild(clone)
+    document.body.appendChild(container)
+    try {
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)))
+      const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false })
+      const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait" })
+      const img = canvas.toDataURL("image/png")
+      pdf.addImage(img, "PNG", 0, 0, 816, 1056)
+      const blob = pdf.output("blob")
+      const filename = `term-sheet-${Date.now()}.pdf`
+      return new File([blob], filename, { type: "application/pdf" })
+    } finally {
+      document.body.removeChild(container)
+    }
+  }
   // If this program hasn't returned yet, keep showing the generating loader inside the same container.
   if (!r?.data) {
     return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} />
@@ -3443,7 +3475,7 @@ function ResultCard({
     return value
   }
 
-  async function openTermSheetPreview(rowIndex?: number) {
+  async function openTermSheetPreview(rowIndex?: number, opts?: { autoDownloadPdf?: boolean; autoShare?: boolean }) {
     try {
       // Open modal immediately with loader while webhook response is fetched
       setSheetProps({} as DSCRTermSheetProps)
@@ -3494,6 +3526,46 @@ function ResultCard({
           ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
           : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetProps)
       setSheetProps(enriched)
+      if (opts?.autoDownloadPdf || opts?.autoShare) {
+        setTimeout(async () => {
+          try {
+            const file = await renderPreviewToPdf()
+            if (!file) throw new Error("Could not render PDF")
+            if (opts?.autoShare) {
+              const canShareFiles =
+                typeof navigator !== "undefined" &&
+                "canShare" in navigator &&
+                (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+              const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+              if (nav?.share && canShareFiles) {
+                await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+              } else {
+                const url = URL.createObjectURL(file)
+                const a = document.createElement("a")
+                a.href = url
+                a.download = file.name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                URL.revokeObjectURL(url)
+                toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+              }
+            } else if (opts?.autoDownloadPdf) {
+              const url = URL.createObjectURL(file)
+              const a = document.createElement("a")
+              a.href = url
+              a.download = file.name
+              document.body.appendChild(a)
+              a.click()
+              a.remove()
+              URL.revokeObjectURL(url)
+            }
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Failed to create PDF"
+            toast({ title: "PDF error", description: message, variant: "destructive" })
+          }
+        }, 300)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load term sheet"
       toast({ title: "Preview failed", description: message, variant: "destructive" })
@@ -3522,27 +3594,16 @@ function ResultCard({
             size="icon"
             variant="ghost"
             aria-label="Share"
-            onClick={async () => {
-              try {
-                const url = typeof window !== "undefined" ? window.location.href : ""
-                const title = "Term Sheet"
-                const text = "Check out this term sheet."
-                const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
-                if (nav?.share) {
-                  await nav.share({ title, text, url })
-                } else {
-                  await navigator.clipboard.writeText(url)
-                  toast({ title: "Link copied", description: "Page link copied to clipboard." })
-                }
-              } catch (e) {
-                const message = e instanceof Error ? e.message : "Unable to share"
-                toast({ title: "Share failed", description: message, variant: "destructive" })
-              }
-            }}
+            onClick={() => openTermSheetPreview(undefined, { autoShare: true })}
           >
             <IconShare3 className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" aria-label="Download">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Download"
+            onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
+          >
             <IconDownload className="h-4 w-4" />
           </Button>
           {warningList.length > 0 ? (
@@ -3737,27 +3798,16 @@ function ResultCard({
                                 size="icon"
                                 variant="ghost"
                                 aria-label="Share row"
-                                onClick={async () => {
-                                  try {
-                                    const url = typeof window !== "undefined" ? window.location.href : ""
-                                    const title = "Term Sheet"
-                                    const text = "Check out this term sheet."
-                                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
-                                    if (nav?.share) {
-                                      await nav.share({ title, text, url })
-                                    } else {
-                                      await navigator.clipboard.writeText(url)
-                                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
-                                    }
-                                  } catch (e) {
-                                    const message = e instanceof Error ? e.message : "Unable to share"
-                                    toast({ title: "Share failed", description: message, variant: "destructive" })
-                                  }
-                                }}
+                                onClick={() => openTermSheetPreview(i, { autoShare: true })}
                               >
                                 <IconShare3 className="h-4 w-4" />
                               </Button>
-                                <Button size="icon" variant="ghost" aria-label="Download row">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label="Download row"
+                                  onClick={() => openTermSheetPreview(i, { autoDownloadPdf: true })}
+                                >
                                   <IconDownload className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -3782,15 +3832,25 @@ function ResultCard({
             className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
-                const url = typeof window !== "undefined" ? window.location.href : ""
-                const title = "Term Sheet"
-                const text = "Check out this term sheet."
-                const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
-                if (nav?.share) {
-                  await nav.share({ title, text, url })
+                const file = await renderPreviewToPdf()
+                if (!file) throw new Error("Could not render PDF")
+                const canShareFiles =
+                  typeof navigator !== "undefined" &&
+                  "canShare" in navigator &&
+                  (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+                const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+                if (nav?.share && canShareFiles) {
+                  await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                 } else {
-                  await navigator.clipboard.writeText(url)
-                  toast({ title: "Link copied", description: "Page link copied to clipboard." })
+                  const url = URL.createObjectURL(file)
+                  const a = document.createElement("a")
+                  a.href = url
+                  a.download = file.name
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
+                  toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
                 }
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unable to share"
@@ -3804,86 +3864,18 @@ function ResultCard({
             type="button"
             aria-label="Download term sheet"
             className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            onClick={() => {
+            onClick={async () => {
               try {
-                const node = previewRef.current as HTMLElement | null
-                if (!node) return
-                const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
-                const htmlInside = (root ?? node).outerHTML
-                // Compute sizing based on sheet type
-                const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
-                const isDscr = rootType.includes("dscr")
-                const isBridge = rootType.includes("bridge")
-                const pagePad = isBridge ? 8 : 0
-                const innerH = isBridge ? `calc(1056px - ${pagePad * 2}px)` : "1056px"
-                let transformRule = isBridge ? "scale(0.985)" : "none"
-                // For DSCR, dynamically scale down to fit the 816x1056 canvas, never scale up
-                if (isDscr && root) {
-                  const naturalW = (root.scrollWidth || root.offsetWidth || 816)
-                  const naturalH = (root.scrollHeight || root.offsetHeight || 1056)
-                  const scaleW = 816 / (naturalW || 816)
-                  const scaleH = 1056 / (naturalH || 1056)
-                  const scale = Math.min(1, Math.min(scaleW, scaleH))
-                  transformRule = `scale(${Number.isFinite(scale) ? scale.toFixed(6) : "1"})`
-                }
-                // Capture current styles (Tailwind + globals) so printed output matches on-screen
-                const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-                  .map((el) => (el as HTMLElement).outerHTML)
-                  .join("\n")
-                const htmlClass = document.documentElement.className || ""
-                const bodyClass = document.body.className || ""
-                const htmlAttrs = Array.from(document.documentElement.attributes)
-                  .map((a) => `${a.name}="${a.value}"`)
-                  .join(" ")
-                const doc = `<!doctype html>
-<html class="${htmlClass}" ${htmlAttrs}>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <base href="${location.origin}">
-    <title>Term Sheet</title>
-    ${headStyles}
-    <style>
-      html, body { margin: 0; padding: 0; background: #fff; }
-      /* Render exactly one Letter page at 816x1056 and center it */
-      #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
-      #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; box-sizing: border-box !important; transform: ${transformRule}; transform-origin: center center; margin: 0 !important; padding: 0 !important; }
-      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      /* Hide on-screen edit affordances inside print */
-      .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
-      @page { size: 816px 1056px; margin: 0; }
-      @media print {
-        html, body { width: 816px; height: 1056px; overflow: hidden; }
-        /* Remove border in the PDF to avoid a heavy black line at the bottom edge */
-        #page { box-shadow: none; border: none; }
-      }
-    </style>
-  </head>
-  <body class="${bodyClass}">
-    <div id="page"><div class="reset"><div id="inner">${htmlInside}</div></div></div>
-  </body>
-</html>`
-                const iframe = document.createElement("iframe")
-                iframe.style.position = "fixed"
-                iframe.style.right = "0"
-                iframe.style.bottom = "0"
-                iframe.style.width = "0"
-                iframe.style.height = "0"
-                iframe.style.border = "0"
-                iframe.setAttribute("srcdoc", doc)
-                document.body.appendChild(iframe)
-                iframe.onload = () => {
-                  try {
-                    // No runtime scaling; content is rendered at exact 816x1056 canvas
-                    iframe.contentWindow?.focus()
-                    // Wait one frame so layout recalculates at the new scale
-                    setTimeout(() => iframe.contentWindow?.print(), 50)
-                  } finally {
-                    setTimeout(() => document.body.removeChild(iframe), 500)
-                  }
-                }
+                const file = await renderPreviewToPdf()
+                if (!file) throw new Error("Could not render PDF")
+                const url = URL.createObjectURL(file)
+                const a = document.createElement("a")
+                a.href = url
+                a.download = file.name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                URL.revokeObjectURL(url)
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unknown error"
                 toast({ title: "Download failed", description: message, variant: "destructive" })
@@ -4037,7 +4029,38 @@ function ResultsPanel({
   const previewRefMain = useRef<HTMLDivElement | null>(null)
   const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
 
-  async function openMainTermSheetPreview(opts?: { autoPrint?: boolean }) {
+  // Render main preview to a PDF File
+  const renderPreviewToPdfMain = async (): Promise<File | null> => {
+    const root = (previewRefMain.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
+    if (!root) return null
+    const container = document.createElement("div")
+    container.style.position = "fixed"
+    container.style.left = "-10000px"
+    container.style.top = "0"
+    container.style.width = "816px"
+    container.style.height = "1056px"
+    container.style.overflow = "hidden"
+    container.style.background = "#ffffff"
+    const clone = root.cloneNode(true) as HTMLElement
+    clone.style.width = "816px"
+    clone.style.height = "auto"
+    container.appendChild(clone)
+    document.body.appendChild(container)
+    try {
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)))
+      const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false })
+      const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait" })
+      const img = canvas.toDataURL("image/png")
+      pdf.addImage(img, "PNG", 0, 0, 816, 1056)
+      const blob = pdf.output("blob")
+      const filename = `term-sheet-${Date.now()}.pdf`
+      return new File([blob], filename, { type: "application/pdf" })
+    } finally {
+      document.body.removeChild(container)
+    }
+  }
+
+  async function openMainTermSheetPreview(opts?: { autoDownloadPdf?: boolean; autoShare?: boolean }) {
     try {
       if (!selected) return
       const d = (results?.[selected.programIdx]?.data ?? {}) as ProgramResponseData
@@ -4094,79 +4117,39 @@ function ResultsPanel({
           : ({ loan_type: isBridgeResp ? "bridge" : "dscr" } as DSCRTermSheetProps)
       setSheetPropsMain(enriched)
       setMcpOpenMain(true)
-      if (opts?.autoPrint) {
-        setTimeout(() => {
+      if (opts?.autoDownloadPdf || opts?.autoShare) {
+        setTimeout(async () => {
           try {
-            const node = previewRefMain.current as HTMLElement | null
-            if (!node) return
-            const root = node.querySelector('[data-termsheet-root]') as HTMLElement | null
-            const htmlInside = (root ?? node).outerHTML
-            const rootType = (root?.getAttribute("data-termsheet-root") || "").toLowerCase()
-            const isDscr = rootType.includes("dscr")
-            const isBridge = rootType.includes("bridge")
-            const pagePad = isBridge ? 8 : 0
-            const innerH = isBridge ? `calc(1056px - ${pagePad * 2}px)` : "1056px"
-            let transformRule = isBridge ? "scale(0.985)" : "none"
-            if (isDscr && root) {
-              const naturalW = (root.scrollWidth || root.offsetWidth || 816)
-              const naturalH = (root.scrollHeight || root.offsetHeight || 1056)
-              const scaleW = 816 / (naturalW || 816)
-              const scaleH = 1056 / (naturalH || 1056)
-              const scale = Math.min(1, Math.min(scaleW, scaleH))
-              transformRule = `scale(${Number.isFinite(scale) ? scale.toFixed(6) : "1"})`
-            }
-            const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-              .map((el) => (el as HTMLElement).outerHTML)
-              .join("\n")
-            const htmlClass = document.documentElement.className || ""
-            const bodyClass = document.body.className || ""
-            const htmlAttrs = Array.from(document.documentElement.attributes)
-              .map((a) => `${a.name}="${a.value}"`)
-              .join(" ")
-            const doc = `<!doctype html>
-<html class="${htmlClass}" ${htmlAttrs}>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <base href="${location.origin}">
-    <title>Term Sheet</title>
-    ${headStyles}
-    <style>
-      html, body { margin: 0; padding: 0; background: #fff; }
-      #page { width: 816px; height: 1056px; margin: 0 auto; padding: ${pagePad}px 0; box-sizing: border-box; overflow: hidden; display: block; }
-      #page > .reset { width: 816px !important; height: ${innerH} !important; transform: none !important; transform-origin: top left !important; margin: 0 !important; }
-      #inner { width: 816px; height: ${innerH}; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-      #inner [data-termsheet-root] { width: 816px !important; height: auto !important; box-sizing: border-box !important; transform: ${transformRule}; transform-origin: center center; margin: 0 !important; padding: 0 !important; }
-      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .ts-edit { border-color: transparent !important; background: transparent !important; outline: none !important; }
-      @page { size: 816px 1056px; margin: 0; }
-      @media print {
-        html, body { width: 816px; height: 1056px; overflow: hidden; }
-        #page { box-shadow: none; border: none; }
-      }
-    </style>
-  </head>
-  <body class="${bodyClass}">
-    <div id="page"><div class="reset"><div id="inner">${htmlInside}</div></div></div>
-  </body>
-</html>`
-            const iframe = document.createElement("iframe")
-            iframe.style.position = "fixed"
-            iframe.style.right = "0"
-            iframe.style.bottom = "0"
-            iframe.style.width = "0"
-            iframe.style.height = "0"
-            iframe.style.border = "0"
-            iframe.setAttribute("srcdoc", doc)
-            document.body.appendChild(iframe)
-            iframe.onload = () => {
-              try {
-            // No runtime scaling; content is rendered at exact 816x1056 canvas
-                iframe.contentWindow?.focus()
-                setTimeout(() => iframe.contentWindow?.print(), 50)
-              } finally {
-                setTimeout(() => document.body.removeChild(iframe), 500)
+            const file = await renderPreviewToPdfMain()
+            if (!file) throw new Error("Could not render PDF")
+            if (opts?.autoShare) {
+              const canShareFiles =
+                typeof navigator !== "undefined" &&
+                "canShare" in navigator &&
+                (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+              const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+              if (nav?.share && canShareFiles) {
+                await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+              } else {
+                const url = URL.createObjectURL(file)
+                const a = document.createElement("a")
+                a.href = url
+                a.download = file.name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                URL.revokeObjectURL(url)
+                toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
               }
+            } else if (opts?.autoDownloadPdf) {
+              const url = URL.createObjectURL(file)
+              const a = document.createElement("a")
+              a.href = url
+              a.download = file.name
+              document.body.appendChild(a)
+              a.click()
+              a.remove()
+              URL.revokeObjectURL(url)
             }
           } catch (e) {
             const message = e instanceof Error ? e.message : "Unknown error"
@@ -4248,23 +4231,7 @@ function ResultsPanel({
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
-                onClick={async () => {
-                  try {
-                    const url = typeof window !== "undefined" ? window.location.href : ""
-                    const title = "Term Sheet"
-                    const text = "Check out this term sheet."
-                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
-                    if (nav?.share) {
-                      await nav.share({ title, text, url })
-                    } else {
-                      await navigator.clipboard.writeText(url)
-                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
-                    }
-                  } catch (e) {
-                    const message = e instanceof Error ? e.message : "Unable to share"
-                    toast({ title: "Share failed", description: message, variant: "destructive" })
-                  }
-                }}
+                onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
                 <IconShare3 className="h-4 w-4" />
               </Button>
@@ -4272,7 +4239,7 @@ function ResultsPanel({
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
-                onClick={() => openMainTermSheetPreview({ autoPrint: true })}
+                onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
                 <IconDownload className="h-4 w-4" />
               </Button>
@@ -4351,23 +4318,7 @@ function ResultsPanel({
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
-                onClick={async () => {
-                  try {
-                    const url = typeof window !== "undefined" ? window.location.href : ""
-                    const title = "Term Sheet"
-                    const text = "Check out this term sheet."
-                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
-                    if (nav?.share) {
-                      await nav.share({ title, text, url })
-                    } else {
-                      await navigator.clipboard.writeText(url)
-                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
-                    }
-                  } catch (e) {
-                    const message = e instanceof Error ? e.message : "Unable to share"
-                    toast({ title: "Share failed", description: message, variant: "destructive" })
-                  }
-                }}
+                onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
                 <IconShare3 className="h-4 w-4" />
               </Button>
@@ -4375,7 +4326,7 @@ function ResultsPanel({
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
-                onClick={() => openMainTermSheetPreview({ autoPrint: true })}
+                onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
                 <IconDownload className="h-4 w-4" />
               </Button>
@@ -4433,23 +4384,7 @@ function ResultsPanel({
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
-                onClick={async () => {
-                  try {
-                    const url = typeof window !== "undefined" ? window.location.href : ""
-                    const title = "Term Sheet"
-                    const text = "Check out this term sheet."
-                    const nav = (typeof navigator !== "undefined" ? (navigator as unknown as { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> }) : undefined)
-                    if (nav?.share) {
-                      await nav.share({ title, text, url })
-                    } else {
-                      await navigator.clipboard.writeText(url)
-                      toast({ title: "Link copied", description: "Page link copied to clipboard." })
-                    }
-                  } catch (e) {
-                    const message = e instanceof Error ? e.message : "Unable to share"
-                    toast({ title: "Share failed", description: message, variant: "destructive" })
-                  }
-                }}
+                onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
                 <IconShare3 className="h-4 w-4" />
               </Button>
@@ -4457,7 +4392,7 @@ function ResultsPanel({
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
-                onClick={() => openMainTermSheetPreview({ autoPrint: true })}
+                onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
                 <IconDownload className="h-4 w-4" />
               </Button>
