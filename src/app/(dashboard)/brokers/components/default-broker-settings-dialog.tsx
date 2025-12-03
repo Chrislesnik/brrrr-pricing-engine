@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { IconMinus } from "@tabler/icons-react"
 
 export function DefaultBrokerSettingsDialog() {
   const [open, setOpen] = useState(false)
@@ -178,6 +179,9 @@ function ProgramsList() {
 
 function RatesFeesTable() {
   const [editing, setEditing] = useState<boolean>(false)
+  const [snapshot, setSnapshot] = useState<
+    { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[] | null
+  >(null)
   const [rows, setRows] = useState<
     { id: string; minUpb?: string; maxUpb?: string; origination?: string; adminFee?: string; ysp?: string }[]
   >([])
@@ -204,10 +208,42 @@ function RatesFeesTable() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-end">
-        <Button size="sm" variant="outline" onClick={() => setEditing((e) => !e)}>
-          {editing ? "Done" : "Edit"}
-        </Button>
+      <div className="flex items-center justify-end gap-2">
+        {!editing ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSnapshot(rows.map((r) => ({ ...r })))
+              setEditing(true)
+            }}
+          >
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                if (snapshot) setRows(snapshot.map((r) => ({ ...r })))
+                setEditing(false)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSnapshot(null)
+                setEditing(false)
+              }}
+            >
+              Done
+            </Button>
+          </>
+        )}
       </div>
       <Table>
         <TableHeader>
@@ -242,6 +278,7 @@ function RatesFeesTable() {
                 <div>(%)</div>
               </div>
             </TableHead>
+            {editing ? <TableHead className="w-[48px]" /> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -409,11 +446,29 @@ function RatesFeesTable() {
                   <span>{fmtPercent(row.ysp ?? "")}</span>
                 )}
               </TableCell>
+              {editing ? (
+                <TableCell className="text-center">
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() =>
+                      setRows((r) => {
+                        const next = r.slice()
+                        next.splice(idx, 1)
+                        return next
+                      })
+                    }
+                    aria-label="Remove row"
+                  >
+                    <IconMinus className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              ) : null}
             </TableRow>
           ))}
           {editing ? (
             <TableRow>
-              <TableCell colSpan={5}>
+              <TableCell colSpan={editing ? 6 : 5}>
                 <Button variant="ghost" size="sm" onClick={addRow}>
                   + Add Row
                 </Button>
