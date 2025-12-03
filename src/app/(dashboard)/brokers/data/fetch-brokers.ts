@@ -42,13 +42,13 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
 
   let brokersQuery = supabaseAdmin
     .from("brokers")
-    .select("id, organization_id, organization_member_id, account_manager_ids, joined_at, email")
+    .select("id, organization_id, member_id, account_manager_uids, joined_at, email")
     .eq("organization_id", orgUuid)
     .order("created_at", { ascending: true })
 
   // Only show brokers where this member is listed in account_manager_ids
   if (currentOrgMemberId) {
-    brokersQuery = brokersQuery.contains("account_manager_ids", [currentOrgMemberId])
+    brokersQuery = brokersQuery.contains("account_manager_uids", [currentOrgMemberId])
   }
 
   const { data: brokers, error: brokersErr } = await brokersQuery
@@ -63,9 +63,9 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // Collect all member ids we need to resolve names/emails/companies (owner + managers)
   const memberIds = new Set<string>()
   for (const b of brokerRows) {
-    const mid = b.organization_member_id as string | null
+    const mid = (b as any).member_id as string | null
     if (mid) memberIds.add(mid)
-    const mgrs = (b.account_manager_ids as string[] | null) ?? []
+    const mgrs = ((b as any).account_manager_uids as string[] | null) ?? []
     for (const m of mgrs) memberIds.add(m)
   }
   const memberIdsArr = Array.from(memberIds)
@@ -101,11 +101,12 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
 
   // 4) Build rows
   const rows: BrokerRow[] = brokerRows.map((b) => {
-    const owner = b.organization_member_id ? memberById.get(b.organization_member_id as string) : null
+    const ownerId = (b as any).member_id as string | null
+    const owner = ownerId ? memberById.get(ownerId) : null
     const fullName =
       owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
     const displayEmail = (b as any)?.email ?? (owner?.email as string) ?? null
-    const managers = ((b.account_manager_ids as string[] | null) ?? [])
+    const managers = (((b as any).account_manager_uids as string[] | null) ?? [])
       .map((id) => {
         const m = memberById.get(id)
         if (!m) return null
