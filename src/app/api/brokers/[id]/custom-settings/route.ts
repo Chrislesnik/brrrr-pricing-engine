@@ -79,6 +79,8 @@ export async function POST(
     const { error, data } = await supabaseAdmin
       .from("custom_broker_settings")
       .update({
+        // Mark as customized so permissions show CUSTOM
+        "default": false,
         allow_ysp: body.allow_ysp === true,
         allow_buydown_rate: body.allow_buydown_rate === true,
         program_visibility: body.program_visibility ?? {},
