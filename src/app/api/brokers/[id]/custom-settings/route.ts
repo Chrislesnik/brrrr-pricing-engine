@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
@@ -6,15 +6,15 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 export const runtime = "nodejs"
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: brokerId } = await context.params
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    const brokerId = params.id
     if (!brokerId) return NextResponse.json({ error: "Missing broker id" }, { status: 400 })
 
     // Verify the broker belongs to this org
@@ -47,15 +47,15 @@ export async function GET(
 }
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: brokerId } = await context.params
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    const brokerId = params.id
     if (!brokerId) return NextResponse.json({ error: "Missing broker id" }, { status: 400 })
 
     // Verify the broker belongs to this org
