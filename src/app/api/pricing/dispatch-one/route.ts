@@ -31,6 +31,18 @@ export async function POST(req: NextRequest) {
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
+    // Resolve caller's organization_member_id for attribution on downstream webhooks
+    let myMemberId: string | null = null
+    try {
+      const { data: me } = await supabaseAdmin
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .maybeSingle()
+      myMemberId = (me?.id as string) ?? null
+    } catch {
+      myMemberId = null
+    }
 
     let q = supabaseAdmin
       .from("programs")
@@ -58,6 +70,10 @@ export async function POST(req: NextRequest) {
 
     const url = String(match.webhook_url).trim()
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
+    // Attach organization_member_id for downstream auditing
+    if (myMemberId) {
+      normalizedData["organization_member_id"] = myMemberId
+    }
     const res = await fetch(url, {
       method: "POST",
       cache: "no-store",

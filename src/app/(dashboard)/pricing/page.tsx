@@ -259,14 +259,16 @@ export default function PricingEnginePage() {
   const searchParams = useSearchParams()
   const { orgRole } = useAuth()
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
+  const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
   useEffect(() => {
     let active = true
     ;(async () => {
       try {
         const res = await fetch("/api/org/members", { cache: "no-store" })
-        const j = (await res.json().catch(() => ({}))) as { editable?: boolean }
+        const j = (await res.json().catch(() => ({}))) as { editable?: boolean; self_member_id?: string | null }
         if (!active) return
         setIsBrokerMember(j?.editable === false)
+        setSelfMemberId(j?.self_member_id ?? null)
       } catch {
         // ignore
       }
@@ -982,7 +984,9 @@ export default function PricingEnginePage() {
       // Also POST all inputs (including defaults/placeholders) to the external webhook
       // This call is non-blocking and won't affect the main dispatch flow.
       try {
-        const webhookBody = JSON.stringify(toYesNoDeepGlobal(payload) as Record<string, unknown>)
+        const augmented = { ...(toYesNoDeepGlobal(payload) as Record<string, unknown>) }
+        if (selfMemberId) augmented["organization_member_id"] = selfMemberId
+        const webhookBody = JSON.stringify(augmented)
         void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
           method: "POST",
           cache: "no-store",
@@ -1011,7 +1015,7 @@ export default function PricingEnginePage() {
                 "Pragma": "no-cache",
                 "X-Client-Request-Id": `${nonce}-${idx}`,
               },
-              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: payload }),
+              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: { ...payload, organization_member_id: selfMemberId ?? null } }),
             })
             const single = (await res.json().catch(() => ({}))) as ProgramResult
             // place result in its slot (do not reorder to preserve container positions)
@@ -3399,6 +3403,7 @@ export default function PricingEnginePage() {
             onSelectedChange={setSelectedMainRow}
             selectedFromProps={selectedMainRow}
             getInputs={() => buildPayload()}
+            memberId={selfMemberId}
           />
         </section>
       </div>
@@ -3469,12 +3474,14 @@ function ResultCard({
   selected,
   onSelect,
   getInputs,
+  memberId,
 }: {
   r: ProgramResult
   programIdx: number
   selected: SelectedRow | null
   onSelect: (sel: SelectedRow) => void
   getInputs?: () => Record<string, unknown>
+  memberId?: string | null
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -3625,6 +3632,7 @@ function ResultCard({
         row_index: idx,
         inputs,
         row: normalizedRow,
+        organization_member_id: memberId ?? null,
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
       const res = await fetch(`${TERMSHEET_WEBHOOK}?_=${encodeURIComponent(nonce)}`, {
@@ -4072,6 +4080,7 @@ function ResultsPanel({
   onSelectedChange,
   selectedFromProps,
   getInputs,
+  memberId,
 }: {
   results: ProgramResult[]
   loading?: boolean
@@ -4079,6 +4088,7 @@ function ResultsPanel({
   onSelectedChange?: (sel: SelectedRow | null) => void
   selectedFromProps?: SelectedRow | null
   getInputs?: () => Record<string, unknown>
+  memberId?: string | null
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -4245,6 +4255,7 @@ function ResultsPanel({
         row_index: idx,
         inputs,
         row: normalizedRow,
+        organization_member_id: memberId ?? null,
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
       const res = await fetch(`${TERMSHEET_WEBHOOK_MAIN}?_=${encodeURIComponent(nonce)}`, {
@@ -4591,6 +4602,7 @@ function ResultsPanel({
           selected={selected}
           onSelect={(sel) => setSelected(sel)}
           getInputs={getInputs}
+          memberId={memberId}
         />
       ))}
         <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>

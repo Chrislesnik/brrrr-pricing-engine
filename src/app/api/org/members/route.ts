@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
       return true
     })
 
-    return NextResponse.json({ members: deduped, editable })
+    return NextResponse.json({ members: deduped, editable, self_member_id: myMemberId })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })

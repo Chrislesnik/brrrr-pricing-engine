@@ -35,6 +35,18 @@ export async function POST(req: NextRequest) {
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
+    // Resolve caller's organization_member_id
+    let myMemberId: string | null = null
+    try {
+      const { data: me } = await supabaseAdmin
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .maybeSingle()
+      myMemberId = (me?.id as string) ?? null
+    } catch {
+      myMemberId = null
+    }
 
     // fetch active program webhooks for this org + loan type
     const { data, error } = await superFetchPrograms(orgUuid ?? null, json.loanType)
@@ -53,6 +65,9 @@ export async function POST(req: NextRequest) {
       data: Record<string, unknown> | null
     }[] = []
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
+    if (myMemberId) {
+      normalizedData["organization_member_id"] = myMemberId
+    }
     const requestIdBase = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
     await Promise.all(
       programs.map(async (p, idx) => {
