@@ -105,7 +105,15 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
           </div>
           {/* Inline preview (selected file takes precedence) */}
           {previewUrl ? (
-            <div className="mb-3 flex items-center justify-center">
+            <div className="mb-3 flex items-center justify-center relative">
+              <button
+                type="button"
+                aria-label="Remove selected image"
+                className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
+                onClick={() => setLogoFile(null)}
+              >
+                ×
+              </button>
               <img
                 src={previewUrl}
                 alt="Selected logo preview"
@@ -113,7 +121,31 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
               />
             </div>
           ) : existingLogoUrl ? (
-            <div className="mb-3 flex items-center justify-center">
+            <div className="mb-3 flex items-center justify-center relative">
+              <button
+                type="button"
+                aria-label="Delete current logo"
+                className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
+                onClick={() => {
+                  startTransition(async () => {
+                    try {
+                      const res = await fetch("/api/org/company-branding", { method: "DELETE" })
+                      const j = await res.json().catch(() => ({}))
+                      if (!res.ok) throw new Error(j?.error ?? "Failed to delete")
+                      setExistingLogoUrl(undefined)
+                      toast({ title: "Deleted", description: "Company logo removed." })
+                    } catch (e) {
+                      toast({
+                        title: "Delete failed",
+                        description: e instanceof Error ? e.message : "Unknown error",
+                        variant: "destructive",
+                      })
+                    }
+                  })
+                }}
+              >
+                ×
+              </button>
               <img
                 src={existingLogoUrl}
                 alt="Current logo"

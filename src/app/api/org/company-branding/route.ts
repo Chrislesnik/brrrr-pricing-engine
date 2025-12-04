@@ -5,6 +5,20 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
+function getObjectPathFromPublicUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    // Expected: https://<project>.supabase.co/storage/v1/object/public/broker-assets/<path>
+    const marker = "/storage/v1/object/public/broker-assets/"
+    const idx = url.indexOf(marker)
+    if (idx === -1) return null
+    const p = url.slice(idx + marker.length)
+    return decodeURIComponent(p)
+  } catch {
+    return null
+  }
+}
+
 export async function GET() {
   try {
     const { userId, orgId } = await auth()
@@ -57,6 +71,18 @@ export async function POST(req: NextRequest) {
     const orgMemberId = (member?.id as string) ?? null
     if (!orgMemberId) return NextResponse.json({ error: "No member" }, { status: 404 })
 
+    // Fetch existing url to remove after successful replacement
+    let previousLogoUrl: string | null = null
+    {
+      const { data: current } = await supabaseAdmin
+        .from("brokers")
+        .select("company_logo_url")
+        .eq("organization_id", orgUuid)
+        .eq("organization_member_id", orgMemberId)
+        .maybeSingle()
+      previousLogoUrl = (current?.company_logo_url as string | undefined) ?? null
+    }
+
     let companyName = ""
     let logoUrl: string | null = null
 
@@ -102,7 +128,68 @@ export async function POST(req: NextRequest) {
       })
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
     }
+
+    // Best-effort: if we replaced a logo, delete the previous object
+    if (previousLogoUrl && logoUrl && previousLogoUrl !== logoUrl) {
+      const objectPath = getObjectPathFromPublicUrl(previousLogoUrl)
+      if (objectPath) {
+        try {
+          await supabaseAdmin.storage.from("broker-assets").remove([objectPath])
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+    }
     return NextResponse.json({ ok: true, company_name: companyName, logo_url: logoUrl })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error"
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+export async function DELETE() {
+  try {
+    const { userId, orgId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+    if (!orgUuid) return NextResponse.json({ error: "No org" }, { status: 400 })
+
+    const { data: member, error: memErr } = await supabaseAdmin
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", orgUuid)
+      .eq("user_id", userId)
+      .single()
+    if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 })
+    const orgMemberId = (member?.id as string) ?? null
+    if (!orgMemberId) return NextResponse.json({ error: "No member" }, { status: 404 })
+
+    const { data: current, error: curErr } = await supabaseAdmin
+      .from("brokers")
+      .select("company_logo_url")
+      .eq("organization_id", orgUuid)
+      .eq("organization_member_id", orgMemberId)
+      .maybeSingle()
+    if (curErr) return NextResponse.json({ error: curErr.message }, { status: 500 })
+    const currentUrl = (current?.company_logo_url as string | undefined) ?? null
+
+    if (currentUrl) {
+      const objectPath = getObjectPathFromPublicUrl(currentUrl)
+      if (objectPath) {
+        try {
+          await supabaseAdmin.storage.from("broker-assets").remove([objectPath])
+        } catch {
+          // swallow storage delete error; proceed to clear db url
+        }
+      }
+    }
+    const { error: upd } = await supabaseAdmin
+      .from("brokers")
+      .update({ company_logo_url: null })
+      .eq("organization_id", orgUuid)
+      .eq("organization_member_id", orgMemberId)
+    if (upd) return NextResponse.json({ error: upd.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
