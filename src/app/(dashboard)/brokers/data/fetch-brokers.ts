@@ -64,8 +64,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   for (const b of brokerRows) {
     const mid = b.organization_member_id as string | null
     if (mid) memberIds.add(mid)
-    const mgrs = (b.account_manager_ids as string[] | null) ?? []
-    for (const m of mgrs) memberIds.add(m)
+    const mgrs = normalizeIdArray((b as any).account_manager_ids)
+    for (const m of mgrs) memberIds.add(String(m))
   }
   const memberIdsArr = Array.from(memberIds)
 
