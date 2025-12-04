@@ -63,9 +63,9 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   const memberIds = new Set<string>()
   for (const b of brokerRows) {
     const mid = b.organization_member_id as string | null
-    if (mid) memberIds.add(mid)
+    if (mid) memberIds.add(String(mid).toLowerCase())
     const mgrs = normalizeIdArray((b as any).account_manager_ids)
-    for (const m of mgrs) memberIds.add(String(m))
+    for (const m of mgrs) memberIds.add(String(m).toLowerCase())
   }
   const memberIdsArr = Array.from(memberIds)
 
@@ -94,6 +94,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   for (const m of members ?? []) {
     const key = String(m.id).toLowerCase()
     memberById.set(key, m)
+    // Also store the original-case key to be extra forgiving
+    memberById.set(String(m.id), m)
   }
 
   // 3) Custom settings for brokers
@@ -116,13 +118,18 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
 
   // 4) Build rows
   const rows: BrokerRow[] = brokerRows.map((b) => {
-    const owner = b.organization_member_id ? memberById.get(b.organization_member_id as string) : null
+    const owner = b.organization_member_id
+      ? memberById.get(String(b.organization_member_id).toLowerCase()) ??
+        memberById.get(String(b.organization_member_id))
+      : null
     const fullName =
       owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
     const managers = normalizeIdArray((b as any).account_manager_ids)
       .map((id) => {
-        const m = memberById.get(String(id).toLowerCase())
-        if (!m) return null
+        const m =
+          memberById.get(String(id).toLowerCase()) ??
+          memberById.get(String(id))
+        if (!m) return String(id) // fallback to raw id when member not found
         const nm = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
         // Only show name; if missing, show the raw id (no email fallback)
         return nm || String(id)
