@@ -1,4 +1,4 @@
-\"use client\"
+'use client'
 import React, { useRef, useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
