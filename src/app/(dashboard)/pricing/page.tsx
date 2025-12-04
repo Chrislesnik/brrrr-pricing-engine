@@ -489,6 +489,11 @@ export default function PricingEnginePage() {
     d.setDate(d.getDate() + days)
     return d
   }
+  const addYears = (dt: Date, years: number) => {
+    const d = new Date(dt)
+    d.setFullYear(d.getFullYear() + years)
+    return d
+  }
   const _isSameDay = (a?: Date, b?: Date) => {
     if (!a || !b) return false
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -506,6 +511,7 @@ export default function PricingEnginePage() {
       annualHoa: "0" as string,
       annualMgmt: "0" as string,
       closingDate: addDays(new Date(), 24) as Date,
+      acquisitionDate: addYears(new Date(), -1) as Date,
       loanStructureType: "fixed-30" as string,
       ppp: "5-4-3-2-1" as string,
       borrowerName: "Example LLC" as string,
@@ -561,6 +567,7 @@ export default function PricingEnginePage() {
     setIfUnsetString(annualHoa, (v) => setAnnualHoa(v), DEFAULTS.annualHoa)
     setIfUnsetString(annualMgmt, (v) => setAnnualMgmt(v), DEFAULTS.annualMgmt)
     setIfUnsetDate(closingDate, (v) => setClosingDate(v), DEFAULTS.closingDate)
+    setIfUnsetDate(acquisitionDate, (v) => setAcquisitionDate(v), DEFAULTS.acquisitionDate)
     setIfUnsetString(loanStructureType, (v) => setLoanStructureType(v), DEFAULTS.loanStructureType)
     setIfUnsetString(ppp, (v) => setPpp(v), DEFAULTS.ppp)
     setIfUnsetString(borrowerName, (v) => setBorrowerName(v), DEFAULTS.borrowerName)

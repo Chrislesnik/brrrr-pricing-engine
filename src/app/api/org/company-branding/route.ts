@@ -70,10 +70,10 @@ export async function POST(req: NextRequest) {
         const bytes = new Uint8Array(arrayBuffer)
         const path = `company-logos/${orgUuid}/${orgMemberId}/${Date.now()}-${file.name}`
         const { data: upload, error: upErr } = await supabaseAdmin.storage
-          .from("public")
+          .from("broker-assets")
           .upload(path, bytes, { contentType: file.type, upsert: true })
         if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
-        const { data: pub } = supabaseAdmin.storage.from("public").getPublicUrl(upload.path)
+        const { data: pub } = supabaseAdmin.storage.from("broker-assets").getPublicUrl(upload.path)
         logoUrl = pub.publicUrl
       }
     } else {
