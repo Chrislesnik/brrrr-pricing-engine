@@ -4,12 +4,14 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
-export async function GET(_req: Request, context: unknown) {
+export async function GET(
+  _req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
-    const id = params.id
+    const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
     const { data, error } = await supabaseAdmin
       .from("loan_scenarios")
@@ -24,12 +26,14 @@ export async function GET(_req: Request, context: unknown) {
   }
 }
 
-export async function POST(req: Request, context: unknown) {
+export async function POST(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
-    const id = params.id
+    const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
     const body = (await req.json().catch(() => ({}))) as {
       name?: string
@@ -57,12 +61,14 @@ export async function POST(req: Request, context: unknown) {
   }
 }
 
-export async function DELETE(_req: Request, context: unknown) {
+export async function DELETE(
+  _req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
-    const id = params.id
+    const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
     const { error } = await supabaseAdmin.from("loan_scenarios").delete().eq("id", id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
