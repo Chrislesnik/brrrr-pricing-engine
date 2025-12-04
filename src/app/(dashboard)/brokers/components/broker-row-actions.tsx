@@ -5,9 +5,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from "@/components/ui/button"
 import { IconDotsVertical } from "@tabler/icons-react"
 import { BrokerSettingsDialog } from "./broker-settings-dialog"
+import { useRouter } from "next/navigation"
 
 export default function RowActions({ brokerId }: { brokerId: string }) {
   const [open, setOpen] = useState(false)
+  const router = useRouter()
   return (
     <>
       <DropdownMenu>
@@ -20,7 +22,17 @@ export default function RowActions({ brokerId }: { brokerId: string }) {
           <DropdownMenuItem onSelect={() => setOpen(true)}>Broker settings</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {open ? <BrokerSettingsDialog brokerId={brokerId} open={open} onOpenChange={setOpen} /> : null}
+      {open ? (
+        <BrokerSettingsDialog
+          brokerId={brokerId}
+          open={open}
+          onOpenChange={setOpen}
+          onSaved={() => {
+            // Refresh server-rendered table row to reflect new permissions
+            router.refresh()
+          }}
+        />
+      ) : null}
     </>
   )
 }

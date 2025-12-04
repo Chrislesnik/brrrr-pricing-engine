@@ -14,10 +14,12 @@ export function BrokerSettingsDialog({
   brokerId,
   open,
   onOpenChange,
+  onSaved,
 }: {
   brokerId: string
   open: boolean
   onOpenChange: (v: boolean) => void
+  onSaved?: () => void
 }) {
   const [tab, setTab] = useState<"programs" | "rates" | "additional">("programs")
   const [programVisibility, setProgramVisibility] = useState<Record<string, boolean>>({})
@@ -145,6 +147,11 @@ export function BrokerSettingsDialog({
                         if (!res.ok) throw new Error(j?.error ?? "Failed to save")
                         toast({ title: "Saved", description: "Broker settings updated." })
                         onOpenChange(false)
+                        try {
+                          onSaved?.()
+                        } catch {
+                          // ignore callback errors
+                        }
                       } catch (e) {
                         toast({
                           title: "Save failed",
