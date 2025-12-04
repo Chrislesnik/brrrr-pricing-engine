@@ -255,7 +255,7 @@ function ProgramsList({
         setItems(mapped)
         const next = { ...value }
         mapped.forEach((p) => {
-          if (next[p.id] === undefined) next[p.id] = true
+          if (next[p.id] === undefined) next[p.id] = false
         })
         onChange(next)
       } catch (e) {
@@ -339,6 +339,57 @@ function RatesFeesTable({
     const v = (s ?? "").toString().trim()
     if (v === "") return ""
     return `$${fmtMoney(v)}`
+  }
+  const normalizeMoneyRaw = (s: string): string => {
+    let raw = s.replace(/[^\d.]/g, "")
+    const firstDot = raw.indexOf(".")
+    if (firstDot !== -1) {
+      const left = raw.slice(0, firstDot)
+      const right = raw.slice(firstDot + 1).replace(/\./g, "")
+      raw = `${left}.${right.slice(0, 2)}`
+    } else {
+      raw = raw.replace(/\./g, "")
+    }
+    return raw
+  }
+  const formatCurrency = (raw: string): string => {
+    if (!raw) return ""
+    const [i = "", d = ""] = String(raw).split(".")
+    const int = i.replace(/^0+(?=\d)/, "") || "0"
+    const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    const dec = (d ?? "").padEnd(2, "0").slice(0, 2)
+    return `$${withCommas}.${dec}`
+  }
+  const countDigitsBefore = (s: string, pos: number): number => s.slice(0, pos).replace(/[^0-9]/g, "").length
+  const caretFromDigits = (formatted: string, digitsBefore: number): number => {
+    let seen = 0
+    for (let i = 0; i < formatted.length; i++) {
+      if (/\d/.test(formatted[i])) {
+        seen++
+        if (seen >= digitsBefore) return i + 1
+      }
+    }
+    return formatted.length
+  }
+  const handleMoneyChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    idx: number,
+    key: "minUpb" | "maxUpb" | "adminFee"
+  ) => {
+    const el = e.target
+    const selection = el.selectionStart ?? el.value.length
+    const digitsBefore = countDigitsBefore(el.value, selection)
+    const nextRaw = normalizeMoneyRaw(el.value)
+    onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, [key]: nextRaw } : r)))
+    requestAnimationFrame(() => {
+      try {
+        const display = formatCurrency(nextRaw)
+        const newPos = caretFromDigits(display, digitsBefore)
+        el.setSelectionRange(newPos, newPos)
+      } catch {
+        // ignore caret errors
+      }
+    })
   }
   const fmtPercent = (s: string): string => {
     const n = Number(stripCommas(s))
@@ -462,10 +513,8 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={row.minUpb ?? ""}
-                    onChange={(e) =>
-                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, minUpb: sanitize(e.target.value) } : r)))
-                    }
+                    value={formatCurrency(row.minUpb ?? "")}
+                    onChange={(e) => handleMoneyChange(e, idx, "minUpb")}
                     placeholder="$0.00"
                   />
                 ) : (
@@ -475,10 +524,8 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={row.maxUpb ?? ""}
-                    onChange={(e) =>
-                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, maxUpb: sanitize(e.target.value) } : r)))
-                    }
+                    value={formatCurrency(row.maxUpb ?? "")}
+                    onChange={(e) => handleMoneyChange(e, idx, "maxUpb")}
                     placeholder="$0.00"
                   />
                 ) : (
@@ -503,10 +550,8 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={row.adminFee ?? ""}
-                    onChange={(e) =>
-                      onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, adminFee: sanitize(e.target.value) } : r)))
-                    }
+                    value={formatCurrency(row.adminFee ?? "")}
+                    onChange={(e) => handleMoneyChange(e, idx, "adminFee")}
                     placeholder="$0.00"
                   />
                 ) : (
