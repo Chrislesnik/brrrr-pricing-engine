@@ -60,14 +60,22 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   if (brokerRows.length === 0) return []
 
   // Collect all member ids we need to resolve names/emails/companies (owner + managers)
-  const memberIds = new Set<string>()
+  // Keep both original-case ids for DB querying and lowercase for robust map lookups.
+  const memberIdsForQuery = new Set<string>()
+  const memberIdsForMap = new Set<string>()
   for (const b of brokerRows) {
     const mid = b.organization_member_id as string | null
-    if (mid) memberIds.add(String(mid).toLowerCase())
+    if (mid) {
+      memberIdsForQuery.add(String(mid))
+      memberIdsForMap.add(String(mid).toLowerCase())
+    }
     const mgrs = normalizeIdArray((b as any).account_manager_ids)
-    for (const m of mgrs) memberIds.add(String(m).toLowerCase())
+    for (const m of mgrs) {
+      memberIdsForQuery.add(String(m))
+      memberIdsForMap.add(String(m).toLowerCase())
+    }
   }
-  const memberIdsArr = Array.from(memberIds)
+  const memberIdsArr = Array.from(memberIdsForQuery)
 
   // Helper to normalize uuid[] that may arrive as Postgres array literal string like "{id1,id2}"
   function normalizeIdArray(value: unknown): string[] {
