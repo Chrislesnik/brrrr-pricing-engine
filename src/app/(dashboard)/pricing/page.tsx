@@ -974,6 +974,7 @@ export default function PricingEnginePage() {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
           let ph = Array.isArray(pj?.programs) ? pj.programs : []
           // If broker, filter by custom_broker_settings.program_visibility == true
+          let allowedIds: Set<string> | null = null
           if (selfBrokerId || isBroker) {
             try {
               if (!selfBrokerId) {
@@ -981,13 +982,14 @@ export default function PricingEnginePage() {
                 ph = []
               } else {
                 const visRes = await fetch(`/api/brokers/${encodeURIComponent(selfBrokerId)}/custom-settings`, { cache: "no-store" })
-              const visJson = await visRes.json().catch(() => ({})) as { program_visibility?: Record<string, boolean> }
-              const visibility = (visJson?.program_visibility ?? {}) as Record<string, boolean>
-              ph = ph.filter((p) => {
-                const id = String(p.id ?? "")
-                // Only allow when explicitly true; anything else (false/undefined) is filtered out
-                return id.length > 0 && visibility[id] === true
-              })
+                const visJson = await visRes.json().catch(() => ({})) as { program_visibility?: Record<string, boolean> }
+                const visibility = (visJson?.program_visibility ?? {}) as Record<string, boolean>
+                allowedIds = new Set<string>(Object.keys(visibility).filter((k) => visibility[k] === true))
+                ph = ph.filter((p) => {
+                  const id = String(p.id ?? "")
+                  // Only allow when explicitly true; anything else (false/undefined) is filtered out
+                  return id.length > 0 && allowedIds!.has(id)
+                })
               }
             } catch {
               // if settings not available, default to empty (no permissions)
@@ -1036,6 +1038,20 @@ export default function PricingEnginePage() {
       await Promise.all(
         currentPlaceholders.map(async (p, idx) => {
           try {
+            // As an extra guard, skip dispatch if this broker isn't allowed to see this program id
+            if (isBroker && selfBrokerId) {
+              try {
+                const visRes = await fetch(`/api/brokers/${encodeURIComponent(selfBrokerId)}/custom-settings`, { cache: "no-store" })
+                const visJson = await visRes.json().catch(() => ({})) as { program_visibility?: Record<string, boolean> }
+                const visibility = (visJson?.program_visibility ?? {}) as Record<string, boolean>
+                const idStr = String(p.id ?? "")
+                if (!(idStr && visibility[idStr] === true)) {
+                  return
+                }
+              } catch {
+                return
+              }
+            }
             const res = await fetch(`/api/pricing/dispatch-one?_=${encodeURIComponent(nonce)}-${idx}`, {
               method: "POST",
               cache: "no-store",
