@@ -25,12 +25,12 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from("brokers")
-      .select("company, company_name, company_logo_url")
+      .select("company_name, company_logo_url")
       .eq("organization_id", orgUuid)
       .eq("organization_member_id", orgMemberId)
       .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    const company_name = (data?.company_name as string | undefined) ?? (data?.company as string | undefined) ?? ""
+    const company_name = (data?.company_name as string | undefined) ?? ""
     const logo_url = (data?.company_logo_url as string | undefined) ?? ""
     return NextResponse.json({ company_name, logo_url })
   } catch (e) {
@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
     const { data: updated, error: updErr } = await supabaseAdmin
       .from("brokers")
       .update({
-        company: companyName, // legacy display column if present
         company_name: companyName,
         company_logo_url: logoUrl,
       })
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
       const { error: insErr } = await supabaseAdmin.from("brokers").insert({
         organization_id: orgUuid,
         organization_member_id: orgMemberId,
-        company: companyName,
         company_name: companyName,
         company_logo_url: logoUrl,
       })
