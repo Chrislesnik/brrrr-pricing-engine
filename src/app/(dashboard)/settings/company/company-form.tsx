@@ -29,18 +29,32 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
   const onSubmit = () => {
     startTransition(async () => {
       try {
-        const form = new FormData()
-        form.set("company_name", companyName)
-        if (logoFile) form.set("logo", logoFile)
-        const res = await fetch("/api/org/company-branding", {
-          method: "POST",
-          body: form,
-        })
+        let res: Response
+        if (logoFile) {
+          const form = new FormData()
+          form.set("company_name", companyName)
+          form.set("logo", logoFile)
+          res = await fetch("/api/org/company-branding", { method: "POST", body: form })
+        } else {
+          // JSON mode; if no existingLogoUrl, stage deletion
+          const deleteLogo = !existingLogoUrl
+          res = await fetch("/api/org/company-branding", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ company_name: companyName, delete_logo: deleteLogo }),
+          })
+        }
         const j = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(j?.error ?? "Failed to save")
         toast({ title: "Saved", description: "Company branding updated." })
         setCompanyName(j?.company_name ?? companyName)
-        if (j?.logo_url) setExistingLogoUrl(j.logo_url)
+        if (j?.logo_url) {
+          setExistingLogoUrl(j.logo_url)
+          setLogoFile(null)
+        } else {
+          setExistingLogoUrl(undefined)
+          setLogoFile(null)
+        }
       } catch (e) {
         toast({
           title: "Save failed",
@@ -124,24 +138,11 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
             <div className="mb-3 flex items-center justify-center relative">
               <button
                 type="button"
-                aria-label="Delete current logo"
+                aria-label="Remove current logo"
                 className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
                 onClick={() => {
-                  startTransition(async () => {
-                    try {
-                      const res = await fetch("/api/org/company-branding", { method: "DELETE" })
-                      const j = await res.json().catch(() => ({}))
-                      if (!res.ok) throw new Error(j?.error ?? "Failed to delete")
-                      setExistingLogoUrl(undefined)
-                      toast({ title: "Deleted", description: "Company logo removed." })
-                    } catch (e) {
-                      toast({
-                        title: "Delete failed",
-                        description: e instanceof Error ? e.message : "Unknown error",
-                        variant: "destructive",
-                      })
-                    }
-                  })
+                  // Stage deletion; will be applied on Save
+                  setExistingLogoUrl(undefined)
                 }}
               >
                 ×

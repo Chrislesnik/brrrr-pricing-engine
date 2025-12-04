@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
 
     let companyName = ""
     let logoUrl: string | null = null
+    let deleteLogo = false
 
     const ct = req.headers.get("content-type") || ""
     if (ct.includes("multipart/form-data")) {
@@ -103,9 +104,10 @@ export async function POST(req: NextRequest) {
         logoUrl = pub.publicUrl
       }
     } else {
-      const body = (await req.json().catch(() => ({}))) as { company_name?: string; logo_url?: string }
+      const body = (await req.json().catch(() => ({}))) as { company_name?: string; logo_url?: string; delete_logo?: boolean }
       companyName = String(body.company_name ?? "")
       logoUrl = body.logo_url ?? null
+      deleteLogo = body.delete_logo === true
     }
 
     // Try to update broker row linked to this member; insert if missing
@@ -113,7 +115,7 @@ export async function POST(req: NextRequest) {
       .from("brokers")
       .update({
         company_name: companyName,
-        company_logo_url: logoUrl,
+        company_logo_url: deleteLogo ? null : logoUrl,
       })
       .eq("organization_id", orgUuid)
       .eq("organization_member_id", orgMemberId)
@@ -124,13 +126,13 @@ export async function POST(req: NextRequest) {
         organization_id: orgUuid,
         organization_member_id: orgMemberId,
         company_name: companyName,
-        company_logo_url: logoUrl,
+        company_logo_url: deleteLogo ? null : logoUrl,
       })
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
     }
 
     // Best-effort: if we replaced a logo, delete the previous object
-    if (previousLogoUrl && logoUrl && previousLogoUrl !== logoUrl) {
+    if (!deleteLogo && previousLogoUrl && logoUrl && previousLogoUrl !== logoUrl) {
       const objectPath = getObjectPathFromPublicUrl(previousLogoUrl)
       if (objectPath) {
         try {
@@ -140,7 +142,18 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    return NextResponse.json({ ok: true, company_name: companyName, logo_url: logoUrl })
+    // If deletion was requested, remove current object too
+    if (deleteLogo && previousLogoUrl) {
+      const objectPath = getObjectPathFromPublicUrl(previousLogoUrl)
+      if (objectPath) {
+        try {
+          await supabaseAdmin.storage.from("broker-assets").remove([objectPath])
+        } catch {
+          // swallow cleanup errors
+        }
+      }
+    }
+    return NextResponse.json({ ok: true, company_name: companyName, logo_url: deleteLogo ? null : logoUrl })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
