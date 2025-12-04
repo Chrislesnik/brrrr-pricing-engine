@@ -4,12 +4,14 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
-export async function GET(_req: Request, context: unknown) {
+export async function GET(
+  _req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
-    const id = params.id
+    const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing loan id" }, { status: 400 })
     const { data, error } = await supabaseAdmin
       .from("loan_scenarios")
