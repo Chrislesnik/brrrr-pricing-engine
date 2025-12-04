@@ -86,10 +86,12 @@ function ScaledTermSheetPreview({
   sheetProps,
   pageRef,
   forceLoanType,
+  readOnly,
 }: {
   sheetProps: DSCRTermSheetProps
   pageRef?: React.Ref<HTMLDivElement>
   forceLoanType?: string
+  readOnly?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState<number>(1)
@@ -116,6 +118,7 @@ function ScaledTermSheetPreview({
   }, [])
   // Enable inline editing on leaf text nodes within the preview, while freezing layout boxes
   useEffect(() => {
+    if (readOnly) return
     const node = (pageRef as React.RefObject<HTMLDivElement> | undefined)?.current
     if (!node) return
     const candidates = Array.from(
@@ -158,7 +161,7 @@ function ScaledTermSheetPreview({
       })
     }
     // Re-evaluate when sheet content changes
-  }, [pageRef, sheetProps])
+  }, [pageRef, sheetProps, readOnly])
   return (
     <div
       ref={containerRef}
@@ -4006,6 +4009,7 @@ function ResultCard({
                 sheetProps={sheetProps as DSCRTermSheetProps}
                 pageRef={previewRef}
                 forceLoanType={(isBridgeResp || isBridgeProgramName) ? "bridge" : undefined}
+                  readOnly={isBroker}
               />
             ) : (
               <div className="flex h-[70vh] items-center justify-center">
@@ -4423,7 +4427,7 @@ function ResultsPanel({
               
               <div className="space-y-3">
                 {Object.keys(sheetPropsMain ?? {}).length ? (
-                  <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} />
+                  <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
                 ) : (
                   <div className="flex h-[70vh] items-center justify-center">
                     <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
@@ -4596,7 +4600,7 @@ function ResultsPanel({
             </DialogHeader>
             <div className="space-y-3">
               {Object.keys(sheetPropsMain ?? {}).length ? (
-                <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} />
+                <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
               ) : (
                 <div className="flex h-[70vh] items-center justify-center">
                   <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
