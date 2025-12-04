@@ -11,7 +11,20 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [existingLogoUrl, setExistingLogoUrl] = useState<string | undefined>(initialLogoUrl)
   const [isPending, startTransition] = useTransition()
+  const [isDragOver, setIsDragOver] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  // Build/revoke a preview URL when user selects a file
+  React.useEffect(() => {
+    if (!logoFile) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(logoFile)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [logoFile])
 
   const onSubmit = () => {
     startTransition(async () => {
@@ -59,12 +72,22 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
           <span className="text-xs italic text-muted-foreground">(used for white labeled documents)</span>
         </div>
         <div
-          className="rounded-md border border-dashed p-6 text-center bg-background"
+          className={`rounded-md border border-dashed p-6 text-center bg-background transition-all ${isDragOver ? "border-primary ring-2 ring-primary/30" : ""}`}
           onDragOver={(e) => {
             e.preventDefault()
+            setIsDragOver(true)
+          }}
+          onDragEnter={(e) => {
+            e.preventDefault()
+            setIsDragOver(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            setIsDragOver(false)
           }}
           onDrop={(e) => {
             e.preventDefault()
+            setIsDragOver(false)
             const f = e.dataTransfer.files?.[0]
             if (f) setLogoFile(f)
           }}
@@ -77,10 +100,25 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
             className="hidden"
             onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
           />
-          <div className="text-sm mb-2">{logoFile ? logoFile.name : "Drag & drop image here, or click to choose a file"}</div>
-          {existingLogoUrl ? (
-            <div className="text-xs text-muted-foreground mb-2">
-              Current logo: <a href={existingLogoUrl} target="_blank" rel="noreferrer" className="underline">view</a>
+          <div className="text-sm mb-3">
+            {logoFile ? logoFile.name : "Drag & drop image here, or click to choose a file"}
+          </div>
+          {/* Inline preview (selected file takes precedence) */}
+          {previewUrl ? (
+            <div className="mb-3 flex items-center justify-center">
+              <img
+                src={previewUrl}
+                alt="Selected logo preview"
+                className="max-h-28 object-contain rounded-md"
+              />
+            </div>
+          ) : existingLogoUrl ? (
+            <div className="mb-3 flex items-center justify-center">
+              <img
+                src={existingLogoUrl}
+                alt="Current logo"
+                className="max-h-28 object-contain rounded-md"
+              />
             </div>
           ) : null}
           <Button variant="secondary" type="button" onClick={() => fileInputRef.current?.click()}>
