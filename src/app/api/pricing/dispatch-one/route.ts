@@ -19,9 +19,7 @@ function booleanToYesNoDeep(value: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, orgId } = await auth()
-    if (!userId) return new NextResponse("Unauthorized", { status: 401 })
-    if (!orgId) return new NextResponse("No active organization", { status: 400 })
+    const { orgId } = await auth()
 
     const json = (await req.json().catch(() => null)) as {
       loanType?: string
@@ -33,14 +31,14 @@ export async function POST(req: NextRequest) {
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return new NextResponse("Organization not found", { status: 400 })
 
-    const { data, error } = await supabaseAdmin
+    let q = supabaseAdmin
       .from("programs")
       .select("internal_name,external_name,webhook_url")
-      .eq("organization_id", orgUuid)
       .eq("loan_type", String(json.loanType).toLowerCase())
       .eq("status", "active")
+    if (orgUuid) q = q.eq("organization_id", orgUuid)
+    const { data, error } = await q
     if (error) return new NextResponse(error.message, { status: 500 })
 
     const match = (data ?? []).find(

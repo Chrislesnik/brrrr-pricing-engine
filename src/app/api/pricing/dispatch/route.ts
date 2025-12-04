@@ -25,13 +25,7 @@ function booleanToYesNoDeep(value: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, orgId } = await auth()
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-    if (!orgId) {
-      return new NextResponse("No active organization", { status: 400 })
-    }
+    const { orgId } = await auth()
     const json = await req.json().catch(() => null) as {
       loanType?: string
       data?: Record<string, unknown>
@@ -41,12 +35,9 @@ export async function POST(req: NextRequest) {
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) {
-      return new NextResponse("Organization not found", { status: 400 })
-    }
 
     // fetch active program webhooks for this org + loan type
-    const { data, error } = await superFetchPrograms(orgUuid, json.loanType)
+    const { data, error } = await superFetchPrograms(orgUuid ?? null, json.loanType)
     if (error) {
       return new NextResponse(`Query error: ${error}`, { status: 500 })
     }
@@ -120,13 +111,16 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function superFetchPrograms(orgUuid: string, loanType: string) {
-  const { data, error } = await supabaseAdmin
+async function superFetchPrograms(orgUuid: string | null, loanType: string) {
+  let q = supabaseAdmin
     .from("programs")
     .select("internal_name,external_name,webhook_url")
-    .eq("organization_id", orgUuid)
     .eq("loan_type", loanType.toLowerCase())
     .eq("status", "active")
+  if (orgUuid) {
+    q = q.eq("organization_id", orgUuid)
+  }
+  const { data, error } = await q
   return { data, error: error?.message }
 }
 
