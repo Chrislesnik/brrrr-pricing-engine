@@ -50,6 +50,20 @@ export async function GET(req: NextRequest) {
           if (error) return NextResponse.json({ error: error.message }, { status: 500 })
           members = (data ?? []) as any
         }
+        // Brokers should also see the org owner(s)
+        const { data: owners, error: ownersErr } = await supabaseAdmin
+          .from("organization_members")
+          .select("user_id, first_name, last_name")
+          .eq("organization_id", orgUuid)
+          .eq("role", "owner")
+        if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
+        for (const o of owners ?? []) {
+          members.push({
+            user_id: o.user_id as string,
+            first_name: (o.first_name as string | null) ?? "",
+            last_name: (o.last_name as string | null) ?? "",
+          })
+        }
       }
     } else if (myRole === "owner") {
       const { data, error } = await supabaseAdmin
