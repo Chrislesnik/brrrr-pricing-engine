@@ -124,35 +124,59 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     customByBroker.set(row.broker_id as string, row)
   }
 
+  // Helper to resolve a member name; caches in memberById map
+  async function resolveMemberName(memberId: string): Promise<string | null> {
+    const idStr = String(memberId)
+    const lc = idStr.toLowerCase()
+    let m = memberById.get(lc) ?? memberById.get(idStr)
+    if (!m) {
+      const { data, error } = await supabaseAdmin
+        .from("organization_members")
+        .select("id, first_name, last_name, company")
+        .eq("id", idStr)
+        .maybeSingle()
+      if (error) {
+        logError("lookup member error:", error.message)
+      }
+      if (data) {
+        memberById.set(String(data.id).toLowerCase(), data)
+        memberById.set(String(data.id), data)
+        m = data
+      }
+    }
+    if (!m) return null
+    const name = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
+    return name || null
+  }
+
   // 4) Build rows
-  const rows: BrokerRow[] = brokerRows.map((b) => {
-    const owner = b.organization_member_id
-      ? memberById.get(String(b.organization_member_id).toLowerCase()) ??
-        memberById.get(String(b.organization_member_id))
+  const rows: BrokerRow[] = []
+  for (const b of brokerRows) {
+    const ownerName = b.organization_member_id
+      ? await resolveMemberName(String(b.organization_member_id))
       : null
-    const fullName =
-      owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
-    const managers = normalizeIdArray((b as any).account_manager_ids)
-      .map((id) => {
-        const m =
-          memberById.get(String(id).toLowerCase()) ??
-          memberById.get(String(id))
-        if (!m) return String(id) // fallback to raw id when member not found
-        const nm = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
-        // Only show name; if missing, show the raw id (no email fallback)
-        return nm || String(id)
-      })
-      .filter(Boolean)
-      .join(", ") || null
+    const managersIds = normalizeIdArray((b as any).account_manager_ids)
+    const managerNames = await Promise.all(managersIds.map((id) => resolveMemberName(String(id))))
+    const managers =
+      managerNames
+        .map((nm, idx) => nm || String(managersIds[idx]))
+        .filter(Boolean)
+        .join(", ") || null
+
+    const owner =
+      b.organization_member_id
+        ? memberById.get(String(b.organization_member_id).toLowerCase()) ??
+          memberById.get(String(b.organization_member_id))
+        : null
 
     const cs = customByBroker.get(b.id as string) as { default?: boolean } | undefined
     const permissions: BrokerPermission = cs ? (cs.default === false ? "custom" : "default") : "default"
 
     const status: BrokerStatus = owner ? "active" : "pending"
 
-    return {
+    rows.push({
       id: b.id as string,
-      name: fullName,
+      name: ownerName,
       company: (owner?.company as string) ?? null,
       // Prefer direct broker row email if present, else fall back to owner member email
       email: ((b as any).email as string | null) ?? ((owner?.email as string) ?? null),
@@ -160,8 +184,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       permissions,
       status,
       joinedAt: (b.joined_at as string) ?? null,
-    }
-  })
+    })
+  }
 
   return rows
 }
