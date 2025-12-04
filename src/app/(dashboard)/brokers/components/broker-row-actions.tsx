@@ -32,8 +32,10 @@ export default function RowActions({ brokerId }: { brokerId: string }) {
                   })
                   const j = await res.json().catch(() => ({}))
                   if (!res.ok) throw new Error(j?.error ?? "Failed to update status")
-                  toast({ title: "Updated", description: `Status switched to ${(String(j?.status ?? "")).toUpperCase()}.` })
-                  router.refresh()
+                  const newStatus = String(j?.status ?? "").toLowerCase()
+                  // Optimistic in-place update for the status badge only (no full page refresh)
+                  window.dispatchEvent(new CustomEvent("broker-status-updated", { detail: { id: brokerId, status: newStatus } }))
+                  toast({ title: "Updated", description: `Status switched to ${newStatus.toUpperCase()}.` })
                 } catch (e) {
                   toast({
                     title: "Update failed",

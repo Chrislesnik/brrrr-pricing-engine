@@ -7,6 +7,7 @@ import { getBrokersForOrg } from "./data/fetch-brokers"
 import RowActions from "./components/broker-row-actions"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { BrokerStatusCell } from "./components/broker-status-cell"
 
 export default async function BrokersPage() {
   const { orgId, userId, orgRole } = await auth()
@@ -82,7 +83,7 @@ export default async function BrokersPage() {
                   <TableCell>{fmt(r.email)}</TableCell>
                   <TableCell>{fmt(r.managers)}</TableCell>
                   <TableCell>{permissionBadge(r.permissions)}</TableCell>
-                  <TableCell>{statusBadge(r.status)}</TableCell>
+                  <TableCell><BrokerStatusCell id={r.id} initialStatus={r.status} /></TableCell>
                   <TableCell>{fmtDate(r.joinedAt)}</TableCell>
                   <TableCell className="text-right"><RowActions brokerId={r.id} /></TableCell>
                 </TableRow>
