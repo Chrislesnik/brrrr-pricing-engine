@@ -272,31 +272,7 @@ export default function PricingEnginePage() {
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
 
-  // Prefetch program catalog for current loan type so we can map IDs to names
-  useEffect(() => {
-    let active = true
-    if (!loanType) return
-    ;(async () => {
-      try {
-        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        const res = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
-          method: "GET",
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
-        })
-        if (!res.ok) return
-        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
-        if (!active) return
-        const ph = Array.isArray(pj?.programs) ? pj.programs : []
-        setProgramPlaceholders(ph)
-      } catch {
-        // ignore
-      }
-    })()
-    return () => {
-      active = false
-    }
-  }, [loanType])
+  
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
@@ -396,6 +372,32 @@ export default function PricingEnginePage() {
   const [floodCalMonth, setFloodCalMonth] = useState<Date | undefined>(undefined)
   const [initialLoanAmount, setInitialLoanAmount] = useState<string>("")
   const [rehabHoldback, setRehabHoldback] = useState<string>("")
+
+  // Prefetch program catalog for current loan type so we can map IDs to names
+  useEffect(() => {
+    let active = true
+    if (!loanType) return
+    ;(async () => {
+      try {
+        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        const res = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
+        })
+        if (!res.ok) return
+        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
+        if (!active) return
+        const ph = Array.isArray(pj?.programs) ? pj.programs : []
+        setProgramPlaceholders(ph)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [loanType])
 
   // Address fields (hooked to Google Places)
   const [street, setStreet] = useState<string>("")
