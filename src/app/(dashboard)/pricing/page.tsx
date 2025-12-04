@@ -4322,9 +4322,9 @@ function ResultsPanel({
                 <div className="text-xs font-semibold text-muted-foreground">
                   {(() => {
                   const name = isBroker
-                    ? (selected.programName ??
-                       results?.[selected.programIdx ?? 0]?.external_name ??
+                    ? (results?.[selected.programIdx ?? 0]?.external_name ??
                        selected.programId ??
+                       selected.programName ??
                        "Program")
                     : (selected.programName ??
                        results?.[selected.programIdx ?? 0]?.internal_name ??
@@ -4417,7 +4417,9 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
-                  const name = selected.programName ?? (isBroker ? results?.[selected.programIdx]?.external_name : (results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name))
+                  const name = isBroker
+                    ? (results?.[selected.programIdx]?.external_name ?? selected.programId ?? selected.programName)
+                    : (selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name)
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
@@ -4483,7 +4485,9 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
-                  const name = selected.programName ?? (isBroker ? results?.[selected.programIdx]?.external_name : (results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name))
+                  const name = isBroker
+                    ? (results?.[selected.programIdx]?.external_name ?? selected.programId ?? selected.programName)
+                    : (selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name)
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
