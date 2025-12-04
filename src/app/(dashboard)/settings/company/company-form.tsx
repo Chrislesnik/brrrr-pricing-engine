@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-export default function CompanyForm() {
+export default function CompanyForm({ initialName, initialLogoUrl }: { initialName?: string; initialLogoUrl?: string }) {
   const { toast } = useToast()
-  const [companyName, setCompanyName] = useState<string>("")
+  const [companyName, setCompanyName] = useState<string>(initialName ?? "")
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [existingLogoUrl, setExistingLogoUrl] = useState<string | undefined>(initialLogoUrl)
   const [isPending, startTransition] = useTransition()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -26,6 +27,7 @@ export default function CompanyForm() {
         if (!res.ok) throw new Error(j?.error ?? "Failed to save")
         toast({ title: "Saved", description: "Company branding updated." })
         setCompanyName(j?.company_name ?? companyName)
+        if (j?.logo_url) setExistingLogoUrl(j.logo_url)
       } catch (e) {
         toast({
           title: "Save failed",
@@ -76,6 +78,11 @@ export default function CompanyForm() {
             onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
           />
           <div className="text-sm mb-2">{logoFile ? logoFile.name : "Drag & drop image here, or click to choose a file"}</div>
+          {existingLogoUrl ? (
+            <div className="text-xs text-muted-foreground mb-2">
+              Current logo: <a href={existingLogoUrl} target="_blank" rel="noreferrer" className="underline">view</a>
+            </div>
+          ) : null}
           <Button variant="secondary" type="button" onClick={() => fileInputRef.current?.click()}>
             Choose File
           </Button>
