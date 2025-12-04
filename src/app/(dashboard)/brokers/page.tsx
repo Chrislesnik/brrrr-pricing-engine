@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server"
+import { notFound } from "next/navigation"
 import ContentSection from "@/app/(dashboard)/settings/components/content-section"
 import { DefaultBrokerSettingsDialog } from "./components/default-broker-settings-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -8,7 +9,11 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 export default async function BrokersPage() {
-  const { orgId, userId } = await auth()
+  const { orgId, userId, orgRole } = await auth()
+  // Hide/Ban access for brokers
+  if (orgRole === "org:broker" || orgRole === "broker") {
+    notFound()
+  }
   const rows = orgId ? await getBrokersForOrg(orgId, userId ?? undefined) : []
 
   const fmt = (v?: string | null) => {
@@ -79,7 +84,7 @@ export default async function BrokersPage() {
                   <TableCell>{permissionBadge(r.permissions)}</TableCell>
                   <TableCell>{statusBadge(r.status)}</TableCell>
                   <TableCell>{fmtDate(r.joinedAt)}</TableCell>
-                  <TableCell className="text-right"><RowActions brokerId={r.id} /></TableCell>
+                  <TableCell className="text-right"><RowActions brokerId={r.id} status={r.status} /></TableCell>
                 </TableRow>
               ))
             )}

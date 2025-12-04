@@ -42,6 +42,7 @@ export const sidebarData: SidebarData = {
           title: "Brokers",
           url: "/brokers",
           icon: IconUser,
+          denyOrgRoles: ["org:broker", "broker"],
         },
         {
           title: "Settings",

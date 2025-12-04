@@ -19,6 +19,12 @@ interface BaseNavItem {
    * Example: "org:manage_programs"
    */
   requiredPermission?: string
+  /**
+   * Optional list of organization roles that should NOT see this item.
+   * Accepts either Clerk-style roles (e.g. "org:broker") or bare roles (e.g. "broker").
+   * We will compare against both the Clerk `orgRole` and its version without the "org:" prefix.
+   */
+  denyOrgRoles?: string[]
 }
 
 export type NavItem =

@@ -188,9 +188,14 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // 4) Build rows
   const rows: BrokerRow[] = []
   for (const b of brokerRows) {
-    const ownerName = b.organization_member_id
-      ? await resolveMemberName(String(b.organization_member_id))
-      : null
+    // Primary: resolve by organization_member_id. Fallback: if empty, try broker.id as requested.
+    let ownerName: string | null = null
+    if (b.organization_member_id) {
+      ownerName = await resolveMemberName(String(b.organization_member_id))
+    }
+    if (!ownerName) {
+      ownerName = await resolveMemberName(String(b.id))
+    }
     const managersIds = normalizeIdArray((b as any).account_manager_ids).map(sanitizeUuid).filter(Boolean)
 
     let managers: string | null = null
