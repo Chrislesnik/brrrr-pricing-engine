@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { IconDotsVertical } from "@tabler/icons-react"
@@ -15,8 +15,7 @@ export default function RowActions({ brokerId, status }: { brokerId: string; sta
   const canToggle = currentStatus === "active" || currentStatus === "inactive"
   const opposite = currentStatus === "active" ? "inactive" : "active"
   // Keep the menu label in sync if status changes elsewhere
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  React.useEffect(() => {
+  useEffect(() => {
     function onUpdate(e: Event) {
       const ce = e as CustomEvent<{ id: string; status: string }>
       if (ce.detail?.id === brokerId) {
