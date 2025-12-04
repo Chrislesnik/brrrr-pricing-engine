@@ -490,6 +490,7 @@ function RatesFeesTable({
                     value={formatCurrency(row.minUpb ?? "")}
                     onChange={(e) => handleMoneyChange(e, idx, "minUpb")}
                     placeholder="$0.00"
+                    className="h-8 text-sm text-center px-2"
                   />
                 ) : (
                   <span>{fmtMoneyDollar(row.minUpb ?? "")}</span>
@@ -501,6 +502,7 @@ function RatesFeesTable({
                     value={formatCurrency(row.maxUpb ?? "")}
                     onChange={(e) => handleMoneyChange(e, idx, "maxUpb")}
                     placeholder="$0.00"
+                    className="h-8 text-sm text-center px-2"
                   />
                 ) : (
                   <span>{fmtMoneyDollar(row.maxUpb ?? "")}</span>
@@ -516,6 +518,7 @@ function RatesFeesTable({
                       )
                     }
                     placeholder="0.00"
+                    className="h-8 text-sm text-center px-2"
                   />
                 ) : (
                   <span>{fmtPercent(row.origination ?? "")}</span>
@@ -527,6 +530,7 @@ function RatesFeesTable({
                     value={formatCurrency(row.adminFee ?? "")}
                     onChange={(e) => handleMoneyChange(e, idx, "adminFee")}
                     placeholder="$0.00"
+                    className="h-8 text-sm text-center px-2"
                   />
                 ) : (
                   <span>{fmtMoneyDollar(row.adminFee ?? "")}</span>
@@ -540,6 +544,7 @@ function RatesFeesTable({
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, ysp: clampPercentStr(e.target.value) } : r)))
                     }
                     placeholder="0.00"
+                    className="h-8 text-sm text-center px-2"
                   />
                 ) : (
                   <span>{fmtPercent(row.ysp ?? "")}</span>
@@ -550,6 +555,7 @@ function RatesFeesTable({
                   <Button
                     variant="destructive"
                     size="icon"
+                    className="h-8 w-8"
                     onClick={() => onRowsChange(rows.filter((_, rIdx) => rIdx !== idx))}
                     aria-label="Remove row"
                   >
