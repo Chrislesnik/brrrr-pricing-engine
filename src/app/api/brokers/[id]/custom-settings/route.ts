@@ -76,7 +76,7 @@ export async function POST(
     }
 
     // Update only; do NOT insert or touch organization_member_id
-    const { error, count } = await supabaseAdmin
+    const { error, data } = await supabaseAdmin
       .from("custom_broker_settings")
       .update({
         allow_ysp: body.allow_ysp === true,
@@ -86,12 +86,12 @@ export async function POST(
       })
       .eq("organization_id", orgUuid)
       .eq("broker_id", brokerId)
-      .select("broker_id", { count: "exact", head: true })
+      .select("broker_id")
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    if ((count ?? 0) === 0) {
+    if (!data || data.length === 0) {
       return NextResponse.json({ error: "Custom settings not initialized for this broker" }, { status: 404 })
     }
-    return NextResponse.json({ ok: true, updated: count ?? 0 })
+    return NextResponse.json({ ok: true, updated: data.length })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
