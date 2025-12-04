@@ -42,19 +42,39 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
 
   // 1) Brokers in this org where account_manager_ids contains this org member id
-  let query = supabaseAdmin
-    .from("brokers")
-    .select("id, organization_id, organization_member_id, account_manager_ids, email, joined_at")
-    .eq("organization_id", orgUuid)
-  if (orgMemberId) {
-    // Only brokers this member manages
-    query = query.contains("account_manager_ids", [orgMemberId])
+  // Prefer selecting status from DB if the column exists; gracefully fall back if not.
+  async function fetchBrokers(includeStatus: boolean) {
+    let baseSelect =
+      "id, organization_id, organization_member_id, account_manager_ids, email, joined_at" +
+      (includeStatus ? ", status" : "")
+    let q = supabaseAdmin.from("brokers").select(baseSelect).eq("organization_id", orgUuid)
+    if (orgMemberId) {
+      // Only brokers this member manages
+      q = q.contains("account_manager_ids", [orgMemberId])
+    }
+    return q.order("created_at", { ascending: true })
   }
-  const { data: brokers, error: brokersErr } = await query.order("created_at", { ascending: true })
 
-  if (brokersErr) {
-    logError("fetch brokers error:", brokersErr.message)
-    return []
+  let brokers: any[] | null = null
+  {
+    const { data, error } = await fetchBrokers(true)
+    if (error) {
+      const msg = String(error.message || "")
+      // Retry without status column if it doesn't exist yet
+      if (/column .*status.* does not exist/i.test(msg)) {
+        const { data: data2, error: error2 } = await fetchBrokers(false)
+        if (error2) {
+          logError("fetch brokers error (no-status retry failed):", error2.message)
+          return []
+        }
+        brokers = data2 ?? []
+      } else {
+        logError("fetch brokers error:", error.message)
+        return []
+      }
+    } else {
+      brokers = data ?? []
+    }
   }
   const brokerRows = brokers ?? []
   if (brokerRows.length === 0) return []
@@ -212,7 +232,13 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     const cs = customByBroker.get(b.id as string) as { default?: boolean } | undefined
     const permissions: BrokerPermission = cs ? (cs.default === false ? "custom" : "default") : "default"
 
-    const status: BrokerStatus = owner ? "active" : "pending"
+    // Prefer DB-driven status if present; else fall back to derived behavior
+    const dbStatusRaw = (b as any).status as string | undefined
+    const dbStatus =
+      dbStatusRaw === "active" || dbStatusRaw === "inactive" || dbStatusRaw === "pending"
+        ? (dbStatusRaw as BrokerStatus)
+        : undefined
+    const status: BrokerStatus = dbStatus ?? (owner ? "active" : "pending")
 
     rows.push({
       id: b.id as string,

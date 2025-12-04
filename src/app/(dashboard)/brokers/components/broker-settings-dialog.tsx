@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { IconMinus } from "@tabler/icons-react"
 import { toast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 export function BrokerSettingsDialog({
   brokerId,
@@ -28,6 +29,7 @@ export function BrokerSettingsDialog({
   >([])
   const [allowYsp, setAllowYsp] = useState<boolean>(false)
   const [allowBuydown, setAllowBuydown] = useState<boolean>(false)
+  const [status, setStatus] = useState<"pending" | "active" | "inactive" | "">("")
 
   useEffect(() => {
     if (!open) return
@@ -59,6 +61,29 @@ export function BrokerSettingsDialog({
           description: e instanceof Error ? e.message : "Unknown error",
           variant: "destructive",
         })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, brokerId])
+
+  // Load broker status
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/brokers/${brokerId}/status`, { cache: "no-store" })
+        const j = (await res.json().catch(() => ({}))) as { status?: string; error?: string }
+        if (!res.ok) throw new Error(j?.error ?? "Failed to load status")
+        if (!cancelled) {
+          const s = String(j?.status ?? "").toLowerCase()
+          if (s === "active" || s === "inactive" || s === "pending") setStatus(s as any)
+          else setStatus("")
+        }
+      } catch {
+        // ignore; leave status blank
       }
     })()
     return () => {
@@ -120,8 +145,50 @@ export function BrokerSettingsDialog({
                   />
                 )}
               </div>
-              <div className="border-t px-6 py-3 flex justify-end">
-                <Button
+              <div className="border-t px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-muted-foreground">Status</div>
+                  <StatusBadge status={status} />
+                </div>
+                <div className="flex items-center gap-2">
+                  {status === "active" || status === "inactive" ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        ;(async () => {
+                          try {
+                            const res = await fetch(`/api/brokers/${brokerId}/status`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "toggle" }),
+                            })
+                            const j = await res.json().catch(() => ({}))
+                            if (!res.ok) throw new Error(j?.error ?? "Failed to update status")
+                            const next = String(j?.status ?? "").toLowerCase()
+                            if (next === "active" || next === "inactive" || next === "pending") setStatus(next as any)
+                            toast({
+                              title: "Updated",
+                              description: `Status switched to ${String(j?.status ?? "").toUpperCase()}.`,
+                            })
+                            try {
+                              onSaved?.()
+                            } catch {
+                              // ignore
+                            }
+                          } catch (e) {
+                            toast({
+                              title: "Update failed",
+                              description: e instanceof Error ? e.message : "Unknown error",
+                              variant: "destructive",
+                            })
+                          }
+                        })()
+                      }}
+                    >
+                      {`Switch to ${status === "active" ? "Inactive" : "Active"}`}
+                    </Button>
+                  ) : null}
+                  <Button
                   onClick={() => {
                     ;(async () => {
                       try {
@@ -164,6 +231,7 @@ export function BrokerSettingsDialog({
                 >
                   Save
                 </Button>
+                </div>
               </div>
             </section>
           </div>
@@ -171,6 +239,17 @@ export function BrokerSettingsDialog({
       </Dialog>
     </>
   )
+}
+
+function StatusBadge({ status }: { status: string | null | undefined }) {
+  const s = String(status ?? "").toLowerCase()
+  const color =
+    s === "active"
+      ? "bg-green-100 text-green-800 border-green-200"
+      : s === "inactive"
+      ? "bg-red-100 text-red-800 border-red-200"
+      : "bg-yellow-100 text-yellow-800 border-yellow-200"
+  return <Badge variant="outline" className={cn("capitalize", color)}>{s || "-"}</Badge>
 }
 
 function AdditionalSettings({
