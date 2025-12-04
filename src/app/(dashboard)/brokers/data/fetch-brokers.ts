@@ -45,7 +45,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // Prefer selecting status from DB if the column exists; gracefully fall back if not.
   async function fetchBrokers(includeStatus: boolean) {
     let baseSelect =
-      "id, organization_id, organization_member_id, account_manager_ids, email, joined_at, clerk_user_id" +
+      "id, organization_id, organization_member_id, account_manager_ids, email, joined_at, clerk_user_id, company_name, company_logo_url" +
       (includeStatus ? ", status" : "")
     let q = supabaseAdmin.from("brokers").select(baseSelect).eq("organization_id", orgUuid)
     if (orgMemberId) {
@@ -296,7 +296,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     rows.push({
       id: b.id as string,
       name: ownerName,
-      company: (owner?.company as string) ?? null,
+      company: ((b as any).company_name as string | undefined) ?? ((owner?.company as string) ?? null),
       // Prefer direct broker row email if present, else fall back to owner member email
       email: ((b as any).email as string | null) ?? ((owner?.email as string) ?? null),
       managers,
