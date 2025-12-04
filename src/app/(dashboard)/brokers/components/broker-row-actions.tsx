@@ -1,56 +1,25 @@
-\"use client\"
+"use client"
 
-import { useState } from \"react\"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from \"@/components/ui/dropdown-menu\"
-import { Button } from \"@/components/ui/button\"
-import { IconDotsVertical } from \"@tabler/icons-react\"
-import { BrokerSettingsDialog } from \"./broker-settings-dialog\"
-import { useRouter } from \"next/navigation\"
-import { toast } from \"@/hooks/use-toast\"
+import { useState } from "react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { IconDotsVertical } from "@tabler/icons-react"
+import { BrokerSettingsDialog } from "./broker-settings-dialog"
+import { useRouter } from "next/navigation"
 
-export default function RowActions({ brokerId, status }: { brokerId: string; status?: string }) {
+export default function RowActions({ brokerId }: { brokerId: string }) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
-  const s = String(status ?? \"\").toLowerCase()
-  const canToggle = s === \"active\" || s === \"inactive\"
-  const opposite = s === \"active\" ? \"Inactive\" : \"Active\"
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant=\"ghost\" size=\"icon\" aria-label=\"Row actions\">
-            <IconDotsVertical className=\"h-4 w-4\" />
+          <Button variant="ghost" size="icon" aria-label="Row actions">
+            <IconDotsVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align=\"end\" className=\"w-48\">
+        <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onSelect={() => setOpen(true)}>Broker settings</DropdownMenuItem>
-          {canToggle ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                ;(async () => {
-                  try {
-                    const res = await fetch(`/api/brokers/${brokerId}/status`, {
-                      method: \"POST\",
-                      headers: { \"Content-Type\": \"application/json\" },
-                      body: JSON.stringify({ action: \"toggle\" }),
-                    })
-                    const j = await res.json().catch(() => ({}))
-                    if (!res.ok) throw new Error(j?.error ?? \"Failed to update status\")
-                    toast({ title: \"Updated\", description: `Status switched to ${String(j?.status ?? \"\").toUpperCase()}.` })
-                    router.refresh()
-                  } catch (e) {
-                    toast({
-                      title: \"Update failed\",
-                      description: e instanceof Error ? e.message : \"Unknown error\",
-                      variant: \"destructive\",
-                    })
-                  }
-                })()
-              }}
-            >
-              {`Switch to ${opposite}`}
-            </DropdownMenuItem>
-          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {open ? (
