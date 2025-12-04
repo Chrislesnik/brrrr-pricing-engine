@@ -75,20 +75,23 @@ export async function POST(
       rates?: unknown
     }
 
-    const payload = {
-      organization_id: orgUuid,
-      broker_id: brokerId,
-      allow_ysp: body.allow_ysp === true,
-      allow_buydown_rate: body.allow_buydown_rate === true,
-      program_visibility: body.program_visibility ?? {},
-      rates: body.rates ?? [],
-    }
-
-    const { error } = await supabaseAdmin
+    // Update only; do NOT insert or touch organization_member_id
+    const { error, count } = await supabaseAdmin
       .from("custom_broker_settings")
-      .upsert(payload, { onConflict: "organization_id,broker_id" })
+      .update({
+        allow_ysp: body.allow_ysp === true,
+        allow_buydown_rate: body.allow_buydown_rate === true,
+        program_visibility: body.program_visibility ?? {},
+        rates: body.rates ?? [],
+      })
+      .eq("organization_id", orgUuid)
+      .eq("broker_id", brokerId)
+      .select("broker_id", { count: "exact", head: true })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true })
+    if ((count ?? 0) === 0) {
+      return NextResponse.json({ error: "Custom settings not initialized for this broker" }, { status: 404 })
+    }
+    return NextResponse.json({ ok: true, updated: count ?? 0 })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
