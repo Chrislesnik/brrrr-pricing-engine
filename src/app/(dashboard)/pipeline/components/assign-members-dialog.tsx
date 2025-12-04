@@ -26,20 +26,22 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [editable, setEditable] = React.useState(true)
 
   const load = React.useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [mRes, aRes] = await Promise.all([
-        fetch("/api/org/members", { method: "GET" }),
+        fetch(`/api/org/members?loanId=${encodeURIComponent(loanId)}`, { method: "GET" }),
         fetch(`/api/loans/${loanId}/assignees`, { method: "GET" }),
       ])
       if (!mRes.ok) throw new Error(await mRes.text())
       if (!aRes.ok) throw new Error(await aRes.text())
-      const mJson = (await mRes.json()) as { members: Member[] }
+      const mJson = (await mRes.json()) as { members: Member[]; editable?: boolean }
       const aJson = (await aRes.json()) as { userIds: string[] }
       setMembers(mJson.members ?? [])
+      if (typeof mJson.editable === "boolean") setEditable(mJson.editable)
       setSelected(new Set((aJson.userIds ?? []).filter(Boolean)))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load")
@@ -117,6 +119,7 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
                     id={id}
                     checked={isChecked}
                     onCheckedChange={(v) => toggle(m.user_id, Boolean(v))}
+                    disabled={!editable}
                   />
                   <span className="text-sm">{fullName(m)}</span>
                 </label>
@@ -128,9 +131,11 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={onSave} disabled={loading}>
-            {loading ? "Saving..." : "Save"}
-          </Button>
+          {editable ? (
+            <Button onClick={onSave} disabled={loading}>
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
