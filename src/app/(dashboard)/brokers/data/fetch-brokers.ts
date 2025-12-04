@@ -171,13 +171,37 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     const ownerName = b.organization_member_id
       ? await resolveMemberName(String(b.organization_member_id))
       : null
-    const managersIds = normalizeIdArray((b as any).account_manager_ids)
-    const managerNames = await Promise.all(managersIds.map((id) => resolveMemberName(String(id))))
-    const managers =
-      managerNames
-        .map((nm, idx) => nm || String(managersIds[idx]))
-        .filter(Boolean)
-        .join(", ") || null
+    const managersIds = normalizeIdArray((b as any).account_manager_ids).map(sanitizeUuid).filter(Boolean)
+
+    let managers: string | null = null
+    if (managersIds.length > 0) {
+      // Query organization_members directly for these exact IDs
+      const { data: mgrMembers, error: mgrErr } = await supabaseAdmin
+        .from("organization_members")
+        .select("id, first_name, last_name")
+        .in("id", managersIds)
+      if (mgrErr) {
+        logError("fetch managers by ids error:", mgrErr.message, managersIds)
+      }
+      const byId = new Map<string, { first_name: string | null; last_name: string | null }>()
+      for (const m of mgrMembers ?? []) {
+        const key = sanitizeUuid(String(m.id))
+        byId.set(key, { first_name: m.first_name as string | null, last_name: m.last_name as string | null })
+        // cache for future lookups
+        memberById.set(key.toLowerCase(), m as any)
+        memberById.set(key, m as any)
+      }
+      managers =
+        managersIds
+          .map((id) => {
+            const m = byId.get(id)
+            if (!m) return id
+            const nm = [m.first_name ?? "", m.last_name ?? ""].join(" ").trim()
+            return nm || id
+          })
+          .filter(Boolean)
+          .join(", ") || null
+    }
 
     const owner =
       b.organization_member_id
