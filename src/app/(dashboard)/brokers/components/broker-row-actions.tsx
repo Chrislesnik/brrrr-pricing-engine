@@ -8,9 +8,12 @@ import { useRouter } from "next/navigation"
 import { BrokerSettingsDialog } from "./broker-settings-dialog"
 import { toast } from "@/hooks/use-toast"
 
-export default function RowActions({ brokerId }: { brokerId: string }) {
+export default function RowActions({ brokerId, status }: { brokerId: string; status?: string }) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const s = String(status ?? "").toLowerCase()
+  const canToggle = s === "active" || s === "inactive"
+  const opposite = s === "active" ? "inactive" : "active"
   return (
     <>
       <DropdownMenu>
@@ -21,7 +24,8 @@ export default function RowActions({ brokerId }: { brokerId: string }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onSelect={() => setOpen(true)}>Broker settings</DropdownMenuItem>
-          <DropdownMenuItem
+          {canToggle ? (
+            <DropdownMenuItem
             onSelect={() => {
               ;(async () => {
                 try {
@@ -46,8 +50,9 @@ export default function RowActions({ brokerId }: { brokerId: string }) {
               })()
             }}
           >
-            Switch status
+            {`Switch status to ${opposite}`}
           </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {open ? (
