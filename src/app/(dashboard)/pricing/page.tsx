@@ -3654,7 +3654,7 @@ function ResultCard({
           <div className="text-sm font-bold">
             {programDisplayName(r, isBroker)}
           </div>
-          <div className="text-xs font-semibold">{r.external_name}</div>
+          {!isBroker ? <div className="text-xs font-semibold">{r.external_name}</div> : null}
         </div>
         <div className="flex items-center gap-1">
           <Button
