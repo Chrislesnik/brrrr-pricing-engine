@@ -84,9 +84,24 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       let s = value.trim()
       if (s.startsWith("{") && s.endsWith("}")) s = s.slice(1, -1)
       if (s.length === 0) return []
-      return s.split(",").map((x) => x.trim().replace(/^"+|"+$/g, ""))
+      return s
+        .split(",")
+        .map((x) =>
+          x
+            .trim()
+            // strip surrounding quotes
+            .replace(/^"+|"+$/g, "")
+            // strip stray braces
+            .replace(/^\{+|\}+$/g, "")
+        )
     }
     return []
+  }
+  function sanitizeUuid(id: string): string {
+    return String(id)
+      .trim()
+      .replace(/^"+|"+$/g, "")
+      .replace(/^\{+|\}+$/g, "")
   }
 
   // 2) Members in this org (resolve names/emails/company)
@@ -126,7 +141,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
 
   // Helper to resolve a member name; caches in memberById map
   async function resolveMemberName(memberId: string): Promise<string | null> {
-    const idStr = String(memberId)
+    const idStr = sanitizeUuid(String(memberId))
     const lc = idStr.toLowerCase()
     let m = memberById.get(lc) ?? memberById.get(idStr)
     if (!m) {
@@ -139,8 +154,9 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
         logError("lookup member error:", error.message)
       }
       if (data) {
-        memberById.set(String(data.id).toLowerCase(), data)
-        memberById.set(String(data.id), data)
+        const keyOrig = sanitizeUuid(String(data.id))
+        memberById.set(keyOrig.toLowerCase(), data)
+        memberById.set(keyOrig, data)
         m = data
       }
     }
