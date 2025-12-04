@@ -84,7 +84,7 @@ export default async function BrokersPage() {
                   <TableCell>{permissionBadge(r.permissions)}</TableCell>
                   <TableCell>{statusBadge(r.status)}</TableCell>
                   <TableCell>{fmtDate(r.joinedAt)}</TableCell>
-                  <TableCell className="text-right"><RowActions brokerId={r.id} status={r.status} /></TableCell>
+                  <TableCell className="text-right"><RowActions brokerId={r.id} /></TableCell>
                 </TableRow>
               ))
             )}
