@@ -1,16 +1,15 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export const runtime = "nodejs"
 
-export async function GET(_req: Request, context: unknown) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
+    const { id } = await context.params
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const id = params.id
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
     const orgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null
 
@@ -32,12 +31,11 @@ export async function GET(_req: Request, context: unknown) {
   }
 }
 
-export async function PUT(req: Request, context: unknown) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const { params } = (context as { params: { id: string } }) ?? { params: { id: "" } }
+    const { id } = await context.params
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    const id = params.id
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
     const body = (await req.json().catch(() => null)) as { userIds?: string[] } | null
     if (!body || !Array.isArray(body.userIds)) {
