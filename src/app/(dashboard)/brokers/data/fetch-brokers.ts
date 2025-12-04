@@ -85,7 +85,6 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   const { data: members, error: membersErr } = await supabaseAdmin
     .from("organization_members")
     .select("id, organization_id, first_name, last_name, company")
-    .eq("organization_id", orgUuid)
     .in("id", memberIdsArr.length ? memberIdsArr : ["00000000-0000-0000-0000-000000000000"]) // safe guard
 
   if (membersErr) {
