@@ -4383,11 +4383,8 @@ function ResultsPanel({
                 <div className="text-xs font-semibold text-muted-foreground">
                   {(() => {
                   const byResultsExt = results?.[selected.programIdx ?? 0]?.external_name
-                  const byResultsInt = results?.[selected.programIdx ?? 0]?.internal_name
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
-                  const name = isBroker
-                    ? (byResultsExt ?? byPh?.external_name ?? selected.programName ?? "Program")
-                    : (selected.programName ?? byResultsInt ?? byResultsExt ?? byPh?.internal_name ?? byPh?.external_name ?? "Program")
+                  const name = byResultsExt ?? byPh?.external_name ?? selected.programName ?? "Program"
                     return `Selected: ${name ?? `Program #${(selected.programIdx ?? 0) + 1}`}, Row #${(selected.rowIdx ?? 0) + 1}`
                   })()}
                 </div>
@@ -4475,11 +4472,8 @@ function ResultsPanel({
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
                   const byResultsExt = results?.[selected.programIdx]?.external_name
-                  const byResultsInt = results?.[selected.programIdx]?.internal_name
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
-                  const name = isBroker
-                    ? (byResultsExt ?? byPh?.external_name ?? selected.programName)
-                    : (selected.programName ?? byResultsInt ?? byResultsExt ?? byPh?.internal_name ?? byPh?.external_name)
+                  const name = byResultsExt ?? byPh?.external_name ?? selected.programName
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
@@ -4546,11 +4540,8 @@ function ResultsPanel({
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
                   const byResultsExt = results?.[selected.programIdx]?.external_name
-                  const byResultsInt = results?.[selected.programIdx]?.internal_name
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
-                  const name = isBroker
-                    ? (byResultsExt ?? byPh?.external_name ?? selected.programName)
-                    : (selected.programName ?? byResultsInt ?? byResultsExt ?? byPh?.internal_name ?? byPh?.external_name)
+                  const name = byResultsExt ?? byPh?.external_name ?? selected.programName
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
