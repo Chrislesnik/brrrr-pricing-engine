@@ -71,6 +71,34 @@ export async function POST(req: NextRequest) {
     const orgMemberId = (member?.id as string) ?? null
     if (!orgMemberId) return NextResponse.json({ error: "No member" }, { status: 404 })
 
+      // Determine gating for white labeling from brokers table (fallback to custom settings if column missing)
+      let allowWhiteLabeling = false
+      let brokerId: string | null = null
+      {
+        const { data: brokerRow, error: brokerErr } = await supabaseAdmin
+          .from("brokers")
+          .select("id, allow_white_labeling, company_logo_url")
+          .eq("organization_id", orgUuid)
+          .eq("organization_member_id", orgMemberId)
+          .maybeSingle()
+        if (brokerErr) {
+          // continue with default false
+        }
+        brokerId = (brokerRow?.id as string) ?? null
+        // if column exists and is true, enable; otherwise fallback check
+        if ((brokerRow as any)?.allow_white_labeling !== undefined) {
+          allowWhiteLabeling = (brokerRow as any)?.allow_white_labeling === true
+        } else if (brokerId) {
+          const { data: custom } = await supabaseAdmin
+            .from("custom_broker_settings")
+            .select("allow_white_labeling")
+            .eq("organization_id", orgUuid)
+            .eq("broker_id", brokerId)
+            .maybeSingle()
+          allowWhiteLabeling = (custom as any)?.allow_white_labeling === true
+        }
+      }
+
     // Fetch existing url to remove after successful replacement
     let previousLogoUrl: string | null = null
     {
@@ -89,6 +117,9 @@ export async function POST(req: NextRequest) {
 
     const ct = req.headers.get("content-type") || ""
     if (ct.includes("multipart/form-data")) {
+        if (!allowWhiteLabeling) {
+          return NextResponse.json({ error: "White labeling disabled" }, { status: 403 })
+        }
       const form = await req.formData()
       companyName = String(form.get("company_name") ?? "")
       const file = form.get("logo") as File | null
@@ -107,7 +138,7 @@ export async function POST(req: NextRequest) {
       const body = (await req.json().catch(() => ({}))) as { company_name?: string; logo_url?: string; delete_logo?: boolean }
       companyName = String(body.company_name ?? "")
       logoUrl = body.logo_url ?? null
-      deleteLogo = body.delete_logo === true
+        deleteLogo = body.delete_logo === true && allowWhiteLabeling
     }
 
     // Try to update broker row linked to this member; insert if missing

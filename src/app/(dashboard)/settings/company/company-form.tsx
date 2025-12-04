@@ -5,7 +5,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-export default function CompanyForm({ initialName, initialLogoUrl }: { initialName?: string; initialLogoUrl?: string }) {
+export default function CompanyForm({
+  initialName,
+  initialLogoUrl,
+  allowWhiteLabeling,
+}: {
+  initialName?: string
+  initialLogoUrl?: string
+  allowWhiteLabeling?: boolean
+}) {
   const { toast } = useToast()
   const [companyName, setCompanyName] = useState<string>(initialName ?? "")
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -30,14 +38,14 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
     startTransition(async () => {
       try {
         let res: Response
-        if (logoFile) {
+        if (allowWhiteLabeling && logoFile) {
           const form = new FormData()
           form.set("company_name", companyName)
           form.set("logo", logoFile)
           res = await fetch("/api/org/company-branding", { method: "POST", body: form })
         } else {
           // JSON mode; if no existingLogoUrl, stage deletion
-          const deleteLogo = !existingLogoUrl
+          const deleteLogo = allowWhiteLabeling ? !existingLogoUrl : false
           res = await fetch("/api/org/company-branding", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -80,85 +88,87 @@ export default function CompanyForm({ initialName, initialLogoUrl }: { initialNa
           onChange={(e) => setCompanyName(e.target.value)}
         />
       </div>
-      <div className="space-y-2">
-        <div className="flex items-baseline gap-2">
-          <Label htmlFor="company-logo">Company Logo</Label>
-          <span className="text-xs italic text-muted-foreground">(used for white labeled documents)</span>
-        </div>
-        <div
-          className={`rounded-md border border-dashed p-6 text-center bg-background transition-all ${isDragOver ? "border-primary ring-2 ring-primary/30" : ""}`}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setIsDragOver(true)
-          }}
-          onDragEnter={(e) => {
-            e.preventDefault()
-            setIsDragOver(true)
-          }}
-          onDragLeave={(e) => {
-            e.preventDefault()
-            setIsDragOver(false)
-          }}
-          onDrop={(e) => {
-            e.preventDefault()
-            setIsDragOver(false)
-            const f = e.dataTransfer.files?.[0]
-            if (f) setLogoFile(f)
-          }}
-        >
-          <input
-            ref={fileInputRef}
-            id="company-logo"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
-          />
-          <div className="text-sm mb-3">
-            {logoFile ? logoFile.name : "Drag & drop image here, or click to choose a file"}
+      {allowWhiteLabeling ? (
+        <div className="space-y-2">
+          <div className="flex items-baseline gap-2">
+            <Label htmlFor="company-logo">Company Logo</Label>
+            <span className="text-xs italic text-muted-foreground">(used for white labeled documents)</span>
           </div>
-          {/* Inline preview (selected file takes precedence) */}
-          {previewUrl ? (
-            <div className="mb-3 flex items-center justify-center relative">
-              <button
-                type="button"
-                aria-label="Remove selected image"
-                className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
-                onClick={() => setLogoFile(null)}
-              >
-                ×
-              </button>
-              <img
-                src={previewUrl}
-                alt="Selected logo preview"
-                className="max-h-28 object-contain rounded-md"
-              />
+          <div
+            className={`rounded-md border border-dashed p-6 text-center bg-background transition-all ${isDragOver ? "border-primary ring-2 ring-primary/30" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragOver(true)
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault()
+              setIsDragOver(true)
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault()
+              setIsDragOver(false)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragOver(false)
+              const f = e.dataTransfer.files?.[0]
+              if (f) setLogoFile(f)
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              id="company-logo"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+            />
+            <div className="text-sm mb-3">
+              {logoFile ? logoFile.name : "Drag & drop image here, or click to choose a file"}
             </div>
-          ) : existingLogoUrl ? (
-            <div className="mb-3 flex items-center justify-center relative">
-              <button
-                type="button"
-                aria-label="Remove current logo"
-                className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
-                onClick={() => {
-                  // Stage deletion; will be applied on Save
-                  setExistingLogoUrl(undefined)
-                }}
-              >
-                ×
-              </button>
-              <img
-                src={existingLogoUrl}
-                alt="Current logo"
-                className="max-h-28 object-contain rounded-md"
-              />
-            </div>
-          ) : null}
-          <Button variant="secondary" type="button" onClick={() => fileInputRef.current?.click()}>
-            Choose File
-          </Button>
+            {/* Inline preview (selected file takes precedence) */}
+            {previewUrl ? (
+              <div className="mb-3 flex items-center justify-center relative">
+                <button
+                  type="button"
+                  aria-label="Remove selected image"
+                  className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
+                  onClick={() => setLogoFile(null)}
+                >
+                  ×
+                </button>
+                <img
+                  src={previewUrl}
+                  alt="Selected logo preview"
+                  className="max-h-28 object-contain rounded-md"
+                />
+              </div>
+            ) : existingLogoUrl ? (
+              <div className="mb-3 flex items-center justify-center relative">
+                <button
+                  type="button"
+                  aria-label="Remove current logo"
+                  className="absolute -right-2 -top-2 rounded-full bg-black/70 text-white text-xs px-2 py-0.5"
+                  onClick={() => {
+                    // Stage deletion; will be applied on Save
+                    setExistingLogoUrl(undefined)
+                  }}
+                >
+                  ×
+                </button>
+                <img
+                  src={existingLogoUrl}
+                  alt="Current logo"
+                  className="max-h-28 object-contain rounded-md"
+                />
+              </div>
+            ) : null}
+            <Button variant="secondary" type="button" onClick={() => fileInputRef.current?.click()}>
+              Choose File
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
       <div className="pt-2">
         <Button type="button" onClick={onSubmit} disabled={isPending}>
           {isPending ? "Saving..." : "Save"}
