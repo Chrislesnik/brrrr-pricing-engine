@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     const query = supabaseAdmin
       .from("programs")
-      .select("internal_name,external_name")
+      .select("id,internal_name,external_name")
       .eq("loan_type", loanType)
       .eq("status", "active")
       .order("internal_name", { ascending: true })

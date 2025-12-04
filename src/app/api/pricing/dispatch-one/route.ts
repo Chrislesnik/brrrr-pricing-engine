@@ -34,17 +34,17 @@ export async function POST(req: NextRequest) {
 
     let q = supabaseAdmin
       .from("programs")
-      .select("internal_name,external_name,webhook_url")
+      .select("id,internal_name,external_name,webhook_url")
       .eq("loan_type", String(json.loanType).toLowerCase())
       .eq("status", "active")
     if (orgUuid) q = q.eq("organization_id", orgUuid)
     const { data, error } = await q
     if (error) return new NextResponse(error.message, { status: 500 })
 
-    const match = (data ?? []).find(
-      (p) =>
-        p.internal_name === json.programId ||
-        p.external_name === json.programId
+    const match = (data ?? []).find((p) =>
+      p.id === json.programId ||
+      p.internal_name === json.programId ||
+      p.external_name === json.programId
     )
     if (!match || !String(match.webhook_url || "").trim()) {
       return NextResponse.json({
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       body = null
     }
     return NextResponse.json({
+      id: (match as any).id,
       internal_name: match.internal_name,
       external_name: match.external_name,
       status: res.status,

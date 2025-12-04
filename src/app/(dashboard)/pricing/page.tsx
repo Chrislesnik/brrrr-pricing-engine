@@ -433,7 +433,7 @@ export default function PricingEnginePage() {
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
   const [programResults, setProgramResults] = useState<ProgramResult[]>([])
   const [isDispatching, setIsDispatching] = useState<boolean>(false)
-  const [programPlaceholders, setProgramPlaceholders] = useState<Array<{ internal_name?: string; external_name?: string }>>([])
+  const [programPlaceholders, setProgramPlaceholders] = useState<Array<{ id?: string; internal_name?: string; external_name?: string }>>([])
   // Track when shown results are out-of-sync with edited inputs
   const [lastCalculatedKey, setLastCalculatedKey] = useState<string | null>(null)
   const [resultsStale, setResultsStale] = useState<boolean>(false)
@@ -920,7 +920,7 @@ export default function PricingEnginePage() {
       setProgramPlaceholders([])
       setIsDispatching(true)
       // Prefetch programs to render per-program loaders
-      let placeholdersLocal: Array<{ internal_name?: string; external_name?: string }> = []
+      let placeholdersLocal: Array<{ id?: string; internal_name?: string; external_name?: string }> = []
       try {
         const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
         const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
@@ -929,12 +929,12 @@ export default function PricingEnginePage() {
           headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
         })
         if (pre.ok) {
-          const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ internal_name?: string; external_name?: string }> }
+          const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
           const ph = Array.isArray(pj?.programs) ? pj.programs : []
           placeholdersLocal = ph
           setProgramPlaceholders(ph)
           // initialize result slots in same order so containers render in place
-          setProgramResults(ph.map((p) => ({ internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
+          setProgramResults(ph.map((p) => ({ id: p.id, internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
         }
       } catch {
         // ignore prefetch errors; we'll still show a generic loader
@@ -980,7 +980,7 @@ export default function PricingEnginePage() {
                 "Pragma": "no-cache",
                 "X-Client-Request-Id": `${nonce}-${idx}`,
               },
-              body: JSON.stringify({ loanType, programId: p.internal_name ?? p.external_name, data: payload }),
+              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: payload }),
             })
             const single = (await res.json().catch(() => ({}))) as ProgramResult
             // place result in its slot (do not reorder to preserve container positions)
@@ -1056,10 +1056,7 @@ export default function PricingEnginePage() {
                programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name)),
         program_id:
           selectedMainRow?.programId ??
-          (isBroker
-            ? programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name
-            : (programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-               programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name)),
+          (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
         program_index: selectedMainRow?.programIdx ?? 0,
         row_index: selectedMainRow?.rowIdx ?? 0,
       }
@@ -3403,6 +3400,7 @@ type ProgramResponseData = {
   [key: string]: unknown
 }
 type ProgramResult = {
+  id?: string
   internal_name?: string
   external_name?: string
   webhook_url?: string
@@ -3592,7 +3590,7 @@ function ResultCard({
       const normalizedRow = toYesNoDeep(payloadRow) as Record<string, unknown>
       const body = {
         program: isBroker ? (r.external_name ?? "Program") : (r.internal_name ?? r.external_name ?? "Program"),
-        program_id: isBroker ? (r.external_name ?? null) : (r.internal_name ?? r.external_name ?? null),
+        program_id: r.id ?? null,
         row_index: idx,
         inputs,
         row: normalizedRow,
@@ -3828,7 +3826,7 @@ function ResultCard({
                                     programIdx,
                                     rowIdx: i,
                                   programName: isBroker ? (r.external_name ?? `Program ${programIdx + 1}`) : (r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`),
-                                  programId: isBroker ? (r.external_name ?? null) : (r.internal_name ?? r.external_name ?? null),
+                                  programId: r.id ?? null,
                                     values: {
                                       loanPrice: typeof lp === "number" ? lp : String(lp),
                                       interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
@@ -4045,7 +4043,7 @@ function ResultsPanel({
 }: {
   results: ProgramResult[]
   loading?: boolean
-  placeholders?: Array<{ internal_name?: string; external_name?: string }>
+  placeholders?: Array<{ id?: string; internal_name?: string; external_name?: string }>
   onSelectedChange?: (sel: SelectedRow | null) => void
   selectedFromProps?: SelectedRow | null
   getInputs?: () => Record<string, unknown>
@@ -4064,7 +4062,7 @@ function ResultsPanel({
       // Prefer explicit program id if present
       if (selectedFromProps.programId) {
         const idxById = results.findIndex(
-          (r) => r.internal_name === selectedFromProps.programId || r.external_name === selectedFromProps.programId
+          (r) => r.id === selectedFromProps.programId || r.internal_name === selectedFromProps.programId || r.external_name === selectedFromProps.programId
         )
         if (idxById >= 0) progIdx = idxById
       } else if (selectedFromProps.programName) {
@@ -4211,7 +4209,7 @@ function ResultsPanel({
       const r = results?.[selected.programIdx]
       const body = {
         program: (isBroker ? (r?.external_name ?? "Program") : (r?.internal_name ?? r?.external_name ?? "Program")),
-        program_id: (isBroker ? (r?.external_name ?? null) : (r?.internal_name ?? r?.external_name ?? null)),
+        program_id: r?.id ?? null,
         row_index: idx,
         inputs,
         row: normalizedRow,
@@ -4321,7 +4319,7 @@ function ResultsPanel({
     const selectedKey = selected?.programId ?? selected?.programName ?? null
     const filtered = selectedKey
       ? placeholders.filter(
-          (p) => p.internal_name !== selectedKey && p.external_name !== selectedKey
+          (p) => p.id !== selectedKey && p.internal_name !== selectedKey && p.external_name !== selectedKey
         )
       : placeholders
     return (
