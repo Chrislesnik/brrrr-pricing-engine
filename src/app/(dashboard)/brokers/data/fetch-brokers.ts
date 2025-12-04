@@ -45,7 +45,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // Prefer selecting status from DB if the column exists; gracefully fall back if not.
   async function fetchBrokers(includeStatus: boolean) {
     let baseSelect =
-      "id, organization_id, organization_member_id, account_manager_ids, email, joined_at" +
+      "id, organization_id, organization_member_id, account_manager_ids, email, joined_at, clerk_user_id" +
       (includeStatus ? ", status" : "")
     let q = supabaseAdmin.from("brokers").select(baseSelect).eq("organization_id", orgUuid)
     if (orgMemberId) {
@@ -83,6 +83,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // Keep both original-case ids for DB querying and lowercase for robust map lookups.
   const memberIdsForQuery = new Set<string>()
   const memberIdsForMap = new Set<string>()
+  const clerkUserIdsForQuery = new Set<string>()
   for (const b of brokerRows) {
     const mid = b.organization_member_id as string | null
     if (mid) {
@@ -94,8 +95,13 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       memberIdsForQuery.add(String(m))
       memberIdsForMap.add(String(m).toLowerCase())
     }
+    const cuid = (b as any).clerk_user_id as string | null
+    if (cuid) {
+      clerkUserIdsForQuery.add(String(cuid))
+    }
   }
   const memberIdsArr = Array.from(memberIdsForQuery)
+  const clerkUserIdsArr = Array.from(clerkUserIdsForQuery)
 
   // Helper to normalize uuid[] that may arrive as Postgres array literal string like "{id1,id2}"
   function normalizeIdArray(value: unknown): string[] {
@@ -125,20 +131,35 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
 
   // 2) Members in this org (resolve names/emails/company)
-  const { data: members, error: membersErr } = await supabaseAdmin
+  // Fetch members by id
+  const { data: membersById, error: membersErr } = await supabaseAdmin
     .from("organization_members")
-    .select("id, organization_id, first_name, last_name, company")
+    .select("id, organization_id, first_name, last_name, company, user_id")
     .in("id", memberIdsArr.length ? memberIdsArr : ["00000000-0000-0000-0000-000000000000"]) // safe guard
-
+    .eq("organization_id", orgUuid)
   if (membersErr) {
-    logError("fetch members error:", membersErr.message)
+    logError("fetch members by id error:", membersErr.message)
+  }
+  // Fetch members by user_id (for clerk_user_id fallback), scoped to this org
+  const { data: membersByUserId, error: membersByUserErr } = await supabaseAdmin
+    .from("organization_members")
+    .select("id, organization_id, first_name, last_name, company, user_id")
+    .in("user_id", clerkUserIdsArr.length ? clerkUserIdsArr : ["000000000000000000000000"]) // safe guard for text array
+    .eq("organization_id", orgUuid)
+  if (membersByUserErr) {
+    logError("fetch members by user_id error:", membersByUserErr.message)
   }
   const memberById = new Map<string, any>()
-  for (const m of members ?? []) {
+  const memberByUserId = new Map<string, any>()
+  for (const m of membersById ?? []) {
     const key = String(m.id).toLowerCase()
     memberById.set(key, m)
-    // Also store the original-case key to be extra forgiving
     memberById.set(String(m.id), m)
+  }
+  for (const m of membersByUserId ?? []) {
+    if (m && (m as any).user_id) {
+      memberByUserId.set(String((m as any).user_id), m)
+    }
   }
 
   // 3) Custom settings for brokers
@@ -228,11 +249,19 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
           .join(", ") || null
     }
 
-    const owner =
+    // Resolve owner:
+    // 1) Prefer linked organization_member_id
+    // 2) Fallback: match brokers.clerk_user_id to organization_members.user_id within same org
+    const ownerByMemberId =
       b.organization_member_id
         ? memberById.get(String(b.organization_member_id).toLowerCase()) ??
           memberById.get(String(b.organization_member_id))
         : null
+    const ownerByClerkUser =
+      ownerByMemberId || !(b as any).clerk_user_id
+        ? null
+        : memberByUserId.get(String((b as any).clerk_user_id))
+    const owner = ownerByMemberId ?? ownerByClerkUser
 
     const cs = customByBroker.get(b.id as string) as { default?: boolean } | undefined
     const permissions: BrokerPermission = cs ? (cs.default === false ? "custom" : "default") : "default"
