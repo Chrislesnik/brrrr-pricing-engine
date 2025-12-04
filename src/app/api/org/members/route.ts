@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     const { searchParams } = new URL(req.url)
     const loanId = searchParams.get("loanId")
+    const includeUserIdsParam = searchParams.get("includeUserIds")
+    const includeUserIds = includeUserIdsParam
+      ? includeUserIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+      : []
 
     // Resolve current member/role
     const { data: me, error: meErr } = await supabaseAdmin
@@ -107,6 +111,27 @@ export async function GET(req: NextRequest) {
             .in("id", brokerMemberIds)
           if (orgErr) return NextResponse.json({ error: orgErr.message }, { status: 500 })
           for (const m of brokersMembers ?? []) {
+            members.push({
+              user_id: m.user_id as string,
+              first_name: (m.first_name as string | null) ?? "",
+              last_name: (m.last_name as string | null) ?? "",
+            })
+          }
+        }
+      }
+    }
+
+    // Ensure we can resolve names for any explicitly included user ids
+    if (includeUserIds.length > 0) {
+      const missing = includeUserIds.filter((uid) => !members.some((m) => String(m.user_id) === uid))
+      if (missing.length > 0) {
+        const { data: extra, error: extraErr } = await supabaseAdmin
+          .from("organization_members")
+          .select("user_id, first_name, last_name")
+          .eq("organization_id", orgUuid)
+          .in("user_id", missing)
+        if (!extraErr) {
+          for (const m of extra ?? []) {
             members.push({
               user_id: m.user_id as string,
               first_name: (m.first_name as string | null) ?? "",

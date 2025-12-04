@@ -36,17 +36,22 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
     setLoading(true)
     setError(null)
     try {
-      const [mRes, aRes] = await Promise.all([
-        fetch(`/api/org/members?loanId=${encodeURIComponent(loanId)}`, { method: "GET" }),
-        fetch(`/api/loans/${loanId}/assignees`, { method: "GET" }),
-      ])
+      const aRes = await fetch(`/api/loans/${loanId}/assignees`, { method: "GET" })
+      if (!aRes.ok) throw new Error(await aRes.text())
+      const aJson = (await aRes.json()) as { userIds: string[] }
+      const assignedIds = (aJson.userIds ?? []).filter(Boolean)
+      const mRes = await fetch(
+        `/api/org/members?loanId=${encodeURIComponent(loanId)}&includeUserIds=${encodeURIComponent(
+          assignedIds.join(",")
+        )}`,
+        { method: "GET" }
+      )
       if (!mRes.ok) throw new Error(await mRes.text())
       if (!aRes.ok) throw new Error(await aRes.text())
       const mJson = (await mRes.json()) as { members: Member[]; editable?: boolean }
-      const aJson = (await aRes.json()) as { userIds: string[] }
       setMembers(mJson.members ?? [])
       if (typeof mJson.editable === "boolean") setEditable(mJson.editable)
-      setSelected(new Set((aJson.userIds ?? []).filter(Boolean)))
+      setSelected(new Set(assignedIds))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load")
     } finally {
