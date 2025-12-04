@@ -9,6 +9,12 @@ export default async function BrokersPage() {
   const { orgId, userId } = await auth()
   const rows = orgId ? await getBrokersForOrg(orgId, userId ?? undefined) : []
 
+  const fmt = (v?: string | null) => {
+    const s = String(v ?? "").trim()
+    return s.length ? s : "-"
+  }
+  const fmtDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : "-")
+
   return (
     <ContentSection
       title="Brokers"
@@ -46,15 +52,15 @@ export default async function BrokersPage() {
               rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                  <TableCell>{r.name ?? ""}</TableCell>
-                  <TableCell>{r.company ?? ""}</TableCell>
-                  <TableCell>{r.email ?? ""}</TableCell>
-                  <TableCell>{r.managers ?? ""}</TableCell>
+                  <TableCell>{fmt(r.name)}</TableCell>
+                  <TableCell>{fmt(r.company)}</TableCell>
+                  <TableCell>{fmt(r.email)}</TableCell>
+                  <TableCell>{fmt(r.managers)}</TableCell>
                   <TableCell className="uppercase text-xs">{r.permissions}</TableCell>
                   <TableCell className={r.status === 'active' ? 'text-green-600' : r.status === 'inactive' ? 'text-red-600' : 'text-muted-foreground'}>
                     {r.status}
                   </TableCell>
-                  <TableCell>{r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : ''}</TableCell>
+                  <TableCell>{fmtDate(r.joinedAt)}</TableCell>
                   <TableCell className="text-right"><RowActions brokerId={r.id} /></TableCell>
                 </TableRow>
               ))
