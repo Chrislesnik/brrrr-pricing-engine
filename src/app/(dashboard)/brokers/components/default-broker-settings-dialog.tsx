@@ -428,11 +428,11 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={fmtMoneyDollarInput(row.minUpb ?? "")}
+                    value={row.minUpb ?? ""}
                     onChange={(e) =>
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, minUpb: sanitize(e.target.value) } : r)))
                     }
-                    placeholder="0"
+                    placeholder="$0.00"
                   />
                 ) : (
                   <span>{fmtMoneyDollar(row.minUpb ?? "")}</span>
@@ -441,11 +441,11 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={fmtMoneyDollarInput(row.maxUpb ?? "")}
+                    value={row.maxUpb ?? ""}
                     onChange={(e) =>
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, maxUpb: sanitize(e.target.value) } : r)))
                     }
-                    placeholder="0"
+                    placeholder="$0.00"
                   />
                 ) : (
                   <span>{fmtMoneyDollar(row.maxUpb ?? "")}</span>
@@ -469,11 +469,11 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={fmtMoneyDollarInput(row.adminFee ?? "")}
+                    value={row.adminFee ?? ""}
                     onChange={(e) =>
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, adminFee: sanitize(e.target.value) } : r)))
                     }
-                    placeholder="0"
+                    placeholder="$0.00"
                   />
                 ) : (
                   <span>{fmtMoneyDollar(row.adminFee ?? "")}</span>
