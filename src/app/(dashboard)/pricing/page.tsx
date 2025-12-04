@@ -52,6 +52,14 @@ import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
 
+function programDisplayName(
+  p: { internal_name?: string; external_name?: string } | null | undefined,
+  isBroker: boolean
+): string {
+  if (!p) return "Program"
+  return isBroker ? (p.external_name ?? "Program") : (p.internal_name ?? p.external_name ?? "Program")
+}
+
 function toYesNoDeepGlobal(value: unknown): unknown {
   if (typeof value === "boolean") return value ? "yes" : "no"
   if (Array.isArray(value)) return value.map((v) => toYesNoDeepGlobal(v))
@@ -1019,12 +1027,16 @@ export default function PricingEnginePage() {
         ...selected,
         program_name:
           selectedMainRow?.programName ??
-          programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-          programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+          (isBroker
+            ? programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name
+            : (programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+               programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name)),
         program_id:
           selectedMainRow?.programId ??
-          programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-          programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+          (isBroker
+            ? programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name
+            : (programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
+               programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name)),
         program_index: selectedMainRow?.programIdx ?? 0,
         row_index: selectedMainRow?.rowIdx ?? 0,
       }
@@ -3412,6 +3424,8 @@ function ResultCard({
   onSelect: (sel: SelectedRow) => void
   getInputs?: () => Record<string, unknown>
 }) {
+  const { orgRole } = useAuth()
+  const isBroker = orgRole === "org:broker" || orgRole === "broker"
   // Hooks must be called unconditionally at the top of the component.
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
@@ -3490,7 +3504,7 @@ function ResultCard({
     Array.isArray(d?.initial_loan_amount) ||
     Array.isArray(d?.funded_pitia)
   // Also detect Bridge by program name to be robust
-  const programName = (r?.internal_name ?? r?.external_name ?? "") as string
+  const programName = (isBroker ? (r?.external_name ?? "") : (r?.internal_name ?? r?.external_name ?? "")) as string
   const isBridgeProgramName = String(programName).toLowerCase().includes("bridge")
   // Program card widgets should always reflect the original highlight index from the API.
   const loanPrice = pick<string | number>(d?.loan_price, hi)
@@ -3554,8 +3568,8 @@ function ResultCard({
       const inputs = toYesNoDeep(rawInputs) as Record<string, unknown>
       const normalizedRow = toYesNoDeep(payloadRow) as Record<string, unknown>
       const body = {
-        program: r.internal_name ?? r.external_name ?? "Program",
-        program_id: r.internal_name ?? r.external_name ?? null,
+        program: isBroker ? (r.external_name ?? "Program") : (r.internal_name ?? r.external_name ?? "Program"),
+        program_id: isBroker ? (r.external_name ?? null) : (r.internal_name ?? r.external_name ?? null),
         row_index: idx,
         inputs,
         row: normalizedRow,
@@ -3630,7 +3644,7 @@ function ResultCard({
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-bold">
-            {r.internal_name ?? "Program"}
+            {programDisplayName(r, isBroker)}
           </div>
           <div className="text-xs font-semibold">{r.external_name}</div>
         </div>
@@ -3790,8 +3804,8 @@ function ResultCard({
                                   onSelect({
                                     programIdx,
                                     rowIdx: i,
-                                    programName: r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`,
-                                    programId: r.internal_name ?? r.external_name ?? null,
+                                  programName: isBroker ? (r.external_name ?? `Program ${programIdx + 1}`) : (r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`),
+                                  programId: isBroker ? (r.external_name ?? null) : (r.internal_name ?? r.external_name ?? null),
                                     values: {
                                       loanPrice: typeof lp === "number" ? lp : String(lp),
                                       interestRate: Array.isArray(d?.interest_rate) ? d.interest_rate[i] : undefined,
@@ -3966,12 +3980,14 @@ function Widget({ label, value }: { label: string; value: string | number | null
 }
 
 function ResultCardLoader({ meta }: { meta?: { internal_name?: string; external_name?: string } }) {
+  const { orgRole } = useAuth()
+  const isBroker = orgRole === "org:broker" || orgRole === "broker"
   return (
     <div className="mb-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-bold">{meta?.internal_name ?? "Program"}</div>
-          <div className="text-xs font-semibold">{meta?.external_name ?? ""}</div>
+          <div className="text-sm font-bold">{isBroker ? (meta?.external_name ?? "Program") : (meta?.internal_name ?? meta?.external_name ?? "Program")}</div>
+          {!isBroker ? <div className="text-xs font-semibold">{meta?.external_name ?? ""}</div> : null}
         </div>
         <div className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border text-black border-white dark:text-white dark:border-black bg-transparent">
           Generating
@@ -4013,6 +4029,8 @@ function ResultsPanel({
   selectedFromProps?: SelectedRow | null
   getInputs?: () => Record<string, unknown>
 }) {
+  const { orgRole } = useAuth()
+  const isBroker = orgRole === "org:broker" || orgRole === "broker"
   const [selected, setSelected] = React.useState<SelectedRow | null>(null)
   useEffect(() => {
     onSelectedChange?.(selected)
@@ -4171,8 +4189,8 @@ function ResultsPanel({
       const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
       const r = results?.[selected.programIdx]
       const body = {
-        program: r?.internal_name ?? r?.external_name ?? "Program",
-        program_id: r?.internal_name ?? r?.external_name ?? null,
+        program: (isBroker ? (r?.external_name ?? "Program") : (r?.internal_name ?? r?.external_name ?? "Program")),
+        program_id: (isBroker ? (r?.external_name ?? null) : (r?.internal_name ?? r?.external_name ?? null)),
         row_index: idx,
         inputs,
         row: normalizedRow,
@@ -4382,7 +4400,7 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
-                  const name = selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name
+                  const name = selected.programName ?? (isBroker ? results?.[selected.programIdx]?.external_name : (results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name))
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
@@ -4448,7 +4466,7 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
-                  const name = selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name
+                  const name = selected.programName ?? (isBroker ? results?.[selected.programIdx]?.external_name : (results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name))
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
