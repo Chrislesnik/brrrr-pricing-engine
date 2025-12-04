@@ -271,6 +271,32 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
+
+  // Prefetch program catalog for current loan type so we can map IDs to names
+  useEffect(() => {
+    let active = true
+    if (!loanType) return
+    ;(async () => {
+      try {
+        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        const res = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
+        })
+        if (!res.ok) return
+        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
+        if (!active) return
+        const ph = Array.isArray(pj?.programs) ? pj.programs : []
+        setProgramPlaceholders(ph)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [loanType])
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
@@ -4332,16 +4358,12 @@ function ResultsPanel({
                 <div className="text-sm font-bold">Main</div>
                 <div className="text-xs font-semibold text-muted-foreground">
                   {(() => {
+                  const byResultsExt = results?.[selected.programIdx ?? 0]?.external_name
+                  const byResultsInt = results?.[selected.programIdx ?? 0]?.internal_name
+                  const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
                   const name = isBroker
-                    ? (results?.[selected.programIdx ?? 0]?.external_name ??
-                       selected.programId ??
-                       selected.programName ??
-                       "Program")
-                    : (selected.programName ??
-                       results?.[selected.programIdx ?? 0]?.internal_name ??
-                       results?.[selected.programIdx ?? 0]?.external_name ??
-                       selected.programId ??
-                       "Program")
+                    ? (byResultsExt ?? byPh?.external_name ?? selected.programName ?? "Program")
+                    : (selected.programName ?? byResultsInt ?? byResultsExt ?? byPh?.internal_name ?? byPh?.external_name ?? "Program")
                     return `Selected: ${name ?? `Program #${(selected.programIdx ?? 0) + 1}`}, Row #${(selected.rowIdx ?? 0) + 1}`
                   })()}
                 </div>
@@ -4428,9 +4450,12 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
+                  const byResultsExt = results?.[selected.programIdx]?.external_name
+                  const byResultsInt = results?.[selected.programIdx]?.internal_name
+                  const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
                   const name = isBroker
-                    ? (results?.[selected.programIdx]?.external_name ?? selected.programId ?? selected.programName)
-                    : (selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name)
+                    ? (byResultsExt ?? byPh?.external_name ?? selected.programName)
+                    : (selected.programName ?? byResultsInt ?? byResultsExt ?? byPh?.internal_name ?? byPh?.external_name)
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
@@ -4496,9 +4521,12 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
+                  const byResultsExt = results?.[selected.programIdx]?.external_name
+                  const byResultsInt = results?.[selected.programIdx]?.internal_name
+                  const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
                   const name = isBroker
-                    ? (results?.[selected.programIdx]?.external_name ?? selected.programId ?? selected.programName)
-                    : (selected.programName ?? results?.[selected.programIdx]?.internal_name ?? results?.[selected.programIdx]?.external_name)
+                    ? (byResultsExt ?? byPh?.external_name ?? selected.programName)
+                    : (selected.programName ?? byResultsInt ?? byResultsExt ?? byPh?.internal_name ?? byPh?.external_name)
                   return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
                 })()}
               </div>
