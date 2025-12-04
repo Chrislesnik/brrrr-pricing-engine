@@ -84,7 +84,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // 2) Members in this org (resolve names/emails/company)
   const { data: members, error: membersErr } = await supabaseAdmin
     .from("organization_members")
-    .select("id, organization_id, first_name, last_name, company, email")
+    .select("id, organization_id, first_name, last_name, company")
     .eq("organization_id", orgUuid)
     .in("id", memberIdsArr.length ? memberIdsArr : ["00000000-0000-0000-0000-000000000000"]) // safe guard
 
@@ -125,8 +125,8 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
         const m = memberById.get(String(id).toLowerCase())
         if (!m) return null
         const nm = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
-        // Show email if no name, else fallback to id
-        return nm || (m.email as string | undefined) || String(id)
+        // Only show name; if missing, show the raw id (no email fallback)
+        return nm || String(id)
       })
       .filter(Boolean)
       .join(", ") || null
