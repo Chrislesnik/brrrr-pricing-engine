@@ -69,6 +69,18 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
   const memberIdsArr = Array.from(memberIds)
 
+  // Helper to normalize uuid[] that may arrive as Postgres array literal string like "{id1,id2}"
+  function normalizeIdArray(value: unknown): string[] {
+    if (Array.isArray(value)) return (value as unknown[]).map((v) => String(v))
+    if (typeof value === "string") {
+      let s = value.trim()
+      if (s.startsWith("{") && s.endsWith("}")) s = s.slice(1, -1)
+      if (s.length === 0) return []
+      return s.split(",").map((x) => x.trim().replace(/^"+|"+$/g, ""))
+    }
+    return []
+  }
+
   // 2) Members in this org (resolve names/emails/company)
   const { data: members, error: membersErr } = await supabaseAdmin
     .from("organization_members")
@@ -108,7 +120,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
     const owner = b.organization_member_id ? memberById.get(b.organization_member_id as string) : null
     const fullName =
       owner ? [owner.first_name, owner.last_name].filter(Boolean).join(" ").trim() || null : null
-    const managers = ((b.account_manager_ids as string[] | null) ?? [])
+    const managers = normalizeIdArray((b as any).account_manager_ids)
       .map((id) => {
         const m = memberById.get(String(id).toLowerCase())
         if (!m) return null
