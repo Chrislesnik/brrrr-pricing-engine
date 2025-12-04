@@ -4,6 +4,8 @@ import { DefaultBrokerSettingsDialog } from "./components/default-broker-setting
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getBrokersForOrg } from "./data/fetch-brokers"
 import RowActions from "./components/broker-row-actions"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 export default async function BrokersPage() {
   const { orgId, userId } = await auth()
@@ -14,6 +16,24 @@ export default async function BrokersPage() {
     return s.length ? s : "-"
   }
   const fmtDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : "-")
+  const statusBadge = (status: string) => {
+    const s = (status || "").toLowerCase()
+    const color =
+      s === "active"
+        ? "bg-green-100 text-green-800 border-green-200"
+        : s === "inactive"
+        ? "bg-red-100 text-red-800 border-red-200"
+        : "bg-yellow-100 text-yellow-800 border-yellow-200" // pending
+    return <Badge variant="outline" className={cn("capitalize", color)}>{s || "-"}</Badge>
+  }
+  const permissionBadge = (perm: string) => {
+    const p = (perm || "").toLowerCase()
+    const color =
+      p === "custom"
+        ? "bg-purple-100 text-purple-800 border-purple-200"
+        : "bg-yellow-100 text-yellow-800 border-yellow-200" // default
+    return <Badge variant="outline" className={cn("uppercase", color)}>{(p || "-").toUpperCase()}</Badge>
+  }
 
   return (
     <ContentSection
@@ -56,10 +76,8 @@ export default async function BrokersPage() {
                   <TableCell>{fmt(r.company)}</TableCell>
                   <TableCell>{fmt(r.email)}</TableCell>
                   <TableCell>{fmt(r.managers)}</TableCell>
-                  <TableCell className="uppercase text-xs">{r.permissions}</TableCell>
-                  <TableCell className={r.status === 'active' ? 'text-green-600' : r.status === 'inactive' ? 'text-red-600' : 'text-muted-foreground'}>
-                    {r.status}
-                  </TableCell>
+                  <TableCell>{permissionBadge(r.permissions)}</TableCell>
+                  <TableCell>{statusBadge(r.status)}</TableCell>
                   <TableCell>{fmtDate(r.joinedAt)}</TableCell>
                   <TableCell className="text-right"><RowActions brokerId={r.id} /></TableCell>
                 </TableRow>
