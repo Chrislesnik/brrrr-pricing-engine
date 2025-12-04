@@ -82,7 +82,7 @@ export function NavGroup({ title, items }: NavGroup) {
     if (isOwner) return true
     // Hide item if current org role is explicitly denied
     if (item.denyOrgRoles && item.denyOrgRoles.length && orgRole) {
-      if (item.denyOrgRoles.includes(orgRole) || item.denyOrgRoles.includes(bareRole)) {
+      if (item.denyOrgRoles.includes(orgRole) || (bareRole ? item.denyOrgRoles.includes(bareRole) : false)) {
         return false
       }
     }
