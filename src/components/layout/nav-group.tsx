@@ -70,11 +70,18 @@ export function NavGroup({ title, items }: NavGroup) {
     }
   }, [items, has, isOwner, isLoaded])
 
-  const isVisible = (item: { requiredPermission?: string; denyOrgRoles?: string[] }) => {
+  const isVisible = (item: { requiredPermission?: string; denyOrgRoles?: string[]; allowOrgRoles?: string[] }) => {
+    const bareRole = orgRole ? orgRole.replace(/^org:/, "") : undefined
+    // Explicit allow list takes precedence (even for owners)
+    if (item.allowOrgRoles && item.allowOrgRoles.length) {
+      const allow =
+        (!!orgRole && item.allowOrgRoles.includes(orgRole)) ||
+        (!!bareRole && item.allowOrgRoles.includes(bareRole))
+      return !!allow
+    }
     if (isOwner) return true
     // Hide item if current org role is explicitly denied
     if (item.denyOrgRoles && item.denyOrgRoles.length && orgRole) {
-      const bareRole = orgRole.replace(/^org:/, "")
       if (item.denyOrgRoles.includes(orgRole) || item.denyOrgRoles.includes(bareRole)) {
         return false
       }

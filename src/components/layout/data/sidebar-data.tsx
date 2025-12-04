@@ -58,17 +58,8 @@ export const sidebarData: SidebarData = {
               title: "Company",
               icon: IconUser,
               url: "/settings/company",
-              // Visible only to brokers; hide for common non-broker roles
-              denyOrgRoles: [
-                "org:owner",
-                "owner",
-                "org:admin",
-                "admin",
-                "org:loan_officer",
-                "loan_officer",
-                "org:loan_processor",
-                "loan_processor",
-              ],
+              // Visible only to broker role
+              allowOrgRoles: ["org:broker", "broker"],
             },
           ],
         }

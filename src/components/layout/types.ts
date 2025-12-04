@@ -25,6 +25,11 @@ interface BaseNavItem {
    * We will compare against both the Clerk `orgRole` and its version without the "org:" prefix.
    */
   denyOrgRoles?: string[]
+  /**
+   * Optional list of organization roles that are the ONLY ones allowed to see this item.
+   * If provided, this check takes precedence (even for owners).
+   */
+  allowOrgRoles?: string[]
 }
 
 export type NavItem =
