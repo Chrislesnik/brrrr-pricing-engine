@@ -255,7 +255,22 @@ const getPlaces = (): GPlaces | undefined => {
 export default function PricingEnginePage() {
   const searchParams = useSearchParams()
   const { orgRole } = useAuth()
-  const isBroker = orgRole === "org:broker" || orgRole === "broker"
+  const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/org/members", { cache: "no-store" })
+        const j = (await res.json().catch(() => ({}))) as { editable?: boolean }
+        if (!active) return
+        setIsBrokerMember(j?.editable === false)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => { active = false }
+  }, [])
+  const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
@@ -3501,7 +3516,7 @@ function ResultCard({
   }
   // If this program hasn't returned yet, keep showing the generating loader inside the same container.
   if (!r?.data) {
-    return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} />
+    return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} isBroker={isBroker} />
   }
   const d = (r?.data ?? {}) as ProgramResponseData
   const pass = d?.pass === true
@@ -3987,9 +4002,7 @@ function Widget({ label, value }: { label: string; value: string | number | null
   )
 }
 
-function ResultCardLoader({ meta }: { meta?: { internal_name?: string; external_name?: string } }) {
-  const { orgRole } = useAuth()
-  const isBroker = orgRole === "org:broker" || orgRole === "broker"
+function ResultCardLoader({ meta, isBroker }: { meta?: { internal_name?: string; external_name?: string }; isBroker: boolean }) {
   return (
     <div className="mb-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
@@ -4400,7 +4413,7 @@ function ResultsPanel({
           </>
         ) : null}
         {filtered.map((p, idx) => (
-          <ResultCardLoader key={idx} meta={p} />
+          <ResultCardLoader key={idx} meta={p} isBroker={isBroker} />
         ))}
         <LoaderStyles />
       </div>
