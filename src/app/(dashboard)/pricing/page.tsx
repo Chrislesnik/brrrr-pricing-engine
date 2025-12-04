@@ -260,15 +260,17 @@ export default function PricingEnginePage() {
   const { orgRole } = useAuth()
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
+  const [selfBrokerId, setSelfBrokerId] = useState<string | null>(null)
   useEffect(() => {
     let active = true
     ;(async () => {
       try {
         const res = await fetch("/api/org/members", { cache: "no-store" })
-        const j = (await res.json().catch(() => ({}))) as { editable?: boolean; self_member_id?: string | null }
+        const j = (await res.json().catch(() => ({}))) as { editable?: boolean; self_member_id?: string | null; self_broker_id?: string | null }
         if (!active) return
         setIsBrokerMember(j?.editable === false)
         setSelfMemberId(j?.self_member_id ?? null)
+        setSelfBrokerId(j?.self_broker_id ?? null)
       } catch {
         // ignore
       }
@@ -970,7 +972,28 @@ export default function PricingEnginePage() {
         })
         if (pre.ok) {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
-          const ph = Array.isArray(pj?.programs) ? pj.programs : []
+          let ph = Array.isArray(pj?.programs) ? pj.programs : []
+          // If broker, filter by custom_broker_settings.program_visibility == true
+          if (selfBrokerId || isBroker) {
+            try {
+              if (!selfBrokerId) {
+                // Broker without a linked broker id: no permissions
+                ph = []
+              } else {
+                const visRes = await fetch(`/api/brokers/${encodeURIComponent(selfBrokerId)}/custom-settings`, { cache: "no-store" })
+              const visJson = await visRes.json().catch(() => ({})) as { program_visibility?: Record<string, boolean> }
+              const visibility = (visJson?.program_visibility ?? {}) as Record<string, boolean>
+              ph = ph.filter((p) => {
+                const id = String(p.id ?? "")
+                // Only allow when explicitly true; anything else (false/undefined) is filtered out
+                return id.length > 0 && visibility[id] === true
+              })
+              }
+            } catch {
+              // if settings not available, default to empty (no permissions)
+              ph = []
+            }
+          }
           placeholdersLocal = ph
           setProgramPlaceholders(ph)
           // initialize result slots in same order so containers render in place

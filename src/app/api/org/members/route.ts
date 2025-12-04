@@ -151,7 +151,21 @@ export async function GET(req: NextRequest) {
       return true
     })
 
-    return NextResponse.json({ members: deduped, editable, self_member_id: myMemberId })
+    // Resolve broker id for this member if they are a broker
+    let selfBrokerId: string | null = null
+    try {
+      const { data: brokerRow } = await supabaseAdmin
+        .from("brokers")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .eq("organization_member_id", myMemberId)
+        .maybeSingle()
+      selfBrokerId = (brokerRow?.id as string) ?? null
+    } catch {
+      selfBrokerId = null
+    }
+
+    return NextResponse.json({ members: deduped, editable, self_member_id: myMemberId, self_broker_id: selfBrokerId })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
