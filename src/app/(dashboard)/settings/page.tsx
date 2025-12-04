@@ -7,6 +7,8 @@ import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 interface ProgramRow {
   id: string
@@ -73,7 +75,19 @@ export default async function SettingsProgramsPage() {
                 <TableCell className="font-medium">{p.internal_name}</TableCell>
                 <TableCell>{p.external_name}</TableCell>
                 <TableCell className="truncate">{p.webhook_url ?? ""}</TableCell>
-                <TableCell className="capitalize">{p.status}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "capitalize",
+                      p.status === "active"
+                        ? "bg-green-100 text-green-800 border-green-200"
+                        : "bg-red-100 text-red-800 border-red-200"
+                    )}
+                  >
+                    {p.status}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right">
                   <ProgramRowActions
                     program={p}
