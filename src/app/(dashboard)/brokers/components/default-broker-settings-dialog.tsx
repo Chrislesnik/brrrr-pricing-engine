@@ -217,11 +217,6 @@ function ProgramsList({
             loan_type: String(p.loan_type ?? ""),
           }))
         setItems(mapped)
-        const next = { ...value }
-        mapped.forEach((p) => {
-          if (next[p.id] === undefined) next[p.id] = true
-        })
-        onChange(next)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load programs")
       }
@@ -230,6 +225,19 @@ function ProgramsList({
       cancelled = true
     }
   }, [])
+  // Merge in defaults for programs not present in current map (do not overwrite existing)
+  useEffect(() => {
+    if (!items) return
+    const next = { ...value }
+    let changed = false
+    items.forEach((p) => {
+      if (next[p.id] === undefined) {
+        next[p.id] = false
+        changed = true
+      }
+    })
+    if (changed) onChange(next)
+  }, [items, value])
   if (!items && !error) {
     return <div className="text-sm text-muted-foreground">Loading programs…</div>
   }
