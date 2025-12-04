@@ -52,6 +52,14 @@ import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
 
+function formatDateOnly(date?: Date | null): string | null {
+  if (!date) return null
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
 function programDisplayName(
   p: { internal_name?: string; external_name?: string } | null | undefined,
   isBroker: boolean
@@ -798,15 +806,15 @@ export default function PricingEnginePage() {
       hoi_premium: hoiPremium,
       flood_premium: floodPremium,
       mortgage_debt: mortgageDebtValue,
-      closing_date: closingDate ? closingDate.toISOString() : null,
+      closing_date: formatDateOnly(closingDate),
       // also send projected note date for downstream webhooks
       projected_note_date: (() => {
         const dt = closingDate ?? DEFAULTS.closingDate
-        return dt ? dt.toISOString() : null
+        return formatDateOnly(dt)
       })(),
       // always include effective dates (can be null)
-      hoi_effective_date: (hoiEffective ?? DEFAULTS.hoiEffective)?.toISOString() ?? null,
-      flood_effective_date: (floodEffective ?? DEFAULTS.floodEffective)?.toISOString() ?? null,
+      hoi_effective_date: formatDateOnly(hoiEffective ?? DEFAULTS.hoiEffective),
+      flood_effective_date: formatDateOnly(floodEffective ?? DEFAULTS.floodEffective),
       // borrower + fees: always include (may be empty string)
       borrower_type: borrowerType ?? "",
       citizenship: citizenship ?? "",
@@ -827,7 +835,7 @@ export default function PricingEnginePage() {
     }
     // Optional / conditional extras - include when section is visible
     if (transactionType !== "purchase") {
-      payload["acquisition_date"] = acquisitionDate ? acquisitionDate.toISOString() : null
+      payload["acquisition_date"] = formatDateOnly(acquisitionDate)
     }
     if (loanType === "bridge") {
       // Always include bridge-specific selections
