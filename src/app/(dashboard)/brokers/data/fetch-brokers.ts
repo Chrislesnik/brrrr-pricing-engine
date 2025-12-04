@@ -263,6 +263,24 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
       const nm = [owner.first_name ?? "", owner.last_name ?? ""].join(" ").trim()
       ownerName = nm || null
     }
+    // FINAL FALLBACK (per explicit requirement):
+    // If still no name, query organization_members directly by (organization_id, user_id == clerk_user_id)
+    if (!ownerName && (b as any).clerk_user_id) {
+      try {
+        const { data: byCuid, error: byCuidErr } = await supabaseAdmin
+          .from("organization_members")
+          .select("first_name, last_name")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", String((b as any).clerk_user_id))
+          .maybeSingle()
+        if (!byCuidErr && byCuid) {
+          const nm = [byCuid.first_name ?? "", byCuid.last_name ?? ""].join(" ").trim()
+          ownerName = nm || null
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     const cs = customByBroker.get(b.id as string) as { default?: boolean } | undefined
     const permissions: BrokerPermission = cs ? (cs.default === false ? "custom" : "default") : "default"
