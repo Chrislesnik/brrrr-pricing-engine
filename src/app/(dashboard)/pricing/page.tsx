@@ -356,6 +356,7 @@ export default function PricingEnginePage() {
   const [annualMgmt, setAnnualMgmt] = useState<string>("")
   const [loanAmount, setLoanAmount] = useState<string>("")
   const [adminFee, setAdminFee] = useState<string>("")
+  const [brokerAdminFee, setBrokerAdminFee] = useState<string>("")
   const [payoffAmount, setPayoffAmount] = useState<string>("")
   const [titleRecordingFee, setTitleRecordingFee] = useState<string>("")
   const [assignmentFee, setAssignmentFee] = useState<string>("")
@@ -770,6 +771,7 @@ export default function PricingEnginePage() {
       purchase_price: purchasePrice,
       loan_amount: loanAmount,
       admin_fee: adminFee,
+      broker_admin_fee: brokerAdminFee,
       payoff_amount: payoffAmount,
       aiv,
       arv,
@@ -3000,7 +3002,7 @@ export default function PricingEnginePage() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="admin-fee">Admin Fee</Label>
+                        <Label htmlFor="admin-fee">Lender Admin Fee</Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -3021,6 +3023,21 @@ export default function PricingEnginePage() {
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             %
                           </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor="broker-admin-fee">Broker Admin Fee</Label>
+                        <div className="relative">
+                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            $
+                          </span>
+                          <CalcInput
+                            id="broker-admin-fee"
+                            placeholder="0.00"
+                            className="pl-6"
+                            value={brokerAdminFee}
+                            onValueChange={setBrokerAdminFee}
+                          />
                         </div>
                       </div>
                     </div>
