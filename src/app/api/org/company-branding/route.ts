@@ -24,12 +24,15 @@ export async function GET() {
     if (!orgMemberId) return NextResponse.json({ error: "No member" }, { status: 404 })
 
     const { data, error } = await supabaseAdmin
-      .from("broker_company_branding")
-      .select("company_name, logo_url")
+      .from("brokers")
+      .select("company, company_name, company_logo_url")
+      .eq("organization_id", orgUuid)
       .eq("organization_member_id", orgMemberId)
       .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ company_name: data?.company_name ?? "", logo_url: data?.logo_url ?? "" })
+    const company_name = (data?.company_name as string | undefined) ?? (data?.company as string | undefined) ?? ""
+    const logo_url = (data?.company_logo_url as string | undefined) ?? ""
+    return NextResponse.json({ company_name, logo_url })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -79,17 +82,28 @@ export async function POST(req: NextRequest) {
       logoUrl = body.logo_url ?? null
     }
 
-    const { error } = await supabaseAdmin
-      .from("broker_company_branding")
-      .upsert(
-        {
-          organization_member_id: orgMemberId,
-          company_name: companyName,
-          logo_url: logoUrl,
-        },
-        { onConflict: "organization_member_id" }
-      )
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // Try to update broker row linked to this member; insert if missing
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from("brokers")
+      .update({
+        company: companyName, // legacy display column if present
+        company_name: companyName,
+        company_logo_url: logoUrl,
+      })
+      .eq("organization_id", orgUuid)
+      .eq("organization_member_id", orgMemberId)
+      .select("id")
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+    if (!updated || updated.length === 0) {
+      const { error: insErr } = await supabaseAdmin.from("brokers").insert({
+        organization_id: orgUuid,
+        organization_member_id: orgMemberId,
+        company: companyName,
+        company_name: companyName,
+        company_logo_url: logoUrl,
+      })
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+    }
     return NextResponse.json({ ok: true, company_name: companyName, logo_url: logoUrl })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
