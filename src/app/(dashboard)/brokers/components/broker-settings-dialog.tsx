@@ -142,6 +142,35 @@ export function BrokerSettingsDialog({
                     allowBuydown={allowBuydown}
                     onAllowYsp={setAllowYsp}
                     onAllowBuydown={setAllowBuydown}
+                    status={status}
+                    onToggleStatus={async () => {
+                      try {
+                        if (status !== "active" && status !== "inactive") {
+                          throw new Error("Cannot toggle from pending")
+                        }
+                        const res = await fetch(`/api/brokers/${brokerId}/status`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "toggle" }),
+                        })
+                        const j = await res.json().catch(() => ({}))
+                        if (!res.ok) throw new Error(j?.error ?? "Failed to update status")
+                        const next = String(j?.status ?? "").toLowerCase()
+                        if (next === "active" || next === "inactive" || next === "pending") setStatus(next as any)
+                        toast({ title: "Updated", description: `Status switched to ${String(j?.status ?? "").toUpperCase()}.` })
+                        try {
+                          onSaved?.()
+                        } catch {
+                          // ignore
+                        }
+                      } catch (e) {
+                        toast({
+                          title: "Update failed",
+                          description: e instanceof Error ? e.message : "Unknown error",
+                          variant: "destructive",
+                        })
+                      }
+                    }}
                   />
                 )}
               </div>
@@ -257,14 +286,29 @@ function AdditionalSettings({
   allowBuydown,
   onAllowYsp,
   onAllowBuydown,
+  status,
+  onToggleStatus,
 }: {
   allowYsp: boolean
   allowBuydown: boolean
   onAllowYsp: (v: boolean) => void
   onAllowBuydown: (v: boolean) => void
+  status?: "pending" | "active" | "inactive" | ""
+  onToggleStatus?: () => Promise<void> | void
 }) {
   return (
     <div className="max-w-xl space-y-4">
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-medium">Broker status</div>
+          <StatusBadge status={status} />
+        </div>
+        {status === "active" || status === "inactive" ? (
+          <Button size="sm" variant="outline" onClick={() => onToggleStatus?.()}>
+            {`Switch to ${status === "active" ? "Inactive" : "Active"}`}
+          </Button>
+        ) : null}
+      </div>
       <div className="flex items-center justify-between rounded-md border p-3">
         <div className="text-sm font-medium">Allow broker to add YSP</div>
         <Switch checked={allowYsp} onCheckedChange={onAllowYsp} aria-label="Allow broker to add YSP" />
