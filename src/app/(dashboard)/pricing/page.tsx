@@ -50,6 +50,7 @@ import { CalcInput } from "@/components/calc-input"
 import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
 import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@clerk/nextjs"
 
 function toYesNoDeepGlobal(value: unknown): unknown {
   if (typeof value === "boolean") return value ? "yes" : "no"
@@ -237,6 +238,8 @@ const getPlaces = (): GPlaces | undefined => {
 
 export default function PricingEnginePage() {
   const searchParams = useSearchParams()
+  const { orgRole } = useAuth()
+  const isBroker = orgRole === "org:broker" || orgRole === "broker"
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
@@ -2995,7 +2998,7 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="lender-orig">Lender Origination</Label>
                         <div className="relative">
-                          <Input id="lender-orig" inputMode="decimal" placeholder="0.00" className="pr-6" value={lenderOrig} onChange={(e)=>setLenderOrig(e.target.value)} />
+                          <Input id="lender-orig" inputMode="decimal" placeholder="0.00" className="pr-6" value={lenderOrig} onChange={(e)=>setLenderOrig(e.target.value)} readOnly={isBroker} disabled={isBroker} />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             %
                           </span>
@@ -3013,6 +3016,8 @@ export default function PricingEnginePage() {
                             className="pl-6"
                             value={adminFee}
                             onValueChange={setAdminFee}
+                            readOnly={isBroker}
+                            disabled={isBroker}
                           />
                         </div>
                       </div>
