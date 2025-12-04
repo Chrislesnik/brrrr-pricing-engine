@@ -28,6 +28,7 @@ export function BrokerSettingsDialog({
   >([])
   const [allowYsp, setAllowYsp] = useState<boolean>(false)
   const [allowBuydown, setAllowBuydown] = useState<boolean>(false)
+  const [allowWhiteLabeling, setAllowWhiteLabeling] = useState<boolean>(false)
  
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export function BrokerSettingsDialog({
         if (cancelled) return
         setAllowYsp(j.allow_ysp === true)
         setAllowBuydown(j.allow_buydown_rate === true)
+        setAllowWhiteLabeling(j.allow_white_labeling === true)
         setProgramVisibility((j.program_visibility as Record<string, boolean>) ?? {})
         setRateRows(
           Array.isArray(j.rates)
@@ -116,8 +118,10 @@ export function BrokerSettingsDialog({
                   <AdditionalSettings
                     allowYsp={allowYsp}
                     allowBuydown={allowBuydown}
+                    allowWhiteLabeling={allowWhiteLabeling}
                     onAllowYsp={setAllowYsp}
                     onAllowBuydown={setAllowBuydown}
+                    onAllowWhiteLabeling={setAllowWhiteLabeling}
                   />
                 )}
               </div>
@@ -129,6 +133,7 @@ export function BrokerSettingsDialog({
                         const body = {
                           allow_ysp: allowYsp,
                           allow_buydown_rate: allowBuydown,
+                          allow_white_labeling: allowWhiteLabeling,
                           program_visibility: programVisibility,
                           rates: rateRows.map((r) => ({
                             id: r.id,
@@ -177,25 +182,32 @@ export function BrokerSettingsDialog({
 function AdditionalSettings({
   allowYsp,
   allowBuydown,
+  allowWhiteLabeling,
   onAllowYsp,
   onAllowBuydown,
+  onAllowWhiteLabeling,
 }: {
   allowYsp: boolean
   allowBuydown: boolean
+  allowWhiteLabeling: boolean
   onAllowYsp: (v: boolean) => void
   onAllowBuydown: (v: boolean) => void
+  onAllowWhiteLabeling: (v: boolean) => void
 }) {
   return (
-    <div className="max-w-xl space-y-4">
-      <div className="flex items-center justify-between rounded-md border p-3">
+    <div className="max-w-xl space-y-3">
+      <div className="flex items-center justify-between py-1">
         <div className="text-sm font-medium">Allow broker to add YSP</div>
         <Switch checked={allowYsp} onCheckedChange={onAllowYsp} aria-label="Allow broker to add YSP" />
       </div>
-      <div className="flex items-center justify-between rounded-md border p-3">
+      <div className="flex items-center justify-between py-1">
         <div className="text-sm font-medium">Allow brokers to buydown rate</div>
         <Switch checked={allowBuydown} onCheckedChange={onAllowBuydown} aria-label="Allow brokers to buydown rate" />
       </div>
-      <p className="text-xs text-muted-foreground">Note: Toggles are UI-only for now.</p>
+      <div className="flex items-center justify-between py-1">
+        <div className="text-sm font-medium">Allow white labeling</div>
+        <Switch checked={allowWhiteLabeling} onCheckedChange={onAllowWhiteLabeling} aria-label="Allow white labeling" />
+      </div>
     </div>
   )
 }

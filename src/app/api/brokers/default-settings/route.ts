@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as {
       allow_ysp?: boolean
       allow_buydown_rate?: boolean
+      allow_white_labeling?: boolean
       program_visibility?: unknown
       rates?: unknown
     }
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
       organization_member_id: orgMemberId,
       allow_ysp: body.allow_ysp === true,
       allow_buydown_rate: body.allow_buydown_rate === true,
+      allow_white_labeling: body.allow_white_labeling === true,
       program_visibility: body.program_visibility ?? {},
       rates: body.rates ?? [],
     }

@@ -29,7 +29,7 @@ export async function GET(
 
     const { data, error } = await supabaseAdmin
       .from("custom_broker_settings")
-      .select("allow_ysp, allow_buydown_rate, program_visibility, rates")
+      .select("allow_ysp, allow_buydown_rate, allow_white_labeling, program_visibility, rates")
       .eq("organization_id", orgUuid)
       .eq("broker_id", brokerId)
       .maybeSingle()
@@ -37,6 +37,7 @@ export async function GET(
     return NextResponse.json({
       allow_ysp: data?.allow_ysp ?? false,
       allow_buydown_rate: data?.allow_buydown_rate ?? false,
+      allow_white_labeling: data?.allow_white_labeling ?? false,
       program_visibility: data?.program_visibility ?? {},
       rates: data?.rates ?? [],
     })
@@ -71,6 +72,7 @@ export async function POST(
     const body = (await req.json().catch(() => ({}))) as {
       allow_ysp?: boolean
       allow_buydown_rate?: boolean
+      allow_white_labeling?: boolean
       program_visibility?: unknown
       rates?: unknown
     }
@@ -83,6 +85,7 @@ export async function POST(
         "default": false,
         allow_ysp: body.allow_ysp === true,
         allow_buydown_rate: body.allow_buydown_rate === true,
+        allow_white_labeling: body.allow_white_labeling === true,
         program_visibility: body.program_visibility ?? {},
         rates: body.rates ?? [],
       })
