@@ -335,6 +335,11 @@ function RatesFeesTable({
     return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
   }
   const fmtMoneyDollar = (s: string): string => `$${fmtMoney(s)}`
+  const fmtMoneyDollarInput = (s: string): string => {
+    const v = (s ?? "").toString().trim()
+    if (v === "") return ""
+    return `$${fmtMoney(v)}`
+  }
   const fmtPercent = (s: string): string => {
     const n = Number(stripCommas(s))
     if (!Number.isFinite(n)) return s ?? ""
@@ -457,7 +462,7 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={fmtMoneyDollar(row.minUpb ?? "0")}
+                    value={fmtMoneyDollarInput(row.minUpb ?? "")}
                     onChange={(e) =>
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, minUpb: sanitize(e.target.value) } : r)))
                     }
@@ -470,7 +475,7 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={fmtMoneyDollar(row.maxUpb ?? "0")}
+                    value={fmtMoneyDollarInput(row.maxUpb ?? "")}
                     onChange={(e) =>
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, maxUpb: sanitize(e.target.value) } : r)))
                     }
@@ -498,7 +503,7 @@ function RatesFeesTable({
               <TableCell className="text-center">
                 {editing ? (
                   <Input
-                    value={fmtMoneyDollar(row.adminFee ?? "0")}
+                    value={fmtMoneyDollarInput(row.adminFee ?? "")}
                     onChange={(e) =>
                       onRowsChange(rows.map((r, rIdx) => (rIdx === idx ? { ...r, adminFee: sanitize(e.target.value) } : r)))
                     }
