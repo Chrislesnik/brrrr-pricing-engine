@@ -11,9 +11,21 @@ import { toast } from "@/hooks/use-toast"
 export default function RowActions({ brokerId, status }: { brokerId: string; status?: string }) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
-  const s = String(status ?? "").toLowerCase()
-  const canToggle = s === "active" || s === "inactive"
-  const opposite = s === "active" ? "inactive" : "active"
+  const [currentStatus, setCurrentStatus] = useState<string>(String(status ?? "").toLowerCase())
+  const canToggle = currentStatus === "active" || currentStatus === "inactive"
+  const opposite = currentStatus === "active" ? "inactive" : "active"
+  // Keep the menu label in sync if status changes elsewhere
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  React.useEffect(() => {
+    function onUpdate(e: Event) {
+      const ce = e as CustomEvent<{ id: string; status: string }>
+      if (ce.detail?.id === brokerId) {
+        setCurrentStatus(String(ce.detail.status || "").toLowerCase())
+      }
+    }
+    window.addEventListener("broker-status-updated", onUpdate as EventListener)
+    return () => window.removeEventListener("broker-status-updated", onUpdate as EventListener)
+  }, [brokerId])
   return (
     <>
       <DropdownMenu>
@@ -39,6 +51,7 @@ export default function RowActions({ brokerId, status }: { brokerId: string; sta
                   const newStatus = String(j?.status ?? "").toLowerCase()
                   // Optimistic in-place update for the status badge only (no full page refresh)
                   window.dispatchEvent(new CustomEvent("broker-status-updated", { detail: { id: brokerId, status: newStatus } }))
+                  setCurrentStatus(newStatus)
                   toast({ title: "Updated", description: `Status switched to ${newStatus.toUpperCase()}.` })
                 } catch (e) {
                   toast({
@@ -50,7 +63,7 @@ export default function RowActions({ brokerId, status }: { brokerId: string; sta
               })()
             }}
           >
-            {`Switch status to ${opposite}`}
+            {`Switch to ${opposite}`}
           </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
