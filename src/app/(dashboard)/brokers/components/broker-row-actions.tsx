@@ -4,8 +4,9 @@ import { useState } from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { IconDotsVertical } from "@tabler/icons-react"
-import { BrokerSettingsDialog } from "./broker-settings-dialog"
 import { useRouter } from "next/navigation"
+import { BrokerSettingsDialog } from "./broker-settings-dialog"
+import { toast } from "@/hooks/use-toast"
 
 export default function RowActions({ brokerId }: { brokerId: string }) {
   const [open, setOpen] = useState(false)
@@ -20,6 +21,31 @@ export default function RowActions({ brokerId }: { brokerId: string }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onSelect={() => setOpen(true)}>Broker settings</DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              ;(async () => {
+                try {
+                  const res = await fetch(`/api/brokers/${brokerId}/status`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "toggle" }),
+                  })
+                  const j = await res.json().catch(() => ({}))
+                  if (!res.ok) throw new Error(j?.error ?? "Failed to update status")
+                  toast({ title: "Updated", description: `Status switched to ${(String(j?.status ?? "")).toUpperCase()}.` })
+                  router.refresh()
+                } catch (e) {
+                  toast({
+                    title: "Update failed",
+                    description: e instanceof Error ? e.message : "Unknown error",
+                    variant: "destructive",
+                  })
+                }
+              })()
+            }}
+          >
+            Switch status
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       {open ? (
