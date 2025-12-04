@@ -4313,7 +4313,16 @@ function ResultsPanel({
                 <div className="text-sm font-bold">Main</div>
                 <div className="text-xs font-semibold text-muted-foreground">
                   {(() => {
-                    const name = selected.programName ?? selected.programId ?? "Program"
+                  const name = isBroker
+                    ? (selected.programName ??
+                       results?.[selected.programIdx ?? 0]?.external_name ??
+                       selected.programId ??
+                       "Program")
+                    : (selected.programName ??
+                       results?.[selected.programIdx ?? 0]?.internal_name ??
+                       results?.[selected.programIdx ?? 0]?.external_name ??
+                       selected.programId ??
+                       "Program")
                     return `Selected: ${name ?? `Program #${(selected.programIdx ?? 0) + 1}`}, Row #${(selected.rowIdx ?? 0) + 1}`
                   })()}
                 </div>
