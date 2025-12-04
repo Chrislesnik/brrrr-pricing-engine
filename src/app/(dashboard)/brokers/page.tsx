@@ -3,6 +3,7 @@ import ContentSection from "@/app/(dashboard)/settings/components/content-sectio
 import { DefaultBrokerSettingsDialog } from "./components/default-broker-settings-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getBrokersForOrg } from "./data/fetch-brokers"
+import RowActions from "./components/broker-row-actions"
 
 export default async function BrokersPage() {
   const { orgId, userId } = await auth()
@@ -31,6 +32,7 @@ export default async function BrokersPage() {
               <TableHead className="w-[10%]">Permissions</TableHead>
               <TableHead className="w-[6%]">Status</TableHead>
               <TableHead className="w-[6%]">Joined At</TableHead>
+              <TableHead className="w-[2%]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -53,6 +55,7 @@ export default async function BrokersPage() {
                     {r.status}
                   </TableCell>
                   <TableCell>{r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : ''}</TableCell>
+                  <TableCell className="text-right"><RowActions brokerId={r.id} /></TableCell>
                 </TableRow>
               ))
             )}

@@ -1,0 +1,98 @@
+import { NextResponse } from "next/server"
+import { auth } from "@clerk/nextjs/server"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+
+export const runtime = "nodejs"
+
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { userId, orgId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+    if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    const brokerId = params.id
+    if (!brokerId) return NextResponse.json({ error: "Missing broker id" }, { status: 400 })
+
+    // Verify the broker belongs to this org
+    const { data: broker, error: brokerErr } = await supabaseAdmin
+      .from("brokers")
+      .select("id")
+      .eq("id", brokerId)
+      .eq("organization_id", orgUuid)
+      .maybeSingle()
+    if (brokerErr) return NextResponse.json({ error: brokerErr.message }, { status: 500 })
+    if (!broker) return NextResponse.json({ error: "Broker not found" }, { status: 404 })
+
+    const { data, error } = await supabaseAdmin
+      .from("custom_broker_settings")
+      .select("allow_ysp, allow_buydown_rate, program_visibility, rates")
+      .eq("organization_id", orgUuid)
+      .eq("broker_id", brokerId)
+      .maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({
+      allow_ysp: data?.allow_ysp ?? false,
+      allow_buydown_rate: data?.allow_buydown_rate ?? false,
+      program_visibility: data?.program_visibility ?? {},
+      rates: data?.rates ?? [],
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error"
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { userId, orgId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+    if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    const brokerId = params.id
+    if (!brokerId) return NextResponse.json({ error: "Missing broker id" }, { status: 400 })
+
+    // Verify the broker belongs to this org
+    const { data: broker, error: brokerErr } = await supabaseAdmin
+      .from("brokers")
+      .select("id")
+      .eq("id", brokerId)
+      .eq("organization_id", orgUuid)
+      .maybeSingle()
+    if (brokerErr) return NextResponse.json({ error: brokerErr.message }, { status: 500 })
+    if (!broker) return NextResponse.json({ error: "Broker not found" }, { status: 404 })
+
+    const body = (await req.json().catch(() => ({}))) as {
+      allow_ysp?: boolean
+      allow_buydown_rate?: boolean
+      program_visibility?: unknown
+      rates?: unknown
+    }
+
+    const payload = {
+      organization_id: orgUuid,
+      broker_id: brokerId,
+      allow_ysp: body.allow_ysp === true,
+      allow_buydown_rate: body.allow_buydown_rate === true,
+      program_visibility: body.program_visibility ?? {},
+      rates: body.rates ?? [],
+    }
+
+    const { error } = await supabaseAdmin
+      .from("custom_broker_settings")
+      .upsert(payload, { onConflict: "organization_id,broker_id" })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error"
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+
