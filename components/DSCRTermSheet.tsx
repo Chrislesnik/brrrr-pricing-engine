@@ -93,7 +93,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
-            <div className="mb-5">
+            <div className="mb-0">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
               <div className="mb-3">
@@ -149,7 +149,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <div className="space-y-1">
                   {liquidity.map((it, i) => (
                     <div key={`liq-${i}`} className="flex justify-between text-xs">
-                      <span className="pl-2">{it.label}</span>
+                      <span className="pl-4">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
                   ))}
