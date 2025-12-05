@@ -847,6 +847,7 @@ export default function PricingEnginePage() {
       purchase_price: purchasePrice,
       loan_amount: loanAmount,
       // keep legacy and alias for clarity in downstream systems
+      // send both legacy and explicit lender_admin_fee for downstream systems
       admin_fee: adminFee,
       lender_admin_fee: adminFee,
       broker_admin_fee: brokerAdminFee,
@@ -1008,6 +1009,48 @@ export default function PricingEnginePage() {
       }
       const payload = buildPayload()
       try {
+        // If broker has rate/fee schedule, compute default lender origination and admin fee
+        let brokerRates: Array<{ min_upb?: unknown; max_upb?: unknown; origination?: unknown; admin_fee?: unknown }> = []
+        if (isBroker && selfBrokerId) {
+          try {
+            const ratesRes = await fetch(`/api/brokers/${encodeURIComponent(selfBrokerId)}/custom-settings`, { cache: "no-store" })
+            const ratesJson = await ratesRes.json().catch(() => ({})) as { rates?: any[] }
+            if (Array.isArray(ratesJson?.rates)) {
+              brokerRates = ratesJson.rates as any[]
+            }
+          } catch {
+            // ignore
+          }
+          if (brokerRates.length) {
+            const toNum = (v: unknown): number => {
+              if (typeof v === "number") return v
+              const n = parseFloat(String(v ?? "").toString().replace(/[^0-9.\-]/g, ""))
+              return Number.isFinite(n) ? n : NaN
+            }
+            const baseCandidates = [toNum(loanAmount), toNum(aiv), toNum(purchasePrice)]
+            const base = baseCandidates.find((n) => Number.isFinite(n) && n > 0)
+            if (base != null) {
+              // find first row where base is within [min,max]
+              const match = brokerRates.find((r) => {
+                const min = toNum((r as any).min_upb)
+                const max = toNum((r as any).max_upb)
+                const ge = !Number.isFinite(min) || base >= min
+                const le = !Number.isFinite(max) || base <= max
+                return ge && le
+              }) as any
+              if (match) {
+                const fee = toNum(match.admin_fee)
+                if (Number.isFinite(fee)) {
+                  const feeStr = fee.toFixed(2)
+                  setAdminFee(feeStr)
+                }
+                if (match?.origination != null && String(match.origination).length > 0) {
+                  setLenderOrig(String(match.origination))
+                }
+              }
+            }
+          }
+        }
         setLastCalculatedKey(JSON.stringify(payload))
       } catch {
         // ignore serialization issues
@@ -1452,7 +1495,11 @@ export default function PricingEnginePage() {
     if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
     if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
     if ("loan_amount" in payload) setLoanAmount(String(payload["loan_amount"] ?? ""))
-    if ("admin_fee" in payload) setAdminFee(String(payload["admin_fee"] ?? ""))
+    if ("admin_fee" in payload) {
+      setAdminFee(String(payload["admin_fee"] ?? ""))
+    } else if ("lender_admin_fee" in payload) {
+      setAdminFee(String((payload as any)["lender_admin_fee"] ?? ""))
+    }
     if ("payoff_amount" in payload) setPayoffAmount(String(payload["payoff_amount"] ?? ""))
     if ("aiv" in payload) setAiv(String(payload["aiv"] ?? ""))
     if ("arv" in payload) setArv(String(payload["arv"] ?? ""))
@@ -1493,7 +1540,11 @@ export default function PricingEnginePage() {
     if ("rural" in payload) setRural((payload["rural"] as string) ?? undefined)
     if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
     if ("section8" in payload) setSection8((payload["section8"] as string) ?? undefined)
-    if ("lender_orig_percent" in payload) setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
+    if ("lender_orig_percent" in payload) {
+      setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
+    } else if ("lender_origination" in (payload as any)) {
+      setLenderOrig(String((payload as any)["lender_origination"] ?? ""))
+    }
     if ("broker_orig_percent" in payload) setBrokerOrig(String(payload["broker_orig_percent"] ?? ""))
     if ("title_recording_fee" in payload) setTitleRecordingFee(String(payload["title_recording_fee"] ?? ""))
     if ("seller_concessions" in payload) setSellerConcessions(String(payload["seller_concessions"] ?? ""))
