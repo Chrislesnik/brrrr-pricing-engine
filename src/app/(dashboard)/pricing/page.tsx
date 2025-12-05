@@ -1133,12 +1133,11 @@ export default function PricingEnginePage() {
       // Attach metadata about which program/row was chosen when saving
       const selectedWithMeta = {
         ...selected,
+        // Always save external name for display
         program_name:
           selectedMainRow?.programName ??
-          (isBroker
-            ? programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name
-            : (programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-               programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name)),
+          (programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name ?? null),
+        // Always save UUID program id; never save name
         program_id:
           selectedMainRow?.programId ??
           (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
@@ -1901,14 +1900,13 @@ export default function PricingEnginePage() {
                               inputs,
                               selected: {
                                 ...selected,
+                                // Always save external name and UUID for id
                                 program_name:
                                   selectedMainRow?.programName ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name ?? null),
                                 program_id:
                                   selectedMainRow?.programId ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
                                 program_index: selectedMainRow?.programIdx ?? 0,
                                 row_index: selectedMainRow?.rowIdx ?? 0,
                               },
@@ -1931,14 +1929,13 @@ export default function PricingEnginePage() {
                               inputs,
                               selected: {
                                 ...selected,
+                                // Always save external name and UUID for id
                                 program_name:
                                   selectedMainRow?.programName ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name ?? null),
                                 program_id:
                                   selectedMainRow?.programId ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.internal_name ??
-                                  programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name,
+                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
                                 program_index: selectedMainRow?.programIdx ?? 0,
                                 row_index: selectedMainRow?.rowIdx ?? 0,
                               },
