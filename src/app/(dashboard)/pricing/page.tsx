@@ -4521,6 +4521,87 @@ function ResultsPanel({
     return s.length ? price : "-"
   }, [selected, results])
 
+  // Ensure the starred row matches the computed rate-based row selection.
+  // If no match is possible (e.g. no rates), clear the selection.
+  useEffect(() => {
+    if (!selected) return
+    if (!results || results.length === 0) return
+    const prog = results[selected.programIdx]
+    const d = (prog?.data ?? null) as ProgramResponseData | null
+    if (!d) return
+    const ratesArr = Array.isArray(d.interest_rate) ? (d.interest_rate as Array<string | number>) : []
+    const pricesArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
+    if (ratesArr.length === 0 || pricesArr.length === 0) {
+      setSelected(null)
+      return
+    }
+    const parse = (v: unknown): number => {
+      const n = Number(String(v ?? "").toString().replace(/[^0-9.-]/g, ""))
+      return Number.isFinite(n) ? n : NaN
+    }
+    const targetRate = parse(selected.values.interestRate)
+    if (!Number.isFinite(targetRate)) {
+      setSelected(null)
+      return
+    }
+    let chosenIdx = -1
+    let smallestAbove = Infinity
+    ratesArr.forEach((rv, i) => {
+      const r = parse(rv)
+      if (Number.isFinite(r) && r >= targetRate && r < smallestAbove) {
+        smallestAbove = r
+        chosenIdx = i
+      }
+    })
+    if (chosenIdx === -1) {
+      let maxRate = -Infinity
+      ratesArr.forEach((rv, i) => {
+        const r = parse(rv)
+        if (Number.isFinite(r) && r > maxRate) {
+          maxRate = r
+          chosenIdx = i
+        }
+      })
+    }
+    if (chosenIdx < 0 || chosenIdx >= pricesArr.length) {
+      setSelected(null)
+      return
+    }
+    if (chosenIdx === selected.rowIdx) return
+    const isBridgeResp =
+      Array.isArray(d?.total_loan_amount) ||
+      Array.isArray(d?.initial_loan_amount) ||
+      Array.isArray(d?.funded_pitia)
+    // Build new selected values based on chosenIdx
+    const nextValues =
+      isBridgeResp
+        ? {
+            loanPrice: pick<string | number>(d?.loan_price as any, chosenIdx) ?? null,
+            interestRate: pick<string | number>(d?.interest_rate as any, chosenIdx) ?? null,
+            initialLoanAmount: pick<string | number>(d?.initial_loan_amount as any, chosenIdx) ?? undefined,
+            rehabHoldback: pick<string | number>(d?.rehab_holdback as any, chosenIdx) ?? undefined,
+            loanAmount: pick<string | number>(d?.total_loan_amount as any, chosenIdx) ?? undefined,
+            pitia: pick<string | number>(d?.funded_pitia as any, chosenIdx) ?? undefined,
+            ltv: undefined,
+            dscr: undefined,
+          }
+        : {
+            loanPrice: pick<string | number>(d?.loan_price as any, chosenIdx) ?? null,
+            interestRate: pick<string | number>(d?.interest_rate as any, chosenIdx) ?? null,
+            loanAmount: (d?.loan_amount as any) ?? null,
+            ltv: (d?.ltv as any) ?? null,
+            pitia: pick<string | number>(d?.pitia as any, chosenIdx) ?? null,
+            dscr: pick<string | number>(d?.dscr as any, chosenIdx) ?? null,
+            initialLoanAmount: undefined,
+            rehabHoldback: undefined,
+          }
+    setSelected({
+      ...selected,
+      rowIdx: chosenIdx,
+      values: nextValues,
+    })
+  }, [results, selected])
+
   // While loading, show placeholder-only list ONLY when we don't yet have any result slots.
   if (loading && (!results || results.length === 0) && Array.isArray(placeholders) && placeholders.length > 0) {
     const selectedKey = selected?.programId ?? selected?.programName ?? null
