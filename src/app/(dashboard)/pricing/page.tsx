@@ -3503,6 +3503,10 @@ export default function PricingEnginePage() {
             selectedFromProps={selectedMainRow}
             getInputs={() => buildPayload()}
             memberId={selfMemberId}
+            onApplyFees={(lo, la) => {
+              if (typeof lo === "string" && lo.trim().length > 0) setLenderOrig(lo)
+              if (typeof la === "string" && la.trim().length > 0) setAdminFee(la)
+            }}
           />
         </section>
       </div>
@@ -4180,6 +4184,7 @@ function ResultsPanel({
   selectedFromProps,
   getInputs,
   memberId,
+  onApplyFees,
 }: {
   results: ProgramResult[]
   loading?: boolean
@@ -4188,6 +4193,7 @@ function ResultsPanel({
   selectedFromProps?: SelectedRow | null
   getInputs?: () => Record<string, unknown>
   memberId?: string | null
+  onApplyFees?: (lenderOrig?: string, lenderAdminFee?: string) => void
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -4195,6 +4201,25 @@ function ResultsPanel({
   useEffect(() => {
     onSelectedChange?.(selected)
   }, [selected, onSelectedChange])
+
+  // When a row is starred, if that program's response contains lender fees for the selected row, push them to the main inputs.
+  useEffect(() => {
+    if (!selected) return
+    try {
+      const d = (results?.[selected.programIdx]?.data ?? {}) as ProgramResponseData | any
+      const idx = selected.rowIdx ?? Number(d?.highlight_display ?? 0)
+      const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
+        Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
+      const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
+      const selLenderOrig = toStr(pickAt<any>(d?.["lender_orig_percent"], idx))
+      const selLenderAdmin = toStr(pickAt<any>(d?.["lender_admin_fee"], idx))
+      if (selLenderOrig || selLenderAdmin) {
+        onApplyFees?.(selLenderOrig || undefined, selLenderAdmin || undefined)
+      }
+    } catch {
+      // ignore
+    }
+  }, [selected, results, onApplyFees])
   useEffect(() => {
     if (!selectedFromProps) return
     // If a program name was saved, remap to current results order and nearest row by price
@@ -4346,6 +4371,19 @@ function ResultsPanel({
       }
       const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
       const inputs = toYesNoDeepGlobal(rawInputs) as Record<string, unknown>
+      // If webhook returned lender fees, override inputs ONLY for the selected program/row
+      const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
+        Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
+      const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
+      const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
+      const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
+      if (selLenderOrig) {
+        inputs["lender_orig_percent"] = selLenderOrig
+      }
+      if (selLenderAdmin) {
+        inputs["lender_admin_fee"] = selLenderAdmin
+        inputs["admin_fee"] = selLenderAdmin
+      }
       const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
       const r = results?.[selected.programIdx]
       const body = {
