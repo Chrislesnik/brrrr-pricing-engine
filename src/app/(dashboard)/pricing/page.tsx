@@ -3733,7 +3733,25 @@ function ResultCard({
         program: isBroker ? (r.external_name ?? "Program") : (r.internal_name ?? r.external_name ?? "Program"),
         program_id: r.id ?? null,
         row_index: idx,
-        inputs,
+        inputs: (() => {
+          // Include any lender fee overrides or defaults returned by the program webhook
+          const out = { ...inputs }
+          const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
+            Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
+          const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
+          const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
+          const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
+          const defLenderOrig = toStr(pickAt<any>((d as any)["default_lender_orig_percent"], idx) ?? (d as any)["default_lender_orig_percent"])
+          const defLenderAdmin = toStr(pickAt<any>((d as any)["default_lender_admin_fee"], idx) ?? (d as any)["default_lender_admin_fee"])
+          if (selLenderOrig) out["lender_orig_percent"] = selLenderOrig
+          if (selLenderAdmin) {
+            out["lender_admin_fee"] = selLenderAdmin
+            out["admin_fee"] = selLenderAdmin
+          }
+          if (defLenderOrig) out["default_lender_orig_percent"] = defLenderOrig
+          if (defLenderAdmin) out["default_lender_admin_fee"] = defLenderAdmin
+          return out
+        })(),
         row: normalizedRow,
         organization_member_id: memberId ?? null,
       }
@@ -4371,18 +4389,26 @@ function ResultsPanel({
       }
       const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
       const inputs = toYesNoDeepGlobal(rawInputs) as Record<string, unknown>
-      // If webhook returned lender fees, override inputs ONLY for the selected program/row
+      // If webhook returned lender fees or defaults, override/append inputs ONLY for the selected program/row
       const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
         Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
       const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
       const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
       const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
+      const defLenderOrig = toStr(pickAt<any>((d as any)["default_lender_orig_percent"], idx) ?? (d as any)["default_lender_orig_percent"])
+      const defLenderAdmin = toStr(pickAt<any>((d as any)["default_lender_admin_fee"], idx) ?? (d as any)["default_lender_admin_fee"])
       if (selLenderOrig) {
         inputs["lender_orig_percent"] = selLenderOrig
       }
       if (selLenderAdmin) {
         inputs["lender_admin_fee"] = selLenderAdmin
         inputs["admin_fee"] = selLenderAdmin
+      }
+      if (defLenderOrig) {
+        inputs["default_lender_orig_percent"] = defLenderOrig
+      }
+      if (defLenderAdmin) {
+        inputs["default_lender_admin_fee"] = defLenderAdmin
       }
       const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
       const r = results?.[selected.programIdx]
