@@ -172,7 +172,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
               <div className="border-2 border-black mb-2">
                 <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold m-0 italic" style={{ lineHeight: 1 }}>CREDITS</h3>
+                  <h3 className="text-sm font-bold italic m-0 h-full flex items-center">CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {credits.map((it, i) => (
@@ -183,7 +183,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   ))}
                 </div>
                 <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
-                  <div className="flex justify-between w-full text-xs font-bold">
+                  <div className="flex items-center justify-between w-full text-xs font-bold h-full">
                     <span>TOTAL SOURCES</span>
                     <span>{asText(props, "total_sources")}</span>
                   </div>
@@ -192,7 +192,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
               <div className="border-2 border-black flex flex-col flex-1">
                 <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold m-0 italic" style={{ lineHeight: 1 }}>DEBITS</h3>
+                  <h3 className="text-sm font-bold italic m-0 h-full flex items-center">DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
@@ -207,7 +207,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   <span>{asText(props, "cash_out_borrower")}</span>
                 </div>
                 <div className="px-2 h-6 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
-                  <div className="flex justify-between w-full text-xs font-bold">
+                  <div className="flex items-center justify-between w-full text-xs font-bold h-full">
                     <span className="pl-2">TOTAL USES</span>
                     <span>{asText(props, "total_uses")}</span>
                   </div>
