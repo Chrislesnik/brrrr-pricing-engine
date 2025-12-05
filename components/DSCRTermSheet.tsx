@@ -81,18 +81,21 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
   return (
     <div
       data-termsheet-root="dscr"
-      className="flex justify-center w-full min-h-screen px-7 pt-6 pb-1 print:px-0 print:pt-0 print:pb-0 print:min-h-0"
-      style={{ backgroundColor: "#ffffff", color: "#000000" }}
+      className="flex justify-center w-full min-h-screen print:px-0 print:pt-0 print:pb-0 print:min-h-0"
+      style={{ backgroundColor: "#ffffff", color: "#000000", boxSizing: "border-box" }}
     >
-      <div className="w-[816px] max-w-none print:w-[816px]">
+      {/* Fixed width inner wrapper with horizontal padding included via border-box */}
+      <div className="w-[816px] max-w-none print:w-[816px] px-7" style={{ boxSizing: "border-box" }}>
         <header className="mt-2 mb-5">
           <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
-          <p className="font-semibold" style={{ color: "#f97316" }}>
-            {asText(props, "program")}
-          </p>
+          <div className="flex items-center">
+            <p className="font-semibold" style={{ color: "#f97316" }}>
+              {asText(props, "program")}
+            </p>
+          </div>
         </header>
 
-        {/* Use flex layout instead of CSS grid so html2canvas renders identically to the modal */}
+        {/* Use flex layout so html2canvas renders identically to the modal */}
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
             <div className="mb-5">
@@ -105,12 +108,12 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     <div key={`borrower-${index}`} className="flex justify-between text-xs">
                       <span className="pl-4">{item.label}</span>
                       <span>{item.value}</span>
-    </div>
+                    </div>
                   ))}
-      </div>
-    </div>
+                </div>
+              </div>
 
-      <div className="mb-3">
+              <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Subject Property</h3>
                 <div className="space-y-1">
                   {subjectPropertyData.map((item, index) => (
@@ -119,8 +122,8 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                       <span>{item.value}</span>
                     </div>
                   ))}
-        </div>
-      </div>
+                </div>
+              </div>
 
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Loan Structure</h3>
@@ -132,7 +135,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-          </div>
+              </div>
 
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Lender Fees</h3>
@@ -144,7 +147,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-          </div>
+              </div>
 
               <div className="mb-4">
                 <h3 className="text-sm font-bold italic mb-2">Liquidity Requirement</h3>
@@ -153,29 +156,29 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     <div key={`liquidity-${index}`} className="flex justify-between text-xs">
                       <span className="pl-4">{item.label}</span>
                       <span>{item.value}</span>
-          </div>
+                    </div>
                   ))}
-          </div>
-          </div>
+                </div>
+              </div>
+            </div>
 
-              <div>
-                <h3 className="text-sm font-bold italic mb-2">Debt Service (DSCR)</h3>
-                <div className="flex justify-between text-xs">
-                  <span className="pl-4">DSCR</span>
-                  <span>{"{{ dscr }}"}</span>
-          </div>
-        </div>
-          </div>
+            <div>
+              <h3 className="text-sm font-bold italic mb-2">Debt Service (DSCR)</h3>
+              <div className="flex justify-between text-xs">
+                <span className="pl-4">DSCR</span>
+                <span>{"{{ dscr }}"}</span>
+              </div>
+            </div>
           </section>
 
           <section className="flex flex-col h-full flex-1">
             <div className="flex flex-col flex-1">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
-              {/* Credits container with tighter spacing and thicker border */}
+              {/* Credits */}
               <div className="border-2 border-black mb-2">
-                <div className="px-2 py-1" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold italic">CREDITS</h3>
+                <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
+                  <h3 className="text-sm font-bold italic m-0">CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {creditsData.map((item, index) => (
@@ -185,18 +188,18 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                <div className="px-2 py-1" style={{ backgroundColor: "#f3f4f6" }}>
-                  <div className="flex justify-between text-xs font-bold">
+                <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
+                  <div className="flex justify-between w-full text-xs font-bold">
                     <span>TOTAL SOURCES</span>
                     <span>{"{{ total_sources }}"}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Debits container with thicker border; minimal inner padding */}
+              {/* Debits */}
               <div className="border-2 border-black flex flex-col flex-1">
-                <div className="px-2 py-1" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold italic">DEBITS</h3>
+                <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
+                  <h3 className="text-sm font-bold italic m-0">DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debitsData.map((item, index) => (
@@ -210,17 +213,17 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                   <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
                   <span>{"{{ cash_out_to_borrower }}"}</span>
                 </div>
-                {/* Keep TOTAL USES locked to column bottom for alignment with DSCR baseline */}
-                <div className="px-2 py-1 mt-auto" style={{ backgroundColor: "#f3f4f6" }}>
-                  <div className="flex justify-between text-xs font-bold">
-                    <span>TOTAL USES</span>
+                {/* Footer row */}
+                <div className="px-2 py-1 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
+                  <div className="flex justify-between w-full text-xs font-bold">
+                    <span className="pl-2">TOTAL USES</span>
                     <span>{"{{ total_uses }}"}</span>
-              </div>
-            </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
-      </div>
+        </div>
 
         <footer className="mt-1">
           <p className="text-[8px] leading-tight">
