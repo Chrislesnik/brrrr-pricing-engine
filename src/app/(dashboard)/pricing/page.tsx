@@ -4479,9 +4479,10 @@ function ResultsPanel({
     return arr
   }, [results])
 
-  // For brokers: compute the "Main" loan price display
-  const brokerMainLoanPrice: string | number | null = React.useMemo(() => {
-    if (!isBroker) return selected?.values.loanPrice ?? null
+  // Main loan price display (all roles): "-" until programs are calculated; then
+  // match the program row whose interest rate is the smallest >= Main's rate (round up),
+  // falling back to the max rate when none are >=.
+  const mainLoanPriceDisplay: string | number | null = React.useMemo(() => {
     if (!results || results.length === 0) return "-"
     if (!selected) return "-"
     const d = (results[selected.programIdx]?.data ?? null) as ProgramResponseData | null
@@ -4495,7 +4496,6 @@ function ResultsPanel({
     }
     const targetRate = parse(selected.values.interestRate)
     if (!Number.isFinite(targetRate)) return "-"
-    // Round up: smallest rate >= target; else max rate
     let chosenIdx = -1
     let smallestAbove = Infinity
     ratesArr.forEach((rv, i) => {
@@ -4519,7 +4519,7 @@ function ResultsPanel({
     const price = pricesArr[chosenIdx]
     const s = String(price ?? "").trim()
     return s.length ? price : "-"
-  }, [isBroker, selected, results])
+  }, [selected, results])
 
   // While loading, show placeholder-only list ONLY when we don't yet have any result slots.
   if (loading && (!results || results.length === 0) && Array.isArray(placeholders) && placeholders.length > 0) {
@@ -4573,7 +4573,7 @@ function ResultsPanel({
             </div>
             {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
+                <Widget label="Loan Price" value={mainLoanPriceDisplay} />
                 <Widget label="Interest Rate" value={selected.values.interestRate} />
                 <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
                 <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
@@ -4582,7 +4582,7 @@ function ResultsPanel({
               </div>
             ) : (
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
+                <Widget label="Loan Price" value={mainLoanPriceDisplay} />
                 <Widget label="Interest Rate" value={selected.values.interestRate} />
                 <Widget label="Loan Amount" value={selected.values.loanAmount} />
                 <Widget label="LTV" value={selected.values.ltv} />
@@ -4662,7 +4662,7 @@ function ResultsPanel({
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
+              <Widget label="Loan Price" value={mainLoanPriceDisplay} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
               <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
@@ -4671,7 +4671,7 @@ function ResultsPanel({
             </div>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
+              <Widget label="Loan Price" value={mainLoanPriceDisplay} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Loan Amount" value={selected.values.loanAmount} />
               <Widget label="LTV" value={selected.values.ltv} />
@@ -4730,7 +4730,7 @@ function ResultsPanel({
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
+              <Widget label="Loan Price" value={mainLoanPriceDisplay} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
               <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
@@ -4739,7 +4739,7 @@ function ResultsPanel({
             </div>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
+              <Widget label="Loan Price" value={mainLoanPriceDisplay} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Loan Amount" value={selected.values.loanAmount} />
               <Widget label="LTV" value={selected.values.ltv} />
