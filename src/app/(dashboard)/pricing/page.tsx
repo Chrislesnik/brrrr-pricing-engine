@@ -4629,7 +4629,7 @@ function ResultsPanel({
                   const byResultsExt = results?.[selected.programIdx ?? 0]?.external_name
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
                   const name = byResultsExt ?? byPh?.external_name ?? selected.programName ?? "Program"
-                    return `Selected: ${name ?? `Program #${(selected.programIdx ?? 0) + 1}`}, Row #${(selected.rowIdx ?? 0) + 1}`
+                    return `Selected: ${name ?? `Program`}`
                   })()}
                 </div>
               </div>
@@ -4718,7 +4718,7 @@ function ResultsPanel({
                   const byResultsExt = results?.[selected.programIdx]?.external_name
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
                   const name = byResultsExt ?? byPh?.external_name ?? selected.programName
-                  return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
+                  return `Selected: ${name ?? `Program`}`
                 })()}
               </div>
             </div>
@@ -4786,7 +4786,7 @@ function ResultsPanel({
                   const byResultsExt = results?.[selected.programIdx]?.external_name
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
                   const name = byResultsExt ?? byPh?.external_name ?? selected.programName
-                  return `Selected: ${name ?? `Program #${selected.programIdx + 1}`}, Row #${selected.rowIdx + 1}`
+                  return `Selected: ${name ?? `Program`}`
                 })()}
               </div>
             </div>
