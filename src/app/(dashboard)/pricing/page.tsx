@@ -3930,7 +3930,14 @@ function ResultCard({
                         .map(({ lp, i }) => (
                           <tr
                             key={i}
-                            className={`border-b last:border-0 ${selected?.programIdx === programIdx && selected?.rowIdx === i ? "bg-accent/30" : ""}`}
+                            className={`border-b last:border-0 ${
+                              ((selected?.programId
+                                ? selected.programId === (r?.id ?? null)
+                                : selected?.programIdx === programIdx) &&
+                                selected?.rowIdx === i)
+                                ? "bg-accent/30"
+                                : ""
+                            }`}
                           >
                             <td className="py-1 pr-3 text-left">
                               <button
@@ -3964,7 +3971,10 @@ function ResultCard({
                                   })
                                 }
                               >
-                                {selected?.programIdx === programIdx && selected?.rowIdx === i ? (
+                                {((selected?.programId
+                                  ? selected.programId === (r?.id ?? null)
+                                  : selected?.programIdx === programIdx) &&
+                                  selected?.rowIdx === i) ? (
                                   <IconStarFilled className="h-5 w-5" />
                                 ) : (
                                   <IconStar className="h-5 w-5" />
