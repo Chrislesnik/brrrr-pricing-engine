@@ -51,7 +51,7 @@ export function DefaultBrokerSettingsDialog() {
       {open && tab === "programs" ? <ProgramsLoader /> : null}
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Large modal with split sidebar/content, matching Clerk Organizations vibe */}
-        <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh]">
           <div className="grid grid-cols-[260px_1fr]">
             {/* Left rail */}
             <aside className="border-r bg-muted/40 p-4">
@@ -74,7 +74,7 @@ export function DefaultBrokerSettingsDialog() {
               <header className="flex h-12 items-center border-b px-6 text-sm font-semibold">
                 {tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}
               </header>
-              <div className="min-h-[440px] p-6">
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
                 {tab === "programs" ? (
                   <ProgramsList
                     value={programVisibility}
