@@ -92,8 +92,9 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </p>
         </header>
 
-        <div className="grid grid-cols-2 gap-8 items-stretch">
-          <section className="flex flex-col">
+        {/* Use flex layout instead of CSS grid so html2canvas renders identically to the modal */}
+        <div className="flex gap-8 items-stretch">
+          <section className="flex flex-col flex-1">
             <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
@@ -167,7 +168,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </div>
           </section>
 
-          <section className="flex flex-col h-full">
+          <section className="flex flex-col h-full flex-1">
             <div className="flex flex-col flex-1">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
