@@ -4479,6 +4479,48 @@ function ResultsPanel({
     return arr
   }, [results])
 
+  // For brokers: compute the "Main" loan price display
+  const brokerMainLoanPrice: string | number | null = React.useMemo(() => {
+    if (!isBroker) return selected?.values.loanPrice ?? null
+    if (!results || results.length === 0) return "-"
+    if (!selected) return "-"
+    const d = (results[selected.programIdx]?.data ?? null) as ProgramResponseData | null
+    if (!d) return "-"
+    const ratesArr = Array.isArray(d.interest_rate) ? (d.interest_rate as Array<string | number>) : []
+    const pricesArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
+    if (ratesArr.length === 0 || pricesArr.length === 0) return "-"
+    const parse = (v: unknown): number => {
+      const n = Number(String(v ?? "").toString().replace(/[^0-9.-]/g, ""))
+      return Number.isFinite(n) ? n : NaN
+    }
+    const targetRate = parse(selected.values.interestRate)
+    if (!Number.isFinite(targetRate)) return "-"
+    // Round up: smallest rate >= target; else max rate
+    let chosenIdx = -1
+    let smallestAbove = Infinity
+    ratesArr.forEach((rv, i) => {
+      const r = parse(rv)
+      if (Number.isFinite(r) && r >= targetRate && r < smallestAbove) {
+        smallestAbove = r
+        chosenIdx = i
+      }
+    })
+    if (chosenIdx === -1) {
+      let maxRate = -Infinity
+      ratesArr.forEach((rv, i) => {
+        const r = parse(rv)
+        if (Number.isFinite(r) && r > maxRate) {
+          maxRate = r
+          chosenIdx = i
+        }
+      })
+    }
+    if (chosenIdx < 0 || chosenIdx >= pricesArr.length) return "-"
+    const price = pricesArr[chosenIdx]
+    const s = String(price ?? "").trim()
+    return s.length ? price : "-"
+  }, [isBroker, selected, results])
+
   // While loading, show placeholder-only list ONLY when we don't yet have any result slots.
   if (loading && (!results || results.length === 0) && Array.isArray(placeholders) && placeholders.length > 0) {
     const selectedKey = selected?.programId ?? selected?.programName ?? null
@@ -4531,7 +4573,7 @@ function ResultsPanel({
             </div>
             {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <Widget label="Loan Price" value={selected.values.loanPrice} />
+                <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
                 <Widget label="Interest Rate" value={selected.values.interestRate} />
                 <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
                 <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
@@ -4540,7 +4582,7 @@ function ResultsPanel({
               </div>
             ) : (
               <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <Widget label="Loan Price" value={selected.values.loanPrice} />
+                <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
                 <Widget label="Interest Rate" value={selected.values.interestRate} />
                 <Widget label="Loan Amount" value={selected.values.loanAmount} />
                 <Widget label="LTV" value={selected.values.ltv} />
@@ -4620,7 +4662,7 @@ function ResultsPanel({
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
               <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
@@ -4629,7 +4671,7 @@ function ResultsPanel({
             </div>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Loan Amount" value={selected.values.loanAmount} />
               <Widget label="LTV" value={selected.values.ltv} />
@@ -4688,7 +4730,7 @@ function ResultsPanel({
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Initial Loan Amount" value={selected.values.initialLoanAmount} />
               <Widget label="Rehab Holdback" value={selected.values.rehabHoldback} />
@@ -4697,7 +4739,7 @@ function ResultsPanel({
             </div>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Widget label="Loan Price" value={selected.values.loanPrice} />
+              <Widget label="Loan Price" value={isBroker ? brokerMainLoanPrice : selected.values.loanPrice} />
               <Widget label="Interest Rate" value={selected.values.interestRate} />
               <Widget label="Loan Amount" value={selected.values.loanAmount} />
               <Widget label="LTV" value={selected.values.ltv} />
