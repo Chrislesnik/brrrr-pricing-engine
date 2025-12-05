@@ -604,7 +604,7 @@ function RatesFeesTable({
                 <div className="flex items-center gap-3">
                   <Button variant="ghost" size="sm" onClick={addRow} disabled={rows.length >= 50}>
                   + Add Row
-                  </Button>
+                </Button>
                   {rows.length >= 50 ? (
                     <span className="text-xs text-muted-foreground">Maximum of 50 rows allowed.</span>
                   ) : null}

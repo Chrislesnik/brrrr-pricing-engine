@@ -93,14 +93,14 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
-            <div className="mb-0">
+            <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Borrower &amp; Guarantors</h3>
                 <div className="space-y-1">
                   {borrowerGuarantors.map((it, i) => (
-                    <div key={`bor-${i}`} className="flex justify-between text-xs">
+                    <div key={`bor-${i}`} className="flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
@@ -112,7 +112,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <h3 className="text-sm font-bold italic mb-2">Subject Property</h3>
                 <div className="space-y-1">
                   {subjectProperty.map((it, i) => (
-                    <div key={`subj-${i}`} className="flex justify-between text-xs">
+                    <div key={`subj-${i}`} className="flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
@@ -124,7 +124,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <h3 className="text-sm font-bold italic mb-2">Loan Structure</h3>
                 <div className="space-y-1">
                   {loanStructure.map((it, i) => (
-                    <div key={`ls-${i}`} className=" flex justify-between text-xs">
+                    <div key={`ls-${i}`} className=" flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
@@ -136,7 +136,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <h3 className="text-sm font-bold italic mb-2">Lender Fees</h3>
                 <div className="space-y-1">
                   {lenderFees.map((it, i) => (
-                    <div key={`lf-${i}`} className="flex justify-between text-xs">
+                    <div key={`lf-${i}`} className="flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
@@ -148,8 +148,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <h3 className="text-sm font-bold mb-2 italic">Liquidity Requirement</h3>
                 <div className="space-y-1">
                   {liquidity.map((it, i) => (
-                    <div key={`liq-${i}`} className="flex justify-between text-xs">
-                      <span className="pl-4">{it.label}</span>
+                    <div key={`liq-${i}`} className="flex items-center justify-between text-xs">
+                      <span className="pl-2">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
                   ))}
@@ -159,7 +159,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
             <div>
               <h3 className="text-sm font-bold italic mb-2">Debt Service (DSCR)</h3>
-              <div className="flex justify-between text-xs">
+              <div className="flex items-center justify-between text-xs">
                 <span className="pl-4">DSCR</span>
                 <span>{asText(props, "dscr")}</span>
               </div>
@@ -176,7 +176,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {credits.map((it, i) => (
-                    <div key={`cr-${i}`} className="flex justify-between text-xs leading-5">
+                    <div key={`cr-${i}`} className="flex items-center justify-between text-xs leading-5">
                       <span className="pl-2">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
@@ -196,13 +196,13 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
-                    <div key={`db-${i}`} className="flex justify-between text-xs leading-5">
+                    <div key={`db-${i}`} className="flex items-center justify-between text-xs leading-5">
                       <span className="pl-2">{it.label}</span>
                       <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-xs mt-1">
+                <div className="flex items-center justify-between text-xs mt-1">
                   <span className="pl-2">{asText(props, "cash_out_to_borrower_label")}</span>
                   <span>{asText(props, "cash_out_borrower")}</span>
                 </div>

@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
 
     const match = (data ?? []).find((p) =>
       p.id === json.programId ||
-      p.internal_name === json.programId ||
-      p.external_name === json.programId
+        p.internal_name === json.programId ||
+        p.external_name === json.programId
     )
     if (!match || !String(match.webhook_url || "").trim()) {
       return NextResponse.json({
