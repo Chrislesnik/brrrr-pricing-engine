@@ -3,18 +3,17 @@ import React from "react";
 // Minimal props shape for preview/typing; accepts any placeholder tokens
 export type DSCRTermSheetProps = Record<string, string | number | null | undefined>;
 
-// Helper to render prop value or the merge tag when missing
+// Helper to render the visible value or fallback token
 const asText = (props: DSCRTermSheetProps, ...keys: string[]) => {
   for (const k of keys) {
     const v = props[k];
     if (v !== undefined && v !== null && String(v) !== "") return String(v);
   }
-  // fall back to the primary key as a merge tag
   return `{{ ${keys[0]} }}`;
 };
 
-const DscrTermSheet = (props: DSCRTermSheetProps) => {
-  const borrowerGuarantorsData = [
+const DscrSheet = (props: DSCRTermSheetProps) => {
+  const borrowerGuarantors = [
     { label: "Borrower", value: asText(props, "borrower_name") },
     { label: "Guarantor(s)", value: asText(props, "guarantor_name") },
     { label: "FICO", value: asText(props, "fico_score") },
@@ -22,7 +21,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
     { label: "Citizenship", value: asText(props, "citizenship") },
   ];
 
-  const subjectPropertyData = [
+  const subjectProperty = [
     { label: "Street", value: asText(props, "street") },
     { label: "City, State, Zip", value: asText(props, "city_state_zip") },
     { label: "Property Type", value: asText(props, "property_type") },
@@ -30,7 +29,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
     { label: "Date Purchased (refi only)", value: asText(props, "date_purchased") },
   ];
 
-  const loanStructureData = [
+  const loanStructure = [
     { label: "Transaction Type", value: asText(props, "transaction_type") },
     { label: "Loan Structure", value: asText(props, "loan_structure") },
     { label: "IO Period", value: asText(props, "io_period") },
@@ -40,74 +39,65 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
     { label: "Loan Amount", value: asText(props, "loan_amount") },
   ];
 
-  const lenderFeesData = [
+  const lenderFees = [
     { label: "Origination", value: asText(props, "origination") },
     { label: "Rate Buy Down", value: asText(props, "rate_buydown", "lender_fee_rbd", "lender_fee_rate_buy_down") },
     { label: "Underwriting", value: asText(props, "underwriting_fee") },
     { label: "Legal & Doc Prep", value: asText(props, "legal_fee") },
   ];
 
-  const liquidityRequirementData = [
+  const liquidity = [
     { label: "Liquidity Requirement", value: asText(props, "liquidity_required") },
     { label: "Cash to Close", value: asText(props, "cash_to_close") },
-    { label: asText(props, "downpayment_payoff_label"), value: asText(props, "downpayment_payoff_payment") },
+    { label: asText(props, "downpayment_payoff_label"), value: asText(props, "downpayment_payoff") },
     { label: "Escrows", value: asText(props, "escrows") },
     { label: asText(props, "reserves_label"), value: asText(props, "reserves") },
     { label: "Mortgage Debt - 100%", value: asText(props, "mortgage_debt") },
     { label: "Cash Out", value: asText(props, "cash_out") },
   ];
 
-  const creditsData = [
+  const credits = [
     { label: "Loan Proceeds", value: asText(props, "loan_proceeds") },
     { label: "Cash Due @ Closing", value: asText(props, "cash_due_at_closing") },
   ];
 
-  const debitsData = [
+  const debits = [
     { label: asText(props, "purchaseprice_payoff_label"), value: asText(props, "purchaseprice_payoff") },
     { label: "Lender Fee - Origination", value: asText(props, "lender_fee_origination") },
     { label: "Broker Fee - Origination", value: asText(props, "broker_fee_origination") },
     { label: "Lender Fee - Rate Buy Down", value: asText(props, "lender_fee_rbd", "lender_fee_rate_buy_down", "rate_buydown") },
     { label: "Lender Fee - Diligence & Legal", value: asText(props, "lender_fee_legal") },
-    { label: asText(props, "hoi_escrow_label"), value: asText(props, "hoi_escrow") },
-    { label: asText(props, "flood_escrow_label"), value: asText(props, "flood_escrow") },
-    { label: asText(props, "tax_escrow_label"), value: asText(props, "tax_escrow") },
-    { label: asText(props, "pitia_escrow_label"), value: asText(props, "pitia_escrow") },
-    { label: "HOI Premium - Balance Due", value: asText(props, "hoi_premium") },
-    { label: "Flood Insurance Premium", value: asText(props, "flood_premium") },
-    { label: asText(props, "per_diem_label"), value: asText(props, "per_diem") },
+    { label: asText(props, "hoi_escrow_label"), value: asText(props, "flood_premium") },
+    { label: "Daily Interest from 12/29/2025 to 1/1/2026 @", value: "$122.92 per day" },
     { label: "Title Insurance & Recording Fees", value: asText(props, "title_fee") },
   ];
 
   return (
     <div
-      data-termsheet-root="dscr"
+      data-termsheet="dscr"
       className="flex justify-center w-full min-h-screen print:px-0 print:pt-0 print:pb-0 print:min-h-0"
       style={{ backgroundColor: "#ffffff", color: "#000000", boxSizing: "border-box" }}
     >
-      {/* Fixed width inner wrapper with horizontal padding included via border-box */}
       <div className="w-[816px] max-w-none print:w-[816px] px-7" style={{ boxSizing: "border-box" }}>
         <header className="mt-2 mb-5">
           <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
           <div className="flex items-center">
-            <p className="font-semibold" style={{ color: "#f97316" }}>
-              {asText(props, "program")}
-            </p>
+            <p className="font-semibold" style={{ color: "#f97316" }}>{asText(props, "program")}</p>
           </div>
         </header>
 
-        {/* Use flex layout so html2canvas renders identically to the modal */}
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
             <div className="mb-5">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
               <div className="mb-3">
-                <h3 className="text-sm font-bold italic mb-2">Borrower & Guarantors</h3>
+                <h3 className="text-sm font-bold italic mb-2">Borrower &amp; Guarantors</h3>
                 <div className="space-y-1">
-                  {borrowerGuarantorsData.map((item, index) => (
-                    <div key={`borrower-${index}`} className="flex justify-between text-xs">
-                      <span className="pl-4">{item.label}</span>
-                      <span>{item.value}</span>
+                  {borrowerGuarantors.map((it, i) => (
+                    <div key={`bor-${i}`} className="flex justify-between text-xs">
+                      <span className="pl-4">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
@@ -116,10 +106,10 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Subject Property</h3>
                 <div className="space-y-1">
-                  {subjectPropertyData.map((item, index) => (
-                    <div key={`property-${index}`} className="flex justify-between text-xs">
-                      <span className="pl-4">{item.label}</span>
-                      <span>{item.value}</span>
+                  {subjectProperty.map((it, i) => (
+                    <div key={`subj-${i}`} className="flex justify-between text-xs">
+                      <span className="pl-4">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
@@ -128,10 +118,10 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Loan Structure</h3>
                 <div className="space-y-1">
-                  {loanStructureData.map((item, index) => (
-                    <div key={`loan-${index}`} className="flex justify-between text-xs">
-                      <span className="pl-4">{item.label}</span>
-                      <span>{item.value}</span>
+                  {loanStructure.map((it, i) => (
+                    <div key={`ls-${i}`} className=" flex justify-between text-xs">
+                      <span className="pl-4">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
@@ -140,22 +130,22 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
               <div className="mb-3">
                 <h3 className="text-sm font-bold italic mb-2">Lender Fees</h3>
                 <div className="space-y-1">
-                  {lenderFeesData.map((item, index) => (
-                    <div key={`fees-${index}`} className="flex justify-between text-xs">
-                      <span className="pl-4">{item.label}</span>
-                      <span>{item.value}</span>
+                  {lenderFees.map((it, i) => (
+                    <div key={`lf-${i}`} className="flex justify-between text-xs">
+                      <span className="pl-4">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="mb-4">
-                <h3 className="text-sm font-bold italic mb-2">Liquidity Requirement</h3>
+                <h3 className="text-sm font-bold mb-2 italic">Liquidity Requirement</h3>
                 <div className="space-y-1">
-                  {liquidityRequirementData.map((item, index) => (
-                    <div key={`liquidity-${index}`} className="flex justify-between text-xs">
-                      <span className="pl-4">{item.label}</span>
-                      <span>{item.value}</span>
+                  {liquidity.map((it, i) => (
+                    <div key={`liq-${i}`} className="flex justify-between text-xs">
+                      <span className="pl-4">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
@@ -166,7 +156,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
               <h3 className="text-sm font-bold italic mb-2">Debt Service (DSCR)</h3>
               <div className="flex justify-between text-xs">
                 <span className="pl-4">DSCR</span>
-                <span>{"{{ dscr }}"}</span>
+                <span>{asText(props, "dscr")}</span>
               </div>
             </div>
           </section>
@@ -175,49 +165,46 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
             <div className="flex flex-col flex-1">
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
-              {/* Credits */}
               <div className="border-2 border-black mb-2">
                 <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
                   <h3 className="text-sm font-bold italic m-0">CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
-                  {creditsData.map((item, index) => (
-                    <div key={`credits-${index}`} className="flex justify-between text-xs leading-5">
-                      <span className="pl-2">{item.label}</span>
-                      <span>{item.value}</span>
+                  {credits.map((it, i) => (
+                    <div key={`cr-${i}`} className="flex justify-between text-xs leading-5">
+                      <span className="pl-2">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
                 <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between w-full text-xs font-bold">
                     <span>TOTAL SOURCES</span>
-                    <span>{"{{ total_sources }}"}</span>
+                    <span>{asText(props, "total_sources")}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Debits */}
               <div className="border-2 border-black flex flex-col flex-1">
                 <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold italic m-0">DEBITS</h3>
+                  <h3 className="text-sm font-bold m-0 italic">DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
-                  {debitsData.map((item, index) => (
-                    <div key={`debits-${index}`} className="flex justify-between text-xs leading-5">
-                      <span className="pl-2">{item.label}</span>
-                      <span>{item.value}</span>
+                  {debits.map((it, i) => (
+                    <div key={`db-${i}`} className="flex justify-between text-xs leading-5">
+                      <span className="pl-2">{it.label}</span>
+                      <span>{it.value}</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between text-xs mt-1">
-                  <span className="pl-2">{"{{ cash_out_to_borrower_label }}"}</span>
-                  <span>{"{{ cash_out_to_borrower }}"}</span>
+                  <span className="pl-2">{asText(props, "cash_out_to_borrower_label")}</span>
+                  <span>{asText(props, "cash_out_to_borrower")}</span>
                 </div>
-                {/* Footer row */}
                 <div className="px-2 py-1 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between w-full text-xs font-bold">
                     <span className="pl-2">TOTAL USES</span>
-                    <span>{"{{ total_uses }}"}</span>
+                    <span>{asText(props, "total_uses")}</span>
                   </div>
                 </div>
               </div>
@@ -225,9 +212,10 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
           </section>
         </div>
 
-        <footer className="mt-1">
+        {/* Extra spacing above fine-print to separate from DSCR row */}
+        <footer className="mt-6">
           <p className="text-[8px] leading-tight">
-            *Pricing of initial rate is indicative and subject to re-pricing at Lender&#39;s discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower&#39;s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression of interest is subject to our internal credit, legal and investment approval process. Lender is in the business of exclusively originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
+            * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval process. Lender is in the business of exclusively originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </p>
         </footer>
       </div>
@@ -235,4 +223,4 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
   );
 };
 
-export default DscrTermSheet;
+export default DscrSheet;
