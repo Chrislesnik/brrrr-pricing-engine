@@ -65,6 +65,16 @@ export async function POST(req: NextRequest) {
       data: Record<string, unknown> | null
     }[] = []
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
+    // Ensure admin fee aliases are always present
+    if (normalizedData["lender_admin_fee"] === undefined && normalizedData["admin_fee"] !== undefined) {
+      normalizedData["lender_admin_fee"] = normalizedData["admin_fee"]
+    }
+    if (normalizedData["admin_fee"] === undefined && normalizedData["lender_admin_fee"] !== undefined) {
+      normalizedData["admin_fee"] = normalizedData["lender_admin_fee"]
+    }
+    if (normalizedData["broker_admin_fee"] === undefined) {
+      normalizedData["broker_admin_fee"] = ""
+    }
     if (myMemberId) {
       normalizedData["organization_member_id"] = myMemberId
     }

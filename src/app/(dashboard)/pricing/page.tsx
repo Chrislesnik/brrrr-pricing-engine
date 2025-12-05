@@ -846,7 +846,9 @@ export default function PricingEnginePage() {
       gla_sq_ft: glaSqFt,
       purchase_price: purchasePrice,
       loan_amount: loanAmount,
+      // keep legacy and alias for clarity in downstream systems
       admin_fee: adminFee,
+      lender_admin_fee: adminFee,
       broker_admin_fee: brokerAdminFee,
       payoff_amount: payoffAmount,
       aiv,
