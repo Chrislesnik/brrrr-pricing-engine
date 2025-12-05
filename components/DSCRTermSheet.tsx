@@ -81,12 +81,15 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
   return (
     <div
       data-termsheet-root="dscr"
-      className="flex justify-center w-full min-h-screen bg-white text-black dark:text-black px-7 pt-6 pb-1 print:px-0 print:pt-0 print:pb-0 print:min-h-0"
+      className="flex justify-center w-full min-h-screen px-7 pt-6 pb-1 print:px-0 print:pt-0 print:pb-0 print:min-h-0"
+      style={{ backgroundColor: "#ffffff", color: "#000000" }}
     >
       <div className="w-[816px] max-w-none print:w-[816px]">
         <header className="mt-2 mb-5">
           <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
-          <p className="text-orange-500 font-semibold">{asText(props, "program")}</p>
+          <p className="font-semibold" style={{ color: "#f97316" }}>
+            {asText(props, "program")}
+          </p>
         </header>
 
         <div className="grid grid-cols-2 gap-8 items-stretch">
@@ -170,7 +173,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
 
               {/* Credits container with tighter spacing and thicker border */}
               <div className="border-2 border-black mb-2">
-                <div className="bg-black text-white px-2 py-1">
+                <div className="px-2 py-1" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
                   <h3 className="text-sm font-bold italic">CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
@@ -181,7 +184,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                <div className="bg-gray-100 px-2 py-1">
+                <div className="px-2 py-1" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL SOURCES</span>
                     <span>{"{{ total_sources }}"}</span>
@@ -191,7 +194,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
 
               {/* Debits container with thicker border; minimal inner padding */}
               <div className="border-2 border-black flex flex-col flex-1">
-                <div className="bg-black text-white px-2 py-1">
+                <div className="px-2 py-1" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
                   <h3 className="text-sm font-bold italic">DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
@@ -207,7 +210,7 @@ const DscrTermSheet = (props: DSCRTermSheetProps) => {
                   <span>{"{{ cash_out_to_borrower }}"}</span>
                 </div>
                 {/* Keep TOTAL USES locked to column bottom for alignment with DSCR baseline */}
-                <div className="bg-gray-100 px-2 py-1 mt-auto">
+                <div className="px-2 py-1 mt-auto" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between text-xs font-bold">
                     <span>TOTAL USES</span>
                     <span>{"{{ total_uses }}"}</span>
