@@ -23,7 +23,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
   const subjectProperty = [
     { label: "Street", value: asText(props, "street") },
-    { label: "City, State, Zip", value: asText(props, "city_state_zip") },
+    { label: "City, State, Zip", value: asText(props, "city_state") },
     { label: "Property Type", value: asText(props, "property_type") },
     { label: "Sq Footage", value: asText(props, "sq_footage") },
     { label: "Date Purchased (refi only)", value: asText(props, "date_purchased") },
@@ -171,8 +171,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
               <div className="border-2 border-black mb-2">
-                <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold m-0 italic">CREDITS</h3>
+                <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
+                  <h3 className="text-sm font-bold m-0 italic" style={{ lineHeight: 1 }}>CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {credits.map((it, i) => (
@@ -182,7 +182,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
+                <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between w-full text-xs font-bold">
                     <span>TOTAL SOURCES</span>
                     <span>{asText(props, "total_sources")}</span>
@@ -191,8 +191,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
               </div>
 
               <div className="border-2 border-black flex flex-col flex-1">
-                <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold m-0 italic">DEBITS</h3>
+                <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
+                  <h3 className="text-sm font-bold m-0 italic" style={{ lineHeight: 1 }}>DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
@@ -206,7 +206,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   <span className="pl-2">{asText(props, "cash_out_to_borrower_label")}</span>
                   <span>{asText(props, "cash_out_borrower")}</span>
                 </div>
-                <div className="px-2 py-1 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
+                <div className="px-2 h-6 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between w-full text-xs font-bold">
                     <span className="pl-2">TOTAL USES</span>
                     <span>{asText(props, "total_uses")}</span>
@@ -217,10 +217,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
           </section>
         </div>
 
-        {/* Extra spacing above fine-print to separate from DSCR row */}
         <footer className="mt-6">
           <p className="text-[8px] leading-tight">
-            * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval processes. Lender is in the business of exclusively originating, funding and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
+            * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include, but are not limited to, your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval processes. Lender is in the business of exclusively originating, funding and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </p>
         </footer>
       </div>
