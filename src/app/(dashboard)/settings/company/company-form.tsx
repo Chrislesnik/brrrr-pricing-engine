@@ -34,6 +34,32 @@ export default function CompanyForm({
     return () => URL.revokeObjectURL(url)
   }, [logoFile])
 
+  // Client-side hydration: ensure we always pull latest company branding from brokers table
+  React.useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/org/company-branding", { cache: "no-store" })
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok) return
+        if (cancelled) return
+        if (typeof j?.company_name === "string" && j.company_name.length > 0) {
+          setCompanyName(j.company_name)
+        }
+        if (allowWhiteLabeling) {
+          if (typeof j?.logo_url === "string" && j.logo_url.length > 0) {
+            setExistingLogoUrl(j.logo_url)
+          }
+        }
+      } catch {
+        // ignore hydration errors; server props may have populated already
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [allowWhiteLabeling])
+
   const onSubmit = () => {
     startTransition(async () => {
       try {
