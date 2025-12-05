@@ -14,7 +14,7 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]) => {
 
 const DscrSheet = (props: DSCRTermSheetProps) => {
   const borrowerGuarantors = [
-    { label: "Borrower", value: asText(props, "borrower_name") },
+    { label: "Borrower", value: asText(props, "buyer_name") },
     { label: "Guarantor(s)", value: asText(props, "guarantor_name") },
     { label: "FICO", value: asText(props, "fico_score") },
     { label: "Experience", value: asText(props, "experience") },
@@ -62,19 +62,24 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
   ];
 
   const debits = [
-    { label: asText(props, "purchaseprice_payoff_label"), value: asText(props, "purchaseprice_payoff") },
+    { label: asText(props, "purchaseprice_payoff"), value: asText(props, "purchaseprice_payoff") },
     { label: "Lender Fee - Origination", value: asText(props, "lender_fee_origination") },
     { label: "Broker Fee - Origination", value: asText(props, "broker_fee_origination") },
     { label: "Lender Fee - Rate Buy Down", value: asText(props, "lender_fee_rbd", "lender_fee_rate_buy_down", "rate_buydown") },
     { label: "Lender Fee - Diligence & Legal", value: asText(props, "lender_fee_legal") },
-    { label: asText(props, "hoi_escrow_label"), value: asText(props, "flood_premium") },
+    { label: "HOI Escrow - 3 mo @ $116.67 per month", value: "$350.00" },
+    { label: "Flood Ins Escrow - 3 mo @ $0.00 per month", value: "$0.00" },
+    { label: "Tax Escrow - 3 mo @ $122.42 per month", value: "$3,667.25" },
+    { label: "Reserves - 0 mo PITIA @ $2720.43 per month", value: "$0.00" },
+    { label: "HOI Premium - Balance Due", value: asText(props, "hoi_premium") },
+    { label: "Flood Insurance Premium", value: asText(props, "flood_premium") },
     { label: "Daily Interest from 12/29/2025 to 1/1/2026 @", value: "$122.92 per day" },
     { label: "Title Insurance & Recording Fees", value: asText(props, "title_fee") },
   ];
 
   return (
     <div
-      data-termsheet="dscr"
+      data-termsheet-root
       className="flex justify-center w-full min-h-screen print:px-0 print:pt-0 print:pb-0 print:min-h-0"
       style={{ backgroundColor: "#ffffff", color: "#000000", boxSizing: "border-box" }}
     >
@@ -167,7 +172,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
               <div className="border-2 border-black mb-2">
                 <div className="px-2 py-1 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold italic m-0">CREDITS</h3>
+                  <h3 className="text-sm font-bold m-0 italic">CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {credits.map((it, i) => (
@@ -199,7 +204,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
                 <div className="flex justify-between text-xs mt-1">
                   <span className="pl-2">{asText(props, "cash_out_to_borrower_label")}</span>
-                  <span>{asText(props, "cash_out_to_borrower")}</span>
+                  <span>{asText(props, "cash_out_borrower")}</span>
                 </div>
                 <div className="px-2 py-1 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex justify-between w-full text-xs font-bold">
@@ -215,7 +220,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
         {/* Extra spacing above fine-print to separate from DSCR row */}
         <footer className="mt-6">
           <p className="text-[8px] leading-tight">
-            * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval process. Lender is in the business of exclusively originating, funding, and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
+            * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include but are not limited to your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval processes. Lender is in the business of exclusively originating, funding and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </p>
         </footer>
       </div>
