@@ -4521,19 +4521,26 @@ function ResultsPanel({
     return s.length ? price : "-"
   }, [selected, results])
 
-  // Ensure the starred row matches the Main display logic.
-  // Prefer exact match on loan price to the Main loan price; when multiple rows
-  // share that price, pick the one whose interest rate is the smallest >= Main rate (round up).
-  // If no price match exists, clear the selection.
+  // Ensure the starred row matches the "selected option" exactly:
+  // program id, loan price AND interest rate must all align.
+  // If not found, clear the star.
   useEffect(() => {
     if (!selected) return
     if (!results || results.length === 0) return
-    const prog = results[selected.programIdx]
+    // Resolve program by id if available
+    let progIdx = selected.programIdx
+    if (selected.programId) {
+      const idxById = results.findIndex(
+        (r) => r.id === selected.programId || r.internal_name === selected.programId || r.external_name === selected.programId
+      )
+      if (idxById >= 0) progIdx = idxById
+    }
+    const prog = results[progIdx]
     const d = (prog?.data ?? null) as ProgramResponseData | null
     if (!d) return
     const ratesArr = Array.isArray(d.interest_rate) ? (d.interest_rate as Array<string | number>) : []
     const pricesArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
-    if (pricesArr.length === 0) {
+    if (pricesArr.length === 0 || ratesArr.length === 0) {
       setSelected(null)
       return
     }
@@ -4547,50 +4554,21 @@ function ResultsPanel({
       setSelected(null)
       return
     }
-    // Gather indices whose price equals targetPrice (within small tolerance)
+    // Find exact matching row: price AND rate match within tolerance
     const tol = 1e-6
-    const priceMatches: number[] = []
-    pricesArr.forEach((pv, i) => {
+    const chosenIdx = pricesArr.findIndex((pv, i) => {
       const p = parse(pv)
-      if (Number.isFinite(p) && Math.abs(p - targetPrice) < tol) {
-        priceMatches.push(i)
-      }
+      const r = parse(ratesArr[i])
+      const priceOk = Number.isFinite(p) && Math.abs(p - targetPrice) < tol
+      const rateOk = Number.isFinite(r) && Number.isFinite(targetRate) && Math.abs(r - targetRate) < tol
+      return priceOk && rateOk
     })
-    if (priceMatches.length === 0) {
-      setSelected(null)
-      return
-    }
-    // If we have a target rate, choose the smallest rate >= target among matches; else pick first
-    let chosenIdx = priceMatches[0]
-    if (ratesArr.length > 0 && Number.isFinite(targetRate)) {
-      let smallestAbove = Infinity
-      let candidate = -1
-      priceMatches.forEach((i) => {
-        const r = parse(ratesArr[i])
-        if (Number.isFinite(r) && r >= targetRate && r < smallestAbove) {
-          smallestAbove = r
-          candidate = i
-        }
-      })
-      if (candidate !== -1) {
-        chosenIdx = candidate
-      } else {
-        // Fall back to the max rate among the price matches
-        let maxRate = -Infinity
-        priceMatches.forEach((i) => {
-          const r = parse(ratesArr[i])
-          if (Number.isFinite(r) && r > maxRate) {
-            maxRate = r
-            chosenIdx = i
-          }
-        })
-      }
-    }
     if (chosenIdx < 0 || chosenIdx >= pricesArr.length) {
       setSelected(null)
       return
     }
-    if (chosenIdx === selected.rowIdx) return
+    // If the program index itself is different (because we remapped by id), update it too.
+    if (chosenIdx === selected.rowIdx && progIdx === selected.programIdx) return
     const isBridgeResp =
       Array.isArray(d?.total_loan_amount) ||
       Array.isArray(d?.initial_loan_amount) ||
@@ -4620,6 +4598,7 @@ function ResultsPanel({
           }
     setSelected({
       ...selected,
+      programIdx: progIdx,
       rowIdx: chosenIdx,
       values: nextValues,
     })
