@@ -4552,14 +4552,21 @@ function ResultsPanel({
       return
     }
     // Find exact matching row: price AND rate match within tolerance
-    const tol = 1e-6
-    const chosenIdx = pricesArr.findIndex((pv, i) => {
-      const p = parse(pv)
-      const r = parse(ratesArr[i])
-      const priceOk = Number.isFinite(p) && Math.abs(p - targetPrice) < tol
-      const rateOk = Number.isFinite(r) && Number.isFinite(targetRate) && Math.abs(r - targetRate) < tol
-      return priceOk && rateOk
-    })
+    const tolPrice = 1e-3
+    const tolRate = 1e-3
+    let chosenIdx = -1
+    for (let i = 0; i < pricesArr.length; i++) {
+      const p = parse(pricesArr[i])
+      if (!Number.isFinite(p) || Math.abs(p - targetPrice) >= tolPrice) continue
+      if (ratesArr.length > i) {
+        const r = parse(ratesArr[i])
+        if (Number.isFinite(targetRate)) {
+          if (!Number.isFinite(r) || Math.abs(r - targetRate) >= tolRate) continue
+        }
+      }
+      chosenIdx = i
+      break
+    }
     if (chosenIdx < 0 || chosenIdx >= pricesArr.length) {
       setSelected(null)
       return
