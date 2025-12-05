@@ -4521,8 +4521,10 @@ function ResultsPanel({
     return s.length ? price : "-"
   }, [selected, results])
 
-  // Ensure the starred row matches the computed rate-based row selection.
-  // If no match is possible (e.g. no rates), clear the selection.
+  // Ensure the starred row matches the Main display logic.
+  // Prefer exact match on loan price to the Main loan price; when multiple rows
+  // share that price, pick the one whose interest rate is the smallest >= Main rate (round up).
+  // If no price match exists, clear the selection.
   useEffect(() => {
     if (!selected) return
     if (!results || results.length === 0) return
@@ -4531,7 +4533,7 @@ function ResultsPanel({
     if (!d) return
     const ratesArr = Array.isArray(d.interest_rate) ? (d.interest_rate as Array<string | number>) : []
     const pricesArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
-    if (ratesArr.length === 0 || pricesArr.length === 0) {
+    if (pricesArr.length === 0) {
       setSelected(null)
       return
     }
@@ -4540,28 +4542,49 @@ function ResultsPanel({
       return Number.isFinite(n) ? n : NaN
     }
     const targetRate = parse(selected.values.interestRate)
-    if (!Number.isFinite(targetRate)) {
+    const targetPrice = parse(mainLoanPriceDisplay)
+    if (!Number.isFinite(targetPrice)) {
       setSelected(null)
       return
     }
-    let chosenIdx = -1
-    let smallestAbove = Infinity
-    ratesArr.forEach((rv, i) => {
-      const r = parse(rv)
-      if (Number.isFinite(r) && r >= targetRate && r < smallestAbove) {
-        smallestAbove = r
-        chosenIdx = i
+    // Gather indices whose price equals targetPrice (within small tolerance)
+    const tol = 1e-6
+    const priceMatches: number[] = []
+    pricesArr.forEach((pv, i) => {
+      const p = parse(pv)
+      if (Number.isFinite(p) && Math.abs(p - targetPrice) < tol) {
+        priceMatches.push(i)
       }
     })
-    if (chosenIdx === -1) {
-      let maxRate = -Infinity
-      ratesArr.forEach((rv, i) => {
-        const r = parse(rv)
-        if (Number.isFinite(r) && r > maxRate) {
-          maxRate = r
-          chosenIdx = i
+    if (priceMatches.length === 0) {
+      setSelected(null)
+      return
+    }
+    // If we have a target rate, choose the smallest rate >= target among matches; else pick first
+    let chosenIdx = priceMatches[0]
+    if (ratesArr.length > 0 && Number.isFinite(targetRate)) {
+      let smallestAbove = Infinity
+      let candidate = -1
+      priceMatches.forEach((i) => {
+        const r = parse(ratesArr[i])
+        if (Number.isFinite(r) && r >= targetRate && r < smallestAbove) {
+          smallestAbove = r
+          candidate = i
         }
       })
+      if (candidate !== -1) {
+        chosenIdx = candidate
+      } else {
+        // Fall back to the max rate among the price matches
+        let maxRate = -Infinity
+        priceMatches.forEach((i) => {
+          const r = parse(ratesArr[i])
+          if (Number.isFinite(r) && r > maxRate) {
+            maxRate = r
+            chosenIdx = i
+          }
+        })
+      }
     }
     if (chosenIdx < 0 || chosenIdx >= pricesArr.length) {
       setSelected(null)
@@ -4600,7 +4623,7 @@ function ResultsPanel({
       rowIdx: chosenIdx,
       values: nextValues,
     })
-  }, [results, selected])
+  }, [results, selected, mainLoanPriceDisplay])
 
   // While loading, show placeholder-only list ONLY when we don't yet have any result slots.
   if (loading && (!results || results.length === 0) && Array.isArray(placeholders) && placeholders.length > 0) {
