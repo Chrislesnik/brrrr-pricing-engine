@@ -146,7 +146,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
               </div>
 
-              <div className="mb-3">
+              <div className="mb-2">
                 <h3 className="text-sm font-bold mb-2 italic">Liquidity Requirement</h3>
                 <div className="space-y-1">
                   {liquidity.map((it, i) => (
