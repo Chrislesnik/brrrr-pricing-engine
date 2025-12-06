@@ -3572,6 +3572,14 @@ function ResultCard({
         disclaim.style.lineHeight = '6px'
         disclaim.style.margin = '0'
         disclaim.style.whiteSpace = 'normal'
+        // Insert a hard spacer above to guarantee visible separation
+        const spacer = document.createElement('div')
+        spacer.style.display = 'block'
+        spacer.style.height = '10px'
+        spacer.style.width = '100%'
+        if (disclaim.parentNode) {
+          disclaim.parentNode.insertBefore(spacer, disclaim)
+        }
       }
     } catch {}
     container.appendChild(clone)
@@ -4118,12 +4126,7 @@ function ResultCard({
           </button>
           <div className="space-y-3">
             {Object.keys(sheetProps ?? {}).length ? (
-              <ScaledTermSheetPreview
-                sheetProps={sheetProps as DSCRTermSheetProps}
-                pageRef={previewRef}
-                forceLoanType={(isBridgeResp || isBridgeProgramName) ? "bridge" : undefined}
-                  readOnly={isBroker}
-              />
+              <ScaledTermSheetPreview sheetProps={sheetProps as DSCRTermSheetProps} pageRef={previewRef} readOnly={isBroker} />
             ) : (
               <div className="flex h-[70vh] items-center justify-center">
                 <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
@@ -4311,6 +4314,14 @@ function ResultsPanel({
         disclaim.style.lineHeight = '6px'
         disclaim.style.margin = '0'
         disclaim.style.whiteSpace = 'normal'
+        // Insert a hard spacer above to guarantee visible separation
+        const spacer = document.createElement('div')
+        spacer.style.display = 'block'
+        spacer.style.height = '10px'
+        spacer.style.width = '100%'
+        if (disclaim.parentNode) {
+          disclaim.parentNode.insertBefore(spacer, disclaim)
+        }
       }
     } catch {}
     container.appendChild(clone)
