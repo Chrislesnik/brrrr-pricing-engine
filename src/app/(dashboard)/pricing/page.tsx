@@ -3613,10 +3613,8 @@ function ResultCard({
               el.style.transform = 'translateY(-8px)'
             })
           }
-          const cashOutRow = debitsPanel.querySelector('.flex.items-center.justify-between.text-xs.mt-1') as HTMLElement | null
-          if (cashOutRow) {
-            cashOutRow.style.transform = 'translateY(-8px)'
-          }
+          const extraRows = debitsPanel.querySelectorAll('.flex.items-center.justify-between.text-xs.mt-1') as NodeListOf<HTMLElement>
+          extraRows.forEach((el) => { el.style.transform = 'translateY(-8px)' })
         }
       }
     } catch {}
@@ -4393,10 +4391,8 @@ function ResultsPanel({
               el.style.transform = 'translateY(-8px)'
             })
           }
-          const cashOutRow = debitsPanel.querySelector('.flex.items-center.justify-between.text-xs.mt-1') as HTMLElement | null
-          if (cashOutRow) {
-            cashOutRow.style.transform = 'translateY(-8px)'
-          }
+          const extraRows = debitsPanel.querySelectorAll('.flex.items-center.justify-between.text-xs.mt-1') as NodeListOf<HTMLElement>
+          extraRows.forEach((el) => { el.style.transform = 'translateY(-8px)' })
         }
       }
     } catch {}
