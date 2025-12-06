@@ -220,7 +220,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
         </div>
 
         <footer className="mt-6">
-          <p className="text-[8px]" style={{ lineHeight: "8px", margin: 0 }}>
+          <p className="text-[8px]" style={{ lineHeight: 1, margin: 0 }}>
             * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include, but are not limited to, your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval processes. Lender is in the business of exclusively originating, funding and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </p>
         </footer>

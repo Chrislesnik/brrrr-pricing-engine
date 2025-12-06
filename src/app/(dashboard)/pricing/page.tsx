@@ -3596,7 +3596,7 @@ function ResultCard({
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
-      .pdf-sandbox [data-termsheet-root] footer p { line-height: 8px !important; margin: 0 !important; }
+      .pdf-sandbox [data-termsheet-root] footer p { line-height: 1 !important; margin: 0 !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
@@ -4316,7 +4316,7 @@ function ResultsPanel({
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
-      .pdf-sandbox [data-termsheet-root] footer p { line-height: 8px !important; margin: 0 !important; }
+      .pdf-sandbox [data-termsheet-root] footer p { line-height: 1 !important; margin: 0 !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
