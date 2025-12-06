@@ -3564,6 +3564,16 @@ function ResultCard({
     const clone = root.cloneNode(true) as HTMLElement
     clone.style.width = "816px"
     clone.style.height = "auto"
+    // Force disclaimer styles in the cloned DOM for PDF rendering
+    try {
+      const disclaim = clone.querySelector('.ts-disclaimer') as HTMLElement | null
+      if (disclaim) {
+        disclaim.style.paddingTop = '10px'
+        disclaim.style.lineHeight = '6px'
+        disclaim.style.margin = '0'
+        disclaim.style.whiteSpace = 'normal'
+      }
+    } catch {}
     container.appendChild(clone)
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
     const style = document.createElement("style")
@@ -4293,6 +4303,16 @@ function ResultsPanel({
     const clone = root.cloneNode(true) as HTMLElement
     clone.style.width = "816px"
     clone.style.height = "auto"
+    // Force disclaimer styles in the cloned DOM for PDF rendering
+    try {
+      const disclaim = clone.querySelector('.ts-disclaimer') as HTMLElement | null
+      if (disclaim) {
+        disclaim.style.paddingTop = '10px'
+        disclaim.style.lineHeight = '6px'
+        disclaim.style.margin = '0'
+        disclaim.style.whiteSpace = 'normal'
+      }
+    } catch {}
     container.appendChild(clone)
     const style = document.createElement("style")
     style.textContent = `
