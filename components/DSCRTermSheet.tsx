@@ -159,8 +159,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-sm font-bold italic mb-2">Debt Service (DSCR)</h3>
+            <div className="-mt-2">
+              <h3 className="text-sm font-bold italic mb-1">Debt Service (DSCR)</h3>
               <div className="flex items-center justify-between text-xs">
                 <span className="pl-4">DSCR</span>
                 <span>{asText(props, "dscr")}</span>
