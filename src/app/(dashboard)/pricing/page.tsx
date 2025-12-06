@@ -3581,6 +3581,24 @@ function ResultCard({
           disclaim.parentNode.insertBefore(spacer, disclaim)
         }
       }
+      // Shift specific Credits rows and TOTAL SOURCES up by 8px
+      const shiftLabels = new Set(['Loan Proceeds', 'Cash Due @ Closing'])
+      const spans = Array.from(clone.querySelectorAll('span')) as HTMLElement[]
+      spans.forEach((sp) => {
+        const txt = (sp.textContent || '').trim()
+        if (shiftLabels.has(txt)) {
+          const row = sp.closest('div') as HTMLElement | null
+          if (row) {
+            row.style.transform = 'translateY(-8px)'
+          }
+        }
+        if (txt === 'TOTAL SOURCES') {
+          const row = sp.closest('div') as HTMLElement | null
+          if (row) {
+            row.style.transform = 'translateY(-8px)'
+          }
+        }
+      })
     } catch {}
     container.appendChild(clone)
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
@@ -4323,6 +4341,24 @@ function ResultsPanel({
           disclaim.parentNode.insertBefore(spacer, disclaim)
         }
       }
+      // Shift specific Credits rows and TOTAL SOURCES up by 8px
+      const shiftLabels = new Set(['Loan Proceeds', 'Cash Due @ Closing'])
+      const spans = Array.from(clone.querySelectorAll('span')) as HTMLElement[]
+      spans.forEach((sp) => {
+        const txt = (sp.textContent || '').trim()
+        if (shiftLabels.has(txt)) {
+          const row = sp.closest('div') as HTMLElement | null
+          if (row) {
+            row.style.transform = 'translateY(-8px)'
+          }
+        }
+        if (txt === 'TOTAL SOURCES') {
+          const row = sp.closest('div') as HTMLElement | null
+          if (row) {
+            row.style.transform = 'translateY(-8px)'
+          }
+        }
+      })
     } catch {}
     container.appendChild(clone)
     const style = document.createElement("style")
