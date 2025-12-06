@@ -3599,6 +3599,8 @@ function ResultCard({
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
         line-height: 6px !important; margin: 0 !important; padding: 0 !important; white-space: normal !important; letter-spacing: 0 !important; word-spacing: 0 !important;
       }
+      /* Preserve top padding on disclaimer container */
+      .pdf-sandbox [data-termsheet-root] .ts-disclaimer { padding-top: 6px !important; }
     `
     container.appendChild(style)
     document.body.appendChild(container)
