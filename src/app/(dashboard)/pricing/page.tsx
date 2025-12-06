@@ -3596,7 +3596,9 @@ function ResultCard({
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
-      .pdf-sandbox [data-termsheet-root] footer p { line-height: 6px !important; margin: 0 !important; white-space: normal !important; }
+      .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
+        line-height: 6px !important; margin: 0 !important; padding: 0 !important; white-space: normal !important; letter-spacing: 0 !important; word-spacing: 0 !important;
+      }
     `
     container.appendChild(style)
     document.body.appendChild(container)
