@@ -173,8 +173,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
               <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
 
               <div className="border-2 border-black mb-2">
-                <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold italic" style={{ lineHeight: `${BAR_LINE_HEIGHT}px`, margin: 0, paddingLeft: 8, textAlign: "left" }}>CREDITS</h3>
+                <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
+                  <h3 className="text-sm font-bold italic m-0" style={{ paddingLeft: 8, transform: "translateY(-1px)" }}>CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {credits.map((it, i) => (
@@ -193,8 +193,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
               </div>
 
               <div className="border-2 border-black flex flex-col flex-1">
-                <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
-                  <h3 className="text-sm font-bold italic" style={{ lineHeight: `${BAR_LINE_HEIGHT}px`, margin: 0, paddingLeft: 8, textAlign: "left" }}>DEBITS</h3>
+                <div className="px-2 h-6 flex items-center" style={{ backgroundColor: "#000000", color: "#ffffff" }}>
+                  <h3 className="text-sm font-bold italic m-0" style={{ paddingLeft: 8, transform: "translateY(-1px)" }}>DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
