@@ -204,31 +204,13 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                {/* New extra rows above EMD */}
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="pl-2">{asText(props, "extra_row_label_1")}</span>
-                  <span>{asText(props, "row_label_1")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="pl-2">{asText(props, "extra_row_label_2")}</span>
-                  <span>{asText(props, "row_label_2")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="pl-2">{asText(props, "extra_row_label_3")}</span>
-                  <span>{asText(props, "row_label_3")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="pl-2">{asText(props, "extra_row_label_4")}</span>
-                  <span>{asText(props, "row_label_4")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="pl-2">{asText(props, "extra_row_label_5")}</span>
-                  <span>{asText(props, "row_label_5")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="pl-2">{asText(props, "extra_row_label_6")}</span>
-                  <span>{asText(props, "row_label_6")}</span>
-                </div>
+                {/* Extra rows 1-12 above EMD */}
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map((n) => (
+                  <div key={`extra-${n}`} className="flex items-center justify-between text-xs mt-1">
+                    <span className="pl-2">{asText(props, `extra_row_label_${n}`)}</span>
+                    <span>{asText(props, `row_label_${n}`)}</span>
+                  </div>
+                ))}
                 {/* EMD row above Cash Out */}
                 <div className="flex items-center justify-between text-xs mt-1">
                   <span className="pl-2">{asText(props, "emd_label")}</span>
