@@ -3599,6 +3599,26 @@ function ResultCard({
           }
         }
       })
+      // Shift ALL rows within the DEBITS list and the cash-out row up by 8px
+      const debitsHeader = Array.from(clone.querySelectorAll('h3')).find(
+        (h) => (h.textContent || '').trim() === 'DEBITS'
+      ) as HTMLElement | undefined
+      if (debitsHeader) {
+        const debitsPanel = debitsHeader.closest('.border-2') as HTMLElement | null
+        if (debitsPanel) {
+          const list = debitsPanel.querySelector('.space-y-1') as HTMLElement | null
+          if (list) {
+            Array.from(list.children).forEach((row) => {
+              const el = row as HTMLElement
+              el.style.transform = 'translateY(-8px)'
+            })
+          }
+          const cashOutRow = debitsPanel.querySelector('.flex.items-center.justify-between.text-xs.mt-1') as HTMLElement | null
+          if (cashOutRow) {
+            cashOutRow.style.transform = 'translateY(-8px)'
+          }
+        }
+      }
     } catch {}
     container.appendChild(clone)
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
@@ -4359,6 +4379,26 @@ function ResultsPanel({
           }
         }
       })
+      // Shift ALL rows within the DEBITS list and the cash-out row up by 8px
+      const debitsHeader = Array.from(clone.querySelectorAll('h3')).find(
+        (h) => (h.textContent || '').trim() === 'DEBITS'
+      ) as HTMLElement | undefined
+      if (debitsHeader) {
+        const debitsPanel = debitsHeader.closest('.border-2') as HTMLElement | null
+        if (debitsPanel) {
+          const list = debitsPanel.querySelector('.space-y-1') as HTMLElement | null
+          if (list) {
+            Array.from(list.children).forEach((row) => {
+              const el = row as HTMLElement
+              el.style.transform = 'translateY(-8px)'
+            })
+          }
+          const cashOutRow = debitsPanel.querySelector('.flex.items-center.justify-between.text-xs.mt-1') as HTMLElement | null
+          if (cashOutRow) {
+            cashOutRow.style.transform = 'translateY(-8px)'
+          }
+        }
+      }
     } catch {}
     container.appendChild(clone)
     const style = document.createElement("style")
