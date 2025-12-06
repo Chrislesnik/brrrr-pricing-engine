@@ -174,7 +174,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
               <div className="border-2 border-black mb-2">
                 <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff", display: "grid", alignItems: "center" }}>
-                  <h3 className="text-sm font-bold italic m-0" style={{ paddingLeft: 8, textAlign: "left" }}>CREDITS</h3>
+                  <h3 className="text-sm font-bold italic m-0" style={{ paddingLeft: 8, textAlign: "left", transform: "translateY(-10px)" }}>CREDITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1">
                   {credits.map((it, i) => (
@@ -194,7 +194,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
               <div className="border-2 border-black flex flex-col flex-1">
                 <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff", display: "grid", alignItems: "center" }}>
-                  <h3 className="text-sm font-bold italic m-0" style={{ paddingLeft: 8, textAlign: "left" }}>DEBITS</h3>
+                  <h3 className="text-sm font-bold italic m-0" style={{ paddingLeft: 8, textAlign: "left", transform: "translateY(-10px)" }}>DEBITS</h3>
                 </div>
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
