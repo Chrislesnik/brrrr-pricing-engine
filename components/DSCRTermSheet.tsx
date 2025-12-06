@@ -204,7 +204,32 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                {/* New EMD row above Cash Out */}
+                {/* New extra rows above EMD */}
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="pl-2">{asText(props, "extra_row_label_1")}</span>
+                  <span>{asText(props, "row_label_1")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="pl-2">{asText(props, "extra_row_label_2")}</span>
+                  <span>{asText(props, "row_label_2")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="pl-2">{asText(props, "extra_row_label_3")}</span>
+                  <span>{asText(props, "row_label_3")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="pl-2">{asText(props, "extra_row_label_4")}</span>
+                  <span>{asText(props, "row_label_4")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="pl-2">{asText(props, "extra_row_label_5")}</span>
+                  <span>{asText(props, "row_label_5")}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="pl-2">{asText(props, "extra_row_label_6")}</span>
+                  <span>{asText(props, "row_label_6")}</span>
+                </div>
+                {/* EMD row above Cash Out */}
                 <div className="flex items-center justify-between text-xs mt-1">
                   <span className="pl-2">{asText(props, "emd_label")}</span>
                   <span>{asText(props, "emd")}</span>
