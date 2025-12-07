@@ -3709,8 +3709,13 @@ function ResultCard({
         const rightCol = bridgeRoot.querySelector('section.border-0') as HTMLElement | null
         if (leftBox && rightCol) {
           const rightRect = rightCol.getBoundingClientRect()
-          if (rightRect && rightRect.height) {
-            leftBox.style.height = `${Math.ceil(rightRect.height)}px`
+          const targetH = rightRect && rightRect.height ? Math.ceil(rightRect.height) : 0
+          if (targetH > 0) {
+            leftBox.setAttribute('data-equalize-left', 'true')
+            leftBox.style.overflow = 'hidden'
+            const dyn = document.createElement('style')
+            dyn.textContent = `.pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black[data-equalize-left=\"true\"]{height:${targetH}px !important; overflow:hidden !important;}`
+            container.appendChild(dyn)
           }
         }
       }
@@ -4607,8 +4612,13 @@ function ResultsPanel({
         const rightCol = bridgeRoot.querySelector('section.border-0') as HTMLElement | null
         if (leftBox && rightCol) {
           const rightRect = rightCol.getBoundingClientRect()
-          if (rightRect && rightRect.height) {
-            leftBox.style.height = `${Math.ceil(rightRect.height)}px`
+          const targetH = rightRect && rightRect.height ? Math.ceil(rightRect.height) : 0
+          if (targetH > 0) {
+            leftBox.setAttribute('data-equalize-left', 'true')
+            leftBox.style.overflow = 'hidden'
+            const dyn = document.createElement('style')
+            dyn.textContent = `.pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black[data-equalize-left=\"true\"]{height:${targetH}px !important; overflow:hidden !important;}`
+            container.appendChild(dyn)
           }
         }
       }
