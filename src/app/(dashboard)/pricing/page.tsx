@@ -3617,6 +3617,31 @@ function ResultCard({
           extraRows.forEach((el) => { el.style.transform = 'translateY(-8px)' })
         }
       }
+      // Liquidity block special inner left paddings
+      const liqHeader = Array.from(clone.querySelectorAll('h3')).find(
+        (h) => (h.textContent || '').trim() === 'Liquidity Requirement'
+      ) as HTMLElement | undefined
+      if (liqHeader) {
+        const liqContainer = liqHeader.parentElement as HTMLElement | null
+        const liqList = liqContainer ? (liqContainer.querySelector('.space-y-1') as HTMLElement | null) : null
+        if (liqList) {
+          const liqRows = Array.from(liqList.children) as HTMLElement[]
+          const applyPad = (idx: number, px: number) => {
+            const r = liqRows[idx]
+            if (!r) return
+            const left = r.querySelector('span:first-child') as HTMLElement | null
+            if (left) {
+              left.style.paddingLeft = `${px}px`
+              left.style.display = 'inline-block'
+            }
+          }
+          applyPad(1, 15) // Cash to Close
+          applyPad(2, 25) // Down Payment label
+          applyPad(3, 25) // Escrows
+          applyPad(4, 25) // Reserves label
+          applyPad(5, 15) // Mortgage Debt - 100%
+        }
+      }
     } catch {}
     container.appendChild(clone)
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
@@ -4398,6 +4423,31 @@ function ResultsPanel({
           }
           const extraRows = debitsPanel.querySelectorAll('.flex.items-center.justify-between.text-xs.mt-1') as NodeListOf<HTMLElement>
           extraRows.forEach((el) => { el.style.transform = 'translateY(-8px)' })
+        }
+      }
+      // Liquidity block special inner left paddings
+      const liqHeader = Array.from(clone.querySelectorAll('h3')).find(
+        (h) => (h.textContent || '').trim() === 'Liquidity Requirement'
+      ) as HTMLElement | undefined
+      if (liqHeader) {
+        const liqContainer = liqHeader.parentElement as HTMLElement | null
+        const liqList = liqContainer ? (liqContainer.querySelector('.space-y-1') as HTMLElement | null) : null
+        if (liqList) {
+          const liqRows = Array.from(liqList.children) as HTMLElement[]
+          const applyPad = (idx: number, px: number) => {
+            const r = liqRows[idx]
+            if (!r) return
+            const left = r.querySelector('span:first-child') as HTMLElement | null
+            if (left) {
+              left.style.paddingLeft = `${px}px`
+              left.style.display = 'inline-block'
+            }
+          }
+          applyPad(1, 15) // Cash to Close
+          applyPad(2, 25) // Down Payment label
+          applyPad(3, 25) // Escrows
+          applyPad(4, 25) // Reserves label
+          applyPad(5, 15) // Mortgage Debt - 100%
         }
       }
     } catch {}
