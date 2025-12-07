@@ -3733,7 +3733,7 @@ function ResultCard({
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* Bridge PDF-only: move option number up 3px and center */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] div.mb-3 > .text-center {
-        transform: translateY(-3px) !important;
+        transform: translateY(-5px) !important;
         text-align: center !important;
         display: block !important;
         width: 100% !important;
@@ -4600,7 +4600,7 @@ function ResultsPanel({
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* Bridge PDF-only: move option number up 3px and center */
       .pdf-sandbox [data-termsheet-root="bridge"] div.mb-3 > .text-center {
-        transform: translateY(-3px) !important;
+        transform: translateY(-5px) !important;
         text-align: center !important;
         display: block !important;
         width: 100% !important;
