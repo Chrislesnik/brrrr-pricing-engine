@@ -3642,6 +3642,29 @@ function ResultCard({
           applyPad(5, 15) // Mortgage Debt - 100%
         }
       }
+      // Liquidity block special paddings
+      const liqHeader2 = Array.from(clone.querySelectorAll('h3')).find(
+        (h) => (h.textContent || '').trim() === 'Liquidity Requirement'
+      ) as HTMLElement | undefined
+      if (liqHeader2) {
+        const liqContainer = liqHeader2.parentElement as HTMLElement | null
+        const liqList = liqContainer ? (liqContainer.querySelector('.space-y-1') as HTMLElement | null) : null
+        if (liqList) {
+          const rows = Array.from(liqList.querySelectorAll(':scope > div')) as HTMLElement[]
+          // By index: 1 Cash to Close 15px; 2 Down Payment 25px; 3 Escrows 25px; 4 Reserves 25px; 5 Mortgage Debt 15px
+          const indexToPadding: Record<number, number> = { 1: 15, 2: 25, 3: 25, 4: 25, 5: 15 }
+          Object.entries(indexToPadding).forEach(([idxStr, pad]) => {
+            const idx = Number(idxStr)
+            const row = rows[idx]
+            if (!row) return
+            const left = row.querySelector('span:first-child') as HTMLElement | null
+            if (!left) return
+            left.style.paddingLeft = `${pad}px`
+            left.style.marginLeft = '0px'
+            left.style.display = 'inline-block'
+          })
+        }
+      }
     } catch {}
     container.appendChild(clone)
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
@@ -4282,8 +4305,8 @@ function ResultsPanel({
       const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
         Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
       const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
-      const selLenderOrig = toStr(pickAt<any>(d?.["lender_orig_percent"], idx))
-      const selLenderAdmin = toStr(pickAt<any>(d?.["lender_admin_fee"], idx))
+      const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
+      const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
       if (selLenderOrig || selLenderAdmin) {
         onApplyFees?.(selLenderOrig || undefined, selLenderAdmin || undefined)
       }
@@ -4448,6 +4471,28 @@ function ResultsPanel({
           applyPad(3, 25) // Escrows
           applyPad(4, 25) // Reserves label
           applyPad(5, 15) // Mortgage Debt - 100%
+        }
+      }
+      // Liquidity block special paddings
+      const liqHeader2 = Array.from(clone.querySelectorAll('h3')).find(
+        (h) => (h.textContent || '').trim() === 'Liquidity Requirement'
+      ) as HTMLElement | undefined
+      if (liqHeader2) {
+        const liqContainer = liqHeader2.parentElement as HTMLElement | null
+        const liqList = liqContainer ? (liqContainer.querySelector('.space-y-1') as HTMLElement | null) : null
+        if (liqList) {
+          const rows = Array.from(liqList.querySelectorAll(':scope > div')) as HTMLElement[]
+          const indexToPadding: Record<number, number> = { 1: 15, 2: 25, 3: 25, 4: 25, 5: 15 }
+          Object.entries(indexToPadding).forEach(([idxStr, pad]) => {
+            const idx = Number(idxStr)
+            const row = rows[idx]
+            if (!row) return
+            const left = row.querySelector('span:first-child') as HTMLElement | null
+            if (!left) return
+            left.style.paddingLeft = `${pad}px`
+            left.style.marginLeft = '0px'
+            left.style.display = 'inline-block'
+          })
         }
       }
     } catch {}
