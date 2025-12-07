@@ -3776,6 +3776,11 @@ function ResultCard({
         padding-top: 3px !important;
         padding-bottom: 3px !important;
       }
+      /* Bridge PDF-only: match header paddings for CREDITS / TOTAL SOURCES / DEBITS / TOTAL USES */
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black { padding-top: 3px !important; padding-bottom: 3px !important; }
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] { padding-top: 3px !important; padding-bottom: 3px !important; }
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black { padding-top: 3px !important; padding-bottom: 3px !important; }
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] { padding-top: 3px !important; padding-bottom: 3px !important; }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
         line-height: 6px !important; margin: 0 !important; padding: 0 !important; white-space: normal !important; letter-spacing: 0 !important; word-spacing: 0 !important;
@@ -4679,6 +4684,11 @@ function ResultsPanel({
         padding-top: 3px !important;
         padding-bottom: 3px !important;
       }
+      /* Bridge PDF-only: match header paddings for CREDITS / TOTAL SOURCES / DEBITS / TOTAL USES */
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black { padding-top: 3px !important; padding-bottom: 3px !important; }
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] { padding-top: 3px !important; padding-bottom: 3px !important; }
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black { padding-top: 3px !important; padding-bottom: 3px !important; }
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] { padding-top: 3px !important; padding-bottom: 3px !important; }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
       /* PDF-only: 5px inner left padding for Borrower & Guarantors left labels */

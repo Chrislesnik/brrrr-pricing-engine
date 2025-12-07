@@ -204,7 +204,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               <div className="border-2 border-solid border-black mb-2 mx-[-12px]">
                 <div className="px-2">
                   {/* CREDITS header height smaller */}
-                  <div className="bg-black text-white py-1 px-4 mb-1 -mx-2">
+                  <div className="bg-black text-white py-1 px-4 mb-1 -mx-2" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
                   </div>
                   <div className="mb-0">
@@ -216,7 +216,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     ))}
                   </div>
                   {/* TOTAL SOURCES height smaller */}
-                  <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black">
+                  <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <div className="flex justify-between items-center">
                       <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
                       <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
@@ -229,7 +229,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
               <div className="border-2 border-solid border-black mx-[-12px]">
                 <div className="px-2">
                   {/* DEBITS header height smaller */}
-                  <div className="bg-black text-white py-1 px-4 mb-2 -mx-2">
+                  <div className="bg-black text-white py-1 px-4 mb-2 -mx-2" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
                   </div>
                   <div className="">
@@ -265,7 +265,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                     ))}
                   </div>
                   {/* TOTAL USES bar - only top border and flush edges */}
-                  <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black mt-0">
+                  <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black mt-0" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <div className="flex justify-between items-center">
                       <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
                       <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
