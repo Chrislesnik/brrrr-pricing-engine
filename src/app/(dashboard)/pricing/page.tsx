@@ -3581,13 +3581,13 @@ function ResultCard({
           disclaim.parentNode.insertBefore(spacer, disclaim)
         }
       }
-      // Move logo down 3px (PDF-only)
+      // Move logo down 5px (PDF-only)
       {
         const headerEl = clone.querySelector('header') as HTMLElement | null
         if (headerEl) {
           const logoEl = headerEl.querySelector('img[alt="Logo"]') as HTMLElement | null
           if (logoEl) {
-            logoEl.style.transform = 'translateY(3px)'
+            logoEl.style.transform = 'translateY(5px)'
           }
         }
       }
@@ -4428,13 +4428,13 @@ function ResultsPanel({
           disclaim.parentNode.insertBefore(spacer, disclaim)
         }
       }
-      // Move logo down 3px (PDF-only)
+      // Move logo down 5px (PDF-only)
       {
         const headerEl = clone.querySelector('header') as HTMLElement | null
         if (headerEl) {
           const logoEl = headerEl.querySelector('img[alt="Logo"]') as HTMLElement | null
           if (logoEl) {
-            logoEl.style.transform = 'translateY(3px)'
+            logoEl.style.transform = 'translateY(5px)'
           }
         }
       }
