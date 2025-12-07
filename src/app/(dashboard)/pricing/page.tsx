@@ -3795,6 +3795,11 @@ function ResultCard({
       .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-0 > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
       /* Bridge PDF-only: raise ALL content inside left LOAN DETAILS box by 5px */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black > .px-2.pt-2.pb-0 { position: relative !important; top: -5px !important; }
+      /* Bridge PDF-only: add 5px left padding to LOAN DETAILS row labels (exclude section headings) */
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black > .px-2.pt-2.pb-0 .flex.justify-between > span:first-child {
+        padding-left: 5px !important;
+        display: inline-block !important;
+      }
       /* Bridge PDF-only: move CREDITS text up 4px (relative top) */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -7px !important; text-align: left !important; }
@@ -4726,6 +4731,11 @@ function ResultsPanel({
       .pdf-sandbox [data-termsheet-root="bridge"] section.border-0 > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
       /* Bridge PDF-only: raise ALL content inside left LOAN DETAILS box by 5px */
       .pdf-sandbox [data-termsheet-root="bridge"] section.border-2.border-solid.border-black > .px-2.pt-2.pb-0 { position: relative !important; top: -5px !important; }
+      /* Bridge PDF-only: add 5px left padding to LOAN DETAILS row labels (exclude section headings) */
+      .pdf-sandbox [data-termsheet-root="bridge"] section.border-2.border-solid.border-black > .px-2.pt-2.pb-0 .flex.justify-between > span:first-child {
+        padding-left: 5px !important;
+        display: inline-block !important;
+      }
       /* Bridge PDF-only: move CREDITS text up 4px (relative top) */
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -7px !important; text-align: left !important; }
