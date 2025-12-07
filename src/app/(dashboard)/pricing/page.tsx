@@ -3792,7 +3792,8 @@ function ResultCard({
       /* Bridge PDF-only: move CREDITS text up 3px more (force with relative top) */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -3px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: 2px !important; text-align: left !important; }
-      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black h3 { transform: translateY(-5px) !important; text-align: left !important; }
+      /* Bridge PDF-only: move DEBITS up 2px */
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black h3 { position: relative !important; top: -2px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] h3 { transform: translateY(-5px) !important; text-align: left !important; }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
@@ -4713,7 +4714,8 @@ function ResultsPanel({
       /* Bridge PDF-only: move CREDITS text up 3px more (force with relative top) */
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -3px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: 2px !important; text-align: left !important; }
-      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black h3 { transform: translateY(-5px) !important; text-align: left !important; }
+      /* Bridge PDF-only: move DEBITS up 2px */
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black h3 { position: relative !important; top: -2px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] h3 { transform: translateY(-5px) !important; text-align: left !important; }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
