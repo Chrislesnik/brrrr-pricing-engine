@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3 } from "@tabler/icons-react"
@@ -95,7 +95,7 @@ function ScaledTermSheetPreview({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState<number>(1)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
     const update = () => {
@@ -104,17 +104,40 @@ function ScaledTermSheetPreview({
       if (width <= 0 || height <= 0) return
       // Compute scale to fit both width and height of the container precisely.
       const paddingAllowance = 8 // px allowance for container padding/borders
-      const s = Math.min(
-        (width - paddingAllowance) / 816,
-        (height - paddingAllowance) / 1056,
-        1
-      ) * 0.88 // slightly further zoom out in the modal
+      const s =
+        Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.88
       setScale(s)
     }
+    // Try immediately, then on next frames and a few timed retries to handle iOS Safari layout settles.
     update()
+    const rafIds: number[] = []
+    const tryRaf = (times: number) => {
+      if (times <= 0) return
+      rafIds.push(
+        requestAnimationFrame(() => {
+          update()
+          tryRaf(times - 1)
+        })
+      )
+    }
+    tryRaf(3)
+    const timeouts: number[] = [100, 350, 1000, 2000].map((ms) =>
+      window.setTimeout(update, ms)
+    )
     const ro = new ResizeObserver(update)
     ro.observe(el)
-    return () => ro.disconnect()
+    const onWindowResize = () => update()
+    window.addEventListener("resize", onWindowResize, { passive: true })
+    window.addEventListener("orientationchange", onWindowResize, { passive: true })
+    window.addEventListener("pageshow", onWindowResize, { passive: true })
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("resize", onWindowResize)
+      window.removeEventListener("orientationchange", onWindowResize)
+      window.removeEventListener("pageshow", onWindowResize)
+      rafIds.forEach((id) => cancelAnimationFrame(id))
+      timeouts.forEach((id) => clearTimeout(id))
+    }
   }, [])
   // Enable inline editing on leaf text nodes within the preview, while freezing layout boxes
   useEffect(() => {
@@ -165,10 +188,10 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 grid items-start justify-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
+      className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
-      <div className="mx-auto" style={{ width: 816 * scale, height: 1056 * scale }}>
+      <div className="mx-auto justify-self-center" style={{ width: 816 * scale, height: 1056 * scale }}>
         <div
           style={{
             width: 816,
