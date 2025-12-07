@@ -271,36 +271,21 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                       <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
                     </div>
                   </div>
-                {/* Right-aligned logo under TOTAL USES bar (renders if props.logo provided) */}
-                {(() => {
-                  const raw = props["logo"]
-                  const url = raw !== undefined && raw !== null && String(raw) !== "" ? String(raw) : ""
-                  if (!url || url.startsWith("{{")) return null
-                  return (
-                    <div className="flex items-center justify-end text-xs mt-2">
-                      <img
-                        src={url}
-                        crossOrigin="anonymous"
-                        alt="Logo"
-                        style={{ maxHeight: 40, width: "auto", objectFit: "contain", display: "block" }}
-                      />
-                    </div>
-                  )
-                })()}
                 </div>
               </div>
             </div>
           </section>
         </div>
-        {/* Disclaimer under left column only (outside left border) */}
-        <div className="mt-2 w-1/2 text-left text-[6px] font-medium text-black leading-[8px]">
+      {/* Bottom row: disclaimer (left) and right-aligned logo (right) outside the main containers */}
+      <div className="mt-2 flex items-start justify-between">
+        <div className="w-1/2 text-left text-[6px] font-medium text-black leading-[8px]">
           <p>
             *Pricing of initial rate is indicative and subject to re-pricing at Lender&apos;s discretion based on factors
             that may include, but are not limited to, prevailing market conditions and underwriting/diligence review.
             Factors that may affect your rate include but are not limited to your credit history/score, Loan-to-Value
             ratios, borrower&apos;s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to
             qualified borrowers in accordance with our guidelines at the time of application. Property factors and
-            geographic limitations are subject to change at any time without notice. Stated rates and Loan-to-Value ratios
+            geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios
             are only available to qualified applicants. This is a non-binding expression of interest and does not create
             any legally binding commitment or obligation on the part of Lender. This expression of interest is subject to
             our internal credit, legal and investment approval process. Lender is in the business of exclusively
@@ -308,6 +293,22 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
             referenced herein are non-consumer loans.
           </p>
         </div>
+        {(() => {
+          const raw = props["logo"]
+          const url = raw !== undefined && raw !== null && String(raw) !== "" ? String(raw) : ""
+          if (!url || url.startsWith("{{")) return null
+          return (
+            <div className="w-1/2 flex justify-end">
+              <img
+                src={url}
+                crossOrigin="anonymous"
+                alt="Logo"
+                style={{ maxHeight: 40, width: "auto", objectFit: "contain", display: "block" }}
+              />
+            </div>
+          )
+        })()}
+      </div>
       </div>
     </div>
   )
