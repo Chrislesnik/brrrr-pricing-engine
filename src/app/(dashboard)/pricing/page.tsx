@@ -3601,7 +3601,7 @@ function ResultCard({
         if (txt === 'TOTAL USES') {
           const row = sp.closest('div') as HTMLElement | null
           if (row) {
-            row.style.transform = 'translateY(-7px)'
+            row.style.transform = 'translateY(-5px)'
           }
         }
       })
@@ -4438,7 +4438,7 @@ function ResultsPanel({
         if (txt === 'TOTAL USES') {
           const row = sp.closest('div') as HTMLElement | null
           if (row) {
-            row.style.transform = 'translateY(-7px)'
+            row.style.transform = 'translateY(-5px)'
           }
         }
       })
