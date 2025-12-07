@@ -139,7 +139,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
           <section className="border-2 border-solid border-black">
             {/* Make header bar a bit shorter */}
             <header className="bg-black text-white py-1.5 px-2" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
-              <h2 className="text-[15px] font-bold leading-tight" style={{ transform: "translateY(-5px)", textAlign: "left" }}>LOAN DETAILS</h2>
+              <h2 className="text-[15px] font-bold text-center leading-tight">LOAN DETAILS</h2>
             </header>
             <div className="px-2 pt-2 pb-0">
               <h3 className="text-[13px] font-bold italic text-black mb-1">Subject Property</h3>
@@ -197,7 +197,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
           {/* Right column with no outer border */}
           <section className="border-0">
             <header className="bg-black text-white py-1 px-2">
-              <h2 className="text-[15px] font-bold leading-tight" style={{ transform: "translateY(-5px)", textAlign: "left" }}>CLOSING STATEMENT ESTIMATE</h2>
+              <h2 className="text-[15px] font-bold text-center leading-tight">CLOSING STATEMENT ESTIMATE</h2>
             </header>
             <div className="px-3 pt-3 pb-0 flex flex-col">
               {/* Box the Credits + Total Sources section together */}
@@ -205,7 +205,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 <div className="px-2">
                   {/* CREDITS header height smaller */}
                   <div className="bg-black text-white py-1 px-4 mb-1 -mx-2" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
-                    <h3 className="text-[15px] font-bold italic leading-tight" style={{ transform: "translateY(-5px)", textAlign: "left" }}>CREDITS</h3>
+                    <h3 className="text-[15px] font-bold italic leading-tight">CREDITS</h3>
                   </div>
                   <div className="mb-0">
                     {creditsData.map((item, index) => (
@@ -218,7 +218,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                   {/* TOTAL SOURCES height smaller */}
                   <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <div className="flex justify-between items-center">
-                      <h3 className="text-[15px] font-bold italic" style={{ transform: "translateY(-5px)", textAlign: "left" }}>TOTAL SOURCES</h3>
+                      <h3 className="text-[15px] font-bold italic">TOTAL SOURCES</h3>
                       <span className="text-[15px] font-medium">{asText(props, "total_sources")}</span>
                     </div>
                   </div>
@@ -230,7 +230,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                 <div className="px-2">
                   {/* DEBITS header height smaller */}
                   <div className="bg-black text-white py-1 px-4 mb-2 -mx-2" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
-                    <h3 className="text-[15px] font-bold italic leading-tight" style={{ transform: "translateY(-5px)", textAlign: "left" }}>DEBITS</h3>
+                    <h3 className="text-[15px] font-bold italic leading-tight">DEBITS</h3>
                   </div>
                   <div className="">
                     {debitsBeforeSpacer.map((item, index) => (
@@ -267,7 +267,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                   {/* TOTAL USES bar - only top border and flush edges */}
                   <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black mt-0" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <div className="flex justify-between items-center">
-                      <h3 className="text-[15px] font-bold italic" style={{ transform: "translateY(-5px)", textAlign: "left" }}>TOTAL USES</h3>
+                      <h3 className="text-[15px] font-bold italic">TOTAL USES</h3>
                       <span className="text-[15px] font-medium">{asText(props, "total_uses")}</span>
                     </div>
                   </div>
