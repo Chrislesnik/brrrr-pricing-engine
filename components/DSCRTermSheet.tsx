@@ -104,7 +104,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                     src={url}
                     crossOrigin="anonymous"
                     alt="Logo"
-                    style={{ height: "100%", maxHeight: 40, width: "auto", objectFit: "contain", display: "block" }}
+                    style={{ height: "100%", maxHeight: 52, width: "auto", objectFit: "contain", display: "block" }}
                   />
                 </div>
               );
