@@ -3595,7 +3595,7 @@ function ResultCard({
         if (txt === 'TOTAL SOURCES') {
           const row = sp.closest('div') as HTMLElement | null
           if (row) {
-            row.style.transform = 'translateY(3px)'
+            row.style.transform = 'translateY(-5px)'
           }
         }
         if (txt === 'TOTAL USES') {
@@ -4432,7 +4432,7 @@ function ResultsPanel({
         if (txt === 'TOTAL SOURCES') {
           const row = sp.closest('div') as HTMLElement | null
           if (row) {
-            row.style.transform = 'translateY(3px)'
+            row.style.transform = 'translateY(-5px)'
           }
         }
         if (txt === 'TOTAL USES') {
