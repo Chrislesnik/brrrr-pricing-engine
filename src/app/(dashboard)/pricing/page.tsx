@@ -3701,6 +3701,20 @@ function ResultCard({
       }
     } catch {}
     container.appendChild(clone)
+    // Bridge PDF-only: equalize left \"LOAN DETAILS\" box height to right column height
+    try {
+      const bridgeRoot = container.querySelector('[data-termsheet-root=\"bridge\"]') as HTMLElement | null
+      if (bridgeRoot) {
+        const leftBox = bridgeRoot.querySelector('section.border-2.border-solid.border-black') as HTMLElement | null
+        const rightCol = bridgeRoot.querySelector('section.border-0') as HTMLElement | null
+        if (leftBox && rightCol) {
+          const rightRect = rightCol.getBoundingClientRect()
+          if (rightRect && rightRect.height) {
+            leftBox.style.height = `${Math.ceil(rightRect.height)}px`
+          }
+        }
+      }
+    } catch {}
     // PDF-only style overrides (do not change text alignment; only visuals/spacing/vertical centering)
     const style = document.createElement("style")
     style.textContent = `
@@ -4585,6 +4599,20 @@ function ResultsPanel({
       }
     } catch {}
     container.appendChild(clone)
+    // Bridge PDF-only: equalize left \"LOAN DETAILS\" box height to right column height
+    try {
+      const bridgeRoot = container.querySelector('[data-termsheet-root=\"bridge\"]') as HTMLElement | null
+      if (bridgeRoot) {
+        const leftBox = bridgeRoot.querySelector('section.border-2.border-solid.border-black') as HTMLElement | null
+        const rightCol = bridgeRoot.querySelector('section.border-0') as HTMLElement | null
+        if (leftBox && rightCol) {
+          const rightRect = rightCol.getBoundingClientRect()
+          if (rightRect && rightRect.height) {
+            leftBox.style.height = `${Math.ceil(rightRect.height)}px`
+          }
+        }
+      }
+    } catch {}
     const style = document.createElement("style")
     style.textContent = `
       .pdf-sandbox .ts-edit {
