@@ -3789,6 +3789,8 @@ function ResultCard({
       /* Bridge PDF-only: move LOAN DETAILS and CLOSING STATEMENT ESTIMATE up 7px and left-align */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-0 > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
+      /* Bridge PDF-only: raise ALL content inside left LOAN DETAILS box by 5px */
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black > .px-2.pt-2.pb-0 { position: relative !important; top: -5px !important; }
       /* Bridge PDF-only: move CREDITS text up 4px (relative top) */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -7px !important; text-align: left !important; }
@@ -4712,6 +4714,8 @@ function ResultsPanel({
       /* Bridge PDF-only: move LOAN DETAILS and CLOSING STATEMENT ESTIMATE up 7px and left-align */
       .pdf-sandbox [data-termsheet-root="bridge"] section.border-2.border-solid.border-black > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root="bridge"] section.border-0 > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
+      /* Bridge PDF-only: raise ALL content inside left LOAN DETAILS box by 5px */
+      .pdf-sandbox [data-termsheet-root="bridge"] section.border-2.border-solid.border-black > .px-2.pt-2.pb-0 { position: relative !important; top: -5px !important; }
       /* Bridge PDF-only: move CREDITS text up 4px (relative top) */
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -7px !important; text-align: left !important; }
