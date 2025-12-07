@@ -3595,16 +3595,17 @@ function ResultCard({
       {
         const bridgeRoot = clone.querySelector('[data-termsheet-root="bridge"]') as HTMLElement | null
         if (bridgeRoot) {
-          const opt = (bridgeRoot.querySelector('div.mb-3 .text-center') ||
-            bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1')) as HTMLElement | null
+          // Find by text content to be robust against class changes
+          const candidates = Array.from(bridgeRoot.querySelectorAll('div,span,p,h1,h2,h3')) as HTMLElement[]
+          const opt = candidates.find(el => (el.textContent || '').includes('{{ option_number }}'))
           if (opt) {
-            opt.style.position = 'relative'
-            opt.style.top = '-3px'
-            opt.style.textAlign = 'center'
-            opt.style.width = '100%'
             opt.style.display = 'block'
+            opt.style.width = '100%'
+            opt.style.textAlign = 'center'
             opt.style.marginLeft = 'auto'
             opt.style.marginRight = 'auto'
+            opt.style.marginTop = '-3px'
+            opt.style.transform = 'translateY(-3px)'
           }
         }
       }
@@ -4459,16 +4460,16 @@ function ResultsPanel({
       {
         const bridgeRoot = clone.querySelector('[data-termsheet-root="bridge"]') as HTMLElement | null
         if (bridgeRoot) {
-          const opt = (bridgeRoot.querySelector('div.mb-3 .text-center') ||
-            bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1')) as HTMLElement | null
+          const candidates = Array.from(bridgeRoot.querySelectorAll('div,span,p,h1,h2,h3')) as HTMLElement[]
+          const opt = candidates.find(el => (el.textContent || '').includes('{{ option_number }}'))
           if (opt) {
-            opt.style.position = 'relative'
-            opt.style.top = '-3px'
-            opt.style.textAlign = 'center'
-            opt.style.width = '100%'
             opt.style.display = 'block'
+            opt.style.width = '100%'
+            opt.style.textAlign = 'center'
             opt.style.marginLeft = 'auto'
             opt.style.marginRight = 'auto'
+            opt.style.marginTop = '-3px'
+            opt.style.transform = 'translateY(-3px)'
           }
         }
       }
