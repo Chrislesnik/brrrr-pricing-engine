@@ -3659,9 +3659,9 @@ function ResultCard({
             if (!row) return
             const left = row.querySelector('span:first-child') as HTMLElement | null
             if (!left) return
-            left.style.paddingLeft = `${pad}px`
-            left.style.marginLeft = '0px'
-            left.style.display = 'inline-block'
+            left.style.setProperty('padding-left', `${pad}px`, 'important')
+            left.style.setProperty('margin-left', '0px', 'important')
+            left.style.setProperty('display', 'inline-block', 'important')
           })
         }
       }
@@ -4489,9 +4489,9 @@ function ResultsPanel({
             if (!row) return
             const left = row.querySelector('span:first-child') as HTMLElement | null
             if (!left) return
-            left.style.paddingLeft = `${pad}px`
-            left.style.marginLeft = '0px'
-            left.style.display = 'inline-block'
+            left.style.setProperty('padding-left', `${pad}px`, 'important')
+            left.style.setProperty('margin-left', '0px', 'important')
+            left.style.setProperty('display', 'inline-block', 'important')
           })
         }
       }
