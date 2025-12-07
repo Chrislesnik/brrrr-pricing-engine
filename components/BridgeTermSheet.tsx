@@ -264,6 +264,22 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
                       </div>
                     ))}
                   </div>
+                  {/* Right-aligned logo under DEBITS list (renders if props.logo provided) */}
+                  {(() => {
+                    const raw = props["logo"]
+                    const url = raw !== undefined && raw !== null && String(raw) !== "" ? String(raw) : ""
+                    if (!url || url.startsWith("{{")) return null
+                    return (
+                      <div className="flex items-center justify-end text-xs mt-2">
+                        <img
+                          src={url}
+                          crossOrigin="anonymous"
+                          alt="Logo"
+                          style={{ maxHeight: 40, width: "auto", objectFit: "contain", display: "block" }}
+                        />
+                      </div>
+                    )
+                  })()}
                   {/* TOTAL USES bar - only top border and flush edges */}
                   <div className="bg-[#808080] text-white py-1 px-4 -mx-2 border-t-2 border-l-0 border-r-0 border-b-0 border-solid border-black mt-0" style={{ paddingTop: "3px", paddingBottom: "3px" }}>
                     <div className="flex justify-between items-center">
