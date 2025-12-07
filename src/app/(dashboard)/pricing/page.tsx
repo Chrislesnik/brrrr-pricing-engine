@@ -3655,6 +3655,11 @@ function ResultCard({
       }
       /* Preserve top padding on disclaimer container */
       .pdf-sandbox [data-termsheet-root] .ts-disclaimer { padding-top: 10px !important; }
+      /* PDF-only: 5px inner left padding for Borrower & Guarantors left labels */
+      .pdf-sandbox [data-termsheet-root] section:first-child .space-y-1:nth-of-type(1) .flex.text-xs > span:first-child {
+        padding-left: 5px !important;
+        display: inline-block !important;
+      }
     `
     container.appendChild(style)
     document.body.appendChild(container)
@@ -4424,6 +4429,11 @@ function ResultsPanel({
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
+      /* PDF-only: 5px inner left padding for Borrower & Guarantors left labels */
+      .pdf-sandbox [data-termsheet-root] section:first-child .space-y-1:nth-of-type(1) .flex.text-xs > span:first-child {
+        padding-left: 5px !important;
+        display: inline-block !important;
+      }
     `
     container.appendChild(style)
     document.body.appendChild(container)
