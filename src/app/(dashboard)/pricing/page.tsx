@@ -3591,6 +3591,21 @@ function ResultCard({
           }
         }
       }
+      // Bridge: move option_number up 3px and ensure centered
+      {
+        const bridgeRoot = clone.querySelector('[data-termsheet-root="bridge"]') as HTMLElement | null
+        if (bridgeRoot) {
+          const opt = bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1') as HTMLElement | null
+          if (opt) {
+            opt.style.transform = 'translateY(-3px)'
+            opt.style.textAlign = 'center'
+            opt.style.width = '100%'
+            opt.style.display = 'block'
+            opt.style.marginLeft = 'auto'
+            opt.style.marginRight = 'auto'
+          }
+        }
+      }
       // Shift specific Credits rows and TOTAL SOURCES up by 8px
       const shiftLabels = new Set(['Loan Proceeds', 'Cash Due @ Closing'])
       const spans = Array.from(clone.querySelectorAll('span')) as HTMLElement[]
@@ -4435,6 +4450,21 @@ function ResultsPanel({
           const logoEl = headerEl.querySelector('img[alt="Logo"]') as HTMLElement | null
           if (logoEl) {
             logoEl.style.transform = 'translateY(5px)'
+          }
+        }
+      }
+      // Bridge: move option_number up 3px and ensure centered
+      {
+        const bridgeRoot = clone.querySelector('[data-termsheet-root="bridge"]') as HTMLElement | null
+        if (bridgeRoot) {
+          const opt = bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1') as HTMLElement | null
+          if (opt) {
+            opt.style.transform = 'translateY(-3px)'
+            opt.style.textAlign = 'center'
+            opt.style.width = '100%'
+            opt.style.display = 'block'
+            opt.style.marginLeft = 'auto'
+            opt.style.marginRight = 'auto'
           }
         }
       }
