@@ -94,19 +94,32 @@ function ScaledTermSheetPreview({
   readOnly?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const [scale, setScale] = useState<number>(1)
+  // Start with a conservative scale so the page won't overflow while iOS lays out the modal
+  const [scale, setScale] = useState<number>(0.6)
+  const [hasValidMeasure, setHasValidMeasure] = useState<boolean>(false)
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
     const update = () => {
       const width = el.clientWidth
       const height = el.clientHeight
-      if (width <= 0 || height <= 0) return
+      if (width <= 0 || height <= 0) {
+        // Fallback: approximate using window viewport while container stabilizes
+        const vw = Math.max(0, (window.innerWidth || 0) - 16)
+        const vh = Math.max(0, (window.innerHeight || 0) - 16)
+        if (vw > 0 && vh > 0) {
+          const fallback = Math.min(vw / 816, vh / 1056, 1) * 0.86
+          setScale(fallback)
+        }
+        setHasValidMeasure(false)
+        return
+      }
       // Compute scale to fit both width and height of the container precisely.
       const paddingAllowance = 8 // px allowance for container padding/borders
       const s =
         Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.88
       setScale(s)
+      setHasValidMeasure(true)
     }
     // Try immediately, then on next frames and a few timed retries to handle iOS Safari layout settles.
     update()
@@ -191,7 +204,15 @@ function ScaledTermSheetPreview({
       className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
-      <div className="mx-auto justify-self-center" style={{ width: 816 * scale, height: 1056 * scale }}>
+      <div
+        className="mx-auto justify-self-center"
+        style={{
+          width: 816 * scale,
+          height: 1056 * scale,
+          opacity: hasValidMeasure ? 1 : 0,
+          transition: "opacity 150ms ease",
+        }}
+      >
         <div
           style={{
             width: 816,
