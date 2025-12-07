@@ -3740,6 +3740,16 @@ function ResultCard({
         margin-left: auto !important;
         margin-right: auto !important;
       }
+      /* Bridge PDF-only: center and stack the main heading and subheading */
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-dashed .p-3 h1 {
+        display: block !important;
+        text-align: center !important;
+        margin-bottom: 4px !important;
+      }
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-dashed .p-3 p {
+        display: block !important;
+        text-align: center !important;
+      }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
         line-height: 6px !important; margin: 0 !important; padding: 0 !important; white-space: normal !important; letter-spacing: 0 !important; word-spacing: 0 !important;
@@ -4606,6 +4616,16 @@ function ResultsPanel({
         width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
+      }
+      /* Bridge PDF-only: center and stack the main heading and subheading */
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-dashed .p-3 h1 {
+        display: block !important;
+        text-align: center !important;
+        margin-bottom: 4px !important;
+      }
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-dashed .p-3 p {
+        display: block !important;
+        text-align: center !important;
       }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
