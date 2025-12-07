@@ -3591,13 +3591,15 @@ function ResultCard({
           }
         }
       }
-      // Bridge: move option_number up 3px and ensure centered
+      // Bridge: move option_number up 3px and ensure centered (hardcoded)
       {
         const bridgeRoot = clone.querySelector('[data-termsheet-root="bridge"]') as HTMLElement | null
         if (bridgeRoot) {
-          const opt = bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1') as HTMLElement | null
+          const opt = (bridgeRoot.querySelector('div.mb-3 .text-center') ||
+            bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1')) as HTMLElement | null
           if (opt) {
-            opt.style.transform = 'translateY(-3px)'
+            opt.style.position = 'relative'
+            opt.style.top = '-3px'
             opt.style.textAlign = 'center'
             opt.style.width = '100%'
             opt.style.display = 'block'
@@ -4453,13 +4455,15 @@ function ResultsPanel({
           }
         }
       }
-      // Bridge: move option_number up 3px and ensure centered
+      // Bridge: move option_number up 3px and ensure centered (hardcoded)
       {
         const bridgeRoot = clone.querySelector('[data-termsheet-root="bridge"]') as HTMLElement | null
         if (bridgeRoot) {
-          const opt = bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1') as HTMLElement | null
+          const opt = (bridgeRoot.querySelector('div.mb-3 .text-center') ||
+            bridgeRoot.querySelector('.text-center.text-lg.font-bold.italic.text-black.my-1')) as HTMLElement | null
           if (opt) {
-            opt.style.transform = 'translateY(-3px)'
+            opt.style.position = 'relative'
+            opt.style.top = '-3px'
             opt.style.textAlign = 'center'
             opt.style.width = '100%'
             opt.style.display = 'block'
