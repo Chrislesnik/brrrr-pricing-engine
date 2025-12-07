@@ -3773,8 +3773,8 @@ function ResultCard({
       }
       /* Bridge PDF-only: reduce LOAN DETAILS header bar height by 3px */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-2.border-solid.border-black > header {
-        padding-top: 4.5px !important;
-        padding-bottom: 4.5px !important;
+        padding-top: 3.5px !important;
+        padding-bottom: 3.5px !important;
       }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
@@ -4676,8 +4676,8 @@ function ResultsPanel({
       }
       /* Bridge PDF-only: reduce LOAN DETAILS header bar height by 3px */
       .pdf-sandbox [data-termsheet-root="bridge"] section.border-2.border-solid.border-black > header {
-        padding-top: 4.5px !important;
-        padding-bottom: 4.5px !important;
+        padding-top: 3.5px !important;
+        padding-bottom: 3.5px !important;
       }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }

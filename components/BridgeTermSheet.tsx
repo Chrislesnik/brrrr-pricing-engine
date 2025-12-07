@@ -138,7 +138,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
         <div className="grid grid-cols-2 gap-5">
           <section className="border-2 border-solid border-black">
             {/* Make header bar a bit shorter */}
-            <header className="bg-black text-white py-1.5 px-2" style={{ paddingTop: "4.5px", paddingBottom: "4.5px" }}>
+            <header className="bg-black text-white py-1.5 px-2" style={{ paddingTop: "3.5px", paddingBottom: "3.5px" }}>
               <h2 className="text-[15px] font-bold text-center leading-tight">LOAN DETAILS</h2>
             </header>
             <div className="px-2 pt-2 pb-0">
