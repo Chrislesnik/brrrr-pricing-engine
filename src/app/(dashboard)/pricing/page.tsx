@@ -3745,10 +3745,12 @@ function ResultCard({
         display: block !important;
         text-align: center !important;
         margin-bottom: 4px !important;
+        transform: translateY(-5px) !important;
       }
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-dashed .p-3 p {
         display: block !important;
         text-align: center !important;
+        transform: translateY(-5px) !important;
       }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
@@ -4622,10 +4624,12 @@ function ResultsPanel({
         display: block !important;
         text-align: center !important;
         margin-bottom: 4px !important;
+        transform: translateY(-5px) !important;
       }
       .pdf-sandbox [data-termsheet-root="bridge"] .border-dashed .p-3 p {
         display: block !important;
         text-align: center !important;
+        transform: translateY(-5px) !important;
       }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
