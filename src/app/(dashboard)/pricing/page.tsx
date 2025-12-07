@@ -3791,11 +3791,11 @@ function ResultCard({
       .pdf-sandbox [data-termsheet-root=\"bridge\"] section.border-0 > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
       /* Bridge PDF-only: move CREDITS text up 4px (relative top) */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
-      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: 2px !important; text-align: left !important; }
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -5px !important; text-align: left !important; }
       /* Bridge PDF-only: move DEBITS up 4px (do not affect CREDITS) */
       .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
       /* Bridge PDF-only: move TOTAL USES down 2px */
-      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: 2px !important; text-align: left !important; }
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -5px !important; text-align: left !important; }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
         line-height: 6px !important; margin: 0 !important; padding: 0 !important; white-space: normal !important; letter-spacing: 0 !important; word-spacing: 0 !important;
@@ -4714,11 +4714,11 @@ function ResultsPanel({
       .pdf-sandbox [data-termsheet-root="bridge"] section.border-0 > header h2 { transform: translateY(-7px) !important; text-align: left !important; }
       /* Bridge PDF-only: move CREDITS text up 4px (relative top) */
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
-      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: 2px !important; text-align: left !important; }
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mb-2 > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -5px !important; text-align: left !important; }
       /* Bridge PDF-only: move DEBITS up 4px (do not affect CREDITS) */
       .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-black h3 { position: relative !important; top: -8px !important; text-align: left !important; }
       /* Bridge PDF-only: move TOTAL USES down 2px */
-      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: 2px !important; text-align: left !important; }
+      .pdf-sandbox [data-termsheet-root="bridge"] .border-2.border-solid.border-black.mx-\\[-12px\\] > .px-2 > .bg-\\[\\#808080\\] h3 { position: relative !important; top: -5px !important; text-align: left !important; }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
       /* PDF-only: 5px inner left padding for Borrower & Guarantors left labels */
