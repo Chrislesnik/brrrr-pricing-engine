@@ -3581,6 +3581,16 @@ function ResultCard({
           disclaim.parentNode.insertBefore(spacer, disclaim)
         }
       }
+      // Move logo down 3px (PDF-only)
+      {
+        const headerEl = clone.querySelector('header') as HTMLElement | null
+        if (headerEl) {
+          const logoEl = headerEl.querySelector('img[alt="Logo"]') as HTMLElement | null
+          if (logoEl) {
+            logoEl.style.transform = 'translateY(3px)'
+          }
+        }
+      }
       // Shift specific Credits rows and TOTAL SOURCES up by 8px
       const shiftLabels = new Set(['Loan Proceeds', 'Cash Due @ Closing'])
       const spans = Array.from(clone.querySelectorAll('span')) as HTMLElement[]
@@ -4416,6 +4426,16 @@ function ResultsPanel({
         spacer.style.width = '100%'
         if (disclaim.parentNode) {
           disclaim.parentNode.insertBefore(spacer, disclaim)
+        }
+      }
+      // Move logo down 3px (PDF-only)
+      {
+        const headerEl = clone.querySelector('header') as HTMLElement | null
+        if (headerEl) {
+          const logoEl = headerEl.querySelector('img[alt="Logo"]') as HTMLElement | null
+          if (logoEl) {
+            logoEl.style.transform = 'translateY(3px)'
+          }
         }
       }
       // Shift specific Credits rows and TOTAL SOURCES up by 8px
