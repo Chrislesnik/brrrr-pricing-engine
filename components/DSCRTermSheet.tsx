@@ -103,7 +103,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <div className="space-y-1">
                   {borrowerGuarantors.map((it, i) => (
                     <div key={`bor-${i}`} className="flex items-center justify-between text-xs">
-                      <span style={{ paddingLeft: 5 }}>{it.label}</span>
+                      <span style={{ paddingLeft: "5px", display: "inline-block" }}>{it.label}</span>
                       <span>{it.value}</span>
                     </div>
                   ))}
