@@ -87,9 +87,28 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
     >
       <div className="w-[816px] max-w-none print:w-[816px] px-7" style={{ boxSizing: "border-box", outline: "4px solid #f59e0b", outlineOffset: "0px" }}>
         <header className="mt-2 mb-5">
-          <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
-          <div className="flex items-center">
-            <p className="font-semibold" style={{ color: "#f97316" }}>{asText(props, "program")}</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
+              <div className="flex items-center">
+                <p className="font-semibold" style={{ color: "#f97316" }}>{asText(props, "program")}</p>
+              </div>
+            </div>
+            {(() => {
+              const raw = props["logo"];
+              const url = raw !== undefined && raw !== null && String(raw) !== "" ? String(raw) : "";
+              if (!url || url.startsWith("{{")) return null;
+              return (
+                <div style={{ alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                  <img
+                    src={url}
+                    crossOrigin="anonymous"
+                    alt="Logo"
+                    style={{ height: "100%", maxHeight: 40, width: "auto", objectFit: "contain", display: "block" }}
+                  />
+                </div>
+              );
+            })()}
           </div>
         </header>
 
