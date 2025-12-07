@@ -3598,6 +3598,12 @@ function ResultCard({
             row.style.transform = 'translateY(-8px)'
           }
         }
+        if (txt === 'TOTAL USES') {
+          const row = sp.closest('div') as HTMLElement | null
+          if (row) {
+            row.style.transform = 'translateY(-7px)'
+          }
+        }
       })
       // Shift ALL rows within the DEBITS list and the cash-out row up by 8px
       const debitsHeader = Array.from(clone.querySelectorAll('h3')).find(
@@ -4427,6 +4433,12 @@ function ResultsPanel({
           const row = sp.closest('div') as HTMLElement | null
           if (row) {
             row.style.transform = 'translateY(-8px)'
+          }
+        }
+        if (txt === 'TOTAL USES') {
+          const row = sp.closest('div') as HTMLElement | null
+          if (row) {
+            row.style.transform = 'translateY(-7px)'
           }
         }
       })
