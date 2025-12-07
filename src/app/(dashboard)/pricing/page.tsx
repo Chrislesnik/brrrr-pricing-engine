@@ -3731,6 +3731,15 @@ function ResultCard({
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
+      /* Bridge PDF-only: move option number up 3px and center */
+      .pdf-sandbox [data-termsheet-root=\"bridge\"] div.mb-3 > .text-center {
+        transform: translateY(-3px) !important;
+        text-align: center !important;
+        display: block !important;
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer, .pdf-sandbox [data-termsheet-root] footer * {
         line-height: 6px !important; margin: 0 !important; padding: 0 !important; white-space: normal !important; letter-spacing: 0 !important; word-spacing: 0 !important;
@@ -4589,6 +4598,15 @@ function ResultsPanel({
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.3rem !important; }
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
+      /* Bridge PDF-only: move option number up 3px and center */
+      .pdf-sandbox [data-termsheet-root="bridge"] div.mb-3 > .text-center {
+        transform: translateY(-3px) !important;
+        text-align: center !important;
+        display: block !important;
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
       /* PDF-only: tighten disclaimer lines and remove paragraph margins */
       .pdf-sandbox [data-termsheet-root] footer p { line-height: 1px !important; margin: 0 !important; white-space: normal !important; }
       /* PDF-only: 5px inner left padding for Borrower & Guarantors left labels */
