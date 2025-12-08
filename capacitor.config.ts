@@ -7,7 +7,6 @@ const config: CapacitorConfig = {
   appId: 'com.brrrr.pricingengine',
   appName: 'Brrrr Pricing Engine',
   webDir: '.next',
-  bundledWebRuntime: false,
   server: isDev
     ? {
         // Development: load local Next.js dev server
