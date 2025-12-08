@@ -937,10 +937,8 @@ export default function PricingEnginePage() {
       seller_concessions: sellerConcessions,
       tax_escrow_months: taxEscrowMonths,
     }
-    // Optional / conditional extras - include when section is visible
-    if (transactionType !== "purchase") {
-      payload["acquisition_date"] = formatDateOnly(acquisitionDate)
-    }
+    // Always include acquisition_date; receivers can ignore when not applicable
+    payload["acquisition_date"] = formatDateOnly(acquisitionDate)
     if (loanType === "bridge") {
       // Always include bridge-specific selections
       payload["bridge_type"] = bridgeType ?? ""
