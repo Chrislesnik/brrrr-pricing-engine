@@ -9,9 +9,9 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]) => {
     const v = props[k];
     if (v !== undefined && v !== null) {
       const s = String(v);
-      // If caller explicitly provided only whitespace (e.g. " "), render an empty merge box "{{ }}"
+      // If caller explicitly provided only whitespace (e.g. " "), render a single visible space
       if (s.length > 0 && s.trim() === "") {
-        return "{{ }}";
+        return " ";
       }
       // For any non-empty, non-whitespace value, render as-is
       if (s !== "" && s.trim() !== "") return s;

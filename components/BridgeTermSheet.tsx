@@ -8,9 +8,9 @@ function asText(props: BridgeTermSheetProps, ...keys: string[]) {
     const v = props[k]
     if (v !== undefined && v !== null) {
       const s = String(v)
-      // Whitespace-only is a deliberate "blank" -> render empty merge box
+  // Whitespace-only is a deliberate "blank" -> render a single visible space
       if (s.length > 0 && s.trim() === "") {
-        return "{{ }}"
+    return " "
       }
       if (s !== "" && s.trim() !== "") return s
       // else try next key
