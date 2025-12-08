@@ -3164,7 +3164,34 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="lender-orig">Lender Origination</Label>
                         <div className="relative">
-                          <Input id="lender-orig" inputMode="decimal" placeholder="0.00" className="pr-6" value={lenderOrig} onChange={(e)=>setLenderOrig(e.target.value)} readOnly={isBroker} disabled={isBroker} />
+                          <Input
+                            id="lender-orig"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className="pr-6"
+                            value={lenderOrig}
+                            pattern="^\\d{0,3}(\\.\\d*)?$"
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              // allow empty to let users clear the field
+                              if (raw === "") return setLenderOrig("")
+                              // keep digits and a single decimal point
+                              let v = raw.replace(/[^\d.]/g, "")
+                              const firstDot = v.indexOf(".")
+                              if (firstDot !== -1) {
+                                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "")
+                              }
+                              if (v.startsWith(".")) v = "0" + v
+                              // clamp to 100
+                              const num = Number(v)
+                              if (!Number.isNaN(num) && num > 100) {
+                                v = "100"
+                              }
+                              setLenderOrig(v)
+                            }}
+                            readOnly={isBroker}
+                            disabled={isBroker}
+                          />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             %
                           </span>
