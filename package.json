@@ -10,9 +10,16 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "next lint",
-    "lint:fix": "next lint --fix"
+    "lint:fix": "next lint --fix",
+    "cap:sync": "pnpm exec cap sync",
+    "cap:copy": "pnpm exec cap copy",
+    "ios:add": "pnpm exec cap add ios",
+    "ios:open": "pnpm exec cap open ios",
+    "ios:sync:dev": "pnpm exec cap sync ios",
+    "ios:sync:prod": "APP_URL=https://pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios"
   },
   "dependencies": {
+    "@capacitor/core": "^7.4.4",
     "@clerk/nextjs": "^6.35.2",
     "@faker-js/faker": "^9.3.0",
     "@hookform/resolvers": "^3.9.1",
@@ -64,6 +71,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/ios": "^7.4.4",
     "@eslint/eslintrc": "^3.2.0",
     "@faker-js/faker": "^9.2.0",
     "@tailwindcss/postcss": "^4.0.7",
