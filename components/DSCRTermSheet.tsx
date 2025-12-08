@@ -243,7 +243,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
                 <div className="flex items-center justify-between text-xs mt-1">
                   <span className="pl-2">{asText(props, "cash_out_to_borrower_label")}</span>
-                  <span>{asText(props, "cash_out_borrower")}</span>
+                  <span>{asText(props, "cash_out_to_borrower")}</span>
                 </div>
                 <div className="px-2 h-6 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
                   <div className="flex items-center justify-between w-full text-xs font-bold h-full" style={{ lineHeight: `${BAR_LINE_HEIGHT}px` }}>
