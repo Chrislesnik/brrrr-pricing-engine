@@ -16,7 +16,7 @@ const BAR_LINE_HEIGHT = 24; // px for h-6
 
 const DscrSheet = (props: DSCRTermSheetProps) => {
   const borrowerGuarantors = [
-    { label: "Borrower", value: asText(props, "buyer_name") },
+    { label: "Borrower", value: asText(props, "borrower_name") },
     { label: "Guarantor(s)", value: asText(props, "guarantor_name") },
     { label: "FICO", value: asText(props, "fico_score") },
     { label: "Experience", value: asText(props, "experience") },
