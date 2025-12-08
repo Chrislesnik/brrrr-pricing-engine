@@ -6,7 +6,10 @@ export type BridgeTermSheetProps = Record<string, string | number | null | undef
 function asText(props: BridgeTermSheetProps, ...keys: string[]) {
   for (const k of keys) {
     const v = props[k]
-    if (v !== undefined && v !== null && String(v) !== "") return String(v)
+    if (v !== undefined && v !== null) {
+      const s = String(v)
+      if (s !== "" && s.trim() !== "") return s
+    }
   }
   return `{{ ${keys[0]} }}`
 }
