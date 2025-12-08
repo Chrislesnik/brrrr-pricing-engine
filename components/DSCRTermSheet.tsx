@@ -13,17 +13,20 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode =
       if (s.length > 0 && s.trim() === "") {
         return (
           <span
+            className="ts-edit"
+            contentEditable
+            suppressContentEditableWarning
             style={{
               display: "inline-block",
               border: "1px dashed #f59e0b",
               color: "#f59e0b",
-              padding: "0 4px",
+              padding: "0 6px",
               borderRadius: 4,
-              minWidth: 10,
+              minWidth: 56,
               lineHeight: "1.2",
             }}
           >
-            &nbsp;
+            {" "}
           </span>
         );
       }
