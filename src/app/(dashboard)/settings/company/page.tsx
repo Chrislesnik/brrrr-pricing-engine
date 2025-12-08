@@ -33,20 +33,23 @@ export default async function SettingsCompanyPage() {
           .maybeSingle()
         initialName = (data?.company_name as string) || undefined
         initialLogoUrl = (data?.company_logo_url as string) || undefined
-        allowWhiteLabeling = (data as any)?.allow_white_labeling === true
-        // Fallback: if column does not exist or null, try custom_broker_settings
-        if (!allowWhiteLabeling && (error || (data && (data as any).allow_white_labeling === undefined))) {
-          const brokerId = (data as any)?.id as string | undefined
-          if (brokerId) {
-            const { data: custom } = await supabaseAdmin
-              .from("custom_broker_settings")
-              .select("allow_white_labeling")
-              .eq("organization_id", orgUuid)
-              .eq("broker_id", brokerId)
-              .maybeSingle()
-            allowWhiteLabeling = (custom as any)?.allow_white_labeling === true
-          }
+        const brokerId = (data as any)?.id as string | undefined
+        // Resolve allow_white_labeling from both sources:
+        // - Prefer TRUE if present on brokers
+        // - OR with custom_broker_settings for the same broker/org
+        const brokersFlag = (data as any)?.allow_white_labeling === true
+        let customFlag = false
+        if (brokerId) {
+          const { data: custom } = await supabaseAdmin
+            .from("custom_broker_settings")
+            .select("allow_white_labeling")
+            .eq("organization_id", orgUuid)
+            .eq("broker_id", brokerId)
+            .maybeSingle()
+          customFlag = (custom as any)?.allow_white_labeling === true
         }
+        // If either source enables white labeling, expose the logo input
+        allowWhiteLabeling = brokersFlag || customFlag || (!!error && customFlag)
       }
     }
   }

@@ -3217,7 +3217,29 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="broker-orig">Broker Origination</Label>
                         <div className="relative">
-                          <Input id="broker-orig" inputMode="decimal" placeholder="0.00" className="pr-6" value={brokerOrig} onChange={(e)=>setBrokerOrig(e.target.value)} />
+                          <Input
+                            id="broker-orig"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className="pr-6"
+                            value={brokerOrig}
+                            pattern="^\\d{0,3}(\\.\\d*)?$"
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              if (raw === "") return setBrokerOrig("")
+                              let v = raw.replace(/[^\d.]/g, "")
+                              const firstDot = v.indexOf(".")
+                              if (firstDot !== -1) {
+                                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "")
+                              }
+                              if (v.startsWith(".")) v = "0" + v
+                              const num = Number(v)
+                              if (!Number.isNaN(num) && num > 100) {
+                                v = "100"
+                              }
+                              setBrokerOrig(v)
+                            }}
+                          />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             %
                           </span>
