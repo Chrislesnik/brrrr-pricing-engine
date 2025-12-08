@@ -19,11 +19,14 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode =
             style={{
               display: "inline-block",
               border: "1px dashed #f59e0b",
-              color: "#f59e0b",
+              // keep text color consistent with surrounding content
+              color: "inherit",
+              // a touch wider so user has room to type but not enough to shift layout
               padding: "0 6px",
               borderRadius: 4,
-              minWidth: 56,
+              minWidth: 32,
               lineHeight: "1.2",
+              verticalAlign: "baseline",
             }}
           >
             {" "}

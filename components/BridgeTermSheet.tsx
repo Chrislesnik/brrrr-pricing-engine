@@ -18,11 +18,12 @@ function asText(props: BridgeTermSheetProps, ...keys: string[]): React.ReactNode
             style={{
               display: "inline-block",
               border: "1px dashed #f59e0b",
-              color: "#f59e0b",
+              color: "inherit",
               padding: "0 6px",
               borderRadius: 4,
-              minWidth: 56,
+              minWidth: 32,
               lineHeight: "1.2",
+              verticalAlign: "baseline",
             }}
           >
             {" "}
