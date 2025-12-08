@@ -274,7 +274,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   ))}
                 </div>
                 {/* Extra rows 1-11 above EMD */}
-                <div className="px-2 space-y-1">
+                <div className="pr-2 space-y-1">
                   {[1,2,3,4,5,6,7,8,9,10,11].map((n) => (
                     <div key={`extra-${n}`} className="flex items-center justify-between text-xs leading-5">
                       <span className="pl-2">{asText(props, `extra_row_label_${n}`)}</span>
@@ -283,7 +283,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   ))}
                 </div>
                 {/* EMD row above Cash Out */}
-                <div className="px-2">
+                <div className="pr-2">
                   <div className="flex items-center justify-between text-xs leading-5">
                     <span className="pl-2">{asText(props, "emd_label")}</span>
                     <span className="text-right">{asText(props, "emd")}</span>
