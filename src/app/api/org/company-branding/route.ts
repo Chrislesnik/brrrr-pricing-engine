@@ -90,8 +90,26 @@ export async function POST(req: NextRequest) {
       allowWhiteLabeling =
         (custom as any)?.allow_white_labeling === true ||
         ((brokerRow as any)?.allow_white_labeling === true)
+      if (!allowWhiteLabeling) {
+        const { data: anyCustom } = await supabaseAdmin
+          .from("custom_broker_settings")
+          .select("allow_white_labeling")
+          .eq("organization_id", orgUuid)
+          .limit(1)
+          .maybeSingle()
+        allowWhiteLabeling = (anyCustom as any)?.allow_white_labeling === true || allowWhiteLabeling
+      }
     } else {
       allowWhiteLabeling = (brokerRow as any)?.allow_white_labeling === true
+      if (!allowWhiteLabeling) {
+        const { data: anyCustom } = await supabaseAdmin
+          .from("custom_broker_settings")
+          .select("allow_white_labeling")
+          .eq("organization_id", orgUuid)
+          .limit(1)
+          .maybeSingle()
+        allowWhiteLabeling = (anyCustom as any)?.allow_white_labeling === true || allowWhiteLabeling
+      }
     }
 
     // Fetch existing url to remove after successful replacement
