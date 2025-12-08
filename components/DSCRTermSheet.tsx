@@ -25,7 +25,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
   const subjectProperty = [
     { label: "Street", value: asText(props, "street") },
-    { label: "City, State, Zip", value: asText(props, "city_state") },
+    { label: "City, State, Zip", value: asText(props, "city_state_zip") },
     { label: "Property Type", value: asText(props, "property_type") },
     { label: "Sq Footage", value: asText(props, "sq_footage") },
     { label: "Date Purchased (refi only)", value: asText(props, "date_purchased") },
