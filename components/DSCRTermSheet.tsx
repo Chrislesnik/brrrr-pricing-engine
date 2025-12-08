@@ -64,7 +64,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
   ];
 
   const debits = [
-    { label: asText(props, "purchaseprice_payoff"), value: asText(props, "purchaseprice_payoff") },
+    { label: asText(props, "purchaseprice_payoff_label"), value: asText(props, "purchaseprice_payoff") },
     { label: "Lender Fee - Origination", value: asText(props, "lender_fee_origination") },
     { label: "Broker Fee - Origination", value: asText(props, "broker_fee_origination") },
     { label: "Lender Fee - Rate Buy Down", value: asText(props, "lender_fee_rbd", "lender_fee_rate_buy_down", "rate_buydown") },
