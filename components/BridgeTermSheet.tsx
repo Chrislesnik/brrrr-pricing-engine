@@ -3,20 +3,48 @@ import { Card, CardContent } from "@/components/ui/card"
 
 export type BridgeTermSheetProps = Record<string, string | number | null | undefined>
 
-function asText(props: BridgeTermSheetProps, ...keys: string[]) {
+function asText(props: BridgeTermSheetProps, ...keys: string[]): React.ReactNode {
   for (const k of keys) {
     const v = props[k]
     if (v !== undefined && v !== null) {
       const s = String(v)
-  // Whitespace-only is a deliberate "blank" -> render an empty merge box
+      // Whitespace-only is a deliberate "blank" -> render an empty orange box (no braces)
       if (s.length > 0 && s.trim() === "") {
-    return "{{ }}"
+        return (
+          <span
+            style={{
+              display: "inline-block",
+              border: "1px dashed #f59e0b",
+              color: "#f59e0b",
+              padding: "0 4px",
+              borderRadius: 4,
+              minWidth: 10,
+              lineHeight: "1.2",
+            }}
+          >
+            &nbsp;
+          </span>
+        )
       }
       if (s !== "" && s.trim() !== "") return s
       // else try next key
     }
   }
-  return `{{ ${keys[0]} }}`
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        border: "1px dashed #f59e0b",
+        color: "#f59e0b",
+        padding: "0 4px",
+        borderRadius: 4,
+        lineHeight: "1.2",
+      }}
+    >
+      {`{{ ${keys[0]} }`}
+      {"}"}
+    </span>
+  )
 }
 
 const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {

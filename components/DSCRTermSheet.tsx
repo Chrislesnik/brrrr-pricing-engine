@@ -3,23 +3,51 @@ import React from "react";
 // Minimal props shape for preview/typing; accepts any placeholder tokens
 export type DSCRTermSheetProps = Record<string, string | number | null | undefined>;
 
-// Helper to render the visible value or fallback token
-const asText = (props: DSCRTermSheetProps, ...keys: string[]) => {
+// Helper to render the visible value or a styled placeholder/empty box
+const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode => {
   for (const k of keys) {
     const v = props[k];
     if (v !== undefined && v !== null) {
       const s = String(v);
-      // If caller explicitly provided only whitespace (e.g. " "), render an empty merge box
+      // If caller explicitly provided only whitespace (e.g. " "), render an empty orange box (no braces)
       if (s.length > 0 && s.trim() === "") {
-        return "{{ }}";
+        return (
+          <span
+            style={{
+              display: "inline-block",
+              border: "1px dashed #f59e0b",
+              color: "#f59e0b",
+              padding: "0 4px",
+              borderRadius: 4,
+              minWidth: 10,
+              lineHeight: "1.2",
+            }}
+          >
+            &nbsp;
+          </span>
+        );
       }
       // For any non-empty, non-whitespace value, render as-is
       if (s !== "" && s.trim() !== "") return s;
       // If truly empty string, fall through to try next key
     }
   }
-  // No usable value found; render the named merge tag as a placeholder
-  return `{{ ${keys[0]} }}`;
+  // No usable value found; render a placeholder box with the merge tag text inside (to guide the user)
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        border: "1px dashed #f59e0b",
+        color: "#f59e0b",
+        padding: "0 4px",
+        borderRadius: 4,
+        lineHeight: "1.2",
+      }}
+    >
+      {`{{ ${keys[0]} }`}
+      {"}"}
+    </span>
+  );
 };
 
 const BAR_LINE_HEIGHT = 24; // px for h-6
