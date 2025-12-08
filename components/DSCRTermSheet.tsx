@@ -75,7 +75,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
     { label: "Reserves - 0 mo PITIA @ $2720.43 per month", value: "$0.00" },
     { label: "HOI Premium - Balance Due", value: asText(props, "hoi_premium") },
     { label: "Flood Insurance Premium", value: asText(props, "flood_premium") },
-    { label: "Daily Interest from 12/29/2025 to 1/1/2026 @", value: "$122.92 per day" },
+    { label: "Daily Interest from 12/29/2025 to 1/1/2026 @", value: asText(props, "per_diem") },
     { label: "Title Insurance & Recording Fees", value: asText(props, "title_fee") },
   ];
 
