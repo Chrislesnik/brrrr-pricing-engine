@@ -49,9 +49,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
   ];
 
   const liquidity = [
-    { label: "Liquidity Requirement", value: asText(props, "liquidity_required") },
+    { label: "Liquidity Requirement", value: asText(props, "liquidity_requirement") },
     { label: "Cash to Close", value: asText(props, "cash_to_close") },
-    { label: asText(props, "downpayment_payoff_label"), value: asText(props, "downpayment_payoff") },
+    { label: asText(props, "downpayment_payoff_label"), value: asText(props, "downpayment_payoff_payment") },
     { label: "Escrows", value: asText(props, "escrows") },
     { label: asText(props, "reserves_label"), value: asText(props, "reserves") },
     { label: "Mortgage Debt - 100%", value: asText(props, "mortgage_debt") },
