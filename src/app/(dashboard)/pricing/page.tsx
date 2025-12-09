@@ -3847,6 +3847,16 @@ function ResultCard({
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .mt-1 {
         margin-top: 0.12rem !important;
       }
+      /* Force per-row containers in right column to use the same compact spacing */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2.pt-1.pb-1 > .flex,
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2 > .flex,
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .space-y-1 > .flex,
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .flex.items-center.justify-between.text-xs {
+        margin-top: 0.12rem !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        line-height: 1.15 !important;
+      }
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* Bridge PDF-only: move option number up 3px and center */
