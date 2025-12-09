@@ -149,7 +149,13 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
         raw === "dscr" ? "DSCR" : raw === "bridge" ? "Bridge" : raw ? raw : "-"
       return <div>{display}</div>
     },
-    filterFn: "weakEquals",
+    // OR matching across selected values (e.g., DSCR OR Bridge)
+    filterFn: (row, columnId, filterValue) => {
+      const selected = Array.isArray(filterValue) ? (filterValue as string[]) : []
+      if (selected.length === 0) return true
+      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
+      return selected.some((s) => cell === String(s).toLowerCase())
+    },
     enableSorting: false,
   },
   {
@@ -174,7 +180,13 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
           .replace(/\b\w/g, (c) => c.toUpperCase())
       return <div>{title}</div>
     },
-    filterFn: "weakEquals",
+    // OR matching for selected transaction types
+    filterFn: (row, columnId, filterValue) => {
+      const selected = Array.isArray(filterValue) ? (filterValue as string[]) : []
+      if (selected.length === 0) return true
+      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
+      return selected.some((s) => cell === String(s).toLowerCase())
+    },
     enableSorting: false,
   },
   {
@@ -209,7 +221,13 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     cell: ({ row }) => (
       <StatusCell id={row.getValue("id") as string} initialStatus={row.getValue("status") as string} />
     ),
-    filterFn: "weakEquals",
+    // OR matching for status
+    filterFn: (row, columnId, filterValue) => {
+      const selected = Array.isArray(filterValue) ? (filterValue as string[]) : []
+      if (selected.length === 0) return true
+      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
+      return selected.some((s) => cell === String(s).toLowerCase())
+    },
     enableSorting: false,
     enableHiding: false,
   },
