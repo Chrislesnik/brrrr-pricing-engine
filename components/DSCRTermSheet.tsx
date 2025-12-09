@@ -21,11 +21,12 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode =
               border: "1px dashed #f59e0b",
               // keep text color consistent with surrounding content
               color: "inherit",
-              // a touch wider so user has room to type but not enough to shift layout
-              padding: "0 6px",
-              borderRadius: 4,
-              minWidth: 32,
-              lineHeight: "1.2",
+                  // keep vertical rhythm identical to normal text rows
+                  padding: "0",
+                  borderRadius: 3,
+                  minWidth: 28,
+                  lineHeight: "inherit",
+                  boxSizing: "border-box",
               verticalAlign: "baseline",
             }}
           >
