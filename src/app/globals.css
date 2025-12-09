@@ -127,6 +127,17 @@
   body {
     @apply bg-background text-foreground min-h-svh w-full;
     font-family: Arial, Helvetica, sans-serif;
+    /* Respect iPhone safe area when running inside WKWebView */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Ensure sticky/fixed headers don't sit under the notch */
+  .sticky.top-0 {
+    top: env(safe-area-inset-top);
+  }
+  .fixed.top-0 {
+    top: env(safe-area-inset-top);
   }
 
   button:not(:disabled),
