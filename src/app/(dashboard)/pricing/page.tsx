@@ -3839,6 +3839,14 @@ function ResultCard({
       /* Slightly tighten spacing in the left column sections only */
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.3rem !important; }
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
+      /* Tighten row spacing in right column (CREDITS/DEBITS lists) for PDF output */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .space-y-1 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0.12rem !important; /* ~2px */
+      }
+      /* Also neutralize any additional margins that sneak in via mt-1 on rows in PDF */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .mt-1 {
+        margin-top: 0.12rem !important;
+      }
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
       /* Bridge PDF-only: move option number up 3px and center */
