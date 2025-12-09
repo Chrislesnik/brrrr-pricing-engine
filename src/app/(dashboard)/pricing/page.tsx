@@ -3839,30 +3839,36 @@ function ResultCard({
       /* Slightly tighten spacing in the left column sections only */
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mb-3 { margin-bottom: 0.3rem !important; }
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child h3 + div { margin-top: 0.12rem !important; }
-      /* Tighten row spacing in right column (CREDITS/DEBITS lists) for PDF output */
+      /* HARD-SET row spacing in right column (CREDITS/DEBITS lists) for PDF output */
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .space-y-1 > :not([hidden]) ~ :not([hidden]) {
-        margin-top: 0.12rem !important; /* ~2px */
+        margin-top: 0 !important;
       }
       /* Also neutralize any additional margins that sneak in via mt-1 on rows in PDF */
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .mt-1 {
-        margin-top: 0.12rem !important;
+        margin-top: 0 !important;
       }
       /* Force per-row containers in right column to use the same compact spacing */
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2.pt-1.pb-1 > .flex,
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2 > .flex,
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .space-y-1 > .flex,
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .flex.items-center.justify-between.text-xs {
-        margin-top: 0.12rem !important;
+        margin-top: 0 !important;
         padding-top: 0 !important;
         padding-bottom: 0 !important;
-        line-height: 1.12 !important;
+        line-height: 1.1 !important;
       }
       /* Collapse any default margins inside right-column px-2 containers, then reapply uniform 2px gap */
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2 > * {
         margin-top: 0 !important;
       }
       .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2 > * + * {
-        margin-top: 0.12rem !important;
+        margin-top: 0 !important;
+      }
+      /* Ensure left column rows match: zero margins; rely on line-height only */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .space-y-1 > :not([hidden]) ~ :not([hidden]),
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .px-2 > * + *,
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:first-child .mt-1 {
+        margin-top: 0 !important;
       }
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
