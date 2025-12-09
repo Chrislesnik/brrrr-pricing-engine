@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { LoanRow } from "../data/fetch-loans"
 import { PipelineToolbar } from "./pipeline-toolbar"
+import { Badge } from "@/components/ui/badge"
+import * as React from "react"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -139,7 +141,8 @@ export function PipelineTable({ columns, data }: Props) {
   return (
     <div className="space-y-4">
       <PipelineToolbar table={table} />
-      <div className="rounded-md border">
+      {/* Desktop/tablet view */}
+      <div className="rounded-md border hidden md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -201,6 +204,48 @@ export function PipelineTable({ columns, data }: Props) {
             )}
           </TableBody>
         </Table>
+      </div>
+      {/* Mobile list view */}
+      <div className="md:hidden">
+        <div className="space-y-3">
+          {table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => {
+              const orig = row.original as LoanRow
+              const address = (orig as { propertyAddress?: string }).propertyAddress ?? "-"
+              const firstName =
+                (orig as { firstName?: string; borrowerFirstName?: string }).firstName ??
+                (orig as { firstName?: string; borrowerFirstName?: string }).borrowerFirstName
+              const lastName =
+                (orig as { lastName?: string; borrowerLastName?: string }).lastName ??
+                (orig as { lastName?: string; borrowerLastName?: string }).borrowerLastName
+              const borrower = [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
+              const status = String((orig as { status?: string }).status ?? "-").toLowerCase()
+              const badgeColor =
+                status === "active"
+                  ? "bg-green-100 text-green-800 border-green-200"
+                  : status === "dead"
+                  ? "bg-red-100 text-red-800 border-red-200"
+                  : ""
+              return (
+                <div key={row.id} className="rounded-lg border p-3">
+                  <div className="text-[15px] font-semibold">{address}</div>
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <div className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Borrower</span>: {borrower}
+                    </div>
+                    <Badge variant="outline" className={`capitalize ${badgeColor}`}>
+                      {status || "-"}
+                    </Badge>
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+              No results.
+            </div>
+          )}
+        </div>
       </div>
       <DataTablePagination table={table} />
     </div>
