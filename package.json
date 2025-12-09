@@ -16,7 +16,7 @@
     "ios:add": "pnpm exec cap add ios",
     "ios:open": "pnpm exec cap open ios",
     "ios:sync:dev": "pnpm exec cap sync ios",
-    "ios:sync:prod": "APP_URL=https://pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios"
+    "ios:sync:prod": "APP_URL=https://www.pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios"
   },
   "dependencies": {
     "@capacitor/core": "^7.4.4",

@@ -15,12 +15,16 @@ const config: CapacitorConfig = {
         allowNavigation: ['localhost', '127.0.0.1'],
       }
     : (() => {
-        const hostname = new URL(serverUrl!).hostname;
+        const { hostname } = new URL(serverUrl!);
+        // Include both apex and www variants to allow redirects during auth flows
+        const apex = hostname.replace(/^www\./, '');
+        const withWww = `www.${apex}`;
+        const allow = Array.from(new Set([hostname, apex, withWww])).filter(Boolean) as string[];
         return {
           // Production: load your hosted Next.js site (must be HTTPS)
           url: serverUrl!,
           cleartext: false,
-          allowNavigation: [hostname],
+          allowNavigation: allow,
         };
       })(),
 };
