@@ -3944,6 +3944,20 @@ function ResultCard({
       }
     `
     container.appendChild(style)
+    // Remove blank extra rows in the right column for PDF output (both label and value are empty/whitespace)
+    try {
+      const blankExtraRows = container.querySelectorAll(
+        '.pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .pr-2 > .flex'
+      ) as NodeListOf<HTMLElement>
+      blankExtraRows.forEach((row) => {
+        const spans = row.querySelectorAll('span')
+        const a = spans[0]?.textContent?.trim() ?? ''
+        const b = spans[1]?.textContent?.trim() ?? ''
+        if (a === '' && b === '') {
+          row.style.display = 'none'
+        }
+      })
+    } catch {}
     document.body.appendChild(container)
     try {
       await new Promise((r) => requestAnimationFrame(() => r(undefined)))
