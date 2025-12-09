@@ -48,7 +48,7 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           onChange={(event) => {
             table.getColumn("search")?.setFilterValue(event.target.value)
           }}
-          className="h-8 w-[150px] lg:w-[250px]"
+          className="h-9 w-full sm:w-[240px] lg:w-[250px]"
         />
         <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-x-2 w-full">
           {table.getColumn("loanType") && (
