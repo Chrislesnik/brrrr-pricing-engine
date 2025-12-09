@@ -3855,7 +3855,14 @@ function ResultCard({
         margin-top: 0.12rem !important;
         padding-top: 0 !important;
         padding-bottom: 0 !important;
-        line-height: 1.15 !important;
+        line-height: 1.12 !important;
+      }
+      /* Collapse any default margins inside right-column px-2 containers, then reapply uniform 2px gap */
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2 > * {
+        margin-top: 0 !important;
+      }
+      .pdf-sandbox [data-termsheet-root] .grid.grid-cols-2 > section:last-child .px-2 > * + * {
+        margin-top: 0.12rem !important;
       }
       /* PDF-only vertical nudge for DSCR header labels to match modal */
       .pdf-sandbox [data-termsheet-root] .ts-bar-label { transform: translateY(-8px); }
