@@ -4435,7 +4435,7 @@ function Widget({ label, value }: { label: string; value: string | number | null
   return (
     <div className="rounded-md border p-2 min-w-0">
       <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className="w-full overflow-hidden text-center tabular-nums tracking-tight leading-5 text-[13px] sm:text-sm font-semibold truncate">
+      <div className="w-full overflow-hidden text-left tabular-nums tracking-tight leading-5 text-[13px] sm:text-sm font-semibold truncate">
         {value ?? ""}
       </div>
     </div>
