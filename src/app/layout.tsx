@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { Providers } from "./providers"
+import { LinkInAppFix } from "./LinkInAppFix"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -39,7 +40,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} group/body antialiased overflow-x-hidden`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <LinkInAppFix />
+          {children}
+        </Providers>
         <Toaster />
       </body>
     </html>
