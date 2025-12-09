@@ -30,6 +30,27 @@ import { LoanRow } from "../data/fetch-loans"
 import { PipelineToolbar } from "./pipeline-toolbar"
 import { Badge } from "@/components/ui/badge"
 import * as React from "react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { IconDots } from "@tabler/icons-react"
+import { AssignMembersDialog } from "./assign-members-dialog"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -228,7 +249,10 @@ export function PipelineTable({ columns, data }: Props) {
                   : ""
               return (
                 <div key={row.id} className="rounded-lg border p-3">
-                  <div className="text-[15px] font-semibold">{address}</div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-[15px] font-semibold">{address}</div>
+                    <MobileRowActions id={orig.id} status={status} />
+                  </div>
                   <div className="mt-1 flex items-center justify-between text-sm">
                     <div className="text-muted-foreground">
                       <span className="font-medium text-foreground">Borrower</span>: {borrower}
@@ -248,6 +272,114 @@ export function PipelineTable({ columns, data }: Props) {
         </div>
       </div>
       <DataTablePagination table={table} />
+    </div>
+  )
+}
+
+function MobileRowActions({ id, status }: { id: string; status?: string }) {
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const [localStatus, setLocalStatus] = React.useState(status ?? "active")
+  const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
+  const [assignOpen, setAssignOpen] = React.useState(false)
+
+  async function setStatus(next: string) {
+    try {
+      const res = await fetch(`/api/loans/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Failed to update status: ${t || res.status}`)
+        return
+      }
+      setLocalStatus(next)
+      window.dispatchEvent(new CustomEvent("loan-status-updated", { detail: { id, status: next } }))
+    } catch {
+      alert(`Failed to update status`)
+    }
+  }
+
+  async function deleteLoan() {
+    try {
+      const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Failed to delete: ${t || res.status}`)
+        return
+      }
+      window.location.reload()
+    } catch {
+      alert(`Failed to delete`)
+    }
+  }
+
+  return (
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost" className="h-8 w-8">
+            <IconDots className="h-4 w-4" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => (window.location.href = `/pricing?loanId=${id}`)}>
+            Pricing Engine
+          </DropdownMenuItem>
+          <DropdownMenuItem>Term Sheets</DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setAssignOpen(true)
+            }}
+          >
+            Assigned To
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-red-600 focus:text-red-600"
+            onSelect={(e) => {
+              e.preventDefault()
+              setConfirmOpen(true)
+            }}
+          >
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete loan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this loan and its primary scenario.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                setConfirmOpen(false)
+                void deleteLoan()
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AssignMembersDialog
+        loanId={id}
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        onSaved={() => {}}
+      />
     </div>
   )
 }
