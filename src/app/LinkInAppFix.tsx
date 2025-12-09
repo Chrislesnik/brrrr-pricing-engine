@@ -9,6 +9,12 @@ import { useEffect } from 'react'
  */
 export function LinkInAppFix(): null {
   useEffect(() => {
+    const isSameAppHost = (host: string): boolean => {
+      const apex = host.replace(/^www\./, '')
+      const candidates = new Set([host, apex, `www.${apex}`, 'pricingengine.pro', 'www.pricingengine.pro'])
+      return candidates.has(host) || candidates.has(apex) || candidates.has(`www.${apex}`)
+    }
+
     const handleClick = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement)?.closest?.('a') as HTMLAnchorElement | null
       if (!anchor) return
@@ -22,9 +28,7 @@ export function LinkInAppFix(): null {
         const url = new URL(href)
         const host = url.hostname
         // Treat both apex and www as same-app domains
-        const apex = host.replace(/^www\./, '')
-        const sameAppHosts = new Set([apex, `www.${apex}`, 'pricingengine.pro', 'www.pricingengine.pro'])
-        if (sameAppHosts.has(host)) {
+        if (isSameAppHost(host)) {
           e.preventDefault()
           // Navigate in the same WebView instead of opening Safari
           window.location.href = href
@@ -34,7 +38,31 @@ export function LinkInAppFix(): null {
       }
     }
     document.addEventListener('click', handleClick, true)
-    return () => document.removeEventListener('click', handleClick, true)
+
+    // Intercept programmatic window.open calls (often used by auth buttons)
+    const originalOpen = window.open
+    window.open = function (url?: string | URL | undefined, target?: string, features?: string): Window | null {
+      const href = String(url ?? '')
+      if (/^https?:\/\//i.test(href) && !/^(mailto:|tel:)/i.test(href)) {
+        try {
+          const { hostname } = new URL(href)
+          if (isSameAppHost(hostname)) {
+            window.location.href = href
+            return null
+          }
+        } catch {
+          // fall through to original
+        }
+      }
+      // Fallback to default behavior (may open Safari for true externals)
+      // eslint-disable-next-line unicorn/prefer-add-event-listener
+      return originalOpen.call(window, url as any, target, features)
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClick, true)
+      window.open = originalOpen
+    }
   }, [])
   return null
 }
