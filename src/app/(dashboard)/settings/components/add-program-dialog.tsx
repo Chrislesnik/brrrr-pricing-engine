@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,6 +35,7 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
   const [webhookUrl, setWebhookUrl] = useState("")
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([])
 
   const canAdd =
     !!loanType && internalName.trim().length > 0 && externalName.trim().length > 0
@@ -48,6 +49,9 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
     fd.set("internalName", internalName.trim())
     fd.set("externalName", externalName.trim())
     fd.set("webhookUrl", webhookUrl.trim())
+    for (const f of filesToUpload) {
+      fd.append("files", f)
+    }
     setError(null)
     startTransition(async () => {
       const res = await action(fd)
@@ -60,9 +64,12 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
       setInternalName("")
       setExternalName("")
       setWebhookUrl("")
+      setFilesToUpload([])
       setOpen(false)
     })
   }
+
+  const newFilesCount = useMemo(() => filesToUpload.length, [filesToUpload])
 
   return (
     <>
@@ -127,6 +134,23 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
               onChange={(e) => setWebhookUrl(e.target.value)}
               placeholder="Webhook URL"
             />
+            <div className="mt-2 rounded-md border p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <Label>Documents (optional)</Label>
+                <span className="text-xs text-muted-foreground">
+                  {newFilesCount ? `${newFilesCount} new` : "none selected"}
+                </span>
+              </div>
+              <Input
+                id="programDocsNew"
+                type="file"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  setFilesToUpload(files)
+                }}
+              />
+            </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
           </div>
           <DialogFooter>

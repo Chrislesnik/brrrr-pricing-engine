@@ -23,6 +23,7 @@ export async function addProgramAction(formData: FormData) {
   const internalName = String(formData.get("internalName") || "").trim()
   const externalName = String(formData.get("externalName") || "").trim()
   const webhookUrl = String(formData.get("webhookUrl") || "").trim()
+  const files = formData.getAll("files") as File[]
 
   if (!loanType || !internalName || !externalName) {
     return { ok: false, error: "Missing required fields" }
@@ -33,17 +34,57 @@ export async function addProgramAction(formData: FormData) {
     return { ok: false, error: "Unable to resolve organization. Try reloading and selecting an org." }
   }
 
-  const { error } = await supabaseAdmin.from("programs").insert({
-    loan_type: loanType,
-    internal_name: internalName,
-    external_name: externalName,
-    webhook_url: webhookUrl || null,
-    status,
-    user_id: userId,
-    organization_id: orgUuid,
-  })
-  if (error) {
-    return { ok: false, error: error.message }
+  const { data: inserted, error } = await supabaseAdmin
+    .from("programs")
+    .insert({
+      loan_type: loanType,
+      internal_name: internalName,
+      external_name: externalName,
+      webhook_url: webhookUrl || null,
+      status,
+      user_id: userId,
+      organization_id: orgUuid,
+    })
+    .select("id")
+    .single()
+  if (error) return { ok: false, error: error.message }
+
+  const programId = inserted?.id as string
+
+  // Handle uploads if any
+  if (files && files.length > 0 && programId) {
+    for (const file of files) {
+      if (!file || typeof file.arrayBuffer !== "function") continue
+      const documentId = (globalThis.crypto?.randomUUID?.() as string) || require("crypto").randomUUID()
+      const fileName = (file as any).name || "file"
+      const storagePath = `programs/${programId}/${documentId}/${fileName}`
+      const arrayBuffer = await file.arrayBuffer()
+      const { error: upErr } = await supabaseAdmin.storage.from("program-docs").upload(storagePath, Buffer.from(arrayBuffer), {
+        upsert: false,
+        contentType: (file as any).type || undefined,
+      })
+      if (upErr) return { ok: false, error: upErr.message }
+      const { error: insErr } = await supabaseAdmin.from("program_documents").insert({
+        id: documentId,
+        program_id: programId,
+        storage_path: storagePath,
+        title: fileName,
+        mime_type: (file as any).type || null,
+        status: "pending",
+      })
+      if (insErr) return { ok: false, error: insErr.message }
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ document_id: documentId, program_id: programId, storage_path: storagePath }),
+          })
+        } catch {
+          // non-fatal
+        }
+      }
+    }
   }
 
   revalidatePath("/settings")
