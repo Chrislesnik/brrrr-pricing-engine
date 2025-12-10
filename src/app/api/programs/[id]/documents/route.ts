@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 // GET /api/programs/:id/documents
 // Returns documents stored for a program (metadata only).
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> }
 ) {
-  const programId = params.id
+  const { id: programId } = await ctx.params
   if (!programId) {
     return NextResponse.json({ error: "Missing program id" }, { status: 400 })
   }
