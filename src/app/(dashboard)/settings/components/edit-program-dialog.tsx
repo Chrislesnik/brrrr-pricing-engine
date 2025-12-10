@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,6 +45,11 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
   const [webhookUrl, setWebhookUrl] = useState("")
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [existingDocs, setExistingDocs] = useState<
+    { id: string; title: string | null; storage_path: string; status: string }[]
+  >([])
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([])
+  const [deleteIds, setDeleteIds] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (!open) return
@@ -53,6 +58,22 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
     setInternalName(program.internal_name)
     setExternalName(program.external_name)
     setWebhookUrl(program.webhook_url ?? "")
+    // Load current documents
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/programs/${program.id}/documents`, { cache: "no-store" })
+        if (res.ok) {
+          const json = await res.json()
+          setExistingDocs(json.documents || [])
+        } else {
+          setExistingDocs([])
+        }
+      } catch {
+        setExistingDocs([])
+      }
+      setFilesToUpload([])
+      setDeleteIds({})
+    })()
   }, [open, program])
 
   const canSave =
@@ -68,6 +89,13 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
     fd.set("internalName", internalName.trim())
     fd.set("externalName", externalName.trim())
     fd.set("webhookUrl", webhookUrl.trim())
+    // mark deletions
+    const ids = Object.keys(deleteIds).filter((k) => deleteIds[k])
+    fd.set("deleteDocumentIds", JSON.stringify(ids))
+    // files
+    for (const f of filesToUpload) {
+      fd.append("files", f)
+    }
     setError(null)
     startTransition(async () => {
       const res = await action(fd)
@@ -78,6 +106,8 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
       onOpenChange(false)
     })
   }
+
+  const pendingDeleteCount = useMemo(() => Object.values(deleteIds).filter(Boolean).length, [deleteIds])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,6 +166,52 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
             onChange={(e) => setWebhookUrl(e.target.value)}
             placeholder="Webhook URL"
           />
+          {/* Documents section */}
+          <div className="mt-2 rounded-md border p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <Label>Documents (optional)</Label>
+              <span className="text-xs text-muted-foreground">
+                {existingDocs.length} saved{pendingDeleteCount ? `, ${pendingDeleteCount} to remove` : ""}
+                {filesToUpload.length ? `, ${filesToUpload.length} new` : ""}
+              </span>
+            </div>
+            {existingDocs.length > 0 ? (
+              <ul className="mb-2 space-y-1">
+                {existingDocs.map((d) => (
+                  <li key={d.id} className="flex items-center justify-between">
+                    <span className="truncate text-sm">
+                      {d.title || d.storage_path.split("/").at(-1)}
+                      <span className="ml-2 text-xs text-muted-foreground">({d.status})</span>
+                    </span>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={!!deleteIds[d.id]}
+                        onChange={(e) =>
+                          setDeleteIds((m) => ({
+                            ...m,
+                            [d.id]: e.target.checked,
+                          }))
+                        }
+                      />
+                      Remove
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mb-2 text-sm text-muted-foreground">No documents uploaded yet.</p>
+            )}
+            <Input
+              id="programDocs"
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? [])
+                setFilesToUpload(files)
+              }}
+            />
+          </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
         </div>
         <DialogFooter>
