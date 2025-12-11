@@ -219,6 +219,7 @@ function ScaledTermSheetPreview({
             height: 1056,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
+            overflow: "hidden",
           }}
           className="border border-black/20 bg-white shadow-xl rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           ref={pageRef}
