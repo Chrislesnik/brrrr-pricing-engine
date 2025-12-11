@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { randomUUID } from "crypto"
 
 export async function addProgramAction(formData: FormData) {
   const { userId, orgId: authOrgId } = await auth()
@@ -55,11 +56,11 @@ export async function addProgramAction(formData: FormData) {
   if (files && files.length > 0 && programId) {
     for (const file of files) {
       if (!file || typeof file.arrayBuffer !== "function") continue
-      const documentId = (globalThis.crypto?.randomUUID?.() as string) || require("crypto").randomUUID()
+      const documentId = (globalThis.crypto?.randomUUID?.() as string) || randomUUID()
       const fileName = (file as any).name || "file"
       const storagePath = `programs/${programId}/${documentId}/${fileName}`
       const arrayBuffer = await file.arrayBuffer()
-      const { error: upErr } = await supabaseAdmin.storage.from("program-docs").upload(storagePath, Buffer.from(arrayBuffer), {
+      const { error: upErr } = await supabaseAdmin.storage.from("program-docs").upload(storagePath, arrayBuffer, {
         upsert: false,
         contentType: (file as any).type || undefined,
       })
@@ -171,11 +172,11 @@ export async function updateProgramAction(formData: FormData) {
   if (files.length > 0) {
     for (const file of files) {
       if (!file || typeof file.arrayBuffer !== "function") continue
-      const documentId = (globalThis.crypto?.randomUUID?.() as string) || require("crypto").randomUUID()
+      const documentId = (globalThis.crypto?.randomUUID?.() as string) || randomUUID()
       const fileName = (file as any).name || "file"
       const storagePath = `programs/${id}/${documentId}/${fileName}`
       const arrayBuffer = await file.arrayBuffer()
-      const { error: upErr } = await supabaseAdmin.storage.from("program-docs").upload(storagePath, Buffer.from(arrayBuffer), {
+      const { error: upErr } = await supabaseAdmin.storage.from("program-docs").upload(storagePath, arrayBuffer, {
         upsert: false,
         contentType: (file as any).type || undefined,
       })
