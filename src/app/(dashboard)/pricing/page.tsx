@@ -123,8 +123,14 @@ function ScaledTermSheetPreview({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   // Start with a conservative scale so the page won't overflow while iOS lays out the modal
-  const [scale, setScale] = useState<number>(0.6)
+  const [baseScale, setBaseScale] = useState<number>(0.6)
+  const [zoom, setZoom] = useState<number>(1) // user-controlled zoom multiplier
+  const scale = Math.max(0.1, Math.min(baseScale * zoom, 6))
   const [hasValidMeasure, setHasValidMeasure] = useState<boolean>(false)
+  const isSpaceDownRef = useRef<boolean>(false)
+  const isPanningRef = useRef<boolean>(false)
+  const panStartRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -137,7 +143,7 @@ function ScaledTermSheetPreview({
         const vh = Math.max(0, (window.innerHeight || 0) - 16)
         if (vw > 0 && vh > 0) {
           const fallback = Math.min(vw / 816, vh / 1056, 1) * 0.86
-          setScale(fallback)
+          setBaseScale(fallback)
         }
         setHasValidMeasure(false)
         return
@@ -146,7 +152,7 @@ function ScaledTermSheetPreview({
       const paddingAllowance = 8 // px allowance for container padding/borders
       const s =
         Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.88
-      setScale(s)
+      setBaseScale(s)
       setHasValidMeasure(true)
     }
     // Try immediately, then on next frames and a few timed retries to handle iOS Safari layout settles.
@@ -171,11 +177,91 @@ function ScaledTermSheetPreview({
     window.addEventListener("resize", onWindowResize, { passive: true })
     window.addEventListener("orientationchange", onWindowResize, { passive: true })
     window.addEventListener("pageshow", onWindowResize, { passive: true })
+    // Zoom with Ctrl/Meta + wheel (and trackpad pinch which sets ctrlKey=true on Mac)
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      const delta = e.deltaY
+      const factor = Math.pow(0.9, delta / 100) // smooth exponential
+      setZoom((z) => {
+        const next = Math.min(5, Math.max(0.25, z * factor))
+        return next
+      })
+      // Keep the focal point roughly centered by nudging scroll
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left + el.scrollLeft
+      const cy = e.clientY - rect.top + el.scrollTop
+      // After zoom state update in next frame, scroll toward the cursor position
+      requestAnimationFrame(() => {
+        const newRect = el.getBoundingClientRect()
+        const nx = e.clientX - newRect.left
+        const ny = e.clientY - newRect.top
+        el.scrollLeft += cx - nx
+        el.scrollTop += cy - ny
+      })
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    // Spacebar-held panning
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.code === "Space") {
+        isSpaceDownRef.current = true
+        if (isPanningRef.current && el) {
+          el.style.cursor = "grabbing"
+        }
+      }
+    }
+    const onKeyUp = (ev: KeyboardEvent) => {
+      if (ev.code === "Space") {
+        isSpaceDownRef.current = false
+        if (!isPanningRef.current && el) {
+          el.style.cursor = ""
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("keyup", onKeyUp)
+    const onPointerDown = (ev: PointerEvent) => {
+      if (!isSpaceDownRef.current) return
+      isPanningRef.current = true
+      el.style.cursor = "grabbing"
+      panStartRef.current = {
+        x: ev.clientX,
+        y: ev.clientY,
+        left: el.scrollLeft,
+        top: el.scrollTop,
+      }
+      el.setPointerCapture(ev.pointerId)
+    }
+    const onPointerMove = (ev: PointerEvent) => {
+      if (!isPanningRef.current || !panStartRef.current) return
+      const dx = ev.clientX - panStartRef.current.x
+      const dy = ev.clientY - panStartRef.current.y
+      el.scrollLeft = panStartRef.current.left - dx
+      el.scrollTop = panStartRef.current.top - dy
+    }
+    const onPointerUp = (ev: PointerEvent) => {
+      if (!isPanningRef.current) return
+      isPanningRef.current = false
+      panStartRef.current = null
+      el.style.cursor = isSpaceDownRef.current ? "grab" : ""
+      try {
+        el.releasePointerCapture(ev.pointerId)
+      } catch {}
+    }
+    el.addEventListener("pointerdown", onPointerDown)
+    el.addEventListener("pointermove", onPointerMove)
+    el.addEventListener("pointerup", onPointerUp)
     return () => {
       ro.disconnect()
       window.removeEventListener("resize", onWindowResize)
       window.removeEventListener("orientationchange", onWindowResize)
       window.removeEventListener("pageshow", onWindowResize)
+      el.removeEventListener("wheel", onWheel as EventListener as unknown as (e: WheelEvent) => void)
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("keyup", onKeyUp)
+      el.removeEventListener("pointerdown", onPointerDown)
+      el.removeEventListener("pointermove", onPointerMove)
+      el.removeEventListener("pointerup", onPointerUp)
       rafIds.forEach((id) => cancelAnimationFrame(id))
       timeouts.forEach((id) => clearTimeout(id))
     }
@@ -229,7 +315,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[72vh] overflow-hidden rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
+      className="w-full h-[72vh] overflow-auto rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div
@@ -282,6 +368,36 @@ function ScaledTermSheetPreview({
             }
           }
         `}</style>
+        {/* Zoom controls */}
+        <div className="pointer-events-auto absolute right-3 top-2 flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+            onClick={() => setZoom((z) => Math.max(0.25, z * 0.9))}
+            aria-label="Zoom out"
+          >
+            -
+          </button>
+          <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center">
+            {Math.round((zoom || 1) * 100)}%
+          </div>
+          <button
+            type="button"
+            className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+            onClick={() => setZoom((z) => Math.min(5, z * 1.1))}
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+            onClick={() => setZoom(1)}
+            aria-label="Reset zoom"
+          >
+            Fit
+          </button>
+        </div>
       </div>
     </div>
   )
