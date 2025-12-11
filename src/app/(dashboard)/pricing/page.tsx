@@ -4066,10 +4066,11 @@ function ResultCard({
     document.body.appendChild(container)
     try {
       await new Promise((r) => requestAnimationFrame(() => r(undefined)))
-      const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false })
-      const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait" })
-      const img = canvas.toDataURL("image/png")
-      pdf.addImage(img, "PNG", 0, 0, 816, 1056)
+      // Lower rasterization scale and use JPEG to significantly reduce file size
+      const canvas = await html2canvas(container, { scale: 1, backgroundColor: "#ffffff", useCORS: true, logging: false })
+      const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
+      const img = canvas.toDataURL("image/jpeg", 0.72)
+      pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
       const blob = pdf.output("blob")
       const filename = `term-sheet-${Date.now()}.pdf`
       return new File([blob], filename, { type: "application/pdf" })
@@ -5050,10 +5051,11 @@ function ResultsPanel({
     document.body.appendChild(container)
     try {
       await new Promise((r) => requestAnimationFrame(() => r(undefined)))
-      const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false })
-      const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait" })
-      const img = canvas.toDataURL("image/png")
-      pdf.addImage(img, "PNG", 0, 0, 816, 1056)
+      // Lower rasterization scale and use JPEG to significantly reduce file size
+      const canvas = await html2canvas(container, { scale: 1, backgroundColor: "#ffffff", useCORS: true, logging: false })
+      const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
+      const img = canvas.toDataURL("image/jpeg", 0.72)
+      pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
       const blob = pdf.output("blob")
       const filename = `term-sheet-${Date.now()}.pdf`
       return new File([blob], filename, { type: "application/pdf" })
