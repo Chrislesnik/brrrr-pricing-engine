@@ -178,12 +178,12 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
             {existingDocs.length > 0 ? (
               <ul className="mb-2 space-y-1">
                 {existingDocs.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between">
-                    <span className="truncate text-sm">
+                  <li key={d.id} className="flex items-center justify-between gap-2 overflow-hidden">
+                    <span className="flex-1 min-w-0 truncate text-sm">
                       {d.title || d.storage_path.split("/").at(-1)}
                       <span className="ml-2 text-xs text-muted-foreground">({d.status})</span>
                     </span>
-                    <label className="flex items-center gap-2 text-sm">
+                    <label className="flex shrink-0 items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={!!deleteIds[d.id]}
