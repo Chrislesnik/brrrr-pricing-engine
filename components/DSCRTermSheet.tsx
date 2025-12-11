@@ -277,9 +277,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                     </div>
                   ))}
                 </div>
-                {/* Extra rows 1-13 above EMD */}
+                {/* Extra rows 1-11 above EMD */}
                 <div className="pr-2 space-y-1">
-                  {[1,2,3,4,5,6,7,8,9,10,11,12,13].map((n) => (
+                  {[1,2,3,4,5,6,7,8,9,10,11].map((n) => (
                     <div key={`extra-${n}`} className="flex items-center justify-between text-xs leading-5">
                       <span className="pl-2">{asText(props, `extra_row_label_${n}`)}</span>
                       <span className="text-right">{asText(props, `extra_row_${n}`)}</span>

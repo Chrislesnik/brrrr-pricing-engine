@@ -141,8 +141,6 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
     { label: asText(props, "extra_row_9_label"), value: asText(props, "extra_row_9") },
     { label: asText(props, "extra_row_10_label"), value: asText(props, "extra_row_10") },
     { label: asText(props, "extra_row_11_label"), value: asText(props, "extra_row_11") },
-    { label: asText(props, "extra_row_12_label"), value: asText(props, "extra_row_12") },
-    { label: asText(props, "extra_row_13_label"), value: asText(props, "extra_row_13") },
   ]
 
   // Render a block of empty rows to visually pad the table while preserving alignment
