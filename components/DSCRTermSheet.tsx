@@ -219,7 +219,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   {liquidity.map((it, i) => (
                     <div key={`liq-${i}`} className="flex items-center justify-between text-xs">
                       {(() => {
-                        const indexToPadding: Record<number, number> = { 1: 15, 2: 25, 3: 25, 4: 25, 5: 15 };
+                        const indexToPadding: Record<number, number> = { 1: 15, 2: 25, 3: 25, 4: 15, 5: 15 };
                         const pad = indexToPadding[i] ?? 8; // 8px equals Tailwind pl-2
                         return (
                           <span style={{ paddingLeft: `${pad}px`, display: "inline-block" }}>{it.label}</span>

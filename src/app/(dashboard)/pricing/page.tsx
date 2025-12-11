@@ -3813,8 +3813,8 @@ function ResultCard({
           applyPad(1, 15) // Cash to Close
           applyPad(2, 25) // Down Payment label
           applyPad(3, 25) // Escrows
-          applyPad(4, 25) // Reserves label
-          applyPad(5, 15) // Mortgage Debt - 100%
+          applyPad(4, 15) // Reserves label
+          applyPad(5, 15) // Mortgage Debt - 1.00%
         }
       }
       // Liquidity block special paddings
@@ -4858,8 +4858,8 @@ function ResultsPanel({
           applyPad(1, 15) // Cash to Close
           applyPad(2, 25) // Down Payment label
           applyPad(3, 25) // Escrows
-          applyPad(4, 25) // Reserves label
-          applyPad(5, 15) // Mortgage Debt - 100%
+          applyPad(4, 15) // Reserves label
+          applyPad(5, 15) // Mortgage Debt - 1.00%
         }
       }
       // Liquidity block special paddings
