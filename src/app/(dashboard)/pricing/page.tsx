@@ -374,18 +374,18 @@ function ScaledTermSheetPreview({
         <div className="flex items-center gap-2">
         <button
           type="button"
-          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white"
           onClick={() => setZoom((z) => Math.max(0.25, z * 0.8))}
           aria-label="Zoom out"
         >
           -
         </button>
-        <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center">
+        <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center text-black dark:text-black dark:bg-white">
           {Math.round((zoom || 1) * 100)}%
         </div>
         <button
           type="button"
-          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white"
           onClick={() => setZoom((z) => Math.min(5, z * 1.2))}
           aria-label="Zoom in"
         >
@@ -393,7 +393,7 @@ function ScaledTermSheetPreview({
         </button>
         <button
           type="button"
-          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white"
           onClick={() => setZoom(1)}
           aria-label="Reset zoom"
         >
