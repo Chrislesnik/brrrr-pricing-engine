@@ -370,7 +370,7 @@ function ScaledTermSheetPreview({
         `}</style>
       </div>
       {/* Zoom controls (in outer grey container, bottom-right) */}
-      <div className="pointer-events-auto absolute bottom-2 right-3 flex items-center gap-2">
+      <div className="pointer-events-auto absolute bottom-2 right-3 z-20 flex items-center gap-2">
         <button
           type="button"
           className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
