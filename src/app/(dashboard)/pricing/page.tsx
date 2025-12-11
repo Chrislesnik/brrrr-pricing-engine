@@ -3972,6 +3972,12 @@ function ResultCard({
       }
       /* Preserve top padding on disclaimer container */
       .pdf-sandbox [data-termsheet-root] .ts-disclaimer { padding-top: 10px !important; }
+      /* PDF-only: prevent merge-tag placeholders from breaking across lines */
+      .pdf-sandbox [data-termsheet-root] span[style*="dashed #f59e0b"] {
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
+      }
       /* PDF-only: 5px inner left padding for Borrower & Guarantors left labels */
       .pdf-sandbox [data-termsheet-root] section:first-child .space-y-1:nth-of-type(1) .flex.text-xs > span:first-child {
         padding-left: 5px !important;
