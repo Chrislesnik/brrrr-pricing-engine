@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
+import { auth, clerkClient } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
@@ -37,38 +37,42 @@ export async function POST(req: Request) {
           assigned_to_user_id: [userId], // Clerk user id
           status: "active",
         })
-        .select("id, organization_id, assigned_to_user_id, status, created_at")
+        .select("*")
         .single()
       if (loanErr) {
         return NextResponse.json({ error: `Failed to create loan: ${loanErr.message}` }, { status: 500 })
       }
       loanId = loanRow?.id as string
 
-      // Fire webhook: a brand-new loan was created (not just a scenario)
-      // Include creator user info and the inserted loan row.
-      // Best-effort: do not block on webhook failures.
+      // Fire webhook for newly created loan (not for new scenarios on existing loans)
+      // This should not block user flow; errors are swallowed.
       try {
-        const { clerkClient } = await import("@clerk/nextjs/server")
-        const u = await clerkClient.users.getUser(userId)
-        const primaryEmail = u.emailAddresses?.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress ?? u.emailAddresses?.[0]?.emailAddress
+        const user = await clerkClient.users.getUser(userId)
+        const primaryEmail =
+          user.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null
+        const allEmails = (user.emailAddresses ?? []).map((e) => e.emailAddress)
         const payload = {
-          event: "loan_created",
-          loan: loanRow,
-          organization_id: orgUuid,
+          event: "loan.created",
+          created_at: new Date().toISOString(),
+          loan_id: loanRow?.id ?? null,
+          loan: loanRow ?? null,
+          organization: {
+            clerk_org_id: orgId,
+            org_uuid: orgUuid,
+          },
           created_by: {
-            id: u.id,
-            first_name: u.firstName,
-            last_name: u.lastName,
-            email: primaryEmail,
-            username: u.username,
+            clerk_user_id: user.id,
+            first_name: user.firstName ?? null,
+            last_name: user.lastName ?? null,
+            image_url: user.imageUrl ?? null,
+            primary_email: primaryEmail,
+            email_addresses: allEmails,
+            username: user.username ?? null,
           },
         }
-        const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        await fetch(`https://n8n.axora.info/webhook-test/c96a6fcf-18b2-4ec3-8d7c-8a6a5c31742e?_=${encodeURIComponent(nonce)}`, {
+        await fetch("https://n8n.axora.info/webhook-test/c96a6fcf-18b2-4ec3-8d7c-8a6a5c31742e", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // Server-to-server; no need for cache
-          cache: "no-store",
           body: JSON.stringify(payload),
         }).catch(() => {})
       } catch {

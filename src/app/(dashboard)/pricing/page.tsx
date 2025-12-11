@@ -4164,18 +4164,18 @@ function ResultCard({
                 (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
               const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
               try {
-                if (nav?.share && canShareFiles) {
-                  await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                } else {
-                  const url = URL.createObjectURL(file)
-                  const a = document.createElement("a")
-                  a.href = url
-                  a.download = file.name
-                  document.body.appendChild(a)
-                  a.click()
-                  a.remove()
-                  URL.revokeObjectURL(url)
-                  toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+              if (nav?.share && canShareFiles) {
+                await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+              } else {
+                const url = URL.createObjectURL(file)
+                const a = document.createElement("a")
+                a.href = url
+                a.download = file.name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                URL.revokeObjectURL(url)
+                toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
                 }
               } catch (shareErr) {
                 const msg = shareErr instanceof Error ? shareErr.message.toLowerCase() : ""
