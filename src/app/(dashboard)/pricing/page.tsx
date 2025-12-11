@@ -182,7 +182,7 @@ function ScaledTermSheetPreview({
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
       const delta = e.deltaY
-      const factor = Math.pow(0.85, delta / 100) // slightly more aggressive than before
+      const factor = Math.pow(0.8, delta / 100) // more aggressive wheel zoom
       setZoom((z) => {
         const next = Math.min(5, Math.max(0.25, z * factor))
         return next
@@ -374,7 +374,7 @@ function ScaledTermSheetPreview({
         <button
           type="button"
           className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-          onClick={() => setZoom((z) => Math.max(0.25, z * 0.85))}
+          onClick={() => setZoom((z) => Math.max(0.25, z * 0.8))}
           aria-label="Zoom out"
         >
           -
@@ -385,7 +385,7 @@ function ScaledTermSheetPreview({
         <button
           type="button"
           className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-          onClick={() => setZoom((z) => Math.min(5, z * 1.15))}
+          onClick={() => setZoom((z) => Math.min(5, z * 1.2))}
           aria-label="Zoom in"
         >
           +
