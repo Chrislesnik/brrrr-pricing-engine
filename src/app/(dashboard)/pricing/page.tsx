@@ -1570,6 +1570,15 @@ export default function PricingEnginePage() {
       }
       return undefined
     }
+    // Acquisition date from scenario payload (support common aliases)
+    {
+      const acq =
+        payload["acquisition_date"] ??
+        (payload as Record<string, unknown>)["acq_date"] ??
+        (payload as Record<string, unknown>)["acq-date"]
+      const d = parseDate(acq)
+      if (d) setAcquisitionDate(d)
+    }
     const hoiEff = parseDate(payload["hoi_effective_date"])
     if (hoiEff) setHoiEffective(hoiEff)
     const floodEff = parseDate(payload["flood_effective_date"])
