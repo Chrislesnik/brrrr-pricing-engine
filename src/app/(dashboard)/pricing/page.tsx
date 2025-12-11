@@ -1113,15 +1113,18 @@ export default function PricingEnginePage() {
             // place result in its slot (do not reorder to preserve container positions)
             setProgramResults((prev) => {
               const next = prev.slice()
-                  // Populate per-row initial_loan_amount cache on the result item
-                  try {
-                    const dat = (single as any)?.data
-                    const arr = Array.isArray(dat?.initial_loan_amount) ? (dat.initial_loan_amount as Array<string | number | null | undefined>) : null
-                    const cache = arr ? Object.fromEntries(arr.map((v, i) => [i, v ?? null])) : (next[idx] as any)?.initial_cache
-                    ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any), initial_cache: cache }
-                  } catch {
-                    ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any) }
-                  }
+              // Build per-row cache for initial_pitia if provided
+              try {
+                const dat = (single as any)?.data
+                const arr = Array.isArray(dat?.initial_pitia)
+                  ? (dat.initial_pitia as Array<string | number | null | undefined>)
+                  : null
+                const cache =
+                  arr != null ? Object.fromEntries(arr.map((v, i) => [i, v ?? null])) : (next[idx] as any)?.initial_pitia_cache
+                ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any), initial_pitia_cache: cache }
+              } catch {
+                ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any) }
+              }
               return next
             })
           } catch {
@@ -1833,7 +1836,7 @@ export default function PricingEnginePage() {
                     <TooltipProvider delayDuration={0}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
+                    <Button
                       aria-label="Toggle Primary"
                       size="icon"
                       variant="ghost"
@@ -1851,12 +1854,12 @@ export default function PricingEnginePage() {
                       }}
                       disabled={!selectedScenarioId}
                     >
-                          {scenariosList.find((s) => s.id === selectedScenarioId)?.primary ? (
-                            <IconStarFilled className="h-4 w-4 text-yellow-500" />
-                          ) : (
-                            <IconStar className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          </Button>
+                      {scenariosList.find((s) => s.id === selectedScenarioId)?.primary ? (
+                        <IconStarFilled className="h-4 w-4 text-yellow-500" />
+                      ) : (
+                        <IconStar className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
                         </TooltipTrigger>
                         <TooltipContent>Favorite</TooltipContent>
                       </Tooltip>
@@ -1864,7 +1867,7 @@ export default function PricingEnginePage() {
                     <TooltipProvider delayDuration={0}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
+                    <Button
                       aria-label="Rename"
                       size="icon"
                       variant="ghost"
@@ -1877,8 +1880,8 @@ export default function PricingEnginePage() {
                       }}
                       disabled={!selectedScenarioId}
                     >
-                          <IconPencil />
-                          </Button>
+                      <IconPencil />
+                    </Button>
                         </TooltipTrigger>
                         <TooltipContent>Edit</TooltipContent>
                       </Tooltip>
@@ -1887,11 +1890,11 @@ export default function PricingEnginePage() {
                       <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <AlertDialogTrigger asChild>
-                              <Button aria-label="Delete scenario" size="icon" variant="ghost" disabled={!selectedScenarioId}>
-                                <IconTrash />
-                              </Button>
-                            </AlertDialogTrigger>
+                      <AlertDialogTrigger asChild>
+                        <Button aria-label="Delete scenario" size="icon" variant="ghost" disabled={!selectedScenarioId}>
+                          <IconTrash />
+                        </Button>
+                      </AlertDialogTrigger>
                           </TooltipTrigger>
                           <TooltipContent>Delete</TooltipContent>
                         </Tooltip>
@@ -1928,7 +1931,7 @@ export default function PricingEnginePage() {
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
+                <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
                       try {
                         const inputs = buildPayload()
                         let selected = selectedMainRow?.values
@@ -2029,8 +2032,8 @@ export default function PricingEnginePage() {
                         toast({ title: "Save failed", description: message, variant: "destructive" })
                       }
                     }}>
-                        <IconDeviceFloppy />
-                      </Button>
+                  <IconDeviceFloppy />
+                </Button>
                     </TooltipTrigger>
                     <TooltipContent>Save</TooltipContent>
                   </Tooltip>
@@ -2038,14 +2041,14 @@ export default function PricingEnginePage() {
                     <TooltipProvider delayDuration={0}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
+                    <Button
                       aria-label="Save As"
                       size="icon"
                       variant="outline"
                       onClick={() => setIsNamingScenario(true)}
                     >
-                            <IconFileExport />
-                          </Button>
+                  <IconFileExport />
+                </Button>
                         </TooltipTrigger>
                         <TooltipContent>Save As</TooltipContent>
                       </Tooltip>
@@ -3636,6 +3639,7 @@ type ProgramResult = {
   status?: number
   ok?: boolean
   data?: ProgramResponseData | null
+  initial_pitia_cache?: Record<number, string | number | null>
 }
 
 type SelectedRow = {
@@ -4085,13 +4089,10 @@ function ResultCard({
         interest_rate: pick<string | number>(d?.interest_rate, idx),
       }
       if (isBridgeResp) {
-        let init = pick<string | number>(d?.initial_loan_amount, idx)
-        // Fallback to cached value if missing
-        if (init === undefined || init === null || String(init) === "") {
-          const cached = (r as any)?.initial_cache?.[idx]
-          if (cached !== undefined) init = cached as any
-        }
-        payloadRow["initial_loan_amount"] = init
+        payloadRow["initial_loan_amount"] = pick<string | number>(d?.initial_loan_amount, idx)
+        // include initial_pitia (from response or cache)
+        const ip = pick<string | number>(d?.initial_pitia as any, idx)
+        payloadRow["initial_pitia"] = ip ?? (r as any)?.initial_pitia_cache?.[idx]
         payloadRow["rehab_holdback"] = pick<string | number>(d?.rehab_holdback, idx)
         payloadRow["total_loan_amount"] = pick<string | number>(d?.total_loan_amount, idx)
         payloadRow["funded_pitia"] = pick<string | number>(d?.funded_pitia, idx)
@@ -4207,14 +4208,14 @@ function ResultCard({
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+          <Button
             size="icon"
             variant="ghost"
             aria-label="Preview"
             onClick={() => openTermSheetPreview()}
           >
-                <IconEye className="h-4 w-4" />
-                </Button>
+            <IconEye className="h-4 w-4" />
+          </Button>
               </TooltipTrigger>
               <TooltipContent>View</TooltipContent>
             </Tooltip>
@@ -4222,14 +4223,14 @@ function ResultCard({
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+          <Button
             size="icon"
             variant="ghost"
             aria-label="Share"
             onClick={() => openTermSheetPreview(undefined, { autoShare: true })}
           >
-                <IconShare3 className="h-4 w-4" />
-                </Button>
+            <IconShare3 className="h-4 w-4" />
+          </Button>
               </TooltipTrigger>
               <TooltipContent>Share</TooltipContent>
             </Tooltip>
@@ -4237,14 +4238,14 @@ function ResultCard({
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+          <Button
             size="icon"
             variant="ghost"
             aria-label="Download"
             onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
           >
-                <IconDownload className="h-4 w-4" />
-                </Button>
+            <IconDownload className="h-4 w-4" />
+          </Button>
               </TooltipTrigger>
               <TooltipContent>Download</TooltipContent>
             </Tooltip>
@@ -4999,12 +5000,11 @@ function ResultsPanel({
         interest_rate: Array.isArray(d?.interest_rate) ? d.interest_rate[idx] : undefined,
       }
       if (isBridgeResp) {
-        let init = Array.isArray(d?.initial_loan_amount) ? (d.initial_loan_amount as any[])[idx] : undefined
-        if (init === undefined || init === null || String(init) === "") {
-          const cached = (results?.[selected.programIdx] as any)?.initial_cache?.[idx]
-          if (cached !== undefined) init = cached as any
-        }
-        payloadRow["initial_loan_amount"] = init
+        payloadRow["initial_loan_amount"] = Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[idx] : undefined
+        // include initial_pitia from response or cached value
+        payloadRow["initial_pitia"] = Array.isArray(d?.initial_pitia)
+          ? d.initial_pitia[idx]
+          : (results?.[selected.programIdx] as any)?.initial_pitia_cache?.[idx]
         payloadRow["rehab_holdback"] = Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[idx] : undefined
         payloadRow["total_loan_amount"] = Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[idx] : undefined
         payloadRow["funded_pitia"] = Array.isArray(d?.funded_pitia) ? d.funded_pitia[idx] : undefined
@@ -5308,9 +5308,9 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" aria-label="Approved document">
-                      <IconFileCheck className="h-4 w-4" />
-                    </Button>
+              <Button size="icon" variant="ghost" aria-label="Approved document">
+                <IconFileCheck className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Subchecklist</TooltipContent>
                 </Tooltip>
@@ -5318,9 +5318,9 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
-                      <IconEye className="h-4 w-4" />
-                    </Button>
+              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                <IconEye className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>View</TooltipContent>
                 </Tooltip>
@@ -5328,14 +5328,14 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+              <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
                 onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
-                      <IconShare3 className="h-4 w-4" />
-                    </Button>
+                <IconShare3 className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Share</TooltipContent>
                 </Tooltip>
@@ -5343,14 +5343,14 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+              <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
-                      <IconDownload className="h-4 w-4" />
-                    </Button>
+                <IconDownload className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Download</TooltipContent>
                 </Tooltip>
@@ -5425,9 +5425,9 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" aria-label="Approved document">
-                      <IconFileCheck className="h-4 w-4" />
-                    </Button>
+              <Button size="icon" variant="ghost" aria-label="Approved document">
+                <IconFileCheck className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Subchecklist</TooltipContent>
                 </Tooltip>
@@ -5435,9 +5435,9 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
-                      <IconEye className="h-4 w-4" />
-                    </Button>
+              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                <IconEye className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>View</TooltipContent>
                 </Tooltip>
@@ -5445,14 +5445,14 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+              <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
                 onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
-                      <IconShare3 className="h-4 w-4" />
-                    </Button>
+                <IconShare3 className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Share</TooltipContent>
                 </Tooltip>
@@ -5460,14 +5460,14 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+              <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
-                      <IconDownload className="h-4 w-4" />
-                    </Button>
+                <IconDownload className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Download</TooltipContent>
                 </Tooltip>
@@ -5521,9 +5521,9 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" aria-label="Approved document">
-                      <IconFileCheck className="h-4 w-4" />
-                    </Button>
+              <Button size="icon" variant="ghost" aria-label="Approved document">
+                <IconFileCheck className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Subchecklist</TooltipContent>
                 </Tooltip>
@@ -5531,9 +5531,9 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
-                      <IconEye className="h-4 w-4" />
-                    </Button>
+              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                <IconEye className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>View</TooltipContent>
                 </Tooltip>
@@ -5541,14 +5541,14 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+              <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
                 onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
-                      <IconShare3 className="h-4 w-4" />
-                    </Button>
+                <IconShare3 className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Share</TooltipContent>
                 </Tooltip>
@@ -5556,14 +5556,14 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+              <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
-                      <IconDownload className="h-4 w-4" />
-                    </Button>
+                <IconDownload className="h-4 w-4" />
+              </Button>
                   </TooltipTrigger>
                   <TooltipContent>Download</TooltipContent>
                 </Tooltip>

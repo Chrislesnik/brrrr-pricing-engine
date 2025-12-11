@@ -48,14 +48,14 @@ export async function addProgramAction(formData: FormData) {
   const { data: inserted, error } = await supabaseAdmin
     .from("programs")
     .insert({
-      loan_type: loanType,
-      internal_name: internalName,
-      external_name: externalName,
-      webhook_url: webhookUrl || null,
-      status,
-      user_id: userId,
-      organization_id: orgUuid,
-    })
+    loan_type: loanType,
+    internal_name: internalName,
+    external_name: externalName,
+    webhook_url: webhookUrl || null,
+    status,
+    user_id: userId,
+    organization_id: orgUuid,
+  })
     .select("id")
     .single()
   if (error) return { ok: false, error: error.message }
