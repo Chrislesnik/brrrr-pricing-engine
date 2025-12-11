@@ -47,7 +47,8 @@ export async function POST(req: Request) {
       // Fire webhook for newly created loan (not for new scenarios on existing loans)
       // This should not block user flow; errors are swallowed.
       try {
-        const user = await clerkClient.users.getUser(userId)
+        const client = await clerkClient()
+        const user = await client.users.getUser(userId)
         const primaryEmail =
           user.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null
         const allEmails = (user.emailAddresses ?? []).map((e) => e.emailAddress)
