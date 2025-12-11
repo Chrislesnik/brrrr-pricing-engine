@@ -130,7 +130,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
   return (
     <div
       data-termsheet-root
-      className="flex justify-center w-full min-h-screen print:px-0 print:pt-0 print:pb-0 print:min-h-0"
+      className="flex justify-center w-full h-[1056px] print:px-0 print:pt-0 print:pb-0 print:h-[1056px]"
       style={{ backgroundColor: "#ffffff", color: "#000000", boxSizing: "border-box" }}
     >
       <div className="w-[816px] max-w-none print:w-[816px] px-7" style={{ boxSizing: "border-box" }}>

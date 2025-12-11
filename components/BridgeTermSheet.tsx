@@ -161,7 +161,7 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
   }
 
   return (
-    <div data-termsheet-root="bridge" className="overflow-x-hidden w-full min-w-[816px] min-h-svh flex items-center justify-center bg-white text-black">
+    <div data-termsheet-root="bridge" className="overflow-x-hidden w-full min-w-[816px] h-[1056px] flex items-center justify-center bg-white text-black">
       {/* Reduce page padding to 'zoom out' slightly */}
       <div className="w-[816px] max-w-none mx-auto p-3 relative print:p-2">
         {/* Option number bracketed by solid black rules */}

@@ -4147,10 +4147,22 @@ function ResultCard({
       })
       const raw = await res.json().catch(() => ({}))
       const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetProps) : (raw as DSCRTermSheetProps)
-      const enriched =
+      let enriched: DSCRTermSheetProps =
         json && typeof json === "object" && !Array.isArray(json)
           ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
           : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetProps)
+      // Fallback: if logo not provided by webhook, pull broker company branding
+      try {
+        const currentLogo = String((enriched as any)?.logo ?? "").trim()
+        if (!currentLogo) {
+          const resLogo = await fetch("/api/org/company-branding", { cache: "no-store" })
+          const jLogo = (await resLogo.json().catch(() => ({}))) as { logo_url?: string }
+          const logoUrl = (typeof jLogo?.logo_url === "string" && jLogo.logo_url.length > 0) ? jLogo.logo_url : ""
+          if (logoUrl) {
+            enriched = { ...enriched, logo: logoUrl }
+          }
+        }
+      } catch { /* ignore */ }
       setSheetProps(enriched)
       if (opts?.autoDownloadPdf || opts?.autoShare) {
         setTimeout(async () => {
