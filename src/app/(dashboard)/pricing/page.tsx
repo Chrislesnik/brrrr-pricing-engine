@@ -1068,6 +1068,8 @@ export default function PricingEnginePage() {
         void fetch(`https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
           method: "POST",
           cache: "no-store",
+          // Fire-and-forget; avoid console noise if remote doesn't send CORS headers
+          mode: "no-cors",
           headers: {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
@@ -4160,18 +4162,29 @@ function ResultCard({
                 "canShare" in navigator &&
                 (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
               const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-              if (nav?.share && canShareFiles) {
-                await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-              } else {
-                const url = URL.createObjectURL(file)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = file.name
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-                URL.revokeObjectURL(url)
-                toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+              try {
+                if (nav?.share && canShareFiles) {
+                  await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                } else {
+                  const url = URL.createObjectURL(file)
+                  const a = document.createElement("a")
+                  a.href = url
+                  a.download = file.name
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
+                  toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                }
+              } catch (shareErr) {
+                const msg = shareErr instanceof Error ? shareErr.message.toLowerCase() : ""
+                const name = (shareErr as any)?.name ?? ""
+                // Swallow user-initiated aborts/cancels
+                if (msg.includes("cancel") || name === "AbortError" || name === "NotAllowedError") {
+                  // no toast
+                } else {
+                  toast({ title: "PDF error", description: (shareErr as any)?.message || "Share failed", variant: "destructive" })
+                }
               }
             } else if (opts?.autoDownloadPdf) {
               const url = URL.createObjectURL(file)
@@ -4184,8 +4197,11 @@ function ResultCard({
               URL.revokeObjectURL(url)
             }
           } catch (e) {
+            // When the preview hasn't fully rendered yet or user cancels share, avoid noisy errors
             const message = e instanceof Error ? e.message : "Failed to create PDF"
-            toast({ title: "PDF error", description: message, variant: "destructive" })
+            if (!/cancel/i.test(message)) {
+              toast({ title: "PDF not ready", description: "Preparing term sheet, try again in a moment.", variant: "default" })
+            }
           }
         }, 300)
       }
