@@ -4,7 +4,17 @@ import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
-import { randomUUID } from "crypto"
+// Use Web Crypto API where available (supports Edge/Node runtimes without import)
+function generateId() {
+  try {
+    if (typeof crypto !== "undefined" && typeof (crypto as any).randomUUID === "function") {
+      return (crypto as any).randomUUID() as string
+    }
+  } catch {
+    // ignore
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
 
 export async function addProgramAction(formData: FormData) {
   const { userId, orgId: authOrgId } = await auth()
@@ -56,7 +66,7 @@ export async function addProgramAction(formData: FormData) {
   if (files && files.length > 0 && programId) {
     for (const file of files) {
       if (!file || typeof file.arrayBuffer !== "function") continue
-      const documentId = (globalThis.crypto?.randomUUID?.() as string) || randomUUID()
+      const documentId = generateId()
       const fileName = (file as any).name || "file"
       const storagePath = `programs/${programId}/${documentId}/${fileName}`
       const arrayBuffer = await file.arrayBuffer()
@@ -172,7 +182,7 @@ export async function updateProgramAction(formData: FormData) {
   if (files.length > 0) {
     for (const file of files) {
       if (!file || typeof file.arrayBuffer !== "function") continue
-      const documentId = (globalThis.crypto?.randomUUID?.() as string) || randomUUID()
+      const documentId = generateId()
       const fileName = (file as any).name || "file"
       const storagePath = `programs/${id}/${documentId}/${fileName}`
       const arrayBuffer = await file.arrayBuffer()
