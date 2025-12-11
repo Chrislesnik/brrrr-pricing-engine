@@ -4184,30 +4184,51 @@ function ResultCard({
           {!isBroker ? <div className="text-xs font-semibold">{r.external_name}</div> : null}
         </div>
         <div className="flex items-center gap-1">
-          <Button
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
             size="icon"
             variant="ghost"
             aria-label="Preview"
             onClick={() => openTermSheetPreview()}
           >
-            <IconEye className="h-4 w-4" />
-          </Button>
-          <Button
+                <IconEye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>View</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
             size="icon"
             variant="ghost"
             aria-label="Share"
             onClick={() => openTermSheetPreview(undefined, { autoShare: true })}
           >
-            <IconShare3 className="h-4 w-4" />
-          </Button>
-          <Button
+                <IconShare3 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
             size="icon"
             variant="ghost"
             aria-label="Download"
             onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
           >
-            <IconDownload className="h-4 w-4" />
-          </Button>
+                <IconDownload className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Download</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {warningList.length > 0 ? (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
@@ -5259,28 +5280,56 @@ function ResultsPanel({
                 </div>
               </div>
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" aria-label="Approved document">
-                <IconFileCheck className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
-                <IconEye className="h-4 w-4" />
-              </Button>
-              <Button
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" aria-label="Approved document">
+                      <IconFileCheck className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Subchecklist</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                      <IconEye className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
                 onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
-                <IconShare3 className="h-4 w-4" />
-              </Button>
-              <Button
+                      <IconShare3 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Share</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
-                <IconDownload className="h-4 w-4" />
-              </Button>
+                      <IconDownload className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Download</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             </div>
             {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
@@ -5348,28 +5397,56 @@ function ResultsPanel({
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" aria-label="Approved document">
-                <IconFileCheck className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
-                <IconEye className="h-4 w-4" />
-              </Button>
-              <Button
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" aria-label="Approved document">
+                      <IconFileCheck className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Subchecklist</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                      <IconEye className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
                 onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
-                <IconShare3 className="h-4 w-4" />
-              </Button>
-              <Button
+                      <IconShare3 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Share</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
-                <IconDownload className="h-4 w-4" />
-              </Button>
+                      <IconDownload className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Download</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
@@ -5416,28 +5493,56 @@ function ResultsPanel({
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" aria-label="Approved document">
-                <IconFileCheck className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
-                <IconEye className="h-4 w-4" />
-              </Button>
-              <Button
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" aria-label="Approved document">
+                      <IconFileCheck className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Subchecklist</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
+                      <IconEye className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Share main"
                 onClick={() => openMainTermSheetPreview({ autoShare: true })}
               >
-                <IconShare3 className="h-4 w-4" />
-              </Button>
-              <Button
+                      <IconShare3 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Share</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
                 size="icon"
                 variant="ghost"
                 aria-label="Download main"
                 onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
               >
-                <IconDownload className="h-4 w-4" />
-              </Button>
+                      <IconDownload className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Download</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           {selected.values.rehabHoldback != null || selected.values.initialLoanAmount != null ? (
