@@ -120,7 +120,6 @@ function ScaledTermSheetPreview({
   pageRef?: React.Ref<HTMLDivElement>
   forceLoanType?: string
   readOnly?: boolean
-  instanceId?: string
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   // Start with a conservative scale so the page won't overflow while iOS lays out the modal
@@ -313,33 +312,11 @@ function ScaledTermSheetPreview({
     }
     // Re-evaluate when sheet content changes
   }, [pageRef, sheetProps, readOnly])
-  // Cross-component zoom controls via window CustomEvent (so controls can live outside the scroll container)
-  useEffect(() => {
-    const onCmd = (e: Event) => {
-      const ce = e as CustomEvent<{ id?: string; cmd: "in" | "out" | "fit" } | null>
-      const id = (ce.detail as any)?.id
-      const myId = (sheetProps as any)?.instanceId ?? undefined
-      // Support prop or event id; if provided, require match
-      if (typeof id === "string" && id.length > 0 && id !== (myId || (undefined as any))) return
-      const cmd = (ce.detail as any)?.cmd
-      if (cmd === "in") setZoom((z) => Math.min(5, z * 1.2))
-      if (cmd === "out") setZoom((z) => Math.max(0.25, z * 0.8))
-      if (cmd === "fit") setZoom(1)
-      // Notify listeners after next frame for accurate percent
-      requestAnimationFrame(() => {
-        const percent = Math.round((Math.max(0.1, Math.min(baseScale * zoom, 6)) || 1) * 100)
-        window.dispatchEvent(new CustomEvent("ts-zoom-changed", { detail: { id: myId ?? undefined, percent } }))
-      })
-    }
-    window.addEventListener("ts-zoom-cmd", onCmd as EventListener)
-    return () => window.removeEventListener("ts-zoom-cmd", onCmd as EventListener)
-  }, [baseScale, zoom, sheetProps])
   return (
-    <div className="relative w-full h-[72vh]">
-      <div
-        ref={containerRef}
-        className="w-full h-full overflow-x-auto overflow-y-auto rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1 relative overscroll-contain"
-      >
+    <div
+      ref={containerRef}
+      className="w-full h-[72vh] overflow-x-auto overflow-y-auto rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1 relative overscroll-contain"
+    >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div
         className="mx-auto justify-self-center relative"
@@ -392,45 +369,24 @@ function ScaledTermSheetPreview({
           }
         `}</style>
       </div>
-      </div>
-      {/* External controls are rendered by the parent at Dialog level */}
-    </div>
-  )
-}
-
-function ZoomControls({ instanceId }: { instanceId: "main" | "program" }) {
-  const [percent, setPercent] = useState<number>(100)
-  useEffect(() => {
-    const onChanged = (e: Event) => {
-      const ce = e as CustomEvent<{ id?: string; percent?: number }>
-      const id = ce.detail?.id
-      if (id && id !== instanceId) return
-      const p = ce.detail?.percent
-      if (typeof p === "number" && Number.isFinite(p)) setPercent(p)
-    }
-    window.addEventListener("ts-zoom-changed", onChanged as EventListener)
-    return () => window.removeEventListener("ts-zoom-changed", onChanged as EventListener)
-  }, [instanceId])
-  const send = (cmd: "in" | "out" | "fit") =>
-    window.dispatchEvent(new CustomEvent("ts-zoom-cmd", { detail: { id: instanceId, cmd } }))
-  return (
-    <div className="pointer-events-auto absolute bottom-2 right-3 z-30">
-      <div className="flex items-center gap-2">
+      {/* Zoom controls (pinned bottom-right of grey container; do not scroll) */}
+      <div className="pointer-events-auto absolute bottom-2 right-3 z-20">
+        <div className="flex items-center gap-2">
         <button
           type="button"
           className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-          onClick={() => send("out")}
+          onClick={() => setZoom((z) => Math.max(0.25, z * 0.8))}
           aria-label="Zoom out"
         >
           -
         </button>
         <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center">
-          {percent}%
+          {Math.round((zoom || 1) * 100)}%
         </div>
         <button
           type="button"
           className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-          onClick={() => send("in")}
+          onClick={() => setZoom((z) => Math.min(5, z * 1.2))}
           aria-label="Zoom in"
         >
           +
@@ -438,11 +394,12 @@ function ZoomControls({ instanceId }: { instanceId: "main" | "program" }) {
         <button
           type="button"
           className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-          onClick={() => send("fit")}
+          onClick={() => setZoom(1)}
           aria-label="Reset zoom"
         >
           Fit
         </button>
+        </div>
       </div>
     </div>
   )
@@ -4778,16 +4735,14 @@ function ResultCard({
           >
             <IconDownload />
           </button>
-          <div className="relative space-y-3">
+          <div className="space-y-3">
             {Object.keys(sheetProps ?? {}).length ? (
-              <ScaledTermSheetPreview sheetProps={{ ...(sheetProps as DSCRTermSheetProps), instanceId: "program" } as DSCRTermSheetProps} pageRef={previewRef} readOnly={isBroker} />
+              <ScaledTermSheetPreview sheetProps={sheetProps as DSCRTermSheetProps} pageRef={previewRef} readOnly={isBroker} />
             ) : (
               <div className="flex h-[70vh] items-center justify-center">
                 <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
               </div>
             )}
-            {/* Modal-level pinned zoom controls */}
-            <ZoomControls instanceId="program" />
           </div>
         </DialogContent>
       </Dialog>
@@ -5684,16 +5639,14 @@ function ResultsPanel({
                 <IconDownload />
               </button>
               
-              <div className="relative space-y-3">
+              <div className="space-y-3">
                 {Object.keys(sheetPropsMain ?? {}).length ? (
-                  <ScaledTermSheetPreview sheetProps={{ ...(sheetPropsMain as DSCRTermSheetProps), instanceId: "main" } as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
+                  <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
                 ) : (
                   <div className="flex h-[70vh] items-center justify-center">
                     <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
                   </div>
                 )}
-                {/* Modal-level pinned zoom controls */}
-                <ZoomControls instanceId="main" />
               </div>
             </DialogContent>
           </Dialog>
