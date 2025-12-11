@@ -60,6 +60,34 @@ function formatDateOnly(date?: Date | null): string | null {
   return `${y}-${m}-${d}`
 }
 
+// Parse a date value while preserving local calendar dates when given YYYY-MM-DD.
+// This avoids timezone shifts that can move dates backward by one day.
+function parseDateLocal(value: unknown): Date | undefined {
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? undefined : value
+  }
+  if (typeof value === "string") {
+    const s = value.trim()
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (m) {
+      const y = Number(m[1])
+      const mm = Number(m[2])
+      const dd = Number(m[3])
+      if (Number.isFinite(y) && Number.isFinite(mm) && Number.isFinite(dd)) {
+        const d = new Date(y, mm - 1, dd)
+        return isNaN(d.getTime()) ? undefined : d
+      }
+    }
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? undefined : d
+  }
+  if (typeof value === "number") {
+    const d = new Date(value)
+    return isNaN(d.getTime()) ? undefined : d
+  }
+  return undefined
+}
+
 function programDisplayName(
   p: { internal_name?: string; external_name?: string } | null | undefined,
   isBroker: boolean
@@ -779,9 +807,9 @@ export default function PricingEnginePage() {
         }
         // Acquisition Date
         const acq = val("acq-date", "acq_date", "acquisition_date")
-        if (typeof acq === "string" || acq instanceof Date || typeof acq === "number") {
-          const d = acq instanceof Date ? acq : new Date(acq)
-          if (!isNaN(d.getTime())) {
+        {
+          const d = parseDateLocal(acq)
+          if (d) {
             setAcquisitionDate(d)
             autoKeys.push("acquisitionDate")
           }
@@ -1564,11 +1592,7 @@ export default function PricingEnginePage() {
     if ("seller_concessions" in payload) setSellerConcessions(String(payload["seller_concessions"] ?? ""))
 
     function parseDate(val: unknown): Date | undefined {
-      if (typeof val === "string" || typeof val === "number") {
-        const d = new Date(val)
-        return isNaN(d.getTime()) ? undefined : d
-      }
-      return undefined
+      return parseDateLocal(val)
     }
     // Acquisition date from scenario payload (support common aliases)
     {
@@ -1579,9 +1603,9 @@ export default function PricingEnginePage() {
       const d = parseDate(acq)
       if (d) setAcquisitionDate(d)
     }
-    const hoiEff = parseDate(payload["hoi_effective_date"])
+    const hoiEff = parseDateLocal(payload["hoi_effective_date"])
     if (hoiEff) setHoiEffective(hoiEff)
-    const floodEff = parseDate(payload["flood_effective_date"])
+    const floodEff = parseDateLocal(payload["flood_effective_date"])
     if (floodEff) setFloodEffective(floodEff)
 
     if ("bridge_type" in payload) setBridgeType((payload["bridge_type"] as string) ?? undefined)
