@@ -71,7 +71,7 @@ export async function POST(req: Request) {
             username: user.username ?? null,
           },
         }
-        await fetch("https://n8n.axora.info/webhook-test/c96a6fcf-18b2-4ec3-8d7c-8a6a5c31742e", {
+        await fetch("https://n8n.axora.info/webhook/c96a6fcf-18b2-4ec3-8d7c-8a6a5c31742e", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
