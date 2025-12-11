@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { IconDots } from "@tabler/icons-react"
 import { AssignMembersDialog } from "./assign-members-dialog"
+import Link from "next/link"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -250,7 +251,19 @@ export function PipelineTable({ columns, data }: Props) {
               return (
                 <div key={row.id} className="rounded-lg border p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="text-[15px] font-semibold">{address}</div>
+                    <div className="text-[15px] font-semibold">
+                      {orig.id && address !== "-" ? (
+                        <Link
+                          href={`/pricing?loanId=${encodeURIComponent(orig.id)}`}
+                          className="text-primary hover:underline"
+                          aria-label={`Open pricing engine for loan ${orig.id}`}
+                        >
+                          {address}
+                        </Link>
+                      ) : (
+                        address
+                      )}
+                    </div>
                     <MobileRowActions id={orig.id} status={status} />
                   </div>
                   <div className="mt-1 flex items-center justify-between text-sm">

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { IconDots } from "@tabler/icons-react"
 import { AssignMembersDialog } from "./assign-members-dialog"
+import Link from "next/link"
 
 const statusClass: Record<string, string> = {
   active: "bg-green-100 text-green-800 border-green-200",
@@ -83,11 +84,23 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Property Address" />
     ),
-    cell: ({ row }) => (
-      <LongText className="max-w-[520px]">
-        {row.getValue("propertyAddress") ?? "-"}
-      </LongText>
-    ),
+    cell: ({ row }) => {
+      const id = row.getValue("id") as string | undefined
+      const addr = (row.getValue("propertyAddress") as string | undefined) ?? "-"
+      if (!id || addr === "-") {
+        return <LongText className="max-w-[520px]">{addr}</LongText>
+      }
+      const href = `/pricing?loanId=${encodeURIComponent(id)}`
+      return (
+        <Link
+          href={href}
+          className="text-primary hover:underline"
+          aria-label={`Open pricing engine for loan ${id}`}
+        >
+          <LongText className="max-w-[520px]">{addr}</LongText>
+        </Link>
+      )
+    },
     enableSorting: false,
   },
   {
