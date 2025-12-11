@@ -27,6 +27,7 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode =
                   minWidth: 28,
                   lineHeight: "inherit",
                   boxSizing: "border-box",
+              whiteSpace: "nowrap",
               verticalAlign: "baseline",
             }}
           >
@@ -49,10 +50,12 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode =
         padding: "0 4px",
         borderRadius: 4,
         lineHeight: "1.2",
+        whiteSpace: "nowrap",
+        wordBreak: "keep-all",
+        overflowWrap: "normal",
       }}
     >
-      {`{{ ${keys[0]} }`}
-      {"}"}
+      {`{{ ${keys[0]} }}`}
     </span>
   );
 };
