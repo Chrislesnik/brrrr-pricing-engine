@@ -707,7 +707,7 @@ export default function PricingEnginePage() {
       acquisitionDate: addYears(new Date(), -1) as Date,
       loanStructureType: "fixed-30" as string,
       ppp: "5-4-3-2-1" as string,
-      borrowerName: "Example LLC" as string,
+      borrowerName: "Borrowing Entity LLC" as string,
       guarantorsStr: "First Last" as string,
       uwException: "no" as string,
       section8: "no" as string,
