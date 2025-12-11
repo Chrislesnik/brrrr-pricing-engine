@@ -1822,7 +1822,10 @@ export default function PricingEnginePage() {
                   </>
                 ) : (
                   <>
-                    <Button
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
                       aria-label="Toggle Primary"
                       size="icon"
                       variant="ghost"
@@ -1840,13 +1843,20 @@ export default function PricingEnginePage() {
                       }}
                       disabled={!selectedScenarioId}
                     >
-                      {scenariosList.find((s) => s.id === selectedScenarioId)?.primary ? (
-                        <IconStarFilled className="h-4 w-4 text-yellow-500" />
-                      ) : (
-                        <IconStar className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                    <Button
+                          {scenariosList.find((s) => s.id === selectedScenarioId)?.primary ? (
+                            <IconStarFilled className="h-4 w-4 text-yellow-500" />
+                          ) : (
+                            <IconStar className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Favorite</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
                       aria-label="Rename"
                       size="icon"
                       variant="ghost"
@@ -1859,14 +1869,25 @@ export default function PricingEnginePage() {
                       }}
                       disabled={!selectedScenarioId}
                     >
-                      <IconPencil />
-                    </Button>
+                          <IconPencil />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-                      <AlertDialogTrigger asChild>
-                        <Button aria-label="Delete scenario" size="icon" variant="ghost" disabled={!selectedScenarioId}>
-                          <IconTrash />
-                        </Button>
-                      </AlertDialogTrigger>
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertDialogTrigger asChild>
+                              <Button aria-label="Delete scenario" size="icon" variant="ghost" disabled={!selectedScenarioId}>
+                                <IconTrash />
+                              </Button>
+                            </AlertDialogTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete scenario?</AlertDialogTitle>
@@ -1896,7 +1917,10 @@ export default function PricingEnginePage() {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
                       try {
                         const inputs = buildPayload()
                         let selected = selectedMainRow?.values
@@ -1997,16 +2021,27 @@ export default function PricingEnginePage() {
                         toast({ title: "Save failed", description: message, variant: "destructive" })
                       }
                     }}>
-                  <IconDeviceFloppy />
-                </Button>
-                    <Button
+                        <IconDeviceFloppy />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Save</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
                       aria-label="Save As"
                       size="icon"
                       variant="outline"
                       onClick={() => setIsNamingScenario(true)}
                     >
-                  <IconFileExport />
-                </Button>
+                            <IconFileExport />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Save As</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </>
                 )}
               </div>
