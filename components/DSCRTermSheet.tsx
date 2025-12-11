@@ -102,7 +102,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
     { label: asText(props, "downpayment_payoff_label"), value: asText(props, "downpayment_payoff_payment") },
     { label: "Escrows", value: asText(props, "escrows") },
     { label: asText(props, "reserves_label"), value: asText(props, "reserves") },
-    { label: "Mortgage Debt - 100%", value: asText(props, "mortgage_debt") },
+    { label: "Mortgage Debt - 1.00%", value: asText(props, "mortgage_debt") },
     { label: "Cash Out", value: asText(props, "cash_out") },
   ];
 
@@ -123,7 +123,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
     { label: "Reserves - 0 mo PITIA @ $2720.43 per month", value: "$0.00" },
     { label: "HOI Premium - Balance Due", value: asText(props, "hoi_premium") },
     { label: "Flood Insurance Premium", value: asText(props, "flood_premium") },
-    { label: "Daily Interest from 12/29/2025 to 1/1/2026 @", value: asText(props, "per_diem") },
+    { label: asText(props, "per_diem_label"), value: asText(props, "per_diem") },
     { label: "Title Insurance & Recording Fees", value: asText(props, "title_fee") },
   ];
 
