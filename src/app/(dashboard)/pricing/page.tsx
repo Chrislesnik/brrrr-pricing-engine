@@ -1113,7 +1113,15 @@ export default function PricingEnginePage() {
             // place result in its slot (do not reorder to preserve container positions)
             setProgramResults((prev) => {
               const next = prev.slice()
-              next[idx] = { ...next[idx], ...single }
+                  // Populate per-row initial_loan_amount cache on the result item
+                  try {
+                    const dat = (single as any)?.data
+                    const arr = Array.isArray(dat?.initial_loan_amount) ? (dat.initial_loan_amount as Array<string | number | null | undefined>) : null
+                    const cache = arr ? Object.fromEntries(arr.map((v, i) => [i, v ?? null])) : (next[idx] as any)?.initial_cache
+                    ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any), initial_cache: cache }
+                  } catch {
+                    ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any) }
+                  }
               return next
             })
           } catch {
@@ -4077,7 +4085,13 @@ function ResultCard({
         interest_rate: pick<string | number>(d?.interest_rate, idx),
       }
       if (isBridgeResp) {
-        payloadRow["initial_loan_amount"] = pick<string | number>(d?.initial_loan_amount, idx)
+        let init = pick<string | number>(d?.initial_loan_amount, idx)
+        // Fallback to cached value if missing
+        if (init === undefined || init === null || String(init) === "") {
+          const cached = (r as any)?.initial_cache?.[idx]
+          if (cached !== undefined) init = cached as any
+        }
+        payloadRow["initial_loan_amount"] = init
         payloadRow["rehab_holdback"] = pick<string | number>(d?.rehab_holdback, idx)
         payloadRow["total_loan_amount"] = pick<string | number>(d?.total_loan_amount, idx)
         payloadRow["funded_pitia"] = pick<string | number>(d?.funded_pitia, idx)
@@ -4985,7 +4999,12 @@ function ResultsPanel({
         interest_rate: Array.isArray(d?.interest_rate) ? d.interest_rate[idx] : undefined,
       }
       if (isBridgeResp) {
-        payloadRow["initial_loan_amount"] = Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[idx] : undefined
+        let init = Array.isArray(d?.initial_loan_amount) ? (d.initial_loan_amount as any[])[idx] : undefined
+        if (init === undefined || init === null || String(init) === "") {
+          const cached = (results?.[selected.programIdx] as any)?.initial_cache?.[idx]
+          if (cached !== undefined) init = cached as any
+        }
+        payloadRow["initial_loan_amount"] = init
         payloadRow["rehab_holdback"] = Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[idx] : undefined
         payloadRow["total_loan_amount"] = Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[idx] : undefined
         payloadRow["funded_pitia"] = Array.isArray(d?.funded_pitia) ? d.funded_pitia[idx] : undefined
