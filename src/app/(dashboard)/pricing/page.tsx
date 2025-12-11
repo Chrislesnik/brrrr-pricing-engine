@@ -3790,6 +3790,22 @@ function ResultCard({
           }
           const extraRows = debitsPanel.querySelectorAll('.flex.items-center.justify-between.text-xs.mt-1') as NodeListOf<HTMLElement>
           extraRows.forEach((el) => { el.style.transform = 'translateY(-8px)' })
+          // PDF-only: ensure the Cash Out to Borrower row aligns with other DEBITS rows and is moved up 5px
+          const pr2Blocks = Array.from(debitsPanel.querySelectorAll('.pr-2')) as HTMLElement[]
+          const emdBlock = pr2Blocks.length ? pr2Blocks[pr2Blocks.length - 1] : null
+          if (emdBlock) {
+            const cashOutRow = emdBlock.querySelector(':scope > div:last-child') as HTMLElement | null
+            if (cashOutRow) {
+              const left = cashOutRow.querySelector('span:first-child') as HTMLElement | null
+              if (left) {
+                // Match the effective left padding of list rows (px-2 on container + pl-2 on span => ~16px)
+                left.style.paddingLeft = '16px'
+                left.style.display = 'inline-block'
+              }
+              // Move only this row up by 5px in PDF sandbox
+              cashOutRow.style.transform = 'translateY(-5px)'
+            }
+          }
         }
       }
       // Liquidity block special inner left paddings
