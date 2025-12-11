@@ -167,7 +167,7 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
             placeholder="Webhook URL"
           />
           {/* Documents section */}
-          <div className="mt-2 rounded-md border p-3">
+          <div className="mt-2 rounded-md border p-3 overflow-hidden">
             <div className="mb-2 flex items-center justify-between">
               <Label>Documents (optional)</Label>
               <span className="text-xs text-muted-foreground">
@@ -176,10 +176,13 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
               </span>
             </div>
             {existingDocs.length > 0 ? (
-              <ul className="mb-2 space-y-1">
+              <ul className="mb-2 space-y-1 max-w-full">
                 {existingDocs.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-2 overflow-hidden">
-                    <span className="flex-1 min-w-0 truncate text-sm">
+                  <li key={d.id} className="flex items-center justify-between gap-2 overflow-hidden max-w-full">
+                    <span
+                      className="flex-1 min-w-0 truncate text-sm"
+                      title={(d.title || d.storage_path.split("/").at(-1)) ?? ""}
+                    >
                       {d.title || d.storage_path.split("/").at(-1)}
                       <span className="ml-2 text-xs text-muted-foreground">({d.status})</span>
                     </span>
@@ -206,6 +209,7 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
               id="programDocs"
               type="file"
               multiple
+              className="truncate"
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? [])
                 setFilesToUpload(files)
