@@ -1066,7 +1066,7 @@ export default function PricingEnginePage() {
         const augmented = { ...(toYesNoDeepGlobal(payload) as Record<string, unknown>) }
         if (selfMemberId) augmented["organization_member_id"] = selfMemberId
         const webhookBody = JSON.stringify(augmented)
-        void fetch(`https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
+        void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
           method: "POST",
           cache: "no-store",
           // Fire-and-forget; avoid console noise if remote doesn't send CORS headers
@@ -4050,7 +4050,7 @@ function ResultCard({
   const dscr = isBridgeResp ? undefined : pick<string | number>(d?.dscr, hi)
   const loanAmount = isBridgeResp ? pick<string | number>(d?.total_loan_amount, hi) : d?.loan_amount
   const ltv = d?.ltv
-  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
+  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
   const validationList: string[] = Array.isArray(d.validations)
     ? (d.validations as (string | null | undefined)[])
         .filter((v) => typeof v === "string" && String(v).trim().length > 0)
@@ -4721,7 +4721,7 @@ function ResultsPanel({
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
   const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetProps>({})
   const previewRefMain = useRef<HTMLDivElement | null>(null)
-  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook-test/a108a42d-e071-4f84-a557-2cd72e440c83"
+  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
 
   // Render main preview to a PDF File
   const renderPreviewToPdfMain = async (): Promise<File | null> => {
