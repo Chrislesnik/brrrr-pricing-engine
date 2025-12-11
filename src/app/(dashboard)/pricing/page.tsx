@@ -5574,10 +5574,68 @@ function ResultsPanel({
             )}
           </div>
           <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
-            <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-1 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-0.5 max-sm:pb-2">
-              <DialogHeader>
-                <DialogTitle>Term Sheet</DialogTitle>
+            <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+              <DialogHeader className="mb-1">
+                <DialogTitle className="text-base">Term Sheet</DialogTitle>
               </DialogHeader>
+              <button
+                type="button"
+                aria-label="Share term sheet"
+                className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                onClick={async () => {
+                  try {
+                    const file = await renderPreviewToPdfMain()
+                    if (!file) throw new Error("Could not render PDF")
+                    const canShareFiles =
+                      typeof navigator !== "undefined" &&
+                      "canShare" in navigator &&
+                      (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+                    const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+                    if (nav?.share && canShareFiles) {
+                      await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                    } else {
+                      const url = URL.createObjectURL(file)
+                      const a = document.createElement("a")
+                      a.href = url
+                      a.download = file.name
+                      document.body.appendChild(a)
+                      a.click()
+                      a.remove()
+                      URL.revokeObjectURL(url)
+                      toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                    }
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : "Unable to share"
+                    toast({ title: "Share failed", description: message, variant: "destructive" })
+                  }
+                }}
+              >
+                <IconShare3 />
+              </button>
+              <button
+                type="button"
+                aria-label="Download term sheet"
+                className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                onClick={async () => {
+                  try {
+                    const file = await renderPreviewToPdfMain()
+                    if (!file) throw new Error("Could not render PDF")
+                    const url = URL.createObjectURL(file)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = file.name
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(url)
+                  } catch (e) {
+                    const message = e instanceof Error ? e.message : "Unknown error"
+                    toast({ title: "Download failed", description: message, variant: "destructive" })
+                  }
+                }}
+              >
+                <IconDownload />
+              </button>
               
               <div className="space-y-3">
                 {Object.keys(sheetPropsMain ?? {}).length ? (
@@ -5799,10 +5857,68 @@ function ResultsPanel({
         />
       ))}
         <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
-          <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-4 pt-1 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-3 max-sm:pt-0.5 max-sm:pb-2">
-            <DialogHeader>
-              <DialogTitle>Term Sheet</DialogTitle>
+          <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95dvh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+            <DialogHeader className="mb-1">
+              <DialogTitle className="text-base">Term Sheet</DialogTitle>
             </DialogHeader>
+            <button
+              type="button"
+              aria-label="Share term sheet"
+              className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              onClick={async () => {
+                try {
+                  const file = await renderPreviewToPdfMain()
+                  if (!file) throw new Error("Could not render PDF")
+                  const canShareFiles =
+                    typeof navigator !== "undefined" &&
+                    "canShare" in navigator &&
+                    (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+                  const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+                  if (nav?.share && canShareFiles) {
+                    await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                  } else {
+                    const url = URL.createObjectURL(file)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = file.name
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(url)
+                    toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                  }
+                } catch (e) {
+                  const message = e instanceof Error ? e.message : "Unable to share"
+                  toast({ title: "Share failed", description: message, variant: "destructive" })
+                }
+              }}
+            >
+              <IconShare3 />
+            </button>
+            <button
+              type="button"
+              aria-label="Download term sheet"
+              className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              onClick={async () => {
+                try {
+                  const file = await renderPreviewToPdfMain()
+                  if (!file) throw new Error("Could not render PDF")
+                  const url = URL.createObjectURL(file)
+                  const a = document.createElement("a")
+                  a.href = url
+                  a.download = file.name
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
+                } catch (e) {
+                  const message = e instanceof Error ? e.message : "Unknown error"
+                  toast({ title: "Download failed", description: message, variant: "destructive" })
+                }
+              }}
+            >
+              <IconDownload />
+            </button>
             <div className="space-y-3">
               {Object.keys(sheetPropsMain ?? {}).length ? (
                 <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
