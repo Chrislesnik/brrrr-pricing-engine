@@ -86,10 +86,28 @@ export async function addProgramAction(formData: FormData) {
       if (insErr) return { ok: false, error: insErr.message }
       if (webhookUrl) {
         try {
+          // Include organization_member_id for auditing
+          let orgMemberId: string | null = null
+          try {
+            const { data: member } = await supabaseAdmin
+              .from("organization_members")
+              .select("id")
+              .eq("organization_id", orgUuid)
+              .eq("user_id", userId)
+              .maybeSingle()
+            orgMemberId = (member?.id as string) ?? null
+          } catch {
+            orgMemberId = null
+          }
           await fetch(webhookUrl, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ document_id: documentId, program_id: programId, storage_path: storagePath }),
+            body: JSON.stringify({
+              document_id: documentId,
+              program_id: programId,
+              storage_path: storagePath,
+              organization_member_id: orgMemberId,
+            }),
           })
         } catch {
           // non-fatal
@@ -208,10 +226,28 @@ export async function updateProgramAction(formData: FormData) {
       // Optional: kick off webhook for indexing if a URL exists
       if (webhookUrl) {
         try {
+          // Include organization_member_id for auditing
+          let orgMemberId: string | null = null
+          try {
+            const { data: member } = await supabaseAdmin
+              .from("organization_members")
+              .select("id")
+              .eq("organization_id", orgUuid)
+              .eq("user_id", userId)
+              .maybeSingle()
+            orgMemberId = (member?.id as string) ?? null
+          } catch {
+            orgMemberId = null
+          }
           await fetch(webhookUrl, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ document_id: documentId, program_id: id, storage_path: storagePath }),
+            body: JSON.stringify({
+              document_id: documentId,
+              program_id: id,
+              storage_path: storagePath,
+              organization_member_id: orgMemberId,
+            }),
           })
         } catch {
           // Non-fatal: leave status 'pending' if webhook fails
