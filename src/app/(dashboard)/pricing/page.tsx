@@ -370,7 +370,7 @@ function ScaledTermSheetPreview({
         `}</style>
       </div>
       {/* Zoom controls (stick to bottom-right of grey container viewport) */}
-      <div className="pointer-events-auto sticky bottom-2 z-20 flex justify-end pr-3">
+      <div className="pointer-events-auto sticky bottom-2 z-20 justify-self-end mr-3">
         <div className="flex items-center gap-2">
         <button
           type="button"
