@@ -4184,10 +4184,10 @@ function ResultCard({
     document.body.appendChild(container)
     try {
       await new Promise((r) => requestAnimationFrame(() => r(undefined)))
-      // Lower rasterization scale and use JPEG to significantly reduce file size
-      const canvas = await html2canvas(container, { scale: 1, backgroundColor: "#ffffff", useCORS: true, logging: false })
+      // Balance clarity and size: render at higher scale and slightly higher JPEG quality
+      const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
       const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
-      const img = canvas.toDataURL("image/jpeg", 0.72)
+      const img = canvas.toDataURL("image/jpeg", 0.88)
       pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
       const blob = pdf.output("blob")
       const filename = `term-sheet-${Date.now()}.pdf`
@@ -5169,10 +5169,10 @@ function ResultsPanel({
     document.body.appendChild(container)
     try {
       await new Promise((r) => requestAnimationFrame(() => r(undefined)))
-      // Lower rasterization scale and use JPEG to significantly reduce file size
-      const canvas = await html2canvas(container, { scale: 1, backgroundColor: "#ffffff", useCORS: true, logging: false })
+      // Balance clarity and size: render at higher scale and slightly higher JPEG quality
+      const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
       const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
-      const img = canvas.toDataURL("image/jpeg", 0.72)
+      const img = canvas.toDataURL("image/jpeg", 0.88)
       pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
       const blob = pdf.output("blob")
       const filename = `term-sheet-${Date.now()}.pdf`
