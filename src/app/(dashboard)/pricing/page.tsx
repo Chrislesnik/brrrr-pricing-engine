@@ -182,7 +182,7 @@ function ScaledTermSheetPreview({
       if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
       const delta = e.deltaY
-      const factor = Math.pow(0.9, delta / 100) // smooth exponential
+      const factor = Math.pow(0.85, delta / 100) // slightly more aggressive than before
       setZoom((z) => {
         const next = Math.min(5, Math.max(0.25, z * factor))
         return next
@@ -319,7 +319,7 @@ function ScaledTermSheetPreview({
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div
-        className="mx-auto justify-self-center"
+        className="mx-auto justify-self-center relative"
         style={{
           width: 816 * scale,
           height: 1056 * scale,
@@ -369,11 +369,11 @@ function ScaledTermSheetPreview({
           }
         `}</style>
         {/* Zoom controls */}
-        <div className="pointer-events-auto absolute right-3 top-2 flex items-center gap-2">
+        <div className="pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2">
           <button
             type="button"
             className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-            onClick={() => setZoom((z) => Math.max(0.25, z * 0.9))}
+            onClick={() => setZoom((z) => Math.max(0.25, z * 0.85))}
             aria-label="Zoom out"
           >
             -
@@ -384,7 +384,7 @@ function ScaledTermSheetPreview({
           <button
             type="button"
             className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-            onClick={() => setZoom((z) => Math.min(5, z * 1.1))}
+            onClick={() => setZoom((z) => Math.min(5, z * 1.15))}
             aria-label="Zoom in"
           >
             +
