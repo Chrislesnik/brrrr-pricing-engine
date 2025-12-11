@@ -315,7 +315,7 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[72vh] overflow-auto rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
+      className="w-full h-[72vh] overflow-auto rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1 relative"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div
@@ -368,36 +368,36 @@ function ScaledTermSheetPreview({
             }
           }
         `}</style>
-        {/* Zoom controls */}
-        <div className="pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-            onClick={() => setZoom((z) => Math.max(0.25, z * 0.85))}
-            aria-label="Zoom out"
-          >
-            -
-          </button>
-          <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center">
-            {Math.round((zoom || 1) * 100)}%
-          </div>
-          <button
-            type="button"
-            className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-            onClick={() => setZoom((z) => Math.min(5, z * 1.15))}
-            aria-label="Zoom in"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
-            onClick={() => setZoom(1)}
-            aria-label="Reset zoom"
-          >
-            Fit
-          </button>
+      </div>
+      {/* Zoom controls (in outer grey container, bottom-right) */}
+      <div className="pointer-events-auto absolute bottom-2 right-3 flex items-center gap-2">
+        <button
+          type="button"
+          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+          onClick={() => setZoom((z) => Math.max(0.25, z * 0.85))}
+          aria-label="Zoom out"
+        >
+          -
+        </button>
+        <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center">
+          {Math.round((zoom || 1) * 100)}%
         </div>
+        <button
+          type="button"
+          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+          onClick={() => setZoom((z) => Math.min(5, z * 1.15))}
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50"
+          onClick={() => setZoom(1)}
+          aria-label="Reset zoom"
+        >
+          Fit
+        </button>
       </div>
     </div>
   )
