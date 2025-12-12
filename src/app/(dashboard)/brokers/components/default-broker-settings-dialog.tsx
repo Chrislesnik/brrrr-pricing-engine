@@ -367,9 +367,13 @@ function RatesFeesTable({
     })
   }
   const fmtPercent = (s: string): string => {
-    const n = Number(stripCommas(s))
-    if (!Number.isFinite(n)) return s ?? ""
-    return n.toFixed(2)
+    const v = String(s ?? "").trim()
+    if (v === "") return ""
+    const cleaned = v.replace(/[^\d.]/g, "")
+    const [i = "", d = ""] = cleaned.split(".")
+    const int = (i || "0").replace(/^0+(?=\d)/, "") || "0"
+    const dec = (d ?? "").slice(0, 4)
+    return dec.length ? `${int}.${dec}` : int
   }
   const clampPercentStr = (s: string): string => {
     let raw = s.replace(/[^\d.]/g, "")
@@ -393,7 +397,7 @@ function RatesFeesTable({
     if (intNum === 100) {
       return "100"
     }
-    decPart = decPart.slice(0, 2)
+    decPart = decPart.slice(0, 4)
     if (hadDot) {
       return `${intPart}.${decPart}`
     }
