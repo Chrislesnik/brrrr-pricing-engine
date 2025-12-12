@@ -1039,8 +1039,21 @@ export default function PricingEnginePage() {
       loan_amount: loanAmount,
       // keep legacy and alias for clarity in downstream systems
       // send both legacy and explicit lender_admin_fee for downstream systems
-      admin_fee: adminFee,
-      lender_admin_fee: adminFee,
+      // Null semantics: if never edited and empty => null; if explicitly "0" => 0
+      admin_fee: (() => {
+        const ever = !!touched.adminFee
+        const v = String(adminFee ?? "").trim()
+        if (!ever && v === "") return null
+        if (v === "0" || v === "0.0" || v === "0.00") return 0
+        return adminFee
+      })(),
+      lender_admin_fee: (() => {
+        const ever = !!touched.adminFee
+        const v = String(adminFee ?? "").trim()
+        if (!ever && v === "") return null
+        if (v === "0" || v === "0.0" || v === "0.00") return 0
+        return adminFee
+      })(),
       broker_admin_fee: brokerAdminFee,
       payoff_amount: payoffAmount,
       aiv,
@@ -1077,7 +1090,21 @@ export default function PricingEnginePage() {
         .map((s) => s.trim())
         .filter(Boolean),
       uw_exception: uwException ?? "",
-      lender_orig_percent: lenderOrig,
+      // Origination null semantics and alias
+      lender_orig_percent: (() => {
+        const ever = !!touched.lenderOrig
+        const v = String(lenderOrig ?? "").trim()
+        if (!ever && v === "") return null
+        if (v === "0" || v === "0.0" || v === "0.00") return 0
+        return lenderOrig
+      })(),
+      origination_points: (() => {
+        const ever = !!touched.lenderOrig
+        const v = String(lenderOrig ?? "").trim()
+        if (!ever && v === "") return null
+        if (v === "0" || v === "0.0" || v === "0.00") return 0
+        return lenderOrig
+      })(),
       broker_orig_percent: brokerOrig,
       title_recording_fee: titleRecordingFee || computedTitleRecording,
       assignment_fee: assignmentFee,
@@ -3529,6 +3556,7 @@ export default function PricingEnginePage() {
                                 v = "100"
                               }
                               setLenderOrig(v)
+                              setTouched((t) => ({ ...t, lenderOrig: true }))
                             }}
                             readOnly={isBroker}
                             disabled={isBroker}
@@ -3549,7 +3577,10 @@ export default function PricingEnginePage() {
                             placeholder="0.00"
                             className="pl-6"
                             value={adminFee}
-                            onValueChange={setAdminFee}
+                            onValueChange={(v) => {
+                              setAdminFee(v)
+                              setTouched((t) => ({ ...t, adminFee: true }))
+                            }}
                             readOnly={isBroker}
                             disabled={isBroker}
                           />
