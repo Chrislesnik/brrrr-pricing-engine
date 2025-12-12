@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3 } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -2346,7 +2346,18 @@ export default function PricingEnginePage() {
                       {loanType === "dscr" && (
                         <>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="fthb">FTHB</Label>
+                            <div className="flex items-center gap-1">
+                              <Label htmlFor="fthb">FTHB</Label>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={50}>
+                                  <TooltipTrigger>
+                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <span className="sr-only">More Info</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>First Time Home Buyer</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                             <Select
                               value={fthb}
                               onValueChange={(v) => {
@@ -2367,7 +2378,18 @@ export default function PricingEnginePage() {
                             </Select>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="mortgage-debt">Mortgage Debt</Label>
+                            <div className="flex items-center gap-1">
+                              <Label htmlFor="mortgage-debt">Mortgage Debt</Label>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={50}>
+                                  <TooltipTrigger>
+                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <span className="sr-only">More Info</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Mortgage Debt shown on guarantor(s) credit report</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                             <div className="relative">
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
@@ -2387,9 +2409,20 @@ export default function PricingEnginePage() {
                         </>
                       )}
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="fico">
-                          FICO Score{isFicoRequired ? <span className="text-red-600"> *</span> : null}
-                        </Label>
+                        <div className="flex items-center gap-1">
+                          <Label htmlFor="fico">
+                            FICO Score{isFicoRequired ? <span className="text-red-600"> *</span> : null}
+                          </Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Middle score when 3 tradelines available, or lower score if only 2 are available</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Input
                           id="fico"
                           type="number"
@@ -2423,8 +2456,19 @@ export default function PricingEnginePage() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
                           <Label htmlFor="rentals-owned">Rentals Owned</Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Properties owned (fix & holds should be included under '# of Flips')</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                           <Input
                             id="rentals-owned"
                             inputMode="numeric"
@@ -2437,8 +2481,19 @@ export default function PricingEnginePage() {
                             }}
                           />
                         </div>
-                        <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
                           <Label htmlFor="num-flips"># of Flips</Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Flips exited in trailing 36 months</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                           <Input
                             id="num-flips"
                             inputMode="numeric"
@@ -2451,8 +2506,19 @@ export default function PricingEnginePage() {
                             }}
                           />
                         </div>
-                        <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
                           <Label htmlFor="num-gunc"># of GUNC</Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Ground Up projects exited in trailing 36 months</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                           <Input
                             id="num-gunc"
                             inputMode="numeric"
@@ -2465,8 +2531,19 @@ export default function PricingEnginePage() {
                             }}
                           />
                         </div>
-                        <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
                           <Label htmlFor="other-exp">Other</Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Other real estate experience</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                           <Select value={otherExp} onValueChange={setOtherExp}>
                             <SelectTrigger id="other-exp" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
@@ -2702,7 +2779,18 @@ export default function PricingEnginePage() {
                         </div>
 
                         <div className="flex flex-col gap-1">
-                          <Label htmlFor="gla">GLA Sq Ft</Label>
+                          <div className="flex items-center gap-1">
+                            <Label htmlFor="gla">GLA Sq Ft</Label>
+                            <TooltipProvider>
+                              <Tooltip delayDuration={50}>
+                                <TooltipTrigger>
+                                  <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                  <span className="sr-only">More Info</span>
+                                </TooltipTrigger>
+                                <TooltipContent>Gross Living Area Square Footage of subject property</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                           <Input
                             id="gla"
                             inputMode="numeric"
@@ -2738,8 +2826,19 @@ export default function PricingEnginePage() {
                         </div>
                         {loanType === "dscr" && (
                           <>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="str">STR</Label>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <Label htmlFor="str">STR</Label>
+                            <TooltipProvider>
+                              <Tooltip delayDuration={50}>
+                                <TooltipTrigger>
+                                  <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                  <span className="sr-only">More Info</span>
+                                </TooltipTrigger>
+                                <TooltipContent>Short-Term Rental</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                             <Select
                               value={strValue}
                               onValueChange={(v) => {
@@ -2796,7 +2895,18 @@ export default function PricingEnginePage() {
                       <AccordionContent>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="gla-expansion">{">20% GLA Expansion"}</Label>
+                            <div className="flex items-center gap-1">
+                              <Label htmlFor="gla-expansion">{">20% GLA Expansion"}</Label>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={50}>
+                                  <TooltipTrigger>
+                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <span className="sr-only">More Info</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Rehab includes expanding the gross living area square footage by over 20% of current</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                             <Select
                               value={glaExpansion}
                               onValueChange={(v) => {
@@ -2817,7 +2927,18 @@ export default function PricingEnginePage() {
                             </Select>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="change-of-use">Change of Use</Label>
+                            <div className="flex items-center gap-1">
+                              <Label htmlFor="change-of-use">Change of Use</Label>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={50}>
+                                  <TooltipTrigger>
+                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <span className="sr-only">More Info</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Change of property use (ex. converting Single Family to Duplex)</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                             <Select
                               value={changeOfUse}
                               onValueChange={(v) => {
@@ -2853,7 +2974,18 @@ export default function PricingEnginePage() {
                             </div>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor="arv">ARV <span className="text-red-600">*</span></Label>
+                            <div className="flex items-center gap-1">
+                              <Label htmlFor="arv">ARV <span className="text-red-600">*</span></Label>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={50}>
+                                  <TooltipTrigger>
+                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <span className="sr-only">More Info</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>After-Repair Value</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                             <div className="relative">
                               <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 $
@@ -3250,9 +3382,20 @@ export default function PricingEnginePage() {
                         </>
                       ) : null}
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="aiv">
-                          AIV<span className="text-red-600"> *</span>
-                        </Label>
+                        <div className="flex items-center gap-1">
+                          <Label htmlFor="aiv">
+                            AIV<span className="text-red-600"> *</span>
+                          </Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>As-Is Value</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -3494,8 +3637,19 @@ export default function PricingEnginePage() {
                           className={`${!touched.guarantorsStr && guarantorsStr === DEFAULTS.guarantorsStr ? "text-muted-foreground" : ""}`}
                         />
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="uw-exception">UW Exception</Label>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <Label htmlFor="uw-exception">UW Exception</Label>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={50}>
+                                  <TooltipTrigger>
+                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <span className="sr-only">More Info</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Underwriting Exception</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                         <Select
                           value={uwException}
                           onValueChange={(v) => {
