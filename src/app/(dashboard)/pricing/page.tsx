@@ -4441,15 +4441,24 @@ function ResultCard({
           const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
           const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
           const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
-          const defLenderOrig = toStr(pickAt<any>((d as any)["default_lender_orig_percent"], idx) ?? (d as any)["default_lender_orig_percent"])
-          const defLenderAdmin = toStr(pickAt<any>((d as any)["default_lender_admin_fee"], idx) ?? (d as any)["default_lender_admin_fee"])
+          const defLenderOrig = toStr(
+            pickAt<any>((d as any)["default_lender_orig_percent"], idx) ??
+              (d as any)["default_lender_orig_percent"] ??
+              (r as any)?.lender_defaults_cache?.default_lender_orig_percent
+          )
+          const defLenderAdmin = toStr(
+            pickAt<any>((d as any)["default_lender_admin_fee"], idx) ??
+              (d as any)["default_lender_admin_fee"] ??
+              (r as any)?.lender_defaults_cache?.default_lender_admin_fee
+          )
           if (selLenderOrig) out["lender_orig_percent"] = selLenderOrig
           if (selLenderAdmin) {
             out["lender_admin_fee"] = selLenderAdmin
             out["admin_fee"] = selLenderAdmin
           }
-          if (defLenderOrig) out["default_lender_orig_percent"] = defLenderOrig
-          if (defLenderAdmin) out["default_lender_admin_fee"] = defLenderAdmin
+          // Always include default values, even if empty
+          out["default_lender_orig_percent"] = defLenderOrig
+          out["default_lender_admin_fee"] = defLenderAdmin
           return out
         })(),
         row: normalizedRow,
@@ -4473,6 +4482,16 @@ function ResultCard({
         json && typeof json === "object" && !Array.isArray(json)
           ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
           : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetProps)
+      // Cache any returned default lender values at the program level for subsequent term sheets
+      try {
+        const retDefOrig = String((json as any)?.default_lender_orig_percent ?? "").trim()
+        const retDefAdmin = String((json as any)?.default_lender_admin_fee ?? "").trim()
+        ;(r as any).lender_defaults_cache = {
+          default_lender_orig_percent: retDefOrig,
+          default_lender_admin_fee: retDefAdmin,
+          ...(typeof (r as any).lender_defaults_cache === "object" ? (r as any).lender_defaults_cache : {}),
+        }
+      } catch {/* ignore */}
       // Fallback: if logo not provided by webhook, pull broker company branding
       try {
         const currentLogo = String((enriched as any)?.logo ?? "").trim()
@@ -5374,8 +5393,16 @@ function ResultsPanel({
       const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
       const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
       const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
-      const defLenderOrig = toStr(pickAt<any>((d as any)["default_lender_orig_percent"], idx) ?? (d as any)["default_lender_orig_percent"])
-      const defLenderAdmin = toStr(pickAt<any>((d as any)["default_lender_admin_fee"], idx) ?? (d as any)["default_lender_admin_fee"])
+      const defLenderOrig = toStr(
+        pickAt<any>((d as any)["default_lender_orig_percent"], idx) ??
+          (d as any)["default_lender_orig_percent"] ??
+          (results?.[selected.programIdx] as any)?.lender_defaults_cache?.default_lender_orig_percent
+      )
+      const defLenderAdmin = toStr(
+        pickAt<any>((d as any)["default_lender_admin_fee"], idx) ??
+          (d as any)["default_lender_admin_fee"] ??
+          (results?.[selected.programIdx] as any)?.lender_defaults_cache?.default_lender_admin_fee
+      )
       if (selLenderOrig) {
         inputs["lender_orig_percent"] = selLenderOrig
       }
@@ -5383,12 +5410,9 @@ function ResultsPanel({
         inputs["lender_admin_fee"] = selLenderAdmin
         inputs["admin_fee"] = selLenderAdmin
       }
-      if (defLenderOrig) {
-        inputs["default_lender_orig_percent"] = defLenderOrig
-      }
-      if (defLenderAdmin) {
-        inputs["default_lender_admin_fee"] = defLenderAdmin
-      }
+      // Always include defaults, even if empty
+      inputs["default_lender_orig_percent"] = defLenderOrig
+      inputs["default_lender_admin_fee"] = defLenderAdmin
       const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
       const r = results?.[selected.programIdx]
       const body = {
@@ -5417,6 +5441,19 @@ function ResultsPanel({
         json && typeof json === "object" && !Array.isArray(json)
           ? ({ loan_type: isBridgeResp ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
           : ({ loan_type: isBridgeResp ? "bridge" : "dscr" } as DSCRTermSheetProps)
+      // Cache any returned defaults at the program level for reuse
+      try {
+        const retDefOrig = String((json as any)?.default_lender_orig_percent ?? "").trim()
+        const retDefAdmin = String((json as any)?.default_lender_admin_fee ?? "").trim()
+        const prog = results?.[selected.programIdx] as any
+        if (prog && typeof prog === "object") {
+          prog.lender_defaults_cache = {
+            default_lender_orig_percent: retDefOrig,
+            default_lender_admin_fee: retDefAdmin,
+            ...(typeof prog.lender_defaults_cache === "object" ? prog.lender_defaults_cache : {}),
+          }
+        }
+      } catch {/* ignore */}
       setSheetPropsMain(enriched)
       setMcpOpenMain(true)
       if (opts?.autoDownloadPdf || opts?.autoShare) {
