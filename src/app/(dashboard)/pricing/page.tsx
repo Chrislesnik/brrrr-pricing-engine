@@ -2351,7 +2351,7 @@ export default function PricingEnginePage() {
                               <TooltipProvider>
                                 <Tooltip delayDuration={50}>
                                   <TooltipTrigger>
-                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                     <span className="sr-only">More Info</span>
                                   </TooltipTrigger>
                                   <TooltipContent>First Time Home Buyer</TooltipContent>
@@ -2383,7 +2383,7 @@ export default function PricingEnginePage() {
                               <TooltipProvider>
                                 <Tooltip delayDuration={50}>
                                   <TooltipTrigger>
-                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                     <span className="sr-only">More Info</span>
                                   </TooltipTrigger>
                                   <TooltipContent>Mortgage Debt shown on guarantor(s) credit report</TooltipContent>
@@ -2416,7 +2416,7 @@ export default function PricingEnginePage() {
                           <TooltipProvider>
                             <Tooltip delayDuration={50}>
                               <TooltipTrigger>
-                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                 <span className="sr-only">More Info</span>
                               </TooltipTrigger>
                               <TooltipContent>Middle score when 3 tradelines available, or lower score if only 2 are available</TooltipContent>
@@ -2462,7 +2462,7 @@ export default function PricingEnginePage() {
                           <TooltipProvider>
                             <Tooltip delayDuration={50}>
                               <TooltipTrigger>
-                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                 <span className="sr-only">More Info</span>
                               </TooltipTrigger>
                               <TooltipContent>Properties owned (fix & holds should be included under '# of Flips')</TooltipContent>
@@ -2487,7 +2487,7 @@ export default function PricingEnginePage() {
                           <TooltipProvider>
                             <Tooltip delayDuration={50}>
                               <TooltipTrigger>
-                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                 <span className="sr-only">More Info</span>
                               </TooltipTrigger>
                               <TooltipContent>Flips exited in trailing 36 months</TooltipContent>
@@ -2512,7 +2512,7 @@ export default function PricingEnginePage() {
                           <TooltipProvider>
                             <Tooltip delayDuration={50}>
                               <TooltipTrigger>
-                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                 <span className="sr-only">More Info</span>
                               </TooltipTrigger>
                               <TooltipContent>Ground Up projects exited in trailing 36 months</TooltipContent>
@@ -2537,7 +2537,7 @@ export default function PricingEnginePage() {
                           <TooltipProvider>
                             <Tooltip delayDuration={50}>
                               <TooltipTrigger>
-                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                 <span className="sr-only">More Info</span>
                               </TooltipTrigger>
                               <TooltipContent>Other real estate experience</TooltipContent>
@@ -2784,7 +2784,7 @@ export default function PricingEnginePage() {
                             <TooltipProvider>
                               <Tooltip delayDuration={50}>
                                 <TooltipTrigger>
-                                  <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                  <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                   <span className="sr-only">More Info</span>
                                 </TooltipTrigger>
                                 <TooltipContent>Gross Living Area Square Footage of subject property</TooltipContent>
@@ -2832,7 +2832,7 @@ export default function PricingEnginePage() {
                             <TooltipProvider>
                               <Tooltip delayDuration={50}>
                                 <TooltipTrigger>
-                                  <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                  <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                   <span className="sr-only">More Info</span>
                                 </TooltipTrigger>
                                 <TooltipContent>Short-Term Rental</TooltipContent>
@@ -2900,7 +2900,7 @@ export default function PricingEnginePage() {
                               <TooltipProvider>
                                 <Tooltip delayDuration={50}>
                                   <TooltipTrigger>
-                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                     <span className="sr-only">More Info</span>
                                   </TooltipTrigger>
                                   <TooltipContent>Rehab includes expanding the gross living area square footage by over 20% of current</TooltipContent>
@@ -2932,7 +2932,7 @@ export default function PricingEnginePage() {
                               <TooltipProvider>
                                 <Tooltip delayDuration={50}>
                                   <TooltipTrigger>
-                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                     <span className="sr-only">More Info</span>
                                   </TooltipTrigger>
                                   <TooltipContent>Change of property use (ex. converting Single Family to Duplex)</TooltipContent>
@@ -2979,7 +2979,7 @@ export default function PricingEnginePage() {
                               <TooltipProvider>
                                 <Tooltip delayDuration={50}>
                                   <TooltipTrigger>
-                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                     <span className="sr-only">More Info</span>
                                   </TooltipTrigger>
                                   <TooltipContent>After-Repair Value</TooltipContent>
@@ -3389,7 +3389,7 @@ export default function PricingEnginePage() {
                           <TooltipProvider>
                             <Tooltip delayDuration={50}>
                               <TooltipTrigger>
-                                <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                 <span className="sr-only">More Info</span>
                               </TooltipTrigger>
                               <TooltipContent>As-Is Value</TooltipContent>
@@ -3643,7 +3643,7 @@ export default function PricingEnginePage() {
                               <TooltipProvider>
                                 <Tooltip delayDuration={50}>
                                   <TooltipTrigger>
-                                    <IconInfoCircle className="text-muted-foreground scale-90 stroke-[1.25]" />
+                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
                                     <span className="sr-only">More Info</span>
                                   </TooltipTrigger>
                                   <TooltipContent>Underwriting Exception</TooltipContent>
