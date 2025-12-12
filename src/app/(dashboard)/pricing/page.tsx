@@ -1297,7 +1297,34 @@ export default function PricingEnginePage() {
                   : null
                 const cache =
                   arr != null ? Object.fromEntries(arr.map((v, i) => [i, v ?? null])) : (next[idx] as any)?.initial_pitia_cache
-                ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any), initial_pitia_cache: cache }
+                // Cache program-level default lender fees from calculate webhook
+                let defaultOrig = ""
+                let defaultAdmin = ""
+                try {
+                  const pickDefault = (v: any, hi: number): string => {
+                    if (Array.isArray(v)) {
+                      const i = Math.max(0, Math.min(hi, v.length - 1))
+                      const pv = v[i]
+                      return pv === null || pv === undefined ? "" : String(pv)
+                    }
+                    return v === null || v === undefined ? "" : String(v)
+                  }
+                  const hi = Number(dat?.highlight_display ?? 0)
+                  defaultOrig = pickDefault((dat as any)?.default_lender_orig_percent, hi).trim()
+                  defaultAdmin = pickDefault((dat as any)?.default_lender_admin_fee, hi).trim()
+                } catch {}
+                const lenderDefaultsCache =
+                  typeof (next as any)[idx]?.lender_defaults_cache === "object"
+                    ? { ...(next as any)[idx].lender_defaults_cache }
+                    : {}
+                if (defaultOrig !== "") lenderDefaultsCache.default_lender_orig_percent = defaultOrig
+                if (defaultAdmin !== "") lenderDefaultsCache.default_lender_admin_fee = defaultAdmin
+                ;(next as any)[idx] = {
+                  ...(next[idx] as any),
+                  ...(single as any),
+                  initial_pitia_cache: cache,
+                  lender_defaults_cache: lenderDefaultsCache,
+                }
               } catch {
                 ;(next as any)[idx] = { ...(next[idx] as any), ...(single as any) }
               }
