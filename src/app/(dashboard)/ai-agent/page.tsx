@@ -463,7 +463,7 @@ export default function AIAgentPage() {
             </div>
             <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1">
               {/* Loan Type selector */}
-              <div className="min-w-0 flex-1 md:min-w-[160px]">
+              <div className="min-w-0 flex-1 md:flex-none md:w-[160px]">
                 <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Loan Type" />
@@ -475,7 +475,7 @@ export default function AIAgentPage() {
                 </Select>
               </div>
               {/* Programs selector (filtered by loan type) */}
-              <div className="min-w-0 flex-1 md:min-w-[220px]">
+              <div className="min-w-0 flex-1 md:flex-none md:w-[220px]">
               <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
                 <SelectTrigger className="h-8 w-full truncate">
                   <SelectValue placeholder="Programs" />
