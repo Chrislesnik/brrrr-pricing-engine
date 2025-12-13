@@ -37,6 +37,7 @@ export default function AIAgentPage() {
   const [editingChatId, setEditingChatId] = React.useState<string | undefined>(undefined)
   const [editingName, setEditingName] = React.useState<string>("")
   const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
+  const [keyboardOffset, setKeyboardOffset] = React.useState<number>(0)
 
   // Chat scroll management
   const scrollAreaRef = React.useRef<HTMLDivElement>(null)
@@ -57,6 +58,24 @@ export default function AIAgentPage() {
   React.useEffect(() => {
     autoResize()
   }, [input, autoResize])
+
+  // Track mobile keyboard height using VisualViewport when available
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !("visualViewport" in window)) return
+    const vv = (window as any).visualViewport as VisualViewport
+    const update = () => {
+      // Amount of space covered by keyboard at bottom of the window
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardOffset(Math.round(overlap))
+    }
+    update()
+    vv.addEventListener("resize", update)
+    vv.addEventListener("scroll", update)
+    return () => {
+      vv.removeEventListener("resize", update)
+      vv.removeEventListener("scroll", update)
+    }
+  }, [])
 
   // Optimistically bump the selected chat's last_used_at and re-sort list
   const bumpSelectedChat = React.useCallback(() => {
@@ -584,6 +603,7 @@ export default function AIAgentPage() {
             onSubmit={handleSend}
             ref={formRef}
             className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[env(safe-area-inset-bottom)]"
+            style={keyboardOffset ? ({ bottom: keyboardOffset } as React.CSSProperties) : undefined}
           >
             <div className="mx-auto flex w-full max-w-2xl items-end gap-2 pb-2">
               <Textarea
