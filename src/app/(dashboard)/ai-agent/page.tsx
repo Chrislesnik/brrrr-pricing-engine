@@ -445,7 +445,7 @@ export default function AIAgentPage() {
         {/* Messages area - flush to top and left */}
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Chat header with Programs dropdown */}
-          <div className="flex items-center gap-2 border-b px-3 py-2">
+          <div className="sticky top-0 z-20 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex items-center gap-2 min-w-0">
               <Button
                 type="button"
