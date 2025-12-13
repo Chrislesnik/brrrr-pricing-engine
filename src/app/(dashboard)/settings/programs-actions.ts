@@ -84,6 +84,16 @@ export async function addProgramAction(formData: FormData) {
         status: "pending",
       })
       if (insErr) return { ok: false, error: insErr.message }
+      // Always notify the external webhook with the created program_document id
+      try {
+        await fetch("https://n8n.axora.info/webhook/19475613-327f-4932-924d-2e313ebce97c", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ program_document_id: documentId }),
+        })
+      } catch {
+        // non-fatal
+      }
       if (webhookUrl) {
         try {
           // Include organization_member_id for auditing
@@ -193,6 +203,15 @@ export async function updateProgramAction(formData: FormData) {
       if (delErr) {
         return { ok: false, error: delErr.message }
       }
+      // Also remove any vector-store documents whose metadata references these program_document ids
+      try {
+        for (const delId of deleteDocumentIds) {
+          // Match documents where metadata->>program_document_id equals the deleted id
+          await supabaseAdmin.from("documents").delete().eq("metadata->>program_document_id", delId)
+        }
+      } catch {
+        // Best-effort cleanup; ignore failures
+      }
     }
   }
 
@@ -221,6 +240,16 @@ export async function updateProgramAction(formData: FormData) {
       })
       if (insErr) {
         return { ok: false, error: insErr.message }
+      }
+      // Always notify the external webhook with the created program_document id
+      try {
+        await fetch("https://n8n.axora.info/webhook/19475613-327f-4932-924d-2e313ebce97c", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ program_document_id: documentId }),
+        })
+      } catch {
+        // non-fatal
       }
 
       // Optional: kick off webhook for indexing if a URL exists

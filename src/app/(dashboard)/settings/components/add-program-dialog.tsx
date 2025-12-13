@@ -79,12 +79,12 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
         disabled={!canCreate}
         title={!canCreate ? "Select or create an organization first" : undefined}
       >
-        Add Pipeline Record
+        Add Program
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add pipeline record</DialogTitle>
+            <DialogTitle>Add Program</DialogTitle>
             <DialogDescription>Fill in the details and click Save.</DialogDescription>
           </DialogHeader>
           {!canCreate ? (

@@ -1,4 +1,4 @@
-import { IconApps, IconSettings, IconUsers, IconUser } from "@tabler/icons-react"
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
@@ -43,6 +43,11 @@ export const sidebarData: SidebarData = {
           url: "/brokers",
           icon: IconUser,
           denyOrgRoles: ["org:broker", "broker"],
+        },
+        {
+          title: "AI Agent",
+          url: "/ai-agent",
+          icon: IconSparkles,
         },
         {
           title: "Settings",

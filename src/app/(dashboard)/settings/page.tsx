@@ -45,7 +45,7 @@ export default async function SettingsProgramsPage() {
   return (
     <ContentSection
       title="Programs"
-      desc="Pipeline records."
+      desc="Manage your loan programs."
       className="w-full lg:max-w-full"
       showHeader={false}
     >
