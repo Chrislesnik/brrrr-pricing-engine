@@ -14,16 +14,20 @@ function resolveId(req: Request, params: { id?: string } | undefined): string {
   return id
 }
 import { auth } from "@clerk/nextjs/server"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { userId, orgId } = await auth()
     if (!userId || !orgId) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 200 })
     }
+    const params = await context.params
     const id = resolveId(req, params)
     if (!id) {
       return NextResponse.json({ ok: false, error: "Missing chat id" }, { status: 200 })
@@ -55,12 +59,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { userId, orgId } = await auth()
     if (!userId || !orgId) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 200 })
     }
+    const params = await context.params
     const id = resolveId(_req, params)
     if (!id) {
       return NextResponse.json({ ok: false, error: "Missing chat id" }, { status: 200 })

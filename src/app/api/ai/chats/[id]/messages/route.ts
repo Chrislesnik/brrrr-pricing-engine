@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
@@ -6,7 +6,7 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 export const runtime = "nodejs"
 
 export async function GET(
-  _req: Request,
+  _req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
