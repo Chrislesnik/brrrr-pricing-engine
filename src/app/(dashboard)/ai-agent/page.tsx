@@ -262,7 +262,7 @@ export default function AIAgentPage() {
   }
 
   return (
-    <div data-layout="fixed" className="flex h-full min-h-0 flex-1 overflow-hidden">
+    <div data-layout="fixed" className="flex h-[100dvh] md:h-full min-h-0 flex-1 overflow-hidden">
       {/* Left column: chat threads (placeholder for Supabase integration) */}
       <aside className="hidden md:block w-[260px] shrink-0 border-r bg-muted/40">
         <div className="p-4">
@@ -498,8 +498,8 @@ export default function AIAgentPage() {
             </div>
             </div>
           </div>
-          <div className="relative flex-1 min-h-0">
-          <ScrollArea ref={scrollAreaRef} className="h-full px-3 py-0">
+          <div className="relative flex min-h-0 flex-1 flex-col">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 px-3 py-0">
             {selectedChatId && (
               <div className="mx-auto max-w-2xl space-y-3 pt-4 pb-6">
               {messages.map((m) => (
@@ -583,7 +583,7 @@ export default function AIAgentPage() {
           <form
             onSubmit={handleSend}
             ref={formRef}
-            className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2"
+            className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[env(safe-area-inset-bottom)]"
           >
             <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
               <Textarea
