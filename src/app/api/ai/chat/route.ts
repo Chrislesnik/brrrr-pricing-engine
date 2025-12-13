@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       "You are an AI assistant that helps loan officers price loans and answer questions succinctly.",
   })
 
-  return result.toAIStreamResponse()
+  return result.toTextStreamResponse()
 }
 
 
