@@ -585,7 +585,7 @@ export default function AIAgentPage() {
             ref={formRef}
             className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[env(safe-area-inset-bottom)]"
           >
-            <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
+            <div className="mx-auto flex w-full max-w-2xl items-end gap-2 pb-2">
               <Textarea
                 ref={textareaRef}
                 value={input}
