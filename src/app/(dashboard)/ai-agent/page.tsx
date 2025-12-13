@@ -461,7 +461,7 @@ export default function AIAgentPage() {
                 {chats.find((c) => c.id === selectedChatId)?.name?.trim() || "Chat"}
               </h2>
             </div>
-            <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1">
+            <div className="ml-auto flex items-center gap-2 min-w-0 overflow-hidden flex-1 justify-end">
               {/* Loan Type selector */}
               <div className="min-w-0 flex-1 md:flex-none md:w-[160px]">
                 <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
