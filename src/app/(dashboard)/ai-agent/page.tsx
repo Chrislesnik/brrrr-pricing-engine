@@ -461,11 +461,11 @@ export default function AIAgentPage() {
                 {chats.find((c) => c.id === selectedChatId)?.name?.trim() || "Chat"}
               </h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
               {/* Loan Type selector */}
-              <div className="min-w-[160px]">
+              <div className="w-[44vw] max-w-[200px] md:min-w-[160px] md:w-auto">
                 <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
-                  <SelectTrigger className="h-8">
+                  <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Loan Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -475,9 +475,9 @@ export default function AIAgentPage() {
                 </Select>
               </div>
               {/* Programs selector (filtered by loan type) */}
-              <div className="min-w-[220px]">
+              <div className="w-[46vw] max-w-[260px] md:min-w-[220px] md:w-auto">
               <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8 w-full truncate">
                   <SelectValue placeholder="Programs" />
                 </SelectTrigger>
                 <SelectContent>
@@ -499,7 +499,7 @@ export default function AIAgentPage() {
             </div>
           </div>
           <div className="relative flex-1 min-h-0">
-          <ScrollArea ref={scrollAreaRef} className="h-full px-0 py-0">
+          <ScrollArea ref={scrollAreaRef} className="h-full px-3 py-0">
             {selectedChatId && (
               <div className="mx-auto max-w-2xl space-y-3 pt-4 pb-6">
               {messages.map((m) => (
