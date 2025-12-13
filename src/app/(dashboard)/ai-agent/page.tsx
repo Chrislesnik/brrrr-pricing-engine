@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useAuth } from "@clerk/nextjs"
-import { ArrowDown, Copy, Pencil, Trash2 } from "lucide-react"
+import { ArrowDown, Copy, Menu, Pencil, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 
 export default function AIAgentPage() {
   // Local chat state managed by our n8n-backed API
@@ -35,6 +36,7 @@ export default function AIAgentPage() {
   const [loadingChats, setLoadingChats] = React.useState<boolean>(false)
   const [editingChatId, setEditingChatId] = React.useState<string | undefined>(undefined)
   const [editingName, setEditingName] = React.useState<string>("")
+  const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
 
   // Chat scroll management
   const scrollAreaRef = React.useRef<HTMLDivElement>(null)
@@ -262,7 +264,7 @@ export default function AIAgentPage() {
   return (
     <div data-layout="fixed" className="flex h-full min-h-0 flex-1 overflow-hidden">
       {/* Left column: chat threads (placeholder for Supabase integration) */}
-      <aside className="w-[260px] shrink-0 border-r bg-muted/40">
+      <aside className="hidden md:block w-[260px] shrink-0 border-r bg-muted/40">
         <div className="p-4">
           <div className="mb-2">
             <div className="text-lg font-semibold">AI Agent</div>
@@ -444,9 +446,21 @@ export default function AIAgentPage() {
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Chat header with Programs dropdown */}
           <div className="flex items-center justify-between border-b px-3 py-2">
-            <h2 className="text-base font-semibold truncate" title={chats.find((c) => c.id === selectedChatId)?.name || "Chat"}>
-              {chats.find((c) => c.id === selectedChatId)?.name?.trim() || "Chat"}
-            </h2>
+            <div className="flex items-center gap-2 min-w-0">
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="md:hidden"
+                onClick={() => setIsSheetOpen(true)}
+                aria-label="Open conversations"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <h2 className="text-base font-semibold truncate" title={chats.find((c) => c.id === selectedChatId)?.name || "Chat"}>
+                {chats.find((c) => c.id === selectedChatId)?.name?.trim() || "Chat"}
+              </h2>
+            </div>
             <div className="flex items-center gap-2">
               {/* Loan Type selector */}
               <div className="min-w-[160px]">
@@ -595,6 +609,187 @@ export default function AIAgentPage() {
           </form>
         </div>
       </section>
+      {/* Mobile conversations sheet */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="left" className="w-[85vw] sm:max-w-sm p-0">
+          <div className="border-b px-4 py-3">
+            <div className="text-base font-semibold">AI Agent</div>
+            <div className="text-xs text-muted-foreground">Your conversations</div>
+          </div>
+          <div className="p-4 pt-3">
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              onClick={async () => {
+                await createNewConversation()
+                setIsSheetOpen(false)
+              }}
+            >
+              New Conversation
+            </Button>
+          </div>
+          <ScrollArea className="h-[calc(100%-116px)] px-2">
+            {loadingChats ? (
+              <div className="p-2 text-sm text-muted-foreground">Loading chats…</div>
+            ) : chats.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground">
+                No chats yet. Create your first conversation.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1 p-2">
+                {chats.map((c) => {
+                  const commonClass =
+                    "w-full rounded-md px-2 py-2 text-left text-sm " +
+                    (selectedChatId === c.id ? "bg-muted font-medium" : "hover:bg-muted")
+                  if (editingChatId === c.id) {
+                    return (
+                      <div key={c.id} className={commonClass}>
+                        <form
+                        onSubmit={async (e) => {
+                          e.preventDefault()
+                          const toSave = editingName.trim() || "New chat"
+                          try {
+                            const res = await fetch(`/api/ai/chats/${c.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ name: toSave }),
+                            })
+                            const json = (await res.json()) as { ok: boolean; chat?: typeof c; error?: string }
+                            if (json.ok && json.chat) {
+                              setChats((prev) =>
+                                prev.map((x) => (x.id === c.id ? { ...x, name: json.chat!.name } : x))
+                              )
+                              toast({ title: "Chat renamed" })
+                            } else {
+                              toast({ title: "Rename failed", description: json.error ?? "", variant: "destructive" })
+                            }
+                          } finally {
+                            setEditingChatId(undefined)
+                          }
+                        }}
+                        onBlur={async () => {
+                          // Save on blur
+                          const toSave = editingName.trim() || "New chat"
+                          try {
+                            const res = await fetch(`/api/ai/chats/${c.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ name: toSave }),
+                            })
+                            const json = (await res.json()) as { ok: boolean; chat?: typeof c; error?: string }
+                            if (json.ok && json.chat) {
+                              setChats((prev) =>
+                                prev.map((x) => (x.id === c.id ? { ...x, name: json.chat!.name } : x))
+                              )
+                              toast({ title: "Chat renamed" })
+                            } else {
+                              toast({ title: "Rename failed", description: json.error ?? "", variant: "destructive" })
+                            }
+                          } finally {
+                            setEditingChatId(undefined)
+                          }
+                        }}
+                        >
+                          <Input
+                          autoFocus
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              e.preventDefault()
+                              setEditingChatId(undefined)
+                            } else if (e.key === "Enter") {
+                              // ensure form submit on Enter
+                              e.preventDefault()
+                              ;(e.currentTarget.form as HTMLFormElement | null)?.requestSubmit()
+                            }
+                          }}
+                          className="h-8"
+                          />
+                        </form>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div
+                      key={c.id}
+                      role="button"
+                      tabIndex={0}
+                      className={"relative group " + commonClass}
+                      onClick={() => {
+                        setSelectedChatId(c.id)
+                        setIsSheetOpen(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          setSelectedChatId(c.id)
+                          setIsSheetOpen(false)
+                        }
+                      }}
+                    >
+                      <div
+                        className="truncate pr-12"
+                        onDoubleClick={() => {
+                          setEditingChatId(c.id)
+                          setEditingName(c.name ?? "")
+                        }}
+                      >
+                        {c.name?.trim() ? c.name : `Conversation ${c.id.slice(0, 8)}`}
+                      </div>
+                      <div className="text-xs text-muted-foreground pr-12">
+                        {new Date(c.last_used_at ?? c.created_at).toLocaleString()}
+                      </div>
+                      <div className="pointer-events-none absolute inset-y-0 right-2 hidden items-center gap-1 group-hover:flex">
+                        <button
+                          type="button"
+                          className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-sm text-foreground/70 hover:text-purple-500 focus:outline-hidden"
+                          aria-label="Rename chat"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingChatId(c.id)
+                            setEditingName(c.name ?? "")
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-sm text-foreground/70 hover:text-red-500 focus:outline-hidden"
+                          aria-label="Delete chat"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              const res = await fetch(`/api/ai/chats/${c.id}`, { method: "DELETE" })
+                              const json = (await res.json()) as { ok: boolean; error?: string }
+                              if (json.ok) {
+                                setChats((prev) => prev.filter((x) => x.id !== c.id))
+                                if (selectedChatId === c.id) {
+                                  setSelectedChatId(undefined)
+                                  setMessages([])
+                                }
+                                toast({ title: "Chat deleted" })
+                              } else {
+                                toast({ title: "Delete failed", description: json.error ?? "", variant: "destructive" })
+                              }
+                            } catch (err) {
+                              const msg = err instanceof Error ? err.message : "Failed to delete chat"
+                              toast({ title: "Delete failed", description: msg, variant: "destructive" })
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
