@@ -369,8 +369,8 @@ function ScaledTermSheetPreview({
           }
         `}</style>
       </div>
-      {/* Zoom controls (pinned bottom-right of grey container; do not scroll) */}
-      <div className="pointer-events-auto absolute bottom-2 right-3 z-20">
+      {/* Zoom controls - hard-fixed overlay (never moves on scroll) */}
+      <div className="pointer-events-auto fixed bottom-4 right-6 z-50">
         <div className="flex items-center gap-2">
         <button
           type="button"
