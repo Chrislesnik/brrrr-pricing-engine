@@ -303,7 +303,7 @@ export default function AIAgentPage() {
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ name: toSave }),
                           })
-                          const json = (await res.json()) as { ok: boolean; chat?: typeof c }
+                          const json = (await res.json()) as { ok: boolean; chat?: typeof c; error?: string }
                           if (json.ok && json.chat) {
                             setChats((prev) =>
                               prev.map((x) => (x.id === c.id ? { ...x, name: json.chat!.name } : x))
@@ -314,7 +314,7 @@ export default function AIAgentPage() {
                             }
                             toast({ title: "Chat renamed" })
                           } else {
-                            toast({ title: "Rename failed", description: json?.["error"] ?? "", variant: "destructive" })
+                            toast({ title: "Rename failed", description: json.error ?? "", variant: "destructive" })
                           }
                         } finally {
                           setEditingChatId(undefined)
@@ -329,14 +329,14 @@ export default function AIAgentPage() {
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ name: toSave }),
                           })
-                          const json = (await res.json()) as { ok: boolean; chat?: typeof c }
+                          const json = (await res.json()) as { ok: boolean; chat?: typeof c; error?: string }
                           if (json.ok && json.chat) {
                             setChats((prev) =>
                               prev.map((x) => (x.id === c.id ? { ...x, name: json.chat!.name } : x))
                             )
                             toast({ title: "Chat renamed" })
                           } else {
-                            toast({ title: "Rename failed", description: json?.["error"] ?? "", variant: "destructive" })
+                            toast({ title: "Rename failed", description: json.error ?? "", variant: "destructive" })
                           }
                         } finally {
                           setEditingChatId(undefined)
