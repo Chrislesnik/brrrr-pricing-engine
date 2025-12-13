@@ -262,7 +262,7 @@ export default function AIAgentPage() {
   }
 
   return (
-    <div data-layout="fixed" className="flex h-[100dvh] md:h-full min-h-0 flex-1 overflow-hidden">
+    <div data-layout="fixed" className="fixed inset-0 md:static flex h-[100dvh] md:h-full min-h-0 flex-1 overflow-hidden overscroll-y-contain">
       {/* Left column: chat threads (placeholder for Supabase integration) */}
       <aside className="hidden md:block w-[260px] shrink-0 border-r bg-muted/40">
         <div className="p-4">
@@ -499,7 +499,7 @@ export default function AIAgentPage() {
             </div>
           </div>
           <div className="relative flex min-h-0 flex-1 flex-col">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 px-3 py-0">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 px-3 py-0 overscroll-y-contain">
             {selectedChatId && (
               <div className="mx-auto max-w-2xl space-y-3 pt-4 pb-6">
               {messages.map((m) => (
@@ -594,6 +594,13 @@ export default function AIAgentPage() {
                 autoComplete="off"
                 rows={2}
                 className="min-h-12 max-h-[160px] resize-none"
+                onFocus={() => {
+                  try {
+                    window.scrollTo({ top: 0 })
+                  } catch {}
+                  // Nudge messages to bottom to avoid jump
+                  setTimeout(() => bottomSentinelRef.current?.scrollIntoView({ block: "end" }), 0)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault()
