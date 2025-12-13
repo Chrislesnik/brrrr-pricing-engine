@@ -445,25 +445,25 @@ export default function AIAgentPage() {
         {/* Messages area - flush to top and left */}
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Chat header with Programs dropdown */}
-          <div className="flex items-center justify-between border-b px-3 py-2">
+          <div className="flex items-center gap-2 border-b px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
               <Button
                 type="button"
                 size="icon"
                 variant="outline"
-                className="md:hidden"
+                className="md:hidden shrink-0"
                 onClick={() => setIsSheetOpen(true)}
                 aria-label="Open conversations"
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <h2 className="text-base font-semibold truncate" title={chats.find((c) => c.id === selectedChatId)?.name || "Chat"}>
+              <h2 className="hidden md:block text-base font-semibold truncate" title={chats.find((c) => c.id === selectedChatId)?.name || "Chat"}>
                 {chats.find((c) => c.id === selectedChatId)?.name?.trim() || "Chat"}
               </h2>
             </div>
-            <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2 min-w-0 overflow-hidden flex-1">
               {/* Loan Type selector */}
-              <div className="w-[44vw] max-w-[200px] md:min-w-[160px] md:w-auto">
+              <div className="min-w-0 flex-1 md:min-w-[160px]">
                 <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Loan Type" />
@@ -475,7 +475,7 @@ export default function AIAgentPage() {
                 </Select>
               </div>
               {/* Programs selector (filtered by loan type) */}
-              <div className="w-[46vw] max-w-[260px] md:min-w-[220px] md:w-auto">
+              <div className="min-w-0 flex-1 md:min-w-[220px]">
               <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
                 <SelectTrigger className="h-8 w-full truncate">
                   <SelectValue placeholder="Programs" />
