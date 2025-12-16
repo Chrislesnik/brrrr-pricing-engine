@@ -1775,6 +1775,15 @@ export default function PricingEnginePage() {
       const d = parseDate(acq)
       if (d) setAcquisitionDate(d)
     }
+    // Projected Note/Closing date from scenario payload
+    {
+      const proj =
+        payload["projected_note_date"] ??
+        (payload as Record<string, unknown>)["note_date"] ??
+        payload["closing_date"]
+      const d = parseDate(proj)
+      if (d) setClosingDate(d)
+    }
     const hoiEff = parseDateLocal(payload["hoi_effective_date"])
     if (hoiEff) setHoiEffective(hoiEff)
     const floodEff = parseDateLocal(payload["flood_effective_date"])
