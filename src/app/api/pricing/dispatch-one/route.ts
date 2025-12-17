@@ -5,6 +5,35 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export const runtime = "nodejs"
 
+async function waitForOrgMemberId(
+  orgUuid: string | null,
+  userId: string | null | undefined,
+  maxWaitMs = 45000,
+  intervalMs = 400
+): Promise<string> {
+  const start = Date.now()
+  while (true) {
+    try {
+      if (orgUuid && userId) {
+        const { data: me } = await supabaseAdmin
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", userId)
+          .maybeSingle()
+        const id = (me?.id as string) ?? null
+        if (id) return id
+      }
+    } catch {
+      // ignore
+    }
+    if (Date.now() - start >= maxWaitMs) {
+      // continue waiting but avoid tight loop
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+}
+
 function booleanToYesNoDeep(value: unknown): unknown {
   if (typeof value === "boolean") return value ? "yes" : "no"
   if (Array.isArray(value)) return value.map((v) => booleanToYesNoDeep(v))
@@ -19,7 +48,7 @@ function booleanToYesNoDeep(value: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId } = await auth()
+    const { orgId, userId } = await auth()
 
     const json = (await req.json().catch(() => null)) as {
       loanType?: string
@@ -31,18 +60,8 @@ export async function POST(req: NextRequest) {
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
-    // Resolve caller's organization_member_id for attribution on downstream webhooks
-    let myMemberId: string | null = null
-    try {
-      const { data: me } = await supabaseAdmin
-        .from("organization_members")
-        .select("id")
-        .eq("organization_id", orgUuid)
-        .maybeSingle()
-      myMemberId = (me?.id as string) ?? null
-    } catch {
-      myMemberId = null
-    }
+    // Resolve caller's organization_member_id for attribution (wait until available)
+    const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
 
     let q = supabaseAdmin
       .from("programs")
@@ -80,10 +99,8 @@ export async function POST(req: NextRequest) {
     if (normalizedData["broker_admin_fee"] === undefined) {
       normalizedData["broker_admin_fee"] = ""
     }
-    // Attach organization_member_id for downstream auditing
-    if (myMemberId) {
-      normalizedData["organization_member_id"] = myMemberId
-    }
+    // Attach organization_member_id for downstream auditing (always)
+    normalizedData["organization_member_id"] = myMemberId
     const res = await fetch(url, {
       method: "POST",
       cache: "no-store",

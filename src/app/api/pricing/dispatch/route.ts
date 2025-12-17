@@ -5,6 +5,40 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export const runtime = "nodejs"
 
+async function waitForOrgMemberId(
+  orgUuid: string | null,
+  userId: string | null | undefined,
+  maxWaitMs = 45000,
+  intervalMs = 400
+): Promise<string> {
+  const start = Date.now()
+  // Keep polling until we resolve an org member id; this is required for program webhooks
+  // to always receive organization_member_id.
+  // We do not hard-fail on timeout; we continue polling.
+  // To avoid a tight loop, always sleep between attempts.
+  while (true) {
+    try {
+      if (orgUuid && userId) {
+        const { data: me } = await supabaseAdmin
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", userId)
+          .maybeSingle()
+        const id = (me?.id as string) ?? null
+        if (id) return id
+      }
+    } catch {
+      // ignore and retry
+    }
+    // If we've exceeded maxWaitMs, keep waiting but ensure we still yield to the event loop.
+    if (Date.now() - start >= maxWaitMs) {
+      // no-op; fall through to sleep
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+}
+
 function booleanToYesNoDeep(value: unknown): unknown {
   if (typeof value === "boolean") {
     return value ? "yes" : "no"
@@ -25,7 +59,7 @@ function booleanToYesNoDeep(value: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId } = await auth()
+    const { orgId, userId } = await auth()
     const json = await req.json().catch(() => null) as {
       loanType?: string
       data?: Record<string, unknown>
@@ -35,18 +69,8 @@ export async function POST(req: NextRequest) {
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
-    // Resolve caller's organization_member_id
-    let myMemberId: string | null = null
-    try {
-      const { data: me } = await supabaseAdmin
-        .from("organization_members")
-        .select("id")
-        .eq("organization_id", orgUuid)
-        .maybeSingle()
-      myMemberId = (me?.id as string) ?? null
-    } catch {
-      myMemberId = null
-    }
+    // Resolve caller's organization_member_id (wait until available)
+    const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
 
     // fetch active program webhooks for this org + loan type
     const { data, error } = await superFetchPrograms(orgUuid ?? null, json.loanType)
@@ -75,9 +99,8 @@ export async function POST(req: NextRequest) {
     if (normalizedData["broker_admin_fee"] === undefined) {
       normalizedData["broker_admin_fee"] = ""
     }
-    if (myMemberId) {
-      normalizedData["organization_member_id"] = myMemberId
-    }
+    // Always include organization_member_id
+    normalizedData["organization_member_id"] = myMemberId
     const requestIdBase = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
     await Promise.all(
       programs.map(async (p, idx) => {

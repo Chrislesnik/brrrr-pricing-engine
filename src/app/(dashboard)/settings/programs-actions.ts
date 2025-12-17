@@ -16,6 +16,35 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+async function waitForMemberId(
+  orgUuid: string | null,
+  userId: string | null | undefined,
+  maxWaitMs = 45000,
+  intervalMs = 400
+): Promise<string> {
+  const start = Date.now()
+  while (true) {
+    try {
+      if (orgUuid && userId) {
+        const { data: member } = await supabaseAdmin
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", userId)
+          .maybeSingle()
+        const id = (member?.id as string) ?? null
+        if (id) return id
+      }
+    } catch {
+      // ignore and retry
+    }
+    if (Date.now() - start >= maxWaitMs) {
+      // keep waiting; ensure delay to avoid tight loop
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+}
+
 export async function addProgramAction(formData: FormData) {
   const { userId, orgId: authOrgId } = await auth()
   // Prefer orgId sent from the page (since middleware may not run for server actions),
@@ -96,19 +125,8 @@ export async function addProgramAction(formData: FormData) {
       }
       if (webhookUrl) {
         try {
-          // Include organization_member_id for auditing
-          let orgMemberId: string | null = null
-          try {
-            const { data: member } = await supabaseAdmin
-              .from("organization_members")
-              .select("id")
-              .eq("organization_id", orgUuid)
-              .eq("user_id", userId)
-              .maybeSingle()
-            orgMemberId = (member?.id as string) ?? null
-          } catch {
-            orgMemberId = null
-          }
+          // Resolve organization_member_id (wait until available)
+          const orgMemberId = await waitForMemberId(orgUuid, userId)
           await fetch(webhookUrl, {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -255,19 +273,8 @@ export async function updateProgramAction(formData: FormData) {
       // Optional: kick off webhook for indexing if a URL exists
       if (webhookUrl) {
         try {
-          // Include organization_member_id for auditing
-          let orgMemberId: string | null = null
-          try {
-            const { data: member } = await supabaseAdmin
-              .from("organization_members")
-              .select("id")
-              .eq("organization_id", orgUuid)
-              .eq("user_id", userId)
-              .maybeSingle()
-            orgMemberId = (member?.id as string) ?? null
-          } catch {
-            orgMemberId = null
-          }
+          // Include organization_member_id for auditing (wait until available)
+          const orgMemberId = await waitForMemberId(orgUuid, userId)
           await fetch(webhookUrl, {
             method: "POST",
             headers: { "content-type": "application/json" },

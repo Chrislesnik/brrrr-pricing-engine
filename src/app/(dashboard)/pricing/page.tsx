@@ -452,6 +452,28 @@ export default function PricingEnginePage() {
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
   const [selfBrokerId, setSelfBrokerId] = useState<string | null>(null)
+  async function waitForSelfMemberId(maxWaitMs = 45000, intervalMs = 400): Promise<string> {
+    const started = Date.now()
+    // If we already have it, return immediately
+    if (selfMemberId) return selfMemberId
+    while (true) {
+      try {
+        const res = await fetch("/api/org/members", { cache: "no-store" })
+        const j = (await res.json().catch(() => ({}))) as { self_member_id?: string | null }
+        const id = j?.self_member_id ?? null
+        if (id && typeof id === "string") {
+          setSelfMemberId(id)
+          return id
+        }
+      } catch {
+        // ignore and retry
+      }
+      if (Date.now() - started >= maxWaitMs) {
+        // continue polling beyond maxWaitMs per requirement; always sleep to avoid tight loop
+      }
+      await new Promise((r) => setTimeout(r, intervalMs))
+    }
+  }
   useEffect(() => {
     let active = true
     ;(async () => {
@@ -1237,7 +1259,9 @@ export default function PricingEnginePage() {
       // This call is non-blocking and won't affect the main dispatch flow.
       try {
         const augmented = { ...(toYesNoDeepGlobal(payload) as Record<string, unknown>) }
-        if (selfMemberId) augmented["organization_member_id"] = selfMemberId
+        if (selfMemberId) {
+          augmented["organization_member_id"] = selfMemberId
+        }
         const webhookBody = JSON.stringify(augmented)
         void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
           method: "POST",
@@ -1260,6 +1284,11 @@ export default function PricingEnginePage() {
       await Promise.all(
         currentPlaceholders.map(async (p, idx) => {
           try {
+            // Ensure we have organization_member_id before sending any program webhook
+            let memberIdLocal = selfMemberId
+            if (!memberIdLocal) {
+              memberIdLocal = await waitForSelfMemberId().catch(() => null as any)
+            }
             // As an extra guard, skip dispatch if this broker isn't allowed to see this program id
             if (isBroker && selfBrokerId) {
               try {
@@ -1283,7 +1312,7 @@ export default function PricingEnginePage() {
                 "Pragma": "no-cache",
                 "X-Client-Request-Id": `${nonce}-${idx}`,
               },
-              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: { ...payload, organization_member_id: selfMemberId ?? null } }),
+              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: { ...payload, organization_member_id: memberIdLocal ?? null } }),
             })
             const single = (await res.json().catch(() => ({}))) as ProgramResult
             // place result in its slot (do not reorder to preserve container positions)
