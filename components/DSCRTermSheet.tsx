@@ -119,7 +119,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
     { label: "Lender Fee - Diligence & Legal", value: asText(props, "lender_fee_legal") },
     { label: "HOI Escrow - 3 mo @ $116.67 per month", value: "$350.00" },
     { label: "Flood Ins Escrow - 3 mo @ $0.00 per month", value: "$0.00" },
-    { label: "Tax Escrow - 3 mo @ $122.42 per month", value: "$3,667.25" },
+    { label: "Tax Escrow - 3 mo @ $122.42 per month", value: asText(props, "tax_escrow") },
     { label: "Reserves - 0 mo PITIA @ $2720.43 per month", value: "$0.00" },
     { label: "HOI Premium - Balance Due", value: asText(props, "hoi_premium") },
     { label: "Flood Insurance Premium", value: asText(props, "flood_premium") },
