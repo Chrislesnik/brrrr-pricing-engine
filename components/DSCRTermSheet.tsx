@@ -67,11 +67,12 @@ const BAR_LINE_HEIGHT = 24; // px for h-6
 // we reuse it and only add any extra classes (e.g., padding).
 const wrapEditable = (node: React.ReactNode, extraClassName?: string): React.ReactNode => {
   if (React.isValidElement(node)) {
-    const props: any = (node as any).props ?? {};
-    const existing = typeof props.className === "string" ? props.className : "";
+    const el = node as React.ReactElement<{ className?: string }>;
+    const existing = typeof el.props?.className === "string" ? el.props.className : "";
     if (existing.includes("ts-edit")) {
       const merged = [existing, extraClassName].filter(Boolean).join(" ").trim();
-      return React.cloneElement(node as React.ReactElement, { className: merged });
+      // Clone with a safely typed className override
+      return React.cloneElement(el, { className: merged });
     }
   }
   const merged = ["ts-edit", extraClassName].filter(Boolean).join(" ").trim();
