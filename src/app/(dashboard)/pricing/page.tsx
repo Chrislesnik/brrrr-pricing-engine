@@ -52,6 +52,51 @@ import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
 
+// Prompt the user with a native Save dialog when supported.
+// Falls back to a standard download if the File System Access API is unavailable.
+async function saveFileWithPrompt(file: File): Promise<void> {
+  try {
+    const w = window as unknown as {
+      showSaveFilePicker?: (options: {
+        suggestedName?: string
+        types?: Array<{ description?: string; accept?: Record<string, string[]> }>
+      }) => Promise<{ createWritable: () => Promise<{ write: (data: Blob | BufferSource) => Promise<void>; close: () => Promise<void> }> }>
+    }
+    if (w?.showSaveFilePicker) {
+      const handle = await w.showSaveFilePicker({
+        suggestedName: file.name,
+        types: [
+          {
+            description: "PDF Document",
+            accept: { "application/pdf": [".pdf"] },
+          },
+        ],
+      })
+      const writable = await handle.createWritable()
+      // Write the file bytes and close
+      await writable.write(file)
+      await writable.close()
+      return
+    }
+  } catch (e) {
+    // If the user cancels the picker, rethrow to allow caller to handle silently.
+    const name = (e as any)?.name ?? ""
+    if (name === "AbortError" || /cancel/i.test(String((e as any)?.message ?? ""))) {
+      throw e
+    }
+    // Otherwise fall through to anchor-based download.
+  }
+  // Fallback: standard download to the browser's default location
+  const url = URL.createObjectURL(file)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = file.name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 function formatDateOnly(date?: Date | null): string | null {
   if (!date) return null
   const y = date.getFullYear()
@@ -4616,15 +4661,8 @@ function ResultCard({
               if (nav?.share && canShareFiles) {
                 await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
               } else {
-                const url = URL.createObjectURL(file)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = file.name
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-                URL.revokeObjectURL(url)
-                toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                await saveFileWithPrompt(file)
+                toast({ title: "Saved", description: "PDF saved to your device." })
                 }
               } catch (shareErr) {
                 const msg = shareErr instanceof Error ? shareErr.message.toLowerCase() : ""
@@ -4637,14 +4675,7 @@ function ResultCard({
                 }
               }
             } else if (opts?.autoDownloadPdf) {
-              const url = URL.createObjectURL(file)
-              const a = document.createElement("a")
-              a.href = url
-              a.download = file.name
-              document.body.appendChild(a)
-              a.click()
-              a.remove()
-              URL.revokeObjectURL(url)
+              await saveFileWithPrompt(file)
             }
           } catch (e) {
             // When the preview hasn't fully rendered yet or user cancels share, avoid noisy errors
@@ -4962,15 +4993,8 @@ function ResultCard({
                 if (nav?.share && canShareFiles) {
                   await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                 } else {
-                  const url = URL.createObjectURL(file)
-                  const a = document.createElement("a")
-                  a.href = url
-                  a.download = file.name
-                  document.body.appendChild(a)
-                  a.click()
-                  a.remove()
-                  URL.revokeObjectURL(url)
-                  toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                  await saveFileWithPrompt(file)
+                  toast({ title: "Saved", description: "PDF saved to your device." })
                 }
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unable to share"
@@ -4988,14 +5012,7 @@ function ResultCard({
               try {
                 const file = await renderPreviewToPdf()
                 if (!file) throw new Error("Could not render PDF")
-                const url = URL.createObjectURL(file)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = file.name
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-                URL.revokeObjectURL(url)
+                await saveFileWithPrompt(file)
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unknown error"
                 toast({ title: "Download failed", description: message, variant: "destructive" })
@@ -5566,25 +5583,11 @@ function ResultsPanel({
               if (nav?.share && canShareFiles) {
                 await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
               } else {
-                const url = URL.createObjectURL(file)
-                const a = document.createElement("a")
-                a.href = url
-                a.download = file.name
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-                URL.revokeObjectURL(url)
-                toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                await saveFileWithPrompt(file)
+                toast({ title: "Saved", description: "PDF saved to your device." })
               }
             } else if (opts?.autoDownloadPdf) {
-              const url = URL.createObjectURL(file)
-              const a = document.createElement("a")
-              a.href = url
-              a.download = file.name
-              document.body.appendChild(a)
-              a.click()
-              a.remove()
-              URL.revokeObjectURL(url)
+              await saveFileWithPrompt(file)
             }
           } catch (e) {
             const message = e instanceof Error ? e.message : "Unknown error"
@@ -5880,18 +5883,11 @@ function ResultsPanel({
                       "canShare" in navigator &&
                       (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
                     const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                    if (nav?.share && canShareFiles) {
+                  if (nav?.share && canShareFiles) {
                       await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                     } else {
-                      const url = URL.createObjectURL(file)
-                      const a = document.createElement("a")
-                      a.href = url
-                      a.download = file.name
-                      document.body.appendChild(a)
-                      a.click()
-                      a.remove()
-                      URL.revokeObjectURL(url)
-                      toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                      await saveFileWithPrompt(file)
+                      toast({ title: "Saved", description: "PDF saved to your device." })
                     }
                   } catch (e) {
                     const message = e instanceof Error ? e.message : "Unable to share"
@@ -5909,14 +5905,7 @@ function ResultsPanel({
                   try {
                     const file = await renderPreviewToPdfMain()
                     if (!file) throw new Error("Could not render PDF")
-                    const url = URL.createObjectURL(file)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = file.name
-                    document.body.appendChild(a)
-                    a.click()
-                    a.remove()
-                    URL.revokeObjectURL(url)
+                    await saveFileWithPrompt(file)
                   } catch (e) {
                     const message = e instanceof Error ? e.message : "Unknown error"
                     toast({ title: "Download failed", description: message, variant: "destructive" })
@@ -6166,15 +6155,8 @@ function ResultsPanel({
                   if (nav?.share && canShareFiles) {
                     await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                   } else {
-                    const url = URL.createObjectURL(file)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = file.name
-                    document.body.appendChild(a)
-                    a.click()
-                    a.remove()
-                    URL.revokeObjectURL(url)
-                    toast({ title: "Downloaded", description: "PDF downloaded (share not supported)." })
+                    await saveFileWithPrompt(file)
+                    toast({ title: "Saved", description: "PDF saved to your device." })
                   }
                 } catch (e) {
                   const message = e instanceof Error ? e.message : "Unable to share"
