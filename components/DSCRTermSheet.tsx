@@ -162,7 +162,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
-            <div className="mb-5">
+            <div className="mb-0">
               <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
 
               <div className="mb-3">
@@ -213,7 +213,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
           </div>
 
-              <div className="mb-2">
+              <div className="mb-[2px]">
                 <h3 className="text-sm font-bold mb-2 italic">Liquidity Requirement</h3>
                 <div className="space-y-1">
                   {liquidity.map((it, i) => (
@@ -230,14 +230,14 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                   ))}
                 </div>
           </div>
-          </div>
-
-            <div className="-mt-2">
-              <h3 className="text-sm font-bold italic mb-1">Debt Service (DSCR)</h3>
-              <div className="flex items-center justify-between text-xs">
+          {/* Moved DSCR block inside Loan Summary container at the bottom */}
+              <div className="">
+                <h3 className="text-sm font-bold italic mb-1">Debt Service (DSCR)</h3>
+                <div className="flex items-center justify-between text-xs">
                   <span className="pl-4">DSCR</span>
-                <span>{asText(props, "dscr")}</span>
-        </div>
+                  <span>{asText(props, "dscr")}</span>
+                </div>
+              </div>
           </div>
           </section>
 
