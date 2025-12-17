@@ -183,11 +183,11 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
             <div className="mb-0">
-              <h2 className="text-base font-bold mb-1.5 underline">Loan Summary</h2>
+              <h2 className="text-base font-bold mb-2.5 underline">Loan Summary</h2>
 
-              <div className="mb-1.5">
+              <div className="mb-2">
                 <h3 className="text-sm font-bold italic mb-0.5">Borrower &amp; Guarantors</h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {borrowerGuarantors.map((it, i) => (
                     <div key={`bor-${i}`} className="flex items-center justify-between text-xs">
                       <span style={{ paddingLeft: "5px", display: "inline-block" }}>{it.label}</span>
@@ -197,9 +197,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
       </div>
     </div>
 
-      <div className="mb-1.5">
+      <div className="mb-2">
                 <h3 className="text-sm font-bold italic mb-0.5">Subject Property</h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {subjectProperty.map((it, i) => (
                     <div key={`subj-${i}`} className="flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
@@ -209,9 +209,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
         </div>
       </div>
 
-              <div className="mb-1.5">
+              <div className="mb-2">
                 <h3 className="text-sm font-bold italic mb-0.5">Loan Structure</h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {loanStructure.map((it, i) => (
                     <div key={`ls-${i}`} className=" flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
@@ -221,9 +221,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
           </div>
 
-              <div className="mb-1.5">
+              <div className="mb-2">
                 <h3 className="text-sm font-bold italic mb-0.5">Lender Fees</h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {lenderFees.map((it, i) => (
                     <div key={`lf-${i}`} className="flex items-center justify-between text-xs">
                       <span className="pl-4">{it.label}</span>
@@ -235,7 +235,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
               <div className="mb-1.5">
                 <h3 className="text-sm font-bold mb-0.5 italic">Liquidity Requirement</h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {liquidity.map((it, i) => (
                     <div key={`liq-${i}`} className="flex items-center justify-between text-xs">
                       {(() => {
@@ -255,7 +255,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <h3 className="text-sm font-bold italic mb-[2px]">
                   {wrapEditable("Debt Service (DSCR)", "block w-full")}
                 </h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className="flex items-center justify-between text-xs">
                     {wrapEditable("Qualifying Monthly Rent", "pl-4")}
                     {wrapEditable(asText(props, "qualifying_rent"))}
@@ -275,13 +275,13 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
           <section className="flex flex-col h-full flex-1">
             <div className="flex flex-col flex-1">
-              <h2 className="text-base font-bold mb-1.5 underline">Closing Statement Estimate</h2>
+              <h2 className="text-base font-bold mb-2.5 underline">Closing Statement Estimate</h2>
 
-              <div className="border-2 border-black mb-[2px]">
+              <div className="border-2 border-black mb-2.5">
                 <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff", display: "grid", alignItems: "center" }}>
                   <h3 className="text-sm font-bold italic m-0 ts-bar-label" style={{ paddingLeft: 8, textAlign: "left" }}>CREDITS</h3>
                 </div>
-                <div className="space-y-1 px-2 pt-1">
+                <div className="space-y-0.5 px-2 pt-1">
                   {credits.map((it, i) => (
                     <div key={`cr-${i}`} className="flex items-center justify-between text-xs leading-5">
                       <span className="pl-2">{it.label}</span>
@@ -301,7 +301,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff", display: "grid", alignItems: "center" }}>
                   <h3 className="text-sm font-bold italic m-0 ts-bar-label" style={{ paddingLeft: 8, textAlign: "left" }}>DEBITS</h3>
                 </div>
-                <div className="space-y-1 px-2 pt-1 pb-1">
+                <div className="space-y-0.5 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
                     <div key={`db-${i}`} className="flex items-center justify-between text-xs leading-5">
                       {wrapEditable(it.label, "pl-2")}
