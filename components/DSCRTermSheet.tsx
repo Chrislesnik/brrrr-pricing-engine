@@ -62,6 +62,26 @@ const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode =
 
 const BAR_LINE_HEIGHT = 24; // px for h-6
 
+// Ensures content is in a single editable orange box.
+// If content already renders a `.ts-edit` element (from asText for blanks),
+// we reuse it and only add any extra classes (e.g., padding).
+const wrapEditable = (node: React.ReactNode, extraClassName?: string): React.ReactNode => {
+  if (React.isValidElement(node)) {
+    const props: any = (node as any).props ?? {};
+    const existing = typeof props.className === "string" ? props.className : "";
+    if (existing.includes("ts-edit")) {
+      const merged = [existing, extraClassName].filter(Boolean).join(" ").trim();
+      return React.cloneElement(node as React.ReactElement, { className: merged });
+    }
+  }
+  const merged = ["ts-edit", extraClassName].filter(Boolean).join(" ").trim();
+  return (
+    <span className={merged} contentEditable suppressContentEditableWarning>
+      {node}
+    </span>
+  );
+};
+
 const DscrSheet = (props: DSCRTermSheetProps) => {
   const borrowerGuarantors = [
     { label: "Borrower", value: asText(props, "borrower_name") },
@@ -134,7 +154,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
       style={{ backgroundColor: "#ffffff", color: "#000000", boxSizing: "border-box" }}
     >
       <div className="w-[816px] max-w-none print:w-[816px] px-7" style={{ boxSizing: "border-box" }}>
-        <header className="mt-2 mb-5">
+        <header className="mt-2 mb-0">
           <div className="flex items-start justify-between">
             <div>
           <h1 className="text-2xl font-bold mb-1">Preliminary Term Sheet</h1>
@@ -163,10 +183,10 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
         <div className="flex gap-8 items-stretch">
           <section className="flex flex-col flex-1">
             <div className="mb-0">
-              <h2 className="text-base font-bold mb-3 underline">Loan Summary</h2>
+              <h2 className="text-base font-bold mb-1.5 underline">Loan Summary</h2>
 
-              <div className="mb-3">
-                <h3 className="text-sm font-bold italic mb-2">Borrower &amp; Guarantors</h3>
+              <div className="mb-1.5">
+                <h3 className="text-sm font-bold italic mb-0.5">Borrower &amp; Guarantors</h3>
                 <div className="space-y-1">
                   {borrowerGuarantors.map((it, i) => (
                     <div key={`bor-${i}`} className="flex items-center justify-between text-xs">
@@ -177,8 +197,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
       </div>
     </div>
 
-      <div className="mb-3">
-                <h3 className="text-sm font-bold italic mb-2">Subject Property</h3>
+      <div className="mb-1.5">
+                <h3 className="text-sm font-bold italic mb-0.5">Subject Property</h3>
                 <div className="space-y-1">
                   {subjectProperty.map((it, i) => (
                     <div key={`subj-${i}`} className="flex items-center justify-between text-xs">
@@ -189,8 +209,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
         </div>
       </div>
 
-              <div className="mb-3">
-                <h3 className="text-sm font-bold italic mb-2">Loan Structure</h3>
+              <div className="mb-1.5">
+                <h3 className="text-sm font-bold italic mb-0.5">Loan Structure</h3>
                 <div className="space-y-1">
                   {loanStructure.map((it, i) => (
                     <div key={`ls-${i}`} className=" flex items-center justify-between text-xs">
@@ -201,8 +221,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
           </div>
 
-              <div className="mb-3">
-                <h3 className="text-sm font-bold italic mb-2">Lender Fees</h3>
+              <div className="mb-1.5">
+                <h3 className="text-sm font-bold italic mb-0.5">Lender Fees</h3>
                 <div className="space-y-1">
                   {lenderFees.map((it, i) => (
                     <div key={`lf-${i}`} className="flex items-center justify-between text-xs">
@@ -213,8 +233,8 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 </div>
           </div>
 
-              <div className="mb-[2px]">
-                <h3 className="text-sm font-bold mb-2 italic">Liquidity Requirement</h3>
+              <div className="mb-1.5">
+                <h3 className="text-sm font-bold mb-0.5 italic">Liquidity Requirement</h3>
                 <div className="space-y-1">
                   {liquidity.map((it, i) => (
                     <div key={`liq-${i}`} className="flex items-center justify-between text-xs">
@@ -232,10 +252,22 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
           </div>
           {/* Moved DSCR block inside Loan Summary container at the bottom */}
               <div className="">
-                <h3 className="text-sm font-bold italic mb-1">Debt Service (DSCR)</h3>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="pl-4">DSCR</span>
-                  <span>{asText(props, "dscr")}</span>
+                <h3 className="text-sm font-bold italic mb-[2px]">
+                  {wrapEditable("Debt Service (DSCR)", "block w-full")}
+                </h3>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    {wrapEditable("Qualifying Monthly Rent", "pl-4")}
+                    {wrapEditable(asText(props, "qualifying_rent"))}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    {wrapEditable("Qualifying Monthly Payment (PITIA)", "pl-4")}
+                    {wrapEditable(asText(props, "qualifying_monthly_pitia"))}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    {wrapEditable("DSCR", "pl-4")}
+                    {wrapEditable(asText(props, "dscr"))}
+                  </div>
                 </div>
               </div>
           </div>
@@ -243,9 +275,9 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
 
           <section className="flex flex-col h-full flex-1">
             <div className="flex flex-col flex-1">
-              <h2 className="text-base font-bold mb-3 underline">Closing Statement Estimate</h2>
+              <h2 className="text-base font-bold mb-1.5 underline">Closing Statement Estimate</h2>
 
-              <div className="border-2 border-black mb-2">
+              <div className="border-2 border-black mb-[2px]">
                 <div className="px-2 h-6" style={{ backgroundColor: "#000000", color: "#ffffff", display: "grid", alignItems: "center" }}>
                   <h3 className="text-sm font-bold italic m-0 ts-bar-label" style={{ paddingLeft: 8, textAlign: "left" }}>CREDITS</h3>
                 </div>
@@ -272,35 +304,33 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
                 <div className="space-y-1 px-2 pt-1 pb-1">
                   {debits.map((it, i) => (
                     <div key={`db-${i}`} className="flex items-center justify-between text-xs leading-5">
-                      <span className="pl-2">{it.label}</span>
-                      <span>{it.value}</span>
+                      {wrapEditable(it.label, "pl-2")}
+                      {wrapEditable(it.value)}
                     </div>
                   ))}
-                </div>
-                {/* Extra rows 1-11 above EMD */}
-                <div className="pr-2 space-y-1">
                   {[1,2,3,4,5,6,7,8,9,10,11].map((n) => (
-                    <div key={`extra-${n}`} className="flex items-center justify-between text-xs leading-5">
-                      <span className="pl-2">{asText(props, `extra_row_label_${n}`)}</span>
-                      <span className="text-right">{asText(props, `extra_row_${n}`)}</span>
+                    <div
+                      key={`extra-${n}`}
+                      className="flex items-center justify-between text-xs leading-5"
+                      style={{ width: 344, textAlign: "center" }}
+                    >
+                      {wrapEditable(asText(props, `extra_row_label_${n}`), "pl-2")}
+                      {wrapEditable(asText(props, `extra_row_${n}`), "text-right")}
                     </div>
                   ))}
-                </div>
-                {/* EMD row above Cash Out */}
-                <div className="pr-2">
-                  <div className="flex items-center justify-between text-xs leading-5">
-                    <span className="pl-2">{asText(props, "emd_label")}</span>
-                    <span className="text-right">{asText(props, "emd")}</span>
+                  <div className="flex items-center justify-between text-xs leading-5" style={{ width: 344, textAlign: "center" }}>
+                    {wrapEditable(asText(props, "emd_label"), "pl-2")}
+                    {wrapEditable(asText(props, "emd"), "text-right")}
                   </div>
-                  <div className="flex items-center justify-between text-xs leading-5">
-                    <span className="pl-2">{asText(props, "cash_out_to_borrower_label")}</span>
-                    <span className="text-right">{asText(props, "cash_out_to_borrower")}</span>
+                  <div className="flex items-center justify-between text-xs leading-5" style={{ width: 344, textAlign: "center" }}>
+                    {wrapEditable(asText(props, "cash_out_to_borrower_label"), "pl-2")}
+                    {wrapEditable(asText(props, "cash_out_to_borrower"), "text-right")}
                   </div>
                 </div>
                 <div className="px-2 h-6 mt-auto flex items-center" style={{ backgroundColor: "#f3f4f6" }}>
-                  <div className="flex items-center justify-between w-full text-xs font-bold h-full" style={{ lineHeight: `${BAR_LINE_HEIGHT}px` }}>
-                    <span className="pl-2">TOTAL USES</span>
-                    <span>{asText(props, "total_uses")}</span>
+                  <div className="flex items-center justify-between text-xs font-bold h-full" style={{ lineHeight: `${BAR_LINE_HEIGHT}px`, width: 344 }}>
+                    {wrapEditable("TOTAL USES", "pl-2")}
+                    {wrapEditable(asText(props, "total_uses"))}
               </div>
             </div>
               </div>
@@ -309,7 +339,7 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
       </div>
 
         <footer className="mt-6">
-          <div className="text-[6px] ts-disclaimer" style={{ lineHeight: "6px", margin: 0, padding: 0, paddingTop: "10px", whiteSpace: "normal", letterSpacing: 0, wordSpacing: 0, wordBreak: "break-word" }}>
+          <div className="text-[6px] ts-disclaimer" style={{ lineHeight: "6px", margin: 0, padding: 0, paddingTop: 0, whiteSpace: "normal", letterSpacing: 0, wordSpacing: 0, wordBreak: "break-word" }}>
             * Pricing of initial rate is indicative and subject to re-pricing at Lender's discretion based on factors that may include, but are not limited to, prevailing market conditions and underwriting/diligence review. Factors that may affect your rate include, but are not limited to, your credit history/ score, Loan-to-Value ratios, borrower’s liquidity, and asset characteristics. Rates, terms and conditions offered apply only to qualified borrowers in accordance with our guidelines at the time of application. Property factors and geographic limitations are subject to change at any time, without notice. Stated rates and Loan-to-Value ratios are only available to qualified applicants. This is a non-binding expression of interest and does not create any legally binding commitment or obligation. In turn, this expression is subject to our internal credit, legal, and investment approval processes. Lender is in the business of exclusively originating, funding and selling business purpose loans secured by non-owner occupied real estate. All loans referenced herein are non-consumer loans.
           </div>
         </footer>

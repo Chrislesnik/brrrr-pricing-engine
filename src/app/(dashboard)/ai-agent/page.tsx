@@ -64,8 +64,8 @@ export default function AIAgentPage() {
     if (typeof window === "undefined" || !("visualViewport" in window)) return
     const vv = (window as any).visualViewport as VisualViewport
     const update = () => {
-      // Amount of space covered by the on-screen keyboard: innerHeight - visual viewport height
-      const overlap = Math.max(0, window.innerHeight - vv.height)
+      // Amount of space covered by keyboard at bottom of the window
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
       setKeyboardOffset(Math.round(overlap))
     }
     update()
