@@ -45,6 +45,22 @@ export const sidebarData: SidebarData = {
           denyOrgRoles: ["org:broker", "broker"],
         },
         {
+          title: "Applicants",
+          icon: IconUsers,
+          items: [
+            {
+              title: "Borrowers",
+              url: "/applicants/borrowers",
+              icon: IconUser,
+            },
+            {
+              title: "Entities",
+              url: "/applicants/entities",
+              icon: IconUsers,
+            },
+          ],
+        },
+        {
           title: "AI Agent",
           url: "/ai-agent",
           icon: IconSparkles,

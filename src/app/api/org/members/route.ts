@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+
+export async function GET(_req: NextRequest) {
+  try {
+    const { orgId } = await auth()
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { data, error } = await supabaseAdmin
+      .from("organization_members")
+      .select("user_id, first_name, last_name")
+      .eq("organization_id", orgUuid)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ members: data ?? [] })
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
+  }
+}
+
+import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 

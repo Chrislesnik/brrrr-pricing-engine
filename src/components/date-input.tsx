@@ -7,6 +7,7 @@ interface Props extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange"> {
   value?: Date
   onChange: (date: Date) => void
   className?: string
+  emptyOnMount?: boolean
 }
 
 interface DateParts {
@@ -16,15 +17,19 @@ interface DateParts {
 }
 
 const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
-  { value, onChange, className, ...rest }: Props,
+  { value, onChange, className, emptyOnMount, ...rest }: Props,
   ref
 ) {
   const [date, setDate] = React.useState<DateParts>(() => {
-    const d = value ? new Date(value) : new Date()
+    const d = value
+      ? new Date(value)
+      : emptyOnMount
+      ? new Date(NaN)
+      : new Date()
     return {
-      day: d.getDate(),
-      month: d.getMonth() + 1, // JavaScript months are 0-indexed
-      year: d.getFullYear(),
+      day: isNaN(d.getTime()) ? 0 : d.getDate(),
+      month: isNaN(d.getTime()) ? 0 : d.getMonth() + 1, // JavaScript months are 0-indexed
+      year: isNaN(d.getTime()) ? 0 : d.getFullYear(),
     }
   })
 
@@ -33,21 +38,35 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
   const yearRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
-    const d = value ? new Date(value) : new Date()
+    const d = value
+      ? new Date(value)
+      : emptyOnMount
+      ? new Date(NaN)
+      : new Date()
     setDate({
-      day: d.getDate(),
-      month: d.getMonth() + 1,
-      year: d.getFullYear(),
+      day: isNaN(d.getTime()) ? 0 : d.getDate(),
+      month: isNaN(d.getTime()) ? 0 : d.getMonth() + 1,
+      year: isNaN(d.getTime()) ? 0 : d.getFullYear(),
     })
-  }, [value])
+  }, [value, emptyOnMount])
 
-  const validateDate = (field: keyof DateParts, value: number): boolean => {
+  const validateDate = (
+    field: keyof DateParts,
+    value: number,
+    strict: boolean = true
+  ): boolean => {
     if (
       (field === "day" && (value < 1 || value > 31)) ||
       (field === "month" && (value < 1 || value > 12)) ||
       (field === "year" && (value < 1000 || value > 9999))
     ) {
       return false
+    }
+
+    // For non-strict validation (e.g., onBlur of a single field), do not
+    // require other fields to be present/valid yet.
+    if (!strict) {
+      return true
     }
 
     // Validate the day of the month
@@ -76,6 +95,98 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
       }
     }
 
+  // Specialized month handler: enforce 1-12 and auto-advance when unambiguous
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = (e.target.value || "").replace(/[^0-9]/g, "").slice(0, 2)
+    if (raw.length === 0) {
+      setDate((prev) => ({ ...prev, month: 0 }))
+      return
+    }
+    const first = Number(raw[0])
+    if (raw.length === 1) {
+      // Simple, predictable behavior:
+      // - If first digit is 2..9, treat as single‑digit month and advance to day.
+      // - If 0 or 1, wait for second digit.
+      setDate((prev) => ({ ...prev, month: first }))
+      if (first >= 2) {
+        queueMicrotask(() => dayRef.current?.focus())
+      }
+      return
+    }
+    // Two digits entered → compute/clamp month and advance to day
+    let mm = Number(raw)
+    if (mm === 0) mm = 1
+    if (mm > 12) mm = 12
+    setDate((prev) => ({ ...prev, month: mm }))
+    const newDate = { ...date, month: mm }
+    if (validateDate("month", mm)) {
+      onChange(
+        new Date(
+          newDate.year || new Date().getFullYear(),
+          mm - 1,
+          newDate.day || 1
+        )
+      )
+    }
+    queueMicrotask(() => dayRef.current?.focus())
+  }
+
+  const getMaxDayFor = (m: number, y: number) => {
+    if (!m || m < 1 || m > 12) return 31
+    const year = y || new Date().getFullYear()
+    // new Date(year, m, 0) -> last day of month m
+    return new Date(year, m, 0).getDate()
+  }
+
+  const commitIfComplete = (p: Partial<DateParts>) => {
+    const mm = p.month ?? date.month
+    const dd = p.day ?? date.day
+    const yy = p.year ?? date.year
+    if (!mm || !dd || !yy) return
+    const d = new Date(yy, mm - 1, dd)
+    const today = new Date()
+    today.setHours(0,0,0,0)
+    if (isNaN(d.getTime())) return
+    if (d > today) return
+    onChange(d)
+  }
+
+  // Day handler: simple numeric, clamp when 2 digits, move to year
+  const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = (e.target.value || "").replace(/[^0-9]/g, "").slice(0, 2)
+    const maxDay = getMaxDayFor(date.month, date.year)
+    if (raw.length === 0) {
+      setDate((prev) => ({ ...prev, day: 0 }))
+      return
+    }
+    const first = Number(raw[0])
+    if (raw.length === 1) {
+      setDate((prev) => ({ ...prev, day: first }))
+      return
+    }
+    // Two digits -> clamp and move to year
+    let dd = Number(raw)
+    if (dd < 1) dd = 1
+    if (dd > maxDay) dd = maxDay
+    setDate((prev) => ({ ...prev, day: dd }))
+    commitIfComplete({ day: dd })
+    queueMicrotask(() => yearRef.current?.focus())
+  }
+
+  // Year handler: numeric only, max 4; commit when 4 digits and valid
+  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = (e.target.value || "").replace(/[^0-9]/g, "").slice(0, 4)
+    if (raw.length === 0) {
+      setDate((prev) => ({ ...prev, year: 0 }))
+      return
+    }
+    const yy = Number(raw)
+    setDate((prev) => ({ ...prev, year: yy }))
+    if (raw.length === 4) {
+      commitIfComplete({ year: yy })
+    }
+  }
+
   const initialDate = useRef<DateParts>(date)
 
   const handleBlur =
@@ -87,7 +198,9 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
       }
 
       const newValue = Number(e.target.value)
-      const isValid = validateDate(field, newValue)
+      // On blur, validate only the field's intrinsic range to avoid resetting
+      // when other parts of the date are not filled in yet.
+      const isValid = validateDate(field, newValue, false)
 
       if (!isValid) {
         setDate(initialDate.current)
@@ -217,10 +330,10 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
       <input
         type="text"
         ref={monthRef}
-        max={12}
         maxLength={2}
-        value={date.month.toString()}
-        onChange={handleInputChange("month")}
+        inputMode="numeric"
+        value={date.month ? date.month.toString() : ""}
+        onChange={handleMonthChange}
         onKeyDown={handleKeyDown("month")}
         onFocus={(e) => {
           if (window.innerWidth > 1024) {
@@ -229,7 +342,7 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
         }}
         onBlur={handleBlur("month")}
         className="w-6 border-none p-0 text-center outline-hidden"
-        placeholder="M"
+        placeholder="1"
       />
       <span className="-mx-px opacity-20">/</span>
       <input
@@ -237,8 +350,8 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
         ref={dayRef}
         max={31}
         maxLength={2}
-        value={date.day.toString()}
-        onChange={handleInputChange("day")}
+        value={date.day ? date.day.toString() : ""}
+        onChange={handleDayChange}
         onKeyDown={handleKeyDown("day")}
         onFocus={(e) => {
           if (window.innerWidth > 1024) {
@@ -247,7 +360,7 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
         }}
         onBlur={handleBlur("day")}
         className="w-7 border-none p-0 text-center outline-hidden"
-        placeholder="D"
+        placeholder="1"
       />
       <span className="-mx-px opacity-20">/</span>
       <input
@@ -255,8 +368,8 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
         ref={yearRef}
         max={9999}
         maxLength={4}
-        value={date.year.toString()}
-        onChange={handleInputChange("year")}
+        value={date.year ? date.year.toString() : ""}
+        onChange={handleYearChange}
         onKeyDown={handleKeyDown("year")}
         onFocus={(e) => {
           if (window.innerWidth > 1024) {
@@ -265,7 +378,7 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
         }}
         onBlur={handleBlur("year")}
         className="w-12 border-none p-0 text-center outline-hidden"
-        placeholder="YYYY"
+        placeholder="2000"
       />
     </div>
   )

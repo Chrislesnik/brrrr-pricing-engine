@@ -63,26 +63,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ))}
         </SidebarContent>
         <SidebarFooter>
-          <UserButton
-            afterSignOutUrl="/sign-in"
-            showName
-            appearance={{
-              elements: {
-                // Hide "Secured by Clerk" watermark/footer in the user menu (Pro plan allows this)
-                userButtonPopoverFooter: { display: "none" },
-                userButtonTrigger:
-                  `w-full flex flex-row items-center justify-start gap-3 rounded-md px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
-                   group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0
-                   ${isDark ? "text-white" : ""}`,
-                avatarBox: "order-first h-9 w-9 group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6",
-                userButtonText: `order-last text-base font-medium group-data-[collapsible=icon]:sr-only ${isDark ? "text-white" : ""}`,
-                userButtonOuterIdentifier:
-                  "group-data-[collapsible=icon]:hidden", // hide the name when collapsed
-                userButtonPopoverCard:
-                  `w-[--radix-popover-trigger-width] max-w-none pl-3 pb-2 ${isDark ? "text-white" : ""}`,
-              },
-            }}
-          />
+          <div suppressHydrationWarning>
+            <UserButton
+              afterSignOutUrl="/sign-in"
+              showName
+              appearance={{
+                elements: {
+                  // Hide "Secured by Clerk" watermark/footer in the user menu (Pro plan allows this)
+                  userButtonPopoverFooter: { display: "none" },
+                  userButtonTrigger:
+                    `w-full flex flex-row items-center justify-start gap-3 rounded-md px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+                     group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0
+                     ${isDark ? "text-white" : ""}`,
+                  avatarBox: "order-first h-9 w-9 group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6",
+                  userButtonText: `order-last text-base font-medium group-data-[collapsible=icon]:sr-only ${isDark ? "text-white" : ""}`,
+                  userButtonOuterIdentifier:
+                    "group-data-[collapsible=icon]:hidden", // hide the name when collapsed
+                  userButtonPopoverCard:
+                    `w-[--radix-popover-trigger-width] max-w-none pl-3 pb-2 ${isDark ? "text-white" : ""}`,
+                },
+              }}
+            />
+          </div>
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
