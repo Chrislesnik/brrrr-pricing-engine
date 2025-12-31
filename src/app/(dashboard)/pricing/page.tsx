@@ -1783,6 +1783,8 @@ export default function PricingEnginePage() {
     if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
     if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
     if ("loan_amount" in payload) setLoanAmount(String(payload["loan_amount"] ?? ""))
+    if ("initial_loan_amount" in payload) setInitialLoanAmount(String(payload["initial_loan_amount"] ?? ""))
+    else if ("initialLoanAmount" in (payload as any)) setInitialLoanAmount(String((payload as any)["initialLoanAmount"] ?? ""))
     if ("admin_fee" in payload) {
       setAdminFee(String(payload["admin_fee"] ?? ""))
     } else if ("lender_admin_fee" in payload) {
