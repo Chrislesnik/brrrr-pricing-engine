@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
@@ -493,7 +493,9 @@ const getPlaces = (): GPlaces | undefined => {
 
 export default function PricingEnginePage() {
   const searchParams = useSearchParams()
-  const { orgRole } = useAuth()
+  const router = useRouter()
+  const { orgRole, orgId } = useAuth()
+  const prevOrgIdRef = useRef<string | null>(null)
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
   const [selfBrokerId, setSelfBrokerId] = useState<string | null>(null)
@@ -536,6 +538,26 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
+
+  // Smoothly refresh when the active organization changes
+  useEffect(() => {
+    const prev = prevOrgIdRef.current
+    const current = orgId ?? null
+    if (prev === null) {
+      prevOrgIdRef.current = current
+      return
+    }
+    if (prev !== current) {
+      prevOrgIdRef.current = current
+      // Clear org-scoped local state before a soft refresh
+      setProgramResults([])
+      setProgramPlaceholders([])
+      setSelectedScenarioId(undefined)
+      setScenariosList([])
+      setIsDispatching(false)
+      router.refresh()
+    }
+  }, [orgId, router])
 
   
   const initialLoanId = searchParams.get("loanId") ?? undefined
