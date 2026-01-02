@@ -13,9 +13,13 @@ import { OrganizationSwitcherIfEnabled } from "@/components/clerk/organization-s
 import { TeamSwitcher } from "@/components/layout/team-switcher"
 import { sidebarData } from "./data/sidebar-data"
 import { useEffect, useState } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [isDark, setIsDark] = useState(false)
+  const pathname = usePathname()
+  const search = useSearchParams()
+  const here = `${pathname}${search?.toString() ? `?${search.toString()}` : ""}`
 
   useEffect(() => {
     const root = document.documentElement
@@ -32,6 +36,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarHeader>
           {/* Show Clerk orgs when enabled; otherwise fallback to static team switcher */}
           <OrganizationSwitcherIfEnabled
+            afterSelectOrganizationUrl={here}
             afterCreateOrganizationUrl="/pipeline"
             afterLeaveOrganizationUrl="/sign-in"
             appearance={{

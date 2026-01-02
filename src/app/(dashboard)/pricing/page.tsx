@@ -310,7 +310,7 @@ function ScaledTermSheetPreview({
       rafIds.forEach((id) => cancelAnimationFrame(id))
       timeouts.forEach((id) => clearTimeout(id))
     }
-  }, [])
+  }, [orgId])
   // Enable inline editing on leaf text nodes within the preview, while freezing layout boxes
   useEffect(() => {
     if (readOnly) return
