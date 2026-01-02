@@ -34,7 +34,7 @@ export function OrgChangeRefresher() {
     }
 
     // Ignore transient null during Clerk switching; act only on stable non-null changes
-    if (next && next !== prev && lastHandledRef.value !== next) {
+    if (next && next !== prev && lastHandledRef.current !== next) {
       prevRef.current = next
       lastHandledRef.current = next
 
