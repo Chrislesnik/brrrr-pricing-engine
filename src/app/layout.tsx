@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { Providers } from "./providers"
 import { LinkInAppFix } from "./LinkInAppFix"
-import { OrgChangeRefresher } from "@/components/org-change-refresher"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,7 +42,6 @@ export default function RootLayout({
       <body className={`${inter.className} group/body antialiased overflow-x-hidden`}>
         <Providers>
           <LinkInAppFix />
-          <OrgChangeRefresher />
           {children}
         </Providers>
         <Toaster />

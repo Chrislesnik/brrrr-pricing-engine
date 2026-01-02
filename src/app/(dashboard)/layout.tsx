@@ -2,7 +2,6 @@ import { cookies } from "next/headers"
 import { cn } from "@/lib/utils"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { OrgChangeRefresher } from "@/components/org-change-refresher"
 
 export const dynamic = "force-dynamic"
 
@@ -26,7 +25,6 @@ export default async function DashboardLayout({ children }: Props) {
             "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
           )}
         >
-          <OrgChangeRefresher />
           {children}
         </div>
       </SidebarProvider>
