@@ -9,21 +9,49 @@ export function OrgChangeRefresher() {
   const { organization } = useOrganization()
   const router = useRouter()
   const prevRef = useRef<string | null>(null)
+  const lastHandledRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const active = organization?.id ?? orgId ?? null
-    if (prevRef.current === null) {
-      prevRef.current = active
-      // #region agent log
-      fetch('/api/_debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1',location:'org-change-refresher.tsx:init',message:'OrgChangeRefresher initial org',data:{orgId, organizationId: organization?.id}})}).catch(()=>{})
-      // #endregion
+    const next = organization?.id ?? orgId ?? null
+    const prev = prevRef.current
+
+    if (prev === null) {
+      prevRef.current = next
+      // Log initial mount state
+      fetch('/api/_debug-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'org-switch',
+          hypothesisId: 'H1',
+          location: 'org-change-refresher.tsx:init',
+          message: 'Initial org state',
+          data: { orgId, organizationId: organization?.id }
+        })
+      }).catch(() => {})
       return
     }
-    if (prevRef.current !== active) {
-      // #region agent log
-      fetch('/api/_debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1',location:'org-change-refresher.tsx:change',message:'OrgChangeRefresher detected org change',data:{from:prevRef.current,to:active}})}).catch(()=>{})
-      // #endregion
-      prevRef.current = active
+
+    // Ignore transient null during Clerk switching; act only on stable non-null changes
+    if (next && next !== prev && lastHandledRef.value !== next) {
+      prevRef.current = next
+      lastHandledRef.current = next
+
+      // Log about to refresh
+      fetch('/api/_debug-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'org-switch',
+          hypothesisId: 'H2',
+          location: 'org-change-refresher.tsx:before-refresh',
+          message: 'Org changed; will refresh',
+          data: { from: prev, to: next }
+        })
+      }).catch(() => {})
+
       ;(async () => {
         try {
           await getToken?.({ skipCache: true } as any)
@@ -31,10 +59,24 @@ export function OrgChangeRefresher() {
         if (typeof window !== "undefined") {
           const url = new URL(window.location.href)
           url.searchParams.delete("_org")
-          url.searchParams.set("_org", `${active ?? "none"}:${Date.now()}`)
-          router.replace(`${url.pathname}${url.search}`)
+          url.searchParams.set("_org", `${next}:${Date.now()}`)
+          const newUrl = `${url.pathname}${url.search}`
+          await router.replace(newUrl)
         }
         router.refresh()
+        // Log after refresh trigger
+        fetch('/api/_debug-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'org-switch',
+            hypothesisId: 'H3',
+            location: 'org-change-refresher.tsx:after-refresh',
+            message: 'Refresh triggered',
+            data: { active: next }
+          })
+        }).catch(() => {})
       })()
     }
   }, [orgId, organization?.id, router, getToken])
