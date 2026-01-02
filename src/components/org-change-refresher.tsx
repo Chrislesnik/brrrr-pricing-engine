@@ -1,21 +1,14 @@
 "use client"
 
 import { useAuth, useOrganization } from "@clerk/nextjs"
-import { useEffect, useMemo, useRef } from "react"
-import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 
 export function OrgChangeRefresher() {
   const { orgId, getToken } = useAuth()
   const { organization } = useOrganization()
   const router = useRouter()
-  const pathname = usePathname()
-  const search = useSearchParams()
   const prevRef = useRef<string | null>(null)
-  const here = useMemo(() => {
-    const qs = new URLSearchParams(search as any)
-    qs.delete("_org")
-    return `${pathname}${qs.toString() ? `?${qs.toString()}` : ""}`
-  }, [pathname, search])
 
   useEffect(() => {
     const active = organization?.id ?? orgId ?? null
@@ -35,15 +28,16 @@ export function OrgChangeRefresher() {
         try {
           await getToken?.({ skipCache: true } as any)
         } catch {}
-        const stamp = Date.now().toString()
-        const nextQs = new URLSearchParams(search as any)
-        nextQs.set("_org", `${active ?? "none"}:${stamp}`)
-        const nextUrl = `${pathname}?${nextQs.toString()}`
-        router.replace(nextUrl)
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href)
+          url.searchParams.delete("_org")
+          url.searchParams.set("_org", `${active ?? "none"}:${Date.now()}`)
+          router.replace(`${url.pathname}${url.search}`)
+        }
         router.refresh()
       })()
     }
-  }, [orgId, organization?.id, router, getToken, here, pathname, search])
+  }, [orgId, organization?.id, router, getToken])
 
   return null
 }
