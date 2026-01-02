@@ -310,7 +310,7 @@ function ScaledTermSheetPreview({
       rafIds.forEach((id) => cancelAnimationFrame(id))
       timeouts.forEach((id) => clearTimeout(id))
     }
-  }, [orgId])
+  }, [])
   // Enable inline editing on leaf text nodes within the preview, while freezing layout boxes
   useEffect(() => {
     if (readOnly) return
@@ -544,10 +544,18 @@ export default function PricingEnginePage() {
     const prev = prevOrgIdRef.current
     const current = orgId ?? null
     if (prev === null) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:init',message:'Pricing page initial orgId',data:{orgId:current},timestamp:Date.now()})}).catch(()=>{})
+      fetch('/api/_debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:init',message:'Pricing page initial orgId (proxy)',data:{orgId:current}})}).catch(()=>{})
+      // #endregion
       prevOrgIdRef.current = current
       return
     }
     if (prev !== current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:change',message:'Pricing page detected org change',data:{from:prev,to:current},timestamp:Date.now()})}).catch(()=>{})
+      fetch('/api/_debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:change',message:'Pricing page detected org change (proxy)',data:{from:prev,to:current}})}).catch(()=>{})
+      // #endregion
       prevOrgIdRef.current = current
       // Clear org-scoped local state before a soft refresh
       setProgramResults([])
