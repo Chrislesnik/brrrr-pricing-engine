@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@clerk/nextjs"
 
 export default function CompanyForm({
   initialName,
@@ -15,6 +16,7 @@ export default function CompanyForm({
   allowWhiteLabeling?: boolean
 }) {
   const { toast } = useToast()
+  const { orgId } = useAuth()
   const [companyName, setCompanyName] = useState<string>(initialName ?? "")
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [existingLogoUrl, setExistingLogoUrl] = useState<string | undefined>(initialLogoUrl)
@@ -58,7 +60,7 @@ export default function CompanyForm({
     return () => {
       cancelled = true
     }
-  }, [allowWhiteLabeling])
+  }, [allowWhiteLabeling, orgId])
 
   const onSubmit = () => {
     startTransition(async () => {

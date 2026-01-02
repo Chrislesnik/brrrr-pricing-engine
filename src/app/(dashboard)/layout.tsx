@@ -4,6 +4,8 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { OrgChangeRefresher } from "@/components/org-change-refresher"
 
+export const dynamic = "force-dynamic"
+
 interface Props {
   children: React.ReactNode
 }

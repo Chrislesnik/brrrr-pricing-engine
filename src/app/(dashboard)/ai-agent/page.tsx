@@ -25,7 +25,7 @@ export default function AIAgentPage() {
   const formRef = React.useRef<HTMLFormElement>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const MAX_COMPOSER_HEIGHT = 160 // px
-  const { orgRole } = useAuth()
+  const { orgRole, orgId } = useAuth()
   const [programs, setPrograms] = React.useState<
     { id: string; internal_name: string; external_name: string; loan_type: string }[]
   >([])
@@ -137,7 +137,7 @@ export default function AIAgentPage() {
 
   React.useEffect(() => {
     loadChats()
-  }, [])
+  }, [orgId])
 
   // Load messages for the selected conversation
   React.useEffect(() => {
@@ -174,7 +174,7 @@ export default function AIAgentPage() {
 
   const scrollToBottom = React.useCallback(() => {
     bottomSentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [])
+  }, [orgId])
 
   async function createNewConversation() {
     try {
