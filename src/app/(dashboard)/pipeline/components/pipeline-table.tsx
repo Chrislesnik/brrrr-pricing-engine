@@ -49,6 +49,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { CopyButton } from "@/components/copy-button"
 import { IconDots } from "@tabler/icons-react"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
@@ -164,7 +173,7 @@ export function PipelineTable({ columns, data }: Props) {
     <div className="space-y-4">
       <PipelineToolbar table={table} />
       {/* Desktop/tablet view */}
-      <div className="rounded-md border hidden md:block">
+      <div className="rounded-md border hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -294,6 +303,39 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
   const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
   const [assignOpen, setAssignOpen] = React.useState(false)
+  const [appOpen, setAppOpen] = React.useState(false)
+  const [guarantors, setGuarantors] = React.useState<Array<{ id: string | null; name: string; email: string | null }>>([])
+  const [entityIds, setEntityIds] = React.useState<string[]>([])
+  const [entityName, setEntityName] = React.useState<string | null>(null)
+  const [loadingGuarantors, setLoadingGuarantors] = React.useState(false)
+  React.useEffect(() => {
+    let active = true
+    async function load() {
+      if (!appOpen) return
+      setLoadingGuarantors(true)
+      try {
+        const res = await fetch(`/api/loans/${id}/guarantors`, { cache: "no-store" })
+        const j = (await res.json().catch(() => ({}))) as {
+          guarantors?: Array<{ id: string | null; name: string; email: string | null }>
+          entityIds?: string[]
+          entityName?: string | null
+        }
+        if (!active) return
+        setGuarantors(j?.guarantors ?? [])
+        setEntityIds(j?.entityIds ?? [])
+        setEntityName(j?.entityName ?? null)
+      } catch {
+        if (!active) return
+        setGuarantors([])
+      } finally {
+        if (active) setLoadingGuarantors(false)
+      }
+    }
+    void load()
+    return () => {
+      active = false
+    }
+  }, [appOpen, id])
 
   async function setStatus(next: string) {
     try {
@@ -343,6 +385,14 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
           <DropdownMenuItem onClick={() => (window.location.href = `/pricing?loanId=${id}`)}>
             Pricing Engine
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setAppOpen(true)
+            }}
+          >
+            Application
+          </DropdownMenuItem>
           <DropdownMenuItem>Term Sheets</DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(e) => {
@@ -365,6 +415,71 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog open={appOpen} onOpenChange={setAppOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Application</DialogTitle>
+            <DialogDescription>Share or send the borrower application link.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Application Link</label>
+              <div className="relative flex items-center gap-2">
+                <Input readOnly value={`https://application.pricingengine.pro/${id}`} />
+                <CopyButton text={`https://application.pricingengine.pro/${id}`} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">E-Sign Request</span>
+              {entityIds.length > 0 && entityName ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Entity</label>
+                  <div className="text-sm text-muted-foreground">{entityName}</div>
+                </div>
+              ) : null}
+              <label className="text-xs font-medium text-muted-foreground">Guarantors</label>
+              <div className="space-y-1">
+                {loadingGuarantors ? (
+                  <span className="text-sm text-muted-foreground">Loading guarantors…</span>
+                ) : guarantors.length ? (
+                  guarantors.map((g, i) => (
+                    <div key={`${g.name}-${i}`} className="text-sm text-muted-foreground">
+                      {g.name} {g.email ? <span className="text-xs">— {g.email}</span> : null}
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No guarantors on primary scenario.</span>
+                )}
+              </div>
+              <Button
+                className="w-fit bg-green-600 text-white hover:bg-green-700"
+                disabled={loadingGuarantors || guarantors.length === 0}
+                onClick={async () => {
+                  try {
+                    const link = `https://application.pricingengine.pro/${id}`
+                    await fetch("https://n8n.axora.info/webhook-test/531795c7-1611-4c53-b6aa-615844b69206", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        application_link: link,
+                        loan_id: id,
+                        guarantor_ids: guarantors.map((g) => g.id).filter(Boolean),
+                        entity_id: entityIds.length > 0 ? entityIds[0] : null,
+                        borrower_entity_ids: entityIds,
+                      }),
+                    })
+                    alert("E-Sign request sent.")
+                  } catch (e) {
+                    alert("Failed to send E-Sign request.")
+                  }
+                }}
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

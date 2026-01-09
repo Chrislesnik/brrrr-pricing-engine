@@ -137,6 +137,7 @@ export function NewBorrowerModal({
 	// Ensure modal opens with proper defaults (new vs edit)
 	useEffect(() => {
 		if (!open) return
+		setShowSsn(false)
 		if (initial && Object.keys(initial).length > 0) {
 			reset({
 				first_name: initial.first_name ?? "",
@@ -169,14 +170,7 @@ export function NewBorrowerModal({
 			} as any)
 			setHasStoredSsn(Boolean((initial as any).has_ssn))
 			setSsnLast4((initial as any).ssn_last4 ?? null)
-			// Preload full SSN if provided by the opener
-			const preload = (initial as any).ssn_full as string | undefined
-			if (preload && /^[0-9]{9}$/.test(preload)) {
-				setSsnRaw(preload)
-				setValue("ssn", preload, { shouldDirty: false, shouldValidate: false })
-			} else {
-				setSsnRaw("")
-			}
+			setSsnRaw("")
 		} else {
 			reset({
 				first_name: "",
@@ -205,9 +199,7 @@ export function NewBorrowerModal({
 			setHasStoredSsn(false)
 			setSsnLast4(null)
 		}
-		if (!initial || !(initial as any).ssn_full) {
-			setSsnRaw("")
-		}
+		setSsnRaw("")
 		setDobCalMonth(new Date(2000, 0, 1))
 	}, [open, reset, initial])
 
@@ -236,7 +228,7 @@ export function NewBorrowerModal({
 			cancelled = true
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open, borrowerId, hasStoredSsn])
+	}, [open, borrowerId, hasStoredSsn, ssnRaw])
 
 	// When citizenship is U.S. Citizen, disable dependent fields and clear values
 	useEffect(() => {
@@ -259,13 +251,20 @@ export function NewBorrowerModal({
 	}, [isVisaTypeEnabled, setValue])
 
 	const onSubmit = async (vals: FormValues) => {
+		function formatLocalYYYYMMDD(date: Date): string {
+			const y = date.getFullYear()
+			const m = String(date.getMonth() + 1).padStart(2, "0")
+			const d = String(date.getDate()).padStart(2, "0")
+			return `${y}-${m}-${d}`
+		}
 		const payload = {
 			...vals,
 			real_estate_licensed:
 				(vals.real_estate_licensed as unknown as string | undefined) == null
 					? undefined
 					: (vals.real_estate_licensed as unknown as string) === "Yes",
-			date_of_birth: vals.date_of_birth ? vals.date_of_birth.toISOString().slice(0, 10) : undefined,
+			// Preserve local calendar date to avoid timezone-related off-by-one
+			date_of_birth: vals.date_of_birth ? formatLocalYYYYMMDD(vals.date_of_birth) : undefined,
 			ssn: vals.ssn ? vals.ssn.replace(/\D+/g, "") : undefined,
 		}
 		if (borrowerId) {
@@ -568,7 +567,10 @@ export function NewBorrowerModal({
 						<div className="grid gap-3 sm:grid-cols-2">
 							<div className="flex flex-col gap-1">
 								<Label>Citizenship</Label>
-								<Select onValueChange={(v) => setValue("citizenship", v as any)}>
+								<Select
+									value={(watch("citizenship") as any) ?? undefined}
+									onValueChange={(v) => setValue("citizenship", v as any)}
+								>
 									<SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger>
 									<SelectContent>
 										<SelectItem value="U.S. Citizen">U.S. Citizen</SelectItem>
@@ -580,7 +582,14 @@ export function NewBorrowerModal({
 							</div>
 							<div className={cn("flex flex-col gap-1", !isImmigrationRelevant ? "opacity-60" : "")}>
 								<Label>Green Card</Label>
-								<Select onValueChange={(v) => setValue("green_card", v === "Yes")}>
+								<Select
+									value={
+										watch("green_card") == null
+											? undefined
+											: (watch("green_card") ? "Yes" : "No")
+									}
+									onValueChange={(v) => setValue("green_card", v === "Yes")}
+								>
 									<SelectTrigger disabled={!isImmigrationRelevant}>
 										<SelectValue placeholder={!isImmigrationRelevant ? "N/A" : "Select"}/>
 									</SelectTrigger>
@@ -589,7 +598,14 @@ export function NewBorrowerModal({
 							</div>
 							<div className={cn("flex flex-col gap-1", !isVisaRelevant ? "opacity-60" : "")}>
 								<Label>VISA</Label>
-								<Select onValueChange={(v) => setValue("visa", v === "Yes")}>
+								<Select
+									value={
+										watch("visa") == null
+											? undefined
+											: (watch("visa") ? "Yes" : "No")
+									}
+									onValueChange={(v) => setValue("visa", v === "Yes")}
+								>
 									<SelectTrigger disabled={!isVisaRelevant}>
 										<SelectValue placeholder={!isVisaRelevant ? "N/A" : "Select"}/>
 									</SelectTrigger>
@@ -598,7 +614,10 @@ export function NewBorrowerModal({
 							</div>
 							<div className={cn("flex flex-col gap-1", !isVisaTypeEnabled ? "opacity-60" : "")}>
 								<Label>VISA Type</Label>
-								<Select onValueChange={(v) => setValue("visa_type", v)}>
+								<Select
+									value={watch("visa_type") ?? undefined}
+									onValueChange={(v) => setValue("visa_type", v)}
+								>
 									<SelectTrigger disabled={!isVisaTypeEnabled}>
 										<SelectValue placeholder={!isVisaTypeEnabled ? "N/A" : "Select VISA type"}/>
 									</SelectTrigger>
@@ -733,7 +752,10 @@ export function NewBorrowerModal({
 							{/* Row 3: licensed/related, full width */}
 							<div className="flex flex-col gap-1">
 								<Label>Are you a licensed General Contractor, Real Estate Broker / Sales Person, Lender, Appraiser or involved in any other real estate related activities?</Label>
-								<Select onValueChange={(v) => setValue("real_estate_licensed", v as any)}>
+								<Select
+									value={(watch("real_estate_licensed") as any) ?? undefined}
+									onValueChange={(v) => setValue("real_estate_licensed", v as any)}
+								>
 									<SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger>
 									<SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
 								</Select>

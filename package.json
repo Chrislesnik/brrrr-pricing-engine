@@ -19,6 +19,7 @@
     "ios:sync:prod": "APP_URL=https://www.pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios"
   },
   "dependencies": {
+    "@1771technologies/lytenyte-pro": "^1.0.20",
     "@ai-sdk/react": "^2.0.115",
     "@capacitor/core": "^7.4.4",
     "@clerk/nextjs": "^6.35.2",

@@ -38,8 +38,17 @@ export function DataTableFacetedFilter<TData, TValue>({
   title,
   options,
 }: DataTableFacetedFilterProps<TData, TValue>) {
-  const facets = column?.getFacetedUniqueValues()
-  const selectedValues = new Set(column?.getFilterValue() as string[])
+  // Some columns may contain array values; TanStack's faceting helper can throw in those cases.
+  // Make this safe by wrapping in try/catch and falling back to provided option counts.
+  let facets: Map<any, number> | undefined
+  try {
+    facets = column?.getFacetedUniqueValues()
+  } catch {
+    facets = undefined
+  }
+  // Ensure we always pass an iterable to Set; filter value can be undefined/null
+  const raw = column?.getFilterValue() as unknown
+  const selectedValues = new Set(Array.isArray(raw) ? (raw as string[]) : [])
   return (
     <Popover>
       <PopoverTrigger asChild>

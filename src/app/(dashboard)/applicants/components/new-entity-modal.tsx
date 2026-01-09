@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -14,10 +15,11 @@ import { DateInput } from "@/components/date-input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { IconTrash } from "@tabler/icons-react"
+import { IconTrash, IconEye, IconEyeOff } from "@tabler/icons-react"
+import { toast } from "@/hooks/use-toast"
 
 const schema = z.object({
-	legal_name: z.string().optional().or(z.literal("")),
+	legal_name: z.string().min(1, "Legal name is required"),
 	members: z.coerce.number().int().nonnegative().optional(),
 	ein: z.string().optional().or(z.literal("")),
 	entity_type: z.enum(["LLC","Corporation","Partnership","Trust","Other"]).optional(),
@@ -35,6 +37,14 @@ const schema = z.object({
 })
 
 type FormValues = z.infer<typeof schema>
+
+type LinkableKind = "borrower" | "entity"
+
+type LinkableOption = {
+	id: string
+	label: string
+	kind: LinkableKind
+}
 
 function formatEINMasked(input: string) {
 	const d = input.replace(/\D+/g, "").slice(0, 9)
@@ -63,14 +73,43 @@ function formatCurrencyInput(input: string) {
 	return `$${out}`
 }
 
+function formatLocalYYYYMMDD(date: Date): string {
+	const y = date.getFullYear()
+	const m = String(date.getMonth() + 1).padStart(2, "0")
+	const d = String(date.getDate()).padStart(2, "0")
+	return `${y}-${m}-${d}`
+}
+
 const US_STATES = [
 	"AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
 ]
 
-export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function NewEntityModal({
+	open,
+	onOpenChange,
+	entityId,
+	initial,
+	ownersInitial,
+}: {
+	open: boolean
+	onOpenChange: (o: boolean) => void
+	entityId?: string
+	initial?: Partial<FormValues>
+	ownersInitial?: {
+		id: string
+		name: string
+		title: string
+		memberType: "Individual" | "Entity" | ""
+		ssnEin: string
+		guarantor: "Yes" | "No" | ""
+		percent: string
+		address: string
+	}[]
+}) {
 	const [dateFormedCalMonth, setDateFormedCalMonth] = useState<Date | undefined>(new Date(2000, 0, 1))
 	const [einRaw, setEinRaw] = useState<string>("")
 	const einRef = useRef<HTMLInputElement | null>(null)
+	const router = useRouter()
 	const [owners, setOwners] = useState<
 		Array<{
 			id: string
@@ -81,6 +120,9 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 			guarantor: "Yes" | "No" | ""
 			percent: string
 			address: string
+			borrowerId?: string
+			entityOwnerId?: string
+			showSsn?: boolean
 		}>
 	>([])
 	const formId = "new-entity-form"
@@ -91,7 +133,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 		setValue,
 		reset,
 		watch,
-		formState: { isSubmitting },
+		formState: { isSubmitting, errors },
 	} = useForm<FormValues>({
 		resolver: zodResolver(schema),
 		defaultValues: {},
@@ -104,15 +146,24 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 			title: o.title || "",
 			member_type: o.memberType || "",
 			id_number: o.ssnEin || "",
-			guarantor: o.guarantor === "Yes",
 			ownership_percent: o.percent ? Number(o.percent) : undefined,
 			address: o.address || "",
+			// Send both naming conventions to be extra robust with server parsing
+			borrower_id: o.borrowerId || (o as any).borrower_id || undefined,
+			borrowerId: o.borrowerId || (o as any).borrower_id || undefined,
+			entity_owner_id: (o as any).entity_owner_id || o.entityOwnerId || undefined,
+			entityOwnerId: o.entityOwnerId || (o as any).entity_owner_id || undefined,
 		}))
-		const payload = {
+		const base = {
 			entity_name: _vals.legal_name || "",
+			members:
+				(_vals as any).members != null && !Number.isNaN((_vals as any).members)
+					? Number((_vals as any).members)
+					: undefined,
 			entity_type: _vals.entity_type || "",
 			ein: _vals.ein || "",
-			date_formed: _vals.date_formed ? _vals.date_formed.toISOString().slice(0, 10) : undefined,
+			// Use local calendar date to avoid timezone shifts
+			date_formed: _vals.date_formed ? formatLocalYYYYMMDD(_vals.date_formed) : undefined,
 			state_formed: _vals.state_formed || "",
 			address_line1: _vals.address_line1 || "",
 			address_line2: _vals.address_line2 || "",
@@ -123,14 +174,44 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 			bank_name: _vals.bank_name || "",
 			account_balances: _vals.account_balances || "",
 			owners: ownersPayload,
-			link_borrower_id: linkBorrowerId,
 		}
-		await fetch("/api/applicants/entities", {
-			method: "POST",
+		// For updates, avoid sending empty strings which can overwrite existing data.
+		const payload =
+			entityId
+				? (Object.fromEntries(
+						Object.entries(base).filter(([k, v]) => {
+							// send owners for patch; skip only truly empty scalars
+							if (v === "" || v === undefined) return false
+							return true
+						}),
+				  ) as Record<string, unknown>)
+				: (base as Record<string, unknown>)
+		const url = entityId ? `/api/applicants/entities/${encodeURIComponent(entityId)}` : "/api/applicants/entities"
+		const method = entityId ? "PATCH" : "POST"
+		const res = await fetch(url, {
+			method,
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(payload),
 		})
+		if (!res.ok) {
+			const j = await res.json().catch(() => ({} as any))
+			toast({
+				title: "Save failed",
+				description: (j as any)?.error || "Unable to save entity.",
+				variant: "destructive" as any,
+			})
+			return
+		}
 		onOpenChange(false)
+		// Refresh pipeline immediately and notify any client tables to refetch
+		try {
+			router.refresh()
+			if (typeof window !== "undefined") {
+				window.dispatchEvent(new Event("app:entities:changed"))
+			}
+		} catch {
+			// ignore
+		}
 	}
 
 	const dateFormed = watch("date_formed")
@@ -139,15 +220,49 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 		if (dateFormed) setDateFormedCalMonth(dateFormed)
 	}, [dateFormed])
 
-	// Reset all fields every time the modal opens
+	// Create stable dependency keys so the effect deps array stays constant length across renders
+	const initKey = useMemo(() => JSON.stringify(initial ?? {}), [initial])
+	const ownersKey = useMemo(() => JSON.stringify(ownersInitial ?? []), [ownersInitial])
+
+	// Reset all fields when the modal opens; if initial is provided, preload values for edit
 	useEffect(() => {
 		if (open) {
-			reset({})
-			setEinRaw("")
-			setOwners([])
+			if (initial && Object.keys(initial).length > 0) {
+				reset({
+					legal_name: (initial as any).legal_name ?? "",
+					members: (initial as any).members ?? undefined,
+					ein: (initial as any).ein ?? "",
+					entity_type: (initial as any).entity_type ?? undefined,
+					date_formed: (initial as any).date_formed ?? undefined,
+					state_formed: (initial as any).state_formed ?? "",
+					address_line1: (initial as any).address_line1 ?? "",
+					address_line2: (initial as any).address_line2 ?? "",
+					city: (initial as any).city ?? "",
+					state: (initial as any).state ?? "",
+					zip: (initial as any).zip ?? "",
+					county: (initial as any).county ?? "",
+					bank_name: (initial as any).bank_name ?? "",
+					account_balances: (initial as any).account_balances ?? "",
+				} as any)
+				const einDigits = String((initial as any).ein ?? "").replace(/\D+/g, "").slice(0, 9)
+				setEinRaw(einDigits)
+			} else {
+				reset({})
+				setEinRaw("")
+			}
+			setOwners(
+				Array.isArray(ownersInitial)
+					? ownersInitial.map((o) => ({
+							...o,
+							borrowerId: (o as any).borrowerId || (o as any).borrower_id,
+							entityOwnerId: (o as any).entityOwnerId || (o as any).entity_owner_id,
+					  }))
+					: [],
+			)
 			setDateFormedCalMonth(new Date(2000, 0, 1))
 		}
-	}, [open, reset])
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [open, reset, initKey, ownersKey])
 
 	const membersReg = register("members")
 	const zipReg = register("zip")
@@ -155,25 +270,87 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 	const address2Reg = register("address_line2")
 	const cityReg = register("city")
 	const countyReg = register("county")
-	const [borrowerOpts, setBorrowerOpts] = useState<Array<{ id: string; label: string }>>([])
+	const [linkableOpts, setLinkableOpts] = useState<LinkableOption[]>([])
 	const [borrowerLoading, setBorrowerLoading] = useState(false)
-	const [linkBorrowerId, setLinkBorrowerId] = useState<string | undefined>(undefined)
+	const [excludeEntityIds, setExcludeEntityIds] = useState<Set<string>>(new Set())
+	// Cache borrower details to avoid duplicate fetches
+	const [borrowerCache, setBorrowerCache] = useState<
+		Record<
+			string,
+			| undefined
+			| {
+					first_name?: string | null
+					last_name?: string | null
+					address_line1?: string | null
+					city?: string | null
+					state?: string | null
+					zip?: string | null
+					has_ssn?: boolean
+					ssn_last4?: string | null
+					primary_phone?: string | null
+					full_ssn?: string | null
+			  }
+		>
+	>({})
 
-	// Load borrowers for picker when modal opens
+	// Load borrowers + entities for picker when modal opens; force-include any linked ids so Select shows preselected values
 	useEffect(() => {
 		if (!open) return
 		setBorrowerLoading(true)
-		fetch("/api/applicants/borrowers")
-			.then((r) => r.json())
-			.then((j) => {
-				const opts = (j.borrowers ?? []).map((b: any) => ({
-					id: b.id as string,
-					label: `${b.display_id ?? ""} ${[b.first_name, b.last_name].filter(Boolean).join(" ")}`.trim(),
-				}))
-				setBorrowerOpts(opts)
+		const borrowerIds = Array.from(
+			new Set(
+				(ownersInitial ?? [])
+					.map((o) => (o as any).borrowerId || (o as any).borrower_id)
+					.filter(Boolean) as string[],
+			),
+		)
+		const entityIds = Array.from(
+			new Set(
+				(ownersInitial ?? [])
+					.map((o) => (o as any).entityOwnerId || (o as any).entity_owner_id)
+					.filter(Boolean) as string[],
+			),
+		)
+		const borrowerQs = borrowerIds.length ? `?includeIds=${encodeURIComponent(borrowerIds.join(","))}` : ""
+		const entityQs = entityIds.length ? `?includeIds=${encodeURIComponent(entityIds.join(","))}` : ""
+		const exclusionPromise = entityId
+			? fetch(`/api/applicants/entities/${encodeURIComponent(entityId)}/owners`)
+					.then((r) => r.json())
+					.then((j) => {
+						const exclude = new Set<string>()
+						exclude.add(entityId)
+						if (Array.isArray(j?.owned_by_entities)) j.owned_by_entities.forEach((x: string) => x && exclude.add(x))
+						if (Array.isArray(j?.owns_entities)) j.owns_entities.forEach((x: string) => x && exclude.add(x))
+						setExcludeEntityIds(exclude)
+						return exclude
+					})
+					.catch(() => new Set<string>())
+			: Promise.resolve(new Set<string>())
+
+		Promise.all([
+			fetch(`/api/applicants/borrowers${borrowerQs}`).then((r) => r.json()).catch(() => ({})),
+			fetch(`/api/applicants/entities${entityQs}`).then((r) => r.json()).catch(() => ({})),
+			exclusionPromise,
+		])
+			.then(([bj, ej, exclude]) => {
+				const borrowerOpts =
+					(bj.borrowers ?? []).map((b: any) => ({
+						id: b.id as string,
+						label: `Borrower · ${(b.display_id ?? b.id) as string} ${[b.first_name, b.last_name].filter(Boolean).join(" ")}`.trim(),
+						kind: "borrower" as LinkableKind,
+					})) ?? []
+				const entityOpts =
+					(ej.entities ?? [])
+						.filter((e: any) => !exclude.has(e.id as string))
+						.map((e: any) => ({
+							id: e.id as string,
+							label: `Entity · ${(e.display_id ?? e.id) as string} ${e.entity_name ?? ""}`.trim(),
+							kind: "entity" as LinkableKind,
+						})) ?? []
+				setLinkableOpts([...entityOpts, ...borrowerOpts])
 			})
 			.finally(() => setBorrowerLoading(false))
-	}, [open])
+	}, [open, ownersInitial, entityId])
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,7 +359,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 					<DialogTitle>Borrowing Entity</DialogTitle>
 				</DialogHeader>
 				<div className="max-h-[calc(80vh-4rem)] overflow-y-auto pr-1">
-				<form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-3">
+				<form id={formId} onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6 pb-3">
 					{/* Watch address to control street-only display */}
 					{/* eslint-disable-next-line react-hooks/rules-of-hooks */}
 					{null}
@@ -193,13 +370,15 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 								<div className="flex flex-col gap-1">
 									<Label>Legal Name of Business Entity</Label>
 									<Input placeholder="Enter legal business name" {...register("legal_name")} />
+									{(errors as any)?.legal_name ? (
+										<p className="text-xs text-red-600">{(errors as any).legal_name.message as string}</p>
+									) : null}
 								</div>
 								<div className="flex flex-col gap-1">
 									<Label># of Members</Label>
 									<Input
 										placeholder="Enter number of members"
 										inputMode="numeric"
-										pattern="\\d*"
 										{...membersReg}
 										onChange={(e) => {
 											const digits = e.target.value.replace(/[^0-9]/g, "")
@@ -209,25 +388,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 									/>
 								</div>
 							</div>
-							<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-								<div className="flex flex-col gap-1">
-									<Label>Link to Borrower</Label>
-									<Select
-										disabled={borrowerLoading}
-										onValueChange={(v) => setLinkBorrowerId(v)}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder={borrowerLoading ? "Loading..." : "Select borrower (optional)"} />
-										</SelectTrigger>
-										<SelectContent>
-											{borrowerOpts.map((b) => (
-												<SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div />
-							</div>
+							{/* Link to Borrower moved to each Owner card below */}
 							<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 								<div className="flex flex-col gap-1">
 									<Label>EIN</Label>
@@ -249,7 +410,6 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 											})
 										}}
 										inputMode="numeric"
-										pattern="\\d*"
 										maxLength={10}
 										autoComplete="off"
 										onKeyDown={(e) => {
@@ -263,7 +423,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 								</div>
 								<div className="flex flex-col gap-1">
 									<Label>Entity Type</Label>
-									<Select onValueChange={(v) => setValue("entity_type", v as any)}>
+									<Select value={(watch("entity_type") as any) ?? undefined} onValueChange={(v) => setValue("entity_type", v as any)}>
 										<SelectTrigger><SelectValue placeholder="Select entity type"/></SelectTrigger>
 										<SelectContent>
 											<SelectItem value="LLC">LLC</SelectItem>
@@ -311,7 +471,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 								</div>
 								<div className="flex flex-col gap-1">
 									<Label>State of Formation</Label>
-									<Select onValueChange={(v) => setValue("state_formed", v)}>
+									<Select value={watch("state_formed") ?? undefined} onValueChange={(v) => setValue("state_formed", v)}>
 										<SelectTrigger><SelectValue placeholder="Select state"/></SelectTrigger>
 										<SelectContent>
 											{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -361,7 +521,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 								</div>
 								<div className="flex flex-col gap-1">
 									<Label>State</Label>
-									<Select onValueChange={(v) => setValue("state", v)}>
+									<Select value={watch("state") ?? undefined} onValueChange={(v) => setValue("state", v)}>
 										<SelectTrigger><SelectValue placeholder="Select state"/></SelectTrigger>
 										<SelectContent>
 											{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -426,6 +586,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 							{owners.map((o, idx) => {
 								const mask = o.memberType === "Entity" ? formatEINMasked : formatSSNMasked
 								const idPrefix = `owner-${idx + 1}`
+								const linked = Boolean(o.borrowerId || o.entityOwnerId)
 								return (
 									<div key={o.id} className="rounded-md border p-3">
 										<div className="mb-2 flex items-center justify-between">
@@ -440,16 +601,187 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 											</button>
 										</div>
 										<div className="grid gap-3 sm:grid-cols-2">
+											<div className="flex flex-col gap-1 sm:col-span-2">
+												<Label className="text-blue-700">Link to Owner (borrower or entity)</Label>
+												<Select
+													disabled={borrowerLoading}
+													value={
+														o.borrowerId
+															? `borrower:${o.borrowerId}`
+															: o.entityOwnerId
+																? `entity:${o.entityOwnerId}`
+																: undefined
+													}
+													onValueChange={async (v) => {
+														// Clear selection -> reset fields and make editable
+														if (!v || v === "__none__") {
+															setOwners((prev) => {
+																if (idx < 0 || idx >= prev.length) return prev
+																const next = prev.slice()
+																next[idx] = {
+																	...next[idx],
+																	borrowerId: undefined,
+																	borrower_id: undefined,
+																	entityOwnerId: undefined,
+																	entity_owner_id: undefined,
+																	name: "",
+																	memberType: "",
+																	ssnEin: "",
+																	address: "",
+																}
+																return next
+															})
+															return
+														}
+														const [kind, id] = v.split(":")
+														if (kind === "borrower") {
+															setOwners((prev) => {
+																if (idx < 0 || idx >= prev.length) return prev
+																const next = prev.slice()
+																next[idx] = {
+																	...next[idx],
+																	borrowerId: id,
+																	borrower_id: id,
+																	entityOwnerId: undefined,
+																	entity_owner_id: undefined,
+																}
+																return next
+															})
+															try {
+																let details = borrowerCache[id]
+																if (!details) {
+																	const res = await fetch(`/api/applicants/borrowers/${encodeURIComponent(id)}`, { cache: "no-store" })
+																	const j = await res.json().catch(() => ({} as any))
+																	const b = (j?.borrower ?? {}) as any
+																	details = {
+																		first_name: b.first_name ?? "",
+																		last_name: b.last_name ?? "",
+																		address_line1: b.address_line1 ?? "",
+																		city: b.city ?? "",
+																		state: b.state ?? "",
+																		zip: b.zip ?? "",
+																		has_ssn: Boolean(b.has_ssn),
+																		ssn_last4: b.ssn_last4 ?? null,
+																		primary_phone: b.primary_phone ?? null,
+																		full_ssn: null,
+																	}
+																	if (details.has_ssn) {
+																		try {
+																			const ssnRes = await fetch(`/api/applicants/borrowers/${encodeURIComponent(id)}/ssn`, { cache: "no-store" })
+																			if (ssnRes.ok) {
+																				const s = await ssnRes.json().catch(() => ({} as any))
+																				const digits = String(s?.ssn ?? "").replace(/\D+/g, "").slice(0, 9)
+																				if (digits.length === 9) details.full_ssn = digits
+																			}
+																		} catch {
+																			// ignore
+																		}
+																	}
+																	setBorrowerCache((prev) => ({ ...prev, [id]: details }))
+																}
+																const fullName = [details?.first_name ?? "", details?.last_name ?? ""].filter(Boolean).join(" ").trim()
+																const addrParts = [
+																	details?.address_line1 ?? "",
+																	[details?.city ?? "", details?.state ?? ""].filter(Boolean).join(", "),
+																	details?.zip ?? "",
+																]
+																	.map((s) => (s ?? "").toString().trim())
+																	.filter(Boolean)
+																const homeAddr = addrParts.join(", ").replace(/,\\s*,/g, ", ")
+																setOwners((prev) => {
+																	if (idx < 0 || idx >= prev.length) return prev
+																	const next = prev.slice()
+																	next[idx] = {
+																		...next[idx],
+																		borrowerId: id,
+																		borrower_id: id,
+																		name: fullName || next[idx].name,
+																		memberType: "Individual",
+																		ssnEin: details?.full_ssn ?? next[idx].ssnEin,
+																		address: homeAddr || next[idx].address,
+																	}
+																	return next
+																})
+															} catch {
+																// silent fail
+															}
+															return
+														}
+
+														// entity link
+														if (kind === "entity") {
+															try {
+																const res = await fetch(`/api/applicants/entities/${encodeURIComponent(id)}`, { cache: "no-store" })
+																const j = await res.json().catch(() => ({} as any))
+																const e = (j?.entity ?? {}) as any
+																const fullName = e.entity_name ?? ""
+																const addrParts = [
+																	e.address_line1 ?? "",
+																	[e.city ?? "", e.state ?? ""].filter(Boolean).join(", "),
+																	e.zip ?? "",
+																]
+																	.map((s: any) => (s ?? "").toString().trim())
+																	.filter(Boolean)
+																const homeAddr = addrParts.join(", ").replace(/,\\s*,/g, ", ")
+																const einDigits = (e.ein ?? "").toString().replace(/\D+/g, "").slice(0, 9)
+																setOwners((prev) => {
+																	if (idx < 0 || idx >= prev.length) return prev
+																	const next = prev.slice()
+																	next[idx] = {
+																		...next[idx],
+																		borrowerId: undefined,
+																		borrower_id: undefined,
+																		entityOwnerId: id,
+																		entity_owner_id: id,
+																		name: fullName || next[idx].name,
+																		memberType: "Entity",
+																		ssnEin: einDigits || next[idx].ssnEin,
+																		address: homeAddr || next[idx].address,
+																	}
+																	return next
+																})
+															} catch {
+																// silent fail
+															}
+														}
+													}}
+												>
+													<SelectTrigger className="ring-1 ring-blue-300 focus:ring-blue-500 text-blue-700">
+														<SelectValue placeholder={borrowerLoading ? "Loading..." : "Select borrower or entity"} />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="__none__">— None —</SelectItem>
+														{linkableOpts.map((opt) => (
+															<SelectItem key={`${opt.kind}:${opt.id}`} value={`${opt.kind}:${opt.id}`}>
+																{opt.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</div>
 											<div className="flex flex-col gap-1">
 												<Label htmlFor={`${idPrefix}-name`}>Full Name</Label>
 												<Input
 													id={`${idPrefix}-name`}
 													placeholder="Enter full name"
 													value={o.name}
+													disabled={linked}
+													readOnly={linked}
+													className={cn(linked ? "bg-muted/50" : undefined)}
 													onChange={(e) => {
+														if (linked) return
 														const next = owners.slice()
 														next[idx] = { ...o, name: e.target.value }
 														setOwners(next)
+													}}
+													onKeyDown={(e) => {
+														if (linked) e.preventDefault()
+													}}
+													onBeforeInput={(e) => {
+														if (linked) e.preventDefault()
+													}}
+													onPaste={(e) => {
+														if (linked) e.preventDefault()
 													}}
 												/>
 											</div>
@@ -470,13 +802,21 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 												<Label>Member Type</Label>
 												<Select
 													value={o.memberType || undefined}
+													disabled={linked}
 													onValueChange={(v: "Individual" | "Entity") => {
+														if (linked) return
 														const next = owners.slice()
 														next[idx] = { ...o, memberType: v }
 														setOwners(next)
 													}}
 												>
-													<SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+													<SelectTrigger
+														disabled={linked}
+														aria-disabled={linked}
+														className={cn(linked ? "pointer-events-none opacity-70 bg-muted/50" : undefined)}
+													>
+														<SelectValue placeholder="Select type" />
+													</SelectTrigger>
 													<SelectContent>
 														<SelectItem value="Individual">Individual</SelectItem>
 														<SelectItem value="Entity">Entity</SelectItem>
@@ -485,19 +825,51 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 											</div>
 											<div className="flex flex-col gap-1">
 												<Label htmlFor={`${idPrefix}-ssn`}>{o.memberType === "Entity" ? "EIN" : "SSN"}</Label>
-												<Input
-													id={`${idPrefix}-ssn`}
-													placeholder={o.memberType === "Entity" ? "XX-XXXXXXX" : "XXX-XX-XXXX"}
-													inputMode="numeric"
-													pattern="\\d*"
-													value={mask(o.ssnEin)}
-													onChange={(e) => {
-														const digits = e.target.value.replace(/\D+/g, "").slice(0, 9)
-														const next = owners.slice()
-														next[idx] = { ...o, ssnEin: digits }
-														setOwners(next)
+												<div className="relative">
+													<Input
+														id={`${idPrefix}-ssn`}
+														placeholder={o.memberType === "Entity" ? "XX-XXXXXXX" : "XXX-XX-XXXX"}
+														inputMode="numeric"
+														pattern="\\d*"
+														type={o.memberType === "Entity" ? "text" : (o.showSsn ? "text" : "password")}
+														value={mask(o.ssnEin)}
+													disabled={linked}
+													readOnly={linked}
+														onChange={(e) => {
+														if (linked) return
+															const digits = e.target.value.replace(/\D+/g, "").slice(0, 9)
+															const next = owners.slice()
+															next[idx] = { ...o, ssnEin: digits }
+															setOwners(next)
+														}}
+														className={cn(o.memberType === "Entity" ? undefined : "pr-9", linked ? "bg-muted/50" : undefined)}
+													onKeyDown={(e) => {
+														if (linked) e.preventDefault()
 													}}
-												/>
+													onBeforeInput={(e) => {
+														if (linked) e.preventDefault()
+													}}
+													onPaste={(e) => {
+														if (linked) e.preventDefault()
+													}}
+													/>
+													{(o.memberType !== "Entity") ? (
+														<button
+															type="button"
+															aria-label={o.showSsn ? "Hide SSN" : "Show SSN"}
+														disabled={linked}
+															onClick={() => {
+																if (linked) return
+																const next = owners.slice()
+																next[idx] = { ...o, showSsn: !o.showSsn }
+																setOwners(next)
+															}}
+															className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+														>
+															{o.showSsn ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
+														</button>
+													) : null}
+												</div>
 											</div>
 											<div className="flex flex-col gap-1">
 												<Label>Ownership %</Label>
@@ -514,35 +886,39 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 													}}
 												/>
 											</div>
-											<div className="flex flex-col gap-1">
-												<Label>Guarantor?</Label>
-												<Select
-													value={o.guarantor || undefined}
-													onValueChange={(v: "Yes" | "No") => {
-														const next = owners.slice()
-														next[idx] = { ...o, guarantor: v }
-														setOwners(next)
-													}}
-												>
-													<SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-													<SelectContent>
-														<SelectItem value="Yes">Yes</SelectItem>
-														<SelectItem value="No">No</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
 											<div className="sm:col-span-2 flex flex-col gap-1">
 												<Label htmlFor={`${idPrefix}-addr`}>Home Address</Label>
-												<Input
-													id={`${idPrefix}-addr`}
-													placeholder="Enter home address"
-													value={o.address}
-													onChange={(e) => {
-														const next = owners.slice()
-														next[idx] = { ...o, address: e.target.value }
-														setOwners(next)
-													}}
-												/>
+												{linked ? (
+													<Input
+														id={`${idPrefix}-addr`}
+														placeholder="Enter home address"
+														value={o.address}
+														disabled
+														readOnly
+														className="bg-muted/50"
+													/>
+												) : (
+													<AddressAutocomplete
+														id={`${idPrefix}-addr`}
+														value={o.address}
+														placeholder="Start typing home address..."
+														displayValue="full"
+														onChange={(addr) => {
+															const full = addr.raw || [
+																addr.address_line1 ?? "",
+																[addr.city ?? "", addr.state ?? ""].filter(Boolean).join(", "),
+																addr.zip ?? "",
+															]
+																.map((s) => (s ?? "").toString().trim())
+																.filter(Boolean)
+																.join(", ")
+																.replace(/,\\s*,/g, ", ")
+															const next = owners.slice()
+															next[idx] = { ...o, address: full }
+															setOwners(next)
+														}}
+													/>
+												)}
 											</div>
 										</div>
 									</div>
@@ -564,6 +940,8 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 												guarantor: "",
 												percent: "",
 												address: "",
+												borrowerId: undefined,
+												showSsn: false,
 											},
 										])
 									}
@@ -583,6 +961,7 @@ export function NewEntityModal({ open, onOpenChange }: { open: boolean; onOpenCh
 		</Dialog>
 	)
 }
+
 
 export default NewEntityModal
 

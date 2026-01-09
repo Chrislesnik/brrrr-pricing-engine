@@ -7,10 +7,9 @@ import {
 	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { ApplicantsTable } from "../components/applicants-table"
-import { entityColumns } from "../components/entities-columns"
 import { ApplicantsPrimaryActions } from "../components/applicants-primary-actions"
 import { getEntitiesForOrg } from "../data/fetch-entities"
+import { EntitiesLyteNyteGrid } from "../components/entities-lytenyte-grid"
 import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
@@ -52,12 +51,7 @@ export default async function EntitiesPage() {
 				</div>
 			</div>
 			<div className="flex-1 min-w-0">
-				<ApplicantsTable
-					data={data}
-					columns={entityColumns}
-					toolbarPlaceholder="Search by ID, entity name, type, or EIN..."
-					realtime={{ table: "entities", view: "entities_view", organizationId: orgUuid ?? "" }}
-				/>
+				<EntitiesLyteNyteGrid rows={data} />
 			</div>
 		</>
 	)

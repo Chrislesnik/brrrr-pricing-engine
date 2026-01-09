@@ -6,6 +6,7 @@ import LongText from "@/components/long-text"
 import { Borrower } from "../data/types"
 import { format } from "date-fns"
 import { BorrowerRowActions } from "./borrower-row-actions"
+import { Checkbox } from "@/components/ui/checkbox"
 
 function formatUSDisplay(input: string | null | undefined): string {
 	const raw = (input ?? "").toString()
@@ -30,7 +31,39 @@ function formatUSDisplay(input: string | null | undefined): string {
 	return `${cc} (${a}) ${b}-${c}`
 }
 
+function formatYmdToDisplay(ymd: string | null | undefined): string {
+	const s = (ymd ?? "").toString()
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return "-"
+	const [y, m, d] = s.split("-").map((p) => Number(p))
+	const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+	const mon = monthNames[(m || 1) - 1] ?? ""
+	return `${String(d).padStart(2, "0")} ${mon}, ${y}`
+}
+
 export const borrowerColumns: ColumnDef<Borrower>[] = [
+	{
+		id: "select",
+		header: ({ table }) => (
+			<Checkbox
+				checked={
+					table.getIsAllPageRowsSelected() ||
+					(table.getIsSomePageRowsSelected() && "indeterminate")
+				}
+				onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+				aria-label="Select all"
+			/>
+		),
+		cell: ({ row }) => (
+			<Checkbox
+				checked={row.getIsSelected()}
+				onCheckedChange={(value) => row.toggleSelected(!!value)}
+				aria-label="Select row"
+			/>
+		),
+		enableSorting: false,
+		enableHiding: false,
+		meta: { className: "w-10 [&:has([role=checkbox])]:pl-3" },
+	},
 	{
 		id: "search",
 		accessorFn: (row) =>
@@ -46,6 +79,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 		header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
 		cell: ({ row }) => <LongText className="max-w-28">{row.original.display_id}</LongText>,
 		meta: { className: "w-28" },
+		enableSorting: false,
 	},
 	{
 		id: "full_name",
@@ -56,6 +90,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 			const { first_name, last_name } = row.original
 			return <div>{`${first_name} ${last_name}`}</div>
 		},
+		enableSorting: false,
 	},
 	{
 		accessorKey: "email",
@@ -63,6 +98,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 			<DataTableColumnHeader column={column} title="Email Address" />
 		),
 		cell: ({ row }) => <LongText className="max-w-56">{row.original.email ?? "-"}</LongText>,
+		enableSorting: false,
 	},
 	{
 		accessorKey: "primary_phone",
@@ -70,6 +106,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 			<DataTableColumnHeader column={column} title="Primary Phone" />
 		),
 		cell: ({ row }) => <div className="w-fit text-nowrap">{formatUSDisplay(row.original.primary_phone)}</div>,
+		enableSorting: false,
 	},
 	{
 		accessorKey: "alt_phone",
@@ -77,26 +114,29 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 			<DataTableColumnHeader column={column} title="Alternate Phone" />
 		),
 		cell: ({ row }) => <div className="w-fit text-nowrap">{formatUSDisplay(row.original.alt_phone)}</div>,
+		enableSorting: false,
 	},
 	{
 		accessorKey: "date_of_birth",
 		header: ({ column }) => (
 			<DataTableColumnHeader column={column} title="Date of Birth" />
 		),
-		cell: ({ row }) => (
-			<div className="w-fit text-nowrap">
-				{row.original.date_of_birth ? format(row.original.date_of_birth, "dd MMM, yyyy") : "-"}
-			</div>
-		),
+		cell: ({ row }) => {
+			const display = formatYmdToDisplay(row.original.date_of_birth)
+			return <div className="w-fit text-nowrap">{display}</div>
+		},
+		enableSorting: true,
 	},
 	{
 		accessorKey: "fico_score",
 		header: ({ column }) => (
 			<DataTableColumnHeader column={column} title="FICO Score" />
 		),
+		enableSorting: true,
 	},
 	{
 		id: "assigned_to_names",
+		accessorFn: (row) => (row as Borrower).assigned_to_names ?? [],
 		header: ({ column }) => (
 			<DataTableColumnHeader column={column} title="Assigned To" />
 		),
@@ -104,6 +144,15 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 			const names = row.original.assigned_to_names ?? []
 			return <LongText className="max-w-56">{names.length ? names.join(", ") : "-"}</LongText>
 		},
+		// OR matching for selected names
+		filterFn: (row, columnId, filterValue) => {
+			const selected = Array.isArray(filterValue) ? (filterValue as string[]) : []
+			if (selected.length === 0) return true
+			const namesArr = ((row.original as Borrower).assigned_to_names ?? []) as string[]
+			const cell = namesArr.join(", ").toLowerCase()
+			return selected.some((name) => cell.includes(String(name).toLowerCase()))
+		},
+		enableSorting: false,
 	},
 	{
 		accessorKey: "created_at",
@@ -115,7 +164,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 				{format(row.original.created_at, "dd MMM, yyyy")}
 			</div>
 		),
-		enableSorting: false,
+		enableSorting: true,
 	},
 	{
 		id: "actions",
@@ -124,7 +173,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 			const b = row.original
 			return <BorrowerRowActions borrower={b} />
 		},
-		meta: { className: "w-10 text-right" },
+		meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },
 	},
 ]
 

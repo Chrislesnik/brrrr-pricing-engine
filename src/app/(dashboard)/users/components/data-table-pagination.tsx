@@ -7,6 +7,7 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -21,6 +22,12 @@ interface Props<TData> {
 }
 
 export function DataTablePagination<TData>({ table }: Props<TData>) {
+  // Avoid hydration mismatches by rendering pagination controls only after mount
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  if (!mounted) return null
   return (
     <div className="flex items-center justify-between overflow-auto px-2">
       <div className="text-muted-foreground hidden flex-1 text-sm sm:block">

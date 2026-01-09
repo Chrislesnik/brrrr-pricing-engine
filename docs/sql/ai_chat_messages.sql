@@ -48,3 +48,6 @@ for each row execute function public.touch_ai_chat_last_used();
 
 
 
+
+
+

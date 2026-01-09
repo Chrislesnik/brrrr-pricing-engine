@@ -536,7 +536,15 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
-
+  // Entity name autocomplete state for Borrower Name input
+  const [entityQuery, setEntityQuery] = useState("")
+  const [entitySuggestions, setEntitySuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
+  const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
+  const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined)
+  // Guarantor suggestions
+  const [showGuarantorSuggestions, setShowGuarantorSuggestions] = useState(false)
+  const [guarantorSuggestions, setGuarantorSuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
+  const [guarantorQuery, setGuarantorQuery] = useState("")
   
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
@@ -567,9 +575,15 @@ export default function PricingEnginePage() {
     if (didInitSidebarEffectRef.current) return
     didInitSidebarEffectRef.current = true
     prevSidebarOpenRef.current = sidebarOpen
-    if (!isMobile && sidebarOpen) {
-      // Trigger the animated collapse on desktop
-      setSidebarOpen(false)
+    if (!isMobile) {
+      // Trigger the animated collapse on desktop with a tick delay so transitions can run
+      // Ensures the sidebar renders in its open state first, then closes with animation.
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => setSidebarOpen(false))
+        // Cleanup nested RAF in case unmounted quickly
+        return () => cancelAnimationFrame(raf2)
+      })
+      return () => cancelAnimationFrame(raf1)
     }
     return () => {
       // Restore previous state when leaving the page (desktop only)
@@ -580,6 +594,73 @@ export default function PricingEnginePage() {
     // Run once on mount; internal refs ensure single execution
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
+
+  // Fetch entity suggestions as user types borrower name
+  useEffect(() => {
+    let cancelled = false
+    const q = entityQuery.trim()
+    if (!showEntitySuggestions || q.length === 0) {
+      setEntitySuggestions([])
+      return
+    }
+    const ctrl = new AbortController()
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/applicants/entities?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, cache: "no-store" })
+        if (!res.ok) return
+        const j = (await res.json().catch(() => ({}))) as { entities?: Array<{ id: string; display_id?: string; entity_name?: string }> }
+        if (cancelled) return
+        const opts =
+          (j.entities ?? []).slice(0, 20).map((e) => ({
+            id: e.id as string,
+            name: (e.entity_name ?? "") as string,
+            display: `${(e.display_id ?? "") as string} ${(e.entity_name ?? "") as string}`.trim(),
+          })) ?? []
+        setEntitySuggestions(opts)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+      ctrl.abort()
+    }
+  }, [entityQuery, showEntitySuggestions])
+
+  // Fetch guarantor suggestions as user types the current token
+  useEffect(() => {
+    let cancelled = false
+    const q = guarantorQuery.trim()
+    if (!showGuarantorSuggestions || q.length === 0) {
+      setGuarantorSuggestions([])
+      return
+    }
+    const ctrl = new AbortController()
+    ;(async () => {
+      try {
+        const url = new URL("/api/applicants/borrowers", window.location.origin)
+        url.searchParams.set("q", q)
+        if (selectedEntityId) url.searchParams.set("entityId", selectedEntityId)
+        const res = await fetch(url.toString(), { signal: ctrl.signal, cache: "no-store" })
+        if (!res.ok) return
+        const j = (await res.json().catch(() => ({}))) as { borrowers?: Array<{ id: string; display_id?: string; first_name?: string; last_name?: string }> }
+        if (cancelled) return
+        const opts =
+          (j.borrowers ?? []).slice(0, 20).map((b) => ({
+            id: b.id as string,
+            name: [b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim(),
+            display: `${(b.display_id ?? "") as string} ${[b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim()}`.trim(),
+          })) ?? []
+        setGuarantorSuggestions(opts)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+      ctrl.abort()
+    }
+  }, [guarantorQuery, showGuarantorSuggestions, selectedEntityId])
 
   // ----- Resizable panels (inputs/results) -----
   const [leftPanePct, setLeftPanePct] = useState<number>(0.3) // 30% default (clamped 25–50)
@@ -716,7 +797,71 @@ export default function PricingEnginePage() {
   const [brokerOrig, setBrokerOrig] = useState<string>("")
   const [borrowerName, setBorrowerName] = useState<string>("")
   const [guarantorsStr, setGuarantorsStr] = useState<string>("")
+  const [selectedGuarantors, setSelectedGuarantors] = useState<Array<{ id: string; name: string }>>([])
   const [uwException, setUwException] = useState<string | undefined>(undefined)
+  // Restore cached selected borrower (entity) from localStorage
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("pricing.selectedBorrower") : null
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id?: string; name?: string } | null
+        const id = parsed?.id
+        const name = parsed?.name
+        if (id && name) {
+          setSelectedEntityId(id)
+          setBorrowerName(name)
+          setTouched((t) => ({ ...t, borrowerName: true }))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+  // Restore cached selected guarantors from localStorage
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("pricing.selectedGuarantors") : null
+      if (raw) {
+        const arr = JSON.parse(raw) as Array<{ id: string; name: string }>
+        if (Array.isArray(arr) && arr.length > 0) {
+          setSelectedGuarantors(arr)
+          setGuarantorsStr(arr.map((g) => g.name).join(", "))
+          setTouched((t) => ({ ...t, guarantorsStr: true }))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+  // Cache selected borrower (entity) to localStorage
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (selectedEntityId) {
+        window.localStorage.setItem(
+          "pricing.selectedBorrower",
+          JSON.stringify({ id: selectedEntityId, name: borrowerName })
+        )
+      } else {
+        window.localStorage.removeItem("pricing.selectedBorrower")
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedEntityId, borrowerName])
+  // Cache selected guarantors to localStorage
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (selectedGuarantors.length > 0) {
+        window.localStorage.setItem("pricing.selectedGuarantors", JSON.stringify(selectedGuarantors))
+      } else {
+        window.localStorage.removeItem("pricing.selectedGuarantors")
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedGuarantors])
   const [section8, setSection8] = useState<string | undefined>(undefined)
   const [glaExpansion, setGlaExpansion] = useState<string | undefined>(undefined) // Bridge rehab
   const [changeOfUse, setChangeOfUse] = useState<string | undefined>(undefined) // Bridge rehab
@@ -3754,29 +3899,129 @@ export default function PricingEnginePage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-name">Borrower Name</Label>
-                        <Input
-                          id="borrower-name"
-                          placeholder="Name"
-                          value={borrowerName}
-                          onChange={(e) => {
-                            setBorrowerName(e.target.value)
-                            setTouched((t) => ({ ...t, borrowerName: true }))
-                          }}
-                          className={`${!touched.borrowerName && borrowerName === DEFAULTS.borrowerName ? "text-muted-foreground" : ""}`}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="borrower-name"
+                            placeholder={DEFAULTS.borrowerName}
+                            value={!touched.borrowerName && borrowerName === DEFAULTS.borrowerName ? "" : borrowerName}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setBorrowerName(v)
+                              setTouched((t) => ({ ...t, borrowerName: true }))
+                              setEntityQuery(v)
+                              setShowEntitySuggestions(true)
+                              setSelectedEntityId(undefined)
+                            }}
+                            onFocus={() => {
+                              if ((borrowerName ?? "").trim().length > 0) {
+                                setEntityQuery(borrowerName)
+                                setShowEntitySuggestions(true)
+                              }
+                            }}
+                            className={`${!touched.borrowerName && borrowerName === DEFAULTS.borrowerName ? "text-muted-foreground" : ""} ${selectedEntityId ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
+                            autoComplete="off"
+                          />
+                          {showEntitySuggestions && entitySuggestions.length > 0 && (
+                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+                              <ul className="max-h-56 overflow-auto">
+                                {entitySuggestions.map((opt) => (
+                                  <li key={opt.id}>
+                                    <button
+                                      type="button"
+                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
+                                      onClick={() => {
+                                        setBorrowerName(opt.name)
+                                        setTouched((t) => ({ ...t, borrowerName: true }))
+                                        setShowEntitySuggestions(false)
+                                        setSelectedEntityId(opt.id)
+                                      }}
+                                    >
+                                      {opt.display}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="guarantors">Guarantor(s)</Label>
-                        <Input
-                          id="guarantors"
-                          placeholder="Names separated by comma"
-                          value={guarantorsStr}
-                          onChange={(e) => {
-                            setGuarantorsStr(e.target.value)
-                            setTouched((t) => ({ ...t, guarantorsStr: true }))
-                          }}
-                          className={`${!touched.guarantorsStr && guarantorsStr === DEFAULTS.guarantorsStr ? "text-muted-foreground" : ""}`}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="guarantors"
+                            placeholder={DEFAULTS.guarantorsStr}
+                            value={!touched.guarantorsStr && guarantorsStr === DEFAULTS.guarantorsStr ? "" : guarantorsStr}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setGuarantorsStr(v)
+                              setTouched((t) => ({ ...t, guarantorsStr: true }))
+                              // compute current token after last comma to query suggestions
+                              const token = v.split(",").pop()?.trim() ?? ""
+                              if (token.length > 0) {
+                                setShowGuarantorSuggestions(true)
+                                setGuarantorQuery(token)
+                              } else {
+                                setShowGuarantorSuggestions(false)
+                              }
+                              if (selectedGuarantors.length > 0) {
+                                setSelectedGuarantors([])
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault()
+                                setShowGuarantorSuggestions(false)
+                              }
+                            }}
+                            onFocus={() => {
+                              const token = guarantorsStr.split(",").pop()?.trim() ?? ""
+                              if (token.length > 0) {
+                                setGuarantorQuery(token)
+                                setShowGuarantorSuggestions(true)
+                              }
+                            }}
+                            className={`${!touched.guarantorsStr && guarantorsStr === DEFAULTS.guarantorsStr ? "text-muted-foreground" : ""} ${selectedGuarantors.length > 0 ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
+                            autoComplete="off"
+                          />
+                          {showGuarantorSuggestions && guarantorSuggestions.length > 0 && (
+                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+                              <ul className="max-h-56 overflow-auto">
+                                {guarantorSuggestions.map((opt) => (
+                                  <li key={opt.id}>
+                                    <button
+                                      type="button"
+                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
+                                      onClick={() => {
+                                        const parts = guarantorsStr.split(",").map((s) => s.trim()).filter(Boolean)
+                                        // replace the current token with selected name
+                                        parts.pop()
+                                        parts.push(opt.name)
+                                        setGuarantorsStr(parts.join(", "))
+                                        setTouched((t) => ({ ...t, guarantorsStr: true }))
+                                        // track selected guarantor IDs aligned to current tokens
+                                        setSelectedGuarantors((prev) => {
+                                          const nameToId = new Map(prev.map((g) => [g.name, g.id]))
+                                          nameToId.set(opt.name, opt.id)
+                                          const ordered = parts
+                                            .map((n) => {
+                                              const id = nameToId.get(n)
+                                              return id ? { name: n, id } : null
+                                            })
+                                            .filter(Boolean) as Array<{ name: string; id: string }>
+                                          return ordered
+                                        })
+                                        setShowGuarantorSuggestions(false)
+                                      }}
+                                    >
+                                      {opt.display}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       </div>
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1">

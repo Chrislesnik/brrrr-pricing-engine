@@ -58,31 +58,23 @@ export function BorrowerRowActions({ borrower }: Props) {
       const res = await fetch(`/api/applicants/borrowers/${encodeURIComponent(borrower.id)}`, { cache: "no-store" })
       const j = (await res.json().catch(() => ({}))) as { borrower?: any }
       const b = j.borrower ?? {}
-      // If SSN exists, fetch full value so modal opens preloaded (hidden)
-      let ssn_full: string | undefined = undefined
-      if (b?.has_ssn) {
-        try {
-          const ssnRes = await fetch(`/api/applicants/borrowers/${encodeURIComponent(borrower.id)}/ssn`, { cache: "no-store" })
-          if (ssnRes.ok) {
-            const s = await ssnRes.json().catch(() => ({} as any))
-            const digits = String(s?.ssn ?? "").replace(/\D+/g, "")
-            if (digits.length === 9) ssn_full = digits
-          }
-        } catch {
-          // ignore
-        }
-      }
       // Map DB row -> form initial values; SSN is not recoverable, leave blank
+      const toLocalDate = (ymd: string | null | undefined): Date | undefined => {
+        if (!ymd) return undefined
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd))
+        if (!m) return undefined
+        const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3])
+        return new Date(y, mo - 1, d)
+      }
       const init: Record<string, any> = {
         first_name: b.first_name ?? "",
         last_name: b.last_name ?? "",
         has_ssn: Boolean(b.has_ssn),
         ssn_last4: b.ssn_last4 ?? null,
-        ssn_full,
         email: b.email ?? "",
         primary_phone: b.primary_phone ?? "",
         alt_phone: b.alt_phone ?? "",
-        date_of_birth: b.date_of_birth ? new Date(b.date_of_birth) : undefined,
+        date_of_birth: toLocalDate(b.date_of_birth),
         fico_score: b.fico_score ?? undefined,
         address_line1: b.address_line1 ?? "",
         address_line2: b.address_line2 ?? "",
@@ -102,13 +94,20 @@ export function BorrowerRowActions({ borrower }: Props) {
       setOpenEdit(true)
     } catch {
       // Fallback: open with whatever we have
+      const toLocalDate2 = (ymd: string | null | undefined): Date | undefined => {
+        if (!ymd) return undefined
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd))
+        if (!m) return undefined
+        const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3])
+        return new Date(y, mo - 1, d)
+      }
       setInitial({
         first_name: borrower.first_name ?? "",
         last_name: borrower.last_name ?? "",
         email: borrower.email ?? "",
         primary_phone: (borrower as any).primary_phone ?? "",
         alt_phone: (borrower as any).alt_phone ?? "",
-        date_of_birth: borrower.date_of_birth ? new Date(borrower.date_of_birth) : undefined,
+        date_of_birth: toLocalDate2(borrower.date_of_birth),
       })
       setOpenEdit(true)
     }

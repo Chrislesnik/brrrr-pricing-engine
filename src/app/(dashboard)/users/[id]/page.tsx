@@ -1,3 +1,4 @@
+import React from "react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
@@ -17,8 +18,8 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function UserDetailPage({ params }: Props) {
-  const id = (await params).id
+export default function UserDetailPage({ params }: Props) {
+  const { id } = React.use(params)
 
   const users = getUsers()
   const userList = userListSchema.parse(users)

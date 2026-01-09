@@ -63,9 +63,68 @@ export function ApplicantsTable<TData>({
 	})
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [sorting, setSorting] = useState<SortingState>([])
+	const [bulkDeleting, setBulkDeleting] = useState(false)
+	// Cache organization members locally for resolving assigned_to names
+	const [memberMap, setMemberMap] = useState<Map<string, string>>(new Map())
 
 	// Reuse a single Supabase browser client for refetches
 	const supabase = useMemo(() => createSupabaseBrowser(), [])
+
+	// Load org members on mount to resolve user_id -> "First Last"
+	useEffect(() => {
+		let cancelled = false
+		;(async () => {
+			try {
+				const res = await fetch("/api/org/members", { cache: "no-store" })
+				if (!res.ok) return
+				const j = (await res.json().catch(() => ({}))) as { members?: Array<{ user_id: string; first_name?: string | null; last_name?: string | null }> }
+				const m = new Map<string, string>()
+				for (const u of j.members ?? []) {
+					const full = [u.first_name ?? "", u.last_name ?? ""].filter(Boolean).join(" ").trim()
+					if (u.user_id) m.set(u.user_id, full || u.user_id)
+				}
+				if (!cancelled) setMemberMap(m)
+			} catch {
+				// ignore
+			}
+		})()
+		return () => {
+			cancelled = true
+		}
+	}, [])
+
+	// Ensure we have names for any user ids in the provided rows. Returns an updated map.
+	const resolveNamesFor = useCallback(
+		async (rows: Array<{ assigned_to?: string[] }>): Promise<Map<string, string>> => {
+			// Collect any user IDs that are missing from cache
+			const missing = new Set<string>()
+			for (const r of rows ?? []) {
+				const ids = Array.isArray(r.assigned_to) ? r.assigned_to : []
+				for (const id of ids) {
+					if (!memberMap.has(id)) missing.add(id)
+				}
+			}
+			if (missing.size === 0) {
+				return memberMap
+			}
+			try {
+				const q = Array.from(missing).join(",")
+				const res = await fetch(`/api/org/members?includeUserIds=${encodeURIComponent(q)}`, { cache: "no-store" })
+				if (!res.ok) return memberMap
+				const j = (await res.json().catch(() => ({}))) as { members?: Array<{ user_id: string; first_name?: string | null; last_name?: string | null }> }
+				const updated = new Map(memberMap)
+				for (const u of j.members ?? []) {
+					const full = [u.first_name ?? "", u.last_name ?? ""].filter(Boolean).join(" ").trim()
+					if (u.user_id) updated.set(u.user_id, full || u.user_id)
+				}
+				setMemberMap(updated)
+				return updated
+			} catch {
+				return memberMap
+			}
+		},
+		[memberMap]
+	)
 
 	// Helper: refetch current rows (used by realtime subscription and manual refresh events)
 	const refetchRows = useCallback(async () => {
@@ -91,15 +150,21 @@ export function ApplicantsTable<TData>({
 					fico_score: r.fico_score ?? null,
 					organization_id: r.organization_id,
 					assigned_to: Array.isArray(r.assigned_to) ? r.assigned_to : [],
-					assigned_to_names: [], // names resolved on initial server load
+					assigned_to_names: [], // will be resolved below
 					created_at: r.created_at,
 					updated_at: r.updated_at,
+				}))
+				// Resolve names for assigned_to using member cache, backfilling missing ids
+				const nameMap = await resolveNamesFor(mapped)
+				mapped = mapped.map((r: any) => ({
+					...r,
+					assigned_to_names: (Array.isArray(r.assigned_to) ? r.assigned_to : []).map((id: string) => nameMap.get(id) ?? id),
 				}))
 			}
 			setTableData(mapped as TData[])
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [realtime?.organizationId, realtime?.table, realtime?.view, supabase])
+	}, [realtime?.organizationId, realtime?.table, realtime?.view, supabase, resolveNamesFor])
 
 	const table = useReactTable({
 		data: tableData,
@@ -110,6 +175,7 @@ export function ApplicantsTable<TData>({
 			rowSelection,
 			columnFilters,
 		},
+		getRowId: (row, idx) => ((row as any).id as string | undefined) ?? String(idx),
 		enableRowSelection: true,
 		onRowSelectionChange: setRowSelection,
 		onSortingChange: setSorting,
@@ -153,13 +219,47 @@ export function ApplicantsTable<TData>({
 			void refetchRows()
 		}
 		window.addEventListener("app:borrowers:changed", handler)
-		return () => window.removeEventListener("app:borrowers:changed", handler)
+		window.addEventListener("app:entities:changed", handler)
+		return () => {
+			window.removeEventListener("app:borrowers:changed", handler)
+			window.removeEventListener("app:entities:changed", handler)
+		}
 	}, [refetchRows])
 
 	return (
 		<div className="space-y-4">
-			<ApplicantsToolbar table={table} placeholder={toolbarPlaceholder} />
-			<div className="rounded-md border">
+			<ApplicantsToolbar
+				table={table}
+				placeholder={toolbarPlaceholder}
+				bulkDeleting={bulkDeleting}
+				onBulkDelete={async (rows) => {
+					if (!rows.length) return
+					const type = realtime?.table === "entities" ? "entities" : "borrowers"
+					const ids = rows
+						.map((r: any) => (r?.id as string | undefined) ?? (r?.display_id as string | undefined))
+						.filter(Boolean) as string[]
+					if (!ids.length) return
+					const confirmed = window.confirm(`Delete ${ids.length} ${type === "entities" ? "entit(y/ies)" : "borrower(s)"}? This cannot be undone.`)
+					if (!confirmed) return
+					setBulkDeleting(true)
+					try {
+						await Promise.all(
+							ids.map((id) =>
+								fetch(`/api/applicants/${type}/${encodeURIComponent(id)}`, {
+									method: "DELETE",
+								})
+							)
+						)
+						setRowSelection({})
+						const evName = type === "entities" ? "app:entities:changed" : "app:borrowers:changed"
+						window.dispatchEvent(new Event(evName))
+						await refetchRows()
+					} finally {
+						setBulkDeleting(false)
+					}
+				}}
+			/>
+			<div className="rounded-md border overflow-x-auto">
 				<Table>
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (

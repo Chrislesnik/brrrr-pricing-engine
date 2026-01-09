@@ -7,8 +7,15 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { NavGroup } from "@/components/layout/nav-group"
-import { UserButton } from "@clerk/nextjs"
+import dynamic from "next/dynamic"
+const NavGroupClient = dynamic(() => import("@/components/layout/nav-group").then(m => ({ default: m.NavGroup })), {
+  // Avoid server-rendering to prevent Radix/ID hydration mismatches in nested Collapsible/Trigger
+  ssr: false,
+})
+const UserButtonClient = dynamic(() => import("@clerk/nextjs").then(m => ({ default: m.UserButton })), {
+  // Avoid SSR to prevent hydration mismatch from Clerk's client-only rendering
+  ssr: false,
+})
 import { OrganizationSwitcherIfEnabled } from "@/components/clerk/organization-switcher"
 import { TeamSwitcher } from "@/components/layout/team-switcher"
 import { sidebarData } from "./data/sidebar-data"
@@ -59,12 +66,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarHeader>
         <SidebarContent>
           {sidebarData.navGroups.map((props) => (
-            <NavGroup key={props.title} {...props} />
+            <NavGroupClient key={props.title} {...props} />
           ))}
         </SidebarContent>
         <SidebarFooter>
-          <div suppressHydrationWarning>
-            <UserButton
+          <div>
+            <UserButtonClient
               afterSignOutUrl="/sign-in"
               showName
               appearance={{

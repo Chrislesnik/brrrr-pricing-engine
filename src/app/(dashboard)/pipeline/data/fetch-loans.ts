@@ -45,24 +45,41 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
 
   const loanIds = loans.map((l) => l.id as string)
 
-  // 2) Fetch primary scenarios for these loans
+  // 2) Fetch scenarios for these loans. Prefer the primary one; if none is
+  // marked primary, fall back to the most recently created scenario per loan.
   const { data: scenarios, error: scenariosError } = await supabaseAdmin
     .from("loan_scenarios")
-    .select("loan_id, inputs, selected")
+    .select("loan_id, inputs, selected, primary, created_at")
     .in("loan_id", loanIds)
-    .eq("primary", true)
+    .order("primary", { ascending: false })
+    .order("created_at", { ascending: false })
 
   if (scenariosError) {
     logError("Error fetching loan scenarios:", scenariosError.message)
   }
-  type ScenarioRow = { loan_id: string; inputs?: Record<string, unknown>; selected?: Record<string, unknown> }
+  type ScenarioRow = {
+    loan_id: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inputs?: Record<string, any>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    selected?: Record<string, any> | null
+    primary?: boolean | null
+    created_at?: string
+  }
   const loanIdToScenario = new Map<string, ScenarioRow>()
   for (const s of (scenarios ?? []) as ScenarioRow[]) {
-    loanIdToScenario.set(s.loan_id as string, {
-      loan_id: s.loan_id as string,
-      inputs: (s.inputs as Record<string, unknown>) ?? {},
-      selected: (s.selected as Record<string, unknown>) ?? {},
-    })
+    const lid = s.loan_id as string
+    // Because we ordered by primary DESC then created_at DESC, the first
+    // scenario encountered for a loan is the one we want to display.
+    if (!loanIdToScenario.has(lid)) {
+      loanIdToScenario.set(lid, {
+        loan_id: lid,
+        inputs: (s.inputs as Record<string, unknown>) ?? {},
+        selected: (s.selected as Record<string, unknown>) ?? {},
+        primary: (s as any)?.primary ?? null,
+        created_at: (s as any)?.created_at as string | undefined,
+      })
+    }
   }
 
   // 3) Fetch organization members to resolve assigned_to_user_id -> user name
@@ -85,8 +102,8 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   // 4) Merge into final rows
   const rows: LoanRow[] = loans.map((l) => {
     const scenario = loanIdToScenario.get(l.id as string)
-    const inputs = scenario?.inputs ?? {}
-    const selected = scenario?.selected ?? {}
+    const inputs = (scenario?.inputs as Record<string, unknown>) ?? {}
+    const selected = (scenario?.selected as Record<string, unknown>) ?? {}
     const assignedToUserIds = Array.isArray(l.assigned_to_user_id)
       ? (l.assigned_to_user_id as string[])
       : []
@@ -103,7 +120,15 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
       propertyAddress: (() => {
         const addr = inputs["address"] as { street?: string; city?: string; state?: string; zip?: string } | undefined
         if (!addr) return undefined
-        const parts = [addr.street, addr.city, addr.state, addr.zip].filter(Boolean)
+        const street = addr.street ?? ""
+        const city = addr.city ?? ""
+        const state = addr.state ?? ""
+        const zip = addr.zip ?? ""
+        const stateZip =
+          state && zip
+            ? `${state} ${zip}`
+            : [state, zip].filter(Boolean).join(" ")
+        const parts = [street, city, stateZip].filter((p) => String(p).trim().length > 0)
         return parts.length ? parts.join(", ") : undefined
       })(),
       borrowerFirstName: (inputs["borrower_name"] as string | undefined)?.split(" ")[0],

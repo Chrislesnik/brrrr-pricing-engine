@@ -108,6 +108,9 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line no-console
       console.error("Failed to create loan for borrower:", loanErr.message)
     } else {
+      // Seed a minimal primary scenario so the pipeline has data to show immediately.
+      // Include address + borrower_name plus defaults for loan_type/transaction_type,
+      // and an empty guarantors array so the pipeline columns are populated.
       const inputs = {
         borrower_name: [parsed.first_name, parsed.last_name].filter(Boolean).join(" ").trim(),
         address: {
@@ -116,6 +119,9 @@ export async function POST(req: NextRequest) {
           state: parsed.state ?? null,
           zip: parsed.zip ?? null,
         },
+        loan_type: "dscr",
+        transaction_type: "purchase",
+        guarantors: [] as string[],
       }
       const { error: scenErr } = await supabaseAdmin.from("loan_scenarios").insert({
         loan_id: loanRow.id,
@@ -151,17 +157,50 @@ export const GET = async (req: NextRequest) => {
       return NextResponse.json({ error: "No organization" }, { status: 401 })
     }
     const search = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? ""
+    const entityId = req.nextUrl.searchParams.get("entityId") ?? ""
+    const includeIdsParam = req.nextUrl.searchParams.get("includeIds") ?? ""
+    const includeIds = includeIdsParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
     const { data, error } = await supabaseAdmin
       .from("borrowers")
       .select("id, display_id, first_name, last_name, email, primary_phone, alt_phone, organization_id, created_at")
       .eq("organization_id", orgUuid)
       .order("created_at", { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    const filtered = (data ?? []).filter((r) => {
+    let filtered = (data ?? []).filter((r) => {
       if (!search) return true
-      const hay = `${r.id ?? ""} ${r.first_name ?? ""} ${r.last_name ?? ""} ${r.email ?? ""} ${r.primary_phone ?? ""}`.toLowerCase()
+      const hay = `${r.id ?? ""} ${(r as any).display_id ?? ""} ${r.first_name ?? ""} ${r.last_name ?? ""} ${r.email ?? ""} ${r.primary_phone ?? ""}`.toLowerCase()
       return hay.includes(search)
     })
+    // If entityId provided, restrict to borrowers linked via borrower_entities
+    if (entityId) {
+      const { data: beRows } = await supabaseAdmin
+        .from("borrower_entities")
+        .select("borrower_id")
+        .eq("organization_id", orgUuid)
+        .eq("entity_id", entityId)
+      const links = (beRows ?? []).map((r: any) => String(r.borrower_id))
+      if (links.length > 0) {
+        const allowed = new Set(links)
+        filtered = filtered.filter((r) => allowed.has(String((r as any).id)))
+      }
+    }
+    // Ensure requested IDs are present
+    if (includeIds.length > 0) {
+      const missing = includeIds.filter((id) => !filtered.some((r) => String((r as any).id) === id))
+      if (missing.length > 0) {
+        const { data: extra, error: extraErr } = await supabaseAdmin
+          .from("borrowers")
+          .select("id, display_id, first_name, last_name, email, primary_phone, alt_phone, organization_id, created_at")
+          .eq("organization_id", orgUuid)
+          .in("id", missing)
+        if (!extraErr && Array.isArray(extra)) {
+          filtered = filtered.concat(extra)
+        }
+      }
+    }
     const shaped = filtered.map((r) => ({ ...r, display_id: (r as any).display_id ?? (r as any).id }))
     return NextResponse.json({ borrowers: shaped })
   } catch (e) {

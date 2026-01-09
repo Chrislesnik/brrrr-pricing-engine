@@ -13,12 +13,12 @@ interface Member {
   last_name: string | null
 }
 
-export function BorrowerAssignMembersDialog({
-  borrowerId,
+export function EntityAssignMembersDialog({
+  entityId,
   open,
   onOpenChange,
 }: {
-  borrowerId: string
+  entityId: string
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
@@ -35,7 +35,7 @@ export function BorrowerAssignMembersDialog({
       setLoading(true)
       setError(null)
       try {
-        const aRes = await fetch(`/api/applicants/borrowers/${borrowerId}/assignees`, { cache: "no-store" })
+        const aRes = await fetch(`/api/applicants/entities/${entityId}/assignees`, { cache: "no-store" })
         const aJson = (await aRes.json().catch(() => ({}))) as { userIds: string[] }
         const assignedIds = (aJson.userIds ?? []).filter(Boolean)
         const mRes = await fetch(
@@ -58,7 +58,7 @@ export function BorrowerAssignMembersDialog({
     return () => {
       active = false
     }
-  }, [borrowerId, open])
+  }, [entityId, open])
 
   function addUser(id: string) {
     if (!editable) return
@@ -81,14 +81,14 @@ export function BorrowerAssignMembersDialog({
   async function save() {
     setError(null)
     try {
-      const res = await fetch(`/api/applicants/borrowers/${borrowerId}/assignees`, {
+      const res = await fetch(`/api/applicants/entities/${entityId}/assignees`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userIds: Array.from(selected) }),
       })
       if (!res.ok) throw new Error(await res.text())
       onOpenChange(false)
-      window.dispatchEvent(new Event("app:borrowers:changed"))
+      window.dispatchEvent(new Event("app:entities:changed"))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save")
     }
@@ -112,7 +112,7 @@ export function BorrowerAssignMembersDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Assign members</DialogTitle>
-          <DialogDescription>Select organization members to assign to this borrower.</DialogDescription>
+          <DialogDescription>Select organization members to assign to this entity.</DialogDescription>
         </DialogHeader>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <div className="space-y-3">

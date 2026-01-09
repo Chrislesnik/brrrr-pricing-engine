@@ -122,13 +122,15 @@ export function AddressAutocomplete({
 	}, [text, gmapsReady])
 
 	function parseComponents(comps: Array<{ long_name?: string; short_name?: string; types?: string[] }>) {
-		const get = (type: string) => comps.find((c) => (c.types ?? []).includes(type))?.long_name ?? ""
-		const streetNumber = get("street_number")
-		const route = get("route")
-		const city = get("locality") || get("sublocality") || get("postal_town")
-		const state = get("administrative_area_level_1")
-		const zip = get("postal_code")
-		const county = get("administrative_area_level_2")
+		const getLong = (type: string) => comps.find((c) => (c.types ?? []).includes(type))?.long_name ?? ""
+		const getShort = (type: string) => comps.find((c) => (c.types ?? []).includes(type))?.short_name ?? ""
+		const streetNumber = getLong("street_number")
+		const route = getLong("route")
+		const city = getLong("locality") || getLong("sublocality") || getLong("postal_town")
+		// Use the 2-letter state short code so selects like \"NJ\" can auto-populate
+		const state = getShort("administrative_area_level_1") || getLong("administrative_area_level_1")
+		const zip = getLong("postal_code")
+		const county = getLong("administrative_area_level_2")
 		return {
 			address_line1: [streetNumber, route].filter(Boolean).join(" "),
 			address_line2: "",

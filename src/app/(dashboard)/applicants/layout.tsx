@@ -18,3 +18,6 @@ export default function ApplicantsLayout({ children }: Props) {
 }
 
 
+
+
+
