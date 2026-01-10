@@ -12,6 +12,8 @@ type Address = {
 	state?: string
 	zip?: string
 	county?: string
+	province?: string
+	country?: string
 }
 
 type PlacePrediction = {
@@ -99,7 +101,7 @@ export function AddressAutocomplete({
 		const req = {
 			input: q,
 			types: ["address"],
-			componentRestrictions: { country: ["us"] },
+			componentRestrictions: { country: ["us", "ca"] },
 			sessionToken: sessionTokenRef.current,
 		}
 		let cancelled = false
@@ -127,10 +129,14 @@ export function AddressAutocomplete({
 		const streetNumber = getLong("street_number")
 		const route = getLong("route")
 		const city = getLong("locality") || getLong("sublocality") || getLong("postal_town")
-		// Use the 2-letter state short code so selects like \"NJ\" can auto-populate
-		const state = getShort("administrative_area_level_1") || getLong("administrative_area_level_1")
+		// Use the 2-letter state/province short code so selects can auto-populate
+		const admin1Short = getShort("administrative_area_level_1")
+		const admin1Long = getLong("administrative_area_level_1")
+		const state = admin1Short || admin1Long
+		const province = admin1Short || admin1Long
 		const zip = getLong("postal_code")
 		const county = getLong("administrative_area_level_2")
+		const country = getShort("country") || getLong("country")
 		return {
 			address_line1: [streetNumber, route].filter(Boolean).join(" "),
 			address_line2: "",
@@ -138,6 +144,8 @@ export function AddressAutocomplete({
 			state,
 			zip,
 			county,
+			province,
+			country,
 		}
 	}
 
