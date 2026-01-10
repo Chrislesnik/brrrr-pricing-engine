@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { Building2, User } from "lucide-react"
 import { LyteNyte } from "@/components/lytenyte-pro"
 import { useClientRowDataSource, useLyteNyte } from "@/hooks/use-lytenyte-pro"
 import type { Column, RowDetailRendererParams } from "@1771technologies/lytenyte-pro/types"
@@ -316,8 +317,7 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 			}).catch(() => {})
 			// #endregion
 			return (
-				<div className="border bg-muted/30 p-4 text-sm">
-					<div className="text-base font-semibold mb-2">Owners</div>
+				<div className="w-[320px] max-w-[320px] p-4 text-sm">
 					{!key ? (
 						<div className="text-muted-foreground">Missing entity id</div>
 					) : owners === undefined ? (
@@ -327,29 +327,33 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 					) : owners.length === 0 ? (
 						<div className="text-muted-foreground">No owners captured</div>
 					) : (
-						<div className="divide-y rounded-md border bg-background">
-							{owners.map((o: EntityOwner, idx: number) => (
-								<div key={`${data.id}-owner-${idx}`} className="grid grid-cols-2 gap-3 px-3 py-2 text-sm">
-									<div className="space-y-0.5">
-										<div className="text-muted-foreground text-[11px] uppercase tracking-wide">Full Name</div>
-										<div className="font-medium">{o?.name || "-"}</div>
-									</div>
-									<div className="space-y-0.5">
-										<div className="text-muted-foreground text-[11px] uppercase tracking-wide">Title</div>
-										<div className="font-medium">{o?.title || "-"}</div>
-									</div>
-									<div className="space-y-0.5">
-										<div className="text-muted-foreground text-[11px] uppercase tracking-wide">Member Type</div>
-										<div className="font-medium">{o?.member_type || "-"}</div>
-									</div>
-									<div className="space-y-0.5">
-										<div className="text-muted-foreground text-[11px] uppercase tracking-wide">Ownership %</div>
-										<div className="font-medium">
-											{o?.ownership_percent != null ? `${o.ownership_percent}%` : "-"}
+						<div className="space-y-3">
+							{owners.map((o: EntityOwner, idx: number) => {
+								const isEntity = (o?.member_type ?? "").toLowerCase() === "entity"
+								return (
+									<div
+										key={`${data.id}-owner-${idx}`}
+										className="flex items-center gap-3 rounded-md bg-background dark:bg-[#1f1f1f] px-4 py-3 shadow-sm"
+									>
+										<div
+											className="flex h-12 w-12 items-center justify-center rounded-md bg-muted dark:bg-[#424242]"
+										>
+											{isEntity ? (
+												<Building2 className="h-6 w-6 text-primary" />
+											) : (
+												<User className="h-6 w-6 text-primary" />
+											)}
+										</div>
+										<div className="flex-1 space-y-1">
+											<div className="text-lg font-semibold leading-tight">{o?.name || "-"}</div>
+											<div className="text-muted-foreground text-sm leading-tight">{o?.title || "-"}</div>
+											<div className="text-base font-semibold leading-tight">
+												{o?.ownership_percent != null ? `${o.ownership_percent}%` : "-"}
+											</div>
 										</div>
 									</div>
-								</div>
-							))}
+								)
+							})}
 						</div>
 					)}
 				</div>

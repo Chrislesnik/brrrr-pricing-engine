@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconDots, IconTrash, IconUserCog } from "@tabler/icons-react"
+import { IconDots, IconTrash, IconSettings, IconUsers } from "@tabler/icons-react"
 import { Borrower } from "../data/types"
 import {
   DropdownMenu,
@@ -123,10 +123,11 @@ export function BorrowerRowActions({ borrower }: Props) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={openSettings}>
-            <IconUserCog className="mr-2 h-4 w-4" />
+            <IconSettings className="mr-2 h-4 w-4" />
             Open Settings
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setOpenAssign(true)}>
+            <IconUsers className="mr-2 h-4 w-4" />
             Assigned To
           </DropdownMenuItem>
           <DropdownMenuItem

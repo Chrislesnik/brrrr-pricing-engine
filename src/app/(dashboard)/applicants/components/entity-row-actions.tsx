@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { IconDots, IconTrash, IconUserCog } from "@tabler/icons-react"
+import { IconDots, IconTrash, IconSettings, IconUsers } from "@tabler/icons-react"
 import { EntityProfile } from "../data/types"
 import {
   DropdownMenu,
@@ -32,7 +32,21 @@ export function EntityRowActions({ entity }: Props) {
   const [openEdit, setOpenEdit] = React.useState(false)
   const [initial, setInitial] = React.useState<Record<string, any> | undefined>(undefined)
   const [ownersInitial, setOwnersInitial] = React.useState<
-    { id: string; name: string; title: string; memberType: "Individual" | "Entity" | ""; ssnEin: string; guarantor: "Yes" | "No" | ""; percent: string; address: string }[] | undefined
+    {
+      id: string
+      name: string
+      title: string
+      memberType: "Individual" | "Entity" | ""
+      ssnEin: string
+      guarantor: "Yes" | "No" | ""
+      percent: string
+      address: string
+      borrowerId?: string
+      borrower_id?: string
+      entityOwnerId?: string
+      entity_owner_id?: string
+    }[]
+      | undefined
   >(undefined)
   const [openAssign, setOpenAssign] = React.useState(false)
   const [openDeleteConfirm, setOpenDeleteConfirm] = React.useState(false)
@@ -77,6 +91,8 @@ export function EntityRowActions({ entity }: Props) {
           address: o.address ?? "",
           borrowerId: (o as any).borrower_id ?? undefined,
           borrower_id: (o as any).borrower_id ?? undefined,
+          entityOwnerId: (o as any).entity_owner_id ?? undefined,
+          entity_owner_id: (o as any).entity_owner_id ?? undefined,
         }))
         setOwnersInitial(mapped)
       } catch {
@@ -105,10 +121,11 @@ export function EntityRowActions({ entity }: Props) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={openSettings}>
-            <IconUserCog className="mr-2 h-4 w-4" />
+            <IconSettings className="mr-2 h-4 w-4" />
             Open Settings
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setOpenAssign(true)}>
+            <IconUsers className="mr-2 h-4 w-4" />
             Assigned To
           </DropdownMenuItem>
           <DropdownMenuItem

@@ -76,9 +76,16 @@ function RowImpl<T>({ row }: { row: RowNormalRowLayout<T> }) {
       className="min-h-0 hover:bg-muted/50 data-[selected=true]:bg-muted transition-colors"
     >
       {row.cells.map((cell) => {
+        const padding = cell.id === "actions" ? "px-px" : "px-3"
+        const borderFix =
+          cell.id === "actions"
+            ? "border-l-0"
+            : cell.id === "created_at"
+              ? "border-r-0"
+              : ""
         return (
           <Grid.Cell
-            className={`flex items-center ${cell.id === "actions" ? "px-px" : "px-3"} py-1 text-sm`}
+            className={`flex items-center ${padding} py-1 text-sm ${borderFix}`}
             cell={cell}
             key={cell.id}
           />

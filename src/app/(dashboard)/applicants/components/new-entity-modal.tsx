@@ -14,8 +14,28 @@ import { AddressAutocomplete } from "@/components/address-autocomplete"
 import { DateInput } from "@/components/date-input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { IconTrash, IconEye, IconEyeOff } from "@tabler/icons-react"
+import {
+	IconTrash,
+	IconEye,
+	IconEyeOff,
+	IconShare,
+	IconCopy,
+	IconMail,
+	IconBrandWhatsapp,
+	IconBrandFacebook,
+	IconBrandTwitter,
+	IconBrandLinkedin,
+	IconMessages,
+} from "@tabler/icons-react"
 import { toast } from "@/hooks/use-toast"
 
 const schema = z.object({
@@ -138,6 +158,68 @@ export function NewEntityModal({
 		resolver: zodResolver(schema),
 		defaultValues: {},
 	})
+
+	const [shareUrl, setShareUrl] = useState<string | null>(null)
+	const [shareLoading, setShareLoading] = useState<boolean>(false)
+	const [copied, setCopied] = useState<boolean>(false)
+	const shareBaseUrl = "http://apply.whitelabellender.com/entity"
+
+	// Preload share URL for new entity (not edit) using current org member id
+	useEffect(() => {
+		if (!open) return
+		if (entityId) return
+		let active = true
+		setShareLoading(true)
+		setShareUrl(null)
+		setCopied(false)
+		;(async () => {
+			try {
+				const res = await fetch("/api/org/members", { cache: "no-store" })
+				const j = (await res.json().catch(() => ({}))) as { self_member_id?: string | null }
+				if (!active) return
+				const id = typeof j?.self_member_id === "string" ? j.self_member_id : null
+				setShareUrl(id ? `${shareBaseUrl}/${encodeURIComponent(id)}` : null)
+			} catch {
+				if (!active) return
+				setShareUrl(null)
+			} finally {
+				if (active) setShareLoading(false)
+			}
+		})()
+		return () => {
+			active = false
+		}
+	}, [entityId, open, shareBaseUrl])
+
+	useEffect(() => {
+		if (!open) setCopied(false)
+	}, [open])
+
+	const copyShareUrl = async () => {
+		if (!shareUrl) return
+		try {
+			if (navigator?.clipboard?.writeText) {
+				await navigator.clipboard.writeText(shareUrl)
+			} else {
+				const textarea = document.createElement("textarea")
+				textarea.value = shareUrl
+				document.body.appendChild(textarea)
+				textarea.select()
+				document.execCommand("copy")
+				document.body.removeChild(textarea)
+			}
+			setCopied(true)
+			setTimeout(() => setCopied(false), 1500)
+		} catch {
+			setCopied(false)
+		}
+	}
+
+	const openShareLink = (url: string) => {
+		if (!shareUrl || shareLoading) return
+		if (typeof window === "undefined") return
+		window.open(url, "_blank", "noopener,noreferrer")
+	}
 
 	const onSubmit = async (_vals: FormValues) => {
 		// Persist to API
@@ -339,9 +421,11 @@ export function NewEntityModal({
 						label: `Borrower · ${(b.display_id ?? b.id) as string} ${[b.first_name, b.last_name].filter(Boolean).join(" ")}`.trim(),
 						kind: "borrower" as LinkableKind,
 					})) ?? []
+				const entityIdSet = new Set(entityIds)
 				const entityOpts =
 					(ej.entities ?? [])
-						.filter((e: any) => !exclude.has(e.id as string))
+						// Always include explicitly requested entities even if they would otherwise be excluded
+						.filter((e: any) => !exclude.has(e.id as string) || entityIdSet.has(e.id as string))
 						.map((e: any) => ({
 							id: e.id as string,
 							label: `Entity · ${(e.display_id ?? e.id) as string} ${e.entity_name ?? ""}`.trim(),
@@ -354,9 +438,108 @@ export function NewEntityModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-3xl h-[80vh]">
-				<DialogHeader>
+			<DialogContent className="max-w-3xl h-[80vh]" hideClose>
+				<DialogHeader className="flex flex-row items-center justify-between gap-3">
 					<DialogTitle>Borrowing Entity</DialogTitle>
+					{!entityId ? (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									disabled={shareLoading || !shareUrl}
+									className="h-9 w-9"
+									aria-label="Share entity invite link"
+								>
+									<IconShare className="h-4 w-4" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-64">
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										copyShareUrl()
+									}}
+								>
+									<IconCopy className="mr-2 h-4 w-4" />
+									<span>{copied ? "Copied" : "Copy URL"}</span>
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuLabel>Share via</DropdownMenuLabel>
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										if (!shareUrl) return
+										openShareLink(
+											`mailto:?subject=${encodeURIComponent("Entity link")}&body=${encodeURIComponent(
+												`Please complete this entity form: ${shareUrl}`
+											)}`
+										)
+									}}
+								>
+									<IconMail className="mr-2 h-4 w-4" />
+									<span>Email</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										if (!shareUrl) return
+										openShareLink(`sms:?&body=${encodeURIComponent(shareUrl)}`)
+									}}
+								>
+									<IconMessages className="mr-2 h-4 w-4" />
+									<span>SMS</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										if (!shareUrl) return
+										openShareLink(`https://wa.me/?text=${encodeURIComponent(shareUrl)}`)
+									}}
+								>
+									<IconBrandWhatsapp className="mr-2 h-4 w-4" />
+									<span>WhatsApp</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										if (!shareUrl) return
+										openShareLink(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`)
+									}}
+								>
+									<IconBrandFacebook className="mr-2 h-4 w-4" />
+									<span>Facebook</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										if (!shareUrl) return
+										openShareLink(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`)
+									}}
+								>
+									<IconBrandTwitter className="mr-2 h-4 w-4" />
+									<span>Twitter</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={shareLoading || !shareUrl}
+									onSelect={(e) => {
+										e.preventDefault()
+										if (!shareUrl) return
+										openShareLink(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`)
+									}}
+								>
+									<IconBrandLinkedin className="mr-2 h-4 w-4" />
+									<span>LinkedIn</span>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					) : null}
 				</DialogHeader>
 				<div className="max-h-[calc(80vh-4rem)] overflow-y-auto pr-1">
 				<form id={formId} onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6 pb-3">

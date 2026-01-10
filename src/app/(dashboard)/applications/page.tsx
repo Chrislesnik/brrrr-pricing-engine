@@ -7,8 +7,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { ApplicantsTable } from "../applicants/components/applicants-table"
-import { applicationsColumns, type ApplicationRow } from "./components/applications-columns"
+import { ApplicationsTable } from "./components/applications-table"
+import type { ApplicationRow } from "./data/fetch-applications"
 import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { getApplicationsForOrg } from "./data/fetch-applications"
@@ -40,11 +40,7 @@ export default async function ApplicationsPage() {
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <ApplicantsTable
-          data={data}
-          columns={applicationsColumns}
-          toolbarPlaceholder="Search by ID, property address, borrower..."
-        />
+        <ApplicationsTable data={data} />
       </div>
     </>
   )

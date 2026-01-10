@@ -425,8 +425,8 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
             <div className="grid gap-2">
               <label className="text-sm font-medium">Application Link</label>
               <div className="relative flex items-center gap-2">
-                <Input readOnly value={`https://application.pricingengine.pro/${id}`} />
-                <CopyButton text={`https://application.pricingengine.pro/${id}`} />
+                <Input readOnly value={`https://apply.whitelabellender.com/${id}`} />
+                <CopyButton text={`https://apply.whitelabellender.com/${id}`} />
               </div>
             </div>
             <div className="grid gap-2">
@@ -456,7 +456,7 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
                 disabled={loadingGuarantors || guarantors.length === 0}
                 onClick={async () => {
                   try {
-                    const link = `https://application.pricingengine.pro/${id}`
+                    const link = `https://apply.whitelabellender.com/${id}`
                     await fetch("https://n8n.axora.info/webhook-test/531795c7-1611-4c53-b6aa-615844b69206", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },

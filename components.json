@@ -19,6 +19,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@lytenyte": "https://www.1771technologies.com/r/{name}.json"
+    "@lytenyte": "https://www.1771technologies.com/r/{name}.json",
+    "@ss-blocks": "https://shadcnblocks.com/r/{name}.json"
   }
 }

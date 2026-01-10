@@ -39,15 +39,15 @@ export const sidebarData: SidebarData = {
           icon: IconUsers,
         },
         {
-          title: "Applications",
-          url: "/applications",
-          icon: IconInbox,
-        },
-        {
-          title: "Brokers",
-          url: "/brokers",
-          icon: IconUser,
-          denyOrgRoles: ["org:broker", "broker"],
+          title: "Loan Setup",
+          icon: IconApps,
+          items: [
+            {
+              title: "Applications",
+              url: "/applications",
+              icon: IconInbox,
+            },
+          ],
         },
         {
           title: "Applicants",
@@ -64,6 +64,12 @@ export const sidebarData: SidebarData = {
               icon: IconUsers,
             },
           ],
+        },
+        {
+          title: "Brokers",
+          url: "/brokers",
+          icon: IconUser,
+          denyOrgRoles: ["org:broker", "broker"],
         },
         {
           title: "AI Agent",
