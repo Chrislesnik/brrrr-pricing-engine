@@ -168,12 +168,78 @@ export async function GET(req: NextRequest) {
 
     // Deduplicate by member id (fallback user_id)
     const seen = new Set<string>()
-    const deduped = members.filter((m) => {
+    let deduped = members.filter((m) => {
       const id = String(m.id ?? m.user_id)
       if (seen.has(id)) return false
       seen.add(id)
       return true
     })
+
+    // Enrich names for all relevant user_ids (assigned + includeUserIds) using org members first, then users
+    const allUserIds = Array.from(
+      new Set([
+        ...deduped.map((m) => m.user_id).filter(Boolean),
+        ...includeUserIds,
+      ])
+    )
+
+    if (allUserIds.length > 0) {
+      try {
+        // 1) Look up names in organization_members for this org
+        const { data: orgRows } = await supabaseAdmin
+          .from("organization_members")
+          .select("user_id, first_name, last_name")
+          .eq("organization_id", orgUuid)
+          .in("user_id", allUserIds)
+
+        const nameMap = new Map<string, { first_name: string | null; last_name: string | null }>()
+        for (const row of orgRows ?? []) {
+          nameMap.set(row.user_id as string, {
+            first_name: (row.first_name as string | null) ?? null,
+            last_name: (row.last_name as string | null) ?? null,
+          })
+        }
+
+        // 2) For any still missing, look up in public.users by clerk_user_id
+        const missingAfterOrg = allUserIds.filter((uid) => !nameMap.has(uid))
+        if (missingAfterOrg.length > 0) {
+          const { data: userRows } = await supabaseAdmin
+            .from("users")
+            .select("clerk_user_id, first_name, last_name")
+            .in("clerk_user_id", missingAfterOrg)
+          for (const row of userRows ?? []) {
+            nameMap.set(row.clerk_user_id as string, {
+              first_name: (row.first_name as string | null) ?? null,
+              last_name: (row.last_name as string | null) ?? null,
+            })
+          }
+        }
+
+        if (nameMap.size > 0) {
+          deduped = deduped.map((m) => {
+            if (nameMap.has(m.user_id)) {
+              const names = nameMap.get(m.user_id)!
+              return { ...m, first_name: names.first_name, last_name: names.last_name }
+            }
+            return m
+          })
+
+          // Ensure any includeUserIds that weren't in members are still returned so chips can render names
+          const missingUsers = allUserIds.filter((uid) => !deduped.some((m) => m.user_id === uid))
+          for (const uid of missingUsers) {
+            const names = nameMap.get(uid)
+            deduped.push({
+              id: uid,
+              user_id: uid,
+              first_name: names?.first_name ?? null,
+              last_name: names?.last_name ?? null,
+            })
+          }
+        }
+      } catch {
+        // ignore enrichment errors; fall back to user_id
+      }
+    }
 
     // Resolve broker id for this member if they are a broker
     let selfBrokerId: string | null = null

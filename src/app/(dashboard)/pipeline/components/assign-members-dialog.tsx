@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { IconX } from "@tabler/icons-react"
+import { cn } from "@/lib/utils"
 
 type Member = { user_id: string; first_name?: string | null; last_name?: string | null }
 
@@ -27,6 +28,7 @@ interface Props {
 export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Props) {
   const [members, setMembers] = React.useState<Member[]>([])
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  const [primaryUserId, setPrimaryUserId] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [editable, setEditable] = React.useState(true)
@@ -38,8 +40,9 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
     try {
       const aRes = await fetch(`/api/loans/${loanId}/assignees`, { method: "GET" })
       if (!aRes.ok) throw new Error(await aRes.text())
-      const aJson = (await aRes.json()) as { userIds: string[] }
+      const aJson = (await aRes.json()) as { userIds: string[]; primaryUserId?: string | null }
       const assignedIds = (aJson.userIds ?? []).filter(Boolean)
+      setPrimaryUserId(aJson.primaryUserId ?? null)
       const mRes = await fetch(
         `/api/org/members?loanId=${encodeURIComponent(loanId)}&includeUserIds=${encodeURIComponent(
           assignedIds.join(",")
@@ -150,8 +153,16 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
             {Array.from(selected).map((uid) => {
               const m = members.find((x) => x.user_id === uid)
               const label = m ? fullName(m) : uid
+              const isPrimary = uid === primaryUserId
               return (
-                <Badge key={uid} variant="outline" className="flex items-center gap-2">
+                <Badge
+                  key={uid}
+                  variant="outline"
+                  className={cn(
+                    "flex items-center gap-2",
+                    isPrimary && "border-amber-400 bg-amber-50 text-amber-900"
+                  )}
+                >
                   <span className="text-sm">{label}</span>
                   {editable ? (
                     <button

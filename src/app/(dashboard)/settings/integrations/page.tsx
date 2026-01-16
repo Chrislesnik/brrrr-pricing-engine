@@ -136,6 +136,7 @@ export default function SettingsIntegrationsPage() {
 
   const [floifyModalOpen, setFloifyModalOpen] = React.useState(false)
   const [floifyApiKey, setFloifyApiKey] = React.useState("")
+  const [floifyUserApiKey, setFloifyUserApiKey] = React.useState("")
   const [floifyLoading, setFloifyLoading] = React.useState(false)
   const [floifyError, setFloifyError] = React.useState<string | null>(null)
   const loadFloify = async () => {
@@ -147,8 +148,9 @@ export default function SettingsIntegrationsPage() {
       if (!res.ok) {
         throw new Error(await res.text())
       }
-      const j = (await res.json().catch(() => ({}))) as { row?: { api_key?: string | null } }
-      setFloifyApiKey(j.row?.api_key ?? "")
+      const j = (await res.json().catch(() => ({}))) as { row?: { x_api_key?: string | null; user_api_key?: string | null } }
+      setFloifyApiKey(j.row?.x_api_key ?? "")
+      setFloifyUserApiKey(j.row?.user_api_key ?? "")
     } catch (e) {
       setFloifyError(e instanceof Error ? e.message : "Failed to load Floify settings")
     } finally {
@@ -163,7 +165,7 @@ export default function SettingsIntegrationsPage() {
       const res = await fetch("/api/integrations/floify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: floifyApiKey.trim() }),
+        body: JSON.stringify({ x_api_key: floifyApiKey.trim(), user_api_key: floifyUserApiKey.trim() }),
       })
       if (!res.ok) {
         throw new Error(await res.text())
@@ -270,17 +272,27 @@ export default function SettingsIntegrationsPage() {
       <Dialog open={floifyModalOpen} onOpenChange={setFloifyModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Floify API Key</DialogTitle>
-            <DialogDescription>Enter and save your Floify API key.</DialogDescription>
+            <DialogTitle>Floify API Keys</DialogTitle>
+            <DialogDescription>Enter and save your Floify API credentials.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="floify-api-key">API Key</Label>
+              <Label htmlFor="floify-api-key">X-API-KEY</Label>
               <Input
                 id="floify-api-key"
                 value={floifyApiKey}
                 onChange={(e) => setFloifyApiKey(e.target.value)}
-                placeholder="Enter API key"
+                placeholder="Enter X-API-KEY"
+                disabled={floifyLoading}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="floify-user-api-key">User API Key</Label>
+              <Input
+                id="floify-user-api-key"
+                value={floifyUserApiKey}
+                onChange={(e) => setFloifyUserApiKey(e.target.value)}
+                placeholder="Enter User API Key"
                 disabled={floifyLoading}
               />
             </div>
@@ -290,7 +302,10 @@ export default function SettingsIntegrationsPage() {
             <Button variant="ghost" onClick={() => setFloifyModalOpen(false)} disabled={floifyLoading}>
               Cancel
             </Button>
-            <Button onClick={() => handleFloifySave()} disabled={floifyLoading || !floifyApiKey.trim()}>
+            <Button
+              onClick={() => handleFloifySave()}
+              disabled={floifyLoading || !floifyApiKey.trim() || !floifyUserApiKey.trim()}
+            >
               {floifyLoading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>

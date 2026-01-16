@@ -23,10 +23,13 @@ export async function GET(_req: NextRequest) {
     if (floifyIds.length) {
       const { data: fkRows } = await supabaseAdmin
         .from("integrations_floify")
-        .select("integration_id, api_key")
+        .select("integration_id, x_api_key, user_api_key")
         .in("integration_id", floifyIds)
       floifyKeys = Object.fromEntries(
-        (fkRows ?? []).map((r) => [r.integration_id as string, Boolean((r.api_key as string | null)?.trim())])
+        (fkRows ?? []).map((r) => [
+          r.integration_id as string,
+          Boolean((r.x_api_key as string | null)?.trim()) && Boolean((r.user_api_key as string | null)?.trim()),
+        ])
       )
     }
 
@@ -68,12 +71,16 @@ export async function PATCH(req: NextRequest) {
       if (floifyId) {
         const { data: fk } = await supabaseAdmin
           .from("integrations_floify")
-          .select("api_key")
+          .select("x_api_key, user_api_key")
           .eq("integration_id", floifyId)
           .maybeSingle()
-        const hasKey = Boolean((fk?.api_key as string | null)?.trim())
+        const hasKey =
+          Boolean((fk?.x_api_key as string | null)?.trim()) && Boolean((fk?.user_api_key as string | null)?.trim())
         if (!hasKey) {
-          return NextResponse.json({ error: "API key required to enable Floify", row: { type, status: false, has_key: false } }, { status: 400 })
+          return NextResponse.json(
+            { error: "API keys required to enable Floify", row: { type, status: false, has_key: false } },
+            { status: 400 }
+          )
         }
       } else {
         return NextResponse.json({ error: "Floify integration not found", row: { type, status: false } }, { status: 400 })

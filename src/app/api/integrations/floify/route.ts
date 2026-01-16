@@ -41,7 +41,7 @@ export async function GET(_req: NextRequest) {
 
     const { data: floifyRow, error: floifyErr } = await supabaseAdmin
       .from("integrations_floify")
-      .select("api_key")
+      .select("x_api_key, user_api_key")
       .eq("integration_id", data.id)
       .maybeSingle()
     if (floifyErr) return NextResponse.json({ error: floifyErr.message }, { status: 500 })
@@ -50,7 +50,8 @@ export async function GET(_req: NextRequest) {
       row: {
         integration_id: data.id,
         status: data.status,
-        api_key: floifyRow?.api_key ?? null,
+        x_api_key: floifyRow?.x_api_key ?? null,
+        user_api_key: floifyRow?.user_api_key ?? null,
       },
     })
   } catch (e) {
@@ -67,14 +68,16 @@ export async function POST(req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const apiKey = (body?.api_key as string | undefined)?.trim()
-    if (!apiKey) return NextResponse.json({ error: "api_key required" }, { status: 400 })
+    const xApiKey = (body?.x_api_key as string | undefined)?.trim()
+    const userApiKey = (body?.user_api_key as string | undefined)?.trim()
+    if (!xApiKey) return NextResponse.json({ error: "x_api_key required" }, { status: 400 })
+    if (!userApiKey) return NextResponse.json({ error: "user_api_key required" }, { status: 400 })
 
     const integrationId = await ensureFloifyIntegration(orgUuid, userId)
 
     const { error: upErr } = await supabaseAdmin
       .from("integrations_floify")
-      .upsert({ integration_id: integrationId, api_key: apiKey })
+      .upsert({ integration_id: integrationId, x_api_key: xApiKey, user_api_key: userApiKey })
     if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
     return NextResponse.json({ ok: true, integration_id: integrationId })

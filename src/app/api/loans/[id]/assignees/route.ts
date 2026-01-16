@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
     const { data, error } = await supabaseAdmin
       .from("loans")
-      .select("assigned_to_user_id, organization_id")
+      .select("assigned_to_user_id, organization_id, primary_user_id")
       .eq("id", id)
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
     const ids = Array.isArray(data.assigned_to_user_id) ? (data.assigned_to_user_id as string[]) : []
-    return NextResponse.json({ userIds: ids })
+    return NextResponse.json({ userIds: ids, primaryUserId: data.primary_user_id ?? null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })

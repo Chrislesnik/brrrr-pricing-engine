@@ -313,6 +313,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
   const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
+  const [floifyEnabled, setFloifyEnabled] = React.useState<boolean | null>(null)
   const [guarantors, setGuarantors] = React.useState<Array<{ id: string | null; name: string; email: string | null }>>([])
   const [entityIds, setEntityIds] = React.useState<string[]>([])
   const [entityName, setEntityName] = React.useState<string | null>(null)
@@ -353,6 +354,28 @@ function RowActions({ id, status }: { id: string; status?: string }) {
       active = false
     }
   }, [appOpen, id])
+
+  // Prefetch Floify enablement so the dialog renders without a flash
+  React.useEffect(() => {
+    let active = true
+    async function loadFloify() {
+      try {
+        const res = await fetch("/api/integrations", { cache: "no-store" })
+        if (!res.ok) throw new Error(await res.text())
+        const j = (await res.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean }> }
+        if (!active) return
+        const floifyRow = (j.rows ?? []).find((r) => r.type === "floify")
+        setFloifyEnabled(Boolean(floifyRow?.status))
+      } catch {
+        if (!active) return
+        setFloifyEnabled(null)
+      }
+    }
+    void loadFloify()
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function setStatus(next: string) {
     try {
@@ -449,13 +472,15 @@ function RowActions({ id, status }: { id: string; status?: string }) {
             <DialogDescription>Share or send the borrower application link.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Application Link</label>
-              <div className="relative flex items-center gap-2">
-                <Input readOnly value={`https://apply.whitelabellender.com/${id}`} />
-                <CopyButton text={`https://apply.whitelabellender.com/${id}`} />
+            {floifyEnabled ? null : (
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Application Link</label>
+                <div className="relative flex items-center gap-2">
+                  <Input readOnly value={`https://apply.whitelabellender.com/${id}`} />
+                  <CopyButton text={`https://apply.whitelabellender.com/${id}`} />
+                </div>
               </div>
-            </div>
+            )}
             <div className="grid gap-2">
               <span className="text-sm font-medium">E-Sign Request</span>
               <div className="space-y-3">

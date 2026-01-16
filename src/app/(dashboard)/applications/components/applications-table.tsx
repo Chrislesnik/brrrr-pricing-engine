@@ -581,7 +581,6 @@ interface StartModalProps {
 }
 
 function StartModal({ row, open, onOpenChange }: StartModalProps) {
-  if (!row) return null
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -589,6 +588,8 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
       scrollRef.current.scrollTop = 0
     }
   }, [open])
+
+  if (!row) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
