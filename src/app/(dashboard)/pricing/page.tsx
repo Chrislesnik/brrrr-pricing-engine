@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
@@ -51,6 +51,7 @@ import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/D
 import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
+import { GoogleMap, Marker } from "@react-google-maps/api"
 
 // Prompt the user with a native Save dialog when supported.
 // Falls back to a standard download if the File System Access API is unavailable.
@@ -493,9 +494,7 @@ const getPlaces = (): GPlaces | undefined => {
 
 export default function PricingEnginePage() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const { orgRole, orgId } = useAuth()
-  const prevOrgIdRef = useRef<string | null>(null)
+  const { orgRole } = useAuth()
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
   const [selfBrokerId, setSelfBrokerId] = useState<string | null>(null)
@@ -538,36 +537,18 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
+  // Entity name autocomplete state for Borrower Name input
+  const [entityQuery, setEntityQuery] = useState("")
+  const [entitySuggestions, setEntitySuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
+  const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
+  const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined)
+  const [hasSessionEntity, setHasSessionEntity] = useState<boolean>(false)
+  // Guarantor suggestions
+  const [showGuarantorSuggestions, setShowGuarantorSuggestions] = useState(false)
+  const [guarantorSuggestions, setGuarantorSuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
+  const [guarantorQuery, setGuarantorQuery] = useState("")
+  const [hasSessionGuarantors, setHasSessionGuarantors] = useState<boolean>(false)
 
-  // Smoothly refresh when the active organization changes
-  useEffect(() => {
-    const prev = prevOrgIdRef.current
-    const current = orgId ?? null
-    if (prev === null) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:init',message:'Pricing page initial orgId',data:{orgId:current},timestamp:Date.now()})}).catch(()=>{})
-      fetch('/api/_debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:init',message:'Pricing page initial orgId (proxy)',data:{orgId:current}})}).catch(()=>{})
-      // #endregion
-      prevOrgIdRef.current = current
-      return
-    }
-    if (prev !== current) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:change',message:'Pricing page detected org change',data:{from:prev,to:current},timestamp:Date.now()})}).catch(()=>{})
-      fetch('/api/_debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'pricing/page.tsx:change',message:'Pricing page detected org change (proxy)',data:{from:prev,to:current}})}).catch(()=>{})
-      // #endregion
-      prevOrgIdRef.current = current
-      // Clear org-scoped local state before a soft refresh
-      setProgramResults([])
-      setProgramPlaceholders([])
-      setSelectedScenarioId(undefined)
-      setScenariosList([])
-      setIsDispatching(false)
-      router.refresh()
-    }
-  }, [orgId, router])
-
-  
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
@@ -597,9 +578,15 @@ export default function PricingEnginePage() {
     if (didInitSidebarEffectRef.current) return
     didInitSidebarEffectRef.current = true
     prevSidebarOpenRef.current = sidebarOpen
-    if (!isMobile && sidebarOpen) {
-      // Trigger the animated collapse on desktop
-      setSidebarOpen(false)
+    if (!isMobile) {
+      // Trigger the animated collapse on desktop with a tick delay so transitions can run
+      // Ensures the sidebar renders in its open state first, then closes with animation.
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => setSidebarOpen(false))
+        // Cleanup nested RAF in case unmounted quickly
+        return () => cancelAnimationFrame(raf2)
+      })
+      return () => cancelAnimationFrame(raf1)
     }
     return () => {
       // Restore previous state when leaving the page (desktop only)
@@ -610,6 +597,75 @@ export default function PricingEnginePage() {
     // Run once on mount; internal refs ensure single execution
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
+
+  // Fetch entity suggestions as user types borrower name
+  useEffect(() => {
+    let cancelled = false
+    if (!showEntitySuggestions) {
+      setEntitySuggestions([])
+      return
+    }
+    const qRaw = entityQuery
+    const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
+    const ctrl = new AbortController()
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/applicants/entities?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, cache: "no-store" })
+        if (!res.ok) return
+        const j = (await res.json().catch(() => ({}))) as { entities?: Array<{ id: string; display_id?: string; entity_name?: string }> }
+        if (cancelled) return
+        const opts =
+          (j.entities ?? []).slice(0, 20).map((e) => ({
+            id: e.id as string,
+            name: (e.entity_name ?? "") as string,
+            display: `${(e.display_id ?? "") as string} ${(e.entity_name ?? "") as string}`.trim(),
+          })) ?? []
+        setEntitySuggestions(opts)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+      ctrl.abort()
+    }
+  }, [entityQuery, showEntitySuggestions])
+
+  // Fetch guarantor suggestions as user types the current token
+  useEffect(() => {
+    let cancelled = false
+    if (!showGuarantorSuggestions) {
+      setGuarantorSuggestions([])
+      return
+    }
+    const qRaw = guarantorQuery
+    const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
+    const ctrl = new AbortController()
+    ;(async () => {
+      try {
+        const url = new URL("/api/applicants/borrowers", window.location.origin)
+        url.searchParams.set("q", q)
+        if (selectedEntityId) url.searchParams.set("entityId", selectedEntityId)
+        const res = await fetch(url.toString(), { signal: ctrl.signal, cache: "no-store" })
+        if (!res.ok) return
+        const j = (await res.json().catch(() => ({}))) as { borrowers?: Array<{ id: string; display_id?: string; first_name?: string; last_name?: string }> }
+        if (cancelled) return
+        const opts =
+          (j.borrowers ?? []).slice(0, 20).map((b) => ({
+            id: b.id as string,
+            name: [b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim(),
+            display: `${(b.display_id ?? "") as string} ${[b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim()}`.trim(),
+          })) ?? []
+        setGuarantorSuggestions(opts)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+      ctrl.abort()
+    }
+  }, [guarantorQuery, showGuarantorSuggestions, selectedEntityId])
 
   // ----- Resizable panels (inputs/results) -----
   const [leftPanePct, setLeftPanePct] = useState<number>(0.3) // 30% default (clamped 25–50)
@@ -703,6 +759,34 @@ export default function PricingEnginePage() {
   const [county, setCounty] = useState<string>("")
   const streetInputRef = useRef<HTMLInputElement | null>(null)
   const [sendingReApi, setSendingReApi] = useState<boolean>(false)
+  const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""
+  const [mapsLoadError, setMapsLoadError] = useState(false)
+  const [mapsModalOpen, setMapsModalOpen] = useState(false)
+  const [mapsCenter, setMapsCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const [mapsError, setMapsError] = useState<string | null>(null)
+  const [mapsLoading, setMapsLoading] = useState(false)
+  const [mapsView, setMapsView] = useState<"map" | "street">("map")
+  const [streetViewPosition, setStreetViewPosition] = useState<{ lat: number; lng: number } | null>(null)
+  const [streetViewStatus, setStreetViewStatus] = useState<google.maps.StreetViewStatus | null>(null)
+  const streetViewPanoRef = useRef<HTMLDivElement | null>(null)
+  const streetViewPanoInstanceRef = useRef<google.maps.StreetViewPanorama | null>(null)
+  const hasBasicAddress = useMemo(() => {
+    const s = street?.trim()
+    const c = city?.trim()
+    const z = zip?.trim()
+    const st = typeof stateCode === "string" ? stateCode.trim() : ""
+    return Boolean(s && c && st && z)
+  }, [city, stateCode, street, zip])
+  const fullAddress = useMemo(() => {
+    const parts = [street, apt, city, stateCode, zip]
+      .map((p) => (typeof p === "string" ? p.trim() : p))
+      .filter((p): p is string => Boolean(p))
+    return parts.join(", ")
+  }, [apt, city, stateCode, street, zip])
+  const mapContainerStyle = useMemo(() => ({ width: "100%", height: "100%" }), [])
+  const mapZoom = 16
+  const debugSessionId = "debug-session"
+  const debugRunId = "pre-fix"
   // Controlled fields for webhook responses
   const [glaSqFt, setGlaSqFt] = useState<string>("0")
   const [purchasePrice, setPurchasePrice] = useState<string>("")
@@ -746,7 +830,71 @@ export default function PricingEnginePage() {
   const [brokerOrig, setBrokerOrig] = useState<string>("")
   const [borrowerName, setBorrowerName] = useState<string>("")
   const [guarantorsStr, setGuarantorsStr] = useState<string>("")
+  const [selectedGuarantors, setSelectedGuarantors] = useState<Array<{ id: string; name: string }>>([])
   const [uwException, setUwException] = useState<string | undefined>(undefined)
+  // Restore cached selected borrower (entity) from localStorage, but do not prefill value/touched; use as placeholders + linked state
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("pricing.selectedBorrower") : null
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id?: string; name?: string } | null
+        const id = parsed?.id
+        const name = parsed?.name
+        if (id && name) {
+          setSelectedEntityId(id)
+          setBorrowerName((prev) => prev || name)
+          setHasSessionEntity(true)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+  // Restore cached selected guarantors from localStorage, but do not prefill value/touched; use as placeholders + linked state
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("pricing.selectedGuarantors") : null
+      if (raw) {
+        const arr = JSON.parse(raw) as Array<{ id: string; name: string }>
+        if (Array.isArray(arr) && arr.length > 0) {
+          setSelectedGuarantors(arr)
+          setGuarantorsStr((prev) => (prev ? prev : arr.map((g) => g.name).join(", ")))
+          setHasSessionGuarantors(true)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+  // Cache selected borrower (entity) to localStorage
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (selectedEntityId) {
+        window.localStorage.setItem(
+          "pricing.selectedBorrower",
+          JSON.stringify({ id: selectedEntityId, name: borrowerName })
+        )
+      } else {
+        window.localStorage.removeItem("pricing.selectedBorrower")
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedEntityId, borrowerName])
+  // Cache selected guarantors to localStorage
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (selectedGuarantors.length > 0) {
+        window.localStorage.setItem("pricing.selectedGuarantors", JSON.stringify(selectedGuarantors))
+      } else {
+        window.localStorage.removeItem("pricing.selectedGuarantors")
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedGuarantors])
   const [section8, setSection8] = useState<string | undefined>(undefined)
   const [glaExpansion, setGlaExpansion] = useState<string | undefined>(undefined) // Bridge rehab
   const [changeOfUse, setChangeOfUse] = useState<string | undefined>(undefined) // Bridge rehab
@@ -964,6 +1112,257 @@ export default function PricingEnginePage() {
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
   const sessionTokenRef = useRef<unknown>(undefined)
+  const effectiveMapsError = useMemo(
+    () => mapsError || (mapsLoadError ? "Unable to load Google Maps" : null),
+    [mapsError, mapsLoadError]
+  )
+  const canUseStreetView = gmapsReady && !effectiveMapsError && !!mapsCenter && !mapsLoading
+  const gmaps = typeof window !== "undefined" ? (window as any)?.google?.maps : undefined
+
+  const handleOpenMapsModal = (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    setMapsModalOpen(true)
+    setMapsCenter(null)
+    setMapsError(null)
+    setMapsLoading(false)
+    setMapsView("map")
+    setStreetViewPosition(null)
+    setStreetViewStatus(null)
+  }
+
+  useEffect(() => {
+    if (!mapsModalOpen) return
+    if (!mapsApiKey) {
+      setMapsError("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY")
+      setMapsLoading(false)
+      return
+    }
+    if (mapsLoadError) {
+      setMapsError("Unable to load Google Maps")
+      setMapsLoading(false)
+      return
+    }
+    if (!fullAddress) {
+      setMapsError("Enter street, city, state, and zip to preview")
+      setMapsCenter(null)
+      setMapsLoading(false)
+      return
+    }
+    if (!gmapsReady) {
+      setMapsLoading(true)
+      return
+    }
+    const g = (window as any)?.google?.maps
+    if (!g?.Geocoder) {
+      setMapsError("Maps SDK not ready")
+      setMapsLoading(false)
+      return
+    }
+    setMapsLoading(true)
+    setMapsError(null)
+    const geocoder = new g.Geocoder()
+    geocoder.geocode({ address: fullAddress }, (results: Array<any> | null, status: string) => {
+      if (status === "OK" && results?.[0]?.geometry?.location) {
+        const loc = results[0].geometry.location
+        setMapsCenter({ lat: loc.lat(), lng: loc.lng() })
+      } else {
+        setMapsCenter(null)
+        setMapsError("Could not locate that address")
+      }
+      setMapsLoading(false)
+    })
+  }, [fullAddress, mapsApiKey, mapsLoadError, mapsModalOpen, gmapsReady])
+
+  useEffect(() => {
+    setStreetViewPosition(null)
+    setStreetViewStatus(null)
+    if (!mapsCenter && mapsView === "street") {
+      setMapsView("map")
+    }
+  }, [mapsCenter, mapsView])
+
+  useEffect(() => {
+    if (mapsView !== "street") return
+    if (!mapsCenter || !gmapsReady) return
+    const g = (window as any)?.google?.maps
+    if (!g?.StreetViewService) {
+      setStreetViewPosition(null)
+      setStreetViewStatus(null)
+      return
+    }
+    const svc = new g.StreetViewService()
+    setStreetViewStatus(null)
+    svc.getPanorama({ location: mapsCenter, radius: 50 }, (data: any, status: google.maps.StreetViewStatus) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: debugSessionId,
+          runId: debugRunId,
+          hypothesisId: "H1",
+          location: "pricing/page.tsx:streetView:getPanorama",
+          message: "StreetViewService callback",
+          data: {
+            status,
+            hasLocation: Boolean(data?.location?.latLng),
+            mapsCenter,
+            mapsView,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+      if (status === g.StreetViewStatus.OK && data?.location?.latLng) {
+        const pos = data.location.latLng
+        setStreetViewPosition({ lat: pos.lat(), lng: pos.lng() })
+      } else {
+        setStreetViewPosition(null)
+      }
+      setStreetViewStatus(status ?? null)
+    })
+  }, [gmapsReady, mapsCenter, mapsView])
+
+  useEffect(() => {
+    if (!mapsModalOpen) return
+    // #region agent log
+    fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: debugSessionId,
+        runId: debugRunId,
+        hypothesisId: "H2",
+        location: "pricing/page.tsx:streetView:renderGate",
+        message: "Street view render gate state",
+        data: {
+          mapsView,
+          gmapsReady,
+          hasGmaps: Boolean(gmaps),
+          mapsCenter,
+          mapsLoading,
+          streetViewPosition,
+          streetViewStatus,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+  }, [gmaps, gmapsReady, mapsCenter, mapsLoading, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
+
+  useEffect(() => {
+    if (!mapsModalOpen) {
+      if (streetViewPanoInstanceRef.current) {
+        streetViewPanoInstanceRef.current.setVisible(false)
+        streetViewPanoInstanceRef.current = null
+      }
+      return
+    }
+    if (mapsView !== "street") return
+    if (!gmaps || !streetViewPanoRef.current) return
+    if (!streetViewPosition || streetViewStatus !== gmaps.StreetViewStatus.OK) {
+      if (streetViewPanoInstanceRef.current) {
+        streetViewPanoInstanceRef.current.setVisible(false)
+        // #region agent log
+        fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: debugSessionId,
+            runId: "fix1",
+            hypothesisId: "H5",
+            location: "pricing/page.tsx:streetView:panoHide",
+            message: "Hide panorama (no position/status)",
+            data: {
+              mapsView,
+              streetViewStatus,
+              hasInstance: true,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
+      }
+      return
+    }
+    let pano = streetViewPanoInstanceRef.current
+    if (!pano) {
+      pano = new gmaps.StreetViewPanorama(streetViewPanoRef.current, {
+        position: streetViewPosition,
+        pov: { heading: 0, pitch: 0 },
+        visible: true,
+        zoom: 1,
+        motionTracking: false,
+        motionTrackingControl: false,
+      })
+      streetViewPanoInstanceRef.current = pano
+      // #region agent log
+      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: debugSessionId,
+          runId: "fix1",
+          hypothesisId: "H5",
+          location: "pricing/page.tsx:streetView:panoCreate",
+          message: "Created StreetViewPanorama",
+          data: {
+            mapsView,
+            streetViewPosition,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    } else {
+      pano.setPosition(streetViewPosition)
+      pano.setVisible(true)
+      // #region agent log
+      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: debugSessionId,
+          runId: "fix1",
+          hypothesisId: "H5",
+          location: "pricing/page.tsx:streetView:panoUpdate",
+          message: "Updated StreetViewPanorama",
+          data: {
+            mapsView,
+            streetViewPosition,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    }
+  }, [gmaps, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
+
+  useEffect(() => {
+    return () => {
+      if (streetViewPanoInstanceRef.current) {
+        streetViewPanoInstanceRef.current.setVisible(false)
+        streetViewPanoInstanceRef.current = null
+        // #region agent log
+        fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: debugSessionId,
+            runId: "fix1",
+            hypothesisId: "H5",
+            location: "pricing/page.tsx:streetView:cleanup",
+            message: "Cleanup panorama on unmount",
+            data: {},
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
+      }
+    }
+  }, [])
+
   async function handleSendToReApi(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
@@ -1182,10 +1581,12 @@ export default function PricingEnginePage() {
       fico,
       rural: rural ?? DEFAULTS.rural,
       borrower_name: borrowerName,
+      borrower_entity_id: selectedEntityId ?? null,
       guarantors: (guarantorsStr || "")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
+      guarantor_borrower_ids: selectedGuarantors.map((g) => g.id),
       uw_exception: uwException ?? "",
       // Origination null semantics and alias
       lender_orig_percent: (() => {
@@ -1708,8 +2109,10 @@ export default function PricingEnginePage() {
           sessionTokenRef.current = new places.AutocompleteSessionToken()
         }
         setGmapsReady(true)
+        setMapsLoadError(false)
       } catch {
         setGmapsReady(false)
+        setMapsLoadError(true)
       }
     })()
   }, [])
@@ -1813,8 +2216,6 @@ export default function PricingEnginePage() {
     if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
     if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
     if ("loan_amount" in payload) setLoanAmount(String(payload["loan_amount"] ?? ""))
-    if ("initial_loan_amount" in payload) setInitialLoanAmount(String(payload["initial_loan_amount"] ?? ""))
-    else if ("initialLoanAmount" in (payload as any)) setInitialLoanAmount(String((payload as any)["initialLoanAmount"] ?? ""))
     if ("admin_fee" in payload) {
       setAdminFee(String(payload["admin_fee"] ?? ""))
     } else if ("lender_admin_fee" in payload) {
@@ -1854,8 +2255,29 @@ export default function PricingEnginePage() {
     if ("citizenship" in payload) setCitizenship((payload["citizenship"] as string) ?? undefined)
     if ("fico" in payload) setFico(String(payload["fico"] ?? ""))
     if ("borrower_name" in payload) setBorrowerName(String(payload["borrower_name"] ?? ""))
-    if ("guarantors" in payload && Array.isArray(payload["guarantors"])) {
-      setGuarantorsStr((payload["guarantors"] as string[]).join(", "))
+    const borrowerEntityId = typeof payload["borrower_entity_id"] === "string" ? (payload["borrower_entity_id"] as string) : undefined
+    setSelectedEntityId(borrowerEntityId ?? undefined)
+    if (borrowerEntityId) {
+      setHasSessionEntity(true)
+    }
+    const guarantorNames = Array.isArray(payload["guarantors"]) ? (payload["guarantors"] as string[]) : []
+    if (guarantorNames.length > 0) {
+      setGuarantorsStr(guarantorNames.join(", "))
+    } else {
+      setGuarantorsStr("")
+    }
+    const guarantorIds = Array.isArray(payload["guarantor_borrower_ids"])
+      ? (payload["guarantor_borrower_ids"] as unknown[]).filter((g): g is string => typeof g === "string" && g.length > 0)
+      : []
+    if (guarantorIds.length > 0) {
+      const combined = guarantorIds.map((id, idx) => ({
+        id,
+        name: guarantorNames[idx] ?? "",
+      }))
+      setSelectedGuarantors(combined)
+      setHasSessionGuarantors(true)
+    } else {
+      setSelectedGuarantors([])
     }
     if ("rural" in payload) setRural((payload["rural"] as string) ?? undefined)
     if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
@@ -2729,16 +3151,34 @@ export default function PricingEnginePage() {
                 )}
 
                 <AccordionItem value="subject" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic hover:no-underline">
-                    <div className="flex items-center gap-3 pr-6">
-                      <span>Subject Property</span>
-                      <Button size="sm" variant="secondary" className="ml-auto h-7 not-italic" asChild>
-                        <span onClick={handleSendToReApi} aria-disabled={sendingReApi}>
-                          {sendingReApi ? "Sending..." : "RE API"}
-                        </span>
+                  <div className="flex items-center gap-2 pr-2 pl-1">
+                    <AccordionTrigger className="flex-1 text-left text-base font-bold italic hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <span>Subject Property</span>
+                      </div>
+                    </AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 not-italic"
+                        onClick={handleSendToReApi}
+                        disabled={!hasBasicAddress || sendingReApi}
+                        aria-disabled={sendingReApi || !hasBasicAddress}
+                      >
+                        {sendingReApi ? "Sending..." : "RE API"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 not-italic"
+                        onClick={(e) => handleOpenMapsModal(e)}
+                        disabled={!hasBasicAddress}
+                      >
+                        Google Maps
                       </Button>
                     </div>
-                  </AccordionTrigger>
+                  </div>
                   <AccordionContent>
                     <div className="grid gap-4">
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -3786,29 +4226,129 @@ export default function PricingEnginePage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-name">Borrower Name</Label>
-                        <Input
-                          id="borrower-name"
-                          placeholder="Name"
-                          value={borrowerName}
-                          onChange={(e) => {
-                            setBorrowerName(e.target.value)
-                            setTouched((t) => ({ ...t, borrowerName: true }))
-                          }}
-                          className={`${!touched.borrowerName && borrowerName === DEFAULTS.borrowerName ? "text-muted-foreground" : ""}`}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="borrower-name"
+                            placeholder={borrowerName || DEFAULTS.borrowerName}
+                            value={!touched.borrowerName ? "" : borrowerName}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setBorrowerName(v)
+                              setTouched((t) => ({ ...t, borrowerName: true }))
+                              setEntityQuery(v)
+                              setShowEntitySuggestions(true)
+                              setSelectedEntityId(undefined)
+                              setHasSessionEntity(false)
+                            }}
+                            onFocus={() => {
+                              const seed = (borrowerName ?? "").trim()
+                              setEntityQuery(seed.length > 0 ? seed : "*")
+                              setShowEntitySuggestions(true)
+                            }}
+                            className={`${selectedEntityId && hasSessionEntity ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
+                            autoComplete="off"
+                          />
+                          {showEntitySuggestions && entitySuggestions.length > 0 && (
+                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+                              <ul className="max-h-56 overflow-auto">
+                                {entitySuggestions.map((opt) => (
+                                  <li key={opt.id}>
+                                    <button
+                                      type="button"
+                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
+                                      onClick={() => {
+                                        setBorrowerName(opt.name)
+                                        setTouched((t) => ({ ...t, borrowerName: true }))
+                                        setShowEntitySuggestions(false)
+                                        setSelectedEntityId(opt.id)
+                                        setHasSessionEntity(true)
+                                      }}
+                                    >
+                                      {opt.display}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="guarantors">Guarantor(s)</Label>
-                        <Input
-                          id="guarantors"
-                          placeholder="Names separated by comma"
-                          value={guarantorsStr}
-                          onChange={(e) => {
-                            setGuarantorsStr(e.target.value)
-                            setTouched((t) => ({ ...t, guarantorsStr: true }))
-                          }}
-                          className={`${!touched.guarantorsStr && guarantorsStr === DEFAULTS.guarantorsStr ? "text-muted-foreground" : ""}`}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="guarantors"
+                            placeholder={guarantorsStr || DEFAULTS.guarantorsStr}
+                            value={!touched.guarantorsStr ? "" : guarantorsStr}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setGuarantorsStr(v)
+                              setTouched((t) => ({ ...t, guarantorsStr: true }))
+                              const token = v.split(",").pop()?.trim() ?? ""
+                              if (token.length > 0) {
+                                setShowGuarantorSuggestions(true)
+                                setGuarantorQuery(token)
+                              } else {
+                                setShowGuarantorSuggestions(false)
+                              }
+                              if (selectedGuarantors.length > 0) {
+                                setSelectedGuarantors([])
+                                setHasSessionGuarantors(false)
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault()
+                                setShowGuarantorSuggestions(false)
+                              }
+                            }}
+                            onFocus={() => {
+                              const token = guarantorsStr.split(",").pop()?.trim() ?? ""
+                              setGuarantorQuery(token.length > 0 ? token : "*")
+                              setShowGuarantorSuggestions(true)
+                            }}
+                            className={`${selectedGuarantors.length > 0 && hasSessionGuarantors ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
+                            autoComplete="off"
+                          />
+                          {showGuarantorSuggestions && guarantorSuggestions.length > 0 && (
+                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+                              <ul className="max-h-56 overflow-auto">
+                                {guarantorSuggestions.map((opt) => (
+                                  <li key={opt.id}>
+                                    <button
+                                      type="button"
+                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
+                                      onClick={() => {
+                                        const parts = guarantorsStr.split(",").map((s) => s.trim()).filter(Boolean)
+                                        // replace the current token with selected name
+                                        parts.pop()
+                                        parts.push(opt.name)
+                                        setGuarantorsStr(parts.join(", "))
+                                        setTouched((t) => ({ ...t, guarantorsStr: true }))
+                                        // track selected guarantor IDs aligned to current tokens
+                                        setSelectedGuarantors((prev) => {
+                                          const nameToId = new Map(prev.map((g) => [g.name, g.id]))
+                                          nameToId.set(opt.name, opt.id)
+                                          const ordered = parts
+                                            .map((n) => {
+                                              const id = nameToId.get(n)
+                                              return id ? { name: n, id } : null
+                                            })
+                                            .filter(Boolean) as Array<{ name: string; id: string }>
+                                          return ordered
+                                        })
+                                        setHasSessionGuarantors(true)
+                                        setShowGuarantorSuggestions(false)
+                                      }}
+                                    >
+                                      {opt.display}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       </div>
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1">
@@ -4084,6 +4624,82 @@ export default function PricingEnginePage() {
           />
         </section>
       </div>
+    <Dialog open={mapsModalOpen} onOpenChange={setMapsModalOpen}>
+      <DialogContent className="sm:max-w-[min(1100px,calc(100vw-1rem))]">
+        <DialogHeader>
+          <DialogTitle>Google Maps</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              {fullAddress || "Enter street, city, state, and zip to preview the subject property."}
+            </div>
+            <div className="inline-flex gap-1">
+              <Button
+                size="sm"
+                variant={mapsView === "map" ? "secondary" : "ghost"}
+                onClick={() => setMapsView("map")}
+                disabled={!gmapsReady || !!effectiveMapsError}
+              >
+                Map
+              </Button>
+              <Button
+                size="sm"
+                variant={mapsView === "street" ? "secondary" : "ghost"}
+                onClick={() => setMapsView("street")}
+                disabled={!canUseStreetView}
+              >
+                Street View
+              </Button>
+            </div>
+          </div>
+          {effectiveMapsError ? (
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {effectiveMapsError}
+            </div>
+          ) : null}
+          {!gmapsReady && !mapsLoadError ? (
+            <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">Loading Google Maps…</div>
+          ) : null}
+          {mapsModalOpen && gmapsReady && !effectiveMapsError ? (
+            <div className="h-[520px] w-full overflow-hidden rounded-md border">
+              {mapsCenter && !mapsLoading ? (
+                mapsView === "street" ? (
+                  <div className="relative h-full w-full">
+                    <div ref={streetViewPanoRef} className="h-full w-full" />
+                    {!gmaps || !streetViewPosition || streetViewStatus !== gmaps.StreetViewStatus.OK ? (
+                      <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                        {streetViewStatus === gmaps?.StreetViewStatus?.ZERO_RESULTS
+                          ? "Street View is not available here."
+                          : "Searching for Street View…"}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    center={mapsCenter}
+                    zoom={mapZoom}
+                    options={{
+                      streetViewControl: false,
+                      mapTypeControl: false,
+                      fullscreenControl: true,
+                      controlSize: 24,
+                    }}
+                  >
+                    <Marker position={mapsCenter} />
+                  </GoogleMap>
+                )
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  {mapsLoading ? "Locating address…" : "Enter a complete address to preview."}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
     </div>
   )
 }
