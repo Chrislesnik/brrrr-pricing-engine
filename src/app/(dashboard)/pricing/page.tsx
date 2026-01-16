@@ -3902,8 +3902,11 @@ export default function PricingEnginePage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="5-4-3-2-1">5-4-3-2-1</SelectItem>
+                                <SelectItem value="4-3-2-1">4-3-2-1</SelectItem>
                                 <SelectItem value="3-2-1">3-2-1</SelectItem>
+                                <SelectItem value="2-1">2-1</SelectItem>
                                 <SelectItem value="1">1</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
