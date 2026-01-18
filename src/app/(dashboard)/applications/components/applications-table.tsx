@@ -594,7 +594,7 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] p-0 border-none shadow-none"
+        className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] h-[90vh] p-0 border-none shadow-none"
         onOpenAutoFocus={(e) => {
           // Prevent auto-focus from scrolling to the bottom; keep the view pinned to the top.
           e.preventDefault()
@@ -603,7 +603,7 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
           }
         }}
       >
-        <div ref={scrollRef} className="max-h-[90vh] overflow-y-auto">
+        <div ref={scrollRef} className="h-full overflow-hidden">
           <DialogTitle className="sr-only">Application workflow</DialogTitle>
           <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors} />
         </div>

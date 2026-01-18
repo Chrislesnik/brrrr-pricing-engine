@@ -83,8 +83,8 @@ const MultiStepForm = ({
   const next = () => setCarouselIndex((i) => (i + 1) % labels.length)
 
   return (
-    <Card className={cn(className)}>
-      <CardContent className="p-4 sm:p-6">
+    <Card className={cn("h-full", className)}>
+      <CardContent className="p-4 sm:p-6 h-full max-h-[90vh] flex flex-col overflow-hidden">
         <nav aria-label="Multi Steps">
           <ol className="flex justify-center gap-x-6 gap-y-6 max-sm:flex-col sm:items-center md:gap-x-12">
             {stepper.all.map((step, index, array) => (
@@ -132,7 +132,13 @@ const MultiStepForm = ({
         )}
         {stepper.switch({
           background: () => <CartStep data={orderItems} stepper={stepper} />,
-          credit: () => <CartStep data={orderItems} stepper={stepper} />,
+          credit: () => (
+            <CartStep
+              data={orderItems}
+              stepper={stepper}
+              currentBorrowerId={guarantors?.[carouselIndex]?.id ?? undefined}
+            />
+          ),
           confirmation: () => <CartStep data={orderItems} stepper={stepper} />,
         })}
       </CardContent>

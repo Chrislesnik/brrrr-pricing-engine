@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -12,13 +12,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { AddressAutocomplete } from '@/components/address-autocomplete'
 import { ChatPanel } from '@/components/ai/chat-panel'
+import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { isUuid } from '@/lib/uuid'
 import { GiStoneBlock } from 'react-icons/gi'
 import { FaFeatherAlt } from 'react-icons/fa'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -55,8 +59,13 @@ const formatUSPhone = (input: string) => {
   return `+${cc} (${area}) ${prefix}-${line}`
 }
 
-const CartStep = ({ data, stepper }: { data: OrderItemType[]; stepper: StepperType }) => {
+type ReportDoc = { id: string; name: string; created_at: string; status: string | null; url: string }
+
+const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[]; stepper: StepperType; currentBorrowerId?: string }) => {
   const isCredit = stepper.current.id === 'credit'
+  const { toast } = useToast()
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [street, setStreet] = useState("")
   const [city, setCity] = useState("")
   const [stateCode, setStateCode] = useState("")
@@ -70,15 +79,197 @@ const CartStep = ({ data, stepper }: { data: OrderItemType[]; stepper: StepperTy
   const [includeTU, setIncludeTU] = useState(true)
   const [includeEX, setIncludeEX] = useState(true)
   const [includeEQ, setIncludeEQ] = useState(true)
+  // Credit report files for the currently selected borrower (Credit step)
+  const [files, setFiles] = useState<ReportDoc[]>([])
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [selectedReportId, setSelectedReportId] = useState<string | undefined>(undefined)
+
+  // Auto-select the first file when list loads and nothing is selected
+  useEffect(() => {
+    const first = files.find((f) => isUuid(f.id?.trim?.() ?? f.id))?.id
+    const stillValid = selectedReportId && files.some((f) => f.id === selectedReportId)
+    if (first && !stillValid) {
+      setSelectedReportId(first.trim())
+    } else if (!first) {
+      setSelectedReportId(undefined)
+    }
+    // only run when files list changes
+    // eslint-disable-next-line react-hooks/exhaustive-comments
+  }, [files])
+
+  // Normalize the report id we will actually use for chat requests:
+  // - Prefer the selected item when it exists in the current files list
+  // - Otherwise fall back to the first valid UUID from the list
+  const effectiveReportId = useMemo(() => {
+    const normalized = selectedReportId?.trim()
+    if (isUuid(normalized)) return normalized
+    return files.find((f) => isUuid(f.id?.trim?.() ?? f.id))?.id?.trim()
+  }, [files, selectedReportId])
+  useEffect(() => {
+    let ignore = false
+    async function load() {
+      if (!currentBorrowerId || stepper.current.id !== 'credit') {
+        setFiles([])
+        return
+      }
+      try {
+        setFilesLoading(true)
+        const res = await fetch(`/api/credit-reports?borrowerId=${encodeURIComponent(currentBorrowerId)}`, { cache: 'no-store' })
+        const j = await res.json().catch(() => ({ documents: [] }))
+        if (!ignore) {
+          setFiles(Array.isArray(j?.documents) ? j.documents : [])
+        }
+      } catch {
+        if (!ignore) setFiles([])
+      } finally {
+        if (!ignore) setFilesLoading(false)
+      }
+    }
+    load()
+    return () => { ignore = true }
+  }, [currentBorrowerId, stepper.current.id])
+
+  // Prefill borrower data on Credit step
+  useEffect(() => {
+    let ignore = false
+    async function loadBorrower() {
+      // When on Credit tab but there is no borrower id, clear fields
+      if (stepper.current.id === 'credit' && !currentBorrowerId) {
+        setFirstName("")
+        setLastName("")
+        setSsn("")
+        setDob(undefined)
+        setStreet("")
+        setCity("")
+        setStateCode("")
+        setZip("")
+        setCounty("")
+        return
+      }
+      // If we have some id string, attempt fetch; server will 404 when not found
+      if (!currentBorrowerId || stepper.current.id !== 'credit') return
+      // Optimistically clear before fetching to avoid stale values while switching
+      setFirstName("")
+      setLastName("")
+      setSsn("")
+      setDob(undefined)
+      setStreet("")
+      setCity("")
+      setStateCode("")
+      setZip("")
+      setCounty("")
+      try {
+        const res = await fetch(`/api/borrowers/${encodeURIComponent(currentBorrowerId)}`, { cache: 'no-store' })
+        if (!res.ok) {
+          // Nothing to populate (404/401 etc.) — keep cleared values
+          return
+        }
+        const j = await res.json().catch(() => ({}))
+        const b = j?.borrower
+        if (!ignore && b) {
+          setFirstName((b.first_name as string) ?? "")
+          setLastName((b.last_name as string) ?? "")
+          // DOB
+          if (b.date_of_birth) {
+            const s = String(b.date_of_birth as string)
+            const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(s)
+            if (m) {
+              const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3])
+              const local = new Date(y, mo - 1, d)
+              if (!Number.isNaN(local.getTime())) setDob(local)
+            }
+          }
+          setStreet((b.address_line1 as string) ?? "")
+          setCity((b.city as string) ?? "")
+          setStateCode((b.state as string) ?? "")
+          setZip((b.zip as string) ?? "")
+          setCounty((b.county as string) ?? "")
+        }
+        // Attempt to load full decrypted SSN using the same endpoint as the Borrower Settings modal
+        try {
+          const sres = await fetch(`/api/applicants/borrowers/${encodeURIComponent(currentBorrowerId)}/ssn`, { cache: 'no-store' })
+          if (sres.ok) {
+            const sj = await sres.json().catch(() => ({} as any))
+            const digits = String(sj?.ssn ?? '').replace(/\D+/g, '').slice(0, 9)
+            if (digits.length === 9 && !ignore) {
+              setSsn(formatSSN(digits))
+              return
+            }
+          }
+        } catch {
+          // ignore and fall back to last4
+        }
+        // Fallback: mask with last4 if available
+        if (!ignore && typeof j?.borrower?.ssn_last4 === 'string' && j.borrower.ssn_last4.length === 4) {
+          setSsn(`***-**-${j.borrower.ssn_last4}`)
+        }
+      } catch {
+        // swallow
+      }
+    }
+    loadBorrower()
+    return () => { ignore = true }
+  }, [currentBorrowerId, stepper.current.id])
+
   const [prevStreet, setPrevStreet] = useState("")
   const [prevCity, setPrevCity] = useState("")
   const [prevState, setPrevState] = useState("")
   const [prevZip, setPrevZip] = useState("")
+  const [ssn, setSsn] = useState("")
+  const [isRunning, setIsRunning] = useState(false)
+
+  async function handleRun() {
+    if (!isCredit) return
+    try {
+      setIsRunning(true)
+      const digits = ssn.replace(/\D+/g, "").slice(0, 9)
+      const inputs = {
+        first_name: firstName || undefined,
+        last_name: lastName || undefined,
+        ssn: digits || undefined,
+        date_of_birth: (() => {
+          if (!dob) return undefined
+          const y = dob.getFullYear()
+          const m = String(dob.getMonth() + 1).padStart(2, "0")
+          const d = String(dob.getDate()).padStart(2, "0")
+          return `${y}-${m}-${d}`
+        })(),
+        address_line1: street || undefined,
+        city: city || undefined,
+        state: stateCode || undefined,
+        zip: zip || undefined,
+        county: county || undefined,
+        include_transunion: includeTU,
+        include_experian: includeEX,
+        include_equifax: includeEQ,
+        pull_type: pullType,
+      }
+      const res = await fetch("/api/credit/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          borrowerId: currentBorrowerId ?? null,
+          inputs,
+          aggregator: null,
+        }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || j?.ok === false) {
+        throw new Error(j?.error || `Webhook failed (status ${j?.status ?? res.status})`)
+      }
+      toast({ title: "Credit run dispatched", description: "Webhook received the payload." })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to run credit dispatch"
+      toast({ title: "Credit run failed", description: msg })
+    } finally {
+      setIsRunning(false)
+    }
+  }
 
   return (
-    <div className='grid grid-cols-1 gap-6 lg:grid-cols-3'>
-      <div className='flex h-full flex-col gap-6 lg:col-span-2'>
-        <div className='flex flex-1 flex-col gap-6 overflow-y-auto pr-2 min-h-[548px] max-h-[90vh]'>
+    <div className='grid grid-cols-1 gap-6 lg:grid-cols-3 flex-1 min-h-0 overflow-hidden' key={stepper.current.id}>
+      <div className='flex h-full min-h-0 flex-col gap-6 lg:col-span-2'>
+        <div className='flex flex-1 min-h-0 flex-col gap-6 overflow-auto pr-2'>
           {isCredit ? (
             <>
               <h3 className='text-sm font-semibold'>Report Order Information</h3>
@@ -152,14 +343,14 @@ const CartStep = ({ data, stepper }: { data: OrderItemType[]; stepper: StepperTy
 
               <h3 className='text-sm font-semibold'>Personal Information</h3>
               <div className='flex flex-col gap-4'>
-                <div className='grid gap-4 md:grid-cols-2'>
+              <div className='grid gap-4 md:grid-cols-2'>
                   <div className='flex flex-col gap-1.5'>
                     <Label className='text-xs font-semibold text-muted-foreground'>First Name</Label>
-                    <Input placeholder='First Name' />
+                  <Input placeholder='First Name' value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                   </div>
                   <div className='flex flex-col gap-1.5'>
                     <Label className='text-xs font-semibold text-muted-foreground'>Last Name</Label>
-                    <Input placeholder='Last Name' />
+                  <Input placeholder='Last Name' value={lastName} onChange={(e) => setLastName(e.target.value)} />
                   </div>
                 </div>
                 <div className='grid gap-4 md:grid-cols-2'>
@@ -168,8 +359,10 @@ const CartStep = ({ data, stepper }: { data: OrderItemType[]; stepper: StepperTy
                     <Input
                       placeholder='123-45-6789'
                       inputMode='numeric'
+                      value={ssn}
                       onChange={(e) => {
-                        e.target.value = formatSSN(e.target.value)
+                        const next = formatSSN(e.target.value)
+                        setSsn(next)
                       }}
                       maxLength={11}
                     />
@@ -505,10 +698,52 @@ const CartStep = ({ data, stepper }: { data: OrderItemType[]; stepper: StepperTy
         </div>
       </div>
       <div className='flex h-full flex-col gap-6'>
-        <Button className='w-full' onClick={stepper.next}>
-          Run
-        </Button>
-        <ChatPanel className='rounded-md border p-4 flex-1 min-h-[548px]' />
+        <div className='flex w-full items-center gap-2'>
+          <Button className='h-9 px-4 py-2' onClick={handleRun} disabled={isRunning}>
+            Run
+          </Button>
+          <Select
+            onValueChange={(val) => {
+              const next = val?.trim?.() ?? val
+              const normalized = isUuid(next) ? next : undefined
+              if (next) {
+                setSelectedReportId(normalized)
+              }
+              // no automatic open; selection only
+            }}
+            value={selectedReportId}
+            disabled={filesLoading || files.length === 0}
+          >
+            <SelectTrigger className='h-9 min-w-[180px]'>
+              <SelectValue
+                placeholder={filesLoading ? 'Loading…' : files.length ? 'Files' : 'No files'}
+              />
+            </SelectTrigger>
+            <SelectContent className='data-[state=open]:!zoom-in-0 origin-center duration-400'>
+              {files.length > 0 ? (
+                <SelectGroup>
+                  <SelectLabel>Files</SelectLabel>
+                  {files.map(f => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : null}
+            </SelectContent>
+          </Select>
+        </div>
+        {effectiveReportId ? (
+          <ChatPanel
+            key={effectiveReportId}
+            className='rounded-md border p-4 flex-1 h-full min-h-0 overflow-auto'
+            reportId={effectiveReportId}
+          />
+        ) : (
+          <div className='rounded-md border p-4 text-sm text-muted-foreground'>
+            Select a report to load chat.
+          </div>
+        )}
       </div>
     </div>
   )

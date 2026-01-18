@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "25mb",
     },
   },
+  // Ensure Turbopack resolves the project from the correct root
+  // so it can find installed packages like Radix and react-icons.
+  // The `turbopack` field is not yet in NextConfig types in all versions,
+  // but Next.js will read it at runtime.
+  ...( {
+    turbopack: {
+      root: __dirname,
+    },
+  } as unknown as NextConfig ),
   images: {
     remotePatterns: [
       {
