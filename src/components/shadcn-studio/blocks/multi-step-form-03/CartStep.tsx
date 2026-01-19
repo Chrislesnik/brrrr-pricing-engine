@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -108,6 +109,10 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
     if (isUuid(normalized)) return normalized
     return files.find((f) => isUuid(f.id?.trim?.() ?? f.id))?.id?.trim()
   }, [files, selectedReportId])
+  const selectedReport = useMemo(
+    () => files.find((f) => f.id === (selectedReportId?.trim?.() ?? selectedReportId)) ?? null,
+    [files, selectedReportId]
+  )
   useEffect(() => {
     let ignore = false
     async function load() {
@@ -735,6 +740,26 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
               ) : null}
             </SelectContent>
           </Select>
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon'
+            className='h-9 w-9'
+            disabled={filesLoading || !selectedReport?.url}
+            onClick={() => {
+              if (!selectedReport?.url) return
+              const anchor = document.createElement('a')
+              anchor.href = selectedReport.url
+              anchor.download = selectedReport.name || 'report.pdf'
+              anchor.target = '_blank'
+              anchor.rel = 'noopener noreferrer'
+              anchor.click()
+              anchor.remove()
+            }}
+            aria-label={selectedReport?.name ? `Download ${selectedReport.name}` : 'No file to download'}
+          >
+            <Download className='h-4 w-4' aria-hidden='true' />
+          </Button>
         </div>
         {effectiveReportId ? (
           <ChatPanel
