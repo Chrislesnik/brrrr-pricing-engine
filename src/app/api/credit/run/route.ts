@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { randomUUID } from "crypto"
 import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { encryptToBase64, encryptToParts } from "@/lib/crypto"
@@ -22,7 +23,11 @@ type Inputs = {
   pull_type?: "hard" | "soft"
 }
 
+const FIRST_WEBHOOK_URL = "https://n8n.axora.info/webhook/dd842cfb-d4c5-4ce7-94a9-a87e1027dd23"
+const SECOND_WEBHOOK_URL = "https://n8n.axora.info/webhook/f5315945-c5a3-405f-8ef9-76ced3a9b348"
+
 export async function POST(req: NextRequest) {
+  console.log("[credit/run] === Starting credit run ===")
   try {
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -65,10 +70,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Check if user has active xactus integration
+    let xactusIntegrationId: string | null = null
+    const { data: xactusIntegration } = await supabaseAdmin
+      .from("integrations")
+      .select("id, status")
+      .eq("organization_id", orgUuid)
+      .eq("user_id", userId)
+      .eq("type", "xactus")
+      .eq("status", true)
+      .maybeSingle()
+    if (xactusIntegration?.id) {
+      // Verify credentials exist before including integration_id
+      const { data: xactusCredentials } = await supabaseAdmin
+        .from("integrations_xactus")
+        .select("account_user, account_password")
+        .eq("integration_id", xactusIntegration.id)
+        .maybeSingle()
+      const hasCredentials =
+        Boolean((xactusCredentials?.account_user as string | null)?.trim()) &&
+        Boolean((xactusCredentials?.account_password as string | null)?.trim())
+      if (hasCredentials) {
+        xactusIntegrationId = xactusIntegration.id as string
+      }
+    }
+
     const payload = {
       borrower_id: borrowerId,
       organization_id: orgUuid,
       aggregator,
+      xactus_integration_id: xactusIntegrationId,
       first_name: inputs.first_name ?? null,
       last_name: inputs.last_name ?? null,
       ssn_encrypted: ssnEncrypted,
@@ -90,296 +121,218 @@ export async function POST(req: NextRequest) {
       inputs,
     }
 
-    const webhookUrl = "https://n8n.axora.info/webhook-test/dd842cfb-d4c5-4ce7-94a9-a87e1027dd23"
-    const resp = await fetch(webhookUrl, {
+    // ========== STEP 1: Call first webhook to get aggregator info ==========
+    console.log("[credit/run] Step 1: Calling first webhook...")
+    const resp1 = await fetch(FIRST_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
+    console.log("[credit/run] First webhook response status:", resp1.status)
 
-    const contentType = resp.headers.get("content-type") || ""
-    // Helper to build storage path
-    const buildStoragePath = (reportId?: string | null, filename?: string | null) => {
-      const safeName = (filename || "report.pdf").replace(/[^\w.\-]+/g, "_")
-      const idPart = reportId && reportId.length > 0 ? reportId : "noid"
-      return `${orgUuid}/${borrowerId ?? "noborrower"}/${idPart}-${Date.now()}-${safeName}`
+    if (!resp1.ok) {
+      const errText = await resp1.text().catch(() => "Unknown error")
+      console.log("[credit/run] First webhook failed:", errText)
+      return NextResponse.json({ ok: false, status: resp1.status, error: errText }, { status: 500 })
     }
 
-    if (contentType.includes("multipart/")) {
-      // Manual multipart parsing by boundary
-      const boundaryMatch = /boundary=([^;]+)/i.exec(contentType)
-      if (!boundaryMatch) {
-        return NextResponse.json(
-          {
-            ok: false,
-            status: resp.status,
-            error:
-              "Multipart boundary missing. In n8n Respond node, do not hardcode Content-Type; allow n8n to set it (so boundary is present).",
-          },
-          { status: 500 }
-        )
-      }
-      const boundary = boundaryMatch[1]
-      const raw = Buffer.from(await resp.arrayBuffer())
-      const dashBoundary = Buffer.from(`--${boundary}`)
-      const endBoundary = Buffer.from(`--${boundary}--`)
+    // Parse JSON response from first webhook
+    let firstResponse: { aggregator?: string; aggregator_id?: string } = {}
+    const contentType1 = resp1.headers.get("content-type") || ""
+    const responseText = await resp1.text()
+    console.log("[credit/run] First webhook content-type:", contentType1)
+    console.log("[credit/run] First webhook response body:", responseText)
+    
+    try {
+      firstResponse = JSON.parse(responseText)
+    } catch {
+      console.log("[credit/run] Failed to parse first webhook response as JSON")
+      firstResponse = {}
+    }
 
-      let idx = 0
-      // Seek first boundary
-      idx = raw.indexOf(dashBoundary, idx)
-      if (idx === -1) {
-        return NextResponse.json({ ok: false, status: resp.status, error: "Boundary not found in body." }, { status: 500 })
-      }
-      idx += dashBoundary.length + 2 // skip CRLF after boundary
+    const responseAggregator = firstResponse.aggregator ?? aggregator ?? null
+    const aggregatorId = firstResponse.aggregator_id ?? null
+    console.log("[credit/run] Parsed aggregator:", responseAggregator, "aggregator_id:", aggregatorId)
 
-      const parts: Array<{ headers: Record<string, string>; body: Buffer }> = []
-      const crlf2 = Buffer.from("\r\n\r\n")
-      while (idx < raw.length) {
-        // Check for end boundary
-        if (raw.slice(idx - 4, idx + endBoundary.length - 2).includes(endBoundary)) break
-        const headerEnd = raw.indexOf(crlf2, idx)
-        if (headerEnd === -1) break
-        const headerBuf = raw.slice(idx, headerEnd)
-        const headerText = headerBuf.toString("utf8")
-        const headers: Record<string, string> = {}
-        headerText.split("\r\n").forEach((line) => {
-          const pos = line.indexOf(":")
-          if (pos > -1) {
-            const key = line.slice(0, pos).trim().toLowerCase()
-            const val = line.slice(pos + 1).trim()
-            headers[key] = val
-          }
+    // ========== STEP 2: Create credit_reports row immediately (without file) ==========
+    console.log("[credit/run] Step 2: Creating credit_reports row...")
+    const row = {
+      bucket: "credit-reports",
+      // Use a unique placeholder to satisfy unique bucket+path constraint
+      storage_path: `pending/${randomUUID()}`,
+      assigned_to: [userId],
+      status: "pending", // File not yet received
+      metadata: {} as Record<string, unknown>,
+      borrower_id: borrowerId ?? null,
+      organization_id: orgUuid,
+      aggregator: responseAggregator,
+      aggregator_id: aggregatorId ?? null, // Save aggregator_id from first webhook
+    }
+
+    const { data: created, error: insErr } = await supabaseAdmin
+      .from("credit_reports")
+      .insert(row as any)
+      .select("id")
+      .single()
+
+    if (insErr || !created?.id) {
+      console.log("[credit/run] Failed to create row:", insErr?.message)
+      return NextResponse.json({ ok: false, error: insErr?.message ?? "Failed to create report row" }, { status: 500 })
+    }
+
+    const reportId = created.id as string
+    console.log("[credit/run] Created report row with ID:", reportId)
+
+    // Seed viewer record so the executing user can view the report
+    try {
+      await supabaseAdmin.from("credit_report_viewers").insert({
+        report_id: reportId,
+        user_id: userId,
+        added_by: userId,
+      } as any)
+    } catch {
+      // non-fatal
+    }
+
+    // Ensure chat mapping for (report, user)
+    let chatIdForUser: string | undefined
+    const { data: existingMap } = await supabaseAdmin
+      .from("credit_report_user_chats")
+      .select("chat_id")
+      .eq("report_id", reportId)
+      .eq("user_id", userId)
+      .maybeSingle()
+
+    chatIdForUser = existingMap?.chat_id as string | undefined
+    if (!chatIdForUser) {
+      const { data: chat } = await supabaseAdmin
+        .from("credit_report_chats")
+        .insert({
+          user_id: userId,
+          organization_id: orgUuid,
+          name: "Credit report chat",
         })
-        const bodyStart = headerEnd + crlf2.length
-        // find next boundary marker
-        let nextMarker = raw.indexOf(Buffer.from(`\r\n--${boundary}`), bodyStart)
-        if (nextMarker === -1) {
-          nextMarker = raw.indexOf(endBoundary, bodyStart)
-          if (nextMarker === -1) nextMarker = raw.length
-        }
-        // Body is up to nextMarker
-        const body = raw.slice(bodyStart, nextMarker)
-        parts.push({ headers, body })
-        // Move idx to after the next boundary marker + CRLF if any
-        const after = raw.indexOf(dashBoundary, nextMarker) // could be end boundary as well
-        if (after === -1) break
-        idx = after + dashBoundary.length + 2
-        // If it was end boundary "--", stop
-        if (raw.slice(after, after + endBoundary.length).equals(endBoundary)) break
+        .select("id")
+        .single()
+      if (chat?.id) {
+        chatIdForUser = chat.id as string
+        await supabaseAdmin.from("credit_report_user_chats").insert({
+          report_id: reportId,
+          user_id: userId,
+          chat_id: chatIdForUser,
+        })
       }
+    }
 
-      // Identify JSON and file parts
-      let meta: any = {}
-      let filePart: { filename: string; contentType: string; data: Buffer } | null = null
-      for (const p of parts) {
-        const cd = p.headers["content-disposition"] || ""
-        const ct = (p.headers["content-type"] || "").toLowerCase()
-        const filenameMatch = /filename="([^"]+)"/i.exec(cd)
-        if (ct.includes("application/json")) {
-          try {
-            meta = JSON.parse(p.body.toString("utf8"))
-          } catch {
-            meta = {}
-          }
-        } else if (filenameMatch) {
-          filePart = {
-            filename: filenameMatch[1],
-            contentType: ct || "application/octet-stream",
-            data: p.body,
-          }
-        }
-      }
+    // ========== STEP 3: Call second webhook with report_id to get the binary file ==========
+    console.log("[credit/run] Step 3: Calling second webhook with report_id:", reportId)
+    console.log("[credit/run] Second webhook URL:", SECOND_WEBHOOK_URL)
+    const resp2 = await fetch(SECOND_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: reportId }),
+    })
+    console.log("[credit/run] Second webhook response status:", resp2.status)
 
-      // Upload file if present
-      let storagePath: string | null = null
-      if (filePart) {
-        const path = buildStoragePath(meta?.report_id, filePart.filename)
-        const { error: upErr } = await supabaseAdmin.storage
-          .from("credit-reports")
-          .upload(path, filePart.data, {
-            contentType: filePart.contentType || "application/pdf",
-            upsert: false,
-          })
-        if (upErr) {
-          return NextResponse.json({ ok: false, status: resp.status, error: upErr.message }, { status: 500 })
-        }
-        storagePath = path
-      }
+    if (!resp2.ok) {
+      // File fetch failed, but row is created with status="pending"
+      const errText = await resp2.text().catch(() => "Unknown error")
+      return NextResponse.json({
+        ok: false,
+        status: resp2.status,
+        error: `File webhook failed: ${errText}`,
+        report_id: reportId,
+        aggregator: responseAggregator,
+        chat_id: chatIdForUser ?? null,
+      }, { status: 500 })
+    }
 
-      // Insert DB row
-      const row = {
-        bucket: "credit-reports",
-        storage_path: storagePath ?? "",
-        assigned_to: [userId],
+    // ========== STEP 4: Handle binary response and upload to storage ==========
+    const contentType2 = resp2.headers.get("content-type") || ""
+    const cd = resp2.headers.get("content-disposition") || ""
+    const filenameMatch = /filename="([^"]+)"/i.exec(cd)
+    const filename = filenameMatch?.[1] || "report.pdf"
+    const safeName = filename.replace(/[^\w.\-]+/g, "_")
+    const uniqueSlug = randomUUID()
+
+    const buf = Buffer.from(await resp2.arrayBuffer())
+    const storagePath = `${orgUuid}/${borrowerId ?? "noborrower"}/${reportId}-${uniqueSlug}-${safeName}`
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("credit-reports")
+      .upload(storagePath, buf, {
+        contentType: contentType2 || "application/pdf",
+        upsert: false,
+      })
+
+    if (upErr) {
+      return NextResponse.json({
+        ok: false,
+        error: `Storage upload failed: ${upErr.message}`,
+        report_id: reportId,
+        aggregator: responseAggregator,
+        chat_id: chatIdForUser ?? null,
+      }, { status: 500 })
+    }
+
+    // ========== STEP 5: Update the row with storage_path, metadata, status="stored" ==========
+    const { error: updateErr } = await supabaseAdmin
+      .from("credit_reports")
+      .update({
+        storage_path: storagePath,
         status: "stored",
         metadata: {
-          contentType: filePart?.contentType ?? null,
-          size: filePart?.data?.length ?? null,
-          originalName: filePart?.filename ?? null,
-        } as any,
-        borrower_id: borrowerId ?? null,
-        organization_id: orgUuid,
-        aggregator: meta?.aggregator ?? null,
-      }
-      const { data: created, error: insErr } = await supabaseAdmin
-        .from("credit_reports")
-        .insert(row as any)
-        .select("id")
-        .single()
-      if (insErr || !created?.id) {
-        return NextResponse.json({ ok: false, status: resp.status, error: insErr.message }, { status: 500 })
-      }
+          contentType: contentType2 || "application/pdf",
+          size: buf.length,
+          originalName: filename,
+        },
+      })
+      .eq("id", reportId)
 
-      // Seed viewer record so the executing user can view the report
-      try {
-        await supabaseAdmin.from("credit_report_viewers").insert({
-          report_id: created.id as string,
-          user_id: userId,
-          added_by: userId,
-        } as any)
-      } catch {
-        // non-fatal
-      }
-
-      // Ensure chat mapping for (report,user)
-      const { data: existingMap } = await supabaseAdmin
-        .from("credit_report_user_chats")
-        .select("chat_id")
-        .eq("report_id", created.id as string)
-        .eq("user_id", userId)
-        .maybeSingle()
-      let chatIdForUser = existingMap?.chat_id as string | undefined
-      if (!chatIdForUser) {
-        const { data: chat, error: chatErr } = await supabaseAdmin
-          .from("credit_report_chats")
-          .insert({
-            user_id: userId,
-            organization_id: orgUuid,
-            name: "Credit report chat",
-          })
-          .select("id")
-          .single()
-        if (chat?.id) {
-          chatIdForUser = chat.id as string
-          await supabaseAdmin.from("credit_report_user_chats").insert({
-            report_id: created.id as string,
-            user_id: userId,
-            chat_id: chatIdForUser,
-          })
-        }
-      }
-
+    if (updateErr) {
       return NextResponse.json({
-        ok: resp.ok,
-        status: resp.status,
-        report_id: meta?.report_id ?? null,
-        aggregator: meta?.aggregator ?? null,
+        ok: false,
+        error: `Failed to update report row: ${updateErr.message}`,
+        report_id: reportId,
         storage_path: storagePath,
+        aggregator: responseAggregator,
         chat_id: chatIdForUser ?? null,
-      })
+      }, { status: 500 })
     }
 
-    // Fallbacks: raw binary (PDF) or JSON-only
-    if (
-      contentType.includes("application/pdf") ||
-      (contentType.startsWith("application/") && !contentType.includes("json") && !contentType.includes("xml"))
-    ) {
-      // Raw binary body (e.g., application/pdf or application/octet-stream)
-      const buf = Buffer.from(await resp.arrayBuffer())
-      const cd = resp.headers.get("content-disposition") || ""
-      const fn = /filename="([^"]+)"/i.exec(cd)?.[1] || "report.pdf"
-      const ctype = contentType || "application/octet-stream"
-
-      const storagePath = buildStoragePath(null, fn)
-      const { error: upErr } = await supabaseAdmin.storage
-        .from("credit-reports")
-        .upload(storagePath, buf, { contentType: ctype, upsert: false })
-      if (upErr) {
-        return NextResponse.json({ ok: false, status: resp.status, error: upErr.message }, { status: 500 })
-      }
-
-      const row = {
-        bucket: "credit-reports",
-        storage_path: storagePath,
-        assigned_to: [userId],
-        status: "stored",
-        metadata: { contentType: ctype, size: buf.length, originalName: fn } as any,
-        borrower_id: borrowerId ?? null,
-        organization_id: orgUuid,
-        aggregator: null,
-      }
-      const { data: createdRaw, error: insErrRaw } = await supabaseAdmin
-        .from("credit_reports")
-        .insert(row as any)
-        .select("id")
-        .single()
-      if (insErrRaw || !createdRaw?.id) {
-        return NextResponse.json({ ok: false, status: resp.status, error: insErrRaw?.message ?? "insert failed" }, { status: 500 })
-      }
-      try {
-        await supabaseAdmin.from("credit_report_viewers").insert({
-          report_id: createdRaw.id as string,
-          user_id: userId,
-          added_by: userId,
-        } as any)
-      } catch {
-        // ignore
-      }
-
-      // Ensure chat mapping for (report,user)
-      const { data: existingMap2 } = await supabaseAdmin
-        .from("credit_report_user_chats")
-        .select("chat_id")
-        .eq("report_id", createdRaw.id as string)
-        .eq("user_id", userId)
-        .maybeSingle()
-      let chatId2 = existingMap2?.chat_id as string | undefined
-      if (!chatId2) {
-        const { data: chat2 } = await supabaseAdmin
-          .from("credit_report_chats")
-          .insert({
-            user_id: userId,
-            organization_id: orgUuid,
-            name: "Credit report chat",
-          })
-          .select("id")
-          .single()
-        if (chat2?.id) {
-          chatId2 = chat2.id as string
-          await supabaseAdmin.from("credit_report_user_chats").insert({
-            report_id: createdRaw.id as string,
-            user_id: userId,
-            chat_id: chatId2,
-          })
-        }
-      }
-
-      return NextResponse.json({
-        ok: resp.ok,
-        status: resp.status,
-        report_id: null,
-        aggregator: null,
-        storage_path: storagePath,
-        chat_id: chatId2 ?? null,
+    // ========== STEP 6: Broadcast realtime event so clients refresh dropdown ==========
+    try {
+      const channel = supabaseAdmin.channel("credit-reports")
+      await channel.send({
+        type: "broadcast",
+        event: "credit_report_stored",
+        payload: {
+          reportId,
+          borrowerId,
+          storage_path: storagePath,
+          filename,
+          organization_id: orgUuid,
+        },
       })
-    } else {
-      // JSON-only
-      const text = await resp.text()
-      let json: any = null
-      if ((contentType || "").includes("application/json")) {
-        try {
-          json = JSON.parse(text)
-        } catch {
-          json = { message: text }
-        }
-      } else {
-        json = { message: text }
-      }
-      return NextResponse.json({ ok: resp.ok, status: resp.status, data: json })
+      await channel.unsubscribe()
+    } catch (e) {
+      console.error("[credit/run] Failed to broadcast credit_report_stored", e)
     }
+
+    // ========== Success ==========
+    return NextResponse.json({
+      ok: true,
+      status: 200,
+      report_id: reportId,
+      aggregator: responseAggregator,
+      aggregator_id: aggregatorId,
+      storage_path: storagePath,
+      chat_id: chatIdForUser ?? null,
+    })
+
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
+    console.error("[credit/run] Unhandled error:", e)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
-

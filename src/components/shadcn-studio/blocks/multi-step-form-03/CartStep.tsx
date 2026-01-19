@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 
 import { Label } from '@/components/ui/label'
@@ -30,6 +30,7 @@ import { isUuid } from '@/lib/uuid'
 import { GiStoneBlock } from 'react-icons/gi'
 import { FaFeatherAlt } from 'react-icons/fa'
 import { Checkbox } from '@/components/ui/checkbox'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 const STATE_OPTIONS = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
@@ -87,6 +88,8 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
   const [files, setFiles] = useState<ReportDoc[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string | undefined>(undefined)
+  const supabase = useMemo(() => createSupabaseBrowser(), [])
+  const refreshAbortRef = useRef<AbortController | null>(null)
 
   // Auto-select the first file when list loads and nothing is selected
   useEffect(() => {
@@ -115,17 +118,28 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
   )
   useEffect(() => {
     let ignore = false
-    async function load() {
+
+    async function load(selectId?: string) {
       if (!currentBorrowerId || stepper.current.id !== 'credit') {
         setFiles([])
         return
       }
       try {
+        refreshAbortRef.current?.abort()
+        const controller = new AbortController()
+        refreshAbortRef.current = controller
         setFilesLoading(true)
-        const res = await fetch(`/api/credit-reports?borrowerId=${encodeURIComponent(currentBorrowerId)}`, { cache: 'no-store' })
+        const res = await fetch(`/api/credit-reports?borrowerId=${encodeURIComponent(currentBorrowerId)}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
         const j = await res.json().catch(() => ({ documents: [] }))
         if (!ignore) {
-          setFiles(Array.isArray(j?.documents) ? j.documents : [])
+          const docs = Array.isArray(j?.documents) ? j.documents : []
+          setFiles(docs)
+          if (selectId && docs.some((d) => d.id === selectId)) {
+            setSelectedReportId(selectId)
+          }
         }
       } catch {
         if (!ignore) setFiles([])
@@ -134,8 +148,51 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
       }
     }
     load()
-    return () => { ignore = true }
+    return () => {
+      ignore = true
+      refreshAbortRef.current?.abort()
+    }
   }, [currentBorrowerId, stepper.current.id])
+
+  // Realtime subscription: refresh list when a credit report is stored
+  useEffect(() => {
+    if (!currentBorrowerId || stepper.current.id !== 'credit') return
+    const channel = supabase.channel('credit-reports')
+    const handler = (payload: { event: string; payload: any }) => {
+      const { borrowerId: evtBorrower, reportId } = payload.payload || {}
+      if (!evtBorrower || evtBorrower !== currentBorrowerId) return
+      // Refresh files and select the new report if present
+      ;(async () => {
+        try {
+          refreshAbortRef.current?.abort()
+          const controller = new AbortController()
+          refreshAbortRef.current = controller
+          setFilesLoading(true)
+          const res = await fetch(`/api/credit-reports?borrowerId=${encodeURIComponent(currentBorrowerId)}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+          })
+          const j = await res.json().catch(() => ({ documents: [] }))
+          const docs = Array.isArray(j?.documents) ? j.documents : []
+          setFiles(docs)
+          if (reportId && docs.some((d) => d.id === reportId)) {
+            setSelectedReportId(reportId)
+          }
+        } catch {
+          // silent
+        } finally {
+          setFilesLoading(false)
+        }
+      })()
+    }
+
+    channel.on('broadcast', { event: 'credit_report_stored' }, handler)
+    channel.subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [currentBorrowerId, stepper.current.id, supabase])
 
   // Prefill borrower data on Credit step
   useEffect(() => {
@@ -705,7 +762,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
           )}
         </div>
       </div>
-      <div className='flex h-full flex-col gap-6'>
+      <div className='flex h-full min-h-0 flex-col gap-6'>
         <div className='flex w-full items-center gap-2'>
           <Button className='h-9 px-4 py-2' onClick={handleRun} disabled={isRunning}>
             Run
@@ -722,7 +779,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
             value={selectedReportId}
             disabled={filesLoading || files.length === 0}
           >
-            <SelectTrigger className='h-9 min-w-[180px]'>
+            <SelectTrigger className='h-9 min-w-[150px]'>
               <SelectValue
                 placeholder={filesLoading ? 'Loading…' : files.length ? 'Files' : 'No files'}
               />
@@ -742,9 +799,9 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
           </Select>
           <Button
             type='button'
-            variant='ghost'
+            variant='outline'
             size='icon'
-            className='h-9 w-9'
+            className='h-9 w-10 shadow-sm'
             disabled={filesLoading || !selectedReport?.url}
             onClick={() => {
               if (!selectedReport?.url) return
@@ -764,7 +821,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
         {effectiveReportId ? (
           <ChatPanel
             key={effectiveReportId}
-            className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden'
+            className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden h-full'
             reportId={effectiveReportId}
           />
         ) : (
