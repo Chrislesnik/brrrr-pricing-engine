@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  AnimatedDialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -592,22 +593,15 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
   if (!row) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] h-[90vh] p-0 border-none shadow-none"
-        onOpenAutoFocus={(e) => {
-          // Prevent auto-focus from scrolling to the bottom; keep the view pinned to the top.
-          e.preventDefault()
-          if (scrollRef.current) {
-            scrollRef.current.scrollTo({ top: 0 })
-          }
-        }}
-      >
-        <div ref={scrollRef} className="h-full overflow-hidden">
-          <DialogTitle className="sr-only">Application workflow</DialogTitle>
-          <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors} />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <AnimatedDialogContent
+      open={open}
+      onOpenChange={onOpenChange}
+      className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] h-[90vh] p-0 border-none shadow-2xl"
+    >
+      <div ref={scrollRef} className="h-full overflow-hidden">
+        <span className="sr-only">Application workflow</span>
+        <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors} />
+      </div>
+    </AnimatedDialogContent>
   )
 }

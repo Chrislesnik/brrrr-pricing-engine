@@ -1,11 +1,17 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
+import { MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { isUuid } from "@/lib/uuid"
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai/conversation"
 
 type ChatMessage = {
   id: string
@@ -28,8 +34,8 @@ export function ChatPanel({
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const bottomRef = useRef<HTMLDivElement | null>(null)
   const [ready, setReady] = useState(false)
+  const [sending, setSending] = useState(false)
 
   // Load chat + latest messages when reportId changes
   useEffect(() => {
@@ -67,12 +73,6 @@ export function ChatPanel({
       active = false
     }
   }, [reportId, onNeedAuth])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
-  const [sending, setSending] = useState(false)
 
   async function send() {
     const normalized = reportId?.trim()
@@ -124,20 +124,24 @@ export function ChatPanel({
   }
 
   return (
-    <div className={cn("flex h-full flex-col gap-3", className)}>
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col gap-3 pr-2">
-          {messages.length === 0 && !sending ? (
-            <div className="text-sm text-muted-foreground">Start chatting with the AI assistant.</div>
-          ) : (
-            messages.map((m) => (
+    <div className={cn("flex flex-col", className)}>
+      <Conversation className="flex-1 min-h-0 overflow-hidden">
+        {messages.length === 0 && !sending ? (
+          <ConversationEmptyState
+            icon={<MessageSquare className="size-8" />}
+            title="No messages yet"
+            description="Start chatting with the AI assistant"
+          />
+        ) : (
+          <ConversationContent className="gap-3 p-2">
+            {messages.map((m) => (
               <div 
                 key={m.id} 
                 className={cn(
-                  "rounded-md p-3 text-sm",
+                  "rounded-lg p-3 text-sm max-w-[85%]",
                   m.user_type === "user" 
-                    ? "bg-primary text-primary-foreground ml-8" 
-                    : "bg-muted mr-8"
+                    ? "bg-primary text-primary-foreground ml-auto" 
+                    : "bg-muted mr-auto"
                 )}
               >
                 <div className={cn(
@@ -148,20 +152,20 @@ export function ChatPanel({
                 </div>
                 <div className="whitespace-pre-wrap">{m.content}</div>
               </div>
-            ))
-          )}
-          {sending && (
-            <div className="rounded-md bg-muted p-3 text-sm mr-8 animate-pulse">
-              <div className="mb-1 text-xs font-medium text-muted-foreground">AI</div>
-              <div className="text-muted-foreground">Thinking...</div>
-            </div>
-          )}
-          {error ? <div className="text-xs text-destructive">{error}</div> : null}
-          <div ref={bottomRef} />
-        </div>
-      </ScrollArea>
+            ))}
+            {sending && (
+              <div className="rounded-lg bg-muted p-3 text-sm mr-auto max-w-[85%] animate-pulse">
+                <div className="mb-1 text-xs font-medium text-muted-foreground">AI</div>
+                <div className="text-muted-foreground">Thinking...</div>
+              </div>
+            )}
+            {error ? <div className="text-xs text-destructive">{error}</div> : null}
+          </ConversationContent>
+        )}
+        <ConversationScrollButton />
+      </Conversation>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pt-3 mt-auto">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}

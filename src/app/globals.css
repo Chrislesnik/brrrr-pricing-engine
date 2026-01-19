@@ -271,3 +271,90 @@
 .animate-table-bounce {
   animation: table-bounce 220ms ease-out;
 }
+
+/* Dialog open animation - expand from tiny to full with spring */
+@keyframes dialog-open {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.3);
+    border-radius: 24px;
+    filter: blur(8px);
+  }
+  40% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+  85% {
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* Dialog close animation - zip back to tiny */
+@keyframes dialog-close {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0px);
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.02);
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.2);
+    filter: blur(8px);
+    border-radius: 32px;
+  }
+}
+
+/* Overlay open animation */
+@keyframes overlay-open {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Overlay close animation */
+@keyframes overlay-close {
+  0% {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* Apply animations to dialog */
+[data-slot="dialog-overlay"][data-state="open"] {
+  animation: overlay-open 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+[data-slot="dialog-overlay"][data-state="closed"] {
+  animation: overlay-close 300ms ease-out forwards;
+}
+
+[data-slot="dialog-content"][data-state="open"] {
+  animation: dialog-open 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+[data-slot="dialog-content"][data-state="closed"] {
+  animation: dialog-close 400ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}

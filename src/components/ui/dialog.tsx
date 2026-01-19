@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { createPortal } from "react-dom"
 import { XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -37,11 +38,94 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/80",
+        "fixed inset-0 z-50 bg-black/60",
         className
       )}
       {...props}
     />
+  )
+}
+
+function AnimatedDialogContent({
+  className,
+  children,
+  hideClose = false,
+  open,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & { 
+  hideClose?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [isVisible, setIsVisible] = React.useState(false)
+  const [isAnimating, setIsAnimating] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
+  
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (open) {
+      setIsVisible(true)
+      // Trigger open animation after mount
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (isVisible) {
+      // Trigger close animation
+      setIsAnimating(false)
+      // Wait for animation to complete before hiding
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+      }, 400) // Match animation duration
+      return () => clearTimeout(timer)
+    }
+  }, [open, isVisible])
+
+  if (!isVisible || !mounted) return null
+
+  const animationState = isAnimating ? "open" : "closed"
+
+  return createPortal(
+    <>
+      <div
+        data-slot="dialog-overlay"
+        data-state={animationState}
+        className="fixed inset-0 z-50 bg-black/60"
+        onClick={() => onOpenChange?.(false)}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        data-slot="dialog-content"
+        data-state={animationState}
+        className={cn(
+          "bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl border p-6 shadow-2xl sm:max-w-lg",
+          className
+        )}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onOpenChange?.(false)
+        }}
+        tabIndex={-1}
+        {...props}
+      >
+        {children}
+        {!hideClose ? (
+          <button
+            onClick={() => onOpenChange?.(false)}
+            className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+          >
+            <XIcon className="size-4" />
+            <span className="sr-only">Close</span>
+          </button>
+        ) : null}
+      </div>
+    </>,
+    document.body
   )
 }
 
@@ -52,19 +136,19 @@ function DialogContent({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & { hideClose?: boolean }) {
   return (
-    <DialogPortal data-slot="dialog-portal">
+    <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+          "bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl border p-6 shadow-2xl sm:max-w-lg",
           className
         )}
         {...props}
       >
         {children}
         {!hideClose ? (
-          <DialogPrimitive.Close className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+          <DialogPrimitive.Close className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
@@ -127,6 +211,7 @@ export {
   Dialog,
   DialogClose,
   DialogContent,
+  AnimatedDialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,

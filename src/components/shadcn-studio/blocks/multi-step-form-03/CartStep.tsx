@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/select'
 import { AddressAutocomplete } from '@/components/address-autocomplete'
 import { ChatPanel } from '@/components/ai/chat-panel'
+import { Shimmer } from '@/components/ai/shimmer'
+import { SparklesSolidIcon } from '@/components/icons/heroicons-sparkles-solid'
+import { motion } from 'motion/react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { isUuid } from '@/lib/uuid'
@@ -736,12 +739,23 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
         {effectiveReportId ? (
           <ChatPanel
             key={effectiveReportId}
-            className='rounded-md border p-4 flex-1 h-full min-h-0 overflow-auto'
+            className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden'
             reportId={effectiveReportId}
           />
         ) : (
-          <div className='rounded-md border p-4 text-sm text-muted-foreground'>
-            Select a report to load chat.
+          <div className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden flex flex-col items-center justify-center text-center gap-4'>
+            <motion.div
+              className="text-muted-foreground"
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+            >
+              <SparklesSolidIcon size={96} />
+            </motion.div>
+            <Shimmer className="text-lg">
+              {stepper.current.id === 'credit' 
+                ? 'Agent ready to assist when credit is ran' 
+                : 'Agent ready to assist when background is ran'}
+            </Shimmer>
           </div>
         )}
       </div>
