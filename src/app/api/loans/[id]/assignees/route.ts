@@ -43,6 +43,21 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
     const userIds = body.userIds.filter((v) => typeof v === "string")
 
+    // Get previous state for diff calculation
+    const { data: loan } = await supabaseAdmin
+      .from("loans")
+      .select("assigned_to_user_id")
+      .eq("id", id)
+      .single()
+    const previousIds = new Set<string>(
+      Array.isArray(loan?.assigned_to_user_id) ? (loan.assigned_to_user_id as string[]) : []
+    )
+    const newIds = new Set<string>(userIds)
+
+    // Calculate diff
+    const added = userIds.filter((uid) => !previousIds.has(uid))
+    const removed = [...previousIds].filter((uid) => !newIds.has(uid))
+
     // Optional: verify userIds belong to the same org
     const orgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null
     if (orgUuid) {
@@ -64,6 +79,31 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       .update({ assigned_to_user_id: userIds })
       .eq("id", id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Log activity for user assignment changes
+    try {
+      if (added.length > 0) {
+        await supabaseAdmin.from("pricing_activity_log").insert({
+          loan_id: id,
+          activity_type: "user_assignment",
+          action: "added",
+          user_id: userId,
+          assigned_to_changes: added,
+        })
+      }
+      if (removed.length > 0) {
+        await supabaseAdmin.from("pricing_activity_log").insert({
+          loan_id: id,
+          activity_type: "user_assignment",
+          action: "deleted",
+          user_id: userId,
+          assigned_to_changes: removed,
+        })
+      }
+    } catch {
+      // Activity logging should not block the main flow
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"

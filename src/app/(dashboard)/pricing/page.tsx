@@ -1612,6 +1612,36 @@ export default function PricingEnginePage() {
     return payload
   }
 
+  // Log term sheet activity (download/share) to the backend
+  async function logTermSheetActivity(
+    action: "downloaded" | "shared",
+    pdfFile: File,
+    scenarioIdOverride?: string | null
+  ) {
+    try {
+      if (!currentLoanId) return // Can't log without a loan
+      const formData = new FormData()
+      formData.append("action", action)
+      formData.append("loanId", currentLoanId)
+      if (scenarioIdOverride ?? selectedScenarioId) {
+        formData.append("scenarioId", scenarioIdOverride ?? selectedScenarioId ?? "")
+      }
+      formData.append("inputs", JSON.stringify(buildPayload()))
+      formData.append("outputs", JSON.stringify(programResults ?? null))
+      formData.append("selected", JSON.stringify(selectedMainRow?.values ?? null))
+      // For now, we upload the same PDF as both original and edited
+      // In the future, we could render a version without orange-box edits for "original"
+      formData.append("originalPdf", pdfFile)
+      formData.append("editedPdf", pdfFile)
+      await fetch("/api/activity/term-sheet", {
+        method: "POST",
+        body: formData,
+      }).catch(() => {})
+    } catch {
+      // Activity logging should not block user flow
+    }
+  }
+
   async function handleCalculate() {
     try {
       // Clear any previously selected row so a fresh calculation doesn't preselect anything
@@ -1858,6 +1888,7 @@ export default function PricingEnginePage() {
         body: JSON.stringify({
           name: name.trim(),
           inputs,
+          outputs: programResults ?? null,
           selected: selectedWithMeta,
           loanId: currentLoanId,
         }),
@@ -2658,6 +2689,7 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride ?? "Scenario",
                               inputs,
+                              outputs: programResults ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -2687,6 +2719,7 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride,
                               inputs,
+                              outputs: programResults ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -4608,6 +4641,8 @@ export default function PricingEnginePage() {
               if (typeof lo === "string" && lo.trim().length > 0) setLenderOrig(lo)
               if (typeof la === "string" && la.trim().length > 0) setAdminFee(la)
             }}
+            loanId={currentLoanId}
+            scenarioId={selectedScenarioId}
           />
         </section>
       </div>
@@ -4756,6 +4791,8 @@ function ResultCard({
   onSelect,
   getInputs,
   memberId,
+  loanId,
+  scenarioId,
 }: {
   r: ProgramResult
   programIdx: number
@@ -4763,6 +4800,8 @@ function ResultCard({
   onSelect: (sel: SelectedRow) => void
   getInputs?: () => Record<string, unknown>
   memberId?: string | null
+  loanId?: string
+  scenarioId?: string
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -4770,6 +4809,26 @@ function ResultCard({
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
   const previewRef = useRef<HTMLDivElement | null>(null)
+
+  // Log term sheet activity for this result card
+  const logCardTermSheetActivity = async (action: "downloaded" | "shared", pdfFile: File) => {
+    try {
+      if (!loanId) return
+      const formData = new FormData()
+      formData.append("action", action)
+      formData.append("loanId", loanId)
+      if (scenarioId) formData.append("scenarioId", scenarioId)
+      formData.append("inputs", JSON.stringify(getInputs?.() ?? null))
+      formData.append("outputs", JSON.stringify([r]))
+      formData.append("selected", JSON.stringify(selected?.values ?? null))
+      formData.append("originalPdf", pdfFile)
+      formData.append("editedPdf", pdfFile)
+      await fetch("/api/activity/term-sheet", { method: "POST", body: formData }).catch(() => {})
+    } catch {
+      // Activity logging should not block user flow
+    }
+  }
+
   // Render the currently open preview into a PDF File
   const renderPreviewToPdf = async (): Promise<File | null> => {
     const root = (previewRef.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
@@ -5615,7 +5674,7 @@ function ResultCard({
           <button
             type="button"
             aria-label="Share term sheet"
-            className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
@@ -5627,9 +5686,11 @@ function ResultCard({
                 const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
                 if (nav?.share && canShareFiles) {
                   await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                  void logCardTermSheetActivity("shared", file)
                 } else {
                   await saveFileWithPrompt(file)
                   toast({ title: "Saved", description: "PDF saved to your device." })
+                  void logCardTermSheetActivity("downloaded", file)
                 }
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unable to share"
@@ -5642,12 +5703,13 @@ function ResultCard({
           <button
             type="button"
             aria-label="Download term sheet"
-            className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
                 if (!file) throw new Error("Could not render PDF")
                 await saveFileWithPrompt(file)
+                void logCardTermSheetActivity("downloaded", file)
               } catch (e) {
                 const message = e instanceof Error ? e.message : "Unknown error"
                 toast({ title: "Download failed", description: message, variant: "destructive" })
@@ -5724,6 +5786,8 @@ function ResultsPanel({
   getInputs,
   memberId,
   onApplyFees,
+  loanId,
+  scenarioId,
 }: {
   results: ProgramResult[]
   loading?: boolean
@@ -5733,6 +5797,8 @@ function ResultsPanel({
   getInputs?: () => Record<string, unknown>
   memberId?: string | null
   onApplyFees?: (lenderOrig?: string, lenderAdminFee?: string) => void
+  loanId?: string
+  scenarioId?: string
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -5759,6 +5825,25 @@ function ResultsPanel({
       // ignore
     }
   }, [selected, results, onApplyFees])
+  // Log term sheet activity from the main results panel
+  const logPanelTermSheetActivity = async (action: "downloaded" | "shared", pdfFile: File) => {
+    try {
+      if (!loanId) return
+      const formData = new FormData()
+      formData.append("action", action)
+      formData.append("loanId", loanId)
+      if (scenarioId) formData.append("scenarioId", scenarioId)
+      formData.append("inputs", JSON.stringify(getInputs?.() ?? null))
+      formData.append("outputs", JSON.stringify(results ?? null))
+      formData.append("selected", JSON.stringify(selected?.values ?? null))
+      formData.append("originalPdf", pdfFile)
+      formData.append("editedPdf", pdfFile)
+      await fetch("/api/activity/term-sheet", { method: "POST", body: formData }).catch(() => {})
+    } catch {
+      // Activity logging should not block user flow
+    }
+  }
+
   useEffect(() => {
     if (!selectedFromProps) return
     // If a program name was saved, remap to current results order and nearest row by price
@@ -6498,7 +6583,7 @@ function ResultsPanel({
               <button
                 type="button"
                 aria-label="Share term sheet"
-                className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
@@ -6525,7 +6610,7 @@ function ResultsPanel({
               <button
                 type="button"
                 aria-label="Download term sheet"
-                className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
@@ -6737,6 +6822,8 @@ function ResultsPanel({
           onSelect={(sel) => setSelected(sel)}
           getInputs={getInputs}
           memberId={memberId}
+          loanId={loanId}
+          scenarioId={scenarioId}
         />
       ))}
         <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
@@ -6747,7 +6834,7 @@ function ResultsPanel({
             <button
               type="button"
               aria-label="Share term sheet"
-              className="absolute top-4 right-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
               onClick={async () => {
                 try {
                   const file = await renderPreviewToPdfMain()
@@ -6759,9 +6846,13 @@ function ResultsPanel({
                   const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
                   if (nav?.share && canShareFiles) {
                     await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                    // Log activity after successful share
+                    void logPanelTermSheetActivity("shared", file)
                   } else {
                     await saveFileWithPrompt(file)
                     toast({ title: "Saved", description: "PDF saved to your device." })
+                    // Log as downloaded since it fell back to download
+                    void logPanelTermSheetActivity("downloaded", file)
                   }
                 } catch (e) {
                   const message = e instanceof Error ? e.message : "Unable to share"
@@ -6774,7 +6865,7 @@ function ResultsPanel({
             <button
               type="button"
               aria-label="Download term sheet"
-              className="absolute top-4 right-12 rounded-xs opacity-70 transition-opacity hover:opacity-100 ring-offset-background focus:ring-ring focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none border-0 bg-transparent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
               onClick={async () => {
                 try {
                   const file = await renderPreviewToPdfMain()
@@ -6787,6 +6878,8 @@ function ResultsPanel({
                   a.click()
                   a.remove()
                   URL.revokeObjectURL(url)
+                  // Log activity
+                  void logPanelTermSheetActivity("downloaded", file)
                 } catch (e) {
                   const message = e instanceof Error ? e.message : "Unknown error"
                   toast({ title: "Download failed", description: message, variant: "destructive" })

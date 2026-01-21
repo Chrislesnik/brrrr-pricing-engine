@@ -8,6 +8,7 @@ export const runtime = "nodejs"
 type SaveScenarioBody = {
   name?: string
   inputs?: Record<string, unknown>
+  outputs?: unknown[] | null
   selected?: Record<string, unknown> | null
   loanId?: string
 }
@@ -139,6 +140,37 @@ export async function POST(req: Request) {
       .single()
     if (scenErr) {
       return NextResponse.json({ error: `Failed to save scenario: ${scenErr.message}` }, { status: 500 })
+    }
+
+    // Log activity for new scenario creation - separate logs for inputs and selection
+    try {
+      // Always log input_changes for new scenario
+      await supabaseAdmin.from("pricing_activity_log").insert({
+        loan_id: loanId,
+        scenario_id: scenario?.id ?? null,
+        activity_type: "input_changes",
+        action: "added",
+        user_id: userId,
+        inputs: body.inputs ?? null,
+        outputs: body.outputs ?? null,
+        selected: null,
+      })
+
+      // Log selection_changed if a selection was made
+      if (body.selected && Object.keys(body.selected).length > 0) {
+        await supabaseAdmin.from("pricing_activity_log").insert({
+          loan_id: loanId,
+          scenario_id: scenario?.id ?? null,
+          activity_type: "selection_changed",
+          action: "added",
+          user_id: userId,
+          inputs: null,
+          outputs: body.outputs ?? null,
+          selected: body.selected,
+        })
+      }
+    } catch {
+      // Activity logging should not block the main flow
     }
 
     return NextResponse.json({ loanId, scenarioId: scenario?.id })

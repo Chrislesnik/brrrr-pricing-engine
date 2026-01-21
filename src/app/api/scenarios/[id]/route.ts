@@ -64,9 +64,18 @@ export async function POST(
     const body = (await req.json().catch(() => ({}))) as {
       name?: string
       inputs?: unknown
+      outputs?: unknown[] | null
       selected?: unknown
       loanId?: string
     }
+
+    // Fetch previous state for comparison
+    const { data: previousScenario } = await supabaseAdmin
+      .from("loan_scenarios")
+      .select("inputs, selected, loan_id")
+      .eq("id", id)
+      .single()
+
     const update: Record<string, unknown> = {}
     if (body.name !== undefined) update.name = body.name
     if (body.inputs !== undefined) {
@@ -87,6 +96,50 @@ export async function POST(
       .select("id, name, inputs, selected, loan_id, primary")
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Log activity for scenario update - compare and log separately
+    try {
+      const loanId = data?.loan_id ?? body.loanId ?? null
+
+      // Compare inputs
+      const inputsChanged = body.inputs !== undefined && 
+        JSON.stringify(previousScenario?.inputs) !== JSON.stringify(body.inputs)
+      
+      // Compare selection
+      const selectionChanged = body.selected !== undefined && 
+        JSON.stringify(previousScenario?.selected) !== JSON.stringify(body.selected)
+
+      // Log input_changes if inputs actually changed
+      if (inputsChanged) {
+        await supabaseAdmin.from("pricing_activity_log").insert({
+          loan_id: loanId,
+          scenario_id: id,
+          activity_type: "input_changes",
+          action: "changed",
+          user_id: userId,
+          inputs: body.inputs ?? null,
+          outputs: body.outputs ?? null,
+          selected: null,
+        })
+      }
+
+      // Log selection_changed if selection actually changed
+      if (selectionChanged) {
+        await supabaseAdmin.from("pricing_activity_log").insert({
+          loan_id: loanId,
+          scenario_id: id,
+          activity_type: "selection_changed",
+          action: "changed",
+          user_id: userId,
+          inputs: null,
+          outputs: body.outputs ?? null,
+          selected: body.selected ?? null,
+        })
+      }
+    } catch {
+      // Activity logging should not block the main flow
+    }
+
     return NextResponse.json({ scenario: data })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"

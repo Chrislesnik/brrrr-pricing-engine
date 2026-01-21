@@ -38,7 +38,10 @@ import { Input } from "@/components/ui/input"
 import { CopyButton } from "@/components/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
 import { IconDots } from "@tabler/icons-react"
-import { Calculator, ClipboardList, FileSignature, Users, Trash2 } from "lucide-react"
+import { Calculator, ClipboardList, FileSignature, Users, Trash2, History, Filter, Tag, FileText, MessageSquare, User, Download, Share2, UserPlus, UserMinus, FileEdit, Save, Loader2, MousePointerClick } from "lucide-react"
+import { createSupabaseBrowser } from "@/lib/supabase-browser"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Switch } from "@/components/ui/switch"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
@@ -318,6 +321,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
   const [entityIds, setEntityIds] = React.useState<string[]>([])
   const [entityName, setEntityName] = React.useState<string | null>(null)
   const [loadingGuarantors, setLoadingGuarantors] = React.useState(false)
+  const [activityOpen, setActivityOpen] = React.useState(false)
   React.useEffect(() => {
     let active = true
     async function load() {
@@ -451,6 +455,16 @@ function RowActions({ id, status }: { id: string; status?: string }) {
             <Users className="h-4 w-4" />
             Assigned To
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setActivityOpen(true)
+            }}
+            className="gap-2"
+          >
+            <History className="h-4 w-4" />
+            Activity Log
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
           <DropdownMenuItem
@@ -528,6 +542,306 @@ function RowActions({ id, status }: { id: string; status?: string }) {
         onOpenChange={setAssignOpen}
         onSaved={() => {}}
       />
+      <Dialog open={activityOpen} onOpenChange={setActivityOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Activity Log</DialogTitle>
+          </DialogHeader>
+          <ActivityLogContent loanId={id} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// Activity Log Types
+interface ActivityLog {
+  id: string
+  loan_id: string
+  scenario_id: string | null
+  activity_type: "input_changes" | "selection_changed" | "user_assignment" | "term_sheet"
+  action: "changed" | "added" | "deleted" | "downloaded" | "shared"
+  created_at: string
+  user_id: string
+  user_name: string
+  user_initials: string
+  assigned_to_changes: string[] | null
+  assigned_names: string[]
+  inputs: Record<string, unknown> | null
+  outputs: Record<string, unknown> | null
+  selected: Record<string, unknown> | null
+  term_sheet_original_path: string | null
+  term_sheet_edit_path: string | null
+}
+
+// Format activity type and action to natural language
+function formatActivityDescription(log: ActivityLog): { action: string; detail?: string } {
+  const { activity_type, action, assigned_names } = log
+
+  switch (activity_type) {
+    case "input_changes":
+      if (action === "added") {
+        return { action: "created a new scenario" }
+      }
+      return { action: "updated scenario inputs" }
+
+    case "selection_changed":
+      if (action === "added") {
+        return { action: "selected a program" }
+      }
+      return { action: "changed selected program" }
+
+    case "user_assignment":
+      if (action === "added" && assigned_names.length > 0) {
+        const names = assigned_names.join(", ")
+        return { action: "added", detail: names + " to loan" }
+      }
+      if (action === "deleted" && assigned_names.length > 0) {
+        const names = assigned_names.join(", ")
+        return { action: "removed", detail: names + " from loan" }
+      }
+      return { action: action === "added" ? "added users to loan" : "removed users from loan" }
+
+    case "term_sheet":
+      if (action === "downloaded") {
+        return { action: "downloaded term sheet" }
+      }
+      if (action === "shared") {
+        return { action: "shared term sheet" }
+      }
+      return { action: `${action} term sheet` }
+
+    default:
+      return { action: `${action}` }
+  }
+}
+
+// Get icon for activity type
+function getActivityTypeIcon(log: ActivityLog) {
+  const { activity_type, action } = log
+
+  switch (activity_type) {
+    case "input_changes":
+      return action === "added" ? (
+        <Save className="text-muted-foreground h-4 w-4" />
+      ) : (
+        <FileEdit className="text-muted-foreground h-4 w-4" />
+      )
+    case "selection_changed":
+      return (
+        <MousePointerClick className="text-muted-foreground h-4 w-4" />
+      )
+    case "user_assignment":
+      return action === "added" ? (
+        <UserPlus className="text-muted-foreground h-4 w-4" />
+      ) : (
+        <UserMinus className="text-muted-foreground h-4 w-4" />
+      )
+    case "term_sheet":
+      return action === "shared" ? (
+        <Share2 className="text-muted-foreground h-4 w-4" />
+      ) : (
+        <Download className="text-muted-foreground h-4 w-4" />
+      )
+    default:
+      return <FileText className="text-muted-foreground h-4 w-4" />
+  }
+}
+
+// Format date for grouping header: "SUNDAY, 06 MARCH"
+function formatDateHeader(dateStr: string): string {
+  const date = new Date(dateStr)
+  return format(date, "EEEE, dd MMMM").toUpperCase()
+}
+
+// Format time: "06:20 PM"
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  return format(date, "hh:mm a")
+}
+
+// Group logs by date
+function groupLogsByDate(logs: ActivityLog[]): Map<string, ActivityLog[]> {
+  const groups = new Map<string, ActivityLog[]>()
+  for (const log of logs) {
+    const dateKey = formatDateHeader(log.created_at)
+    const existing = groups.get(dateKey) ?? []
+    existing.push(log)
+    groups.set(dateKey, existing)
+  }
+  return groups
+}
+
+function ActivityLogContent({ loanId }: { loanId: string }) {
+  const [logs, setLogs] = React.useState<ActivityLog[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+
+  // Fetch initial data
+  React.useEffect(() => {
+    let active = true
+
+    async function fetchLogs() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/loans/${loanId}/activity`, { cache: "no-store" })
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error ?? `Failed to fetch: ${res.status}`)
+        }
+        const data = (await res.json()) as { logs: ActivityLog[] }
+        if (active) {
+          setLogs(data.logs ?? [])
+        }
+      } catch (e) {
+        if (active) {
+          setError(e instanceof Error ? e.message : "Unknown error")
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchLogs()
+    return () => {
+      active = false
+    }
+  }, [loanId])
+
+  // Real-time subscription
+  React.useEffect(() => {
+    const supabase = createSupabaseBrowser()
+
+    const channel = supabase
+      .channel(`activity-log-${loanId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "pricing_activity_log",
+          filter: `loan_id=eq.${loanId}`,
+        },
+        async (payload) => {
+          // Refetch to get user name info
+          const res = await fetch(`/api/loans/${loanId}/activity`, { cache: "no-store" })
+          if (res.ok) {
+            const data = (await res.json()) as { logs: ActivityLog[] }
+            setLogs(data.logs ?? [])
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [loanId])
+
+  const groupedLogs = React.useMemo(() => groupLogsByDate(logs), [logs])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading activity...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <span className="text-sm text-red-500">Error: {error}</span>
+      </div>
+    )
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <History className="h-12 w-12 text-muted-foreground/50 mb-3" />
+        <span className="text-sm text-muted-foreground">No activity yet</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full">
+      {/* Filter Controls */}
+      <div className="mb-6 flex items-center justify-end gap-3 md:gap-4">
+        <Button variant="ghost" size="icon">
+          <Filter className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Activity Timeline */}
+      <div className="space-y-4 md:space-y-6">
+        {Array.from(groupedLogs.entries()).map(([dateHeader, dateGroup]) => (
+          <div key={dateHeader}>
+            {/* Date Header */}
+            <div className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase md:mb-4 md:text-sm">
+              {dateHeader}
+            </div>
+
+            {/* Activities for this date */}
+            {dateGroup.map((log, idx) => {
+              const { action, detail } = formatActivityDescription(log)
+              const isLastInGroup = idx === dateGroup.length - 1
+
+              return (
+                <div key={log.id} className="mb-4">
+                  {/* Activity Item */}
+                  <div className="relative flex gap-2 md:gap-3">
+                    {/* Timeline Line */}
+                    {!isLastInGroup && (
+                      <div className="bg-border absolute top-10 bottom-0 left-3 w-px md:top-12 md:left-4" />
+                    )}
+
+                    {/* Avatar */}
+                    <div className="relative z-10">
+                      <Avatar className="h-6 w-6 md:h-8 md:w-8">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+                          {log.user_initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+
+                    {/* Content */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 text-xs md:text-sm">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <span className="text-foreground font-medium">{log.user_name}</span>
+                          <span className="text-muted-foreground">{action}</span>
+                          {detail && (
+                            <span className="text-foreground font-medium">{detail}</span>
+                          )}
+                        </div>
+                        <span className="text-muted-foreground text-xs md:text-sm whitespace-nowrap">
+                          {formatTime(log.created_at)}
+                        </span>
+                      </div>
+
+                      {/* Activity type icon badge */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="bg-muted flex h-6 w-6 items-center justify-center rounded-full">
+                          {getActivityTypeIcon(log)}
+                        </div>
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {log.activity_type.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
