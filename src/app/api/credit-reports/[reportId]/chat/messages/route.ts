@@ -6,7 +6,7 @@ import { getChatIdForMapping, insertMessage, isUuid } from "@/lib/chat"
 
 export const runtime = "nodejs"
 
-const AGENT_WEBHOOK = "https://n8n.axora.info/webhook-test/57c5747c-1b1c-4446-be6c-d604a6c37908"
+const AGENT_WEBHOOK = "https://n8n.axora.info/webhook/57c5747c-1b1c-4446-be6c-d604a6c37908"
 
 export async function POST(
   req: NextRequest,
@@ -38,7 +38,7 @@ export async function POST(
     const userMessage = await insertMessage(chatId, userId, orgUuid, content, userType)
 
     // Call webhook and wait for AI response
-    let agentMessage = null
+    const agentMessages: any[] = []
     try {
       const webhookRes = await fetch(AGENT_WEBHOOK, {
         method: "POST",
@@ -54,18 +54,41 @@ export async function POST(
       
       if (webhookRes.ok) {
         const webhookData = await webhookRes.json().catch(() => null)
-        // Extract AI response - support multiple possible field names
-        const aiContent = 
-          webhookData?.response || 
-          webhookData?.content || 
-          webhookData?.message || 
-          webhookData?.output ||
-          webhookData?.text ||
-          (typeof webhookData === "string" ? webhookData : null)
-        
-        if (aiContent && typeof aiContent === "string" && aiContent.trim()) {
-          // Store AI response in database
-          agentMessage = await insertMessage(chatId, "agent", orgUuid, aiContent.trim(), "agent")
+
+        // Prefer structured array responses: response.output.items | output.items | items
+        const rawItems =
+          (Array.isArray(webhookData?.response?.output?.items) && webhookData.response.output.items) ||
+          (Array.isArray(webhookData?.output?.items) && webhookData.output.items) ||
+          (Array.isArray(webhookData?.items) && webhookData.items) ||
+          null
+
+        if (Array.isArray(rawItems) && rawItems.length) {
+          for (const item of rawItems) {
+            const statusRaw = typeof item?.status === "string" ? item.status.toLowerCase() : "neutral"
+            const status =
+              statusRaw === "pass" || statusRaw === "fail" || statusRaw === "warning" || statusRaw === "neutral"
+                ? statusRaw
+                : "neutral"
+            const message = typeof item?.message === "string" ? item.message : null
+            if (!message) continue
+            const serialized = JSON.stringify({ status, message })
+            const saved = await insertMessage(chatId, "agent", orgUuid, serialized, "agent")
+            agentMessages.push(saved)
+          }
+        } else {
+          // Fallback to legacy single-string content fields
+          const aiContent =
+            webhookData?.response ||
+            webhookData?.content ||
+            webhookData?.message ||
+            webhookData?.output ||
+            webhookData?.text ||
+            (typeof webhookData === "string" ? webhookData : null)
+
+          if (aiContent && typeof aiContent === "string" && aiContent.trim()) {
+            const saved = await insertMessage(chatId, "agent", orgUuid, aiContent.trim(), "agent")
+            agentMessages.push(saved)
+          }
         }
       }
     } catch (_e) {
@@ -75,7 +98,8 @@ export async function POST(
 
     return NextResponse.json({ 
       message: userMessage,
-      agentMessage: agentMessage 
+      agentMessage: agentMessages[0] ?? null,
+      agentMessages, // new shape for multi-item responses
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"

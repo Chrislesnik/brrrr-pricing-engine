@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
+import { SearchIcon, LoaderCircleIcon } from "lucide-react"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -22,6 +23,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
+import { TagsInput, TagsInputList, TagsInputInput, TagsInputItem } from "@/components/ui/tags-input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -543,11 +545,13 @@ export default function PricingEnginePage() {
   const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined)
   const [hasSessionEntity, setHasSessionEntity] = useState<boolean>(false)
+  const [entityLoading, setEntityLoading] = useState(false)
   // Guarantor suggestions
   const [showGuarantorSuggestions, setShowGuarantorSuggestions] = useState(false)
   const [guarantorSuggestions, setGuarantorSuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
   const [guarantorQuery, setGuarantorQuery] = useState("")
-  const [hasSessionGuarantors, setHasSessionGuarantors] = useState<boolean>(false)
+  // hasSessionGuarantors removed - linked status is now tracked per-tag in guarantorTags array
+  const [guarantorLoading, setGuarantorLoading] = useState(false)
 
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
@@ -603,11 +607,13 @@ export default function PricingEnginePage() {
     let cancelled = false
     if (!showEntitySuggestions) {
       setEntitySuggestions([])
+      setEntityLoading(false)
       return
     }
     const qRaw = entityQuery
     const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
     const ctrl = new AbortController()
+    setEntityLoading(true)
     ;(async () => {
       try {
         const res = await fetch(`/api/applicants/entities?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, cache: "no-store" })
@@ -623,6 +629,8 @@ export default function PricingEnginePage() {
         setEntitySuggestions(opts)
       } catch {
         // ignore
+      } finally {
+        if (!cancelled) setEntityLoading(false)
       }
     })()
     return () => {
@@ -636,11 +644,13 @@ export default function PricingEnginePage() {
     let cancelled = false
     if (!showGuarantorSuggestions) {
       setGuarantorSuggestions([])
+      setGuarantorLoading(false)
       return
     }
     const qRaw = guarantorQuery
     const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
     const ctrl = new AbortController()
+    setGuarantorLoading(true)
     ;(async () => {
       try {
         const url = new URL("/api/applicants/borrowers", window.location.origin)
@@ -659,6 +669,8 @@ export default function PricingEnginePage() {
         setGuarantorSuggestions(opts)
       } catch {
         // ignore
+      } finally {
+        if (!cancelled) setGuarantorLoading(false)
       }
     })()
     return () => {
@@ -829,72 +841,10 @@ export default function PricingEnginePage() {
   const [lenderOrig, setLenderOrig] = useState<string>("")
   const [brokerOrig, setBrokerOrig] = useState<string>("")
   const [borrowerName, setBorrowerName] = useState<string>("")
-  const [guarantorsStr, setGuarantorsStr] = useState<string>("")
-  const [selectedGuarantors, setSelectedGuarantors] = useState<Array<{ id: string; name: string }>>([])
+  const [guarantorTags, setGuarantorTags] = useState<Array<{ name: string; id?: string }>>([])
   const [uwException, setUwException] = useState<string | undefined>(undefined)
-  // Restore cached selected borrower (entity) from localStorage, but do not prefill value/touched; use as placeholders + linked state
-  useEffect(() => {
-    try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem("pricing.selectedBorrower") : null
-      if (raw) {
-        const parsed = JSON.parse(raw) as { id?: string; name?: string } | null
-        const id = parsed?.id
-        const name = parsed?.name
-        if (id && name) {
-          setSelectedEntityId(id)
-          setBorrowerName((prev) => prev || name)
-          setHasSessionEntity(true)
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [])
-  // Restore cached selected guarantors from localStorage, but do not prefill value/touched; use as placeholders + linked state
-  useEffect(() => {
-    try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem("pricing.selectedGuarantors") : null
-      if (raw) {
-        const arr = JSON.parse(raw) as Array<{ id: string; name: string }>
-        if (Array.isArray(arr) && arr.length > 0) {
-          setSelectedGuarantors(arr)
-          setGuarantorsStr((prev) => (prev ? prev : arr.map((g) => g.name).join(", ")))
-          setHasSessionGuarantors(true)
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [])
-  // Cache selected borrower (entity) to localStorage
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return
-      if (selectedEntityId) {
-        window.localStorage.setItem(
-          "pricing.selectedBorrower",
-          JSON.stringify({ id: selectedEntityId, name: borrowerName })
-        )
-      } else {
-        window.localStorage.removeItem("pricing.selectedBorrower")
-      }
-    } catch {
-      // ignore
-    }
-  }, [selectedEntityId, borrowerName])
-  // Cache selected guarantors to localStorage
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return
-      if (selectedGuarantors.length > 0) {
-        window.localStorage.setItem("pricing.selectedGuarantors", JSON.stringify(selectedGuarantors))
-      } else {
-        window.localStorage.removeItem("pricing.selectedGuarantors")
-      }
-    } catch {
-      // ignore
-    }
-  }, [selectedGuarantors])
+  // Note: We no longer restore/cache borrower/guarantor links from localStorage.
+  // Links are only established when user selects from dropdown or loads a saved scenario.
   const [section8, setSection8] = useState<string | undefined>(undefined)
   const [glaExpansion, setGlaExpansion] = useState<string | undefined>(undefined) // Bridge rehab
   const [changeOfUse, setChangeOfUse] = useState<string | undefined>(undefined) // Bridge rehab
@@ -953,7 +903,7 @@ export default function PricingEnginePage() {
       loanStructureType: "fixed-30" as string,
       ppp: "5-4-3-2-1" as string,
       borrowerName: "Borrowing Entity LLC" as string,
-      guarantorsStr: "First Last" as string,
+      guarantorPlaceholder: "First Last" as string,
       uwException: "no" as string,
       section8: "no" as string,
       glaExpansion: "no" as string,
@@ -1009,7 +959,7 @@ export default function PricingEnginePage() {
     setIfUnsetString(loanStructureType, (v) => setLoanStructureType(v), DEFAULTS.loanStructureType)
     setIfUnsetString(ppp, (v) => setPpp(v), DEFAULTS.ppp)
     setIfUnsetString(borrowerName, (v) => setBorrowerName(v), DEFAULTS.borrowerName)
-    setIfUnsetString(guarantorsStr, (v) => setGuarantorsStr(v), DEFAULTS.guarantorsStr)
+    // guarantorTags is now an array, no default string needed
     setIfUnsetString(uwException, (v) => setUwException(v), DEFAULTS.uwException)
     setIfUnsetString(section8, (v) => setSection8(v), DEFAULTS.section8)
     setIfUnsetString(glaExpansion, (v) => setGlaExpansion(v), DEFAULTS.glaExpansion)
@@ -1039,7 +989,6 @@ export default function PricingEnginePage() {
     loanStructureType,
     ppp,
     borrowerName,
-    guarantorsStr,
     uwException,
     section8,
     glaExpansion,
@@ -1582,11 +1531,8 @@ export default function PricingEnginePage() {
       rural: rural ?? DEFAULTS.rural,
       borrower_name: borrowerName,
       borrower_entity_id: selectedEntityId ?? null,
-      guarantors: (guarantorsStr || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      guarantor_borrower_ids: selectedGuarantors.map((g) => g.id),
+      guarantors: guarantorTags.map((t) => t.name),
+      guarantor_borrower_ids: guarantorTags.filter((t) => t.id).map((t) => t.id!),
       uw_exception: uwException ?? "",
       // Origination null semantics and alias
       lender_orig_percent: (() => {
@@ -2261,24 +2207,15 @@ export default function PricingEnginePage() {
       setHasSessionEntity(true)
     }
     const guarantorNames = Array.isArray(payload["guarantors"]) ? (payload["guarantors"] as string[]) : []
-    if (guarantorNames.length > 0) {
-      setGuarantorsStr(guarantorNames.join(", "))
-    } else {
-      setGuarantorsStr("")
-    }
     const guarantorIds = Array.isArray(payload["guarantor_borrower_ids"])
       ? (payload["guarantor_borrower_ids"] as unknown[]).filter((g): g is string => typeof g === "string" && g.length > 0)
       : []
-    if (guarantorIds.length > 0) {
-      const combined = guarantorIds.map((id, idx) => ({
-        id,
-        name: guarantorNames[idx] ?? "",
-      }))
-      setSelectedGuarantors(combined)
-      setHasSessionGuarantors(true)
-    } else {
-      setSelectedGuarantors([])
-    }
+    // Build guarantorTags array - names with optional IDs
+    const loadedTags: Array<{ name: string; id?: string }> = guarantorNames.map((name, idx) => ({
+      name,
+      id: guarantorIds[idx] ?? undefined,
+    }))
+    setGuarantorTags(loadedTags)
     if ("rural" in payload) setRural((payload["rural"] as string) ?? undefined)
     if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
     if ("section8" in payload) setSection8((payload["section8"] as string) ?? undefined)
@@ -4227,6 +4164,10 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="borrower-name">Borrower Name</Label>
                         <div className="relative">
+                          <div className="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center pl-3 peer-disabled:opacity-50">
+                            <SearchIcon className="size-4" />
+                            <span className="sr-only">Search</span>
+                          </div>
                           <Input
                             id="borrower-name"
                             placeholder={borrowerName || DEFAULTS.borrowerName}
@@ -4245,9 +4186,19 @@ export default function PricingEnginePage() {
                               setEntityQuery(seed.length > 0 ? seed : "*")
                               setShowEntitySuggestions(true)
                             }}
-                            className={`${selectedEntityId && hasSessionEntity ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
+                            onBlur={() => {
+                              // Delay to allow clicking on suggestions before closing
+                              setTimeout(() => setShowEntitySuggestions(false), 150)
+                            }}
+                            className={`peer pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none ${selectedEntityId && hasSessionEntity ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
                             autoComplete="off"
                           />
+                          {entityLoading && (
+                            <div className="text-muted-foreground pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center pr-3 peer-disabled:opacity-50">
+                              <LoaderCircleIcon className="size-4 animate-spin" />
+                              <span className="sr-only">Loading...</span>
+                            </div>
+                          )}
                           {showEntitySuggestions && entitySuggestions.length > 0 && (
                             <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
                               <ul className="max-h-56 overflow-auto">
@@ -4256,7 +4207,8 @@ export default function PricingEnginePage() {
                                     <button
                                       type="button"
                                       className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
-                                      onClick={() => {
+                                      onMouseDown={(e) => {
+                                        e.preventDefault() // Prevent blur from firing
                                         setBorrowerName(opt.name)
                                         setTouched((t) => ({ ...t, borrowerName: true }))
                                         setShowEntitySuggestions(false)
@@ -4276,40 +4228,63 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="guarantors">Guarantor(s)</Label>
                         <div className="relative">
-                          <Input
-                            id="guarantors"
-                            placeholder={guarantorsStr || DEFAULTS.guarantorsStr}
-                            value={!touched.guarantorsStr ? "" : guarantorsStr}
-                            onChange={(e) => {
-                              const v = e.target.value
-                              setGuarantorsStr(v)
-                              setTouched((t) => ({ ...t, guarantorsStr: true }))
-                              const token = v.split(",").pop()?.trim() ?? ""
-                              if (token.length > 0) {
-                                setShowGuarantorSuggestions(true)
-                                setGuarantorQuery(token)
-                              } else {
-                                setShowGuarantorSuggestions(false)
-                              }
-                              if (selectedGuarantors.length > 0) {
-                                setSelectedGuarantors([])
-                                setHasSessionGuarantors(false)
-                              }
+                          <TagsInput
+                            value={guarantorTags.map((t) => t.name)}
+                            onValueChange={(newValues) => {
+                              // Keep only tags whose names are still in the new values
+                              setGuarantorTags((prev) => prev.filter((t) => newValues.includes(t.name)))
                             }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault()
-                                setShowGuarantorSuggestions(false)
-                              }
-                            }}
-                            onFocus={() => {
-                              const token = guarantorsStr.split(",").pop()?.trim() ?? ""
-                              setGuarantorQuery(token.length > 0 ? token : "*")
-                              setShowGuarantorSuggestions(true)
-                            }}
-                            className={`${selectedGuarantors.length > 0 && hasSessionGuarantors ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
-                            autoComplete="off"
-                          />
+                            className="w-full"
+                          >
+                            <TagsInputList className="min-h-9 px-3 py-1">
+                              <SearchIcon className="size-4 text-muted-foreground mr-1 shrink-0" />
+                              {guarantorTags.map((tag, idx) => (
+                                <TagsInputItem
+                                  key={`${tag.name}-${idx}`}
+                                  value={tag.name}
+                                  className={tag.id ? "border-blue-500 ring-1 ring-blue-500" : ""}
+                                >
+                                  {tag.name}
+                                </TagsInputItem>
+                              ))}
+                              <TagsInputInput
+                                id="guarantors"
+                                placeholder={guarantorTags.length === 0 ? DEFAULTS.guarantorPlaceholder : ""}
+                                value={guarantorQuery}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setGuarantorQuery(v)
+                                  if (v.trim().length > 0) {
+                                    setShowGuarantorSuggestions(true)
+                                  } else {
+                                    setShowGuarantorSuggestions(false)
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && guarantorQuery.trim()) {
+                                    e.preventDefault()
+                                    // Add as unlinked tag
+                                    setGuarantorTags((prev) => [...prev, { name: guarantorQuery.trim() }])
+                                    setGuarantorQuery("")
+                                    setShowGuarantorSuggestions(false)
+                                  }
+                                }}
+                                onFocus={() => {
+                                  if (guarantorQuery.trim().length > 0) {
+                                    setShowGuarantorSuggestions(true)
+                                  }
+                                }}
+                                onBlur={() => {
+                                  // Delay to allow clicking on suggestions before closing
+                                  setTimeout(() => setShowGuarantorSuggestions(false), 150)
+                                }}
+                                autoComplete="off"
+                              />
+                              {guarantorLoading && (
+                                <LoaderCircleIcon className="size-4 animate-spin text-muted-foreground shrink-0" />
+                              )}
+                            </TagsInputList>
+                          </TagsInput>
                           {showGuarantorSuggestions && guarantorSuggestions.length > 0 && (
                             <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
                               <ul className="max-h-56 overflow-auto">
@@ -4318,26 +4293,11 @@ export default function PricingEnginePage() {
                                     <button
                                       type="button"
                                       className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
-                                      onClick={() => {
-                                        const parts = guarantorsStr.split(",").map((s) => s.trim()).filter(Boolean)
-                                        // replace the current token with selected name
-                                        parts.pop()
-                                        parts.push(opt.name)
-                                        setGuarantorsStr(parts.join(", "))
-                                        setTouched((t) => ({ ...t, guarantorsStr: true }))
-                                        // track selected guarantor IDs aligned to current tokens
-                                        setSelectedGuarantors((prev) => {
-                                          const nameToId = new Map(prev.map((g) => [g.name, g.id]))
-                                          nameToId.set(opt.name, opt.id)
-                                          const ordered = parts
-                                            .map((n) => {
-                                              const id = nameToId.get(n)
-                                              return id ? { name: n, id } : null
-                                            })
-                                            .filter(Boolean) as Array<{ name: string; id: string }>
-                                          return ordered
-                                        })
-                                        setHasSessionGuarantors(true)
+                                      onMouseDown={(e) => {
+                                        e.preventDefault() // Prevent blur from firing
+                                        // Add as linked tag with borrower ID
+                                        setGuarantorTags((prev) => [...prev, { name: opt.name, id: opt.id }])
+                                        setGuarantorQuery("")
                                         setShowGuarantorSuggestions(false)
                                       }}
                                     >

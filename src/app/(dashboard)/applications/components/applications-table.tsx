@@ -17,6 +17,21 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Upload, X } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -62,6 +77,7 @@ export function ApplicationsTable({ data }: Props) {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [linkedRows, setLinkedRows] = useState<Record<string, boolean>>({})
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [uploadContext, setUploadContext] = useState<{ id: string; borrower?: string | null } | null>(null)
   const [startModalRow, setStartModalRow] = useState<AppRow | null>(null)
   const [liveData, setLiveData] = useState<Record<string, Pick<AppRow, "signingProgressPct" | "signingSigned" | "signingTotal">>>({})
@@ -164,29 +180,45 @@ export function ApplicationsTable({ data }: Props) {
       {
         header: "Loan ID",
         accessorKey: "id",
+        meta: { className: "w-[18%]" },
         cell: ({ row }) => <span className="text-sm font-medium">{row.getValue("id") || "-"}</span>,
       },
       {
         header: "Property Address",
         accessorKey: "propertyAddress",
+        meta: { className: "w-[32%]" },
         cell: ({ row }) => <span className="text-muted-foreground text-sm">{row.getValue("propertyAddress") || "-"}</span>,
       },
       {
-        header: "Status",
-        accessorKey: "status",
-        cell: ({ row }) => {
-          const progressVal = row.original.progress ?? 0
-          const normalized = Math.max(0, Math.min(100, progressVal))
-          const derivedStatus =
-            normalized >= 100 ? "received" : normalized > 0 ? "pending" : "draft"
-
+        id: "status",
+        header: ({ column }) => (
+          <StatusFilterMenu
+            label="Status"
+            options={[
+              { id: "draft", label: "Draft" },
+              { id: "pending", label: "Pending" },
+              { id: "received", label: "Received" },
+            ]}
+            selected={statusFilter}
+            onChange={(next) => {
+              setStatusFilter(next)
+              column.setFilterValue(next)
+            }}
+          />
+        ),
+        accessorFn: (row) => {
+          const val = row.progress ?? 0
+          const normalized = Math.max(0, Math.min(100, val))
+          return normalized >= 100 ? "received" : normalized > 0 ? "pending" : "draft"
+        },
+        cell: ({ getValue }) => {
+          const derivedStatus = (getValue() as string) ?? "draft"
           const badgeClasses: Record<string, string> = {
             draft: "bg-gray-100 text-gray-700 border-transparent",
             pending: "bg-amber-100 text-amber-700 border-transparent",
             received: "bg-green-100 text-green-700 border-transparent",
             default: "bg-muted text-muted-foreground border-transparent",
           }
-
           return (
             <span
               className={cn(
@@ -198,10 +230,17 @@ export function ApplicationsTable({ data }: Props) {
             </span>
           )
         },
+        filterFn: (row, columnId, filterValue) => {
+          const val = (row.getValue<string>(columnId) ?? "").toString().toLowerCase()
+          const arr = Array.isArray(filterValue) ? filterValue : []
+          if (!arr.length) return true
+          return arr.includes(val)
+        },
       },
       {
         header: "Progress",
         accessorKey: "progress",
+        meta: { className: "w-[18%]" },
         cell: ({ row }) => {
           const signed = row.original.signingSigned ?? 0
           const total = row.original.signingTotal ?? 0
@@ -250,7 +289,7 @@ export function ApplicationsTable({ data }: Props) {
         enableHiding: false,
       },
     ]
-  }, [expandedRows, linkedRows])
+  }, [expandedRows, linkedRows, statusFilter])
 
   const augmentedData = useMemo<AppRow[]>(
     () =>
@@ -300,7 +339,9 @@ export function ApplicationsTable({ data }: Props) {
       <div className="border-b">
         <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="font-medium">Applications</span>
-          <Filter column={table.getColumn("search")!} />
+          <div className="flex items-center gap-3 flex-wrap">
+            <Filter column={table.getColumn("search")!} />
+          </div>
         </div>
         <Table>
           <TableHeader>
@@ -512,6 +553,74 @@ function Filter({ column }: { column: any }) {
         type="text"
       />
     </div>
+  )
+}
+
+interface StatusFilterMenuProps {
+  label: string
+  options: Array<{ id: string; label: string }>
+  selected: string[]
+  onChange: (next: string[]) => void
+}
+
+function StatusFilterMenu({ label, options, selected, onChange }: StatusFilterMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 px-2 data-[state=open]:bg-muted/80 flex items-center gap-2 text-sm font-medium text-muted-foreground"
+        >
+          <span>{label}</span>
+          <ChevronDown className="h-4 w-4 opacity-70" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="p-0 w-48">
+        <Command loop>
+          <CommandInput placeholder={label} className="h-9" />
+          <CommandList>
+            <CommandEmpty className="px-3 py-2 text-xs text-muted-foreground">No status found.</CommandEmpty>
+            <CommandGroup className="p-1">
+              {options.map((opt) => {
+                const checked = selected.includes(opt.id)
+                return (
+                  <CommandItem
+                    key={opt.id}
+                    value={opt.label}
+                    onSelect={() => {
+                      const next = new Set(selected)
+                      if (checked) next.delete(opt.id)
+                      else next.add(opt.id)
+                      onChange(Array.from(next))
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={checked} className="h-4 w-4" />
+                      <span className="capitalize">{opt.label}</span>
+                    </div>
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+            {selected.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup className="p-1">
+                  <CommandItem
+                    onSelect={() => onChange([])}
+                    className="text-xs text-muted-foreground"
+                  >
+                    Clear all
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

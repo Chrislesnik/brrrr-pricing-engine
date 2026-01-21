@@ -33,10 +33,32 @@ export async function GET(_req: NextRequest) {
       )
     }
 
+    // For xactus, include has_key and force status=false when missing
+    const xactusIds = (data ?? []).filter((r) => r.type === "xactus").map((r) => r.id as string)
+    let xactusKeys: Record<string, boolean> = {}
+    if (xactusIds.length) {
+      const { data: xkRows } = await supabaseAdmin
+        .from("integrations_xactus")
+        .select("integration_id, account_user, account_password")
+        .in("integration_id", xactusIds)
+      xactusKeys = Object.fromEntries(
+        (xkRows ?? []).map((r) => [
+          r.integration_id as string,
+          Boolean((r.account_user as string | null)?.trim()) && Boolean((r.account_password as string | null)?.trim()),
+        ])
+      )
+    }
+
     const rows = (data ?? []).map((r) => {
-      if (r.type !== "floify") return { type: r.type, status: r.status, has_key: undefined }
-      const hasKey = floifyKeys[r.id as string] ?? false
-      return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
+      if (r.type === "floify") {
+        const hasKey = floifyKeys[r.id as string] ?? false
+        return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
+      }
+      if (r.type === "xactus") {
+        const hasKey = xactusKeys[r.id as string] ?? false
+        return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
+      }
+      return { type: r.type, status: r.status, has_key: undefined }
     })
 
     return NextResponse.json({ rows })
@@ -84,6 +106,35 @@ export async function PATCH(req: NextRequest) {
         }
       } else {
         return NextResponse.json({ error: "Floify integration not found", row: { type, status: false } }, { status: 400 })
+      }
+    }
+
+    // If xactus, ensure credentials exist before enabling
+    if (type === "xactus" && status) {
+      const { data: xactusRow } = await supabaseAdmin
+        .from("integrations")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .eq("user_id", userId)
+        .eq("type", "xactus")
+        .maybeSingle()
+      const xactusId = xactusRow?.id as string | undefined
+      if (xactusId) {
+        const { data: xk } = await supabaseAdmin
+          .from("integrations_xactus")
+          .select("account_user, account_password")
+          .eq("integration_id", xactusId)
+          .maybeSingle()
+        const hasKey =
+          Boolean((xk?.account_user as string | null)?.trim()) && Boolean((xk?.account_password as string | null)?.trim())
+        if (!hasKey) {
+          return NextResponse.json(
+            { error: "Credentials required to enable Xactus", row: { type, status: false, has_key: false } },
+            { status: 400 }
+          )
+        }
+      } else {
+        return NextResponse.json({ error: "Xactus integration not found", row: { type, status: false } }, { status: 400 })
       }
     }
 

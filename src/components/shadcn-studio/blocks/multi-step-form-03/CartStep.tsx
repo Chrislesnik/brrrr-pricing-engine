@@ -31,6 +31,9 @@ import { GiStoneBlock } from 'react-icons/gi'
 import { FaFeatherAlt } from 'react-icons/fa'
 import { Checkbox } from '@/components/ui/checkbox'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
+import { BounceButton } from '@/components/ui/bounce-button'
+import { LoadingButton } from '@/components/ui/loading-button'
+import { ShakeButton } from '@/components/ui/shake-button'
 
 const STATE_OPTIONS = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
@@ -281,12 +284,13 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
   const [prevState, setPrevState] = useState("")
   const [prevZip, setPrevZip] = useState("")
   const [ssn, setSsn] = useState("")
-  const [isRunning, setIsRunning] = useState(false)
+  const [runPhase, setRunPhase] = useState<"idle" | "bounce" | "running" | "error">("idle")
 
   async function handleRun() {
-    if (!isCredit) return
+    if (!isCredit || runPhase !== "idle") return
+    setRunPhase("bounce")
+    const bounceTimer = setTimeout(() => setRunPhase("running"), 180)
     try {
-      setIsRunning(true)
       const digits = ssn.replace(/\D+/g, "").slice(0, 9)
       const inputs = {
         first_name: firstName || undefined,
@@ -326,8 +330,11 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to run credit dispatch"
       toast({ title: "Credit run failed", description: msg })
+      setRunPhase("error")
+      setTimeout(() => setRunPhase("idle"), 900)
     } finally {
-      setIsRunning(false)
+      clearTimeout(bounceTimer)
+      if (runPhase !== "error") setRunPhase("idle")
     }
   }
 
@@ -764,9 +771,19 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
       </div>
       <div className='flex h-full min-h-0 flex-col gap-6'>
         <div className='flex w-full items-center gap-2'>
-          <Button className='h-9 px-4 py-2' onClick={handleRun} disabled={isRunning}>
-            Run
-          </Button>
+          {runPhase === "error" ? (
+            <ShakeButton className='h-9 min-w-[130px] px-4 py-2' onClick={handleRun}>
+              Run
+            </ShakeButton>
+          ) : runPhase === "running" ? (
+            <LoadingButton className='h-9 min-w-[130px] px-4 py-2' disabled>
+              Running...
+            </LoadingButton>
+          ) : (
+            <BounceButton className='h-9 min-w-[130px] px-4 py-2' onClick={handleRun} disabled={runPhase !== "idle"}>
+              Run
+            </BounceButton>
+          )}
           <Select
             onValueChange={(val) => {
               const next = val?.trim?.() ?? val
@@ -779,7 +796,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
             value={selectedReportId}
             disabled={filesLoading || files.length === 0}
           >
-            <SelectTrigger className='h-9 min-w-[150px]'>
+            <SelectTrigger className='h-9 w-[180px] truncate'>
               <SelectValue
                 placeholder={filesLoading ? 'Loading…' : files.length ? 'Files' : 'No files'}
               />

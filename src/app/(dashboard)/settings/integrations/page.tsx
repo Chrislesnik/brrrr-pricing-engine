@@ -139,6 +139,12 @@ export default function SettingsIntegrationsPage() {
   const [floifyUserApiKey, setFloifyUserApiKey] = React.useState("")
   const [floifyLoading, setFloifyLoading] = React.useState(false)
   const [floifyError, setFloifyError] = React.useState<string | null>(null)
+
+  const [xactusModalOpen, setXactusModalOpen] = React.useState(false)
+  const [xactusAccountUser, setXactusAccountUser] = React.useState("")
+  const [xactusAccountPassword, setXactusAccountPassword] = React.useState("")
+  const [xactusLoading, setXactusLoading] = React.useState(false)
+  const [xactusError, setXactusError] = React.useState<string | null>(null)
   const loadFloify = async () => {
     setFloifyModalOpen(true)
     setFloifyLoading(true)
@@ -197,6 +203,64 @@ export default function SettingsIntegrationsPage() {
     }
   }
 
+  const loadXactus = async () => {
+    setXactusModalOpen(true)
+    setXactusLoading(true)
+    setXactusError(null)
+    try {
+      const res = await fetch("/api/integrations/xactus", { cache: "no-store" })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      const j = (await res.json().catch(() => ({}))) as { row?: { account_user?: string | null; account_password?: string | null } }
+      setXactusAccountUser(j.row?.account_user ?? "")
+      setXactusAccountPassword(j.row?.account_password ?? "")
+    } catch (e) {
+      setXactusError(e instanceof Error ? e.message : "Failed to load Xactus settings")
+    } finally {
+      setXactusLoading(false)
+    }
+  }
+
+  const handleXactusSave = async () => {
+    setXactusError(null)
+    setXactusLoading(true)
+    try {
+      const res = await fetch("/api/integrations/xactus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_user: xactusAccountUser.trim(), account_password: xactusAccountPassword.trim() }),
+      })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      toast({ title: "Saved", description: "Xactus credentials saved." })
+      setXactusModalOpen(false)
+      // Refresh main list to ensure status stays in sync
+      setLoading(true)
+      const resList = await fetch("/api/integrations", { cache: "no-store" })
+      if (resList.ok) {
+        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
+        const rows = j.rows ?? []
+        setActiveIntegrations(
+          baseIntegrations.map((integration) => {
+            const row = rows.find((r) => r.type === integration.icon)
+            return {
+              ...integration,
+              enabled: row?.status ?? false,
+              hasKey: row?.has_key,
+            }
+          })
+        )
+      }
+    } catch (e) {
+      setXactusError(e instanceof Error ? e.message : "Failed to save Xactus credentials")
+    } finally {
+      setXactusLoading(false)
+      setLoading(false)
+    }
+  }
+
   React.useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -247,6 +311,10 @@ export default function SettingsIntegrationsPage() {
     const nextStatus = current ? !current.enabled : true
     if (current?.icon === "floify" && !current.hasKey) {
       toast({ title: "API key required", description: "Add your Floify API key before enabling.", variant: "destructive" })
+      return
+    }
+    if (current?.icon === "xactus" && !current.hasKey) {
+      toast({ title: "Credentials required", description: "Add your Xactus credentials before enabling.", variant: "destructive" })
       return
     }
     setActiveIntegrations((prev) =>
@@ -307,6 +375,49 @@ export default function SettingsIntegrationsPage() {
               disabled={floifyLoading || !floifyApiKey.trim() || !floifyUserApiKey.trim()}
             >
               {floifyLoading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={xactusModalOpen} onOpenChange={setXactusModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xactus Credentials</DialogTitle>
+            <DialogDescription>Enter and save your Xactus account credentials.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="xactus-account-user">Account User</Label>
+              <Input
+                id="xactus-account-user"
+                value={xactusAccountUser}
+                onChange={(e) => setXactusAccountUser(e.target.value)}
+                placeholder="Enter Account User"
+                disabled={xactusLoading}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="xactus-account-password">Account Password</Label>
+              <Input
+                id="xactus-account-password"
+                type="password"
+                value={xactusAccountPassword}
+                onChange={(e) => setXactusAccountPassword(e.target.value)}
+                placeholder="Enter Account Password"
+                disabled={xactusLoading}
+              />
+            </div>
+            {xactusError ? <p className="text-sm text-destructive">{xactusError}</p> : null}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setXactusModalOpen(false)} disabled={xactusLoading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleXactusSave()}
+              disabled={xactusLoading || !xactusAccountUser.trim() || !xactusAccountPassword.trim()}
+            >
+              {xactusLoading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -377,6 +488,8 @@ export default function SettingsIntegrationsPage() {
                 onClick={() => {
                   if (integration.icon === "floify") {
                     void loadFloify()
+                  } else if (integration.icon === "xactus") {
+                    void loadXactus()
                   }
                 }}
               >
@@ -385,7 +498,7 @@ export default function SettingsIntegrationsPage() {
               </Button>
               <Switch
                 checked={integration.enabled}
-                disabled={integration.icon === "floify" && !integration.hasKey}
+                disabled={(integration.icon === "floify" || integration.icon === "xactus") && !integration.hasKey}
                 onCheckedChange={() => handleToggle(integration.name)}
                 aria-label={`Toggle ${integration.name}`}
               />
