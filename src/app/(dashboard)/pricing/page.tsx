@@ -4,7 +4,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
-import { SearchIcon, LoaderCircleIcon } from "lucide-react"
+import { SearchIcon, LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
+import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -2951,27 +2952,35 @@ export default function PricingEnginePage() {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                        <Input
-                          id="fico"
-                          type="number"
-                          inputMode="numeric"
-                          min={300}
-                          max={850}
-                          placeholder="700"
-                          value={fico}
-                          onChange={(e) => {
-                            // Allow typing, but restrict to digits
-                            const cleaned = e.target.value.replace(/[^0-9]/g, "")
-                            setFico(cleaned)
-                          }}
-                          onBlur={() => {
-                            // Clamp to 300–850 on blur
-                            const n = Number(fico)
-                            if (!Number.isFinite(n)) return
-                            const clamped = Math.min(850, Math.max(300, Math.round(n)))
-                            setFico(String(clamped))
-                          }}
-                        />
+                        <NumberField
+                          value={fico ? Number(fico) : undefined}
+                          onChange={(val) => setFico(String(val))}
+                          minValue={300}
+                          maxValue={850}
+                          className="w-full"
+                        >
+                          <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+                            <AriaInput
+                              id="fico"
+                              placeholder="700"
+                              className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+                            />
+                            <AriaButton
+                              slot="decrement"
+                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                            >
+                              <MinusIcon className="size-4" />
+                              <span className="sr-only">Decrease FICO</span>
+                            </AriaButton>
+                            <AriaButton
+                              slot="increment"
+                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                            >
+                              <PlusIcon className="size-4" />
+                              <span className="sr-only">Increase FICO</span>
+                            </AriaButton>
+                          </Group>
+                        </NumberField>
                       </div>
                     </div>
                   </AccordionContent>
@@ -3763,6 +3772,9 @@ export default function PricingEnginePage() {
                               month={closingCalMonth}
                               onMonthChange={setClosingCalMonth}
                               onSelect={(d) => d && setClosingDate(d)}
+                              disabled={{ before: new Date() }}
+                              captionLayout="label"
+                              className="rounded-md border min-w-[264px]"
                               initialFocus
                             />
                           </PopoverContent>
@@ -3789,6 +3801,8 @@ export default function PricingEnginePage() {
                                 month={acqCalMonth}
                                 onMonthChange={setAcqCalMonth}
                                 onSelect={(d) => d && setAcquisitionDate(d)}
+                                captionLayout="dropdown"
+                                className="rounded-md border min-w-[264px]"
                                 initialFocus
                               />
                             </PopoverContent>
@@ -3960,11 +3974,20 @@ export default function PricingEnginePage() {
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="max-lev">Request Max Leverage</Label>
                         <div className="flex h-9 items-center">
-                          <Switch
-                            id="max-lev"
-                            checked={requestMaxLeverage}
-                            onCheckedChange={setRequestMaxLeverage}
-                          />
+                          <div className="relative inline-grid h-8 grid-cols-[1fr_1fr] items-center text-sm font-medium">
+                            <Switch
+                              id="max-lev"
+                              checked={requestMaxLeverage}
+                              onCheckedChange={setRequestMaxLeverage}
+                              className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-8.75 [&_span]:data-[state=checked]:rtl:-translate-x-8.75"
+                            />
+                            <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
+                              <span className="text-[10px] font-medium uppercase">No</span>
+                            </span>
+                            <span className="peer-data-[state=checked]:text-background pointer-events-none relative mr-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:-translate-x-full peer-data-[state=unchecked]:invisible peer-data-[state=checked]:rtl:translate-x-full">
+                              <span className="text-[10px] font-medium uppercase">Yes</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                       {!requestMaxLeverage ? (
@@ -4388,6 +4411,8 @@ export default function PricingEnginePage() {
                               month={hoiCalMonth}
                               onMonthChange={setHoiCalMonth}
                               onSelect={(d) => d && setHoiEffective(d)}
+                              captionLayout="dropdown"
+                              className="rounded-md border min-w-[264px]"
                               initialFocus
                             />
                           </PopoverContent>
@@ -4413,6 +4438,8 @@ export default function PricingEnginePage() {
                               month={floodCalMonth}
                               onMonthChange={setFloodCalMonth}
                               onSelect={(d) => d && setFloodEffective(d)}
+                              captionLayout="dropdown"
+                              className="rounded-md border min-w-[264px]"
                               initialFocus
                             />
                           </PopoverContent>
@@ -6404,16 +6431,6 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="Approved document">
-                <IconFileCheck className="h-4 w-4" />
-              </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Subchecklist</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
                 <IconEye className="h-4 w-4" />
               </Button>
@@ -6565,16 +6582,6 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="Approved document">
-                <IconFileCheck className="h-4 w-4" />
-              </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Subchecklist</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" aria-label="Preview main" onClick={() => openMainTermSheetPreview()}>
                 <IconEye className="h-4 w-4" />
               </Button>
@@ -6658,16 +6665,6 @@ function ResultsPanel({
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="Approved document">
-                <IconFileCheck className="h-4 w-4" />
-              </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Subchecklist</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>

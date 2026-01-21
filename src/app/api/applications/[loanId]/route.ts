@@ -27,10 +27,11 @@ function extractIds(raw: any): string[] {
   return []
 }
 
-export async function GET(req: Request, context: { params: { loanId?: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ loanId?: string }> }) {
   // Accept loanId from path or query string for resilience
   const url = new URL(req.url)
-  const loanId = context.params?.loanId || url.searchParams.get("loanId") || url.searchParams.get("id")
+  const params = await context.params
+  const loanId = params?.loanId || url.searchParams.get("loanId") || url.searchParams.get("id")
   if (!loanId) return NextResponse.json({ error: "Missing loan id" }, { status: 400 })
 
   // Pull the applications row for this loan

@@ -29,9 +29,9 @@ function extractIds(raw: any): string[] {
   return []
 }
 
-export async function GET(_req: Request, context: { params: { id: string } }) {
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = context.params
+    const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing loan id" }, { status: 400 })
 
   // Pull from applications row (same source as Applications table)
