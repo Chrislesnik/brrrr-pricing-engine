@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
@@ -92,6 +92,7 @@ export function BrokerSettingsDialog({
       {open && tab === "programs" ? <ProgramsLoader /> : null}
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]">
+          <DialogTitle className="sr-only">Broker Settings</DialogTitle>
           <div className="grid grid-cols-[260px_1fr]">
             <aside className="border-r bg-muted/40 p-4">
               <div className="mb-3 px-1">

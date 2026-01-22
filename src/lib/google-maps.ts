@@ -63,9 +63,12 @@ export async function ensureGoogleMaps(apiKey: string | undefined): Promise<void
 		script.defer = true
 		script.dataset.gmaps = "1"
 		// Note: restricts to Places library, US region by default
+		// Load places and marker libraries for new Place API and AdvancedMarkerElement
+		// Note: To fully migrate from deprecated google.maps.Marker to AdvancedMarkerElement,
+		// a Map ID must be configured in Google Cloud Console and passed to GoogleMap component.
 		const params = new URLSearchParams({
 			key: apiKey,
-			libraries: "places",
+			libraries: "places,marker",
 			v: "weekly",
 			region: "US",
 		})

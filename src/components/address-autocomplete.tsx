@@ -149,27 +149,33 @@ export function AddressAutocomplete({
 		}
 	}
 
-	function applyPlaceById(placeId: string) {
+	async function applyPlaceById(placeId: string) {
 		const win = window as unknown as { google?: { maps?: { places?: any } } }
 		const places = win.google?.maps?.places
 		if (!places) return
-		// PlacesService requires an element
-		const svc = new places.PlacesService(document.createElement("div"))
-		svc.getDetails(
-			{ placeId, fields: ["address_components", "formatted_address"], sessionToken: sessionTokenRef.current },
-			(place: { address_components?: any[]; formatted_address?: string } | null, status: string) => {
-				const ok = status === "OK"
-				if (!ok || !place) return
-				const raw = place.formatted_address ?? text
-				const fields = parseComponents(place.address_components ?? [])
-				// Prevent immediate refetch from the setText below
-				suppressFetchRef.current = true
-				setText(displayValue === "street" ? (fields.address_line1 ?? raw) : raw)
-				setShow(false)
-				setPredictions([])
-				onChange({ raw, ...fields })
-			},
-		)
+
+		try {
+			// Use new Place API (replaces deprecated PlacesService)
+			const place = new places.Place({ id: placeId })
+			await place.fetchFields({ fields: ["addressComponents", "formattedAddress"] })
+
+			const raw = place.formattedAddress ?? text
+			// Convert new API format to old format for parseComponents
+			const addressComponents = (place.addressComponents ?? []).map((c: any) => ({
+				long_name: c.longText,
+				short_name: c.shortText,
+				types: c.types,
+			}))
+			const fields = parseComponents(addressComponents)
+			// Prevent immediate refetch from the setText below
+			suppressFetchRef.current = true
+			setText(displayValue === "street" ? (fields.address_line1 ?? raw) : raw)
+			setShow(false)
+			setPredictions([])
+			onChange({ raw, ...fields })
+		} catch (err) {
+			console.error("Failed to fetch place details:", err)
+		}
 	}
 
 	return (
