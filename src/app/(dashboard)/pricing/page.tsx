@@ -4287,25 +4287,34 @@ export default function PricingEnginePage() {
                           <TagsInput
                             value={guarantorTags.map((t) => t.name)}
                             onValueChange={(newValues) => {
+                              // Prevent exceeding 4 guarantor limit
+                              if (newValues.length > 4) return
                               // Keep only tags whose names are still in the new values
                               setGuarantorTags((prev) => prev.filter((t) => newValues.includes(t.name)))
                             }}
                             className="w-full"
                           >
-                            <TagsInputList className="min-h-9 px-3 py-1">
+                            <TagsInputList className="min-h-9 max-h-9 px-3 py-1 overflow-x-auto overflow-y-hidden flex-nowrap">
                               <SearchIcon className="size-4 text-muted-foreground mr-1 shrink-0" />
                               {guarantorTags.map((tag, idx) => (
                                 <TagsInputItem
                                   key={`${tag.name}-${idx}`}
                                   value={tag.name}
-                                  className={tag.id ? "border-blue-500 ring-1 ring-blue-500" : ""}
+                                  className={`text-xs px-1.5 py-0.5 shrink-0 ${tag.id ? "border-blue-500 ring-1 ring-blue-500" : ""}`}
                                 >
                                   {tag.name}
                                 </TagsInputItem>
                               ))}
                               <TagsInputInput
                                 id="guarantors"
-                                placeholder={guarantorTags.length === 0 ? DEFAULTS.guarantorPlaceholder : ""}
+                                placeholder={
+                                  guarantorTags.length >= 4
+                                    ? "Max 4 guarantors"
+                                    : guarantorTags.length === 0
+                                      ? DEFAULTS.guarantorPlaceholder
+                                      : ""
+                                }
+                                disabled={guarantorTags.length >= 4}
                                 value={guarantorQuery}
                                 onChange={(e) => {
                                   const v = e.target.value
@@ -4319,6 +4328,8 @@ export default function PricingEnginePage() {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" && guarantorQuery.trim()) {
                                     e.preventDefault()
+                                    // Prevent exceeding 4 guarantor limit
+                                    if (guarantorTags.length >= 4) return
                                     // Add as unlinked tag
                                     setGuarantorTags((prev) => [...prev, { name: guarantorQuery.trim() }])
                                     setGuarantorQuery("")
@@ -4341,16 +4352,18 @@ export default function PricingEnginePage() {
                               )}
                             </TagsInputList>
                           </TagsInput>
-                          {showGuarantorSuggestions && guarantorSuggestions.length > 0 && (
-                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+                          {showGuarantorSuggestions && guarantorSuggestions.filter((s) => !guarantorTags.some((t) => t.id === s.id)).length > 0 && (
+                            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
                               <ul className="max-h-56 overflow-auto">
-                                {guarantorSuggestions.map((opt) => (
+                                {guarantorSuggestions.filter((s) => !guarantorTags.some((t) => t.id === s.id)).map((opt) => (
                                   <li key={opt.id}>
                                     <button
                                       type="button"
                                       className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
                                       onMouseDown={(e) => {
                                         e.preventDefault() // Prevent blur from firing
+                                        // Prevent exceeding 4 guarantor limit
+                                        if (guarantorTags.length >= 4) return
                                         // Add as linked tag with borrower ID
                                         setGuarantorTags((prev) => [...prev, { name: opt.name, id: opt.id }])
                                         setGuarantorQuery("")
