@@ -18,6 +18,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -38,10 +44,12 @@ import { Input } from "@/components/ui/input"
 import { CopyButton } from "@/components/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
 import { IconDots } from "@tabler/icons-react"
-import { Calculator, ClipboardList, FileSignature, Users, Trash2, History, Filter, Tag, FileText, MessageSquare, User, Download, Share2, UserPlus, UserMinus, FileEdit, Save, Loader2, MousePointerClick } from "lucide-react"
+import { Calculator, ClipboardList, FileSignature, Users, Trash2, History, Filter, Tag, FileText, MessageSquare, User, Download, Share2, UserPlus, UserMinus, FileEdit, Save, Loader2, MousePointerClick, Clipboard } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 import { createSupabaseBrowser } from "@/lib/supabase-browser"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@clerk/nextjs"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
@@ -568,7 +576,7 @@ interface ActivityLog {
   assigned_to_changes: string[] | null
   assigned_names: string[]
   inputs: Record<string, unknown> | null
-  outputs: Record<string, unknown> | null
+  outputs: Record<string, unknown>[] | null
   selected: Record<string, unknown> | null
   term_sheet_original_path: string | null
   term_sheet_edit_path: string | null
@@ -648,6 +656,178 @@ function getActivityTypeIcon(log: ActivityLog) {
   }
 }
 
+// Format activity data for clipboard copy
+function formatActivityDataForClipboard(log: ActivityLog): string {
+  const lines: string[] = []
+  lines.push("--- Pricing Activity ---")
+  lines.push(`Date: ${format(new Date(log.created_at), "PPpp")}`)
+  lines.push("")
+
+  // Format inputs
+  if (log.inputs && Object.keys(log.inputs).length > 0) {
+    lines.push("INPUTS:")
+    for (const [key, value] of Object.entries(log.inputs)) {
+      const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      const formatted = typeof value === "number" 
+        ? value.toLocaleString() 
+        : String(value ?? "")
+      lines.push(`  - ${label}: ${formatted}`)
+    }
+    lines.push("")
+  }
+
+  // Format outputs
+  if (log.outputs && Object.keys(log.outputs).length > 0) {
+    lines.push("OUTPUTS:")
+    const outputData = Array.isArray(log.outputs) ? log.outputs[0] : log.outputs
+    if (outputData && typeof outputData === "object") {
+      for (const [key, value] of Object.entries(outputData)) {
+        if (value !== null && value !== undefined && typeof value !== "object") {
+          const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+          const formatted = typeof value === "number" 
+            ? value.toLocaleString() 
+            : String(value)
+          lines.push(`  - ${label}: ${formatted}`)
+        }
+      }
+    }
+    lines.push("")
+  }
+
+  // Format selected
+  if (log.selected && Object.keys(log.selected).length > 0) {
+    lines.push("SELECTED:")
+    for (const [key, value] of Object.entries(log.selected)) {
+      if (value !== null && value !== undefined && typeof value !== "object") {
+        const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+        const formatted = typeof value === "number" 
+          ? value.toLocaleString() 
+          : String(value)
+        lines.push(`  - ${label}: ${formatted}`)
+      }
+    }
+  }
+
+  return lines.join("\n")
+}
+
+// Interactive tag widget for activity log items
+function ActivityTagWidget({ log }: { log: ActivityLog }) {
+  const [downloading, setDownloading] = React.useState(false)
+  const [copying, setCopying] = React.useState(false)
+
+  // Handle term sheet download
+  const handleTermSheetDownload = async () => {
+    const path = log.term_sheet_edit_path ?? log.term_sheet_original_path
+    if (!path) {
+      toast({ title: "No term sheet available", variant: "destructive" })
+      return
+    }
+
+    setDownloading(true)
+    try {
+      const res = await fetch(`/api/activity/term-sheet/download?path=${encodeURIComponent(path)}`)
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error ?? "Failed to get download URL")
+      }
+      const { url } = await res.json()
+      
+      // Trigger download
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `term-sheet-${format(new Date(log.created_at), "yyyy-MM-dd")}.pdf`
+      a.target = "_blank"
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Download failed"
+      toast({ title: "Download failed", description: message, variant: "destructive" })
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  // Handle clipboard copy for inputs/selection
+  const handleCopyToClipboard = async () => {
+    setCopying(true)
+    try {
+      const text = formatActivityDataForClipboard(log)
+      await navigator.clipboard.writeText(text)
+      toast({ title: "Copied to clipboard", description: "Pricing data copied successfully" })
+    } catch (e) {
+      toast({ title: "Copy failed", variant: "destructive" })
+    } finally {
+      setCopying(false)
+    }
+  }
+
+  // Render based on activity type
+  if (log.activity_type === "term_sheet") {
+    const hasTermSheet = log.term_sheet_edit_path || log.term_sheet_original_path
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Badge
+          variant="secondary"
+          className={cn(
+            "gap-1.5 cursor-pointer transition-all",
+            hasTermSheet 
+              ? "hover:bg-primary hover:text-primary-foreground" 
+              : "opacity-50 cursor-not-allowed"
+          )}
+          onClick={hasTermSheet ? handleTermSheetDownload : undefined}
+        >
+          {downloading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Download className="h-3 w-3" />
+          )}
+          Term Sheet
+        </Badge>
+      </div>
+    )
+  }
+
+  if (log.activity_type === "input_changes" || log.activity_type === "selection_changed") {
+    const hasData = log.inputs || log.outputs || log.selected
+    const label = log.activity_type === "input_changes" ? "Input Changes" : "Selection Changed"
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <Badge
+          variant="secondary"
+          className={cn(
+            "gap-1.5 cursor-pointer transition-all",
+            hasData 
+              ? "hover:bg-primary hover:text-primary-foreground" 
+              : "opacity-50 cursor-not-allowed"
+          )}
+          onClick={hasData ? handleCopyToClipboard : undefined}
+        >
+          {copying ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Clipboard className="h-3 w-3" />
+          )}
+          {label}
+        </Badge>
+      </div>
+    )
+  }
+
+  // Default: user_assignment or other types - show static badge
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <div className="bg-muted flex h-6 w-6 items-center justify-center rounded-full">
+        {getActivityTypeIcon(log)}
+      </div>
+      <span className="text-xs text-muted-foreground capitalize">
+        {log.activity_type.replace(/_/g, " ")}
+      </span>
+    </div>
+  )
+}
+
 // Format date for grouping header: "SUNDAY, 06 MARCH"
 function formatDateHeader(dateStr: string): string {
   const date = new Date(dateStr)
@@ -672,10 +852,24 @@ function groupLogsByDate(logs: ActivityLog[]): Map<string, ActivityLog[]> {
   return groups
 }
 
+const ACTIVITY_TYPE_OPTIONS = [
+  { value: "input_changes", label: "Input Changes" },
+  { value: "selection_changed", label: "Selection Changed" },
+  { value: "user_assignment", label: "User Assignment" },
+  { value: "term_sheet", label: "Term Sheet" },
+] as const
+
+type ActivityType = typeof ACTIVITY_TYPE_OPTIONS[number]["value"]
+
 function ActivityLogContent({ loanId }: { loanId: string }) {
+  const { userId } = useAuth()
   const [logs, setLogs] = React.useState<ActivityLog[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [showMyActivity, setShowMyActivity] = React.useState(false)
+  const [selectedActivityTypes, setSelectedActivityTypes] = React.useState<Set<ActivityType>>(
+    new Set(ACTIVITY_TYPE_OPTIONS.map(o => o.value))
+  )
 
   // Fetch initial data
   React.useEffect(() => {
@@ -741,7 +935,21 @@ function ActivityLogContent({ loanId }: { loanId: string }) {
     }
   }, [loanId])
 
-  const groupedLogs = React.useMemo(() => groupLogsByDate(logs), [logs])
+  const groupedLogs = React.useMemo(() => {
+    let filtered = logs
+    
+    // Filter by activity type
+    if (selectedActivityTypes.size < ACTIVITY_TYPE_OPTIONS.length) {
+      filtered = filtered.filter(log => selectedActivityTypes.has(log.activity_type as ActivityType))
+    }
+    
+    // Filter by current user
+    if (showMyActivity && userId) {
+      filtered = filtered.filter(log => log.user_id === userId)
+    }
+    
+    return groupLogsByDate(filtered)
+  }, [logs, showMyActivity, userId, selectedActivityTypes])
 
   if (loading) {
     return (
@@ -773,9 +981,68 @@ function ActivityLogContent({ loanId }: { loanId: string }) {
     <div className="w-full">
       {/* Filter Controls */}
       <div className="mb-6 flex items-center justify-end gap-3 md:gap-4">
-        <Button variant="ghost" size="icon">
-          <Filter className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="my-activity"
+            checked={showMyActivity}
+            onCheckedChange={setShowMyActivity}
+          />
+          <label htmlFor="my-activity" className="text-sm text-muted-foreground cursor-pointer">
+            My Activity
+          </label>
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Filter className="h-4 w-4" />
+              {selectedActivityTypes.size < ACTIVITY_TYPE_OPTIONS.length && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-56">
+            <div className="space-y-3">
+              <div className="text-sm font-medium">Filter by Activity Type</div>
+              <div className="space-y-2">
+                {ACTIVITY_TYPE_OPTIONS.map((option) => (
+                  <div key={option.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`filter-${option.value}`}
+                      checked={selectedActivityTypes.has(option.value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedActivityTypes(prev => {
+                          const next = new Set(prev)
+                          if (checked) {
+                            next.add(option.value)
+                          } else {
+                            next.delete(option.value)
+                          }
+                          return next
+                        })
+                      }}
+                    />
+                    <label
+                      htmlFor={`filter-${option.value}`}
+                      className="text-sm cursor-pointer flex-1"
+                    >
+                      {option.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {selectedActivityTypes.size < ACTIVITY_TYPE_OPTIONS.length && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setSelectedActivityTypes(new Set(ACTIVITY_TYPE_OPTIONS.map(o => o.value)))}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Activity Timeline */}
@@ -825,15 +1092,8 @@ function ActivityLogContent({ loanId }: { loanId: string }) {
                         </span>
                       </div>
 
-                      {/* Activity type icon badge */}
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="bg-muted flex h-6 w-6 items-center justify-center rounded-full">
-                          {getActivityTypeIcon(log)}
-                        </div>
-                        <span className="text-xs text-muted-foreground capitalize">
-                          {log.activity_type.replace(/_/g, " ")}
-                        </span>
-                      </div>
+                      {/* Activity type interactive tag widget */}
+                      <ActivityTagWidget log={log} />
                     </div>
                   </div>
                 </div>

@@ -1627,7 +1627,7 @@ export default function PricingEnginePage() {
         formData.append("scenarioId", scenarioIdOverride ?? selectedScenarioId ?? "")
       }
       formData.append("inputs", JSON.stringify(buildPayload()))
-      formData.append("outputs", JSON.stringify(programResults ?? null))
+      formData.append("outputs", JSON.stringify(programResults?.map(r => r.data ?? null).filter(Boolean) ?? null))
       formData.append("selected", JSON.stringify(selectedMainRow?.values ?? null))
       // For now, we upload the same PDF as both original and edited
       // In the future, we could render a version without orange-box edits for "original"
@@ -1888,7 +1888,7 @@ export default function PricingEnginePage() {
         body: JSON.stringify({
           name: name.trim(),
           inputs,
-          outputs: programResults ?? null,
+          outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
           selected: selectedWithMeta,
           loanId: currentLoanId,
         }),
@@ -2689,7 +2689,7 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride ?? "Scenario",
                               inputs,
-                              outputs: programResults ?? null,
+                              outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -2719,7 +2719,7 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride,
                               inputs,
-                              outputs: programResults ?? null,
+                              outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -4832,7 +4832,7 @@ function ResultCard({
       formData.append("loanId", loanId)
       if (scenarioId) formData.append("scenarioId", scenarioId)
       formData.append("inputs", JSON.stringify(getInputs?.() ?? null))
-      formData.append("outputs", JSON.stringify([r]))
+      formData.append("outputs", JSON.stringify([r.data ?? null].filter(Boolean)))
       formData.append("selected", JSON.stringify(selected?.values ?? null))
       formData.append("originalPdf", pdfFile)
       formData.append("editedPdf", pdfFile)
@@ -5847,7 +5847,7 @@ function ResultsPanel({
       formData.append("loanId", loanId)
       if (scenarioId) formData.append("scenarioId", scenarioId)
       formData.append("inputs", JSON.stringify(getInputs?.() ?? null))
-      formData.append("outputs", JSON.stringify(results ?? null))
+      formData.append("outputs", JSON.stringify(results?.map(r => r.data ?? null).filter(Boolean) ?? null))
       formData.append("selected", JSON.stringify(selected?.values ?? null))
       formData.append("originalPdf", pdfFile)
       formData.append("editedPdf", pdfFile)
