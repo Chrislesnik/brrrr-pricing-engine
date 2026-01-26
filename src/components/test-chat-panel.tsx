@@ -280,7 +280,7 @@ export function TestChatPanel({ className, title = "AI Assistant", onCitationCli
     <div className={cn("flex h-full flex-col bg-background border-l", className)}>
       <Tabs defaultValue="ai-agent" className="flex h-full flex-col">
         {/* Tabs Header */}
-        <div className="border-b px-2 pt-2">
+        <div className="border-b px-2 pt-2 pb-2">
           <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="ai-agent" className="gap-1.5">
               <Sparkles className="h-3.5 w-3.5" />
@@ -294,9 +294,9 @@ export function TestChatPanel({ className, title = "AI Assistant", onCitationCli
         </div>
 
         {/* AI Agent Tab */}
-        <TabsContent value="ai-agent" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
+        <TabsContent value="ai-agent" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden overflow-hidden">
           {/* Messages Area with Conversation Component */}
-          <Conversation className="flex-1">
+          <Conversation className="flex-1 min-h-0">
             <ConversationContent>
               {messages.length === 0 ? (
                 <ConversationEmptyState
