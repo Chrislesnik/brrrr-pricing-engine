@@ -13,9 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useAuth } from "@clerk/nextjs"
-import { ArrowDown, Copy, Menu, Pencil, Trash2 } from "lucide-react"
+import { Copy, Menu, Pencil, Trash2, MessageSquare, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
+import ReactMarkdown from "react-markdown"
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai/conversation"
+import { Message, MessageContent, MessageActions } from "@/components/ai/message"
 
 export default function AIAgentPage() {
   // Local chat state managed by our n8n-backed API
@@ -39,12 +47,6 @@ export default function AIAgentPage() {
   const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
   const [keyboardOffset, setKeyboardOffset] = React.useState<number>(0)
 
-  // Chat scroll management
-  const scrollAreaRef = React.useRef<HTMLDivElement>(null)
-  const viewportRef = React.useRef<HTMLDivElement | null>(null)
-  const isUserAtBottomRef = React.useRef<boolean>(true)
-  const [showScrollDown, setShowScrollDown] = React.useState<boolean>(false)
-  const bottomSentinelRef = React.useRef<HTMLDivElement | null>(null)
 
   const autoResize = React.useCallback(() => {
     const el = textareaRef.current
@@ -92,28 +94,6 @@ export default function AIAgentPage() {
     })
   }, [selectedChatId])
 
-  // Resolve the Radix ScrollArea viewport and bind observer/listeners
-  React.useEffect(() => {
-    const root = scrollAreaRef.current
-    if (!root) return
-    const vp = root.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null
-    if (!vp) return
-    viewportRef.current = vp
-    // Observe visibility of the bottom sentinel within the viewport
-    const sentinel = bottomSentinelRef.current
-    if (!sentinel) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        const atBottom = !!entry?.isIntersecting
-        isUserAtBottomRef.current = atBottom
-        setShowScrollDown(!atBottom)
-      },
-      { root: vp, threshold: 0.9 }
-    )
-    io.observe(sentinel)
-    return () => io.disconnect()
-  }, [selectedChatId])
 
   async function loadChats() {
     setLoadingChats(true)
@@ -165,16 +145,6 @@ export default function AIAgentPage() {
     }
   }, [selectedChatId])
 
-  // Auto-scroll on new messages only if user is at bottom
-  React.useEffect(() => {
-    if (isUserAtBottomRef.current) {
-      bottomSentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-    }
-  }, [messages])
-
-  const scrollToBottom = React.useCallback(() => {
-    bottomSentinelRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [])
 
   async function createNewConversation() {
     try {
@@ -518,84 +488,75 @@ export default function AIAgentPage() {
             </div>
           </div>
           <div className="relative flex min-h-0 flex-1 flex-col">
-          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 px-3 py-0 overscroll-y-contain">
-            {selectedChatId && (
-              <div className="mx-auto max-w-2xl space-y-3 pt-4 pb-6">
-              {messages.map((m) => (
-                <div key={m.id} className="flex group">
-                  <div
-                    className={
-                      (m.role === "user"
-                          ? "ml-auto"
-                          : "mr-auto") +
-                      " relative whitespace-pre-wrap rounded-2xl px-3 py-2 " +
-                      (m.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted")
-                    }
-                  >
-                    {m.id.startsWith("thinking-") ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-foreground [animation-delay:-0.2s]" />
-                        <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-foreground [animation-delay:-0.1s]" />
-                        <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-foreground" />
-                      </span>
-                    ) : (
-                      m.content
-                    )}
-                    {!m.id.startsWith("thinking-") && m.content ? (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(m.content)
-                            toast({ title: "Copied to clipboard" })
-                          } catch {
-                            toast({ title: "Copy failed", variant: "destructive" })
-                          }
-                        }}
-                        aria-label="Copy message"
-                        className={
-                          "absolute -bottom-3 right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/50 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 " +
-                          (m.role === "user"
-                            ? "bg-foreground text-background hover:bg-foreground/90"
-                            : "bg-background text-foreground hover:bg-muted")
-                        }
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    ) : null}
+            {selectedChatId ? (
+              <Conversation className="flex-1 min-h-0 px-3">
+                <ConversationContent className="mx-auto max-w-2xl pt-4 pb-6">
+                  {messages.length === 0 ? (
+                    <ConversationEmptyState
+                      title="Start a conversation"
+                      description="Send a message to begin chatting with your AI Agent"
+                      icon={<MessageSquare className="size-6" />}
+                    />
+                  ) : (
+                    <>
+                      {messages.map((m) => (
+                        <Message key={m.id} from={m.role}>
+                          <MessageContent>
+                            {m.id.startsWith("thinking-") ? (
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-muted-foreground">Thinking...</span>
+                              </div>
+                            ) : (
+                              <div className={
+                                m.role === "user"
+                                  ? "prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 [&_*]:text-primary-foreground"
+                                  : "prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
+                              }>
+                                <ReactMarkdown>{m.content}</ReactMarkdown>
+                              </div>
+                            )}
+                          </MessageContent>
+                          {!m.id.startsWith("thinking-") && m.content && (
+                            <MessageActions className={m.role === "user" ? "justify-end" : ""}>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(m.content)
+                                    toast({ title: "Copied to clipboard" })
+                                  } catch {
+                                    toast({ title: "Copy failed", variant: "destructive" })
+                                  }
+                                }}
+                                aria-label="Copy message"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-background text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </button>
+                            </MessageActions>
+                          )}
+                        </Message>
+                      ))}
+                    </>
+                  )}
+                </ConversationContent>
+                <ConversationScrollButton />
+              </Conversation>
+            ) : (
+              <div className="flex-1 grid place-items-center p-6">
+                <div className="text-center">
+                  <MessageSquare className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                  <div className="mb-2 text-lg font-semibold">No conversation selected</div>
+                  <div className="mb-3 text-sm text-muted-foreground">
+                    Create a new conversation to start chatting with your AI Agent.
                   </div>
+                  <Button onClick={createNewConversation} size="sm">
+                    New Conversation
+                  </Button>
                 </div>
-              ))}
-              <div ref={bottomSentinelRef} aria-hidden="true" />
-            </div>
-            )}
-          </ScrollArea>
-          {!selectedChatId ? (
-            <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
-              <div className="pointer-events-auto text-center">
-                <div className="mb-2 text-lg font-semibold">No conversation selected</div>
-                <div className="mb-3 text-sm text-muted-foreground">
-                  Create a new conversation to start chatting with your AI Agent.
-                </div>
-                <Button onClick={createNewConversation} size="sm">
-                  New Conversation
-                </Button>
               </div>
-            </div>
-          ) : null}
-          {showScrollDown ? (
-            <Button
-              type="button"
-              size="icon"
-              onClick={scrollToBottom}
-              className="absolute bottom-3 left-1/2 z-20 h-10 w-10 -translate-x-1/2 rounded-full border bg-foreground/80 text-background shadow-md transition-colors transition-opacity duration-200 ease-out opacity-70 hover:opacity-100 hover:bg-foreground"
-              aria-label="Scroll to bottom"
-            >
-              <ArrowDown className="h-5 w-5" />
-            </Button>
-          ) : null}
+            )}
           </div>
 
           {/* Composer */}
@@ -618,8 +579,6 @@ export default function AIAgentPage() {
                   try {
                     window.scrollTo({ top: 0 })
                   } catch {}
-                  // Nudge messages to bottom to avoid jump
-                  setTimeout(() => bottomSentinelRef.current?.scrollIntoView({ block: "end" }), 0)
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
