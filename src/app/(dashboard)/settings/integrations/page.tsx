@@ -58,6 +58,18 @@ const integrationIcons = {
       />
     </div>
   ),
+  nadlan: (
+    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-muted">
+      <Image
+        src="/integrations/nadlan-logo.png"
+        alt="Nadlan Valuation"
+        fill
+        sizes="40px"
+        className="object-contain p-1"
+        priority
+      />
+    </div>
+  ),
   github: (
     <svg width="40" height="40" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -125,6 +137,13 @@ const baseIntegrations: IntegrationType[] = [
     enabled: false,
     link: "https://legal.thomsonreuters.com/en/products/clear",
   },
+  {
+    name: "Nadlan Valuation",
+    description: "Order property appraisals and valuations.",
+    icon: "nadlan",
+    enabled: false,
+    link: "https://nadlanvaluation.com/",
+  },
 ]
 
 export default function SettingsIntegrationsPage() {
@@ -152,6 +171,12 @@ export default function SettingsIntegrationsPage() {
   const [clearPassword, setClearPassword] = React.useState("")
   const [clearLoading, setClearLoading] = React.useState(false)
   const [clearError, setClearError] = React.useState<string | null>(null)
+
+  const [nadlanModalOpen, setNadlanModalOpen] = React.useState(false)
+  const [nadlanUsername, setNadlanUsername] = React.useState("")
+  const [nadlanPassword, setNadlanPassword] = React.useState("")
+  const [nadlanLoading, setNadlanLoading] = React.useState(false)
+  const [nadlanError, setNadlanError] = React.useState<string | null>(null)
 
   const loadFloify = async () => {
     setFloifyModalOpen(true)
@@ -327,6 +352,64 @@ export default function SettingsIntegrationsPage() {
     }
   }
 
+  const loadNadlan = async () => {
+    setNadlanModalOpen(true)
+    setNadlanLoading(true)
+    setNadlanError(null)
+    try {
+      const res = await fetch("/api/integrations/nadlan", { cache: "no-store" })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      const j = (await res.json().catch(() => ({}))) as { row?: { username?: string | null; password?: string | null } }
+      setNadlanUsername(j.row?.username ?? "")
+      setNadlanPassword(j.row?.password ?? "")
+    } catch (e) {
+      setNadlanError(e instanceof Error ? e.message : "Failed to load Nadlan settings")
+    } finally {
+      setNadlanLoading(false)
+    }
+  }
+
+  const handleNadlanSave = async () => {
+    setNadlanError(null)
+    setNadlanLoading(true)
+    try {
+      const res = await fetch("/api/integrations/nadlan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: nadlanUsername.trim(), password: nadlanPassword.trim() }),
+      })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      toast({ title: "Saved", description: "Nadlan Valuation credentials saved." })
+      setNadlanModalOpen(false)
+      // Refresh main list to ensure status stays in sync
+      setLoading(true)
+      const resList = await fetch("/api/integrations", { cache: "no-store" })
+      if (resList.ok) {
+        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
+        const rows = j.rows ?? []
+        setActiveIntegrations(
+          baseIntegrations.map((integration) => {
+            const row = rows.find((r) => r.type === integration.icon)
+            return {
+              ...integration,
+              enabled: row?.status ?? false,
+              hasKey: row?.has_key,
+            }
+          })
+        )
+      }
+    } catch (e) {
+      setNadlanError(e instanceof Error ? e.message : "Failed to save Nadlan credentials")
+    } finally {
+      setNadlanLoading(false)
+      setLoading(false)
+    }
+  }
+
   React.useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -385,6 +468,10 @@ export default function SettingsIntegrationsPage() {
     }
     if (current?.icon === "clear" && !current.hasKey) {
       toast({ title: "Credentials required", description: "Add your Clear credentials before enabling.", variant: "destructive" })
+      return
+    }
+    if (current?.icon === "nadlan" && !current.hasKey) {
+      toast({ title: "Credentials required", description: "Add your Nadlan Valuation credentials before enabling.", variant: "destructive" })
       return
     }
     setActiveIntegrations((prev) =>
@@ -533,6 +620,48 @@ export default function SettingsIntegrationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={nadlanModalOpen} onOpenChange={setNadlanModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nadlan Valuation Credentials</DialogTitle>
+            <DialogDescription>Enter and save your Nadlan Valuation account credentials.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="nadlan-username">Username</Label>
+              <Input
+                id="nadlan-username"
+                value={nadlanUsername}
+                onChange={(e) => setNadlanUsername(e.target.value)}
+                placeholder="Enter Username"
+                disabled={nadlanLoading}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="nadlan-password">Password</Label>
+              <PasswordInput
+                id="nadlan-password"
+                value={nadlanPassword}
+                onChange={(e) => setNadlanPassword(e.target.value)}
+                placeholder="Enter Password"
+                disabled={nadlanLoading}
+              />
+            </div>
+            {nadlanError ? <p className="text-sm text-destructive">{nadlanError}</p> : null}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setNadlanModalOpen(false)} disabled={nadlanLoading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleNadlanSave()}
+              disabled={nadlanLoading || !nadlanUsername.trim() || !nadlanPassword.trim()}
+            >
+              {nadlanLoading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {error ? <div className="text-sm text-destructive">Failed to load integrations: {error}</div> : null}
       <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full md:w-auto">
@@ -603,6 +732,8 @@ export default function SettingsIntegrationsPage() {
                     void loadXactus()
                   } else if (integration.icon === "clear") {
                     void loadClear()
+                  } else if (integration.icon === "nadlan") {
+                    void loadNadlan()
                   }
                 }}
               >
@@ -611,7 +742,7 @@ export default function SettingsIntegrationsPage() {
               </Button>
               <Switch
                 checked={integration.enabled}
-                disabled={(integration.icon === "floify" || integration.icon === "xactus" || integration.icon === "clear") && !integration.hasKey}
+                disabled={(integration.icon === "floify" || integration.icon === "xactus" || integration.icon === "clear" || integration.icon === "nadlan") && !integration.hasKey}
                 onCheckedChange={() => handleToggle(integration.name)}
                 aria-label={`Toggle ${integration.name}`}
               />

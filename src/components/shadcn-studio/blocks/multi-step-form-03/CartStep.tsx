@@ -441,7 +441,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                   </div>
                   <div className='flex flex-col gap-1.5'>
                     <Label className='text-xs font-semibold text-muted-foreground'>DOB</Label>
-                    <Popover>
+                    <Popover onOpenChange={(open) => { if (open && dob) setDobCalMonth(dob) }}>
                       <PopoverTrigger asChild>
                         <div className='relative'>
                           <DateInput emptyOnMount value={dob} onChange={setDob} />
@@ -621,7 +621,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                 <div className='grid gap-4 md:grid-cols-2'>
                   <div className='flex flex-col gap-1.5'>
                     <Label className='text-xs font-semibold text-muted-foreground'>DOB</Label>
-                    <Popover>
+                    <Popover onOpenChange={(open) => { if (open && dob) setDobCalMonth(dob) }}>
                       <PopoverTrigger asChild>
                         <div className='relative'>
                           <DateInput emptyOnMount value={dob} onChange={setDob} />
@@ -840,7 +840,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
         {effectiveReportId ? (
           <ChatPanel
             key={effectiveReportId}
-            className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden h-full'
+            className='rounded-md border p-4 flex-1 min-h-0 h-full'
             reportId={effectiveReportId}
           />
         ) : (

@@ -65,6 +65,22 @@ export async function GET(_req: NextRequest) {
       )
     }
 
+    // For nadlan, include has_key and force status=false when missing
+    const nadlanIds = (data ?? []).filter((r) => r.type === "nadlan").map((r) => r.id as string)
+    let nadlanKeys: Record<string, boolean> = {}
+    if (nadlanIds.length) {
+      const { data: nkRows } = await supabaseAdmin
+        .from("integrations_nadlan")
+        .select("integration_id, username, password")
+        .in("integration_id", nadlanIds)
+      nadlanKeys = Object.fromEntries(
+        (nkRows ?? []).map((r) => [
+          r.integration_id as string,
+          Boolean((r.username as string | null)?.trim()) && Boolean((r.password as string | null)?.trim()),
+        ])
+      )
+    }
+
     const rows = (data ?? []).map((r) => {
       if (r.type === "floify") {
         const hasKey = floifyKeys[r.id as string] ?? false
@@ -76,6 +92,10 @@ export async function GET(_req: NextRequest) {
       }
       if (r.type === "clear") {
         const hasKey = clearKeys[r.id as string] ?? false
+        return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
+      }
+      if (r.type === "nadlan") {
+        const hasKey = nadlanKeys[r.id as string] ?? false
         return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
       }
       return { type: r.type, status: r.status, has_key: undefined }
@@ -184,6 +204,35 @@ export async function PATCH(req: NextRequest) {
         }
       } else {
         return NextResponse.json({ error: "Clear integration not found", row: { type, status: false } }, { status: 400 })
+      }
+    }
+
+    // If nadlan, ensure credentials exist before enabling
+    if (type === "nadlan" && status) {
+      const { data: nadlanRow } = await supabaseAdmin
+        .from("integrations")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .eq("user_id", userId)
+        .eq("type", "nadlan")
+        .maybeSingle()
+      const nadlanId = nadlanRow?.id as string | undefined
+      if (nadlanId) {
+        const { data: nk } = await supabaseAdmin
+          .from("integrations_nadlan")
+          .select("username, password")
+          .eq("integration_id", nadlanId)
+          .maybeSingle()
+        const hasKey =
+          Boolean((nk?.username as string | null)?.trim()) && Boolean((nk?.password as string | null)?.trim())
+        if (!hasKey) {
+          return NextResponse.json(
+            { error: "Credentials required to enable Nadlan Valuation", row: { type, status: false, has_key: false } },
+            { status: 400 }
+          )
+        }
+      } else {
+        return NextResponse.json({ error: "Nadlan integration not found", row: { type, status: false } }, { status: 400 })
       }
     }
 
