@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/password-input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
@@ -145,6 +146,13 @@ export default function SettingsIntegrationsPage() {
   const [xactusAccountPassword, setXactusAccountPassword] = React.useState("")
   const [xactusLoading, setXactusLoading] = React.useState(false)
   const [xactusError, setXactusError] = React.useState<string | null>(null)
+
+  const [clearModalOpen, setClearModalOpen] = React.useState(false)
+  const [clearUsername, setClearUsername] = React.useState("")
+  const [clearPassword, setClearPassword] = React.useState("")
+  const [clearLoading, setClearLoading] = React.useState(false)
+  const [clearError, setClearError] = React.useState<string | null>(null)
+
   const loadFloify = async () => {
     setFloifyModalOpen(true)
     setFloifyLoading(true)
@@ -261,6 +269,64 @@ export default function SettingsIntegrationsPage() {
     }
   }
 
+  const loadClear = async () => {
+    setClearModalOpen(true)
+    setClearLoading(true)
+    setClearError(null)
+    try {
+      const res = await fetch("/api/integrations/clear", { cache: "no-store" })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      const j = (await res.json().catch(() => ({}))) as { row?: { username?: string | null; password?: string | null } }
+      setClearUsername(j.row?.username ?? "")
+      setClearPassword(j.row?.password ?? "")
+    } catch (e) {
+      setClearError(e instanceof Error ? e.message : "Failed to load Clear settings")
+    } finally {
+      setClearLoading(false)
+    }
+  }
+
+  const handleClearSave = async () => {
+    setClearError(null)
+    setClearLoading(true)
+    try {
+      const res = await fetch("/api/integrations/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: clearUsername.trim(), password: clearPassword.trim() }),
+      })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      toast({ title: "Saved", description: "Clear credentials saved." })
+      setClearModalOpen(false)
+      // Refresh main list to ensure status stays in sync
+      setLoading(true)
+      const resList = await fetch("/api/integrations", { cache: "no-store" })
+      if (resList.ok) {
+        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
+        const rows = j.rows ?? []
+        setActiveIntegrations(
+          baseIntegrations.map((integration) => {
+            const row = rows.find((r) => r.type === integration.icon)
+            return {
+              ...integration,
+              enabled: row?.status ?? false,
+              hasKey: row?.has_key,
+            }
+          })
+        )
+      }
+    } catch (e) {
+      setClearError(e instanceof Error ? e.message : "Failed to save Clear credentials")
+    } finally {
+      setClearLoading(false)
+      setLoading(false)
+    }
+  }
+
   React.useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -315,6 +381,10 @@ export default function SettingsIntegrationsPage() {
     }
     if (current?.icon === "xactus" && !current.hasKey) {
       toast({ title: "Credentials required", description: "Add your Xactus credentials before enabling.", variant: "destructive" })
+      return
+    }
+    if (current?.icon === "clear" && !current.hasKey) {
+      toast({ title: "Credentials required", description: "Add your Clear credentials before enabling.", variant: "destructive" })
       return
     }
     setActiveIntegrations((prev) =>
@@ -398,9 +468,8 @@ export default function SettingsIntegrationsPage() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="xactus-account-password">Account Password</Label>
-              <Input
+              <PasswordInput
                 id="xactus-account-password"
-                type="password"
                 value={xactusAccountPassword}
                 onChange={(e) => setXactusAccountPassword(e.target.value)}
                 placeholder="Enter Account Password"
@@ -418,6 +487,48 @@ export default function SettingsIntegrationsPage() {
               disabled={xactusLoading || !xactusAccountUser.trim() || !xactusAccountPassword.trim()}
             >
               {xactusLoading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={clearModalOpen} onOpenChange={setClearModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clear Credentials</DialogTitle>
+            <DialogDescription>Enter and save your Clear (Thomson Reuters) account credentials.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="clear-username">Username</Label>
+              <Input
+                id="clear-username"
+                value={clearUsername}
+                onChange={(e) => setClearUsername(e.target.value)}
+                placeholder="Enter Username"
+                disabled={clearLoading}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="clear-password">Password</Label>
+              <PasswordInput
+                id="clear-password"
+                value={clearPassword}
+                onChange={(e) => setClearPassword(e.target.value)}
+                placeholder="Enter Password"
+                disabled={clearLoading}
+              />
+            </div>
+            {clearError ? <p className="text-sm text-destructive">{clearError}</p> : null}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setClearModalOpen(false)} disabled={clearLoading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleClearSave()}
+              disabled={clearLoading || !clearUsername.trim() || !clearPassword.trim()}
+            >
+              {clearLoading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -490,6 +601,8 @@ export default function SettingsIntegrationsPage() {
                     void loadFloify()
                   } else if (integration.icon === "xactus") {
                     void loadXactus()
+                  } else if (integration.icon === "clear") {
+                    void loadClear()
                   }
                 }}
               >
@@ -498,7 +611,7 @@ export default function SettingsIntegrationsPage() {
               </Button>
               <Switch
                 checked={integration.enabled}
-                disabled={(integration.icon === "floify" || integration.icon === "xactus") && !integration.hasKey}
+                disabled={(integration.icon === "floify" || integration.icon === "xactus" || integration.icon === "clear") && !integration.hasKey}
                 onCheckedChange={() => handleToggle(integration.name)}
                 aria-label={`Toggle ${integration.name}`}
               />

@@ -136,6 +136,10 @@ export function NewEntityModal({
 		guarantor: "Yes" | "No" | ""
 		percent: string
 		address: string
+		borrowerId?: string
+		borrower_id?: string
+		entityOwnerId?: string
+		entity_owner_id?: string
 	}[]
 }) {
 	const [dateFormedCalMonth, setDateFormedCalMonth] = useState<Date | undefined>(new Date(2000, 0, 1))
@@ -671,6 +675,7 @@ export function NewEntityModal({
 										<PopoverContent className="w-auto p-0" align="start">
 											<Calendar
 												mode="single"
+												captionLayout="dropdown"
 												selected={dateFormed}
 												month={dateFormedCalMonth}
 												onMonthChange={setDateFormedCalMonth}

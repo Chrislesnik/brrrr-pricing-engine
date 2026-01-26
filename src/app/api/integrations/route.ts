@@ -49,6 +49,22 @@ export async function GET(_req: NextRequest) {
       )
     }
 
+    // For clear, include has_key and force status=false when missing
+    const clearIds = (data ?? []).filter((r) => r.type === "clear").map((r) => r.id as string)
+    let clearKeys: Record<string, boolean> = {}
+    if (clearIds.length) {
+      const { data: ckRows } = await supabaseAdmin
+        .from("integrations_clear")
+        .select("integration_id, username, password")
+        .in("integration_id", clearIds)
+      clearKeys = Object.fromEntries(
+        (ckRows ?? []).map((r) => [
+          r.integration_id as string,
+          Boolean((r.username as string | null)?.trim()) && Boolean((r.password as string | null)?.trim()),
+        ])
+      )
+    }
+
     const rows = (data ?? []).map((r) => {
       if (r.type === "floify") {
         const hasKey = floifyKeys[r.id as string] ?? false
@@ -56,6 +72,10 @@ export async function GET(_req: NextRequest) {
       }
       if (r.type === "xactus") {
         const hasKey = xactusKeys[r.id as string] ?? false
+        return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
+      }
+      if (r.type === "clear") {
+        const hasKey = clearKeys[r.id as string] ?? false
         return { type: r.type, status: hasKey ? r.status : false, has_key: hasKey }
       }
       return { type: r.type, status: r.status, has_key: undefined }
@@ -135,6 +155,35 @@ export async function PATCH(req: NextRequest) {
         }
       } else {
         return NextResponse.json({ error: "Xactus integration not found", row: { type, status: false } }, { status: 400 })
+      }
+    }
+
+    // If clear, ensure credentials exist before enabling
+    if (type === "clear" && status) {
+      const { data: clearRow } = await supabaseAdmin
+        .from("integrations")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .eq("user_id", userId)
+        .eq("type", "clear")
+        .maybeSingle()
+      const clearId = clearRow?.id as string | undefined
+      if (clearId) {
+        const { data: ck } = await supabaseAdmin
+          .from("integrations_clear")
+          .select("username, password")
+          .eq("integration_id", clearId)
+          .maybeSingle()
+        const hasKey =
+          Boolean((ck?.username as string | null)?.trim()) && Boolean((ck?.password as string | null)?.trim())
+        if (!hasKey) {
+          return NextResponse.json(
+            { error: "Credentials required to enable Clear", row: { type, status: false, has_key: false } },
+            { status: 400 }
+          )
+        }
+      } else {
+        return NextResponse.json({ error: "Clear integration not found", row: { type, status: false } }, { status: 400 })
       }
     }
 

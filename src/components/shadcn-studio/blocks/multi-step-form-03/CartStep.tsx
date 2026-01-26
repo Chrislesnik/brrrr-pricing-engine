@@ -458,6 +458,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                       <PopoverContent className='w-auto p-0' align='start'>
                         <Calendar
                           mode='single'
+                          captionLayout='dropdown'
                           selected={dob}
                           month={dobCalMonth}
                           onMonthChange={setDobCalMonth}
@@ -637,6 +638,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                       <PopoverContent className='w-auto p-0' align='start'>
                         <Calendar
                           mode='single'
+                          captionLayout='dropdown'
                           selected={dob}
                           month={dobCalMonth}
                           onMonthChange={setDobCalMonth}
