@@ -29,6 +29,7 @@
         "X-License-Key": "${SHADCNDESIGN_LICENSE_KEY}"
       }
     },
-    "@shadcnexamples": "https://shadcnexamples.com/r/{name}.json"    
+    "@shadcnexamples": "https://shadcnexamples.com/r/{name}.json",
+    "@shadcn-ai": "https://ui.shadcn.com/r/styles/new-york/{name}.json"
   }
 }
