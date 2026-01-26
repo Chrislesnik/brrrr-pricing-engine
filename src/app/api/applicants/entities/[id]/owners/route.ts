@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { decryptFromAny } from "@/lib/crypto"
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -68,8 +69,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const enrichedOwners = (owners ?? []).map((o: any) => {
       const ent = o?.entity_owner_id ? ownerEntityEinMap[o.entity_owner_id] : null
+      // Decrypt SSN for Individual members
+      let full_ssn: string | null = null
+      if (o?.member_type === "Individual" && o?.ssn_encrypted) {
+        try {
+          const decrypted = decryptFromAny(o.ssn_encrypted as unknown as string)
+          if (/^[0-9]{9}$/.test(decrypted)) {
+            full_ssn = decrypted
+          }
+        } catch {
+          // Decryption failed, leave full_ssn as null
+        }
+      }
       return {
         ...o,
+        full_ssn,
         entity_display_id: ent?.display_id ?? null,
         entity_display_name: ent?.entity_name ?? null,
         entity_ein: ent?.ein ?? null,

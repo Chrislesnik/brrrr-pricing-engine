@@ -133,6 +133,7 @@ export function NewEntityModal({
 		ssnEncrypted?: string | null
 		ssnLast4?: string | null
 		ein?: string | null
+		showSsn?: boolean
 		guarantor: "Yes" | "No" | ""
 		percent: string
 		address: string
@@ -829,7 +830,7 @@ export function NewEntityModal({
 											<div className="text-sm font-medium">Owner {idx + 1}</div>
 											<button
 												type="button"
-												className="text-muted-foreground hover:text-foreground"
+												className="text-muted-foreground hover:text-red-500"
 												onClick={() => setOwners((prev) => prev.filter((x) => x.id !== o.id))}
 												aria-label="Remove owner"
 											>
@@ -838,7 +839,7 @@ export function NewEntityModal({
 										</div>
 										<div className="grid gap-3 sm:grid-cols-2">
 											<div className="flex flex-col gap-1 sm:col-span-2">
-												<Label className="text-blue-700">Link to Owner (borrower or entity)</Label>
+												<Label className={linked ? "text-blue-700" : ""}>Link to Owner (borrower or entity)</Label>
 												<Select
 													disabled={borrowerLoading}
 													value={
@@ -934,6 +935,7 @@ export function NewEntityModal({
 																		name: fullName || next[idx].name,
 																		memberType: "Individual",
 																		ssnEin: details?.full_ssn ?? next[idx].ssnEin,
+																		showSsn: false, // Always hidden by default
 																		address: homeAddr || next[idx].address,
 																	}
 																	return next
@@ -982,7 +984,7 @@ export function NewEntityModal({
 														}
 													}}
 												>
-													<SelectTrigger className="ring-1 ring-blue-300 focus:ring-blue-500 text-blue-700">
+													<SelectTrigger className={linked ? "ring-1 ring-blue-300 focus:ring-blue-500 text-blue-700" : ""}>
 														<SelectValue placeholder={borrowerLoading ? "Loading..." : "Select borrower or entity"} />
 													</SelectTrigger>
 													<SelectContent>

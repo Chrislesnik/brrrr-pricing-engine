@@ -33,6 +33,7 @@ export function EntityRowActions({ entity }: Props) {
       title: string
       memberType: "Individual" | "Entity" | ""
       ssnEin: string
+      showSsn?: boolean
       guarantor: "Yes" | "No" | ""
       percent: string
       address: string
@@ -130,6 +131,9 @@ export function EntityRowActions({ entity }: Props) {
               }
             }
 
+            // SSN should always be hidden by default when modal opens
+            const showSsn = false
+
             return {
               id: crypto.randomUUID(),
               name: o.name ?? "",
@@ -139,6 +143,7 @@ export function EntityRowActions({ entity }: Props) {
               ssnEncrypted,
               ssnLast4,
               ein,
+              showSsn,
               guarantor: o.guarantor === true ? "Yes" : o.guarantor === false ? "No" : "",
               percent: o.ownership_percent != null ? String(o.ownership_percent) : "",
               address: o.address ?? "",
