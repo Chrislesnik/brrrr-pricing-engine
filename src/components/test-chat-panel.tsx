@@ -51,7 +51,7 @@ interface TestChatPanelProps {
 }
 
 const WEBHOOK_URL = "https://n8n.axora.info/webhook/0d715985-5cc6-40b4-9ddc-864a6c336770"
-const DETAILS_WEBHOOK_URL = "https://n8n.axora.info/webhook-test/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
+const DETAILS_WEBHOOK_URL = "https://n8n.axora.info/webhook/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
 
 // DetailItem component for the Details tab
 function DetailItem({
