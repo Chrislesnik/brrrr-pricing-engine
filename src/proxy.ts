@@ -100,7 +100,7 @@ export function proxy(request: NextRequest) {
     // #endregion
 
     return NextResponse.next()
-  })(request)
+  }, request)
 }
 
 export const config = {
