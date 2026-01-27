@@ -404,7 +404,7 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
       setTimeout(() => setRunPhase("idle"), 900)
     } finally {
       clearTimeout(bounceTimer)
-      if (runPhase !== "error") setRunPhase("idle")
+      setRunPhase("idle")
     }
   }
 
