@@ -1,22 +1,22 @@
 import crypto from "crypto"
 
 function getKey(): Buffer {
-	// Preferred: NEXT_PUBLIC_N8N_SSN_KEY (base64-encoded 32 bytes)
-	const n8nKey = process.env.NEXT_PUBLIC_N8N_SSN_KEY
+	// Preferred: N8N_SSN_KEY (base64-encoded 32 bytes)
+	const n8nKey = process.env.N8N_SSN_KEY
 	const b64 = n8nKey || process.env.AES_GCM_KEY_B64
 	if (b64) {
 		try {
 			const b = Buffer.from(b64, "base64")
 			if (b.length === 32) return b
-			throw new Error("NEXT_PUBLIC_N8N_SSN_KEY must decode to 32 bytes (base64)")
+			throw new Error("N8N_SSN_KEY must decode to 32 bytes (base64)")
 		} catch {
-			throw new Error("Invalid NEXT_PUBLIC_N8N_SSN_KEY (must be base64-encoded 32 bytes)")
+			throw new Error("Invalid N8N_SSN_KEY (must be base64-encoded 32 bytes)")
 		}
 	}
 	// Backward compatibility: BORROWER_SSN_ENC_KEY (raw/hex/base64)
 	const keyRaw = process.env.BORROWER_SSN_ENC_KEY || ""
 	if (!keyRaw) {
-		throw new Error("Missing NEXT_PUBLIC_N8N_SSN_KEY (preferred) or BORROWER_SSN_ENC_KEY")
+		throw new Error("Missing N8N_SSN_KEY (preferred) or BORROWER_SSN_ENC_KEY")
 	}
 	// Accept raw 32-byte string, hex, or base64
 	if (keyRaw.length === 32) {
@@ -34,8 +34,8 @@ function getKey(): Buffer {
 
 function getAllKeys(): Buffer[] {
 	const keys: Buffer[] = []
-	// Preferred: NEXT_PUBLIC_N8N_SSN_KEY (then fallback AES_GCM_KEY_B64)
-	const aes = process.env.NEXT_PUBLIC_N8N_SSN_KEY || process.env.AES_GCM_KEY_B64
+	// Preferred: N8N_SSN_KEY (then fallback AES_GCM_KEY_B64)
+	const aes = process.env.N8N_SSN_KEY || process.env.AES_GCM_KEY_B64
 	if (aes) {
 		try {
 			const b = Buffer.from(aes, "base64")
