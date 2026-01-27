@@ -877,7 +877,9 @@ export function NewEntityModal({
 																	...next[idx],
 																	borrowerId: id,
 																	entityOwnerId: undefined,
+																}
 																return next
+															})
 															try {
 																let details = borrowerCache[id]
 																if (!details) {
