@@ -42,7 +42,7 @@ const orderItems = [
   },
 ]
 
-type CarouselItem = { name?: string | null }
+type CarouselItem = { name?: string | null; id?: string }
 
 const MultiStepForm = ({
   className,
