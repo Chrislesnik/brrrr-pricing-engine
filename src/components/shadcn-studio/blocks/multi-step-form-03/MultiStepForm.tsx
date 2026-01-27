@@ -21,7 +21,7 @@ const { useStepper } = Stepperize.defineStepper(
   { id: 'confirmation', title: 'Appraisal', icon: TbHomeSearch }
 )
 
-const orderItems: OrderItemType[] = [
+const orderItems = [
   {
     title: 'iPhone 16 Pro Max',
     soldBy: 'ACME Inc.',
