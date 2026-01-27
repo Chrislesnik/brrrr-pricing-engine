@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/date-input"
 import { Switch } from "@/components/ui/switch"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -2775,8 +2776,9 @@ export default function PricingEnginePage() {
             </div>
 
             {/* Scrollable content area */}
-            <div ref={inputsAreaRef} className="min-h-0 flex-1 overflow-y-scroll overscroll-contain p-3 pb-4">
-              <Accordion
+            <ScrollArea className="min-h-0 flex-1">
+              <div ref={inputsAreaRef} className="p-3 pb-4">
+                <Accordion
                 type="multiple"
                 defaultValue={[
                   "loan-details",
@@ -4602,8 +4604,9 @@ export default function PricingEnginePage() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              </Accordion>
-            </div>
+                </Accordion>
+              </div>
+            </ScrollArea>
 
             {/* Footer */}
             <div className="border-t p-3">
