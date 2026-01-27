@@ -662,7 +662,7 @@ export function ApplicationPartyEditor({
                                 ? `Email already sent to guarantor ${idx + 1}`
                                 : `Email guarantor ${idx + 1}`
                         }
-                        disabled={!currentEmail || isSigned}
+                        disabled={!currentEmail || !!isSigned}
                         onClick={async (e) => {
                           if (!currentEmail) return
                           e.stopPropagation()
