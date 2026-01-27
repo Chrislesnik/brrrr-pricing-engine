@@ -876,11 +876,8 @@ export function NewEntityModal({
 																next[idx] = {
 																	...next[idx],
 																	borrowerId: id,
-																	borrower_id: id,
 																	entityOwnerId: undefined,
-																}
 																return next
-															})
 															try {
 																let details = borrowerCache[id]
 																if (!details) {
@@ -928,7 +925,6 @@ export function NewEntityModal({
 																	next[idx] = {
 																		...next[idx],
 																		borrowerId: id,
-																		borrower_id: id,
 																		name: fullName || next[idx].name,
 																		memberType: "Individual",
 																		ssnEin: details?.full_ssn ?? next[idx].ssnEin,
@@ -966,7 +962,6 @@ export function NewEntityModal({
 																		...next[idx],
 																		borrowerId: undefined,
 																		entityOwnerId: id,
-																		entity_owner_id: id,
 																		name: fullName || next[idx].name,
 																		memberType: "Entity",
 																		ssnEin: einDigits || next[idx].ssnEin,
