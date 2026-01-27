@@ -194,6 +194,9 @@ importers:
       svix:
         specifier: ^1.81.0
         version: 1.84.1
+      swr:
+        specifier: ^2.3.8
+        version: 2.3.8(react@19.0.0)
       tailwind-merge:
         specifier: ^3.0.1
         version: 3.4.0

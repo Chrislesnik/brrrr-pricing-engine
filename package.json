@@ -81,6 +81,7 @@
     "recharts": "^2.15.1",
     "streamdown": "^2.1.0",
     "svix": "^1.81.0",
+    "swr": "^2.3.8",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "use-stick-to-bottom": "^1.1.1",
