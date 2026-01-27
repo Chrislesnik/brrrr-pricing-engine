@@ -194,7 +194,7 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
         if (!ignore) {
           const docs = Array.isArray(j?.documents) ? j.documents : []
           setFiles(docs)
-          if (selectId && docs.some((d) => d.id === selectId)) {
+          if (selectId && docs.some((d: { id: string }) => d.id === selectId)) {
             setSelectedReportId(selectId)
           }
         }
