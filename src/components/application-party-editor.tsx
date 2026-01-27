@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Check, Link2, Mail, Unlink, X } from "lucide-react"
+import { Bell, Check, Link2, Mail, Unlink, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,8 @@ interface Props {
   initialEntityId?: string | null
   initialEntityName?: string | null
   initialGuarantors?: Guarantor[]
+  initialSignedEmails?: string[]
+  initialSentEmails?: string[]
   maxGuarantors?: number
   onChange?: (next: { entityId?: string | null; entityName?: string | null; guarantors?: Guarantor[] }) => void
 }
@@ -35,6 +37,8 @@ export function ApplicationPartyEditor({
   initialEntityId,
   initialEntityName,
   initialGuarantors = [],
+  initialSignedEmails = [],
+  initialSentEmails = [],
   maxGuarantors = 4,
   onChange,
 }: Props) {
@@ -59,8 +63,9 @@ export function ApplicationPartyEditor({
   const [showGuarantorSuggestions, setShowGuarantorSuggestions] = useState(false)
   const [guarantorLoading, setGuarantorLoading] = useState(false)
   const [guarantorEmailStatus, setGuarantorEmailStatus] = useState<Record<string, "idle" | "loading" | "success" | "error">>({})
-  const [signedEmails, setSignedEmails] = useState<Set<string>>(new Set())
-  const [signingLoaded, setSigningLoaded] = useState(false)
+  const [signedEmails, setSignedEmails] = useState<Set<string>>(() => new Set(initialSignedEmails.map((e) => e.toLowerCase())))
+  const [sentEmails, setSentEmails] = useState<Set<string>>(() => new Set(initialSentEmails.map((e) => e.toLowerCase())))
+  const [signingLoaded, setSigningLoaded] = useState(initialSignedEmails.length > 0 || initialSentEmails.length > 0)
   const [confirmRemove, setConfirmRemove] = useState<{ idx: number; email: string | null } | null>(null)
 
   useEffect(() => {
@@ -150,7 +155,7 @@ export function ApplicationPartyEditor({
 
   const totalGuarantors = guarantors.length
 
-  // Fetch signed emails for this loan (reuse every time component mounts; could be refreshed if needed)
+  // Fetch signed emails and sent emails for this loan (reuse every time component mounts; could be refreshed if needed)
   useEffect(() => {
     let cancelled = false
     const ctrl = new AbortController()
@@ -160,7 +165,7 @@ export function ApplicationPartyEditor({
         const res = await fetch(`/api/applications/progress?loanId=${encodeURIComponent(loanId)}`, { cache: "no-store", signal: ctrl.signal })
         if (!res.ok) return
         const j = (await res.json().catch(() => ({}))) as {
-          rows?: Array<{ loan_id: string; signingEmails?: string[] }>
+          rows?: Array<{ loan_id: string; signingEmails?: string[]; sentEmails?: string[] }>
         }
         if (cancelled) return
         const match = j.rows?.find((r) => r.loan_id === loanId)
@@ -168,6 +173,12 @@ export function ApplicationPartyEditor({
           setSignedEmails(new Set(match.signingEmails.map((e) => (e ?? "").toLowerCase()).filter((e) => e.length > 0)))
         } else {
           setSignedEmails(new Set())
+        }
+        // Set sent emails from database
+        if (match?.sentEmails?.length) {
+          setSentEmails(new Set(match.sentEmails.map((e) => (e ?? "").toLowerCase()).filter((e) => e.length > 0)))
+        } else {
+          setSentEmails(new Set())
         }
       } catch {
         // ignore
@@ -625,63 +636,84 @@ export function ApplicationPartyEditor({
                       </Button>
                     </>
                   )}
-                  {!isEditing && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "h-8 w-8 border border-muted text-muted-foreground hover:border-green-400 hover:text-green-600",
-                        {
-                          "opacity-50 pointer-events-none": !currentEmail,
-                        },
-                        status === "error" && "animate-[email-shake_0.45s_ease-in-out] motion-reduce:animate-none"
-                      )}
-                      aria-label={currentEmail ? `Email guarantor ${idx + 1}` : `No email for guarantor ${idx + 1}`}
-                      disabled={!currentEmail}
-                      onClick={async (e) => {
-                        if (!currentEmail) return
-                        e.stopPropagation()
-                        setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: "loading" }))
-                        try {
-                        const res = await fetch("https://n8n.axora.info/webhook/3075cb28-a5db-499e-b916-95c7ce002dec", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              loanId,
-                              guarantorName: currentName,
-                              guarantorEmail: currentEmail,
-                            }),
-                          })
-                          const j = await res.json().catch(() => ({} as { sent?: boolean }))
-                          const sent = Boolean((j as any)?.sent)
-                          setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: sent ? "success" : "error" }))
-                        } catch {
-                          setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: "error" }))
-                        } finally {
-                          setTimeout(() => {
-                            setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: "idle" }))
-                          }, 1600)
+                  {!isEditing && (() => {
+                    const emailWasSent = currentEmail && sentEmails.has(currentEmail.toLowerCase())
+                    const isSigned = currentEmail && signedEmails.has((currentEmail ?? "").toLowerCase())
+                    return (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-8 w-8 border",
+                          emailWasSent
+                            ? "border-yellow-300 text-yellow-600 bg-yellow-50 hover:border-yellow-400 hover:text-yellow-700"
+                            : "border-muted text-muted-foreground hover:border-green-400 hover:text-green-600",
+                          {
+                            "opacity-50 pointer-events-none": !currentEmail || isSigned,
+                          },
+                          status === "error" && "animate-[email-shake_0.45s_ease-in-out] motion-reduce:animate-none"
+                        )}
+                        aria-label={
+                          !currentEmail 
+                            ? `No email for guarantor ${idx + 1}` 
+                            : isSigned
+                              ? `Guarantor ${idx + 1} already signed`
+                              : emailWasSent
+                                ? `Email already sent to guarantor ${idx + 1}`
+                                : `Email guarantor ${idx + 1}`
                         }
-                      }}
-                    >
-                      {(() => {
-                        if (status === "loading") {
-                          return (
-                            <span className="flex h-4 w-4 items-center justify-center">
-                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/60 border-t-transparent" />
-                            </span>
-                          )
-                        }
-                        if (status === "success") {
-                          return <Check className="h-4 w-4 text-green-600 animate-in fade-in zoom-in" aria-hidden="true" />
-                        }
-                        if (status === "error") {
-                          return <X className="h-4 w-4 text-red-600" aria-hidden="true" />
-                        }
-                        return <Mail className="h-4 w-4" aria-hidden="true" />
-                      })()}
-                    </Button>
-                  )}
+                        disabled={!currentEmail || isSigned}
+                        onClick={async (e) => {
+                          if (!currentEmail) return
+                          e.stopPropagation()
+                          setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: "loading" }))
+                          try {
+                          const res = await fetch("https://n8n.axora.info/webhook/3075cb28-a5db-499e-b916-95c7ce002dec", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                loanId,
+                                guarantorName: currentName,
+                                guarantorEmail: currentEmail,
+                              }),
+                            })
+                            const j = await res.json().catch(() => ({} as { sent?: boolean }))
+                            const sent = Boolean((j as any)?.sent)
+                            setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: sent ? "success" : "error" }))
+                            if (sent && currentEmail) {
+                              setSentEmails((prev) => new Set([...prev, currentEmail.toLowerCase()]))
+                            }
+                          } catch {
+                            setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: "error" }))
+                          } finally {
+                            setTimeout(() => {
+                              setGuarantorEmailStatus((prev) => ({ ...prev, [statusKey]: "idle" }))
+                            }, 1600)
+                          }
+                        }}
+                      >
+                        {(() => {
+                          if (status === "loading") {
+                            return (
+                              <span className="flex h-4 w-4 items-center justify-center">
+                                <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/60 border-t-transparent" />
+                              </span>
+                            )
+                          }
+                          if (status === "success") {
+                            return <Check className="h-4 w-4 text-green-600 animate-in fade-in zoom-in" aria-hidden="true" />
+                          }
+                          if (status === "error") {
+                            return <X className="h-4 w-4 text-red-600" aria-hidden="true" />
+                          }
+                          if (emailWasSent) {
+                            return <Bell className="h-4 w-4" aria-hidden="true" />
+                          }
+                          return <Mail className="h-4 w-4" aria-hidden="true" />
+                        })()}
+                      </Button>
+                    )
+                  })()}
                   {!isEditing && (
                     <div className="flex items-center gap-2">
                       {currentEmail && signedEmails.has((currentEmail ?? "").toLowerCase()) ? (

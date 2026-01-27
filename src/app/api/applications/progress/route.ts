@@ -25,6 +25,7 @@ export async function GET(_req: NextRequest) {
 
     let signedCounts: Record<string, number> = {}
     let signedEmails: Record<string, string[]> = {}
+    let sentEmails: Record<string, string[]> = {}
     if (loanIds.length) {
       const { data: signings } = await supabaseAdmin
         .from("application_signings")
@@ -43,6 +44,20 @@ export async function GET(_req: NextRequest) {
         if (!acc[loanId].includes(email)) acc[loanId].push(email)
         return acc
       }, {})
+
+      // Fetch sent emails from applications_emails_sent table
+      const { data: sentEmailsData } = await supabaseAdmin
+        .from("applications_emails_sent")
+        .select("loan_id, email")
+        .in("loan_id", loanIds)
+      sentEmails = (sentEmailsData ?? []).reduce((acc: Record<string, string[]>, row: any) => {
+        const loanId = row.loan_id as string
+        const email = (row.email as string | null)?.toLowerCase() ?? null
+        if (!email) return acc
+        if (!acc[loanId]) acc[loanId] = []
+        if (!acc[loanId].includes(email)) acc[loanId].push(email)
+        return acc
+      }, {})
     }
 
     const result = rows.map((r) => {
@@ -56,6 +71,7 @@ export async function GET(_req: NextRequest) {
         signingSigned: signed,
         signingTotal: total,
         signingEmails: signedEmails[r.loan_id]?.length ? signedEmails[r.loan_id] : [],
+        sentEmails: sentEmails[r.loan_id]?.length ? sentEmails[r.loan_id] : [],
         guarantorEmails: emails.map((e: string) => (e ?? "").toLowerCase()).filter((e: string) => e.length > 0),
       }
     })

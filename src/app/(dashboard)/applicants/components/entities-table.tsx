@@ -31,6 +31,7 @@ type EntityOwner = {
   member_type: string | null
   ownership_percent: number | null
   entity_id?: string | null
+  entity_owner_id?: string | null
   entity_display_id?: string | null
   entity_display_name?: string | null
   borrower_display_id?: string | null
@@ -38,6 +39,7 @@ type EntityOwner = {
 
 interface Props {
   data: EntityProfile[]
+  initialOwnersMap?: Record<string, EntityOwner[]>
 }
 
 function formatEIN(ein: string | null | undefined) {
@@ -56,12 +58,12 @@ function formatDate(ymd: string | null | undefined) {
   return `${String(d).padStart(2, "0")} ${mon}, ${y}`
 }
 
-export function EntitiesTable({ data }: Props) {
+export function EntitiesTable({ data, initialOwnersMap }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const pageSize = 5
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
-  const [ownersMap, setOwnersMap] = useState<Record<string, EntityOwner[] | null | undefined>>({})
+  const [ownersMap, setOwnersMap] = useState<Record<string, EntityOwner[] | null | undefined>>(initialOwnersMap ?? {})
   const [ownersLoading, setOwnersLoading] = useState<Record<string, boolean>>({})
   const [expandedMembers, setExpandedMembers] = useState<Record<string, boolean>>({})
   const [entityDetailsMap, setEntityDetailsMap] = useState<Record<string, EntityProfile | null | undefined>>({})

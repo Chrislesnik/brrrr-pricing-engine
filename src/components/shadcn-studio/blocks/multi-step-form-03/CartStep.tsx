@@ -69,7 +69,24 @@ const formatUSPhone = (input: string) => {
 
 type ReportDoc = { id: string; name: string; created_at: string; status: string | null; url: string }
 
-const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[]; stepper: StepperType; currentBorrowerId?: string }) => {
+const ENTITY_TYPE_OPTIONS = [
+  "LLC",
+  "Corporation",
+  "S-Corp",
+  "Partnership",
+  "Limited Partnership",
+  "Sole Proprietorship",
+  "Trust",
+  "Other",
+]
+
+const formatEIN = (input: string) => {
+  const d = input.replace(/\D+/g, '').slice(0, 9)
+  if (d.length <= 2) return d
+  return `${d.slice(0, 2)}-${d.slice(2)}`
+}
+
+const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data: OrderItemType[]; stepper: StepperType; currentBorrowerId?: string; isEntity?: boolean }) => {
   const isCredit = stepper.current.id === 'credit'
   const { toast } = useToast()
   const [firstName, setFirstName] = useState("")
@@ -285,6 +302,22 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
   const [prevZip, setPrevZip] = useState("")
   const [ssn, setSsn] = useState("")
   const [runPhase, setRunPhase] = useState<"idle" | "bounce" | "running" | "error">("idle")
+  
+  // Entity-specific state
+  const [entityName, setEntityName] = useState("")
+  const [entityType, setEntityType] = useState("")
+  const [ein, setEin] = useState("")
+  const [stateOfFormation, setStateOfFormation] = useState("")
+  const [dateOfFormation, setDateOfFormation] = useState<Date | undefined>()
+  const [dateOfFormationCalMonth, setDateOfFormationCalMonth] = useState<Date | undefined>(new Date())
+  
+  // Guarantor-specific state (Background tab)
+  const [guarantorFirstName, setGuarantorFirstName] = useState("")
+  const [guarantorMiddleInitial, setGuarantorMiddleInitial] = useState("")
+  const [guarantorLastName, setGuarantorLastName] = useState("")
+  const [guarantorSsn, setGuarantorSsn] = useState("")
+  const [guarantorEmail, setGuarantorEmail] = useState("")
+  const [guarantorPhone, setGuarantorPhone] = useState("")
 
   async function handleRun() {
     if (!isCredit || runPhase !== "idle") return
@@ -503,7 +536,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                       <SelectTrigger>
                         <SelectValue placeholder='Select State' />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className='max-h-[300px]'>
                         {STATE_OPTIONS.map((s) => (
                           <SelectItem key={s} value={s}>
                             {s}
@@ -546,7 +579,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                       <SelectTrigger>
                         <SelectValue placeholder='Select State' />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className='max-h-[300px]'>
                         {STATE_OPTIONS.map((s) => (
                           <SelectItem key={s} value={s}>
                             {s}
@@ -601,90 +634,181 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                 </div>
               </div>
 
-              <h3 className='text-sm font-semibold'>Personal Information</h3>
-              <div className='flex flex-col gap-4'>
-                <div className='grid gap-4 md:grid-cols-3'>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>First Name</Label>
-                    <Input placeholder='First Name' />
-                  </div>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>Middle Initial</Label>
-                    <Input placeholder='M' />
-                  </div>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>Last Name</Label>
-                    <Input placeholder='Last Name' />
-                  </div>
-                </div>
+              {isEntity ? (
+                <>
+                  <h3 className='text-sm font-semibold'>Entity Information</h3>
+                  <div className='flex flex-col gap-4'>
+                    <div className='grid gap-4 md:grid-cols-2'>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Entity Name</Label>
+                        <Input placeholder='Entity Name' value={entityName} onChange={(e) => setEntityName(e.target.value)} />
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Entity Type</Label>
+                        <Select value={entityType || undefined} onValueChange={setEntityType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder='Select Entity Type' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ENTITY_TYPE_OPTIONS.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {t}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                <div className='grid gap-4 md:grid-cols-2'>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>DOB</Label>
-                    <Popover onOpenChange={(open) => { if (open && dob) setDobCalMonth(dob) }}>
-                      <PopoverTrigger asChild>
-                        <div className='relative'>
-                          <DateInput emptyOnMount value={dob} onChange={setDob} />
-                          <span className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground'>
-                            <svg width='16' height='16' viewBox='0 0 24 24' fill='none' aria-hidden='true'>
-                              <rect x='3' y='4' width='18' height='18' rx='2' ry='2' stroke='currentColor' />
-                              <line x1='16' y1='2' x2='16' y2='6' stroke='currentColor' />
-                              <line x1='8' y1='2' x2='8' y2='6' stroke='currentColor' />
-                              <line x1='3' y1='10' x2='21' y2='10' stroke='currentColor' />
-                            </svg>
-                          </span>
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className='w-auto p-0' align='start'>
-                        <Calendar
-                          mode='single'
-                          captionLayout='dropdown'
-                          selected={dob}
-                          month={dobCalMonth}
-                          onMonthChange={setDobCalMonth}
-                          onSelect={(d) => d && setDob(d)}
-                          disabled={(d) => {
-                            const today = new Date()
-                            today.setHours(0, 0, 0, 0)
-                            return d > today
-                          }}
-                          initialFocus
+                    <div className='grid gap-4 md:grid-cols-3'>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>EIN</Label>
+                        <Input
+                          placeholder='XX-XXXXXXX'
+                          inputMode='numeric'
+                          value={ein}
+                          onChange={(e) => setEin(formatEIN(e.target.value))}
+                          maxLength={10}
                         />
-                      </PopoverContent>
-                    </Popover>
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>State of Formation</Label>
+                        <Select value={stateOfFormation || undefined} onValueChange={setStateOfFormation}>
+                          <SelectTrigger>
+                            <SelectValue placeholder='Select State' />
+                          </SelectTrigger>
+                          <SelectContent className='max-h-[300px]'>
+                            {STATE_OPTIONS.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {s}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Date of Formation</Label>
+                        <Popover onOpenChange={(open) => { if (open && dateOfFormation) setDateOfFormationCalMonth(dateOfFormation) }}>
+                          <PopoverTrigger asChild>
+                            <div className='relative'>
+                              <DateInput emptyOnMount value={dateOfFormation} onChange={setDateOfFormation} />
+                              <span className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground'>
+                                <svg width='16' height='16' viewBox='0 0 24 24' fill='none' aria-hidden='true'>
+                                  <rect x='3' y='4' width='18' height='18' rx='2' ry='2' stroke='currentColor' />
+                                  <line x1='16' y1='2' x2='16' y2='6' stroke='currentColor' />
+                                  <line x1='8' y1='2' x2='8' y2='6' stroke='currentColor' />
+                                  <line x1='3' y1='10' x2='21' y2='10' stroke='currentColor' />
+                                </svg>
+                              </span>
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className='w-auto p-0' align='start'>
+                            <Calendar
+                              mode='single'
+                              captionLayout='dropdown'
+                              selected={dateOfFormation}
+                              month={dateOfFormationCalMonth}
+                              onMonthChange={setDateOfFormationCalMonth}
+                              onSelect={(d) => d && setDateOfFormation(d)}
+                              disabled={(d) => {
+                                const today = new Date()
+                                today.setHours(0, 0, 0, 0)
+                                return d > today
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
                   </div>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>SSN</Label>
-                    <Input
-                      placeholder='123-45-6789'
-                      inputMode='numeric'
-                      onChange={(e) => {
-                        e.target.value = formatSSN(e.target.value)
-                      }}
-                      maxLength={11}
-                    />
-                  </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  <h3 className='text-sm font-semibold'>Personal Information</h3>
+                  <div className='flex flex-col gap-4'>
+                    <div className='grid gap-4 md:grid-cols-3'>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>First Name</Label>
+                        <Input placeholder='First Name' value={guarantorFirstName} onChange={(e) => setGuarantorFirstName(e.target.value)} />
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Middle Initial</Label>
+                        <Input placeholder='M' value={guarantorMiddleInitial} onChange={(e) => setGuarantorMiddleInitial(e.target.value)} maxLength={1} />
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Last Name</Label>
+                        <Input placeholder='Last Name' value={guarantorLastName} onChange={(e) => setGuarantorLastName(e.target.value)} />
+                      </div>
+                    </div>
 
-                <div className='grid gap-4 md:grid-cols-2'>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>Email Address</Label>
-                    <Input type='email' placeholder='email@example.com' />
-                  </div>
-                  <div className='flex flex-col gap-1.5'>
-                    <Label className='text-xs font-semibold text-muted-foreground'>Phone Number</Label>
-                    <Input
-                      placeholder='(555) 555-5555'
-                      inputMode='tel'
-                      onChange={(e) => {
-                        e.target.value = formatUSPhone(e.target.value)
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
+                    <div className='grid gap-4 md:grid-cols-2'>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>DOB</Label>
+                        <Popover onOpenChange={(open) => { if (open && dob) setDobCalMonth(dob) }}>
+                          <PopoverTrigger asChild>
+                            <div className='relative'>
+                              <DateInput emptyOnMount value={dob} onChange={setDob} />
+                              <span className='pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground'>
+                                <svg width='16' height='16' viewBox='0 0 24 24' fill='none' aria-hidden='true'>
+                                  <rect x='3' y='4' width='18' height='18' rx='2' ry='2' stroke='currentColor' />
+                                  <line x1='16' y1='2' x2='16' y2='6' stroke='currentColor' />
+                                  <line x1='8' y1='2' x2='8' y2='6' stroke='currentColor' />
+                                  <line x1='3' y1='10' x2='21' y2='10' stroke='currentColor' />
+                                </svg>
+                              </span>
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className='w-auto p-0' align='start'>
+                            <Calendar
+                              mode='single'
+                              captionLayout='dropdown'
+                              selected={dob}
+                              month={dobCalMonth}
+                              onMonthChange={setDobCalMonth}
+                              onSelect={(d) => d && setDob(d)}
+                              disabled={(d) => {
+                                const today = new Date()
+                                today.setHours(0, 0, 0, 0)
+                                return d > today
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>SSN</Label>
+                        <Input
+                          placeholder='123-45-6789'
+                          inputMode='numeric'
+                          value={guarantorSsn}
+                          onChange={(e) => setGuarantorSsn(formatSSN(e.target.value))}
+                          maxLength={11}
+                        />
+                      </div>
+                    </div>
 
-              <h3 className='text-sm font-semibold'>Primary Residence</h3>
+                    <div className='grid gap-4 md:grid-cols-2'>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Email Address</Label>
+                        <Input type='email' placeholder='email@example.com' value={guarantorEmail} onChange={(e) => setGuarantorEmail(e.target.value)} />
+                      </div>
+                      <div className='flex flex-col gap-1.5'>
+                        <Label className='text-xs font-semibold text-muted-foreground'>Phone Number</Label>
+                        <Input
+                          placeholder='(555) 555-5555'
+                          inputMode='tel'
+                          value={guarantorPhone}
+                          onChange={(e) => setGuarantorPhone(formatUSPhone(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <h3 className='text-sm font-semibold'>{isEntity ? 'Business Address' : 'Primary Residence'}</h3>
               <div className='flex flex-col gap-4'>
                 <div className='flex flex-col gap-1.5'>
                   <Label className='text-xs font-semibold text-muted-foreground'>Street</Label>
@@ -715,7 +839,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                       <SelectTrigger>
                         <SelectValue placeholder='Select State' />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className='max-h-[300px]'>
                         {STATE_OPTIONS.map((s) => (
                           <SelectItem key={s} value={s}>
                             {s}
@@ -741,7 +865,7 @@ const CartStep = ({ data, stepper, currentBorrowerId }: { data: OrderItemType[];
                       <SelectTrigger>
                         <SelectValue placeholder='Select Province' />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className='max-h-[300px]'>
                         {PROVINCE_OPTIONS.map((p) => (
                           <SelectItem key={p} value={p}>
                             {p}

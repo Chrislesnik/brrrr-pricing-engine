@@ -388,6 +388,8 @@ export function ApplicationsTable({ data }: Props) {
                             initialEntityId={row.original.entityId}
                             initialEntityName={row.original.borrowerEntityName ?? undefined}
                             initialGuarantors={row.original.guarantors ?? []}
+                            initialSignedEmails={row.original.signedEmails ?? []}
+                            initialSentEmails={row.original.sentEmails ?? []}
                           />
                         </TableCell>
                       </TableRow>

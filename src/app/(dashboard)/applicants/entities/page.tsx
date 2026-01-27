@@ -16,7 +16,7 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 export default async function EntitiesPage() {
 	const { orgId } = await auth()
 	const orgUuid = await getOrgUuidFromClerkId(orgId)
-	const data = orgUuid ? await getEntitiesForOrg(orgUuid) : []
+	const { entities, ownersMap } = orgUuid ? await getEntitiesForOrg(orgUuid) : { entities: [], ownersMap: {} }
 	return (
 		<>
 			<div className="mb-4 flex flex-col gap-2">
@@ -51,7 +51,7 @@ export default async function EntitiesPage() {
 				</div>
 			</div>
 			<div className="flex-1 min-w-0">
-				<EntitiesTable data={data} />
+				<EntitiesTable data={entities} initialOwnersMap={ownersMap} />
 			</div>
 		</>
 	)

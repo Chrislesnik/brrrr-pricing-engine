@@ -131,7 +131,7 @@ const MultiStepForm = ({
           <Separator className="mt-2 mb-3" />
         )}
         {stepper.switch({
-          background: () => <CartStep data={orderItems} stepper={stepper} />,
+          background: () => <CartStep data={orderItems} stepper={stepper} isEntity={carouselIndex === 0} />,
           credit: () => (
             <CartStep
               data={orderItems}

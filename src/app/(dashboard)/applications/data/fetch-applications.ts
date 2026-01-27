@@ -12,6 +12,8 @@ export type ApplicationRow = {
   signingProgressPct: number
   signingSigned: number
   signingTotal: number
+  signedEmails: string[]
+  sentEmails: string[]
 }
 
 function extractIds(raw: any): string[] {
@@ -55,14 +57,38 @@ export async function getApplicationsForOrg(orgUuid: string): Promise<Applicatio
   })
 
   let signedCounts: Record<string, number> = {}
+  let signedEmailsMap: Record<string, string[]> = {}
+  let sentEmailsMap: Record<string, string[]> = {}
   if (loanIds.length) {
     const { data: signings } = await supabaseAdmin
       .from("application_signings")
-      .select("loan_id")
+      .select("loan_id, signer_email")
       .in("loan_id", loanIds)
     signedCounts = (signings ?? []).reduce((acc: Record<string, number>, row: any) => {
       const loanId = row.loan_id as string
       acc[loanId] = (acc[loanId] ?? 0) + 1
+      return acc
+    }, {})
+    signedEmailsMap = (signings ?? []).reduce((acc: Record<string, string[]>, row: any) => {
+      const loanId = row.loan_id as string
+      const email = (row.signer_email as string | null)?.toLowerCase() ?? null
+      if (!email) return acc
+      if (!acc[loanId]) acc[loanId] = []
+      if (!acc[loanId].includes(email)) acc[loanId].push(email)
+      return acc
+    }, {})
+
+    // Fetch sent emails from applications_emails_sent table
+    const { data: sentEmailsData } = await supabaseAdmin
+      .from("applications_emails_sent")
+      .select("loan_id, email")
+      .in("loan_id", loanIds)
+    sentEmailsMap = (sentEmailsData ?? []).reduce((acc: Record<string, string[]>, row: any) => {
+      const loanId = row.loan_id as string
+      const email = (row.email as string | null)?.toLowerCase() ?? null
+      if (!email) return acc
+      if (!acc[loanId]) acc[loanId] = []
+      if (!acc[loanId].includes(email)) acc[loanId].push(email)
       return acc
     }, {})
   }
@@ -186,6 +212,8 @@ export async function getApplicationsForOrg(orgUuid: string): Promise<Applicatio
         const signed = signedCounts[r.loan_id] ?? 0
         return Math.min(1, Math.max(0, signed / total))
       })(),
+      signedEmails: signedEmailsMap[r.loan_id] ?? [],
+      sentEmails: sentEmailsMap[r.loan_id] ?? [],
     } as ApplicationRow
   })
 }
