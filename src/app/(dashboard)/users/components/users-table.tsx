@@ -28,16 +28,6 @@ import { User } from "../data/schema"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
 
-declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
-    className: string
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface TableMeta {
-    toggleStatus: (id: string) => void
-  }
-}
 
 interface Props {
   columns: ColumnDef<User>[]
