@@ -2775,7 +2775,7 @@ export default function PricingEnginePage() {
             </div>
 
             {/* Scrollable content area */}
-            <div ref={inputsAreaRef} className="min-h-0 flex-1 overflow-auto p-3 pb-4">
+            <div ref={inputsAreaRef} className="min-h-0 flex-1 overflow-y-scroll overscroll-contain p-3 pb-4">
               <Accordion
                 type="multiple"
                 defaultValue={[
