@@ -232,7 +232,7 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
           const j = await res.json().catch(() => ({ documents: [] }))
           const docs = Array.isArray(j?.documents) ? j.documents : []
           setFiles(docs)
-          if (reportId && docs.some((d) => d.id === reportId)) {
+          if (reportId && docs.some((d: { id: string }) => d.id === reportId)) {
             setSelectedReportId(reportId)
           }
         } catch {
