@@ -161,7 +161,7 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
 		),
 		cell: ({ row }) => (
 			<div className="w-fit text-nowrap">
-				{format(row.original.created_at, "dd MMM, yyyy")}
+				{format(new Date(row.original.created_at), "dd MMM, yyyy")}
 			</div>
 		),
 		enableSorting: true,
