@@ -144,7 +144,7 @@ export function EntityRowActions({ entity }: Props) {
               ssnLast4,
               ein,
               showSsn,
-              guarantor: o.guarantor === true ? "Yes" : o.guarantor === false ? "No" : "",
+              guarantor: (o.guarantor === true ? "Yes" : o.guarantor === false ? "No" : "") as "" | "Yes" | "No",
               percent: o.ownership_percent != null ? String(o.ownership_percent) : "",
               address: o.address ?? "",
               borrowerId: borrowerId ?? undefined,
