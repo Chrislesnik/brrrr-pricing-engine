@@ -858,9 +858,7 @@ export function NewEntityModal({
 																next[idx] = {
 																	...next[idx],
 																	borrowerId: undefined,
-																	borrower_id: undefined,
 																	entityOwnerId: undefined,
-																	entity_owner_id: undefined,
 																	name: "",
 																	memberType: "",
 																	ssnEin: "",
@@ -880,7 +878,6 @@ export function NewEntityModal({
 																	borrowerId: id,
 																	borrower_id: id,
 																	entityOwnerId: undefined,
-																	entity_owner_id: undefined,
 																}
 																return next
 															})
@@ -968,7 +965,6 @@ export function NewEntityModal({
 																	next[idx] = {
 																		...next[idx],
 																		borrowerId: undefined,
-																		borrower_id: undefined,
 																		entityOwnerId: id,
 																		entity_owner_id: id,
 																		name: fullName || next[idx].name,
