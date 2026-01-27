@@ -16,7 +16,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Upload, X } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Trash2, Upload, X } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
