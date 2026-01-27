@@ -130,7 +130,7 @@ export const columns: ColumnDef<User>[] = [
     ),
     cell: ({ row }) => (
       <div className="w-fit text-nowrap">
-        {format(row.getValue("updatedAt"), "dd MMM, yyyy")}
+        {format(new Date(row.getValue("updatedAt")), "dd MMM, yyyy")}
       </div>
     ),
     enableSorting: false,
@@ -142,7 +142,7 @@ export const columns: ColumnDef<User>[] = [
     ),
     cell: ({ row }) => (
       <div className="w-fit text-nowrap">
-        {format(row.getValue("createdAt"), "dd MMM, yyyy")}
+        {format(new Date(row.getValue("createdAt")), "dd MMM, yyyy")}
       </div>
     ),
     enableSorting: false,
