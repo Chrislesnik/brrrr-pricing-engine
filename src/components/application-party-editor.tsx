@@ -718,7 +718,7 @@ export function ApplicationPartyEditor({
                     <div className="flex items-center gap-2">
                       {currentEmail && signedEmails.has((currentEmail ?? "").toLowerCase()) ? (
                         <Badge
-                          variant="success"
+                          variant="secondary"
                           className="h-6 text-[11px] font-semibold bg-green-100 text-green-700 border-green-200"
                         >
                           Signed
