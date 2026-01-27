@@ -1,4 +1,4 @@
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug } from "@tabler/icons-react"
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
@@ -61,7 +61,7 @@ export const sidebarData: SidebarData = {
             {
               title: "Entities",
               url: "/applicants/entities",
-              icon: IconUsers,
+              icon: IconBuilding,
             },
           ],
         },
