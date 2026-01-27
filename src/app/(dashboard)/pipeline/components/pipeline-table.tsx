@@ -61,7 +61,6 @@ import { CopyButton } from "@/components/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
 import { IconDots } from "@tabler/icons-react"
 import { Trash2 } from "lucide-react"
-import { useBounceOnChange } from "@/hooks/use-bounce"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
@@ -172,12 +171,6 @@ export function PipelineTable({ columns, data }: Props) {
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
-  const bounce = useBounceOnChange([
-    table.getState().pagination.pageIndex,
-    JSON.stringify(table.getState().sorting),
-    JSON.stringify(table.getState().columnFilters),
-  ])
-
   return (
     <div className="space-y-4">
       <PipelineToolbar table={table} />
@@ -209,7 +202,7 @@ export function PipelineTable({ columns, data }: Props) {
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className={cn(bounce && "animate-table-bounce")}>
+          <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow

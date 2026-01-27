@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils"
 import { usePagination } from "@/hooks/use-pagination"
 import { BorrowerRowActions } from "./borrower-row-actions"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { useBounceOnChange } from "@/hooks/use-bounce"
 
 type BorrowerRow = Borrower
 
@@ -135,12 +134,6 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
     getPaginationRowModel: getPaginationRowModel(),
   })
 
-  const bounce = useBounceOnChange([
-    table.getState().pagination.pageIndex,
-    JSON.stringify(table.getState().columnFilters),
-    JSON.stringify(table.getState().sorting),
-  ])
-
   const filteredCount = table.getFilteredRowModel().rows.length
   const { pages, showLeftEllipsis, showRightEllipsis } = usePagination({
     currentPage: table.getState().pagination.pageIndex + 1,
@@ -182,7 +175,7 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className={cn(bounce && "animate-table-bounce")}>
+          <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row: Row<BorrowerRow>) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="border-b transition-colors hover:bg-muted/50">

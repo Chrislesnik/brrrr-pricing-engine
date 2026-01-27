@@ -1,7 +1,17 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 import { Borrower } from "./types"
 
-export async function getBorrowersForOrg(organizationId: string) {
+export async function getBorrowersForOrg(organizationId: string, userId?: string) {
+	// If no user, return empty
+	if (!userId) {
+		return [] as Borrower[]
+	}
+
+	// Check user's role - admin/owner sees all borrowers
+	const userRole = await getUserRoleInOrg(organizationId, userId)
+	const hasFullAccess = isPrivilegedRole(userRole)
+
 	// Fetch borrowers directly from the base table
 	const { data: rows, error } = await supabaseAdmin
 		.from("borrowers")
@@ -19,19 +29,37 @@ export async function getBorrowersForOrg(organizationId: string) {
 		})
 		return [] as Borrower[]
 	}
+
 	// Resolve assigned_to user IDs to names from organization_members
-  const { data: members } = await supabaseAdmin
-    .from("organization_members")
-    .select("id, user_id, first_name, last_name")
-    .eq("organization_id", organizationId)
-  const idToName = new Map<string, string>()
-  for (const m of members ?? []) {
-    const full = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
-    const display = full || (m.user_id as string) || (m.id as string)
-    if (m.user_id) idToName.set(m.user_id as string, display)
-    if (m.id) idToName.set(m.id as string, display)
-  }
-	const mapped: Borrower[] = (rows ?? []).map((r: any) => {
+	const { data: members } = await supabaseAdmin
+		.from("organization_members")
+		.select("id, user_id, first_name, last_name")
+		.eq("organization_id", organizationId)
+
+	const idToName = new Map<string, string>()
+	let currentUserOrgMemberId: string | undefined
+
+	for (const m of members ?? []) {
+		const full = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
+		const display = full || (m.user_id as string) || (m.id as string)
+		if (m.user_id) idToName.set(m.user_id as string, display)
+		if (m.id) idToName.set(m.id as string, display)
+		// Track the current user's org member UUID for filtering
+		if (m.user_id === userId) {
+			currentUserOrgMemberId = m.id as string
+		}
+	}
+
+	// Filter rows based on role
+	const filteredRows = hasFullAccess
+		? (rows ?? [])
+		: (rows ?? []).filter((r: any) => {
+				const assigned = Array.isArray(r.assigned_to) ? (r.assigned_to as string[]) : []
+				// Check if userId or their org member UUID is in the assigned_to array
+				return assigned.includes(userId) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
+		  })
+
+	const mapped: Borrower[] = filteredRows.map((r: any) => {
 		const assignedIds = Array.isArray(r.assigned_to) ? (r.assigned_to as string[]) : []
 		const names = assignedIds.map((id) => idToName.get(id) ?? id)
 		return {

@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 import { encryptToHex } from "@/lib/crypto"
 import { encryptToBase64 } from "@/lib/crypto"
 import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 
 const schema = z.object({
 	first_name: z.string().min(1),
@@ -151,11 +151,28 @@ export async function POST(req: NextRequest) {
 
 export const GET = async (req: NextRequest) => {
   try {
-    const { orgId } = await auth()
+    const { orgId, userId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) {
       return NextResponse.json({ error: "No organization" }, { status: 401 })
     }
+
+    // Role-based access control
+    const userRole = await getUserRoleInOrg(orgUuid, userId!)
+    const hasFullAccess = isPrivilegedRole(userRole)
+
+    // Get current user's org member UUID for filtering
+    let currentUserOrgMemberId: string | undefined
+    if (!hasFullAccess && userId) {
+      const { data: memberRow } = await supabaseAdmin
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .eq("user_id", userId)
+        .maybeSingle()
+      currentUserOrgMemberId = memberRow?.id as string | undefined
+    }
+
     const search = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? ""
     const entityId = req.nextUrl.searchParams.get("entityId") ?? ""
     const includeIdsParam = req.nextUrl.searchParams.get("includeIds") ?? ""
@@ -165,15 +182,27 @@ export const GET = async (req: NextRequest) => {
       .filter((s) => s.length > 0)
     const { data, error } = await supabaseAdmin
       .from("borrowers")
-      .select("id, display_id, first_name, last_name, email, primary_phone, alt_phone, organization_id, created_at")
+      .select("id, display_id, first_name, last_name, email, primary_phone, alt_phone, organization_id, created_at, assigned_to")
       .eq("organization_id", orgUuid)
       .order("created_at", { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Apply role-based filtering first
     let filtered = (data ?? []).filter((r) => {
+      // If user has full access, show all borrowers
+      if (hasFullAccess) return true
+      // Otherwise, filter by assigned_to
+      const assigned = Array.isArray((r as any).assigned_to) ? ((r as any).assigned_to as string[]) : []
+      return assigned.includes(userId!) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
+    })
+
+    // Apply search filter
+    filtered = filtered.filter((r) => {
       if (!search) return true
       const hay = `${r.id ?? ""} ${(r as any).display_id ?? ""} ${r.first_name ?? ""} ${r.last_name ?? ""} ${r.email ?? ""} ${r.primary_phone ?? ""}`.toLowerCase()
       return hay.includes(search)
     })
+
     // If entityId provided, restrict to borrowers linked via borrower_entities
     if (entityId) {
       const { data: beRows } = await supabaseAdmin
@@ -187,17 +216,23 @@ export const GET = async (req: NextRequest) => {
         filtered = filtered.filter((r) => allowed.has(String((r as any).id)))
       }
     }
-    // Ensure requested IDs are present
+    // Ensure requested IDs are present (only if user has access to them)
     if (includeIds.length > 0) {
       const missing = includeIds.filter((id) => !filtered.some((r) => String((r as any).id) === id))
       if (missing.length > 0) {
         const { data: extra, error: extraErr } = await supabaseAdmin
           .from("borrowers")
-          .select("id, display_id, first_name, last_name, email, primary_phone, alt_phone, organization_id, created_at")
+          .select("id, display_id, first_name, last_name, email, primary_phone, alt_phone, organization_id, created_at, assigned_to")
           .eq("organization_id", orgUuid)
           .in("id", missing)
         if (!extraErr && Array.isArray(extra)) {
-          filtered = filtered.concat(extra)
+          // Only include extra records the user has access to
+          const accessibleExtra = extra.filter((r) => {
+            if (hasFullAccess) return true
+            const assigned = Array.isArray((r as any).assigned_to) ? ((r as any).assigned_to as string[]) : []
+            return assigned.includes(userId!) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
+          })
+          filtered = filtered.concat(accessibleExtra)
         }
       }
     }

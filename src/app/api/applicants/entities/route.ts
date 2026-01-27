@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 import { buildOwnerRows } from "./owner-helpers"
 
 const ownerSchema = z.object({
@@ -303,9 +303,26 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { orgId } = await auth()
+    const { orgId, userId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+
+    // Role-based access control
+    const userRole = await getUserRoleInOrg(orgUuid, userId!)
+    const hasFullAccess = isPrivilegedRole(userRole)
+
+    // Get current user's org member UUID for filtering
+    let currentUserOrgMemberId: string | undefined
+    if (!hasFullAccess && userId) {
+      const { data: memberRow } = await supabaseAdmin
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", orgUuid)
+        .eq("user_id", userId)
+        .maybeSingle()
+      currentUserOrgMemberId = memberRow?.id as string | undefined
+    }
+
     const search = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? ""
     const includeIdsParam = req.nextUrl.searchParams.get("includeIds") ?? ""
     const includeIds = includeIdsParam
@@ -314,25 +331,45 @@ export async function GET(req: NextRequest) {
       .filter((s) => s.length > 0)
     const { data, error } = await supabaseAdmin
       .from("entities")
-      .select("id, display_id, entity_name, entity_type, organization_id, created_at")
+      .select("id, display_id, entity_name, entity_type, organization_id, created_at, assigned_to")
       .eq("organization_id", orgUuid)
       .order("created_at", { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Apply role-based filtering first
     let filtered = (data ?? []).filter((r) => {
+      // If user has full access, show all entities
+      if (hasFullAccess) return true
+      // Otherwise, filter by assigned_to
+      const assigned = Array.isArray((r as any).assigned_to) ? ((r as any).assigned_to as string[]) : []
+      return assigned.includes(userId!) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
+    })
+
+    // Apply search filter
+    filtered = filtered.filter((r) => {
       if (!search) return true
       const hay = `${r.id ?? ""} ${r.display_id ?? ""} ${r.entity_name ?? ""} ${r.entity_type ?? ""}`.toLowerCase()
       return hay.includes(search)
     })
-    // Ensure requested IDs are always included
+
+    // Ensure requested IDs are always included (only if user has access to them)
     if (includeIds.length > 0) {
       const missing = includeIds.filter((id) => !filtered.some((r) => String((r as any).id) === id))
       if (missing.length > 0) {
         const { data: extra } = await supabaseAdmin
           .from("entities")
-          .select("id, display_id, entity_name, entity_type, organization_id, created_at")
+          .select("id, display_id, entity_name, entity_type, organization_id, created_at, assigned_to")
           .eq("organization_id", orgUuid)
           .in("id", missing)
-        if (Array.isArray(extra)) filtered = filtered.concat(extra)
+        if (Array.isArray(extra)) {
+          // Only include extra records the user has access to
+          const accessibleExtra = extra.filter((r) => {
+            if (hasFullAccess) return true
+            const assigned = Array.isArray((r as any).assigned_to) ? ((r as any).assigned_to as string[]) : []
+            return assigned.includes(userId!) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
+          })
+          filtered = filtered.concat(accessibleExtra)
+        }
       }
     }
     return NextResponse.json({ entities: filtered })

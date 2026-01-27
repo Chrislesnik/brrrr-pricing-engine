@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 import { EntityProfile } from "./types"
 
 export type EntityOwner = {
@@ -14,10 +15,31 @@ export type EntityOwner = {
 	borrower_display_id: string | null
 }
 
-export async function getEntitiesForOrg(organizationId: string): Promise<{
+export async function getEntitiesForOrg(organizationId: string, userId?: string): Promise<{
 	entities: EntityProfile[]
 	ownersMap: Record<string, EntityOwner[]>
 }> {
+	// If no user, return empty
+	if (!userId) {
+		return { entities: [], ownersMap: {} }
+	}
+
+	// Check user's role - admin/owner sees all entities
+	const userRole = await getUserRoleInOrg(organizationId, userId)
+	const hasFullAccess = isPrivilegedRole(userRole)
+
+	// Get current user's org member UUID for filtering
+	let currentUserOrgMemberId: string | undefined
+	if (!hasFullAccess) {
+		const { data: memberRow } = await supabaseAdmin
+			.from("organization_members")
+			.select("id")
+			.eq("organization_id", organizationId)
+			.eq("user_id", userId)
+			.maybeSingle()
+		currentUserOrgMemberId = memberRow?.id as string | undefined
+	}
+
 	const { data, error } = await supabaseAdmin
 		.from("entities_view")
 		.select("*")
@@ -33,7 +55,15 @@ export async function getEntitiesForOrg(organizationId: string): Promise<{
 		return { entities: [], ownersMap: {} }
 	}
 
-	const entities = (data ?? []) as EntityProfile[]
+	// Filter entities based on role
+	const filteredData = hasFullAccess
+		? (data ?? [])
+		: (data ?? []).filter((e: any) => {
+				const assigned = Array.isArray(e.assigned_to) ? (e.assigned_to as string[]) : []
+				return assigned.includes(userId) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
+		  })
+
+	const entities = filteredData as EntityProfile[]
 	const entityIds = entities.map((e) => e.id)
 
 	// Batch-fetch all owners for all entities

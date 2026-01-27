@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 
 export interface LoanRow {
   id: string
@@ -85,11 +85,19 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     }),
   }).catch(() => {})
   // #endregion
+
+  // Check user's role - admin/owner sees all loans
+  const userRole = await getUserRoleInOrg(orgUuid, userId)
+  const hasFullAccess = isPrivilegedRole(userRole)
+
   // Filter by assignment to current user (assigned_to_user_id is a jsonb array of Clerk user IDs)
-  const loans = (loansRaw ?? []).filter((l) => {
-    const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
-    return arr.includes(userId)
-  })
+  // Admin/owner: skip filtering and show all loans
+  const loans = hasFullAccess
+    ? (loansRaw ?? [])
+    : (loansRaw ?? []).filter((l) => {
+        const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
+        return arr.includes(userId)
+      })
   if (loans.length === 0) return []
 
   const loanIds = loans.map((l) => l.id as string)

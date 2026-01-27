@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AddressAutocomplete } from '@/components/address-autocomplete'
+import { CalcInput } from '@/components/calc-input'
 import { ChatPanel } from '@/components/ai/chat-panel'
 import { Shimmer } from '@/components/ai/shimmer'
 import { SparklesSolidIcon } from '@/components/icons/heroicons-sparkles-solid'
@@ -108,6 +109,42 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
   const [files, setFiles] = useState<ReportDoc[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string | undefined>(undefined)
+
+  // ========== Appraisal Tab State ==========
+  // Order Details
+  const [appraisalLender, setAppraisalLender] = useState("DSCR Loan Funder LLC")
+  const [appraisalInvestor, setAppraisalInvestor] = useState("DSCR Loan Funder LLC")
+  const [appraisalTransactionType, setAppraisalTransactionType] = useState("")
+  const [appraisalLoanType, setAppraisalLoanType] = useState("")
+  const [appraisalLoanTypeOther, setAppraisalLoanTypeOther] = useState("")
+  const [appraisalLoanNumber, setAppraisalLoanNumber] = useState("")
+  const [appraisalPriority, setAppraisalPriority] = useState("")
+  // Borrower
+  const [appraisalBorrowerName, setAppraisalBorrowerName] = useState("")
+  const [appraisalBorrowerEmail, setAppraisalBorrowerEmail] = useState("")
+  const [appraisalBorrowerPhone, setAppraisalBorrowerPhone] = useState("")
+  const [appraisalBorrowerAltPhone, setAppraisalBorrowerAltPhone] = useState("")
+  // Property Details
+  const [appraisalPropertyType, setAppraisalPropertyType] = useState("")
+  const [appraisalPropertyAddress, setAppraisalPropertyAddress] = useState("")
+  const [appraisalPropertyCity, setAppraisalPropertyCity] = useState("")
+  const [appraisalPropertyState, setAppraisalPropertyState] = useState("")
+  const [appraisalPropertyZip, setAppraisalPropertyZip] = useState("")
+  const [appraisalPropertyCounty, setAppraisalPropertyCounty] = useState("")
+  const [appraisalOccupancyType, setAppraisalOccupancyType] = useState("")
+  // Access Information
+  const [appraisalContactPerson, setAppraisalContactPerson] = useState("")
+  const [appraisalContactName, setAppraisalContactName] = useState("")
+  const [appraisalContactEmail, setAppraisalContactEmail] = useState("")
+  const [appraisalContactPhone, setAppraisalContactPhone] = useState("")
+  const [appraisalOtherAccessInfo, setAppraisalOtherAccessInfo] = useState("")
+  // Appraisal Information
+  const [appraisalProduct, setAppraisalProduct] = useState("")
+  const [appraisalLoanAmount, setAppraisalLoanAmount] = useState("")
+  const [appraisalSalesPrice, setAppraisalSalesPrice] = useState("")
+  // Dates
+  const [appraisalDueDate, setAppraisalDueDate] = useState<Date | undefined>()
+  const [appraisalDueDateCalMonth, setAppraisalDueDateCalMonth] = useState<Date | undefined>(new Date())
   const supabase = useMemo(() => createSupabaseBrowser(), [])
   const refreshAbortRef = useRef<AbortController | null>(null)
 
@@ -371,9 +408,29 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
     }
   }
 
+  const isAppraisal = stepper.current.id === 'confirmation'
+
   return (
     <div className='grid grid-cols-1 gap-6 lg:grid-cols-3 flex-1 min-h-0 overflow-hidden' key={stepper.current.id}>
-      <div className='flex h-full min-h-0 flex-col gap-6 lg:col-span-2'>
+      <div className={cn('flex h-full min-h-0 flex-col gap-6', isAppraisal ? 'lg:col-span-3' : 'lg:col-span-2')}>
+        {/* Order button for Appraisal tab - shown at top right like other tabs */}
+        {isAppraisal && (
+          <div className='flex justify-end'>
+            {runPhase === "error" ? (
+              <ShakeButton className='h-9 min-w-[180px] px-6 py-2' onClick={handleRun}>
+                Order
+              </ShakeButton>
+            ) : runPhase === "running" ? (
+              <LoadingButton className='h-9 min-w-[180px] px-6 py-2' disabled>
+                Ordering...
+              </LoadingButton>
+            ) : (
+              <BounceButton className='h-9 min-w-[180px] px-6 py-2' onClick={handleRun} disabled={runPhase !== "idle"}>
+                Order
+              </BounceButton>
+            )}
+          </div>
+        )}
         <div className='flex flex-1 min-h-0 flex-col gap-6 overflow-auto pr-2'>
           {isCredit ? (
             <>
@@ -592,6 +649,345 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
                     <Label className='text-xs font-semibold text-muted-foreground'>Zip Code</Label>
                     <Input placeholder='Zip Code' value={prevZip} onChange={(e) => setPrevZip(e.target.value)} />
                   </div>
+                </div>
+              </div>
+            </>
+          ) : isAppraisal ? (
+            <>
+              {/* ========== ORDER DETAILS ========== */}
+              <h3 className='text-sm font-semibold'>Order Details</h3>
+              <div className='grid gap-3 grid-cols-2 md:grid-cols-4'>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Lender/Client on Report</Label>
+                  <Select value={appraisalLender} onValueChange={setAppraisalLender}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select Lender' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='DSCR Loan Funder LLC'>DSCR Loan Funder LLC</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Investor Name</Label>
+                  <Select value={appraisalInvestor} onValueChange={setAppraisalInvestor}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select Investor' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='DSCR Loan Funder LLC'>DSCR Loan Funder LLC</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Transaction Type</Label>
+                  <Select value={appraisalTransactionType} onValueChange={setAppraisalTransactionType}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='Purchase'>Purchase</SelectItem>
+                      <SelectItem value='Refinance'>Refinance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Loan Type</Label>
+                  <Select value={appraisalLoanType} onValueChange={setAppraisalLoanType}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='Other (specify)'>Other (specify)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {appraisalLoanType === 'Other (specify)' && (
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>Other</Label>
+                    <Input
+                      className='h-9'
+                      placeholder='Specify'
+                      value={appraisalLoanTypeOther}
+                      onChange={(e) => setAppraisalLoanTypeOther(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Loan Number</Label>
+                  <Input
+                    className='h-9'
+                    placeholder='Loan #'
+                    inputMode='numeric'
+                    value={appraisalLoanNumber}
+                    onChange={(e) => setAppraisalLoanNumber(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Priority</Label>
+                  <Select value={appraisalPriority} onValueChange={setAppraisalPriority}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='Normal'>Normal</SelectItem>
+                      <SelectItem value='Rush'>Rush</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* ========== BORROWER ========== */}
+              <h3 className='text-sm font-semibold'>Borrower</h3>
+              <div className='grid gap-3 grid-cols-2 md:grid-cols-4'>
+                <div className='flex flex-col gap-1 col-span-2'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Borrower (and Co-Borrower)</Label>
+                  <Input
+                    className='h-9'
+                    placeholder='Borrower Name'
+                    value={appraisalBorrowerName}
+                    onChange={(e) => setAppraisalBorrowerName(e.target.value)}
+                  />
+                </div>
+                <div className='flex flex-col gap-1 col-span-2'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Borrower Email</Label>
+                  <Input
+                    className='h-9'
+                    type='email'
+                    placeholder='email@example.com'
+                    value={appraisalBorrowerEmail}
+                    onChange={(e) => setAppraisalBorrowerEmail(e.target.value)}
+                  />
+                </div>
+                <div className='flex flex-col gap-1 col-span-2'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Borrower Phone</Label>
+                  <Input
+                    className='h-9'
+                    placeholder='(555) 555-5555'
+                    inputMode='tel'
+                    value={appraisalBorrowerPhone}
+                    onChange={(e) => setAppraisalBorrowerPhone(formatUSPhone(e.target.value))}
+                  />
+                </div>
+                <div className='flex flex-col gap-1 col-span-2'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Borrower Alternate Phone</Label>
+                  <Input
+                    className='h-9'
+                    placeholder='(555) 555-5555'
+                    inputMode='tel'
+                    value={appraisalBorrowerAltPhone}
+                    onChange={(e) => setAppraisalBorrowerAltPhone(formatUSPhone(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {/* ========== PROPERTY DETAILS ========== */}
+              <h3 className='text-sm font-semibold'>Property Details</h3>
+              <div className='flex flex-col gap-3'>
+                <div className='grid gap-3 grid-cols-2'>
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>Property Type</Label>
+                    <Select value={appraisalPropertyType} onValueChange={setAppraisalPropertyType}>
+                      <SelectTrigger className='h-9'>
+                        <SelectValue placeholder='Select' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='Single Family'>Single Family</SelectItem>
+                        <SelectItem value='Condominium'>Condominium</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>Occupancy Type</Label>
+                    <Select value={appraisalOccupancyType} onValueChange={setAppraisalOccupancyType}>
+                      <SelectTrigger className='h-9'>
+                        <SelectValue placeholder='Select' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='Investment'>Investment</SelectItem>
+                        <SelectItem value='Vacant'>Vacant</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Property Address</Label>
+                  <AddressAutocomplete
+                    value={appraisalPropertyAddress}
+                    className='h-9'
+                    onChange={(addr) => {
+                      setAppraisalPropertyAddress(addr.address_line1 ?? addr.raw)
+                      setAppraisalPropertyCity(addr.city ?? '')
+                      setAppraisalPropertyState(addr.state ?? '')
+                      setAppraisalPropertyZip(addr.zip ?? '')
+                      setAppraisalPropertyCounty(addr.county ?? '')
+                    }}
+                    placeholder='Start typing address...'
+                    displayValue='street'
+                  />
+                </div>
+                <div className='grid gap-3 grid-cols-2 md:grid-cols-4'>
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>City</Label>
+                    <Input
+                      className='h-9'
+                      placeholder='City'
+                      value={appraisalPropertyCity}
+                      onChange={(e) => setAppraisalPropertyCity(e.target.value)}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>State</Label>
+                    <Select value={appraisalPropertyState || undefined} onValueChange={setAppraisalPropertyState}>
+                      <SelectTrigger className='h-9'>
+                        <SelectValue placeholder='Select' />
+                      </SelectTrigger>
+                      <SelectContent className='max-h-[300px]'>
+                        {STATE_OPTIONS.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>Zip Code</Label>
+                    <Input
+                      className='h-9'
+                      placeholder='12345'
+                      inputMode='numeric'
+                      value={appraisalPropertyZip}
+                      onChange={(e) => setAppraisalPropertyZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-1'>
+                    <Label className='text-xs font-semibold text-muted-foreground'>County</Label>
+                    <Input
+                      className='h-9'
+                      placeholder='County'
+                      value={appraisalPropertyCounty}
+                      onChange={(e) => setAppraisalPropertyCounty(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ========== ACCESS INFORMATION ========== */}
+              <h3 className='text-sm font-semibold'>Access Information</h3>
+              <div className='grid gap-3 grid-cols-2 md:grid-cols-4'>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Contact Person</Label>
+                  <Select value={appraisalContactPerson} onValueChange={setAppraisalContactPerson}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='Borrower'>Borrower</SelectItem>
+                      <SelectItem value='Other'>Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {appraisalContactPerson === 'Other' && (
+                  <>
+                    <div className='flex flex-col gap-1'>
+                      <Label className='text-xs font-semibold text-muted-foreground'>Contact Name</Label>
+                      <Input
+                        className='h-9'
+                        placeholder='Name'
+                        value={appraisalContactName}
+                        onChange={(e) => setAppraisalContactName(e.target.value)}
+                      />
+                    </div>
+                    <div className='flex flex-col gap-1'>
+                      <Label className='text-xs font-semibold text-muted-foreground'>Contact Email</Label>
+                      <Input
+                        className='h-9'
+                        type='email'
+                        placeholder='email@example.com'
+                        value={appraisalContactEmail}
+                        onChange={(e) => setAppraisalContactEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className='flex flex-col gap-1'>
+                      <Label className='text-xs font-semibold text-muted-foreground'>Contact Phone</Label>
+                      <Input
+                        className='h-9'
+                        placeholder='(555) 555-5555'
+                        inputMode='tel'
+                        value={appraisalContactPhone}
+                        onChange={(e) => setAppraisalContactPhone(formatUSPhone(e.target.value))}
+                      />
+                    </div>
+                    <div className='flex flex-col gap-1 col-span-2 md:col-span-4'>
+                      <Label className='text-xs font-semibold text-muted-foreground'>Other Access Information</Label>
+                      <Input
+                        className='h-9'
+                        placeholder='Additional access details...'
+                        value={appraisalOtherAccessInfo}
+                        onChange={(e) => setAppraisalOtherAccessInfo(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* ========== APPRAISAL INFORMATION & DATES ========== */}
+              <h3 className='text-sm font-semibold'>Appraisal Information</h3>
+              <div className='grid gap-3 grid-cols-2 md:grid-cols-4'>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Product</Label>
+                  <Select value={appraisalProduct} onValueChange={setAppraisalProduct}>
+                    <SelectTrigger className='h-9'>
+                      <SelectValue placeholder='Select' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='1004/1007 (SFR & Rent Sch)'>1004/1007 (SFR & Rent Sch)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Loan Amount</Label>
+                  <CalcInput
+                    className='h-9'
+                    placeholder='$0.00'
+                    value={appraisalLoanAmount}
+                    onValueChange={setAppraisalLoanAmount}
+                  />
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Sales Price</Label>
+                  <CalcInput
+                    className='h-9'
+                    placeholder='$0.00'
+                    value={appraisalSalesPrice}
+                    onValueChange={setAppraisalSalesPrice}
+                  />
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <Label className='text-xs font-semibold text-muted-foreground'>Due Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <DateInput
+                        className='h-9'
+                        value={appraisalDueDate}
+                        onChange={setAppraisalDueDate}
+                      />
+                    </PopoverTrigger>
+                    <PopoverContent className='w-auto p-0' align='start'>
+                      <Calendar
+                        mode='single'
+                        selected={appraisalDueDate}
+                        month={appraisalDueDateCalMonth}
+                        onMonthChange={setAppraisalDueDateCalMonth}
+                        onSelect={(d) => d && setAppraisalDueDate(d)}
+                        disabled={{ before: new Date() }}
+                        captionLayout='dropdown'
+                        className='rounded-md border min-w-[264px]'
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </>
@@ -895,95 +1291,97 @@ const CartStep = ({ data, stepper, currentBorrowerId, isEntity = false }: { data
           )}
         </div>
       </div>
-      <div className='flex h-full min-h-0 flex-col gap-6'>
-        <div className='flex w-full items-center gap-2'>
-          {runPhase === "error" ? (
-            <ShakeButton className='h-9 min-w-[130px] px-4 py-2' onClick={handleRun}>
-              Run
-            </ShakeButton>
-          ) : runPhase === "running" ? (
-            <LoadingButton className='h-9 min-w-[130px] px-4 py-2' disabled>
-              Running...
-            </LoadingButton>
-          ) : (
-            <BounceButton className='h-9 min-w-[130px] px-4 py-2' onClick={handleRun} disabled={runPhase !== "idle"}>
-              Run
-            </BounceButton>
-          )}
-          <Select
-            onValueChange={(val) => {
-              const next = val?.trim?.() ?? val
-              const normalized = isUuid(next) ? next : undefined
-              if (next) {
-                setSelectedReportId(normalized)
-              }
-              // no automatic open; selection only
-            }}
-            value={selectedReportId}
-            disabled={filesLoading || files.length === 0}
-          >
-            <SelectTrigger className='h-9 w-[180px] truncate'>
-              <SelectValue
-                placeholder={filesLoading ? 'Loading…' : files.length ? 'Files' : 'No files'}
-              />
-            </SelectTrigger>
-            <SelectContent className='data-[state=open]:!zoom-in-0 origin-center duration-400'>
-              {files.length > 0 ? (
-                <SelectGroup>
-                  <SelectLabel>Files</SelectLabel>
-                  {files.map(f => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ) : null}
-            </SelectContent>
-          </Select>
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
-            className='h-9 w-10 shadow-sm'
-            disabled={filesLoading || !selectedReport?.url}
-            onClick={() => {
-              if (!selectedReport?.url) return
-              const anchor = document.createElement('a')
-              anchor.href = selectedReport.url
-              anchor.download = selectedReport.name || 'report.pdf'
-              anchor.target = '_blank'
-              anchor.rel = 'noopener noreferrer'
-              anchor.click()
-              anchor.remove()
-            }}
-            aria-label={selectedReport?.name ? `Download ${selectedReport.name}` : 'No file to download'}
-          >
-            <Download className='h-4 w-4' aria-hidden='true' />
-          </Button>
-        </div>
-        {effectiveReportId ? (
-          <ChatPanel
-            key={effectiveReportId}
-            className='rounded-md border p-4 flex-1 min-h-0 h-full'
-            reportId={effectiveReportId}
-          />
-        ) : (
-          <div className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden flex flex-col items-center justify-center text-center gap-4'>
-            <motion.div
-              className="text-muted-foreground"
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+      {!isAppraisal && (
+        <div className='flex h-full min-h-0 flex-col gap-6'>
+          <div className='flex w-full items-center gap-2'>
+            {runPhase === "error" ? (
+              <ShakeButton className='h-9 min-w-[130px] px-4 py-2' onClick={handleRun}>
+                Run
+              </ShakeButton>
+            ) : runPhase === "running" ? (
+              <LoadingButton className='h-9 min-w-[130px] px-4 py-2' disabled>
+                Running...
+              </LoadingButton>
+            ) : (
+              <BounceButton className='h-9 min-w-[130px] px-4 py-2' onClick={handleRun} disabled={runPhase !== "idle"}>
+                Run
+              </BounceButton>
+            )}
+            <Select
+              onValueChange={(val) => {
+                const next = val?.trim?.() ?? val
+                const normalized = isUuid(next) ? next : undefined
+                if (next) {
+                  setSelectedReportId(normalized)
+                }
+                // no automatic open; selection only
+              }}
+              value={selectedReportId}
+              disabled={filesLoading || files.length === 0}
             >
-              <SparklesSolidIcon size={96} />
-            </motion.div>
-            <Shimmer className="text-lg">
-              {stepper.current.id === 'credit' 
-                ? 'Agent ready to assist when credit is ran' 
-                : 'Agent ready to assist when background is ran'}
-            </Shimmer>
+              <SelectTrigger className='h-9 w-[180px] truncate'>
+                <SelectValue
+                  placeholder={filesLoading ? 'Loading…' : files.length ? 'Files' : 'No files'}
+                />
+              </SelectTrigger>
+              <SelectContent className='data-[state=open]:!zoom-in-0 origin-center duration-400'>
+                {files.length > 0 ? (
+                  <SelectGroup>
+                    <SelectLabel>Files</SelectLabel>
+                    {files.map(f => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ) : null}
+              </SelectContent>
+            </Select>
+            <Button
+              type='button'
+              variant='outline'
+              size='icon'
+              className='h-9 w-10 shadow-sm'
+              disabled={filesLoading || !selectedReport?.url}
+              onClick={() => {
+                if (!selectedReport?.url) return
+                const anchor = document.createElement('a')
+                anchor.href = selectedReport.url
+                anchor.download = selectedReport.name || 'report.pdf'
+                anchor.target = '_blank'
+                anchor.rel = 'noopener noreferrer'
+                anchor.click()
+                anchor.remove()
+              }}
+              aria-label={selectedReport?.name ? `Download ${selectedReport.name}` : 'No file to download'}
+            >
+              <Download className='h-4 w-4' aria-hidden='true' />
+            </Button>
           </div>
-        )}
-      </div>
+          {effectiveReportId ? (
+            <ChatPanel
+              key={effectiveReportId}
+              className='rounded-md border p-4 flex-1 min-h-0 h-full'
+              reportId={effectiveReportId}
+            />
+          ) : (
+            <div className='rounded-md border p-4 flex-1 min-h-0 overflow-hidden flex flex-col items-center justify-center text-center gap-4'>
+              <motion.div
+                className="text-muted-foreground"
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+              >
+                <SparklesSolidIcon size={96} />
+              </motion.div>
+              <Shimmer className="text-lg">
+                {stepper.current.id === 'credit' 
+                  ? 'Agent ready to assist when credit is ran' 
+                  : 'Agent ready to assist when background is ran'}
+              </Shimmer>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 
 export type ApplicationRow = {
   id: string
@@ -34,14 +35,63 @@ function extractIds(raw: any): string[] {
   return []
 }
 
-export async function getApplicationsForOrg(orgUuid: string): Promise<ApplicationRow[]> {
-  const { data, error } = await supabaseAdmin
-    .from("applications")
-    .select(
-      "loan_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
-    )
-    .eq("organization_id", orgUuid)
-    .order("updated_at", { ascending: false })
+export async function getApplicationsForOrg(orgUuid: string, userId?: string): Promise<ApplicationRow[]> {
+  // If no user, return empty (matching pipeline behavior)
+  if (!userId) {
+    return []
+  }
+
+  // Check user's role - admin/owner sees all applications
+  const userRole = await getUserRoleInOrg(orgUuid, userId)
+  const hasFullAccess = isPrivilegedRole(userRole)
+
+  let data: any[] | null = null
+  let error: any = null
+
+  if (hasFullAccess) {
+    // Admin/owner: fetch ALL applications for the org (no filtering by assignment)
+    const result = await supabaseAdmin
+      .from("applications")
+      .select(
+        "loan_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
+      )
+      .eq("organization_id", orgUuid)
+      .order("updated_at", { ascending: false })
+    data = result.data
+    error = result.error
+  } else {
+    // Other roles: filter by assigned loans
+    const { data: assignedLoans, error: loansError } = await supabaseAdmin
+      .from("loans")
+      .select("id, assigned_to_user_id")
+      .eq("organization_id", orgUuid)
+
+    if (loansError) {
+      return []
+    }
+
+    const assignedLoanIds = (assignedLoans ?? [])
+      .filter((l) => {
+        const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
+        return arr.includes(userId)
+      })
+      .map((l) => l.id as string)
+
+    if (assignedLoanIds.length === 0) {
+      return []
+    }
+
+    const result = await supabaseAdmin
+      .from("applications")
+      .select(
+        "loan_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
+      )
+      .eq("organization_id", orgUuid)
+      .in("loan_id", assignedLoanIds)
+      .order("updated_at", { ascending: false })
+    data = result.data
+    error = result.error
+  }
 
   if (error) {
     // eslint-disable-next-line no-console

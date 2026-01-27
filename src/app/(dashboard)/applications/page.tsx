@@ -13,10 +13,12 @@ import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { getApplicationsForOrg } from "./data/fetch-applications"
 
+export const dynamic = "force-dynamic"
+
 export default async function ApplicationsPage() {
-  const { orgId } = await auth()
+  const { orgId, userId } = await auth()
   const orgUuid = await getOrgUuidFromClerkId(orgId)
-  const data: ApplicationRow[] = orgUuid ? await getApplicationsForOrg(orgUuid) : []
+  const data: ApplicationRow[] = orgUuid ? await getApplicationsForOrg(orgUuid, userId ?? undefined) : []
   return (
     <>
       <div className="mb-4 flex flex-col gap-2">

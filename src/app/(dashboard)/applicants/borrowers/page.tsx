@@ -14,9 +14,9 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { BorrowersTable } from "../components/borrowers-table"
 
 export default async function BorrowersPage() {
-	const { orgId } = await auth()
+	const { orgId, userId } = await auth()
 	const orgUuid = await getOrgUuidFromClerkId(orgId)
-	const data = orgUuid ? await getBorrowersForOrg(orgUuid) : []
+	const data = orgUuid ? await getBorrowersForOrg(orgUuid, userId ?? undefined) : []
 	return (
 		<>
 			<div className="mb-4 flex flex-col gap-2">

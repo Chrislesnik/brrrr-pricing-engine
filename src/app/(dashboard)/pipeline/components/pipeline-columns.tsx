@@ -712,7 +712,7 @@ function formatActivityDataForClipboard(log: ActivityLog): string {
 }
 
 // Interactive tag widget for activity log items
-function ActivityTagWidget({ log }: { log: ActivityLog }) {
+function ActivityTagWidget({ log, isBroker }: { log: ActivityLog; isBroker: boolean }) {
   const [downloading, setDownloading] = React.useState(false)
   const [copying, setCopying] = React.useState(false)
 
@@ -765,6 +765,8 @@ function ActivityTagWidget({ log }: { log: ActivityLog }) {
 
   // Render based on activity type
   if (log.activity_type === "term_sheet") {
+    // Brokers cannot download term sheets
+    if (isBroker) return null
     const hasTermSheet = log.term_sheet_edit_path || log.term_sheet_original_path
     return (
       <div className="mt-2 flex items-center gap-2">
@@ -790,6 +792,8 @@ function ActivityTagWidget({ log }: { log: ActivityLog }) {
   }
 
   if (log.activity_type === "input_changes" || log.activity_type === "selection_changed") {
+    // Brokers cannot copy input changes or selection changes
+    if (isBroker) return null
     const hasData = log.inputs || log.outputs || log.selected
     const label = log.activity_type === "input_changes" ? "Input Changes" : "Selection Changed"
     return (
@@ -862,7 +866,8 @@ const ACTIVITY_TYPE_OPTIONS = [
 type ActivityType = typeof ACTIVITY_TYPE_OPTIONS[number]["value"]
 
 function ActivityLogContent({ loanId }: { loanId: string }) {
-  const { userId } = useAuth()
+  const { userId, orgRole } = useAuth()
+  const isBroker = orgRole === "org:broker" || orgRole === "broker"
   const [logs, setLogs] = React.useState<ActivityLog[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -1093,7 +1098,7 @@ function ActivityLogContent({ loanId }: { loanId: string }) {
                       </div>
 
                       {/* Activity type interactive tag widget */}
-                      <ActivityTagWidget log={log} />
+                      <ActivityTagWidget log={log} isBroker={isBroker} />
                     </div>
                   </div>
                 </div>
