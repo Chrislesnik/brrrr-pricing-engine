@@ -801,8 +801,23 @@ export function NewBorrowerModal({
 										<SelectValue placeholder={!isVisaTypeEnabled ? "N/A" : "Select VISA type"}/>
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="CW1">CW1</SelectItem>
+										<SelectItem value="CW-1">CW-1</SelectItem>
 										<SelectItem value="E-1 / E-2 / E-3">E-1 / E-2 / E-3</SelectItem>
+										<SelectItem value="EB-1 / EB-2 / EB-3 / EB-4 / EB-5">EB-1 / EB-2 / EB-3 / EB-4 / EB-5</SelectItem>
+										<SelectItem value="F-1">F-1</SelectItem>
+										<SelectItem value="H1-B / H1-B1 / H1-C / H-1 / H-2B / H-3">H1-B / H1-B1 / H1-C / H-1 / H-2B / H-3</SelectItem>
+										<SelectItem value="1-1">1-1</SelectItem>
+										<SelectItem value="J-1 / J-2">J-1 / J-2</SelectItem>
+										<SelectItem value="K-3 / K-4">K-3 / K-4</SelectItem>
+										<SelectItem value="M-1">M-1</SelectItem>
+										<SelectItem value="O-1 (A&B) / O-2">O-1 (A&B) / O-2</SelectItem>
+										<SelectItem value="P-1 (A&B) / P-2 / P-3">P-1 (A&B) / P-2 / P-3</SelectItem>
+										<SelectItem value="Q-1">Q-1</SelectItem>
+										<SelectItem value="R-1 / R-2">R-1 / R-2</SelectItem>
+										<SelectItem value="T-1">T-1</SelectItem>
+										<SelectItem value="TN (NAFTA)">TN (NAFTA)</SelectItem>
+										<SelectItem value="U-1">U-1</SelectItem>
+										<SelectItem value="Other">Other</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
