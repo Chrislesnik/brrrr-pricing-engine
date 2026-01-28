@@ -9,10 +9,16 @@ import { useEffect } from 'react'
  */
 export function LinkInAppFix(): null {
   useEffect(() => {
+    // Only these domains should be treated as "same app" and navigate in-place
+    const sameAppDomains = new Set([
+      'pricingengine.pro',
+      'www.pricingengine.pro',
+      'localhost',
+    ])
+
     const isSameAppHost = (host: string): boolean => {
       const apex = host.replace(/^www\./, '')
-      const candidates = new Set([host, apex, `www.${apex}`, 'pricingengine.pro', 'www.pricingengine.pro'])
-      return candidates.has(host) || candidates.has(apex) || candidates.has(`www.${apex}`)
+      return sameAppDomains.has(host) || sameAppDomains.has(apex)
     }
 
     const handleClick = (e: MouseEvent) => {
