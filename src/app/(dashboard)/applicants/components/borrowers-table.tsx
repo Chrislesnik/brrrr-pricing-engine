@@ -148,7 +148,8 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
   return (
     <div className="w-full rounded-lg border bg-background">
       <div className="border-b">
-        <div className="flex min-h-[56px] items-center justify-between px-4 py-3">
+        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <span className="font-medium">Borrowers</span>
           <div className="flex items-center gap-3">
             <Label htmlFor="borrowers-search" className="sr-only">
               Search borrowers
