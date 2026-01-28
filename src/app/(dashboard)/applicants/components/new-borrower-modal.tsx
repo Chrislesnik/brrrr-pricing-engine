@@ -35,6 +35,8 @@ import {
 	IconBrandLinkedin,
 	IconMessages,
 } from "@tabler/icons-react"
+import { MinusIcon, PlusIcon } from "lucide-react"
+import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
 
 const schema = z.object({
 	first_name: z.string().min(1),
@@ -130,9 +132,6 @@ export function NewBorrowerModal({
 		defaultValues: { real_estate_licensed: undefined, ...(initial ?? {}) },
 	})
 
-	const rentalsOwnedReg = register("rentals_owned")
-	const fixFlipsReg = register("fix_flips_3yrs")
-	const groundUpsReg = register("groundups_3yrs")
 	const ficoReg = register("fico_score")
 
 	const citizenship = watch("citizenship")
@@ -818,114 +817,96 @@ export function NewBorrowerModal({
 							<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 								<div className="flex flex-col gap-1">
 									<Label># Rentals currently owned</Label>
-									<Input
-										placeholder="0"
-										inputMode="numeric"
-										{...rentalsOwnedReg}
-										onChange={(e) => {
-											const digits = e.target.value.replace(/[^0-9]/g, "")
-											e.target.value = digits
-											rentalsOwnedReg.onChange(e)
-										}}
-										onKeyDown={(e) => {
-											// Allow control/navigation keys
-											const allowed = [
-												"Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End","Enter"
-											]
-											if (allowed.includes(e.key) || e.metaKey || e.ctrlKey) return
-											// Block non-digits and negatives/decimals/scientific notation
-											if (!/^[0-9]$/.test(e.key)) {
-												e.preventDefault()
-											}
-										}}
-										onBeforeInput={(e: any) => {
-											const data: string | null = e.data ?? null
-											if (data && /\\D/.test(data)) {
-												e.preventDefault()
-											}
-										}}
-										onPaste={(e) => {
-											const text = (e.clipboardData?.getData("text") || "").replace(/\\D+/g, "")
-											e.preventDefault()
-											;(e.target as HTMLInputElement).value = text
-											// trigger form state update
-											const ev = new Event("input", { bubbles: true })
-											e.target.dispatchEvent(ev)
-										}}
-									/>
+									<NumberField
+										value={watch("rentals_owned") ? Number(watch("rentals_owned")) : undefined}
+										onChange={(val) => setValue("rentals_owned", val, { shouldDirty: true })}
+										minValue={0}
+										className="w-full"
+									>
+										<Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+											<AriaInput
+												placeholder="0"
+												className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+											/>
+											<AriaButton
+												slot="decrement"
+												className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+											>
+												<MinusIcon className="size-4" />
+												<span className="sr-only">Decrease Rentals</span>
+											</AriaButton>
+											<AriaButton
+												slot="increment"
+												className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+											>
+												<PlusIcon className="size-4" />
+												<span className="sr-only">Increase Rentals</span>
+											</AriaButton>
+										</Group>
+									</NumberField>
 								</div>
 								<div className="flex flex-col gap-1">
 									<Label># Fix & Flips sold in the last 3 yrs</Label>
-									<Input
-										placeholder="0"
-										inputMode="numeric"
-										{...fixFlipsReg}
-										onChange={(e) => {
-											const digits = e.target.value.replace(/[^0-9]/g, "")
-											e.target.value = digits
-											fixFlipsReg.onChange(e)
-										}}
-										onKeyDown={(e) => {
-											const allowed = [
-												"Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End","Enter"
-											]
-											if (allowed.includes(e.key) || e.metaKey || e.ctrlKey) return
-											if (!/^[0-9]$/.test(e.key)) {
-												e.preventDefault()
-											}
-										}}
-										onBeforeInput={(e: any) => {
-											const data: string | null = e.data ?? null
-											if (data && /\\D/.test(data)) {
-												e.preventDefault()
-											}
-										}}
-										onPaste={(e) => {
-											const text = (e.clipboardData?.getData("text") || "").replace(/\\D+/g, "")
-											e.preventDefault()
-											;(e.target as HTMLInputElement).value = text
-											const ev = new Event("input", { bubbles: true })
-											e.target.dispatchEvent(ev)
-										}}
-									/>
+									<NumberField
+										value={watch("fix_flips_3yrs") ? Number(watch("fix_flips_3yrs")) : undefined}
+										onChange={(val) => setValue("fix_flips_3yrs", val, { shouldDirty: true })}
+										minValue={0}
+										className="w-full"
+									>
+										<Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+											<AriaInput
+												placeholder="0"
+												className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+											/>
+											<AriaButton
+												slot="decrement"
+												className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+											>
+												<MinusIcon className="size-4" />
+												<span className="sr-only">Decrease Fix & Flips</span>
+											</AriaButton>
+											<AriaButton
+												slot="increment"
+												className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+											>
+												<PlusIcon className="size-4" />
+												<span className="sr-only">Increase Fix & Flips</span>
+											</AriaButton>
+										</Group>
+									</NumberField>
 								</div>
 							</div>
 							{/* Row 2: ground ups by itself under rentals (left column) */}
 							<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 								<div className="flex flex-col gap-1">
 									<Label># GUNC sold in the last 3 yrs</Label>
-									<Input
-										placeholder="0"
-										inputMode="numeric"
-										{...groundUpsReg}
-										onChange={(e) => {
-											const digits = e.target.value.replace(/[^0-9]/g, "")
-											e.target.value = digits
-											groundUpsReg.onChange(e)
-										}}
-										onKeyDown={(e) => {
-											const allowed = [
-												"Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End","Enter"
-											]
-											if (allowed.includes(e.key) || e.metaKey || e.ctrlKey) return
-											if (!/^[0-9]$/.test(e.key)) {
-												e.preventDefault()
-											}
-										}}
-										onBeforeInput={(e: any) => {
-											const data: string | null = e.data ?? null
-											if (data && /\\D/.test(data)) {
-												e.preventDefault()
-											}
-										}}
-										onPaste={(e) => {
-											const text = (e.clipboardData?.getData("text") || "").replace(/\\D+/g, "")
-											e.preventDefault()
-											;(e.target as HTMLInputElement).value = text
-											const ev = new Event("input", { bubbles: true })
-											e.target.dispatchEvent(ev)
-										}}
-									/>
+									<NumberField
+										value={watch("groundups_3yrs") ? Number(watch("groundups_3yrs")) : undefined}
+										onChange={(val) => setValue("groundups_3yrs", val, { shouldDirty: true })}
+										minValue={0}
+										className="w-full"
+									>
+										<Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+											<AriaInput
+												placeholder="0"
+												className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+											/>
+											<AriaButton
+												slot="decrement"
+												className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+											>
+												<MinusIcon className="size-4" />
+												<span className="sr-only">Decrease GUNC</span>
+											</AriaButton>
+											<AriaButton
+												slot="increment"
+												className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+											>
+												<PlusIcon className="size-4" />
+												<span className="sr-only">Increase GUNC</span>
+											</AriaButton>
+										</Group>
+									</NumberField>
 								</div>
 								<div />
 							</div>
