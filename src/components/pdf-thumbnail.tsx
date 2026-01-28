@@ -81,9 +81,10 @@ export function PdfThumbnail({
         const renderContext = {
           canvasContext: context,
           viewport: scaledViewport,
+          canvas: canvas,
         }
 
-        await page.render(renderContext).promise
+        await page.render(renderContext as any).promise
 
         if (!cancelled) {
           setLoading(false)
