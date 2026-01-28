@@ -366,7 +366,7 @@ export function NewBorrowerModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-3xl h-[80vh]" hideClose>
+			<DialogContent className="max-w-3xl h-[80vh]" showCloseButton={false}>
 				<DialogHeader className="flex flex-row items-center justify-between gap-3">
 					<DialogTitle>Borrower Information</DialogTitle>
 					{!borrowerId ? (
