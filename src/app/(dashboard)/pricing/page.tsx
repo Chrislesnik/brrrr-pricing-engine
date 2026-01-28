@@ -5424,9 +5424,11 @@ function ResultCard({
               try {
               if (nav?.share && canShareFiles) {
                 await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                void logCardTermSheetActivity("shared", file)
               } else {
                 await saveFileWithPrompt(file)
                 toast({ title: "Saved", description: "PDF saved to your device." })
+                void logCardTermSheetActivity("downloaded", file)
                 }
               } catch (shareErr) {
                 const msg = shareErr instanceof Error ? shareErr.message.toLowerCase() : ""
@@ -5440,6 +5442,7 @@ function ResultCard({
               }
             } else if (opts?.autoDownloadPdf) {
               await saveFileWithPrompt(file)
+              void logCardTermSheetActivity("downloaded", file)
             }
           } catch (e) {
             // When the preview hasn't fully rendered yet or user cancels share, avoid noisy errors
