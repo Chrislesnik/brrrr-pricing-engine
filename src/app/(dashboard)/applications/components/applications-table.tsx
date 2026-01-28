@@ -334,6 +334,8 @@ export function ApplicationsTable({ data }: Props) {
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
+    // Prevent automatic page reset when data changes (e.g., from polling)
+    autoResetPageIndex: false,
     // Use row.id as the stable row identifier to preserve state across data updates
     getRowId: (row) => row.id,
   })
