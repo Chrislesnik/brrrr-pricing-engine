@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
+import { Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +22,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  FileUpload,
+  FileUploadDropzone,
+  FileUploadTrigger,
+} from "@/components/ui/file-upload"
 import { PdfThumbnail, FileThumbnail } from "@/components/pdf-thumbnail"
 import { cn } from "@/lib/utils"
 
@@ -304,17 +310,29 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
               </div>
             )}
 
-            <Input
-              id="programDocs"
-              type="file"
+            <FileUpload
+              accept=".pdf,application/pdf"
               multiple
-              accept=".pdf"
-              className="truncate"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                setFilesToUpload(files)
-              }}
-            />
+              maxSize={5 * 1024 * 1024}
+              onValueChange={(files) => setFilesToUpload(files)}
+            >
+              <FileUploadDropzone className="w-full border-dashed">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-dashed text-muted-foreground">
+                    <Upload className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-foreground">Drag & drop PDF files here</span>
+                    <span className="text-xs text-muted-foreground">Or click to browse (max 5MB each)</span>
+                  </div>
+                  <FileUploadTrigger asChild>
+                    <Button size="sm" variant="secondary">
+                      Browse files
+                    </Button>
+                  </FileUploadTrigger>
+                </div>
+              </FileUploadDropzone>
+            </FileUpload>
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           </div>
