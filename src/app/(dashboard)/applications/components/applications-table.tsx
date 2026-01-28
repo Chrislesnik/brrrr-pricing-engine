@@ -36,7 +36,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  AnimatedDialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -633,15 +632,13 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
   if (!row) return null
 
   return (
-    <AnimatedDialogContent
-      open={open}
-      onOpenChange={onOpenChange}
-      className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] h-[90vh] p-0 border-none shadow-2xl"
-    >
-      <div ref={scrollRef} className="h-full overflow-hidden">
-        <span className="sr-only">Application workflow</span>
-        <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors ?? undefined} />
-      </div>
-    </AnimatedDialogContent>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] h-[90vh] p-0 border-none shadow-2xl">
+        <div ref={scrollRef} className="h-full overflow-hidden">
+          <span className="sr-only">Application workflow</span>
+          <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors ?? undefined} />
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

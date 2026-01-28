@@ -51,6 +51,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
+import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
 import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
 import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -1954,10 +1955,8 @@ export default function PricingEnginePage() {
     return [1]
   }, [propertyType])
 
-  // Per-unit income rows placeholder state
-  const [unitData, setUnitData] = useState<
-    { leased?: "yes" | "no"; gross?: string; market?: string }[]
-  >([])
+  // Per-unit income rows placeholder state (now uses UnitRow for Data Grid integration)
+  const [unitData, setUnitData] = useState<UnitRow[]>([])
   // When hydrating from a scenario, stash unit rows so the resizing effect can populate them once.
   const hydrateUnitsRef = useRef<
     { leased?: "yes" | "no"; gross?: string; market?: string }[] | null
@@ -1976,7 +1975,9 @@ export default function PricingEnginePage() {
       // If we have saved data to hydrate, prefer that; else blank rows.
       const saved = hydrateUnitsRef.current
       if (saved && Array.isArray(saved) && saved.length > 0) {
-        const rows = Array.from({ length: next }, (_, i) => ({
+        const rows: UnitRow[] = Array.from({ length: next }, (_, i) => ({
+          id: `unit-${i}`,
+          unitNumber: `#${i + 1}`,
           leased: saved[i]?.leased,
           gross: saved[i]?.gross ?? "",
           market: saved[i]?.market ?? "",
@@ -1984,14 +1985,16 @@ export default function PricingEnginePage() {
         setUnitData(rows)
         hydrateUnitsRef.current = null
       } else {
-        setUnitData(Array.from({ length: next }, () => ({ leased: undefined, gross: "", market: "" })))
+        setUnitData(Array.from({ length: next }, (_, i) => ({ id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" })))
       }
       return
     }
     // Maintain length; populate with saved values if present
     const saved = hydrateUnitsRef.current
     if (saved && Array.isArray(saved) && saved.length > 0) {
-      const rows = Array.from({ length: numUnits }, (_, i) => ({
+      const rows: UnitRow[] = Array.from({ length: numUnits }, (_, i) => ({
+        id: `unit-${i}`,
+        unitNumber: `#${i + 1}`,
         leased: saved[i]?.leased,
         gross: saved[i]?.gross ?? "",
         market: saved[i]?.market ?? "",
@@ -1999,7 +2002,7 @@ export default function PricingEnginePage() {
       setUnitData(rows)
       hydrateUnitsRef.current = null
     } else {
-      setUnitData(Array.from({ length: numUnits }, () => ({ leased: undefined, gross: "", market: "" })))
+      setUnitData(Array.from({ length: numUnits }, (_, i) => ({ id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" })))
     }
   }, [unitOptions, numUnits])
 
@@ -3746,87 +3749,11 @@ export default function PricingEnginePage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-2">
-                      {(numUnits ?? 0) > 0 ? (
-                        Array.from({ length: numUnits ?? 0 }, (_, idx) => idx).map((_, idx) => (
-                          <div key={idx} className="grid grid-cols-[max-content_1fr_1fr_1fr] items-end gap-3">
-                            <div className="self-center mt-6 text-sm font-medium">#{idx + 1}</div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`leased-${idx}`}>
-                                Leased <span className="text-red-600">*</span>
-                              </Label>
-                              <Select
-                                value={unitData[idx]?.leased}
-                                onValueChange={(v: "yes" | "no") => {
-                                  setUnitData((prev) => {
-                                    const next = [...prev]
-                                    next[idx] = { ...next[idx], leased: v }
-                                    return next
-                                  })
-                                }}
-                              >
-                                <SelectTrigger id={`leased-${idx}`} className="h-9 w-full">
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="yes">Yes</SelectItem>
-                                  <SelectItem value="no">No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`gross-${idx}`}>
-                                Gross Rent <span className="text-red-600">*</span>
-                              </Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                              <CalcInput
-                                  id={`gross-${idx}`}
-                                  placeholder="0.00"
-                                  className="pl-6 w-full"
-                                value={unitData[idx]?.gross ?? ""}
-                                onValueChange={(v) =>
-                                    setUnitData((prev) => {
-                                      const next = [...prev]
-                                    next[idx] = { ...(next[idx] ?? {}), gross: v }
-                                      return next
-                                    })
-                                  }
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`market-${idx}`}>
-                                Market Rent <span className="text-red-600">*</span>
-                              </Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                              <CalcInput
-                                  id={`market-${idx}`}
-                                  placeholder="0.00"
-                                  className="pl-6 w-full"
-                                value={unitData[idx]?.market ?? ""}
-                                onValueChange={(v) =>
-                                    setUnitData((prev) => {
-                                      const next = [...prev]
-                                    next[idx] = { ...(next[idx] ?? {}), market: v }
-                                      return next
-                                    })
-                                  }
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-muted-foreground text-sm">
-                          Select Property Type and Number of Units to add unit rows.
-                        </div>
-                      )}
+                    <div className="mt-4">
+                      <LeasedUnitsGrid
+                        data={unitData}
+                        onDataChange={setUnitData}
+                      />
                     </div>
                     </AccordionContent>
                   </AccordionItem>

@@ -4,7 +4,6 @@ import * as React from "react"
 import useSWR, { mutate } from "swr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -26,6 +25,13 @@ import {
   ConversationScrollButton,
 } from "@/components/ai/conversation"
 import { Message, MessageContent, MessageActions } from "@/components/ai/message"
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@/components/ai/prompt-input"
 
 // SWR fetcher
 const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
@@ -44,11 +50,7 @@ export default function AIAgentPage() {
 
   // Local state
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
-  const [input, setInput] = React.useState<string>("")
   const [isThinking, setIsThinking] = React.useState<boolean>(false)
-  const formRef = React.useRef<HTMLFormElement>(null)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
-  const MAX_COMPOSER_HEIGHT = 160
   const { orgRole } = useAuth()
   const [selectedProgramId, setSelectedProgramId] = React.useState<string | undefined>(undefined)
   const [loanType, setLoanType] = React.useState<"dscr" | "bridge">("dscr")
@@ -79,19 +81,6 @@ export default function AIAgentPage() {
       setMessages([])
     }
   }, [messagesData, selectedChatId])
-
-  const autoResize = React.useCallback(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = "auto"
-    const next = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT)
-    el.style.height = `${next}px`
-    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT ? "auto" : "hidden"
-  }, [])
-
-  React.useEffect(() => {
-    autoResize()
-  }, [input, autoResize])
 
   // Track mobile keyboard height
   React.useEffect(() => {
@@ -139,13 +128,11 @@ export default function AIAgentPage() {
     }
   }
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault()
-    if (!input.trim() || !selectedChatId) return
-    const prompt = input
+  async function handleSend(message: PromptInputMessage) {
+    if (!message.text.trim() || !selectedChatId) return
+    const prompt = message.text
     const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
     setMessages((prev) => [...prev, userMessage])
-    setInput("")
 
     mutate("/api/ai/chats", (data: { items: Chat[] } | undefined) => {
       if (!data) return data
@@ -508,39 +495,22 @@ export default function AIAgentPage() {
             )}
           </div>
 
-          <form
+          <PromptInput
             onSubmit={handleSend}
-            ref={formRef}
             className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[env(safe-area-inset-bottom)]"
             style={keyboardOffset ? ({ bottom: keyboardOffset } as React.CSSProperties) : undefined}
           >
-            <div className="mx-auto flex w-full max-w-2xl items-end gap-2 pb-2">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask your AI Agent…"
-                autoComplete="off"
-                rows={2}
-                className="min-h-12 max-h-[160px] resize-none"
-                onFocus={() => {
-                  try {
-                    window.scrollTo({ top: 0 })
-                  } catch {}
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault()
-                    formRef.current?.requestSubmit()
-                  }
-                }}
-                onInput={autoResize}
-              />
-              <Button type="submit" disabled={!input.trim() || !selectedChatId}>
-                Send
-              </Button>
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 pb-2">
+              <PromptInputTextarea placeholder="Ask your AI Agent…" />
+              <PromptInputFooter>
+                <div />
+                <PromptInputSubmit
+                  disabled={!selectedChatId}
+                  status={isThinking ? "streaming" : undefined}
+                />
+              </PromptInputFooter>
             </div>
-          </form>
+          </PromptInput>
         </div>
       </section>
 
