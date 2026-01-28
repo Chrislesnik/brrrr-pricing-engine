@@ -3041,17 +3041,34 @@ export default function PricingEnginePage() {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                          <Input
-                            id="rentals-owned"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            placeholder="0"
-                            value={rentalsOwned}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/[^0-9]/g, "")
-                              setRentalsOwned(digits)
-                            }}
-                          />
+                          <NumberField
+                            value={rentalsOwned ? Number(rentalsOwned) : undefined}
+                            onChange={(val) => setRentalsOwned(String(val))}
+                            minValue={0}
+                            className="w-full"
+                          >
+                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+                              <AriaInput
+                                id="rentals-owned"
+                                placeholder="0"
+                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+                              />
+                              <AriaButton
+                                slot="decrement"
+                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                              >
+                                <MinusIcon className="size-4" />
+                                <span className="sr-only">Decrease Rentals Owned</span>
+                              </AriaButton>
+                              <AriaButton
+                                slot="increment"
+                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                              >
+                                <PlusIcon className="size-4" />
+                                <span className="sr-only">Increase Rentals Owned</span>
+                              </AriaButton>
+                            </Group>
+                          </NumberField>
                         </div>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
@@ -3066,17 +3083,34 @@ export default function PricingEnginePage() {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                          <Input
-                            id="num-flips"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            placeholder="0"
-                            value={numFlips}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/[^0-9]/g, "")
-                              setNumFlips(digits)
-                            }}
-                          />
+                          <NumberField
+                            value={numFlips ? Number(numFlips) : undefined}
+                            onChange={(val) => setNumFlips(String(val))}
+                            minValue={0}
+                            className="w-full"
+                          >
+                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+                              <AriaInput
+                                id="num-flips"
+                                placeholder="0"
+                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+                              />
+                              <AriaButton
+                                slot="decrement"
+                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                              >
+                                <MinusIcon className="size-4" />
+                                <span className="sr-only">Decrease Flips</span>
+                              </AriaButton>
+                              <AriaButton
+                                slot="increment"
+                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                              >
+                                <PlusIcon className="size-4" />
+                                <span className="sr-only">Increase Flips</span>
+                              </AriaButton>
+                            </Group>
+                          </NumberField>
                         </div>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
@@ -3091,17 +3125,34 @@ export default function PricingEnginePage() {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                          <Input
-                            id="num-gunc"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            placeholder="0"
-                            value={numGunc}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/[^0-9]/g, "")
-                              setNumGunc(digits)
-                            }}
-                          />
+                          <NumberField
+                            value={numGunc ? Number(numGunc) : undefined}
+                            onChange={(val) => setNumGunc(String(val))}
+                            minValue={0}
+                            className="w-full"
+                          >
+                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
+                              <AriaInput
+                                id="num-gunc"
+                                placeholder="0"
+                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+                              />
+                              <AriaButton
+                                slot="decrement"
+                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                              >
+                                <MinusIcon className="size-4" />
+                                <span className="sr-only">Decrease GUNC</span>
+                              </AriaButton>
+                              <AriaButton
+                                slot="increment"
+                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                              >
+                                <PlusIcon className="size-4" />
+                                <span className="sr-only">Increase GUNC</span>
+                              </AriaButton>
+                            </Group>
+                          </NumberField>
                         </div>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
