@@ -16,7 +16,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Trash2, Upload, X } from "lucide-react"
+import { Check, ChevronDown, Trash2, Upload, X } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
@@ -43,10 +43,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/components/ui/pagination"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { usePagination } from "@/hooks/use-pagination"
+import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { ApplicationRow } from "../data/fetch-applications"
 import { cn } from "@/lib/utils"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
@@ -340,11 +339,6 @@ export function ApplicationsTable({ data }: Props) {
     getRowId: (row) => row.id,
   })
 
-  const { pages, showLeftEllipsis, showRightEllipsis } = usePagination({
-    currentPage: table.getState().pagination.pageIndex + 1,
-    totalPages: table.getPageCount(),
-    paginationItemsToDisplay: 2,
-  })
 
   return (
     <div className="w-full border rounded-lg">
@@ -420,84 +414,7 @@ export function ApplicationsTable({ data }: Props) {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 px-4 py-4 max-sm:flex-col md:max-lg:flex-col">
-        <p className="text-muted-foreground text-sm whitespace-nowrap" aria-live="polite">
-          Showing{" "}
-          <span>
-            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
-            {Math.min(
-              Math.max(
-                table.getState().pagination.pageIndex * table.getState().pagination.pageSize +
-                  table.getState().pagination.pageSize,
-                0
-              ),
-              table.getRowCount()
-            )}
-          </span>{" "}
-          of <span>{table.getRowCount().toString()} entries</span>
-        </p>
-
-        <div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <Button
-                  className="disabled:pointer-events-none disabled:opacity-50"
-                  variant={"ghost"}
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  aria-label="Go to previous page"
-                >
-                  <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-                  Previous
-                </Button>
-              </PaginationItem>
-
-              {showLeftEllipsis && (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )}
-
-              {pages.map((page) => {
-                const isActive = page === table.getState().pagination.pageIndex + 1
-
-                return (
-                  <PaginationItem key={page}>
-                    <Button
-                      size="icon"
-                      className={!isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}
-                      onClick={() => table.setPageIndex(page - 1)}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      {page}
-                    </Button>
-                  </PaginationItem>
-                )
-              })}
-
-              {showRightEllipsis && (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )}
-
-              <PaginationItem>
-                <Button
-                  className="disabled:pointer-events-none disabled:opacity-50"
-                  variant={"ghost"}
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  aria-label="Go to next page"
-                >
-                  Next
-                  <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                </Button>
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      </div>
+      <DataTablePagination table={table} />
       <Dialog
         open={!!uploadContext}
         onOpenChange={(open) => {

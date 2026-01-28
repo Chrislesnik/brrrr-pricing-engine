@@ -12,15 +12,14 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { EntityProfile } from "../data/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/components/ui/pagination"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
-import { usePagination } from "@/hooks/use-pagination"
+import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { EntityRowActions } from "./entity-row-actions"
 import { ReactNode } from "react"
 
@@ -228,12 +227,6 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
     getRowId: (row) => row.id,
   })
 
-  const { pages, showLeftEllipsis, showRightEllipsis } = usePagination({
-    currentPage: table.getState().pagination.pageIndex + 1,
-    totalPages: table.getPageCount(),
-    paginationItemsToDisplay: 2,
-  })
-
   return (
     <div className="w-full rounded-lg border">
       <div className="border-b">
@@ -342,83 +335,7 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 px-4 py-4 max-sm:flex-col md:max-lg:flex-col">
-        <p className="text-muted-foreground text-sm whitespace-nowrap" aria-live="polite">
-          Showing{" "}
-          <span>
-            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
-            {Math.min(
-              Math.max(
-                table.getState().pagination.pageIndex * table.getState().pagination.pageSize + table.getState().pagination.pageSize,
-                0
-              ),
-              table.getRowCount()
-            )}
-          </span>{" "}
-          of <span>{table.getRowCount().toString()} entries</span>
-        </p>
-
-        <div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <Button
-                  className="disabled:pointer-events-none disabled:opacity-50"
-                  variant={"ghost"}
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  aria-label="Go to previous page"
-                >
-                  <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-                  Previous
-                </Button>
-              </PaginationItem>
-
-              {showLeftEllipsis && (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )}
-
-              {pages.map((page) => {
-                const isActive = page === table.getState().pagination.pageIndex + 1
-
-                return (
-                  <PaginationItem key={page}>
-                    <Button
-                      size="icon"
-                      className={!isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}
-                      onClick={() => table.setPageIndex(page - 1)}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      {page}
-                    </Button>
-                  </PaginationItem>
-                )
-              })}
-
-              {showRightEllipsis && (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )}
-
-              <PaginationItem>
-                <Button
-                  className="disabled:pointer-events-none disabled:opacity-50"
-                  variant={"ghost"}
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  aria-label="Go to next page"
-                >
-                  Next
-                  <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                </Button>
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      </div>
+      <DataTablePagination table={table} />
     </div>
   )
 }
