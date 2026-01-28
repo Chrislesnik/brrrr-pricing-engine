@@ -13,9 +13,9 @@ import {
   flexRender,
   getColumnBorderVisibility,
   getColumnPinningStyle,
-} from "@/components/data-grid/data-grid";
+} from "@/lib/data-grid";
 import { cn } from "@/lib/utils";
-import type { Direction } from "@/components/data-grid/data-grid";
+import type { Direction } from "@/types/data-grid";
 
 const EMPTY_CELL_SELECTION_SET = new Set<string>();
 

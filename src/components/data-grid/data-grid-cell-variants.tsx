@@ -42,9 +42,9 @@ import {
   getLineCount,
   getUrlHref,
   parseLocalDate,
-} from "@/components/data-grid/data-grid";
+} from "@/lib/data-grid";
 import { cn } from "@/lib/utils";
-import type { DataGridCellProps, FileCellData } from "@/components/data-grid/data-grid";
+import type { DataGridCellProps, FileCellData } from "@/types/data-grid";
 
 export function ShortTextCell<TData>({
   cell,

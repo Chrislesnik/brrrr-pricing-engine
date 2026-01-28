@@ -30,7 +30,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getColumnVariant } from "@/components/data-grid/data-grid";
+import { getColumnVariant } from "@/lib/data-grid";
 import { cn } from "@/lib/utils";
 
 interface DataGridColumnHeaderProps<TData, TValue>
