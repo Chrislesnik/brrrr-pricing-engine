@@ -84,8 +84,8 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
         Add Program
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[85vh] flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Add Program</DialogTitle>
             <DialogDescription>Fill in the details and click Save.</DialogDescription>
           </DialogHeader>
@@ -94,7 +94,8 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
               Select or create an organization from the switcher to add programs.
             </p>
           ) : null}
-          <div className="grid gap-3 py-2">
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid gap-3 py-2">
             <Label htmlFor="loanType">Loan Type</Label>
             <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
               <SelectTrigger id="loanType">
@@ -185,8 +186,9 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
               />
             </div>
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
               Cancel
             </Button>

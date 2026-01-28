@@ -138,12 +138,13 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit program</DialogTitle>
           <DialogDescription>Update the fields and click Save.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 py-2">
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid gap-3 py-2">
           <Label htmlFor="id">ID</Label>
           <Input id="id" value={program.id} readOnly className="font-mono text-xs" />
 
@@ -316,8 +317,9 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
             />
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancel
           </Button>
