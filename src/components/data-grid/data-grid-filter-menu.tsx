@@ -191,7 +191,7 @@ export function DataGridFilterMenu<TData>({
     <Sortable
       value={columnFilters}
       onValueChange={table.setColumnFilters}
-      getItemValue={(item) => item.id}
+      getItemValue={(item: ColumnFilter) => item.id}
     >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
