@@ -110,6 +110,7 @@ export function LeasedUnitsGrid({ data, onDataChange, className }: LeasedUnitsGr
       <DataGrid
         table={table}
         {...gridProps}
+        focusCell={focusCell}
         stretchColumns
         height={gridHeight}
       />
