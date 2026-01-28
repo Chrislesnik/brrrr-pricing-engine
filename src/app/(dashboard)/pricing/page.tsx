@@ -84,10 +84,10 @@ async function saveFileWithPrompt(file: File): Promise<void> {
       return
     }
   } catch (e) {
-    // If the user cancels the picker, rethrow to allow caller to handle silently.
+    // If the user cancels the picker, return early without throwing or falling back.
     const name = (e as any)?.name ?? ""
     if (name === "AbortError" || /cancel/i.test(String((e as any)?.message ?? ""))) {
-      throw e
+      return // User cancelled, no action needed
     }
     // Otherwise fall through to anchor-based download.
   }
@@ -3888,8 +3888,11 @@ export default function PricingEnginePage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="5-4-3-2-1">5-4-3-2-1</SelectItem>
+                                <SelectItem value="4-3-2-1">4-3-2-1</SelectItem>
                                 <SelectItem value="3-2-1">3-2-1</SelectItem>
+                                <SelectItem value="2-1">2-1</SelectItem>
                                 <SelectItem value="1">1</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
