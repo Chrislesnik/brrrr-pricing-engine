@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { cn } from "@/lib/utils"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { BorrowerRowActions } from "./borrower-row-actions"
 
@@ -137,7 +136,7 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
   const searchColumn = table.getColumn("search")
 
   return (
-    <div className="w-full rounded-lg border bg-background">
+    <div className="w-full rounded-lg border">
       <div className="border-b">
         <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="font-medium">Borrowers</span>
@@ -154,15 +153,12 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
             />
           </div>
         </div>
-      </div>
-
-      <div className="relative w-full overflow-auto">
-        <Table className="w-full caption-bottom text-sm">
+        <Table>
           <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="[&_th]:text-xs [&_th]:uppercase [&_th]:text-muted-foreground">
-              {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className={cn(header.column.columnDef.meta?.className)}>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="h-12 border-t">
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="text-muted-foreground first:pl-4 last:pr-4">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -172,9 +168,9 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row: Row<BorrowerRow>) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="border-b transition-colors hover:bg-muted/50">
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className={cn(cell.column.columnDef.meta?.className)}>
+                    <TableCell key={cell.id} className="h-14 first:pl-4 last:pr-4">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
