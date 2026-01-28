@@ -309,6 +309,14 @@ export function ApplicationsTable({ data }: Props) {
     [data, liveData]
   )
 
+  // Keep pagination in bounds when data changes
+  const totalPages = Math.ceil(augmentedData.length / pageSize)
+  useEffect(() => {
+    if (pagination.pageIndex >= totalPages && totalPages > 0) {
+      setPagination((prev) => ({ ...prev, pageIndex: totalPages - 1 }))
+    }
+  }, [totalPages, pagination.pageIndex, pageSize])
+
   const table = useReactTable({
     data: augmentedData,
     columns,
@@ -326,6 +334,8 @@ export function ApplicationsTable({ data }: Props) {
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
+    // Use row.id as the stable row identifier to preserve state across data updates
+    getRowId: (row) => row.id,
   })
 
   const { pages, showLeftEllipsis, showRightEllipsis } = usePagination({

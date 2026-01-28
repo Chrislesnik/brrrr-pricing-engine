@@ -132,6 +132,8 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    // Use row.id as the stable row identifier to preserve state across data updates
+    getRowId: (row) => row.id,
   })
 
   const filteredCount = table.getFilteredRowModel().rows.length

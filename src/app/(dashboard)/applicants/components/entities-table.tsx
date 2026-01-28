@@ -224,6 +224,8 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
+    // Use row.id as the stable row identifier to preserve state across data updates
+    getRowId: (row) => row.id,
   })
 
   const { pages, showLeftEllipsis, showRightEllipsis } = usePagination({

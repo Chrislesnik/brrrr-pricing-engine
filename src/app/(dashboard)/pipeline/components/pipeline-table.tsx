@@ -169,6 +169,8 @@ export function PipelineTable({ columns, data }: Props) {
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    // Use row.id as the stable row identifier to preserve state across data updates
+    getRowId: (row) => row.id,
   })
 
   return (
