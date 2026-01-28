@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import useSWR from "swr"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,17 +11,19 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { ApplicationsTable } from "./components/applications-table"
+import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { ApplicationRow } from "./data/fetch-applications"
-import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
-import { getApplicationsForOrg } from "./data/fetch-applications"
 
-export const dynamic = "force-dynamic"
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-export default async function ApplicationsPage() {
-  const { orgId, userId } = await auth()
-  const orgUuid = await getOrgUuidFromClerkId(orgId)
-  const data: ApplicationRow[] = orgUuid ? await getApplicationsForOrg(orgUuid, userId ?? undefined) : []
+export default function ApplicationsPage() {
+  const { data, isLoading } = useSWR<{ items: ApplicationRow[] }>("/api/applications/list", fetcher)
+  const applications = data?.items ?? []
+
+  if (isLoading) {
+    return <PageSkeleton title="Applications" columns={6} rows={10} />
+  }
+
   return (
     <>
       <div className="mb-4 flex flex-col gap-2">
@@ -42,10 +47,8 @@ export default async function ApplicationsPage() {
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <ApplicationsTable data={data} />
+        <ApplicationsTable data={applications} />
       </div>
     </>
   )
 }
-
-

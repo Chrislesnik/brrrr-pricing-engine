@@ -1,5 +1,7 @@
+"use client"
+
 import Link from "next/link"
-import { auth } from "@clerk/nextjs/server"
+import useSWR from "swr"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,44 +13,18 @@ import {
 import { UserPrimaryActions } from "../users/components/user-primary-actions"
 import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
-import { getPipelineLoansForOrg } from "./data/fetch-loans"
+import { PageSkeleton } from "@/components/ui/table-skeleton"
+import type { LoanRow } from "./data/fetch-loans"
 
-export default async function PipelinePage() {
-  const { orgId, userId } = await auth()
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H8",
-      location: "pipeline/page.tsx:22",
-      message: "pipeline page entry run5",
-      data: { hasOrg: Boolean(orgId), hasUser: Boolean(userId) },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
+export default function PipelinePage() {
+  const { data, isLoading } = useSWR<{ items: LoanRow[] }>("/api/pipeline", fetcher)
+  const loans = data?.items ?? []
 
-  const data = orgId && userId ? await getPipelineLoansForOrg(orgId, userId) : []
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H8",
-      location: "pipeline/page.tsx:37",
-      message: "pipeline data loaded run5",
-      data: { length: Array.isArray(data) ? data.length : -1 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
+  if (isLoading) {
+    return <PageSkeleton title="Loan Pipeline" columns={7} rows={10} />
+  }
 
   return (
     <>
@@ -74,10 +50,8 @@ export default async function PipelinePage() {
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <PipelineTable data={data} columns={pipelineColumns} />
+        <PipelineTable data={loans} columns={pipelineColumns} />
       </div>
     </>
   )
 }
-
-
