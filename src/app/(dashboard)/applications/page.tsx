@@ -20,7 +20,9 @@ export default function ApplicationsPage() {
   const { data, isLoading } = useSWR<{ items: ApplicationRow[] }>("/api/applications/list", fetcher)
   const applications = data?.items ?? []
 
-  if (isLoading) {
+  // Show skeleton ONLY during initial load (no data yet), not during revalidation
+  // This prevents the table from unmounting and losing pagination state
+  if (isLoading && !data) {
     return <PageSkeleton title="Applications" columns={6} rows={10} />
   }
 

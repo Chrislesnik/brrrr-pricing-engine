@@ -22,7 +22,9 @@ export default function PipelinePage() {
   const { data, isLoading } = useSWR<{ items: LoanRow[] }>("/api/pipeline", fetcher)
   const loans = data?.items ?? []
 
-  if (isLoading) {
+  // Show skeleton ONLY during initial load (no data yet), not during revalidation
+  // This prevents the table from unmounting and losing pagination state
+  if (isLoading && !data) {
     return <PageSkeleton title="Loan Pipeline" columns={7} rows={10} />
   }
 
