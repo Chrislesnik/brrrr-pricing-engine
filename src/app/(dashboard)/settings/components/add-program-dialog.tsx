@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { FileThumbnail } from "@/components/pdf-thumbnail"
 
 interface Props {
   action: (formData: FormData) => Promise<{ ok: boolean; error?: string }>
@@ -135,16 +137,47 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
               placeholder="Webhook URL"
             />
             <div className="mt-2 rounded-md border p-3">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between">
                 <Label>Documents (optional)</Label>
                 <span className="text-xs text-muted-foreground">
-                  {newFilesCount ? `${newFilesCount} new` : "none selected"}
+                  {newFilesCount ? `${newFilesCount} selected` : "none selected"}
                 </span>
               </div>
+
+              {/* New files to upload grid */}
+              {filesToUpload.length > 0 && (
+                <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {filesToUpload.map((file, idx) => {
+                    const filename = file.name
+
+                    return (
+                      <div
+                        key={`new-${idx}`}
+                        className="relative flex flex-col items-center rounded-md border border-dashed border-primary/50 bg-primary/5 p-2"
+                      >
+                        <FileThumbnail file={file} width={100} height={130} className="mb-2" />
+
+                        <span
+                          className="w-full truncate text-center text-xs font-medium"
+                          title={filename}
+                        >
+                          {filename}
+                        </span>
+
+                        <Badge variant="outline" className="mt-1 text-[10px]">
+                          new
+                        </Badge>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <Input
                 id="programDocsNew"
                 type="file"
                 multiple
+                accept=".pdf"
                 onChange={(e) => {
                   const files = Array.from(e.target.files ?? [])
                   setFilesToUpload(files)
