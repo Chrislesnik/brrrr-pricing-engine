@@ -155,9 +155,9 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
         </div>
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+        {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="h-12 border-t">
-                {headerGroup.headers.map((header) => (
+              {headerGroup.headers.map((header) => (
                   <TableHead key={header.id} className="text-muted-foreground first:pl-4 last:pr-4">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>

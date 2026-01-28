@@ -1985,7 +1985,16 @@ export default function PricingEnginePage() {
         setUnitData(rows)
         hydrateUnitsRef.current = null
       } else {
-        setUnitData(Array.from({ length: next }, (_, i) => ({ id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" })))
+        setUnitData((prev) => {
+          // Resize array while preserving existing data
+          return Array.from({ length: next }, (_, i) => {
+            const existing = prev[i]
+            if (existing) {
+              return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
+            }
+            return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
+          })
+        })
       }
       return
     }
@@ -2002,7 +2011,17 @@ export default function PricingEnginePage() {
       setUnitData(rows)
       hydrateUnitsRef.current = null
     } else {
-      setUnitData(Array.from({ length: numUnits }, (_, i) => ({ id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" })))
+      setUnitData((prev) => {
+        // Resize array while preserving existing data
+        return Array.from({ length: numUnits }, (_, i) => {
+          // Keep existing data if available, otherwise create empty row
+          const existing = prev[i]
+          if (existing) {
+            return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
+          }
+          return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
+        })
+      })
     }
   }, [unitOptions, numUnits])
 
@@ -3751,6 +3770,7 @@ export default function PricingEnginePage() {
 
                     <div className="mt-4">
                       <LeasedUnitsGrid
+                        key={`units-${selectedScenarioId ?? "new"}`}
                         data={unitData}
                         onDataChange={setUnitData}
                       />

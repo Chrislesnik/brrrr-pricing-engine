@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import type { ColumnDef } from "@tanstack/react-table"
-import { DataGrid } from "@/components/data-grid/data-grid"
 import { useDataGrid } from "@/hooks/use-data-grid"
+import { DataGrid } from "@/components/data-grid/data-grid"
+import { DataGridKeyboardShortcuts } from "@/components/data-grid/data-grid-keyboard-shortcuts"
 import { cn } from "@/lib/utils"
+import type { ColumnDef } from "@tanstack/react-table"
 
 export interface UnitRow {
   id: string
@@ -14,103 +15,83 @@ export interface UnitRow {
   market: string
 }
 
-interface LeasedUnitsGridProps {
-  data: UnitRow[]
-  onDataChange: (data: UnitRow[]) => void
-  className?: string
-}
-
 const unitColumns: ColumnDef<UnitRow>[] = [
   {
     id: "unitNumber",
     accessorKey: "unitNumber",
-    header: "#",
-    meta: { cell: { variant: "short-text" } },
+    header: () => <span className="font-medium text-muted-foreground">#</span>,
     size: 50,
-    minSize: 40,
-    maxSize: 60,
+    minSize: 50,
+    maxSize: 50,
     enableResizing: false,
+    enableSorting: false,
+    enableColumnFilter: false,
+    meta: {
+      cell: { variant: "short-text" as const },
+      readOnly: true,
+    },
   },
   {
     id: "leased",
     accessorKey: "leased",
-    header: () => (
-      <span>
-        Leased <span className="text-red-600">*</span>
-      </span>
-    ),
+    header: () => <span className="font-medium">Leased <span className="text-red-600">*</span></span>,
+    size: 100,
+    minSize: 80,
+    enableSorting: false,
+    enableColumnFilter: false,
     meta: {
       cell: {
-        variant: "select",
+        variant: "select" as const,
         options: [
-          { label: "Yes", value: "yes" },
-          { label: "No", value: "no" },
+          { value: "yes", label: "Yes" },
+          { value: "no", label: "No" },
         ],
       },
     },
-    size: 100,
-    minSize: 80,
-    maxSize: 140,
   },
   {
     id: "gross",
     accessorKey: "gross",
-    header: () => (
-      <span>
-        Gross Rent <span className="text-red-600">*</span>
-      </span>
-    ),
-    meta: { cell: { variant: "currency-calc" } },
-    size: 140,
+    header: () => <span className="font-medium">Gross Rent <span className="text-red-600">*</span></span>,
+    size: 120,
     minSize: 100,
-    maxSize: 200,
+    enableSorting: false,
+    enableColumnFilter: false,
+    meta: {
+      cell: { variant: "currency-calc" as const },
+    },
   },
   {
     id: "market",
     accessorKey: "market",
-    header: () => (
-      <span>
-        Market Rent <span className="text-red-600">*</span>
-      </span>
-    ),
-    meta: { cell: { variant: "currency-calc" } },
-    size: 140,
+    header: () => <span className="font-medium">Market Rent <span className="text-red-600">*</span></span>,
+    size: 120,
     minSize: 100,
-    maxSize: 200,
+    enableSorting: false,
+    enableColumnFilter: false,
+    meta: {
+      cell: { variant: "currency-calc" as const },
+    },
   },
 ]
 
-export function LeasedUnitsGrid({ data, onDataChange, className }: LeasedUnitsGridProps) {
-  // Custom onDataChange that prevents changes to unitNumber column
-  const handleDataChange = React.useCallback(
-    (newData: UnitRow[]) => {
-      // Ensure unit numbers stay consistent with indices
-      const dataWithPreservedUnitNumbers = newData.map((row, idx) => ({
-        ...row,
-        id: `unit-${idx}`,
-        unitNumber: `#${idx + 1}`,
-      }))
-      onDataChange(dataWithPreservedUnitNumbers)
-    },
-    [onDataChange]
-  )
+interface LeasedUnitsGridProps {
+  data: UnitRow[]
+  onDataChange: React.Dispatch<React.SetStateAction<UnitRow[]>>
+  className?: string
+}
 
-  const dataGrid = useDataGrid({
+export function LeasedUnitsGrid({ data, onDataChange, className }: LeasedUnitsGridProps) {
+  const { table, focusCell, ...gridProps } = useDataGrid({
     data,
     columns: unitColumns,
-    onDataChange: handleDataChange,
-    readOnly: false,
-    enableSearch: false,
-    enablePaste: false,
-    rowHeight: "short",
+    onDataChange: onDataChange,
     getRowId: (row) => row.id,
+    enableSearch: false,
+    enablePaste: true,
+    rowHeight: "short",
+    autoFocus: false, // Don't steal focus on mount
   })
-
-  // Calculate dynamic height based on number of rows (min 1 row, max 10 rows visible)
-  const rowCount = data.length
-  const rowHeightPx = 36 // "short" row height
-  const headerHeight = 36
-  const calculatedHeight = Math.min(400, headerHeight + rowCount * rowHeightPx + 4)
 
   if (data.length === 0) {
     return (
@@ -120,13 +101,17 @@ export function LeasedUnitsGrid({ data, onDataChange, className }: LeasedUnitsGr
     )
   }
 
+  // Calculate height: header (36px) + rows (36px each) + border (2px)
+  const gridHeight = 36 + (data.length * 36) + 2
+
   return (
-    <div className={cn("rounded-md border", className)}>
+    <div className={cn("w-full", className)}>
+      <DataGridKeyboardShortcuts enableSearch={!!gridProps.searchState} />
       <DataGrid
-        {...dataGrid}
-        height={calculatedHeight}
+        table={table}
+        {...gridProps}
         stretchColumns
-        className="[&_[data-slot=grid-header]]:bg-muted/50"
+        height={gridHeight}
       />
     </div>
   )

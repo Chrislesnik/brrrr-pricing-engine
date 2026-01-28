@@ -495,22 +495,23 @@ export default function AIAgentPage() {
             )}
           </div>
 
-          <PromptInput
-            onSubmit={handleSend}
+          <div
             className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[env(safe-area-inset-bottom)]"
             style={keyboardOffset ? ({ bottom: keyboardOffset } as React.CSSProperties) : undefined}
           >
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 pb-2">
-              <PromptInputTextarea placeholder="Ask your AI Agent…" />
-              <PromptInputFooter>
-                <div />
-                <PromptInputSubmit
-                  disabled={!selectedChatId}
-                  status={isThinking ? "streaming" : undefined}
-                />
-              </PromptInputFooter>
+            <div className="mx-auto w-full max-w-2xl pb-2">
+              <PromptInput onSubmit={handleSend}>
+                <PromptInputTextarea placeholder="Ask your AI Agent…" />
+                <PromptInputFooter>
+                  <div />
+                  <PromptInputSubmit
+                    disabled={!selectedChatId}
+                    status={isThinking ? "streaming" : undefined}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
             </div>
-          </PromptInput>
+          </div>
         </div>
       </section>
 

@@ -77,6 +77,50 @@ export function DataGrid<TData>({
     [],
   );
 
+  // Ensure grid has focus for keyboard navigation after any interaction
+  React.useEffect(() => {
+    const gridElement = dataGridRef.current;
+    if (!gridElement) return;
+
+    const ensureFocus = () => {
+      const currentGrid = dataGridRef.current;
+      if (!currentGrid) return;
+
+      // If nothing in the grid has focus, force focus on the grid
+      if (!currentGrid.contains(document.activeElement)) {
+        currentGrid.focus();
+      }
+    };
+
+    // Capture phase mousedown ensures focus is set before other handlers
+    const onMouseDownCapture = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Don't interfere with inputs/textareas/selects
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT"
+      ) {
+        return;
+      }
+      // Schedule focus check after all event handlers complete
+      setTimeout(ensureFocus, 0);
+    };
+
+    // Also check on click (bubble phase) as a backup
+    const onClickBubble = () => {
+      setTimeout(ensureFocus, 0);
+    };
+
+    gridElement.addEventListener("mousedown", onMouseDownCapture, true);
+    gridElement.addEventListener("click", onClickBubble);
+
+    return () => {
+      gridElement.removeEventListener("mousedown", onMouseDownCapture, true);
+      gridElement.removeEventListener("click", onClickBubble);
+    };
+  }, [dataGridRef]);
+
   const onFooterCellKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (!onRowAddRef.current) return;
@@ -242,7 +286,7 @@ export function DataGrid<TData>({
             );
           })}
         </div>
-        {!readOnly && onRowAdd && (
+        {!readOnly && onRowAddProp && (
           <div
             role="rowgroup"
             data-slot="grid-footer"

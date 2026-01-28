@@ -11,7 +11,6 @@ import * as React from "react";
 import { DataGridCell } from "@/components/data-grid/data-grid-cell";
 import { useComposedRefs } from "@/lib/compose-refs";
 import {
-  flexRender,
   getCellKey,
   getColumnBorderVisibility,
   getColumnPinningStyle,
@@ -265,29 +264,19 @@ function DataGridRowImpl<TData>({
               width: `calc(var(--col-${columnId}-size) * 1px)`,
             }}
           >
-            {typeof cell.column.columnDef.header === "function" ? (
-              <div
-                className={cn("size-full px-3 py-1.5", {
-                  "bg-primary/10": isRowSelected,
-                })}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </div>
-            ) : (
-              <DataGridCell
-                cell={cell}
-                tableMeta={tableMeta}
-                rowIndex={virtualRowIndex}
-                columnId={columnId}
-                rowHeight={rowHeight}
-                isFocused={isCellFocused}
-                isEditing={isCellEditing}
-                isSelected={isCellSelected}
-                isSearchMatch={isSearchMatch}
-                isActiveSearchMatch={isActiveSearchMatch}
-                readOnly={readOnly}
-              />
-            )}
+            <DataGridCell
+              cell={cell}
+              tableMeta={tableMeta}
+              rowIndex={virtualRowIndex}
+              columnId={columnId}
+              rowHeight={rowHeight}
+              isFocused={isCellFocused}
+              isEditing={isCellEditing}
+              isSelected={isCellSelected}
+              isSearchMatch={isSearchMatch}
+              isActiveSearchMatch={isActiveSearchMatch}
+              readOnly={readOnly || Boolean(cell.column.columnDef.meta?.readOnly)}
+            />
           </div>
         );
       })}

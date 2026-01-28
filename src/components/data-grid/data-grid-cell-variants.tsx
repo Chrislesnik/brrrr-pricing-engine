@@ -168,6 +168,15 @@ export function ShortTextCell<TData>({
 
   const displayValue = !isEditing ? (value ?? "") : "";
 
+  // For readOnly cells, render a non-interactive display (like a header)
+  if (readOnly) {
+    return (
+      <div className="size-full px-2 py-1.5 text-start text-sm text-muted-foreground">
+        {displayValue}
+      </div>
+    );
+  }
+
   return (
     <DataGridCellWrapper<TData>
       ref={containerRef}
@@ -881,41 +890,43 @@ export function SelectCell<TData>({
     setValue(initialValue);
   }
 
+  // Restore focus to the cell wrapper after editing stops
+  const restoreFocus = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      containerRef.current?.focus();
+    });
+  }, []);
+
   const onValueChange = React.useCallback(
     (newValue: string) => {
       if (readOnly) return;
       setValue(newValue);
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: newValue });
       tableMeta?.onCellEditingStop?.();
+      restoreFocus();
     },
-    [tableMeta, rowIndex, columnId, readOnly],
+    [tableMeta, rowIndex, columnId, readOnly, restoreFocus],
   );
 
   const onOpenChange = React.useCallback(
     (open: boolean) => {
-      if (open && !readOnly) {
-        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
-      } else {
+      if (!open) {
         tableMeta?.onCellEditingStop?.();
+        restoreFocus();
       }
     },
-    [tableMeta, rowIndex, columnId, readOnly],
+    [tableMeta, restoreFocus],
   );
 
   const onWrapperKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (isEditing && event.key === "Escape") {
         event.preventDefault();
-        setValue(initialValue);
         tableMeta?.onCellEditingStop?.();
-      } else if (isFocused && event.key === "Tab") {
-        event.preventDefault();
-        tableMeta?.onCellEditingStop?.({
-          direction: event.shiftKey ? "left" : "right",
-        });
+        restoreFocus();
       }
     },
-    [isEditing, isFocused, initialValue, tableMeta],
+    [isEditing, tableMeta, restoreFocus],
   );
 
   const displayLabel =
@@ -941,8 +952,9 @@ export function SelectCell<TData>({
         <Select
           value={value}
           onValueChange={onValueChange}
-          open={isEditing}
+          open={true}
           onOpenChange={onOpenChange}
+          disabled={readOnly}
         >
           <SelectTrigger
             size="sm"
@@ -953,19 +965,22 @@ export function SelectCell<TData>({
                 variant="secondary"
                 className="whitespace-pre-wrap px-1.5 py-px"
               >
-                <SelectValue />
+                {displayLabel}
               </Badge>
             ) : (
-              <SelectValue />
+              <span className="text-muted-foreground text-sm">Select...</span>
             )}
           </SelectTrigger>
           <SelectContent
             data-grid-cell-editor=""
-            // compensate for the wrapper padding
             align="start"
             alignOffset={-8}
             sideOffset={-8}
             className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              restoreFocus();
+            }}
           >
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>

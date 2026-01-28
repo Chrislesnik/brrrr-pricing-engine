@@ -634,10 +634,10 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[75vw] max-w-[1100px] sm:max-w-[1200px] h-[90vh] p-0 border-none shadow-2xl">
-        <div ref={scrollRef} className="h-full overflow-hidden">
-          <span className="sr-only">Application workflow</span>
-          <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors ?? undefined} />
-        </div>
+      <div ref={scrollRef} className="h-full overflow-hidden">
+        <span className="sr-only">Application workflow</span>
+        <MultiStepForm entityName={row.borrowerEntityName} guarantors={row.guarantors ?? undefined} />
+      </div>
       </DialogContent>
     </Dialog>
   )

@@ -151,6 +151,8 @@ function useDataGrid<TData>({
 }: UseDataGridProps<TData>) {
   const dir = useDirection(dirProp);
   const dataGridRef = React.useRef<HTMLDivElement>(null);
+  // Track when dataGridRef is assigned to force keyboard effect re-run
+  const [isGridMounted, setIsGridMounted] = React.useState(false);
   const tableRef = React.useRef<ReturnType<typeof useReactTable<TData>>>(null);
   const rowVirtualizerRef =
     React.useRef<Virtualizer<HTMLDivElement, Element>>(null);
@@ -1156,9 +1158,9 @@ function useDataGrid<TData>({
       requestAnimationFrame(() => {
         const cellKey = getCellKey(rowIndex, columnId);
         const cellWrapperElement = cellMapRef.current.get(cellKey);
+        const container = dataGridRef.current;
 
         if (!cellWrapperElement) {
-          const container = dataGridRef.current;
           if (container) {
             container.focus();
           }
@@ -1166,7 +1168,24 @@ function useDataGrid<TData>({
           return;
         }
 
+        // Force tabIndex=0 so the element can receive focus
+        // (React may not have re-rendered yet with the updated isFocused prop)
+        const originalTabIndex = cellWrapperElement.getAttribute("tabindex");
+        cellWrapperElement.setAttribute("tabindex", "0");
         cellWrapperElement.focus();
+
+        // Verify focus was set, if not, focus the grid container as fallback
+        if (document.activeElement !== cellWrapperElement && container) {
+          container.focus();
+        }
+
+        // Restore original tabIndex after a microtask (React will update it properly)
+        queueMicrotask(() => {
+          if (originalTabIndex !== null) {
+            cellWrapperElement.setAttribute("tabindex", originalTabIndex);
+          }
+        });
+
         releaseFocusGuard();
       });
     },
@@ -3021,15 +3040,47 @@ function useDataGrid<TData>({
     onNavigateToPrevMatch,
   ]);
 
+  // Effect to detect when grid is mounted and ref is available
+  React.useEffect(() => {
+    const checkRef = () => {
+      if (dataGridRef.current && !isGridMounted) {
+        setIsGridMounted(true);
+      }
+    };
+    // Check immediately
+    checkRef();
+    // Also check after a frame in case of timing issues
+    const rafId = requestAnimationFrame(checkRef);
+    return () => cancelAnimationFrame(rafId);
+  }, [isGridMounted]);
+
   React.useEffect(() => {
     const dataGridElement = dataGridRef.current;
     if (!dataGridElement) return;
 
-    dataGridElement.addEventListener("keydown", onDataGridKeyDown);
-    return () => {
-      dataGridElement.removeEventListener("keydown", onDataGridKeyDown);
+    // Capture phase listener on document ensures we catch keyboard events
+    // regardless of focus quirks (e.g., cell wrapper not having tabIndex yet)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      // Check if focus is within the grid or the grid itself
+      const currentGrid = dataGridRef.current;
+      if (!currentGrid) return;
+
+      const isInGrid = currentGrid.contains(target) || currentGrid === target;
+      if (!isInGrid) return;
+
+      onDataGridKeyDown(event);
     };
-  }, [onDataGridKeyDown]);
+
+    // NOTE: Only use ONE listener to avoid double-handling keyboard events
+    document.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [onDataGridKeyDown, isGridMounted]);
 
   React.useEffect(() => {
     function onGlobalKeyDown(event: KeyboardEvent) {
@@ -3288,6 +3339,7 @@ function useDataGrid<TData>({
       pasteDialog,
       onRowAdd: propsRef.current.onRowAdd ? onRowAdd : undefined,
       adjustLayout,
+      focusCell,
     }),
     [
       propsRef,
@@ -3310,6 +3362,7 @@ function useDataGrid<TData>({
       pasteDialog,
       onRowAdd,
       adjustLayout,
+      focusCell,
     ],
   );
 }
