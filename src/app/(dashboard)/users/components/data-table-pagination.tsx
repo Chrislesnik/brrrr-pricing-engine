@@ -29,7 +29,7 @@ export function DataTablePagination<TData>({ table }: Props<TData>) {
   }, [])
   if (!mounted) return null
   return (
-    <div className="flex items-center justify-between overflow-auto px-2">
+    <div className="flex items-center justify-between overflow-auto px-4 py-4">
       <div className="text-muted-foreground hidden flex-1 text-sm sm:block">
         {table.getFilteredSelectedRowModel().rows.length} of{" "}
         {table.getFilteredRowModel().rows.length} row(s) selected.

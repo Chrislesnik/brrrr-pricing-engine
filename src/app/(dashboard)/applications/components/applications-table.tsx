@@ -72,7 +72,7 @@ interface Props {
 
 export function ApplicationsTable({ data }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const pageSize = 5
+  const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [linkedRows, setLinkedRows] = useState<Record<string, boolean>>({})

@@ -59,7 +59,7 @@ function formatDate(ymd: string | null | undefined) {
 
 export function EntitiesTable({ data, initialOwnersMap }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const pageSize = 5
+  const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize })
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [ownersMap, setOwnersMap] = useState<Record<string, EntityOwner[] | null | undefined>>(initialOwnersMap ?? {})
