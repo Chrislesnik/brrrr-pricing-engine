@@ -20,11 +20,9 @@ import { OrganizationSwitcherIfEnabled } from "@/components/clerk/organization-s
 import { TeamSwitcher } from "@/components/layout/team-switcher"
 import { sidebarData } from "./data/sidebar-data"
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [isDark, setIsDark] = useState(false)
-  const pathname = usePathname()
 
   useEffect(() => {
     const root = document.documentElement
@@ -40,10 +38,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <Sidebar collapsible="icon" {...props}>
         <SidebarHeader>
           {/* Show Clerk orgs when enabled; otherwise fallback to static team switcher */}
+          {/* No afterSelectOrganizationUrl - OrgChangeRefresher handles soft refresh */}
           <OrganizationSwitcherIfEnabled
             afterCreateOrganizationUrl="/pipeline"
             afterLeaveOrganizationUrl="/sign-in"
-            afterSelectOrganizationUrl={pathname}
             appearance={{
               elements: {
                 // Hide branding footer in the org switcher popover
