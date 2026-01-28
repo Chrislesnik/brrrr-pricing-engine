@@ -230,7 +230,7 @@ function ContextMenuImpl<TData>({
         {onRowsDelete && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onDelete}>
               <Trash2Icon />
               Delete rows
             </DropdownMenuItem>
