@@ -342,6 +342,7 @@ function useDataGrid<TData>({
   );
 
   const columnIds = React.useMemo(() => {
+    if (!columns) return [];
     return columns
       .map((c) => {
         if (c.id) return c.id;
@@ -2303,7 +2304,7 @@ function useDataGrid<TData>({
 
       focusGuardRef.current = true;
 
-      const navigableIds = propsRef.current.columns
+      const navigableIds = (propsRef.current.columns ?? [])
         .map((c) => {
           if (c.id) return c.id;
           if ("accessorKey" in c) return c.accessorKey as string;
@@ -3150,7 +3151,7 @@ function useDataGrid<TData>({
     if (
       autoFocus &&
       data.length > 0 &&
-      columns.length > 0 &&
+      columns?.length > 0 &&
       !currentState.focusedCell
     ) {
       if (navigableColumnIds.length > 0) {
