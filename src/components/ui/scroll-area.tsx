@@ -102,10 +102,19 @@ const ScrollArea = React.forwardRef<
     >
       <ScrollAreaPrimitive.Viewport 
         ref={viewportRef}
-        className="h-full w-full rounded-[inherit] overscroll-contain [&]:!overflow-y-scroll [&]:!overflow-x-hidden"
+        className="h-full w-full rounded-[inherit] overscroll-contain"
         style={{ 
-          // Ensure touch scrolling works on all devices
+          // Force native scrolling to work on all browsers
+          overflowY: 'scroll',
+          overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
+        }}
+        // Force wheel events to trigger native scrolling (fixes Radix bug on some browsers)
+        onWheel={(e) => {
+          const viewport = e.currentTarget;
+          if (viewport.scrollHeight > viewport.clientHeight) {
+            viewport.scrollTop += e.deltaY;
+          }
         }}
       >
         {children}
