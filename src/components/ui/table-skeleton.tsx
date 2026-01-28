@@ -38,16 +38,22 @@ export function TableSkeleton({
         <TableBody>
           {Array.from({ length: rows }).map((_, rowIndex) => (
             <TableRow key={rowIndex}>
-              {Array.from({ length: columns }).map((_, colIndex) => (
-                <TableCell key={colIndex}>
-                  <Skeleton
-                    className="h-4"
-                    style={{
-                      width: `${Math.floor(Math.random() * 40 + 60)}%`,
-                    }}
-                  />
-                </TableCell>
-              ))}
+              {Array.from({ length: columns }).map((_, colIndex) => {
+                // Generate deterministic width based on row and column index
+                // This ensures the same widths are generated on server and client
+                const seed = (rowIndex * columns + colIndex) * 7 // Multiply by prime for variation
+                const width = 60 + (seed % 40)
+                return (
+                  <TableCell key={colIndex}>
+                    <Skeleton
+                      className="h-4"
+                      style={{
+                        width: `${width}%`,
+                      }}
+                    />
+                  </TableCell>
+                )
+              })}
             </TableRow>
           ))}
         </TableBody>
