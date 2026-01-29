@@ -69,8 +69,8 @@ export function SignIn2() {
           <div className="space-y-2 text-center">
             <h1 className="text-3xl font-semibold">Sign in</h1>
             <p className="text-muted-foreground text-sm">
-              Log in to unlock tailored content and stay connected with your
-              community.
+              Sign in to access loan pricing, term sheets, and manage your
+              lending pipeline.
             </p>
           </div>
 
