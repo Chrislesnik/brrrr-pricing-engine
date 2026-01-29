@@ -34,8 +34,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [])
 
   return (
-    <div className="relative">
-      <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" {...props}>
         <SidebarHeader>
           {/* Show Clerk orgs when enabled; otherwise fallback to static team switcher */}
           {/* No afterSelectOrganizationUrl - OrgChangeRefresher handles soft refresh */}
@@ -96,6 +95,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-    </div>
   )
 }

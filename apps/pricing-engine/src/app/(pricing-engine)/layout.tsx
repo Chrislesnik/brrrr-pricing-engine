@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { cn } from "@repo/lib/cn"
-import { SidebarProvider } from "@repo/ui/shadcn/sidebar"
+import { SidebarProvider, SidebarInset } from "@repo/ui/shadcn/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SWRProvider } from "@/components/providers/swr-provider"
 
@@ -15,18 +15,20 @@ export default async function DashboardLayout({ children }: Props) {
     <div className="border-grid flex flex-1 flex-col">
       <SWRProvider>
         <SidebarProvider defaultOpen={!defaultClose}>
-          <AppSidebar />
-          <div
-            id="content"
-            className={cn(
-              "flex h-full w-full min-w-0 flex-col",
-              "has-[div[data-layout=fixed]]:h-svh",
-              "group-data-[scroll-locked=1]/body:h-full",
-              "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
-            )}
-          >
-            {children}
-          </div>
+          <AppSidebar variant="inset" />
+          <SidebarInset>
+            <div
+              id="content"
+              className={cn(
+                "flex h-full w-full min-w-0 flex-col",
+                "has-[div[data-layout=fixed]]:h-svh",
+                "group-data-[scroll-locked=1]/body:h-full",
+                "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
+              )}
+            >
+              {children}
+            </div>
+          </SidebarInset>
         </SidebarProvider>
       </SWRProvider>
     </div>
