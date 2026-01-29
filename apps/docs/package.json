@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3002",
+    "dev:basehub": "basehub dev & next dev --port 3002",
     "build": "next build",
+    "build:basehub": "basehub && next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "format": "prettier --check .",
@@ -13,25 +15,27 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/ui": "workspace:*",
     "@repo/lib": "workspace:*",
-    "basehub": "latest",
+    "@repo/ui": "workspace:*",
+    "basehub": "^9.5.3",
+    "fumadocs-core": "^16.4.9",
+    "fumadocs-ui": "^16.4.9",
     "next": "16.0.7",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
-    "@repo/tailwind-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
+    "@repo/tailwind-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
     "@types/node": "^20.17.14",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "typescript": "^5.7.3",
-    "tailwindcss": "^3.4.17",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8"
+    "eslint": "^9",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
   }
 }
