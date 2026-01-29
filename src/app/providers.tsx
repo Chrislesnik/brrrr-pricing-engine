@@ -13,22 +13,6 @@ export function Providers({ children }: Props) {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "run5",
-        hypothesisId: "H10",
-        location: "providers.tsx:18",
-        message: "providers mounted",
-        data: {},
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
-
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
