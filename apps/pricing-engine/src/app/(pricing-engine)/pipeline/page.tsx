@@ -13,7 +13,7 @@ import {
 import { UserPrimaryActions } from "../users/components/user-primary-actions"
 import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
-import { PageSkeleton } from "@repo/ui/shadcn/table-skeleton"
+import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { LoanRow } from "./data/fetch-loans"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())

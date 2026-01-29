@@ -11,7 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@repo/ui/shadcn/breadcrumb"
 import { ApplicationsTable } from "./components/applications-table"
-import { PageSkeleton } from "@repo/ui/shadcn/table-skeleton"
+import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { ApplicationRow } from "./data/fetch-applications"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())

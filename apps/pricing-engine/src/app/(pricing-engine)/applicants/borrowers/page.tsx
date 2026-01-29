@@ -12,7 +12,7 @@ import {
 } from "@repo/ui/shadcn/breadcrumb"
 import { ApplicantsPrimaryActions } from "../components/applicants-primary-actions"
 import { BorrowersTable } from "../components/borrowers-table"
-import { PageSkeleton } from "@repo/ui/shadcn/table-skeleton"
+import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { Borrower } from "../data/types"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())

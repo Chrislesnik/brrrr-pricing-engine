@@ -12,7 +12,7 @@ import {
 } from "@repo/ui/shadcn/breadcrumb"
 import { ApplicantsPrimaryActions } from "../components/applicants-primary-actions"
 import { EntitiesTable } from "../components/entities-table"
-import { PageSkeleton } from "@repo/ui/shadcn/table-skeleton"
+import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { EntityProfile } from "../data/types"
 import type { EntityOwner } from "../data/fetch-entities"
 
