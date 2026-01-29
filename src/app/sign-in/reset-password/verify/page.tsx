@@ -3,11 +3,14 @@
 import { useSignIn } from "@clerk/nextjs"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Field, FieldLabel } from "@/components/ui/field"
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 import Link from "next/link"
-import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { Loader2, CheckCircle2 } from "lucide-react"
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import AuthLines from "@/assets/svg/auth-lines"
 
 export default function ResetPasswordVerifyPage() {
   const { isLoaded, signIn, setActive } = useSignIn()
@@ -81,53 +84,54 @@ export default function ResetPasswordVerifyPage() {
 
   if (success) {
     return (
-      <div className="bg-background min-h-screen flex items-center justify-center px-6 py-24">
-        <div className="w-full max-w-sm space-y-6 text-center">
-          <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-          <h1 className="text-2xl font-semibold">Password reset successful!</h1>
-          <p className="text-muted-foreground text-sm">
-            Redirecting you to the dashboard...
-          </p>
-        </div>
+      <div className="bg-background flex h-auto min-h-screen items-center justify-center px-4 py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
+        <Card className="relative w-full max-w-md overflow-hidden border-none pt-12 shadow-lg">
+          <div className="to-primary/10 pointer-events-none absolute top-0 h-52 w-full rounded-t-xl bg-gradient-to-t from-transparent"></div>
+          <AuthLines className="pointer-events-none absolute inset-x-0 top-0" />
+          
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+            <h1 className="text-2xl font-semibold mb-2">Password reset successful!</h1>
+            <p className="text-muted-foreground text-sm">
+              Redirecting you to the dashboard...
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="bg-background min-h-screen flex items-center justify-center px-6 py-24">
-      {/* Verify form container */}
-      <div className="w-full max-w-sm space-y-6">
-        {/* Back link */}
-        <Link
-          href="/sign-in/reset-password"
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
+    <div className="bg-background flex h-auto min-h-screen items-center justify-center px-4 py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
+      <Card className="relative w-full max-w-md overflow-hidden border-none pt-12 shadow-lg">
+        <div className="to-primary/10 pointer-events-none absolute top-0 h-52 w-full rounded-t-xl bg-gradient-to-t from-transparent"></div>
 
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">Enter code</h1>
-          <p className="text-muted-foreground text-sm">
-            We sent a code to <span className="font-medium text-foreground">{email}</span>. 
-            Enter the code below along with your new password.
-          </p>
-        </div>
+        <AuthLines className="pointer-events-none absolute inset-x-0 top-0" />
 
-        {/* Error message */}
-        {error && (
-          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-            {error}
+        <CardHeader className="justify-center gap-6 text-center">
+          <div>
+            <CardTitle className="mb-1.5 text-2xl">Enter Verification Code</CardTitle>
+            <CardDescription className="text-base">
+              We sent a code to <span className="font-medium text-foreground">{email}</span>.
+              Enter the code below along with your new password.
+            </CardDescription>
           </div>
-        )}
+        </CardHeader>
 
-        {/* Verification form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field>
-            <FieldLabel htmlFor="code">Verification code</FieldLabel>
-            <InputGroup>
-              <InputGroupInput
+        <CardContent className="space-y-3">
+          {/* Error message */}
+          {error && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <Label className="leading-5" htmlFor="code">
+                Verification Code*
+              </Label>
+              <Input
                 id="code"
                 type="text"
                 placeholder="Enter 6-digit code"
@@ -138,13 +142,13 @@ export default function ResetPasswordVerifyPage() {
                 maxLength={6}
                 inputMode="numeric"
               />
-            </InputGroup>
-          </Field>
+            </div>
 
-          <Field>
-            <FieldLabel htmlFor="password">New password</FieldLabel>
-            <InputGroup>
-              <InputGroupInput
+            <div className="space-y-1">
+              <Label className="leading-5" htmlFor="password">
+                New Password*
+              </Label>
+              <Input
                 id="password"
                 type="password"
                 placeholder="Enter new password"
@@ -154,13 +158,13 @@ export default function ResetPasswordVerifyPage() {
                 disabled={loading}
                 minLength={8}
               />
-            </InputGroup>
-          </Field>
+            </div>
 
-          <Field>
-            <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
-            <InputGroup>
-              <InputGroupInput
+            <div className="space-y-1">
+              <Label className="leading-5" htmlFor="confirmPassword">
+                Confirm Password*
+              </Label>
+              <Input
                 id="confirmPassword"
                 type="password"
                 placeholder="Confirm new password"
@@ -170,32 +174,35 @@ export default function ResetPasswordVerifyPage() {
                 disabled={loading}
                 minLength={8}
               />
-            </InputGroup>
-          </Field>
+            </div>
 
-          <Button type="submit" className="w-full" disabled={loading || !isLoaded}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Resetting password...
-              </>
-            ) : (
-              "Reset password"
-            )}
+            <Button className="w-full" type="submit" disabled={loading || !isLoaded}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Resetting password...
+                </>
+              ) : (
+                "Reset Password"
+              )}
+            </Button>
+          </form>
+
+          <p className="text-muted-foreground text-center text-sm pt-2">
+            Didn&apos;t receive the code?{" "}
+            <Link
+              href="/sign-in/reset-password"
+              className="text-foreground underline"
+            >
+              Resend
+            </Link>
+          </p>
+
+          <Button variant="ghost" className="w-full" asChild>
+            <Link href="/sign-in">Back to login</Link>
           </Button>
-        </form>
-
-        {/* Resend code link */}
-        <p className="text-muted-foreground text-center text-sm">
-          Didn&apos;t receive the code?{" "}
-          <Link
-            href="/sign-in/reset-password"
-            className="text-foreground underline"
-          >
-            Resend
-          </Link>
-        </p>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

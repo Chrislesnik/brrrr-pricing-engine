@@ -3,11 +3,14 @@
 import { useSignIn } from "@clerk/nextjs"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Field, FieldLabel } from "@/components/ui/field"
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 import Link from "next/link"
-import { Loader2, ArrowLeft } from "lucide-react"
+import { Loader2 } from "lucide-react"
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import AuthLines from "@/assets/svg/auth-lines"
 
 export default function ResetPasswordPage() {
   const { isLoaded, signIn } = useSignIn()
@@ -42,62 +45,62 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="bg-background min-h-screen flex items-center justify-center px-6 py-24">
-      {/* Reset password form container */}
-      <div className="w-full max-w-sm space-y-6">
-        {/* Back link */}
-        <Link
-          href="/sign-in"
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to sign in
-        </Link>
+    <div className="bg-background flex h-auto min-h-screen items-center justify-center px-4 py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
+      <Card className="relative w-full max-w-md overflow-hidden border-none pt-12 shadow-lg">
+        <div className="to-primary/10 pointer-events-none absolute top-0 h-52 w-full rounded-t-xl bg-gradient-to-t from-transparent"></div>
 
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">Reset password</h1>
-          <p className="text-muted-foreground text-sm">
-            Enter your email address and we&apos;ll send you a code to reset your password.
-          </p>
-        </div>
+        <AuthLines className="pointer-events-none absolute inset-x-0 top-0" />
 
-        {/* Error message */}
-        {error && (
-          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-            {error}
+        <CardHeader className="justify-center gap-6 text-center">
+          <div>
+            <CardTitle className="mb-1.5 text-2xl">Forgot Password?</CardTitle>
+            <CardDescription className="text-base">
+              Enter your email and we&apos;ll send you a code to reset your password
+            </CardDescription>
           </div>
-        )}
+        </CardHeader>
 
-        {/* Email form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <InputGroup>
-              <InputGroupInput
-                id="email"
+        <CardContent className="space-y-3">
+          {/* Error message */}
+          {error && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-1">
+              <Label className="leading-5" htmlFor="userEmail">
+                Email address*
+              </Label>
+              <Input
                 type="email"
-                placeholder="Enter your email"
+                id="userEmail"
+                placeholder="Enter your email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
               />
-            </InputGroup>
-          </Field>
+            </div>
 
-          <Button type="submit" className="w-full" disabled={loading || !isLoaded}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Sending code...
-              </>
-            ) : (
-              "Send reset code"
-            )}
+            <Button className="w-full" type="submit" disabled={loading || !isLoaded}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Sending code...
+                </>
+              ) : (
+                "Reset Password"
+              )}
+            </Button>
+          </form>
+
+          <Button variant="ghost" className="w-full" asChild>
+            <Link href="/sign-in">Back to login</Link>
           </Button>
-        </form>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

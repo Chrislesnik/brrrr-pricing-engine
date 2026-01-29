@@ -20,7 +20,9 @@
   },
   "registries": {
     "@lytenyte": "https://www.1771technologies.com/r/{name}.json",
-    "@ss-blocks": "https://shadcnblocks.com/r/{name}.json",
+    "@ss-blocks": {
+      "url": "https://shadcnstudio.com/r/blocks/{name}.json?email=${SHADCNSTUDIO_EMAIL}&license_key=${SHADCNSTUDIO_LICENSE_KEY}"
+    },
     "@diceui": "https://diceui.com/r/{name}.json",
     "@shadcnstudio": "https://shadcnstudio.com/r/blocks/{name}.json",
     "@shadcndesign": {
