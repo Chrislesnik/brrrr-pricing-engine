@@ -2,17 +2,16 @@ import { Pump } from "basehub/react-pump";
 import { draftMode } from "next/headers";
 
 export default async function ResourcesPage() {
+  const { isEnabled } = await draftMode();
+  
   return (
     <Pump
-      draft={draftMode().isEnabled}
+      draft={isEnabled}
       queries={[
         {
-          documentation: {
-            items: {
-              _id: true,
-              _title: true,
-              _slug: true,
-            },
+          _sys: {
+            id: true,
+            title: true,
           },
         },
       ]}
@@ -71,26 +70,34 @@ function ResourcesContent({ data }: { data: any }) {
         </ol>
 
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Documentation</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Once you add your BASEHUB_TOKEN, content from your BaseHub repo will
-            appear here.
-          </p>
-          {data?.documentation?.items && data.documentation.items.length > 0 ? (
-            <div className="space-y-6">
-              {data.documentation.items.map((item: any) => (
-                <div key={item._id} className="border-b pb-4">
-                  <h3 className="text-lg font-medium">{item._title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Slug: {item._slug}
-                  </p>
-                </div>
-              ))}
+          <h2 className="text-xl font-semibold mb-4">BaseHub Connection</h2>
+          {data?._sys ? (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-green-50 dark:bg-green-950 p-4 border border-green-200 dark:border-green-800">
+                <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                  ✅ Connected to BaseHub!
+                </p>
+                <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                  Repo ID: {data._sys.id}
+                </p>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Repo Title: {data._sys.title}
+                </p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-2">
+                  Your BaseHub repo is connected. Now create your content structure:
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>Create collections for guidelines, templates, guides</li>
+                  <li>Update the query in page.tsx to match your structure</li>
+                  <li>Content will sync in real-time during development</li>
+                </ul>
+              </div>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground italic">
-              No content yet. Add your BASEHUB_TOKEN and create content in your
-              BaseHub repo.
+              Connecting to BaseHub...
             </p>
           )}
         </div>
