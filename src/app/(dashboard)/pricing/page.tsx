@@ -2033,7 +2033,9 @@ export default function PricingEnginePage() {
   const areUnitRowsVisible = isDscr && (numUnits ?? 0) > 0
   const unitsComplete = useMemo(() => {
     if (!areUnitRowsVisible) return true
-    return unitData.every(
+    // Only validate the visible rows (first numUnits), not stale rows in unitData
+    const visibleRows = unitData.slice(0, numUnits ?? 0)
+    return visibleRows.every(
       (u) =>
         (u.leased === "yes" || u.leased === "no") &&
         typeof u.gross === "string" &&
@@ -2041,62 +2043,68 @@ export default function PricingEnginePage() {
         typeof u.market === "string" &&
         u.market !== ""
     )
-  }, [areUnitRowsVisible, unitData])
-  const canCalculate = useMemo(() => {
+  }, [areUnitRowsVisible, unitData, numUnits])
+  // Returns array of missing required field labels (only checks VISIBLE fields)
+  const missingFields = useMemo(() => {
+    const missing: string[] = []
     const has = (v: unknown) => !(v === undefined || v === null || v === "")
-    if (!has(loanType)) return false
-    if (!has(transactionType)) return false
-    if (isBridge && !has(bridgeType)) return false
-    // Term becomes required for Bridge; default to "12" if not set
-    if (isBridge && !has(term)) return false
-    if (!has(borrowerType)) return false
-    if (!has(citizenship)) return false
-    if (isFicoRequired && !has(fico)) return false
-    if (!has(stateCode)) return false
-    if (!has(propertyType)) return false
-    // Taxes/HOI are only required for DSCR
-    if (isDscr && !has(annualTaxes)) return false
-    if (isDscr && !has(annualHoi)) return false
-    if (!unitsComplete) return false
-    if (isDscr && (!has(loanStructureType) || !has(ppp))) return false
-    if (isPurchase && !has(purchasePrice)) return false
-    if (!has(aiv)) return false
-    if (rehabSectionVisible) {
-      if (!has(rehabBudget)) return false
-      if (!has(arv)) return false
-    }
-    if (rehabPathVisible && !has(initialLoanAmount)) return false
-    if (loanAmountPathVisible && !has(loanAmount)) return false
-    // Treat computed defaults as satisfying requirements for fee-like optional fields
-    // Even if user did not type them, they will be sent in the payload.
-    return true
+
+    // Always required
+    if (!has(loanType)) missing.push("Loan Type")
+    if (!has(transactionType)) missing.push("Transaction Type")
+    if (!has(borrowerType)) missing.push("Borrower Type")
+    if (!has(citizenship)) missing.push("Citizenship")
+    if (!has(stateCode)) missing.push("State")
+    if (!has(propertyType)) missing.push("Property Type")
+    if (!has(aiv)) missing.push("AIV")
+
+    // Conditionally required (only when visible)
+    if (isBridge && !has(bridgeType)) missing.push("Bridge Type")
+    if (isBridge && !has(term)) missing.push("Term")
+    if (isFicoRequired && !has(fico)) missing.push("FICO Score")
+    if (isDscr && !has(annualTaxes)) missing.push("Annual Taxes")
+    if (isDscr && !has(annualHoi)) missing.push("Annual HOI")
+    if (isDscr && !has(loanStructureType)) missing.push("Loan Structure")
+    if (isDscr && !has(ppp)) missing.push("Prepay Penalty")
+    if (isPurchase && !has(purchasePrice)) missing.push("Purchase Price")
+    if (rehabSectionVisible && !has(rehabBudget)) missing.push("Rehab Budget")
+    if (rehabSectionVisible && !has(arv)) missing.push("ARV")
+    if (rehabPathVisible && !has(initialLoanAmount)) missing.push("Initial Loan Amount")
+    if (loanAmountPathVisible && !has(loanAmount)) missing.push("Loan Amount")
+    if (!unitsComplete) missing.push("Unit Data (all rows)")
+
+    return missing
   }, [
     loanType,
     transactionType,
+    borrowerType,
+    citizenship,
+    stateCode,
+    propertyType,
+    aiv,
     isBridge,
     bridgeType,
     term,
-    borrowerType,
-    citizenship,
     isFicoRequired,
     fico,
-    stateCode,
-    propertyType,
+    isDscr,
     annualTaxes,
     annualHoi,
-    unitsComplete,
-    isDscr,
     loanStructureType,
     ppp,
     isPurchase,
     purchasePrice,
-    isRefi,
-    aiv,
+    rehabSectionVisible,
+    rehabBudget,
+    arv,
     rehabPathVisible,
     initialLoanAmount,
     loanAmountPathVisible,
     loanAmount,
+    unitsComplete,
   ])
+
+  const canCalculate = missingFields.length === 0
 
   // Load Google Maps JS API (Places) once
   useEffect(() => {
@@ -4612,9 +4620,27 @@ export default function PricingEnginePage() {
             {/* Footer */}
             <div className="border-t p-3">
               <div className="flex justify-end">
-                <Button onClick={handleCalculate} disabled={!canCalculate || isDispatching}>
-                  Calculate
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={!canCalculate ? 0 : undefined}>
+                        <Button onClick={handleCalculate} disabled={!canCalculate || isDispatching}>
+                          Calculate
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!canCalculate && missingFields.length > 0 && (
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p className="font-medium mb-1">Missing required fields:</p>
+                        <ul className="list-disc pl-4 text-sm">
+                          {missingFields.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </div>

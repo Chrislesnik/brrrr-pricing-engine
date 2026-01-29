@@ -10,7 +10,7 @@ async function waitForOrgMemberId(
   userId: string | null | undefined,
   maxWaitMs = 45000,
   intervalMs = 400
-): Promise<string> {
+): Promise<string | null> {
   const start = Date.now()
   while (true) {
     try {
@@ -28,7 +28,8 @@ async function waitForOrgMemberId(
       // ignore
     }
     if (Date.now() - start >= maxWaitMs) {
-      // continue waiting but avoid tight loop
+      // Timeout reached - return null instead of looping forever
+      return null
     }
     await new Promise((r) => setTimeout(r, intervalMs))
   }
