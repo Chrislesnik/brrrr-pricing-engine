@@ -1,0 +1,4 @@
+/* Import shared UI styles */
+@import "@repo/ui/globals.css";
+
+/* App-specific styles can be added below */

@@ -31,6 +31,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
 
 # vercel
 .vercel
@@ -38,7 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
- 
-# iOS (Capacitor)
-ios/App/App/public/
-ios/Pods/
+
+# Turborepo
+.turbo
+
+# Apps
+apps/*/node_modules
+apps/*/.next
+apps/*/.env.local
+apps/*/out
+
+# Packages
+packages/*/node_modules
+packages/*/dist
+packages/*/.turbo
+
+# Archived
+/ios/
+/capacitor.config.ts
+/README-IOS.md
