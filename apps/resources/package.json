@@ -4,8 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
-    "build": "next build",
+    "dev": "basehub dev & next dev --port 3001",
+    "build": "basehub && next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "format": "prettier --check .",
