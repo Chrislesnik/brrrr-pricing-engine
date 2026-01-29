@@ -328,7 +328,7 @@ export default function AIAgentPage() {
   )
 
   return (
-    <div data-layout="fixed" className="fixed inset-0 md:static flex h-[100dvh] md:h-full min-h-0 flex-1 overflow-hidden overscroll-y-contain">
+    <div data-layout="fixed" className="fixed inset-0 md:static flex h-[100vh] md:h-full min-h-0 flex-1 overflow-hidden overscroll-y-contain">
       <aside className="hidden md:block w-[260px] shrink-0 border-r bg-muted/40">
         <div className="p-4">
           <div className="mb-2">

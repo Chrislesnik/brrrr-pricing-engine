@@ -13,7 +13,7 @@ export default function SettingsLayout({ children }: Props) {
         data-layout="fixed"
         className="flex flex-1 flex-col overflow-hidden p-4"
       >
-        <div className="flex w-full flex-1 overflow-y-scroll p-1 pr-4 md:overflow-y-hidden">
+        <div className="flex w-full flex-1 overflow-auto p-1 pr-4">
           {children}
         </div>
       </div>

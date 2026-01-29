@@ -20,9 +20,9 @@ export default async function DashboardLayout({ children }: Props) {
             id="content"
             className={cn(
               "flex h-full w-full min-w-0 flex-col",
-              "has-[div[data-layout=fixed]]:h-svh",
+              "has-[div[data-layout=fixed]]:h-[100vh]",
               "group-data-[scroll-locked=1]/body:h-full",
-              "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
+              "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-[100vh]"
             )}
           >
             {children}
