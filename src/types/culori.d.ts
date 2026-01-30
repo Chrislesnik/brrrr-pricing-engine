@@ -38,6 +38,7 @@ declare module "culori" {
 
   export function parse(color: string): Color | undefined;
   export function formatHex(color: Color | string | undefined): string;
+  export function formatHsl(color: Color | string | undefined): string;
   export function rgb(color: Color | string | RgbColor): RgbColor;
   export function hsl(color: Color | string | HslColor): HslColor;
   export function lch(color: Color | string | LchColor): LchColor;
