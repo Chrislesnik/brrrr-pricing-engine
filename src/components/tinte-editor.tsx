@@ -108,7 +108,7 @@ function findColorByHueRange(
   colors: string[],
   minHue: number,
   maxHue: number
-): string | null {
+): string | undefined {
   for (const color of colors) {
     const hue = getHue(color);
     if (hue === null) continue;
@@ -120,7 +120,7 @@ function findColorByHueRange(
       if (hue >= minHue && hue <= maxHue) return color;
     }
   }
-  return null;
+  return undefined;
 }
 
 /**
