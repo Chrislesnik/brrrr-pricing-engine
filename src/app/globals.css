@@ -40,6 +40,29 @@
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+  
+  /* Semantic Status Colors */
+  --success: hsl(142 76% 36%);
+  --success-foreground: hsl(0 0% 100%);
+  --success-muted: hsl(142 76% 94%);
+  
+  --danger: hsl(0 84% 60%);
+  --danger-foreground: hsl(0 0% 100%);
+  --danger-muted: hsl(0 84% 95%);
+  
+  --warning: hsl(38 92% 50%);
+  --warning-foreground: hsl(0 0% 0%);
+  --warning-muted: hsl(38 92% 95%);
+  
+  /* Loader Gradient Colors */
+  --gradient-warm-1: hsl(4 90% 58%);    /* coral/red */
+  --gradient-warm-2: hsl(24 100% 50%);  /* orange */
+  --gradient-warm-3: hsl(48 100% 52%);  /* yellow/gold */
+  
+  /* Highlight color for auto-filled/focused inputs */
+  --highlight: hsl(38 92% 50%);           /* amber */
+  --highlight-foreground: hsl(0 0% 0%);   /* black text on amber */
+  --highlight-muted: hsl(38 92% 95%);     /* light amber bg */
 }
 
 .dark {
@@ -68,6 +91,29 @@
   --chart-3: hsl(30 80% 55%);
   --chart-4: hsl(280 65% 60%);
   --chart-5: hsl(340 75% 55%);
+  
+  /* Semantic Status Colors - Dark Mode */
+  --success: hsl(142 71% 45%);
+  --success-foreground: hsl(0 0% 100%);
+  --success-muted: hsl(142 50% 15%);
+  
+  --danger: hsl(0 63% 45%);
+  --danger-foreground: hsl(0 0% 100%);
+  --danger-muted: hsl(0 50% 15%);
+  
+  --warning: hsl(38 92% 50%);
+  --warning-foreground: hsl(0 0% 0%);
+  --warning-muted: hsl(38 50% 15%);
+  
+  /* Loader Gradient Colors - Dark Mode */
+  --gradient-warm-1: hsl(4 95% 60%);    /* brighter coral/red */
+  --gradient-warm-2: hsl(28 100% 55%);  /* brighter orange */
+  --gradient-warm-3: hsl(48 100% 54%);  /* brighter yellow/gold */
+  
+  /* Highlight color for auto-filled/focused inputs - Dark Mode */
+  --highlight: hsl(38 92% 55%);           /* brighter amber */
+  --highlight-foreground: hsl(0 0% 0%);   /* black text on amber */
+  --highlight-muted: hsl(38 50% 20%);     /* dark amber bg */
 }
 
 @theme inline {
@@ -107,6 +153,29 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  
+  /* Semantic Status Colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
+  
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-muted: var(--danger-muted);
+  
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  
+  /* Loader Gradient Colors */
+  --color-gradient-warm-1: var(--gradient-warm-1);
+  --color-gradient-warm-2: var(--gradient-warm-2);
+  --color-gradient-warm-3: var(--gradient-warm-3);
+  
+  /* Highlight Colors */
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-highlight-muted: var(--highlight-muted);
 }
 
 @layer base {

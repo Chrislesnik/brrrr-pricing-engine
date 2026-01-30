@@ -257,9 +257,9 @@ export function PipelineTable({ columns, data }: Props) {
               const status = String((orig as { status?: string }).status ?? "-").toLowerCase()
               const badgeColor =
                 status === "active"
-                  ? "bg-green-100 text-green-800 border-green-200"
+                  ? "bg-success-muted text-success border-success/30"
                   : status === "dead"
-                  ? "bg-red-100 text-red-800 border-red-200"
+                  ? "bg-danger-muted text-danger border-danger/30"
                   : ""
               return (
                 <div key={row.id} className="rounded-lg border p-3">

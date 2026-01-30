@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast"
 
 const integrationIcons = {
   floify: (
-    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-muted">
+    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card shadow-sm ring-1 ring-border">
       <Image
         src="/integrations/floify-logo.png"
         alt="Floify"
@@ -35,7 +35,7 @@ const integrationIcons = {
     </div>
   ),
   xactus: (
-    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-muted">
+    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card shadow-sm ring-1 ring-border">
       <Image
         src="/integrations/xactus-logo.png"
         alt="Xactus"
@@ -47,7 +47,7 @@ const integrationIcons = {
     </div>
   ),
   clear: (
-    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-muted">
+    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card shadow-sm ring-1 ring-border">
       <Image
         src="/integrations/clear-thomson-reuters-logo.png"
         alt="Clear (Thomson Reuters)"
@@ -59,7 +59,7 @@ const integrationIcons = {
     </div>
   ),
   nadlan: (
-    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-muted">
+    <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card shadow-sm ring-1 ring-border">
       <Image
         src="/integrations/nadlan-logo.png"
         alt="Nadlan Valuation"

@@ -24,8 +24,10 @@ export function RetroGrid({
   angle = 65,
   cellSize = 60,
   opacity = 0.5,
-  lineColor = "#4b5563",
+  lineColor,
 }: RetroGridProps) {
+  // Default to border color from CSS variable, with fallback for SSR
+  const resolvedLineColor = lineColor ?? "hsl(var(--border))"
   return (
     <div className={cn("fixed inset-0 overflow-hidden bg-neutral-950", className)}>
       {/* Keyframe animation */}
@@ -51,7 +53,7 @@ export function RetroGrid({
         >
           <div
             style={{
-              backgroundImage: `linear-gradient(to right, ${lineColor} 1px, transparent 0), linear-gradient(to bottom, ${lineColor} 1px, transparent 0)`,
+              backgroundImage: `linear-gradient(to right, ${resolvedLineColor} 1px, transparent 0), linear-gradient(to bottom, ${resolvedLineColor} 1px, transparent 0)`,
               backgroundSize: `${cellSize}px ${cellSize}px`,
               backgroundRepeat: "repeat",
               height: "300vh",

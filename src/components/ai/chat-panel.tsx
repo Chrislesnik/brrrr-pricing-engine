@@ -242,11 +242,11 @@ export function ChatPanel({
                 const statusClass = isUser
                   ? "bg-primary text-primary-foreground ml-auto"
                   : parsed.status === "pass"
-                    ? "bg-green-100 text-green-900 dark:bg-green-900/40 dark:text-green-50 mr-auto"
+                    ? "bg-success-muted text-success mr-auto"
                     : parsed.status === "fail"
-                      ? "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-50 mr-auto"
+                      ? "bg-danger-muted text-danger mr-auto"
                       : parsed.status === "warning"
-                        ? "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-50 mr-auto"
+                        ? "bg-warning-muted text-warning-foreground mr-auto"
                         : "bg-muted text-foreground mr-auto"
 
                 return (

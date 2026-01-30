@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SWRProvider } from "@/components/providers/swr-provider"
+import { OrgThemeLoader } from "@/components/org-theme-loader"
 
 interface Props {
   children: React.ReactNode
@@ -14,6 +15,8 @@ export default async function DashboardLayout({ children }: Props) {
   return (
     <div className="border-grid flex min-h-0 flex-1 flex-col">
       <SWRProvider>
+        {/* Load organization theme on dashboard mount */}
+        <OrgThemeLoader />
         <SidebarProvider defaultOpen={!defaultClose}>
           <AppSidebar />
           <div

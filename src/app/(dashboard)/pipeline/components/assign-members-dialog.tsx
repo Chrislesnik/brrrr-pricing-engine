@@ -160,7 +160,7 @@ export function AssignMembersDialog({ loanId, open, onOpenChange, onSaved }: Pro
                   variant="outline"
                   className={cn(
                     "flex items-center gap-2",
-                    isPrimary && "border-amber-400 bg-amber-50 text-amber-900"
+                    isPrimary && "border-highlight bg-highlight-muted text-highlight-foreground"
                   )}
                 >
                   <span className="text-sm">{label}</span>

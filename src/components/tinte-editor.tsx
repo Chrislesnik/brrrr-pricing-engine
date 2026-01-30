@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { formatHex, oklch } from "culori";
+import { formatHex, oklch, parse, rgb } from "culori";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
 
 import {
@@ -63,6 +61,128 @@ interface TinteThemePreview {
   };
 }
 
+// ============ Color Analysis Utilities ============
+
+/**
+ * Extract hue (0-360) from a hex color
+ */
+function getHue(hex: string): number | null {
+  try {
+    const color = parse(hex);
+    if (!color) return null;
+    const rgbColor = rgb(color);
+    if (!rgbColor) return null;
+    
+    const r = rgbColor.r;
+    const g = rgbColor.g;
+    const b = rgbColor.b;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    
+    if (delta === 0) return 0; // achromatic (gray)
+    
+    let hue = 0;
+    if (max === r) {
+      hue = ((g - b) / delta) % 6;
+    } else if (max === g) {
+      hue = (b - r) / delta + 2;
+    } else {
+      hue = (r - g) / delta + 4;
+    }
+    
+    hue = Math.round(hue * 60);
+    if (hue < 0) hue += 360;
+    
+    return hue;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find first color in array that falls within a hue range
+ */
+function findColorByHueRange(
+  colors: string[],
+  minHue: number,
+  maxHue: number
+): string | null {
+  for (const color of colors) {
+    const hue = getHue(color);
+    if (hue === null) continue;
+    
+    // Handle wrapping (e.g., red: 350-10)
+    if (minHue > maxHue) {
+      if (hue >= minHue || hue <= maxHue) return color;
+    } else {
+      if (hue >= minHue && hue <= maxHue) return color;
+    }
+  }
+  return null;
+}
+
+/**
+ * Lighten a hex color by a factor (0-1)
+ */
+function lightenColor(hex: string, factor: number): string {
+  try {
+    const color = parse(hex);
+    if (!color) return hex;
+    const rgbColor = rgb(color);
+    if (!rgbColor) return hex;
+    
+    const r = Math.min(1, rgbColor.r + (1 - rgbColor.r) * factor);
+    const g = Math.min(1, rgbColor.g + (1 - rgbColor.g) * factor);
+    const b = Math.min(1, rgbColor.b + (1 - rgbColor.b) * factor);
+    
+    return formatHex({ mode: "rgb", r, g, b });
+  } catch {
+    return hex;
+  }
+}
+
+/**
+ * Darken a hex color by a factor (0-1)
+ */
+function darkenColor(hex: string, factor: number): string {
+  try {
+    const color = parse(hex);
+    if (!color) return hex;
+    const rgbColor = rgb(color);
+    if (!rgbColor) return hex;
+    
+    const r = Math.max(0, rgbColor.r * (1 - factor));
+    const g = Math.max(0, rgbColor.g * (1 - factor));
+    const b = Math.max(0, rgbColor.b * (1 - factor));
+    
+    return formatHex({ mode: "rgb", r, g, b });
+  } catch {
+    return hex;
+  }
+}
+
+/**
+ * Get contrasting text color (black or white) for a background
+ */
+function getContrastTextColor(hex: string): string {
+  try {
+    const color = parse(hex);
+    if (!color) return "#ffffff";
+    const rgbColor = rgb(color);
+    if (!rgbColor) return "#ffffff";
+    
+    // Use relative luminance formula
+    const luminance = 0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b;
+    return luminance > 0.5 ? "#000000" : "#ffffff";
+  } catch {
+    return "#ffffff";
+  }
+}
+
+// ============ End Color Utilities ============
+
 const TOKEN_GROUPS = [
   {
     label: "Background & Text",
@@ -98,6 +218,36 @@ const TOKEN_GROUPS = [
     tokens: ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"],
   },
   {
+    label: "Status Badges",
+    tokens: [
+      "success",
+      "success-foreground",
+      "success-muted",
+      "danger",
+      "danger-foreground",
+      "danger-muted",
+      "warning",
+      "warning-foreground",
+      "warning-muted",
+    ],
+  },
+  {
+    label: "Loader Gradient",
+    tokens: [
+      "gradient-warm-1",
+      "gradient-warm-2",
+      "gradient-warm-3",
+    ],
+  },
+  {
+    label: "Highlight",
+    tokens: [
+      "highlight",
+      "highlight-foreground",
+      "highlight-muted",
+    ],
+  },
+  {
     label: "Sidebar",
     tokens: [
       "sidebar-background",
@@ -112,14 +262,195 @@ const TOKEN_GROUPS = [
   },
 ] as const;
 
-interface TinteEditorProps {
-  onChange?: (theme: ShadcnTheme) => void;
+// Static fallback values for status tokens (used when derivation fails)
+const STATUS_TOKEN_FALLBACKS: Record<string, { light: string; dark: string }> = {
+  "success": { light: "#16a34a", dark: "#22c55e" },
+  "success-foreground": { light: "#ffffff", dark: "#ffffff" },
+  "success-muted": { light: "#dcfce7", dark: "#14532d" },
+  "danger": { light: "#dc2626", dark: "#b91c1c" },
+  "danger-foreground": { light: "#ffffff", dark: "#ffffff" },
+  "danger-muted": { light: "#fee2e2", dark: "#450a0a" },
+  "warning": { light: "#f59e0b", dark: "#f59e0b" },
+  "warning-foreground": { light: "#000000", dark: "#000000" },
+  "warning-muted": { light: "#fef3c7", dark: "#422006" },
+  // Loader gradient colors
+  "gradient-warm-1": { light: "#ff3b30", dark: "#ff453a" },  // coral/red
+  "gradient-warm-2": { light: "#ff6a00", dark: "#ff7a1a" },  // orange
+  "gradient-warm-3": { light: "#ffd60a", dark: "#ffd60a" },  // yellow/gold
+  // Highlight colors (for auto-filled/focused inputs)
+  "highlight": { light: "#f59e0b", dark: "#fbbf24" },         // amber
+  "highlight-foreground": { light: "#000000", dark: "#000000" },
+  "highlight-muted": { light: "#fef3c7", dark: "#422006" },
+};
+
+/**
+ * Derive status badge colors from theme tokens
+ * - danger: derived from destructive
+ * - success: search chart colors for green (90-150 hue), fallback to static
+ * - warning: search chart colors for amber/yellow (30-60 hue), fallback to static
+ */
+function deriveStatusColors(
+  tokens: ShadcnTokens,
+  mode: "light" | "dark"
+): Partial<ShadcnTokens> {
+  const derived: Partial<ShadcnTokens> = {};
+  
+  // Get chart colors for analysis
+  const chartColors = [
+    tokens["chart-1"],
+    tokens["chart-2"],
+    tokens["chart-3"],
+    tokens["chart-4"],
+    tokens["chart-5"],
+  ].filter(Boolean) as string[];
+  
+  // ---- DANGER: derive from destructive ----
+  if (tokens["destructive"]) {
+    derived["danger"] = tokens["destructive"];
+    derived["danger-foreground"] = tokens["destructive-foreground"] || getContrastTextColor(tokens["destructive"]);
+    // Muted: lighten for light mode, darken for dark mode
+    derived["danger-muted"] = mode === "light" 
+      ? lightenColor(tokens["destructive"], 0.85)
+      : darkenColor(tokens["destructive"], 0.7);
+  }
+  
+  // ---- SUCCESS: find green in chart colors (hue 90-150) ----
+  const greenColor = findColorByHueRange(chartColors, 90, 150);
+  if (greenColor) {
+    derived["success"] = greenColor;
+    derived["success-foreground"] = getContrastTextColor(greenColor);
+    derived["success-muted"] = mode === "light"
+      ? lightenColor(greenColor, 0.85)
+      : darkenColor(greenColor, 0.7);
+  }
+  
+  // ---- WARNING: find amber/yellow in chart colors (hue 30-60) ----
+  const amberColor = findColorByHueRange(chartColors, 25, 55);
+  if (amberColor) {
+    derived["warning"] = amberColor;
+    derived["warning-foreground"] = getContrastTextColor(amberColor);
+    derived["warning-muted"] = mode === "light"
+      ? lightenColor(amberColor, 0.85)
+      : darkenColor(amberColor, 0.7);
+  }
+  
+  // ---- GRADIENT: derive warm gradient from theme colors ----
+  // Strategy: Find the most vibrant/saturated colors from the theme and create a gradient
+  
+  // First, try to find warm colors in chart colors
+  const redColor = findColorByHueRange(chartColors, 345, 15) || findColorByHueRange(chartColors, 0, 20);
+  const orangeColor = findColorByHueRange(chartColors, 15, 45);
+  const yellowColor = findColorByHueRange(chartColors, 40, 65);
+  
+  // If we found warm colors in charts, use them
+  if (redColor && orangeColor && yellowColor) {
+    derived["gradient-warm-1"] = redColor;
+    derived["gradient-warm-2"] = orangeColor;
+    derived["gradient-warm-3"] = yellowColor;
+  } else if (redColor || orangeColor || yellowColor) {
+    // Partial match - use what we found and fill gaps
+    derived["gradient-warm-1"] = redColor || orangeColor || yellowColor;
+    derived["gradient-warm-2"] = orangeColor || redColor || yellowColor;
+    derived["gradient-warm-3"] = yellowColor || orangeColor || redColor;
+  } else {
+    // No warm colors found - derive from primary/accent
+    // Create a cohesive gradient based on the theme's key colors
+    const primaryColor = tokens["primary"];
+    const accentColor = tokens["accent"];
+    const chart1 = tokens["chart-1"];
+    
+    // Use the most colorful option as base
+    const baseColor = chart1 || accentColor || primaryColor;
+    
+    if (baseColor) {
+      const baseHue = getHue(baseColor);
+      
+      if (baseHue !== null) {
+        // Create a warm-ish gradient inspired by the theme
+        // Shift the base color toward warm tones
+        const color = parse(baseColor);
+        if (color) {
+          const rgbColor = rgb(color);
+          if (rgbColor) {
+            // Warm-1: Add red tint
+            derived["gradient-warm-1"] = formatHex({
+              mode: "rgb",
+              r: Math.min(1, rgbColor.r * 1.2 + 0.3),
+              g: rgbColor.g * 0.6,
+              b: rgbColor.b * 0.3,
+            });
+            // Warm-2: Orange tint  
+            derived["gradient-warm-2"] = formatHex({
+              mode: "rgb",
+              r: Math.min(1, rgbColor.r * 1.1 + 0.4),
+              g: Math.min(1, rgbColor.g * 0.8 + 0.2),
+              b: rgbColor.b * 0.2,
+            });
+            // Warm-3: Yellow tint
+            derived["gradient-warm-3"] = formatHex({
+              mode: "rgb",
+              r: Math.min(1, rgbColor.r * 1.0 + 0.5),
+              g: Math.min(1, rgbColor.g * 1.0 + 0.4),
+              b: rgbColor.b * 0.1,
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return derived;
 }
 
-export function TinteEditor({ onChange }: TinteEditorProps) {
+// Ensure theme has all status tokens - derive from theme or use fallbacks
+function ensureStatusTokens(theme: ShadcnTheme): ShadcnTheme {
+  const result: ShadcnTheme = {
+    light: { ...theme.light },
+    dark: { ...theme.dark },
+  };
+  
+  // Derive status colors from theme tokens
+  const derivedLight = deriveStatusColors(result.light, "light");
+  const derivedDark = deriveStatusColors(result.dark, "dark");
+  
+  // Apply derived colors first (if available)
+  for (const [token, value] of Object.entries(derivedLight)) {
+    if (!result.light[token] && value) {
+      result.light[token] = value;
+    }
+  }
+  for (const [token, value] of Object.entries(derivedDark)) {
+    if (!result.dark[token] && value) {
+      result.dark[token] = value;
+    }
+  }
+  
+  // Fill any remaining gaps with static fallbacks
+  for (const [token, fallbacks] of Object.entries(STATUS_TOKEN_FALLBACKS)) {
+    if (!result.light[token]) {
+      result.light[token] = fallbacks.light;
+    }
+    if (!result.dark[token]) {
+      result.dark[token] = fallbacks.dark;
+    }
+  }
+  
+  return result;
+}
+
+interface TinteEditorProps {
+  onChange?: (theme: ShadcnTheme) => void;
+  onSave?: (theme: ShadcnTheme) => Promise<void>;
+  initialTheme?: ShadcnTheme;
+}
+
+export function TinteEditor({ onChange, onSave, initialTheme }: TinteEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [theme, setTheme] = useState<ShadcnTheme>({ light: {}, dark: {} });
-  const themeRef = useRef<ShadcnTheme>({ light: {}, dark: {} });
+  const [theme, setTheme] = useState<ShadcnTheme>(() => 
+    ensureStatusTokens(initialTheme ?? { light: {}, dark: {} })
+  );
+  const themeRef = useRef<ShadcnTheme>(ensureStatusTokens(initialTheme ?? { light: {}, dark: {} }));
+  const initializedRef = useRef(false);
   const [_originalFormats, setOriginalFormats] = useState<
     Record<string, Record<string, string>>
   >({
@@ -146,18 +477,90 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
   }, [theme]);
 
   const [apiKeyError, setApiKeyError] = useState(false);
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/tinte/chat",
-    }),
-    onError: (error) => {
+  
+  // Simple chat state management (replaces useChat which needs AI SDK format)
+  type ChatMessage = {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+  };
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatStatus, setChatStatus] = useState<"idle" | "streaming">("idle");
+  
+  const sendMessage = useCallback(async ({ text }: { text: string }) => {
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: text,
+    };
+    
+    setMessages((prev) => [...prev, userMessage]);
+    setChatStatus("streaming");
+    setApiKeyError(false);
+    
+    // Create assistant message placeholder
+    const assistantId = `assistant-${Date.now()}`;
+    const assistantMessage: ChatMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+    };
+    setMessages((prev) => [...prev, assistantMessage]);
+    
+    try {
+      const response = await fetch("/api/tinte/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      }
+      
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+      
+      const decoder = new TextDecoder();
+      let fullContent = "";
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        fullContent += chunk;
+        
+        // Update the assistant message with accumulated content
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: fullContent } : m
+          )
+        );
+      }
+    } catch (error) {
       console.error("Chat error:", error);
-      // Check if it's an API key error
-      if (error.message?.includes("OpenAI API key")) {
+      if (error instanceof Error && error.message?.includes("OpenAI API key")) {
         setApiKeyError(true);
       }
-    },
-  });
+      // Update the assistant message with error
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: `Error: ${error instanceof Error ? error.message : "Unknown error"}` }
+            : m
+        )
+      );
+    } finally {
+      setChatStatus("idle");
+    }
+  }, [messages]);
 
   const convertToHex = useCallback((colorValue: string): string => {
     try {
@@ -176,7 +579,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
   }, []);
 
   const handleApplyTheme = useCallback(
-    (newTheme: { light: ShadcnTokens; dark: ShadcnTokens }) => {
+    async (newTheme: { light: ShadcnTokens; dark: ShadcnTokens }) => {
       const lightHex: ShadcnTokens = {};
       const darkHex: ShadcnTokens = {};
 
@@ -188,7 +591,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         darkHex[key] = convertToHex(value);
       });
 
-      const hexTheme = { light: lightHex, dark: darkHex };
+      const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
 
       setTheme(hexTheme);
       onChange?.(hexTheme);
@@ -198,30 +601,45 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         dark: { ...darkHex },
       });
 
-      setHasUnsavedChanges(true);
+      // Apply the theme visually
+      const styleId = "tinte-dynamic-theme";
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
 
-      setTimeout(() => {
-        const styleId = "tinte-dynamic-theme";
-        let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+      if (!styleElement) {
+        styleElement = document.createElement("style");
+        styleElement.id = styleId;
+        document.head.appendChild(styleElement);
+      }
 
-        if (!styleElement) {
-          styleElement = document.createElement("style");
-          styleElement.id = styleId;
-          document.head.appendChild(styleElement);
+      const lightTokens = Object.entries(hexTheme.light)
+        .map(([key, value]) => `  --${key}: ${value};`)
+        .join("\n");
+
+      const darkTokens = Object.entries(hexTheme.dark)
+        .map(([key, value]) => `  --${key}: ${value};`)
+        .join("\n");
+
+      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+
+      // Auto-save to Supabase when applying from AI Agent
+      if (onSave) {
+        setSaveStatus("saving");
+        try {
+          await onSave(hexTheme);
+          setSaveStatus("success");
+          setHasUnsavedChanges(false);
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch (error) {
+          console.error("Failed to save theme:", error);
+          setSaveStatus("error");
+          setHasUnsavedChanges(true);
+          setTimeout(() => setSaveStatus("idle"), 3000);
         }
-
-        const lightTokens = Object.entries(hexTheme.light)
-          .map(([key, value]) => `  --${key}: ${value};`)
-          .join("\n");
-
-        const darkTokens = Object.entries(hexTheme.dark)
-          .map(([key, value]) => `  --${key}: ${value};`)
-          .join("\n");
-
-        styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
-      }, 100);
+      } else {
+        setHasUnsavedChanges(true);
+      }
     },
-    [onChange, convertToHex],
+    [onChange, convertToHex, onSave],
   );
 
   // Detect color format
@@ -277,7 +695,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         root.classList.remove("dark");
       }
 
-      setTheme({ light: lightHex, dark: darkHex });
+      setTheme(ensureStatusTokens({ light: lightHex, dark: darkHex }));
       setOriginalFormats({ light: lightHex, dark: darkHex });
     } catch (error) {
       console.error("Error loading theme from DOM:", error);
@@ -342,7 +760,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
           darkHex[key] = convertToHex(value);
         });
 
-        const hexTheme = { light: lightHex, dark: darkHex };
+        const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
 
         setTheme(hexTheme);
         onChange?.(hexTheme);
@@ -358,8 +776,35 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
     const root = document.documentElement;
     const isDark = root.classList.contains("dark");
     setMode(isDark ? "dark" : "light");
-    loadTheme();
-  }, [loadTheme]);
+    
+    // If initial theme provided, apply it and skip loading from DOM
+    if (initialTheme && Object.keys(initialTheme.light).length > 0 && !initializedRef.current) {
+      initializedRef.current = true;
+      setTheme(ensureStatusTokens(initialTheme));
+      setOriginalFormats({
+        light: { ...initialTheme.light },
+        dark: { ...initialTheme.dark },
+      });
+      // Apply initial theme to DOM
+      const styleId = "tinte-dynamic-theme";
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+      if (!styleElement) {
+        styleElement = document.createElement("style");
+        styleElement.id = styleId;
+        document.head.appendChild(styleElement);
+      }
+      const lightTokens = Object.entries(initialTheme.light)
+        .map(([key, value]) => `  --${key}: ${value};`)
+        .join("\n");
+      const darkTokens = Object.entries(initialTheme.dark)
+        .map(([key, value]) => `  --${key}: ${value};`)
+        .join("\n");
+      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+    } else if (!initializedRef.current) {
+      initializedRef.current = true;
+      loadTheme();
+    }
+  }, [loadTheme, initialTheme]);
 
   // Fetch Tinte themes when dialog opens
   useEffect(() => {
@@ -508,6 +953,9 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         darkHex[key] = convertToHex(value);
       });
 
+      const hexTheme = { light: lightHex, dark: darkHex };
+
+      // Apply to DOM immediately
       const styleId = "tinte-dynamic-theme";
       let styleElement = document.getElementById(styleId) as HTMLStyleElement;
 
@@ -527,15 +975,20 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
 
       styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
 
+      // If onSave callback provided, persist to backend
+      if (onSave) {
+        await onSave(hexTheme);
+      }
+
       setSaveStatus("success");
       setHasUnsavedChanges(false);
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (error) {
-      console.error("Error applying theme to DOM:", error);
+      console.error("Error saving theme:", error);
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 2000);
     }
-  }, [convertToHex]);
+  }, [convertToHex, onSave]);
 
   const _availableTokens = TOKEN_GROUPS.flatMap((group) =>
     group.tokens.filter((token) => theme[mode]?.[token] !== undefined),
@@ -557,7 +1010,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
       </div>
 
       {/* Dialog Content */}
-      <DialogContent showCloseButton={false} className="sm:max-w-2xl">
+      <DialogContent showCloseButton={false} className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <DialogHeader>
           <div className="flex items-center justify-between w-full">
@@ -607,6 +1060,14 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                 {saveStatus === "error" && "❌ Error"}
                 {saveStatus === "idle" &&
                   (hasUnsavedChanges ? "💾 Save" : "Save")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 hover:bg-accent rounded-md transition-colors ml-1"
+                title="Close"
+              >
+                <X size={16} />
               </button>
             </div>
           </div>
@@ -1027,20 +1488,28 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                         </div>
                       </div>
                     ) : (
-                      messages.map((message) => (
-                        <ChatMessage
-                          key={message.id}
-                          message={message}
-                          onApplyTheme={handleApplyTheme}
-                        />
-                      ))
+                      <>
+                        {messages.map((message) => (
+                          <ChatMessage
+                            key={message.id}
+                            message={message}
+                            onApplyTheme={handleApplyTheme}
+                          />
+                        ))}
+                        {chatStatus === "streaming" && messages[messages.length - 1]?.content === "" && (
+                          <div className="flex items-center gap-2 text-muted-foreground p-3 text-sm">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Generating theme...</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   <ChatInput
                     onSubmit={(msg) => {
                       sendMessage({ text: msg });
                     }}
-                    disabled={status === "submitted" || status === "streaming"}
+                    disabled={chatStatus === "streaming"}
                   />
                 </div>
               </TabsContent>

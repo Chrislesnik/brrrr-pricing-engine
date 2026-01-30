@@ -54,6 +54,7 @@ export function DataGrid<TData>({
   stretchColumns = false,
   adjustLayout = false,
   className,
+  focusCell: _focusCell, // Destructure to prevent spreading to DOM
   ...props
 }: DataGridProps<TData>) {
   const rows = table.getRowModel().rows;

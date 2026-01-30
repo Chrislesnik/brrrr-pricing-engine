@@ -10,7 +10,6 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -317,18 +316,18 @@ export function ColorInput({
         onOpenChange={(open) => !disabled && setIsOpen(open)}
       >
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
+          <button
+            type="button"
             className={cn(
-              "h-10 justify-between font-mono text-sm w-full",
+              "inline-flex h-10 w-full items-center justify-between rounded-md border border-input px-3 py-2 font-mono text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               disabled && "opacity-50 cursor-not-allowed",
             )}
             disabled={disabled}
             style={{ backgroundColor: hexColor, color: contrastColor }}
           >
             <span className="truncate">{displayValue}</span>
-            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-70" />
-          </Button>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0" style={{ color: contrastColor, opacity: 0.7 }} />
+          </button>
         </PopoverTrigger>
         <PopoverContent className="w-[320px] p-0" align="end" sideOffset={8}>
           <div className="p-4 space-y-4">

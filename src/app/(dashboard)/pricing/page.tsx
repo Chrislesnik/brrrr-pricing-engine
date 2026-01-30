@@ -386,7 +386,7 @@ function ScaledTermSheetPreview({
             transformOrigin: "top left",
             overflow: "hidden",
           }}
-          className="border border-black/20 bg-white shadow-xl rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          className="border border-black/20 bg-white shadow-xl rounded-sm focus:outline-none focus:ring-2 focus:ring-highlight"
           ref={pageRef}
           tabIndex={0}
         >
@@ -3398,7 +3398,7 @@ export default function PricingEnginePage() {
                               setPropertyType(v)
                             }}
                           >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "border-2 border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "border-2 border-highlight/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                           <SelectContent>
@@ -3436,7 +3436,7 @@ export default function PricingEnginePage() {
                               setNumUnits(parseInt(v))
                             }}
                           >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "border-2 border-amber-500/70" : ""}`}>
+                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "border-2 border-highlight/70" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -3471,7 +3471,7 @@ export default function PricingEnginePage() {
                               clearReAuto("glaSqFt")
                               setGlaSqFt(e.target.value)
                             }}
-                            className={`${reAuto.glaSqFt ? "border-2 border-amber-500/70" : ""}`}
+                            className={`${reAuto.glaSqFt ? "border-2 border-highlight/70" : ""}`}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -3485,7 +3485,7 @@ export default function PricingEnginePage() {
                         >
                           <SelectTrigger
                             id="rural"
-                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "border-2 border-amber-500/70" : ""}`}
+                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "border-2 border-highlight/70" : ""}`}
                           >
                               <SelectValue placeholder="No" />
                             </SelectTrigger>
@@ -3832,7 +3832,7 @@ export default function PricingEnginePage() {
                                   clearReAuto("acquisitionDate")
                                   setAcquisitionDate(d)
                                 }}
-                                className={`${reAuto.acquisitionDate ? "border-2 border-amber-500/70" : ""}`}
+                                className={`${reAuto.acquisitionDate ? "border-2 border-highlight/70" : ""}`}
                               />
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -6952,19 +6952,7 @@ function ResultsPanel({
 function LoaderStyles() {
   return (
     <style jsx global>{`
-      /* Loader styles with warm gradient (supports light/dark) */
-      :root {
-        --warm-red: #ff3b30;
-        --warm-orange: #ff6a00;
-        --warm-yellow: #ffd60a;
-        --wave-rgb: 255, 138, 76; /* base orange for stripes */
-      }
-      .dark {
-        --warm-red: #ff453a;
-        --warm-orange: #ff7a1a;
-        --warm-yellow: #ffd60a;
-        --wave-rgb: 255, 179, 64;
-      }
+      /* Loader styles with warm gradient - uses theme variables from globals.css */
       .loader-wrapper {
         position: relative;
         display: flex;
@@ -7005,11 +6993,11 @@ function LoaderStyles() {
         width: 100%;
         height: 100%;
         background-image:
-          radial-gradient(circle at 50% 50%, var(--warm-yellow) 0%, transparent 50%),
-          radial-gradient(circle at 45% 45%, var(--warm-red) 0%, transparent 45%),
-          radial-gradient(circle at 55% 55%, var(--warm-orange) 0%, transparent 45%),
-          radial-gradient(circle at 45% 55%, var(--warm-orange) 0%, transparent 45%),
-          radial-gradient(circle at 55% 45%, var(--warm-yellow) 0%, transparent 45%);
+          radial-gradient(circle at 50% 50%, var(--gradient-warm-3) 0%, transparent 50%),
+          radial-gradient(circle at 45% 45%, var(--gradient-warm-1) 0%, transparent 45%),
+          radial-gradient(circle at 55% 55%, var(--gradient-warm-2) 0%, transparent 45%),
+          radial-gradient(circle at 45% 55%, var(--gradient-warm-2) 0%, transparent 45%),
+          radial-gradient(circle at 55% 45%, var(--gradient-warm-3) 0%, transparent 45%);
         -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
         mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
         animation: transform-animation 2s infinite alternate, opacity-animation 4s infinite;

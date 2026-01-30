@@ -646,8 +646,8 @@ export function ApplicationPartyEditor({
                         className={cn(
                           "h-8 w-8 border",
                           emailWasSent
-                            ? "border-yellow-300 text-yellow-600 bg-yellow-50 hover:border-yellow-400 hover:text-yellow-700"
-                            : "border-muted text-muted-foreground hover:border-green-400 hover:text-green-600",
+                            ? "border-highlight bg-highlight-muted text-highlight-foreground hover:border-highlight hover:brightness-95"
+                            : "border-muted text-muted-foreground hover:border-success hover:text-success",
                           {
                             "opacity-50 pointer-events-none": !currentEmail || isSigned,
                           },

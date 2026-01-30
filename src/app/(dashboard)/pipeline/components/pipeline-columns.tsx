@@ -54,8 +54,8 @@ import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
 const statusClass: Record<string, string> = {
-  active: "bg-green-100 text-green-800 border-green-200",
-  dead: "bg-red-100 text-red-800 border-red-200",
+  active: "bg-success-muted text-success border-success/30",
+  dead: "bg-danger-muted text-danger border-danger/30",
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [

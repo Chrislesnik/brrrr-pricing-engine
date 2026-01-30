@@ -10,6 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+// Deterministic pseudo-random width based on row and column index
+// This ensures the same width is generated on server and client
+function getSkeletonWidth(rowIndex: number, colIndex: number): string {
+  // Simple hash function that produces consistent results
+  const seed = (rowIndex * 7 + colIndex * 13 + 17) % 40
+  return `${seed + 60}%`
+}
+
 interface TableSkeletonProps {
   columns?: number
   rows?: number
@@ -43,7 +51,7 @@ export function TableSkeleton({
                   <Skeleton
                     className="h-4"
                     style={{
-                      width: `${Math.floor(Math.random() * 40 + 60)}%`,
+                      width: getSkeletonWidth(rowIndex, colIndex),
                     }}
                   />
                 </TableCell>
