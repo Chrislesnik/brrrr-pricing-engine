@@ -1,99 +1,134 @@
-"use client"
+"use client";
 
+import * as React from "react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
-} from "@repo/ui/shadcn/sidebar"
-import dynamic from "next/dynamic"
-const NavGroupClient = dynamic(() => import("@/components/layout/nav-group").then(m => ({ default: m.NavGroup })), {
-  // Avoid server-rendering to prevent Radix/ID hydration mismatches in nested Collapsible/Trigger
-  ssr: false,
-})
-const UserButtonClient = dynamic(() => import("@clerk/nextjs").then(m => ({ default: m.UserButton })), {
-  // Avoid SSR to prevent hydration mismatch from Clerk's client-only rendering
-  ssr: false,
-})
-import { OrganizationSwitcherIfEnabled } from "@/components/clerk/organization-switcher"
-import { TeamSwitcher } from "@/components/layout/team-switcher"
-import { sidebarData } from "./data/sidebar-data"
-import { useEffect, useState } from "react"
+} from "@repo/ui/shadcn/sidebar";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { NAVIGATION_CONFIG, type NavItem } from "@/app/(pricing-engine)/config/navigation";
+import { NavMain } from "@/components/layout/nav-main";
+import { NavUser } from "@/components/layout/nav-user";
+import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
+import { WorkspaceSwitcher } from "@repo/ui/custom/workspace-switcher";
+import { NavSearch } from "@/components/layout/nav-search";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [isDark, setIsDark] = useState(false)
+  const { has, orgRole, isLoaded } = useAuth();
+  const { user } = useUser();
+  const isOwner = orgRole === "org:owner" || orgRole === "owner";
+  
+  const [allowed, setAllowed] = React.useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const root = document.documentElement
-    const update = () => setIsDark(root.classList.contains("dark"))
-    update()
-    const observer = new MutationObserver(update)
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] })
-    return () => observer.disconnect()
-  }, [])
+  // Pre-compute permission checks (same logic as AppCommandDialog)
+  React.useEffect(() => {
+    let active = true;
+    const keys = new Set<string>();
+    
+    const collectPermissions = (items: NavItem[]) => {
+      items.forEach(item => {
+        if (item.requiredPermission) keys.add(item.requiredPermission);
+        if (item.items) collectPermissions(item.items);
+      });
+    };
+    collectPermissions(NAVIGATION_CONFIG);
+
+    if (isOwner) {
+      const next: Record<string, boolean> = {};
+      Array.from(keys).forEach((k) => (next[k] = true));
+      setAllowed(next);
+    } else if (typeof has === "function" && isLoaded) {
+      Promise.all(
+        Array.from(keys).map(async (key) => ({
+          key,
+          ok: await has({ permission: key }),
+        }))
+      ).then((results) => {
+        if (!active) return;
+        const next: Record<string, boolean> = {};
+        results.forEach(({ key, ok }) => {
+          next[key] = ok;
+        });
+        setAllowed(next);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [has, isLoaded, isOwner]);
+
+  const isVisible = React.useCallback(
+    (item: NavItem) => {
+      const bareRole = orgRole ? orgRole.replace(/^org:/, "") : undefined;
+      
+      // Explicit allow list takes precedence
+      if (item.allowOrgRoles && item.allowOrgRoles.length) {
+        const allow =
+          (!!orgRole && item.allowOrgRoles.includes(orgRole)) ||
+          (!!bareRole && item.allowOrgRoles.includes(bareRole));
+        return !!allow;
+      }
+      
+      if (isOwner) return true;
+      
+      // Hide item if current org role is explicitly denied
+      if (item.denyOrgRoles && item.denyOrgRoles.length && orgRole) {
+        if (
+          item.denyOrgRoles.includes(orgRole) ||
+          (bareRole ? item.denyOrgRoles.includes(bareRole) : false)
+        ) {
+          return false;
+        }
+      }
+      
+      if (!item.requiredPermission) return true;
+      return !!allowed[item.requiredPermission];
+    },
+    [allowed, isOwner, orgRole]
+  );
+
+  // Filter navigation items
+  const filteredNav = React.useMemo(() => {
+    // Deep filter function
+    const filterItems = (items: NavItem[]): NavItem[] => {
+      return items
+        .filter(isVisible)
+        .map(item => ({
+          ...item,
+          items: item.items ? filterItems(item.items) : undefined
+        }));
+    };
+    return filterItems(NAVIGATION_CONFIG);
+  }, [isVisible]);
+
+  // Extract main group (assuming first group is Main)
+  const mainItems = filteredNav[0]?.items || [];
 
   return (
     <Sidebar collapsible="icon" {...props}>
-        <SidebarHeader>
-          {/* Show Clerk orgs when enabled; otherwise fallback to static team switcher */}
-          {/* No afterSelectOrganizationUrl - OrgChangeRefresher handles soft refresh */}
-          <OrganizationSwitcherIfEnabled
-            afterCreateOrganizationUrl="/pipeline"
-            afterLeaveOrganizationUrl="/sign-in"
-            appearance={{
-              elements: {
-                // Hide branding footer in the org switcher popover
-                organizationSwitcherPopoverFooter: { display: "none" },
-                organizationSwitcherTrigger:
-                  `w-full h-12 justify-start gap-3 rounded-md px-3 py-3 text-base hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
-                   group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0
-                   ${isDark ? "text-white" : ""}`,
-                organizationSwitcherTriggerIcon: "hidden", // hide chevron/arrow
-                organizationPreviewMainIdentifier: `text-base font-semibold group-data-[collapsible=icon]:sr-only ${isDark ? "text-white" : ""}`,
-                organizationPreviewSecondaryIdentifier:
-                  `text-sm group-data-[collapsible=icon]:sr-only ${isDark ? "text-white/90" : "text-muted-foreground"}`,
-                organizationPreviewAvatarBox:
-                  "group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6",
-                organizationSwitcherPopoverCard:
-                  `w-[--radix-popover-trigger-width] max-w-none ${isDark ? "text-white" : ""}`,
-              },
+      <SidebarHeader>
+        <TeamSwitcherV2 />
+        <WorkspaceSwitcher />
+        <NavSearch />
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={mainItems} />
+      </SidebarContent>
+      <SidebarFooter>
+        {user && (
+          <NavUser
+            user={{
+              name: user.fullName || user.username || "User",
+              email: user.primaryEmailAddress?.emailAddress || "",
+              avatar: user.imageUrl,
             }}
           />
-          {process.env.NEXT_PUBLIC_CLERK_ENABLE_ORGS !== "true" && (
-            <TeamSwitcher teams={sidebarData.teams} />
-          )}
-        </SidebarHeader>
-        <SidebarContent>
-          {sidebarData.navGroups.map((props) => (
-            <NavGroupClient key={props.title} {...props} />
-          ))}
-        </SidebarContent>
-        <SidebarFooter>
-          <div>
-            <UserButtonClient
-              afterSignOutUrl="/sign-in"
-              showName
-              appearance={{
-                elements: {
-                  // Hide "Secured by Clerk" watermark/footer in the user menu (Pro plan allows this)
-                  userButtonPopoverFooter: { display: "none" },
-                  userButtonTrigger:
-                    `w-full flex flex-row items-center justify-start gap-3 rounded-md px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
-                     group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0
-                     ${isDark ? "text-white" : ""}`,
-                  avatarBox: "order-first h-9 w-9 group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6",
-                  userButtonText: `order-last text-base font-medium group-data-[collapsible=icon]:sr-only ${isDark ? "text-white" : ""}`,
-                  userButtonOuterIdentifier:
-                    "group-data-[collapsible=icon]:hidden", // hide the name when collapsed
-                  userButtonPopoverCard:
-                    `w-[--radix-popover-trigger-width] max-w-none pl-3 pb-2 ${isDark ? "text-white" : ""}`,
-                },
-              }}
-            />
-          </div>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
-  )
+        )}
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
 }

@@ -3,6 +3,7 @@ import { cn } from "@repo/lib/cn"
 import { SidebarProvider, SidebarInset } from "@repo/ui/shadcn/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SWRProvider } from "@/components/providers/swr-provider"
+import { SiteHeader } from "@/components/layout/site-header"
 
 interface Props {
   children: React.ReactNode
@@ -17,6 +18,7 @@ export default async function DashboardLayout({ children }: Props) {
         <SidebarProvider defaultOpen={!defaultClose}>
           <AppSidebar variant="inset" />
           <SidebarInset>
+            <SiteHeader />
             <div
               id="content"
               className={cn(

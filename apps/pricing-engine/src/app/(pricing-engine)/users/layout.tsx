@@ -1,4 +1,3 @@
-import { Header } from "@/components/layout/header"
 
 interface Props {
   children: React.ReactNode
@@ -7,7 +6,6 @@ interface Props {
 export default function UsersLayout({ children }: Props) {
   return (
     <>
-      <Header />
       <div
         data-layout="fixed"
         className="flex flex-1 flex-col overflow-hidden p-4"

@@ -10,6 +10,7 @@ export default [
       "**/build/**",
       "**/.turbo/**",
       "**/ai-chatbot/**",
+      "basehub-types.d.ts",
     ],
   },
   {

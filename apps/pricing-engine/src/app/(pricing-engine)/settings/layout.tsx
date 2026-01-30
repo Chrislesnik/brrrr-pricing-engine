@@ -1,4 +1,3 @@
-import { Header } from "@/components/layout/header"
 
 interface Props {
   children: React.ReactNode
@@ -7,7 +6,6 @@ interface Props {
 export default function SettingsLayout({ children }: Props) {
   return (
     <>
-      <Header />
 
       <div
         data-layout="fixed"

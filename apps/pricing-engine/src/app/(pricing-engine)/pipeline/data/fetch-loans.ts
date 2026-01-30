@@ -8,7 +8,7 @@ export interface LoanRow {
   createdAt: string
   updatedAt: string
   // Spread of primary scenario inputs (unknown shape)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   [key: string]: any
 }
 
@@ -148,9 +148,9 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   // #endregion
   type ScenarioRow = {
     loan_id: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     inputs?: Record<string, any>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     selected?: Record<string, any> | null
     primary?: boolean | null
     created_at?: string

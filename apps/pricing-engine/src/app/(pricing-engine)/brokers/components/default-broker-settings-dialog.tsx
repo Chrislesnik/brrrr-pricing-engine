@@ -385,7 +385,7 @@ function RatesFeesTable({
       const right = raw.slice(firstDot + 1).replace(/\./g, "")
       raw = `${left}.${right}`
     }
-    let hadDot = raw.includes(".")
+    const hadDot = raw.includes(".")
     let [intPart, decPart = ""] = raw.split(".")
     if (intPart === "") intPart = "0"
     intPart = intPart.replace(/^0+(?=\d)/, "")

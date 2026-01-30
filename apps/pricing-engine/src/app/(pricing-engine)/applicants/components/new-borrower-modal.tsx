@@ -115,7 +115,7 @@ function formatUS(input: string) {
   if (digits.length === 0) return ""
   const cc = digits[0] // country code single digit
   const national = digits.slice(1) // remaining digits for US national number
-  let out = `+${cc}`
+  const out = `+${cc}`
   if (national.length === 0) return out
   if (national.length <= 3) return `${out} (${national}`
   if (national.length <= 6)

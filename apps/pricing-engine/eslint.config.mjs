@@ -1,5 +1,6 @@
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
+import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   {
@@ -10,6 +11,7 @@ export default [
       "**/build/**",
       "**/.turbo/**",
       "**/ai-chatbot/**",
+      "src/types/database.types.ts",
     ],
   },
   {
@@ -26,6 +28,7 @@ export default [
     },
     plugins: {
       "@typescript-eslint": typescriptEslint,
+      "react-hooks": reactHooks,
     },
     rules: {
       "no-console": ["warn", { allow: ["warn", "error"] }],
@@ -35,6 +38,8 @@ export default [
       "@typescript-eslint/no-unused-vars": [
         "off", // Disabled to allow helper functions that may be used later
       ],
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 ];

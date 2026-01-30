@@ -3,10 +3,30 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    "./shadcn/*": "./src/shadcn/*.tsx",
-    "./custom/*": "./src/custom/*.tsx",
-    "./providers/*": "./src/providers/*.tsx",
+    ".": "./src/index.ts",
+    "./shadcn/*": {
+      "types": "./src/shadcn/*.tsx",
+      "default": "./src/shadcn/*.tsx"
+    },
+    "./custom/*": {
+      "types": "./src/custom/*.tsx",
+      "default": "./src/custom/*.tsx"
+    },
+    "./providers/*": {
+      "types": "./src/providers/*.tsx",
+      "default": "./src/providers/*.tsx"
+    },
+    "./layouts": {
+      "types": "./src/layouts/index.ts",
+      "default": "./src/layouts/index.ts"
+    },
+    "./layouts/*": {
+      "types": "./src/layouts/*.tsx",
+      "default": "./src/layouts/*.tsx"
+    },
     "./globals.css": "./src/globals.css"
   },
   "scripts": {
@@ -14,9 +34,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/lib": "workspace:*",
-    "@tabler/icons-react": "^3.22.0",
-    "react-hook-form": "^7.53.2",
+    "@clerk/nextjs": "^6.35.2",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-avatar": "^1.1.3",
@@ -38,17 +56,20 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@radix-ui/react-visually-hidden": "^1.1.2",
+    "@repo/lib": "workspace:*",
+    "@tabler/icons-react": "^3.22.0",
     "class-variance-authority": "^0.7.0",
+    "cmdk": "1.0.4",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.475.0",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
     "next": "16.0.7",
     "next-themes": "^0.4.4",
-    "vaul": "^1.1.2",
-    "cmdk": "1.0.4",
-    "recharts": "^2.15.1",
+    "react": "19.0.0",
     "react-day-picker": "8.10.1",
-    "date-fns": "^4.1.0"
+    "react-dom": "19.0.0",
+    "react-hook-form": "^7.53.2",
+    "recharts": "^2.15.1",
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

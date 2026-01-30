@@ -50,7 +50,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     const allUserIds = [...new Set([...userIds, ...assignedUserIds])]
 
     // Fetch user names from organization_members
-    let userMap: Record<string, { first_name: string | null; last_name: string | null }> = {}
+    const userMap: Record<string, { first_name: string | null; last_name: string | null }> = {}
     if (allUserIds.length > 0 && orgUuid) {
       const { data: members } = await supabaseAdmin
         .from("organization_members")

@@ -34,7 +34,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { Button } from "@repo/ui/shadcn/button"
+import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -43,27 +43,27 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@repo/ui/shadcn/command"
+} from "@/components/ui/command"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@repo/ui/shadcn/dropdown-menu"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@repo/ui/shadcn/hover-card"
+} from "@/components/ui/dropdown-menu"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@repo/ui/shadcn/input-group"
+} from "@/components/ui/input-group"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@repo/ui/shadcn/select"
+} from "@/components/ui/select"
 import { cn } from "@repo/lib/cn"
 
 // ============================================================================
@@ -387,7 +387,7 @@ export const PromptInputActionAddAttachments = ({
   return (
     <DropdownMenuItem
       {...props}
-      onSelect={e => {
+      onSelect={(e: Event) => {
         e.preventDefault()
         attachments.openFileDialog()
       }}

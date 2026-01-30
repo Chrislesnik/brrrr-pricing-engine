@@ -67,7 +67,7 @@ export async function getEntitiesForOrg(organizationId: string, userId?: string)
 	const entityIds = entities.map((e) => e.id)
 
 	// Batch-fetch all owners for all entities
-	let ownersMap: Record<string, EntityOwner[]> = {}
+	const ownersMap: Record<string, EntityOwner[]> = {}
 	if (entityIds.length > 0) {
 		const { data: allOwners, error: ownersErr } = await supabaseAdmin
 			.from("entity_owners")

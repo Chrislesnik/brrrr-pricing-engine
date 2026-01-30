@@ -44,7 +44,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // 1) Brokers in this org where account_manager_ids contains this org member id
   // Prefer selecting status from DB if the column exists; gracefully fall back if not.
   async function fetchBrokers(includeStatus: boolean) {
-    let baseSelect =
+    const baseSelect =
       "id, organization_id, organization_member_id, account_manager_ids, email, joined_at, clerk_user_id, company_name, company_logo_url" +
       (includeStatus ? ", status" : "")
     let q = supabaseAdmin.from("brokers").select(baseSelect).eq("organization_id", orgUuid)
@@ -175,7 +175,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
   const customByBroker = new Map<string, any>()
   for (const c of custom ?? []) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const row: any = c
     customByBroker.set(row.broker_id as string, row)
   }
