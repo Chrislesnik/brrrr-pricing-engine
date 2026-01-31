@@ -952,8 +952,7 @@ export function SelectCell<TData>({
           disabled={readOnly}
         >
           <SelectTrigger
-            size="sm"
-            className="size-full items-start border-none p-0 shadow-none focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden"
+            className="h-8 size-full items-start border-none p-0 shadow-none focus-visible:ring-0 dark:bg-transparent [&_svg]:hidden"
           >
             {displayLabel ? (
               <Badge
@@ -1377,7 +1376,6 @@ export function DateCell<TData>({
             className="w-auto p-0"
           >
             <Calendar
-              autoFocus
               captionLayout="dropdown"
               mode="single"
               defaultMonth={selectedDate ?? new Date()}
@@ -2002,7 +2000,6 @@ export function FileCell<TData>({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
                       className="text-muted-foreground h-6 text-xs"
                       onClick={clearAll}
                       disabled={isPending}

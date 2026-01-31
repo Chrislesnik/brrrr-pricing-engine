@@ -12,7 +12,7 @@ function toE164(us: string | undefined | null) {
   return `+1${d}`
 }
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { orgId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
 }
 
-export async function PATCH(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { orgId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
@@ -66,7 +66,7 @@ export async function PATCH(_req: NextRequest, ctx: { params: Promise<{ id: stri
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { orgId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)

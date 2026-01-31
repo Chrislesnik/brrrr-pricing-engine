@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { SWRConfig } from "swr"
 import { OrgChangeRefresher } from "@/components/clerk/org-change-refresher"
 
@@ -7,7 +8,7 @@ interface SWRProviderProps {
   children: React.ReactNode
 }
 
-export function SWRProvider({ children }: SWRProviderProps) {
+export function SWRProvider({ children }: SWRProviderProps): React.JSX.Element {
   return (
     <SWRConfig
       value={{
@@ -29,9 +30,11 @@ export function SWRProvider({ children }: SWRProviderProps) {
         fetcher: (url: string) => fetch(url).then((res) => res.json()),
       }}
     >
-      {/* Refresh SWR cache on org change without navigation */}
-      <OrgChangeRefresher />
-      {children}
+      <>
+        {/* Refresh SWR cache on org change without navigation */}
+        <OrgChangeRefresher />
+        {children}
+      </>
     </SWRConfig>
   )
 }

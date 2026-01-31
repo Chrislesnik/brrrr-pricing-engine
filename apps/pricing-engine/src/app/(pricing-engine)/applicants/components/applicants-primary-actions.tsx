@@ -8,11 +8,11 @@ import { NewEntityModal } from "./new-entity-modal"
 
 export function ApplicantsPrimaryActions({
   label,
-  _href,
+  href: _href,
   type,
 }: {
   label: string
-  _href: string
+  href: string
   type: "borrower" | "entity"
 }) {
   const Icon = type === "borrower" ? IconUserPlus : IconUsersPlus

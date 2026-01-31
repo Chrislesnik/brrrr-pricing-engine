@@ -5,7 +5,7 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 export const runtime = "nodejs"
 
-export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
     const { userId, orgId } = await auth()
@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
   }
 }
 
-export async function PUT(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
     const { userId, orgId } = await auth()

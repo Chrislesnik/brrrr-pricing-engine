@@ -42,7 +42,7 @@ import {
   SortableItem,
   SortableItemHandle,
   SortableOverlay,
-} from "@repo/ui/shadcn/sortable";
+} from "@/components/ui/sortable";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import {
   getDefaultOperator,
@@ -191,15 +191,14 @@ export function DataGridFilterMenu<TData>({
     <Sortable
       value={columnFilters}
       onValueChange={table.setColumnFilters}
-      getItemValue={(item) => item.id}
+      getItemValue={(item: ColumnFilter) => item.id}
     >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             dir={dir}
             variant="outline"
-            size="sm"
-            className="font-normal"
+            className="h-8 font-normal"
             onKeyDown={onTriggerKeyDown}
             disabled={disabled}
           >
@@ -267,8 +266,7 @@ export function DataGridFilterMenu<TData>({
           )}
           <div className="flex w-full items-center gap-2">
             <Button
-              size="sm"
-              className="rounded"
+              className="h-8 rounded"
               ref={addButtonRef}
               onClick={onFilterAdd}
               disabled={columns.length === 0}
@@ -278,8 +276,7 @@ export function DataGridFilterMenu<TData>({
             {columnFilters.length > 0 && (
               <Button
                 variant="outline"
-                size="sm"
-                className="rounded"
+                className="h-8 rounded"
                 onClick={onFiltersReset}
               >
                 Reset filters
@@ -427,8 +424,7 @@ function DataGridFilterItem<TData>({
               aria-controls={fieldListboxId}
               dir={dir}
               variant="outline"
-              size="sm"
-              className="w-32 justify-between rounded font-normal"
+              className="h-8 w-32 justify-between rounded font-normal"
             >
               <span className="truncate">{columnLabels.get(filter.id)}</span>
               <ChevronsUpDown className="opacity-50" />
@@ -492,8 +488,7 @@ function DataGridFilterItem<TData>({
         >
           <SelectTrigger
             aria-controls={operatorListboxId}
-            size="sm"
-            className="w-32 rounded lowercase"
+            className="h-8 w-32 rounded lowercase"
           >
             <div className="truncate">
               <SelectValue />
@@ -691,7 +686,6 @@ function DataGridFilterInput<TData>({
               aria-controls={inputListboxId}
               dir={dir}
               variant="outline"
-              size="sm"
               className={cn(
                 "h-8 w-full justify-start rounded font-normal",
                 !startDate && "text-muted-foreground",
@@ -708,7 +702,6 @@ function DataGridFilterInput<TData>({
             className="w-auto p-0"
           >
             <Calendar
-              autoFocus
               captionLayout="dropdown"
               mode="range"
               selected={
@@ -747,7 +740,6 @@ function DataGridFilterInput<TData>({
             aria-controls={inputListboxId}
             dir={dir}
             variant="outline"
-            size="sm"
             className={cn(
               "h-8 w-full justify-start rounded font-normal",
               !dateValue && "text-muted-foreground",
@@ -768,7 +760,6 @@ function DataGridFilterInput<TData>({
           className="w-auto p-0"
         >
           <Calendar
-            autoFocus
             captionLayout="dropdown"
             mode="single"
             selected={dateValue}
@@ -809,7 +800,6 @@ function DataGridFilterInput<TData>({
               aria-controls={inputListboxId}
               dir={dir}
               variant="outline"
-              size="sm"
               className="h-8 w-full justify-start rounded font-normal"
             >
               {selectedOptions.length === 0 ? (
@@ -902,7 +892,6 @@ function DataGridFilterInput<TData>({
             aria-controls={inputListboxId}
             dir={dir}
             variant="outline"
-            size="sm"
             className="h-8 w-full justify-start rounded font-normal"
           >
             {selectedOption ? (

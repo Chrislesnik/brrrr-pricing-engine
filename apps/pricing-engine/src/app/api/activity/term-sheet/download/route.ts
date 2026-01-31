@@ -10,7 +10,7 @@ export const runtime = "nodejs"
  * Returns a signed URL to download a term sheet PDF from storage.
  * Verifies the user has access to the organization that owns the term sheet.
  */
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

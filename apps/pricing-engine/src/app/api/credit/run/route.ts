@@ -26,7 +26,7 @@ type Inputs = {
 const FIRST_WEBHOOK_URL = "https://n8n.axora.info/webhook/dd842cfb-d4c5-4ce7-94a9-a87e1027dd23"
 const SECOND_WEBHOOK_URL = "https://n8n.axora.info/webhook/f5315945-c5a3-405f-8ef9-76ced3a9b348"
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   console.warn("[credit/run] === Starting credit run ===")
   try {
     const { userId, orgId } = await auth()

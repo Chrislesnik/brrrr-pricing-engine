@@ -563,9 +563,8 @@ const CalendarDatePicker = React.forwardRef<
                       <Button
                         key={label}
                         variant="ghost"
-                        size="sm"
                         className={cn(
-                          "hover:bg-primary/90 hover:text-background justify-start",
+                          "h-8 hover:bg-primary/90 hover:text-background justify-start",
                           selectedRange === label &&
                             "bg-primary text-background hover:bg-primary/90 hover:text-background"
                         )}

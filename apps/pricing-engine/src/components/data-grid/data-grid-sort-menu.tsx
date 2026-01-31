@@ -38,7 +38,7 @@ import {
   SortableItem,
   SortableItemHandle,
   SortableOverlay,
-} from "@repo/ui/shadcn/sortable";
+} from "@/components/ui/sortable";
 import { cn } from "@repo/lib/cn";
 
 const SORT_SHORTCUT_KEY = "s";
@@ -170,15 +170,14 @@ export function DataGridSortMenu<TData>({
     <Sortable
       value={sorting}
       onValueChange={onSortingChange}
-      getItemValue={(item) => item.id}
+      getItemValue={(item: ColumnSort) => item.id}
     >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             dir={dir}
             variant="outline"
-            size="sm"
-            className="font-normal"
+            className="h-8 font-normal"
             onKeyDown={onTriggerKeyDown}
             disabled={disabled}
           >
@@ -240,8 +239,7 @@ export function DataGridSortMenu<TData>({
           )}
           <div className="flex w-full items-center gap-2">
             <Button
-              size="sm"
-              className="rounded"
+              className="h-8 rounded"
               ref={addButtonRef}
               onClick={onSortAdd}
               disabled={columns.length === 0}
@@ -251,8 +249,7 @@ export function DataGridSortMenu<TData>({
             {sorting.length > 0 && (
               <Button
                 variant="outline"
-                size="sm"
-                className="rounded"
+                className="h-8 rounded"
                 onClick={onSortingReset}
               >
                 Reset sorting
@@ -336,8 +333,7 @@ function DataTableSortItem({
               id={fieldTriggerId}
               aria-controls={fieldListboxId}
               variant="outline"
-              size="sm"
-              className="w-44 justify-between rounded font-normal"
+              className="h-8 w-44 justify-between rounded font-normal"
             >
               <span className="truncate">{columnLabels.get(sort.id)}</span>
               <ChevronsUpDown className="opacity-50" />
@@ -377,8 +373,7 @@ function DataTableSortItem({
         >
           <SelectTrigger
             aria-controls={directionListboxId}
-            size="sm"
-            className="w-24 rounded"
+            className="h-8 w-24 rounded"
           >
             <SelectValue />
           </SelectTrigger>

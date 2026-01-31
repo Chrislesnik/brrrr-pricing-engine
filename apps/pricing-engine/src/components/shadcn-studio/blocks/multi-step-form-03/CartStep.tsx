@@ -9,13 +9,13 @@ import { createSupabaseBrowser } from "@/lib/supabase-browser"
 import { cn } from "@repo/lib/cn"
 import { isUuid } from "@/lib/uuid"
 import { useToast } from "@/hooks/use-toast"
-import { BounceButton } from "@repo/ui/shadcn/bounce-button"
+import { BounceButton } from "@/components/ui/bounce-button"
 import { Button } from "@repo/ui/shadcn/button"
 import { Calendar } from "@repo/ui/shadcn/calendar"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
-import { LoadingButton } from "@repo/ui/shadcn/loading-button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import {
   Popover,
   PopoverContent,
@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/shadcn/select"
-import { ShakeButton } from "@repo/ui/shadcn/shake-button"
+import { ShakeButton } from "@/components/ui/shake-button"
 import { AddressAutocomplete } from "@/components/address-autocomplete"
 import { ChatPanel } from "@/components/ai/chat-panel"
 import { Shimmer } from "@/components/ai/shimmer"

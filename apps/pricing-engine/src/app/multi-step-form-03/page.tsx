@@ -1,5 +1,8 @@
 import MultiStepForm from '@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm'
 
+// Force dynamic rendering since this component uses Supabase client
+export const dynamic = 'force-dynamic'
+
 const MultiStepFormPage = () => {
   return (
     <div className='py-8 sm:py-16 lg:py-24'>

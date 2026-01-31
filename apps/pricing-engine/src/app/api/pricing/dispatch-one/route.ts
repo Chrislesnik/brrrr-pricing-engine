@@ -46,7 +46,7 @@ function booleanToYesNoDeep(value: unknown): unknown {
   return value
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
 

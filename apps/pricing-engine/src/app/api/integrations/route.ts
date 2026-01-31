@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
     if (!orgId || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -108,7 +108,7 @@ export async function GET(_req: NextRequest) {
   }
 }
 
-export async function PATCH(_req: NextRequest) {
+export async function PATCH(req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
     if (!orgId || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

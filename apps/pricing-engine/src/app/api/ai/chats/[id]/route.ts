@@ -1,6 +1,6 @@
 export const runtime = "nodejs"
 
-function resolveId(_req: Request, params: { id?: string } | undefined): string {
+function resolveId(req: Request, params: { id?: string } | undefined): string {
   let id = String(params?.id || "").trim()
   if (!id) {
     try {
@@ -28,7 +28,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 200 })
     }
     const params = await context.params
-    const id = resolveId(_req, params)
+    const id = resolveId(req, params)
     if (!id) {
       return NextResponse.json({ ok: false, error: "Missing chat id" }, { status: 200 })
     }
@@ -60,7 +60,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -69,7 +69,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 200 })
     }
     const params = await context.params
-    const id = resolveId(_req, params)
+    const id = resolveId(req, params)
     if (!id) {
       return NextResponse.json({ ok: false, error: "Missing chat id" }, { status: 200 })
     }

@@ -70,6 +70,11 @@ declare module "@tanstack/react-table" {
   // biome-ignore lint/correctness/noUnusedVariables: TData is used in the TableMeta interface
    
   interface TableMeta<TData extends RowData> {
+    // Custom actions used in cells (from tanstack-table.d.ts)
+    openPricingEngine?: (id: string) => void
+    openTermSheets?: (id: string) => void
+    toggleStatus?: (id: string) => void
+    // Data grid properties
     dataGridRef?: React.RefObject<HTMLElement | null>
     cellMapRef?: React.RefObject<Map<string, HTMLDivElement>>
     focusedCell?: CellPosition | null

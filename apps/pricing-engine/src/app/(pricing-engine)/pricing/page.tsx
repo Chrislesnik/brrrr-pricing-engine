@@ -81,7 +81,7 @@ import {
   TagsInputList,
   TagsInputInput,
   TagsInputItem,
-} from "@repo/ui/shadcn/tags-input"
+} from "@/components/ui/tags-input"
 import {
   Tooltip,
   TooltipContent,
@@ -91,10 +91,10 @@ import {
 import { CalcInput } from "@/components/calc-input"
 import { DateInput } from "@/components/date-input"
 import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
-import BridgeTermSheet from "../../../../components/BridgeTermSheet"
+import BridgeTermSheet from "@/components/BridgeTermSheet"
 import DSCRTermSheet, {
   type DSCRTermSheetProps,
-} from "../../../../components/DSCRTermSheet"
+} from "@/components/DSCRTermSheet"
 
 // Prompt the user with a native Save dialog when supported.
 // Falls back to a standard download if the File System Access API is unavailable.
@@ -4105,7 +4105,6 @@ export default function PricingEnginePage() {
                       </AccordionTrigger>
                       <div className="flex items-center gap-2">
                         <Button
-                          size="sm"
                           variant="secondary"
                           className="h-7 not-italic"
                           onClick={handleSendToReApi}
@@ -4115,7 +4114,6 @@ export default function PricingEnginePage() {
                           {sendingReApi ? "Sending..." : "RE API"}
                         </Button>
                         <Button
-                          size="sm"
                           variant="secondary"
                           className="h-7 not-italic"
                           onClick={(e) => handleOpenMapsModal(e)}
@@ -4815,7 +4813,6 @@ export default function PricingEnginePage() {
                                 onMonthChange={setClosingCalMonth}
                                 onSelect={(d) => d && setClosingDate(d)}
                                 disabled={{ before: new Date() }}
-                                captionLayout="label"
                                 className="min-w-[264px] rounded-md border"
                                 initialFocus
                               />
@@ -5818,7 +5815,7 @@ export default function PricingEnginePage() {
               </div>
               <div className="inline-flex gap-1">
                 <Button
-                  size="sm"
+                  className="h-8"
                   variant={mapsView === "map" ? "secondary" : "ghost"}
                   onClick={() => setMapsView("map")}
                   disabled={!gmapsReady || !!effectiveMapsError}
@@ -5826,7 +5823,7 @@ export default function PricingEnginePage() {
                   Map
                 </Button>
                 <Button
-                  size="sm"
+                  className="h-8"
                   variant={mapsView === "street" ? "secondary" : "ghost"}
                   onClick={() => setMapsView("street")}
                   disabled={!canUseStreetView}

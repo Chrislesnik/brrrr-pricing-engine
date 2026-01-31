@@ -26,7 +26,7 @@ import {
   FileUpload,
   FileUploadDropzone,
   FileUploadTrigger,
-} from "@repo/ui/shadcn/file-upload"
+} from "@/components/ui/file-upload"
 import { PdfThumbnail, FileThumbnail } from "@/components/pdf-thumbnail"
 import { cn } from "@repo/lib/cn"
 
@@ -326,7 +326,7 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
                     <span className="text-xs text-muted-foreground">Or click to browse (max 5MB each)</span>
                   </div>
                   <FileUploadTrigger asChild>
-                    <Button size="sm" variant="secondary">
+                    <Button className="h-8" variant="secondary">
                       Browse files
                     </Button>
                   </FileUploadTrigger>

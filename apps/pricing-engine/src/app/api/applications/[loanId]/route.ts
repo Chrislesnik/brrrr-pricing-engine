@@ -27,7 +27,7 @@ function extractIds(raw: any): string[] {
   return []
 }
 
-export async function GET(_req: Request, context: { params: Promise<{ loanId?: string }> }) {
+export async function GET(req: Request, context: { params: Promise<{ loanId?: string }> }) {
   // Accept loanId from path or query string for resilience
   const url = new URL(req.url)
   const params = await context.params

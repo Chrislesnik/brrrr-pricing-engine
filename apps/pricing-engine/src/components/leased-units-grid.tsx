@@ -27,6 +27,7 @@ const unitColumns: ColumnDef<UnitRow>[] = [
     enableSorting: false,
     enableColumnFilter: false,
     meta: {
+      className: "",
       cell: { variant: "short-text" as const },
       readOnly: true,
     },
@@ -40,6 +41,7 @@ const unitColumns: ColumnDef<UnitRow>[] = [
     enableSorting: false,
     enableColumnFilter: false,
     meta: {
+      className: "",
       cell: {
         variant: "select" as const,
         options: [
@@ -58,6 +60,7 @@ const unitColumns: ColumnDef<UnitRow>[] = [
     enableSorting: false,
     enableColumnFilter: false,
     meta: {
+      className: "",
       cell: { variant: "currency-calc" as const },
     },
   },
@@ -70,6 +73,7 @@ const unitColumns: ColumnDef<UnitRow>[] = [
     enableSorting: false,
     enableColumnFilter: false,
     meta: {
+      className: "",
       cell: { variant: "currency-calc" as const },
     },
   },
@@ -110,6 +114,7 @@ export function LeasedUnitsGrid({ data, onDataChange, className }: LeasedUnitsGr
       <DataGrid
         table={table}
         {...gridProps}
+        focusCell={focusCell}
         stretchColumns
         height={gridHeight}
       />

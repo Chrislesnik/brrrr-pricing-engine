@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@repo/ui/shadcn/dialog";
 import { Input } from "@repo/ui/shadcn/input";
-import { Kbd, KbdGroup } from "@repo/ui/shadcn/kbd";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Separator } from "@repo/ui/shadcn/separator";
 
 const SHORTCUT_KEY = "/";
@@ -389,7 +389,7 @@ function DataGridKeyboardShortcutsImpl({
         dir={dir}
         className="max-w-2xl px-0"
         onOpenAutoFocus={onOpenAutoFocus}
-        showCloseButton={false}
+        hideClose
       >
         <DialogClose className="absolute end-6 top-6" asChild>
           <Button variant="ghost" size="icon" className="size-6">

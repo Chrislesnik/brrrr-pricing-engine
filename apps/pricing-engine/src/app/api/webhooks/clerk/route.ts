@@ -4,14 +4,14 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
-function getHeader(_req: NextRequest, name: string): string | undefined {
+function getHeader(req: NextRequest, name: string): string | undefined {
   return req.headers.get(name) ?? undefined
 }
 
-export async function POST(_req: NextRequest) {
-  const svixId = getHeader(_req, "svix-id")
-  const svixTimestamp = getHeader(_req, "svix-timestamp")
-  const svixSignature = getHeader(_req, "svix-signature")
+export async function POST(req: NextRequest) {
+  const svixId = getHeader(req, "svix-id")
+  const svixTimestamp = getHeader(req, "svix-timestamp")
+  const svixSignature = getHeader(req, "svix-signature")
   if (!svixId || !svixTimestamp || !svixSignature) {
     return new Response("Missing Svix headers", { status: 400 })
   }

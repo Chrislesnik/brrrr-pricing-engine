@@ -25,7 +25,7 @@ import {
   FileUpload,
   FileUploadDropzone,
   FileUploadTrigger,
-} from "@repo/ui/shadcn/file-upload"
+} from "@/components/ui/file-upload"
 import { FileThumbnail } from "@/components/pdf-thumbnail"
 
 interface Props {
@@ -196,7 +196,7 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
                       <span className="text-xs text-muted-foreground">Or click to browse (max 5MB each)</span>
                     </div>
                     <FileUploadTrigger asChild>
-                      <Button size="sm" variant="secondary">
+                      <Button className="h-8" variant="secondary">
                         Browse files
                       </Button>
                     </FileUploadTrigger>

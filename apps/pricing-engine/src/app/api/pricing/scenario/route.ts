@@ -39,7 +39,7 @@ function parseGuarantorEmails(inputs: Record<string, unknown> | undefined): stri
   return emails.length > 0 ? emails : []
 }
 
-export async function POST(_req: Request) {
+export async function POST(req: Request) {
   try {
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

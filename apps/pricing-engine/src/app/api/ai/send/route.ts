@@ -11,7 +11,7 @@ type SendBody = {
   prompt: string
 }
 
-export async function POST(_req: Request) {
+export async function POST(req: Request) {
   try {
     const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })

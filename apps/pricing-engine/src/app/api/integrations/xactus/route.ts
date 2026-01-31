@@ -22,7 +22,7 @@ async function ensureXactusIntegration(orgUuid: string, userId: string) {
   return data?.id as string
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
     if (!orgId || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -60,7 +60,7 @@ export async function GET(_req: NextRequest) {
   }
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
     if (!orgId || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

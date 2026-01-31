@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 export const runtime = "nodejs"
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {

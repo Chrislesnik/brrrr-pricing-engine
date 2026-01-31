@@ -52,7 +52,7 @@ import {
   FileUploadList,
   FileUploadTrigger,
   useFileUpload,
-} from "@repo/ui/shadcn/file-upload"
+} from "@/components/ui/file-upload"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import { Progress } from "@repo/ui/shadcn/progress"

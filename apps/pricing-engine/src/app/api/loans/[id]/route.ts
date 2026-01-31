@@ -37,15 +37,15 @@ export async function PATCH(
 }
 
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   // Support POST for status updates, per consumer requirement
-  return PATCH(_req, context)
+  return PATCH(req, context)
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {

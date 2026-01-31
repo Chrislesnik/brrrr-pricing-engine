@@ -59,7 +59,7 @@ function toE164(us: string | undefined | null) {
   return `+1${d}`
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
@@ -176,7 +176,7 @@ export async function POST(_req: NextRequest) {
   }
 }
 
-export const GET = async (_req: NextRequest) => {
+export const GET = async (req: NextRequest) => {
   try {
     const { orgId, userId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
