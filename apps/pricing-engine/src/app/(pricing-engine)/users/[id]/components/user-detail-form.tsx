@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { IconTerminal } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
+import { pricingRoutes } from "@repo/lib/routes"
 import useDialogState from "@/hooks/use-dialog-state"
 import { toast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/shadcn/alert"
@@ -338,7 +339,7 @@ export function UserDetailForm({ user }: Props) {
               </pre>
             ),
           })
-          router.push("/pipeline")
+          router.push(pricingRoutes.pipeline())
         }}
         className="max-w-md"
         title={`Send Reset Password Email?`}

@@ -1,26 +1,15 @@
+import { type LucideIcon } from "lucide-react";
 import {
-  Building,
-  Home,
-  FileBarChart2,
-  ArrowLeftRight,
-  FileSpreadsheet,
-  CreditCard,
-  FileSignature,
-  ArrowDownLeft,
-  ArrowUpRight,
-  ListTree,
-  PieChart,
-  BarChart3,
-  Users,
-  Settings,
-  Plug,
-  Sparkles,
-  Inbox,
-  Apps,
-  User,
-  type LucideIcon,
-} from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding } from "@tabler/icons-react";
+  IconApps,
+  IconSettings,
+  IconUsers,
+  IconUser,
+  IconSparkles,
+  IconInbox,
+  IconPlug,
+  IconBuilding,
+} from "@tabler/icons-react";
+import { pricingRoutes, PRICING_SEGMENTS, isActivePath } from "@repo/lib/routes";
 
 // ============================================================================
 // TYPES
@@ -31,12 +20,12 @@ export interface NavItem {
   url?: string;
   icon?: LucideIcon | React.ComponentType<{ className?: string }>;
   items?: NavItem[];
-  
+
   // RBAC
   requiredPermission?: string;
   denyOrgRoles?: string[];
   allowOrgRoles?: string[];
-  
+
   // UI
   badge?: string;
   disabled?: boolean;
@@ -45,26 +34,33 @@ export interface NavItem {
 }
 
 // ============================================================================
-// ROUTE CONSTANTS
+// RE-EXPORT ROUTE SEGMENTS (for backward compatibility)
 // ============================================================================
 
+export const ROUTE_SEGMENTS = PRICING_SEGMENTS;
+
+// ============================================================================
+// RE-EXPORT ROUTES (for backward compatibility)
+// ============================================================================
+
+/**
+ * @deprecated Use pricingRoutes from @repo/lib/routes instead
+ */
 export const ROUTES = {
-  dashboard: "/dashboard",
-  pipeline: "/pipeline",
-  applications: "/applications",
+  dashboard: pricingRoutes.dashboard(),
+  pipeline: pricingRoutes.pipeline(),
+  applications: pricingRoutes.applications(),
   applicants: {
-    borrowers: "/applicants/borrowers",
-    entities: "/applicants/entities",
+    borrowers: pricingRoutes.applicants.borrowers(),
+    entities: pricingRoutes.applicants.entities(),
   },
-  brokers: "/brokers",
-  aiAgent: "/ai-agent",
+  brokers: pricingRoutes.brokers(),
+  aiAgent: pricingRoutes.aiAgent(),
   settings: {
-    programs: "/settings",
-    integrations: "/settings/integrations",
-    company: "/settings/company",
+    programs: pricingRoutes.settings.programs(),
+    integrations: pricingRoutes.settings.integrations(),
+    company: pricingRoutes.settings.company(),
   },
-  docs: "/docs",
-  resources: "/resources",
 } as const;
 
 // ============================================================================
@@ -77,7 +73,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     items: [
       {
         title: "Pipeline",
-        url: ROUTES.pipeline,
+        url: pricingRoutes.pipeline(),
         icon: IconUsers,
         shortcut: ["P"],
       },
@@ -87,7 +83,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         items: [
           {
             title: "Applications",
-            url: ROUTES.applications,
+            url: pricingRoutes.applications(),
             icon: IconInbox,
             shortcut: ["A"],
           },
@@ -99,13 +95,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         items: [
           {
             title: "Borrowers",
-            url: ROUTES.applicants.borrowers,
+            url: pricingRoutes.applicants.borrowers(),
             icon: IconUser,
             shortcut: ["B"],
           },
           {
             title: "Entities",
-            url: ROUTES.applicants.entities,
+            url: pricingRoutes.applicants.entities(),
             icon: IconBuilding,
             shortcut: ["E"],
           },
@@ -113,14 +109,14 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
       {
         title: "Brokers",
-        url: ROUTES.brokers,
+        url: pricingRoutes.brokers(),
         icon: IconUser,
         denyOrgRoles: ["org:broker", "broker"],
         shortcut: ["K"],
       },
       {
         title: "AI Agent",
-        url: ROUTES.aiAgent,
+        url: pricingRoutes.aiAgent(),
         icon: IconSparkles,
         shortcut: ["I"],
       },
@@ -131,18 +127,18 @@ export const NAVIGATION_CONFIG: NavItem[] = [
           {
             title: "Programs",
             icon: IconApps,
-            url: ROUTES.settings.programs,
+            url: pricingRoutes.settings.programs(),
             requiredPermission: "org:manage_programs",
           },
           {
             title: "Integrations",
             icon: IconPlug,
-            url: ROUTES.settings.integrations,
+            url: pricingRoutes.settings.integrations(),
           },
           {
             title: "Company",
             icon: IconUser,
-            url: ROUTES.settings.company,
+            url: pricingRoutes.settings.company(),
             // Visible only to broker role
             allowOrgRoles: ["org:broker", "broker"],
           },
@@ -182,4 +178,23 @@ export function getBreadcrumbSegments(pathname: string): { label: string; href?:
       href,
     };
   });
+}
+
+/**
+ * Check if a navigation item is currently active based on the current path.
+ * Re-exported from @repo/lib/routes for convenience.
+ */
+export { isActivePath };
+
+/**
+ * Check if a navigation item should be highlighted as active.
+ * Handles both exact matches and child route matches.
+ *
+ * @param currentPath - The current browser path
+ * @param navItem - The navigation item to check
+ * @returns Whether the nav item should be shown as active
+ */
+export function isNavItemActive(currentPath: string, navItem: NavItem): boolean {
+  if (!navItem.url) return false;
+  return isActivePath(currentPath, navItem.url);
 }
