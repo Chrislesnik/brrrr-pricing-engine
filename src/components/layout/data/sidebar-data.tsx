@@ -1,4 +1,4 @@
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconPalette } from "@tabler/icons-react"
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconPalette, IconFileText } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
@@ -90,6 +90,11 @@ export const sidebarData: SidebarData = {
               title: "Integrations",
               icon: IconPlug,
               url: "/settings/integrations",
+            },
+            {
+              title: "Term Sheet Editor",
+              icon: IconFileText,
+              url: "/settings/term-sheet-editor",
             },
             {
               title: "Company",
