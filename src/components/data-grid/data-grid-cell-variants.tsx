@@ -2346,7 +2346,11 @@ export function CurrencyCalcCell<TData>({
       ) : (
         <span data-slot="grid-cell-content" className="flex items-center">
           <span className="text-muted-foreground mr-0.5">$</span>
-          {displayValue || "0.00"}
+          {displayValue ? (
+            displayValue
+          ) : (
+            <span className="text-muted-foreground/50 italic">0.00</span>
+          )}
         </span>
       )}
     </DataGridCellWrapper>
