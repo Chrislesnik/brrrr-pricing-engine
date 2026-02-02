@@ -2135,11 +2135,16 @@ export default function PricingEnginePage() {
     const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
     if (Array.isArray(unitsFromPayload)) {
       const normalized = unitsFromPayload.map(
-        (u: { leased?: "yes" | "no"; gross?: string | number | null; market?: string | number | null }) => ({
-        leased: (u?.leased as "yes" | "no" | undefined) ?? undefined,
-          gross: u?.gross != null ? String(u.gross) : "",
-          market: u?.market != null ? String(u.market) : "",
-        })
+        (u: { leased?: "yes" | "no"; gross?: string | number | null; market?: string | number | null; gross_rent?: string | number | null; market_rent?: string | number | null }) => {
+          // Support both "gross"/"market" and legacy "gross_rent"/"market_rent" field names
+          const grossVal = u?.gross ?? u?.gross_rent
+          const marketVal = u?.market ?? u?.market_rent
+          return {
+            leased: (u?.leased as "yes" | "no" | undefined) ?? undefined,
+            gross: grossVal != null ? String(grossVal) : "",
+            market: marketVal != null ? String(marketVal) : "",
+          }
+        }
       )
       hydrateUnitsRef.current = normalized
       if (normalized.length > 0) {
