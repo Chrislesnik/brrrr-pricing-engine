@@ -6,21 +6,11 @@
   "exports": {
     "./cn": "./src/utils/cn.ts",
     "./filter-countries": "./src/utils/filter-countries.ts",
-    "./google-maps": "./src/utils/google-maps.ts",
-    "./routes": "./src/routes/index.ts",
-    "./routes/path": "./src/routes/path.ts",
-    "./routes/active": "./src/routes/active.ts",
-    "./routes/origins": "./src/routes/origins.ts",
-    "./routes/tags": "./src/routes/tags.ts",
-    "./routes/apps/pricing": "./src/routes/apps/pricing.ts",
-    "./routes/apps/docs": "./src/routes/apps/docs.ts",
-    "./routes/apps/resources": "./src/routes/apps/resources.ts"
+    "./google-maps": "./src/utils/google-maps.ts"
   },
   "scripts": {
     "lint": "eslint --max-warnings 0",
-    "check-types": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -32,7 +22,6 @@
     "@repo/typescript-config": "workspace:*",
     "@types/react": "^19",
     "eslint": "^9",
-    "typescript": "^5.7.3",
-    "vitest": "^2.1.8"
+    "typescript": "^5.7.3"
   }
 }

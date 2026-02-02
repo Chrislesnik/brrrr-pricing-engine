@@ -46,7 +46,7 @@ export default function PipelinePage() {
         </Breadcrumb>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex-none text-xl font-bold tracking-tight">
-            Deals Pipeline
+            Loan Pipeline
           </h2>
           <UserPrimaryActions />
         </div>

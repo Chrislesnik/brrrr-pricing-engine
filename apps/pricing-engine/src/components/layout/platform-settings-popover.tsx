@@ -4,7 +4,6 @@ import Link from "next/link";
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
-import { pricingRoutes } from "@repo/lib/routes";
 import {
   Plug,
   ExternalLink,
@@ -81,11 +80,11 @@ export function PlatformSettingsPopover({
 
   // Check if org settings routes are active
   const isOrgSettingsActive =
-    organization && pathname.includes(pricingRoutes.org.settings(organization.id));
+    organization && pathname.includes(`/org/${organization.id}/settings`);
 
   // Build org settings base URL
   const orgSettingsBaseUrl = organization
-    ? pricingRoutes.org.settings(organization.id)
+    ? `/org/${organization.id}/settings`
     : null;
 
   const handleBrexClick = (e: React.MouseEvent) => {

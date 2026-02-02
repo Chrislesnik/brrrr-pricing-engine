@@ -28,7 +28,6 @@ import {
 } from "@repo/ui/shadcn/command";
 
 import { NAVIGATION_CONFIG, flattenNavigation, type NavItem } from "@/app/(pricing-engine)/config/navigation";
-import { pricingRoutes } from "@repo/lib/routes";
 
 interface AppCommandDialogProps {
   open: boolean;
@@ -180,7 +179,7 @@ export function AppCommandDialog({
           <CommandItem
             onSelect={() =>
               runCommand(() => {
-                router.push(pricingRoutes.settings.root());
+                 router.push("/settings");
               })
             }
           >

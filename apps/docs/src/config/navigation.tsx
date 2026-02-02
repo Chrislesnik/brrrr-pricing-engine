@@ -1,5 +1,4 @@
 import { BookOpen, Code, Webhook, FileText, type LucideIcon } from "lucide-react";
-import { docsRoutes } from "@repo/lib/routes";
 
 export interface NavItem {
   title: string;
@@ -8,8 +7,8 @@ export interface NavItem {
 }
 
 export const DOCS_NAV_ITEMS: NavItem[] = [
-  { title: "Getting Started", href: docsRoutes.gettingStarted(), icon: BookOpen },
-  { title: "API Reference", href: docsRoutes.api(), icon: Code },
-  { title: "Webhooks", href: docsRoutes.webhooks(), icon: Webhook },
-  { title: "All Documentation", href: docsRoutes.root(), icon: FileText },
+  { title: "Getting Started", href: "/docs/getting-started", icon: BookOpen },
+  { title: "API Reference", href: "/docs/api", icon: Code },
+  { title: "Webhooks", href: "/docs/webhooks", icon: Webhook },
+  { title: "All Documentation", href: "/docs", icon: FileText },
 ];
