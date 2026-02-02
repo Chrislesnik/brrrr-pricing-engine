@@ -469,6 +469,30 @@ export function StudioEditorWrapper({
             onEditorReady(editor)
           }
           
+          // Remove the "Save content" button from the toolbar
+          // We use our own Save button instead
+          setTimeout(() => {
+            try {
+              // Find and hide any button with "Save content" tooltip
+              const container = document.querySelector('.gs-studio-root')
+              if (container) {
+                const allButtons = container.querySelectorAll('button')
+                allButtons.forEach((btn) => {
+                  const tooltip = btn.getAttribute('data-tooltip') || 
+                                  btn.getAttribute('title') || 
+                                  btn.getAttribute('aria-label') ||
+                                  btn.textContent
+                  if (tooltip && tooltip.toLowerCase().includes('save')) {
+                    btn.style.display = 'none'
+                    console.log('[StudioEditor] Hidden save button:', tooltip)
+                  }
+                })
+              }
+            } catch (err) {
+              console.debug('Could not hide save button:', err)
+            }
+          }, 500)
+          
           // Set up save functionality
           if (onSave) {
             // Helper function to extract and save content
