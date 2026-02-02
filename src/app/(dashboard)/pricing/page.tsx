@@ -2408,7 +2408,7 @@ export default function PricingEnginePage() {
                     className="h-9 w-full"
                   />
                 ) : (
-                <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
+                <Select value={selectedScenarioId ?? ""} onValueChange={setSelectedScenarioId}>
                   <SelectTrigger disabled={scenariosList.length === 0} className="h-9 w-full">
                     <SelectValue placeholder={scenariosList.length === 0 ? "No scenarios" : "Select..."} />
                   </SelectTrigger>
