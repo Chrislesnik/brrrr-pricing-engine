@@ -336,16 +336,28 @@ export default function TermSheetEditorPage() {
   // Track the last loaded template ID to avoid redundant fetches
   const lastLoadedTemplateIdRef = useRef<string | null>(null)
 
+  // Track if fields have been loaded for current template
+  const fieldsLoadedForTemplateRef = useRef<string | null>(null)
+
   // Fetch template and fields by ID when URL has template param
   useEffect(() => {
     if (!templateId) return
     
-    // Skip if we already loaded this template's data
-    if (lastLoadedTemplateIdRef.current === templateId && currentTemplate?.id === templateId) {
+    console.log('[TermSheetEditor] useEffect - templateId:', templateId, 
+      'lastLoaded:', lastLoadedTemplateIdRef.current,
+      'fieldsLoaded:', fieldsLoadedForTemplateRef.current,
+      'currentTemplate:', currentTemplate?.id)
+    
+    // Check if we need to fetch template
+    const needsTemplate = !currentTemplate || currentTemplate.id !== templateId
+    // Check if we need to fetch fields (always fetch if template changed)
+    const needsFields = fieldsLoadedForTemplateRef.current !== templateId
+    
+    // Skip only if we have both template and fields loaded for this templateId
+    if (!needsTemplate && !needsFields) {
+      console.log('[TermSheetEditor] Skipping fetch - already loaded')
       return
     }
-    
-    const needsTemplate = !currentTemplate || currentTemplate.id !== templateId
     
     setLoadingTemplate(needsTemplate)
     setTemplateError(null)
@@ -375,10 +387,13 @@ export default function TermSheetEditorPage() {
     
     Promise.all(promises)
       .then(([templateData, fieldsData]) => {
+        console.log('[TermSheetEditor] Fetched - template:', templateData?.template?.name, 'fields:', fieldsData?.fields?.length)
         if (templateData) {
           setCurrentTemplate(templateData.template)
         }
         setFields(fieldsData.fields || [])
+        // Mark fields as loaded for this template
+        fieldsLoadedForTemplateRef.current = templateId
       })
       .catch(e => {
         setTemplateError(e.message)
@@ -394,6 +409,8 @@ export default function TermSheetEditorPage() {
     setFields([])
     setPreviewValues({})
     setPreviewApplyCounter(0)
+    // Reset fields loaded ref to force re-fetch
+    fieldsLoadedForTemplateRef.current = null
     // Set template immediately (has html_content for editor)
     setCurrentTemplate(template)
     router.push(`/settings/term-sheet-editor?template=${template.id}`)
@@ -438,6 +455,9 @@ export default function TermSheetEditorPage() {
     setPreviewValues({})
     setPreviewApplyCounter(0)
     setTemplateError(null)
+    // Reset refs
+    lastLoadedTemplateIdRef.current = null
+    fieldsLoadedForTemplateRef.current = null
     router.push("/settings/term-sheet-editor")
   }, [router])
 
