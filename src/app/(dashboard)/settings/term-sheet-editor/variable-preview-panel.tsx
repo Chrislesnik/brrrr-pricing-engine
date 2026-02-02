@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { IconTestPipe, IconRefresh, IconPlayerPlay } from "@tabler/icons-react"
-import { Field } from "./field-types"
+import { Field, FieldType, getTypeColors } from "./field-types"
+import { cn } from "@/lib/utils"
 
 interface VariablePreviewPanelProps {
   fields: Field[]
@@ -133,7 +134,13 @@ export function VariablePreviewPanel({
                   {field.required && (
                     <span className="text-destructive">*</span>
                   )}
-                  <span className="ml-auto text-[10px] opacity-60">{field.type}</span>
+                  <span className={cn(
+                    "ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded",
+                    getTypeColors(field.type).bg,
+                    getTypeColors(field.type).text
+                  )}>
+                    {field.type}
+                  </span>
                 </Label>
                 <Input
                   id={`preview-${field.id}`}

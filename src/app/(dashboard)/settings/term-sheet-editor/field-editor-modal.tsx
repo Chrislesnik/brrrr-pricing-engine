@@ -29,7 +29,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react"
 import { Switch } from "@/components/ui/switch"
-import { Field, FieldType } from "./field-types"
+import { Field, FieldType, typeColorConfig, getTypeColors } from "./field-types"
 import {
   KeyValue,
   KeyValueList,
@@ -65,17 +65,43 @@ function FieldTypeSelect({ fieldTypes }: { fieldTypes: FieldType[] }) {
     store.setState("value", newValue)
   }
 
+  const colors = getTypeColors(itemData.value)
+
   return (
     <Select value={itemData.value} onValueChange={handleTypeChange}>
-      <SelectTrigger className="w-[130px] shrink-0 bg-primary/10 text-primary border-primary/20">
+      <SelectTrigger className={cn(
+        "w-[130px] shrink-0 font-medium transition-colors",
+        colors.bg,
+        colors.text,
+        colors.border
+      )}>
         <SelectValue placeholder="Select type" />
       </SelectTrigger>
       <SelectContent className="z-[100002]" position="popper" sideOffset={4}>
-        {fieldTypes.map((type) => (
-          <SelectItem key={type} value={type}>
-            {type}
-          </SelectItem>
-        ))}
+        {fieldTypes.map((type) => {
+          const typeColors = getTypeColors(type)
+          return (
+            <SelectItem 
+              key={type} 
+              value={type}
+              className={cn(
+                "font-medium transition-colors",
+                typeColors.text,
+                typeColors.hover
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <span className={cn(
+                  "h-2 w-2 rounded-full",
+                  typeColors.bg,
+                  typeColors.border,
+                  "border"
+                )} />
+                {type}
+              </span>
+            </SelectItem>
+          )
+        })}
       </SelectContent>
     </Select>
   )

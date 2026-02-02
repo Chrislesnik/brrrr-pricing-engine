@@ -13,53 +13,6 @@ export interface TermSheetTemplate {
 }
 
 // Default blank template HTML for new templates
-export const defaultTemplateHtml = `<!DOCTYPE html>
-<html>
-  <body style="padding: 40px; font-family: Arial, Helvetica, sans-serif">
-    <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
-      <div>
-        <h1 style="margin: 0; font-size: 28px;">TERM SHEET</h1>
-        <p style="margin: 8px 0 4px 0; color: #666;">Loan Reference: #TS-00000</p>
-        <p style="margin: 4px 0; color: #666;">Date: ${new Date().toLocaleDateString()}</p>
-      </div>
-      <div style="text-align: right; line-height: 1.6;">
-        <strong style="font-size: 16px;">Your Company Name</strong><br />
-        123 Business Street<br />
-        City, State ZIP
-      </div>
-    </header>
-
-    <section style="margin-bottom: 30px;">
-      <h3 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: #333; border-bottom: 2px solid #333; padding-bottom: 4px;">Borrower Information</h3>
-      <div style="line-height: 1.6;">
-        <strong>Borrower Name:</strong> [Borrower Name]<br/>
-        <strong>Entity:</strong> [Entity Name, LLC]<br/>
-        <strong>Address:</strong> [Street Address, City, State ZIP]<br/>
-      </div>
-    </section>
-
-    <section style="margin-bottom: 30px;">
-      <h3 style="margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: #333; border-bottom: 2px solid #333; padding-bottom: 4px;">Loan Terms</h3>
-      <table style="width: 100%; border-collapse: collapse;">
-        <tbody>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; width: 40%; background: #f9f9f9;"><strong>Loan Amount</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">$0.00</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;"><strong>Interest Rate</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">0.00%</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;"><strong>Loan Term</strong></td>
-            <td style="padding: 10px; border: 1px solid #ddd;">0 Months</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <footer style="text-align: center; font-size: 11px; color: #888; border-top: 1px solid #ddd; padding-top: 20px;">
-      <p style="margin: 4px 0;">This term sheet is for discussion purposes only and does not constitute a commitment to lend.</p>
-    </footer>
-  </body>
-</html>`
+// Note: presetPrintable needs at least one component/element to recognize it as valid content
+// An empty body will cause the plugin to inject its own default template
+export const defaultTemplateHtml = `<div data-gjs-type="wrapper" style="padding: 40px; font-family: Arial, Helvetica, sans-serif; min-height: 100vh;"></div>`

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
@@ -323,47 +323,78 @@ export default function TermSheetEditorPage() {
   }, [fields, previewValues])
 
   // Generate variable options for RTE toolbar from fields
-  // Keep simple format for user-friendly insertion
+  // Include type for styled widget rendering in the editor
   const variableOptions = useMemo(() => 
     fields.map(field => ({
-      id: `{{${field.name}}}`,
-      label: field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      id: field.name,  // Raw field name - wrapper builds the HTML
+      label: field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      type: field.type
     })),
     [fields]
   )
 
+  // Track the last loaded template ID to avoid redundant fetches
+  const lastLoadedTemplateIdRef = useRef<string | null>(null)
+
   // Fetch template and fields by ID when URL has template param
   useEffect(() => {
-    if (templateId && !currentTemplate) {
-      setLoadingTemplate(true)
-      setTemplateError(null)
-      
-      // Fetch template and fields in parallel
-      Promise.all([
+    if (!templateId) return
+    
+    // Skip if we already loaded this template's data
+    if (lastLoadedTemplateIdRef.current === templateId && currentTemplate?.id === templateId) {
+      return
+    }
+    
+    const needsTemplate = !currentTemplate || currentTemplate.id !== templateId
+    
+    setLoadingTemplate(needsTemplate)
+    setTemplateError(null)
+    lastLoadedTemplateIdRef.current = templateId
+    
+    // Build fetch promises
+    const promises: Promise<any>[] = []
+    
+    if (needsTemplate) {
+      promises.push(
         fetch(`/api/term-sheet-templates/${templateId}`).then(res => {
           if (!res.ok) throw new Error("Template not found")
           return res.json()
-        }),
-        fetch(`/api/term-sheet-templates/${templateId}/fields`).then(res => {
-          if (!res.ok) throw new Error("Failed to load fields")
-          return res.json()
         })
-      ])
-        .then(([templateData, fieldsData]) => {
-          setCurrentTemplate(templateData.template)
-          setFields(fieldsData.fields || [])
-        })
-        .catch(e => {
-          setTemplateError(e.message)
-        })
-        .finally(() => {
-          setLoadingTemplate(false)
-        })
+      )
+    } else {
+      promises.push(Promise.resolve(null))
     }
+    
+    // Always fetch fields for the template
+    promises.push(
+      fetch(`/api/term-sheet-templates/${templateId}/fields`).then(res => {
+        if (!res.ok) throw new Error("Failed to load fields")
+        return res.json()
+      })
+    )
+    
+    Promise.all(promises)
+      .then(([templateData, fieldsData]) => {
+        if (templateData) {
+          setCurrentTemplate(templateData.template)
+        }
+        setFields(fieldsData.fields || [])
+      })
+      .catch(e => {
+        setTemplateError(e.message)
+      })
+      .finally(() => {
+        setLoadingTemplate(false)
+      })
   }, [templateId, currentTemplate])
 
   // Handle selecting a template from gallery
   const handleSelectTemplate = useCallback((template: TermSheetTemplate) => {
+    // Reset fields state - will be fetched by useEffect
+    setFields([])
+    setPreviewValues({})
+    setPreviewApplyCounter(0)
+    // Set template immediately (has html_content for editor)
     setCurrentTemplate(template)
     router.push(`/settings/term-sheet-editor?template=${template.id}`)
   }, [router])
@@ -387,6 +418,11 @@ export default function TermSheetEditorPage() {
       }
       
       const data = await res.json()
+      // Reset fields for the new template (it has no fields yet)
+      setFields([])
+      // Reset preview values
+      setPreviewValues({})
+      setPreviewApplyCounter(0)
       setCurrentTemplate(data.template)
       router.push(`/settings/term-sheet-editor?template=${data.template.id}`)
     } catch (e) {
@@ -396,13 +432,23 @@ export default function TermSheetEditorPage() {
 
   // Handle going back to gallery
   const handleBackToGallery = useCallback(() => {
+    // Reset all template-specific state
     setCurrentTemplate(null)
+    setFields([])
+    setPreviewValues({})
+    setPreviewApplyCounter(0)
     setTemplateError(null)
     router.push("/settings/term-sheet-editor")
   }, [router])
 
   // Get the current template for editor
   const editorTemplate = useMemo(() => {
+    console.log('[TermSheetEditor] Computing editorTemplate:', { 
+      currentTemplate: currentTemplate?.name, 
+      html_content_length: currentTemplate?.html_content?.length,
+      isNewTemplate, 
+      templateName 
+    })
     if (currentTemplate) return currentTemplate
     if (isNewTemplate) {
       return {
