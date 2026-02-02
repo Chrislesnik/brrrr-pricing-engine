@@ -2035,14 +2035,14 @@ export default function PricingEnginePage() {
     if (!areUnitRowsVisible) return true
     // Only validate the visible rows (first numUnits), not stale rows in unitData
     const visibleRows = unitData.slice(0, numUnits ?? 0)
-    return visibleRows.every(
-      (u) =>
-        (u.leased === "yes" || u.leased === "no") &&
-        typeof u.gross === "string" &&
-        u.gross !== "" &&
-        typeof u.market === "string" &&
-        u.market !== ""
-    )
+    return visibleRows.every((u) => {
+      // Leased: accept "yes", "no", or any truthy selection
+      const hasLeased = u.leased === "yes" || u.leased === "no"
+      // Gross/Market: accept any non-null/undefined value (including "0", "0.00")
+      const hasGross = u.gross != null && u.gross !== ""
+      const hasMarket = u.market != null && u.market !== ""
+      return hasLeased && hasGross && hasMarket
+    })
   }, [areUnitRowsVisible, unitData, numUnits])
   // Returns array of missing required field labels (only checks VISIBLE fields)
   const missingFields = useMemo(() => {
