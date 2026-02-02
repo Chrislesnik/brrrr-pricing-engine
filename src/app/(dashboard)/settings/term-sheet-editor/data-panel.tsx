@@ -100,7 +100,7 @@ export function DataPanel({ fields, onOpenFieldEditor, onDragStart }: DataPanelP
                   className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-grab active:cursor-grabbing group transition-colors"
                 >
                   <IconGripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground" />
-                  <span className="text-amber-500 font-mono text-sm font-medium">Tt</span>
+                  <span className="text-primary font-mono text-sm font-medium">Tt</span>
                   <span className="text-sm font-mono truncate flex-1">{field.name}</span>
                 </div>
               ))}
@@ -114,7 +114,7 @@ export function DataPanel({ fields, onOpenFieldEditor, onDragStart }: DataPanelP
         <Button
           variant="outline"
           size="sm"
-          className="w-full text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/30"
+          className="w-full text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
           onClick={onOpenFieldEditor}
         >
           <IconSettings className="h-4 w-4 mr-2" />

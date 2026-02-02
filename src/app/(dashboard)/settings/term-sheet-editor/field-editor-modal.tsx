@@ -63,7 +63,7 @@ function FieldTypeSelect({ fieldTypes }: { fieldTypes: FieldType[] }) {
 
   return (
     <Select value={itemData.value} onValueChange={handleTypeChange}>
-      <SelectTrigger className="w-[130px] shrink-0 bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700">
+      <SelectTrigger className="w-[130px] shrink-0 bg-primary/10 text-primary border-primary/20">
         <SelectValue placeholder="Select type" />
       </SelectTrigger>
       <SelectContent className="z-[100002]" position="popper" sideOffset={4}>
@@ -169,10 +169,15 @@ export function FieldEditorModal({
         <DialogPrimitive.Overlay className="fixed inset-0 z-[100000] bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           className={cn(
-            "fixed left-[50%] top-[50%] z-[100001] flex w-full max-w-2xl h-[70vh] translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg"
+            "fixed z-[100001] flex w-full max-w-2xl h-[70vh] flex-col overflow-hidden border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg"
           )}
+          style={{
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+          }}
         >
-        <DialogHeader className="flex-none">
+        <DialogHeader className="flex-none pb-4">
           <DialogTitle className="flex items-center gap-2">
             <IconTypography className="h-5 w-5" />
             Field Editor
@@ -254,7 +259,7 @@ export function FieldEditorModal({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button onClick={handleSave} className="bg-amber-500 hover:bg-amber-600 text-white dark:bg-amber-600 dark:hover:bg-amber-700">
+            <Button onClick={handleSave} className="bg-primary text-primary-foreground hover:bg-primary/90">
               Save
             </Button>
           </div>
