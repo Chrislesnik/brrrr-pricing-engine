@@ -26,7 +26,7 @@ export type PermissionRow = {
 };
 
 export type RbacMatrixPayload = {
-  orgPk: number;
+  orgPk: string; // UUID in your schema
   roles: DealRoleTypeRow[];
   categories: DocumentCategoryRow[];
   permissions: PermissionRow[];
@@ -80,16 +80,16 @@ async function requireAuthAndOrg() {
 }
 
 async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: string) {
-  // First try to get existing org
+  // Query the existing organizations table
   const { data, error } = await supabase
-    .from("auth_clerk_orgs")
+    .from("organizations")
     .select("id")
-    .eq("clerk_org_id", orgId)
+    .eq("clerk_organization_id", orgId)
     .single();
 
   // If org exists, return it
   if (data?.id) {
-    return data.id as number;
+    return data.id as string;
   }
 
   // If error is not "not found", throw it
@@ -103,31 +103,35 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     throw new Error(
       `Failed to fetch organization from Supabase: ${error.message}. ` +
       `Error code: ${error.code}. ` +
-      `This might be a Row Level Security (RLS) policy issue or the auth_clerk_orgs table may not exist. ` +
-      `Please run the database migration: apps/pricing-engine/supabase/migrations/20260202_create_auth_clerk_orgs.sql`
+      `This might be a Row Level Security (RLS) policy issue. ` +
+      `Ensure the organizations table has appropriate RLS policies configured.`
     );
   }
 
-  // Org doesn't exist, try to create it using the upsert function
+  // Org doesn't exist, create it
   console.log(`Organization ${orgId} not found, creating it...`);
-  const { data: newOrgId, error: upsertError } = await supabase
-    .rpc("upsert_clerk_org", {
-      p_clerk_org_id: orgId,
-    });
+  const { data: newOrg, error: insertError } = await supabase
+    .from("organizations")
+    .insert({
+      clerk_organization_id: orgId,
+      name: "New Organization", // Will be updated when org details are fetched
+    })
+    .select("id")
+    .single();
 
-  if (upsertError) {
-    console.error("Failed to create organization:", upsertError);
+  if (insertError) {
+    console.error("Failed to create organization:", insertError);
     throw new Error(
-      `Failed to create organization mapping in Supabase: ${upsertError.message}. ` +
-      `Please ensure the migration has been run and RLS policies are configured correctly.`
+      `Failed to create organization in Supabase: ${insertError.message}. ` +
+      `Please ensure RLS policies allow organization creation.`
     );
   }
 
-  if (!newOrgId) {
+  if (!newOrg?.id) {
     throw new Error("Failed to create organization - no ID returned");
   }
 
-  return newOrgId as number;
+  return newOrg.id as string;
 }
 
 // Loader
@@ -171,7 +175,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
 
 // Save (bulk upsert)
 export async function saveDocumentRbacMatrix(input: {
-  orgPk: number;
+  orgPk: string; // UUID
   rows: PermissionRow[];
 }): Promise<{ ok: true; updated: number }> {
   const { token } = await requireAuthAndOrg();
@@ -198,12 +202,18 @@ export async function saveDocumentRbacMatrix(input: {
   return { ok: true, updated: upsertRows.length };
 }
 
-// Reset to template
-export async function resetOrgDocumentPermissions(orgPk: number): Promise<{ ok: true }> {
+// Reset to template (delete all org-specific permissions to fall back to global template)
+export async function resetOrgDocumentPermissions(orgPk: string): Promise<{ ok: true }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
-  const { error } = await supabase.rpc("reset_org_document_permissions", { p_org_id: orgPk });
+  // Delete all organization-specific permissions
+  // This will cause the system to fall back to global template permissions
+  const { error } = await supabase
+    .from("document_access_permissions")
+    .delete()
+    .eq("clerk_org_id", orgPk);
+
   if (error) throw new Error(error.message);
 
   return { ok: true };
