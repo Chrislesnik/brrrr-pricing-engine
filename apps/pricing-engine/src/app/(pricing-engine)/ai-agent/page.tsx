@@ -45,8 +45,8 @@ export default function AIAgentPage() {
   const { data: chatsData, isLoading: loadingChats } = useSWR<{ items: Chat[] }>("/api/ai/chats", fetcher)
   const { data: programsData } = useSWR<{ items: Program[] }>("/api/org/programs", fetcher)
 
-  const chats = chatsData?.items ?? []
-  const programs = programsData?.items ?? []
+  const chats = React.useMemo(() => chatsData?.items ?? [], [chatsData?.items])
+  const programs = React.useMemo(() => programsData?.items ?? [], [programsData?.items])
 
   // Local state
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
