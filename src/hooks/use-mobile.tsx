@@ -7,7 +7,8 @@ export function useIsMobile(breakpointPx: number = MOBILE_BREAKPOINT) {
 
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${breakpointPx}px)`)
-    const update = (matches: boolean, phase: "init" | "change") => {      setIsMobile(matches)
+    const update = (matches: boolean, phase: "init" | "change") => {
+      setIsMobile(matches)
     }
 
     const handleMedia = (e: MediaQueryListEvent | MediaQueryList) => update(e.matches, "change")
@@ -17,7 +18,8 @@ export function useIsMobile(breakpointPx: number = MOBILE_BREAKPOINT) {
     mql.addEventListener("change", handleMedia)
 
     return () => {
-      mql.removeEventListener("change", handleMedia)    }
+      mql.removeEventListener("change", handleMedia)
+    }
   }, [breakpointPx])
 
   return !!isMobile

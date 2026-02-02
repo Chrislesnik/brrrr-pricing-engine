@@ -1145,7 +1145,8 @@ export default function PricingEnginePage() {
     }
     const svc = new g.StreetViewService()
     setStreetViewStatus(null)
-    svc.getPanorama({ location: mapsCenter, radius: 50 }, (data: any, status: google.maps.StreetViewStatus) => {      if (status === g.StreetViewStatus.OK && data?.location?.latLng) {
+    svc.getPanorama({ location: mapsCenter, radius: 50 }, (data: any, status: google.maps.StreetViewStatus) => {
+      if (status === g.StreetViewStatus.OK && data?.location?.latLng) {
         const pos = data.location.latLng
         setStreetViewPosition({ lat: pos.lat(), lng: pos.lng() })
       } else {
@@ -1156,7 +1157,8 @@ export default function PricingEnginePage() {
   }, [gmapsReady, mapsCenter, mapsView])
 
   useEffect(() => {
-    if (!mapsModalOpen) return  }, [gmaps, gmapsReady, mapsCenter, mapsLoading, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
+    if (!mapsModalOpen) return
+  }, [gmaps, gmapsReady, mapsCenter, mapsLoading, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
 
   useEffect(() => {
     if (!mapsModalOpen) {
@@ -1170,7 +1172,8 @@ export default function PricingEnginePage() {
     if (!gmaps || !streetViewPanoRef.current) return
     if (!streetViewPosition || streetViewStatus !== gmaps.StreetViewStatus.OK) {
       if (streetViewPanoInstanceRef.current) {
-        streetViewPanoInstanceRef.current.setVisible(false)      }
+        streetViewPanoInstanceRef.current.setVisible(false)
+      }
       return
     }
     let pano = streetViewPanoInstanceRef.current
@@ -1183,16 +1186,19 @@ export default function PricingEnginePage() {
         motionTracking: false,
         motionTrackingControl: false,
       })
-      streetViewPanoInstanceRef.current = pano    } else {
+      streetViewPanoInstanceRef.current = pano
+    } else {
       pano.setPosition(streetViewPosition)
-      pano.setVisible(true)    }
+      pano.setVisible(true)
+    }
   }, [gmaps, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
 
   useEffect(() => {
     return () => {
       if (streetViewPanoInstanceRef.current) {
         streetViewPanoInstanceRef.current.setVisible(false)
-        streetViewPanoInstanceRef.current = null      }
+        streetViewPanoInstanceRef.current = null
+      }
     }
   }, [])
 

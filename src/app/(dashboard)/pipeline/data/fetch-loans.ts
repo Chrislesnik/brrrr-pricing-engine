@@ -16,6 +16,8 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   if (!orgId) return []
   // If no user is provided, show nothing per requirement
   if (!userId) return []
+
+
   const orgUuid = await getOrgUuidFromClerkId(orgId)
   if (!orgUuid) return []
 
@@ -31,10 +33,14 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
     .order("updated_at", { ascending: false })
+
+
   if (loansError) {
     logError("Error fetching loans:", loansError.message)
     return []
   }
+
+
   // Check user's role - admin/owner sees all loans
   const userRole = await getUserRoleInOrg(orgUuid, userId)
   const hasFullAccess = isPrivilegedRole(userRole)
@@ -59,9 +65,13 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .in("loan_id", loanIds)
     .order("primary", { ascending: false })
     .order("created_at", { ascending: false })
+
+
   if (scenariosError) {
     logError("Error fetching loan scenarios:", scenariosError.message)
-  }  type ScenarioRow = {
+  }
+
+  type ScenarioRow = {
     loan_id: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inputs?: Record<string, any>
@@ -91,9 +101,13 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .from("organization_members")
     .select("user_id, first_name, last_name")
     .eq("organization_id", orgUuid)
+
+
   if (membersError) {
     logError("Error fetching organization members:", membersError.message)
-  }  const userIdToName = new Map<string, string>()
+  }
+
+  const userIdToName = new Map<string, string>()
   for (const m of members ?? []) {
     const fullName = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
     if (m.user_id) {

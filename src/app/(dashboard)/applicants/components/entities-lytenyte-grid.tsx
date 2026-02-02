@@ -66,10 +66,13 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 	const [dataVersion, setDataVersion] = useState(0)
 	const [search, setSearch] = useState("")
 	const [assignedFilter, setAssignedFilter] = useState<string[]>([])
+
+
 	// Load owners for entities that are missing in cache
 	useEffect(() => {
 		const ids = rows.map((r) => ownerKey(r)).filter(Boolean) as string[]
-		const missing = ids.filter((id) => ownersMap[id] === undefined)		if (!missing.length) return
+		const missing = ids.filter((id) => ownersMap[id] === undefined)
+		if (!missing.length) return
 		let cancelled = false
 		;(async () => {
 			const entries: Array<[string, EntityOwner[] | null]> = []
@@ -88,7 +91,8 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 					}
 				})
 			)
-			if (cancelled) return			setOwnersMap((prev) => {
+			if (cancelled) return
+			setOwnersMap((prev) => {
 				const next = { ...prev }
 				for (const [id, owners] of entries) next[id] = owners
 				return next
@@ -239,7 +243,8 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 			const data = (row.data ?? null) as EntityProfile | null
 			if (!data) return null
 			const key = ownerKey(data) ?? (row as any)?.id?.toString?.()
-			const owners = key ? (data as any).__owners ?? rowOwners[key] ?? ownersMap[key] : undefined			return (
+			const owners = key ? (data as any).__owners ?? rowOwners[key] ?? ownersMap[key] : undefined
+			return (
 				<div className="w-[320px] max-w-[320px] p-4 text-sm">
 					{!key ? (
 						<div className="text-muted-foreground">Missing entity id</div>
@@ -287,9 +292,13 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 
 	// useLyteNyte returns the grid instance (not an object with grid)
 	const grid = lyte as any
+
+
 	// Guard against grid not being ready yet to avoid runtime errors while the
 	// component mounts or the LyteNyte instance is still initializing.
-	const selectedIds = grid?.state?.rowSelectedIds?.useValue?.() ?? []	useEffect(() => {
+	const selectedIds = grid?.state?.rowSelectedIds?.useValue?.() ?? []
+
+	useEffect(() => {
 		const detailExpansions = grid?.state?.rowDetailExpansions
 		if (!detailExpansions) return
 		detailExpansions.set(new Set(selectedIds))
@@ -312,7 +321,8 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 		)
 	}
 
-	if (!grid) {		return (
+	if (!grid) {
+		return (
 			<div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
 				Loading grid...
 			</div>

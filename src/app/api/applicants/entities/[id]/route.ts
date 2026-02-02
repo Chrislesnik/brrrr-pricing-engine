@@ -79,8 +79,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // Upsert owners if provided: replace existing owners for this entity
     if (Array.isArray(parsed.owners) || ownersRaw.length) {
       await supabaseAdmin.from("entity_owners").delete().eq("entity_id", id).eq("organization_id", orgUuid)
-      const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[] ?? [])      if (source.length > 0) {
-        const ownersRows = buildOwnerRows({ source, entityId: id, orgUuid })        const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)        if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
+      const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[] ?? [])
+      if (source.length > 0) {
+        const ownersRows = buildOwnerRows({ source, entityId: id, orgUuid })
+        const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)
+        if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
         // Link any provided borrower_ids
         // Link borrower_ids only (entity_owner_id is stored on entity_owners)
         const linkables = source.filter((o: any) => (o?.borrower_id || o?.borrowerId))

@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
     const reqId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
     const json = await req.json()
     const parsed = schema.parse(json)
     // Preserve raw owners from the request to avoid losing camelCase fields during validation
@@ -88,12 +89,16 @@ export async function POST(req: NextRequest) {
         organization_id: orgUuid,
       })
       .select("*")
-      .single()    if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 })
+      .single()
+    if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 })
 
     // 2) Insert owners
     if ((parsed.owners && parsed.owners.length) || ownersRaw.length) {
       // Prefer raw array for borrower_id/borrowerId pass-through if available
-      const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[])      const ownersRows = buildOwnerRows({ source, entityId: entity.id, orgUuid })      const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)      if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
+      const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[])
+      const ownersRows = buildOwnerRows({ source, entityId: entity.id, orgUuid })
+      const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)
+      if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
 
       // Link any owners that reference an existing borrower
       const linkables = source.filter((o: any) => (o?.borrower_id || o?.borrowerId))
@@ -128,11 +133,13 @@ export async function POST(req: NextRequest) {
     }
     if (singleOwnerBorrowerId) {
       loanInsert.borrower_id = singleOwnerBorrowerId
-    }    const { data: loanRow, error: loanErr } = await supabaseAdmin
+    }
+    const { data: loanRow, error: loanErr } = await supabaseAdmin
       .from("loans")
       .insert(loanInsert)
       .select("*")
-      .single()    if (loanErr) return NextResponse.json({ error: loanErr.message }, { status: 500 })
+      .single()
+    if (loanErr) return NextResponse.json({ error: loanErr.message }, { status: 500 })
 
     const borrowerName =
       (singleOwnerBorrowerId as string | null) || parsed.link_borrower_id
