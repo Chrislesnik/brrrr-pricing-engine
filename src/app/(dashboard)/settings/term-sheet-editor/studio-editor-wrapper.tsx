@@ -420,8 +420,10 @@ export function StudioEditorWrapper({
                           onClick: () => editor.runCommand("presetPrintable:print"),
                         },
                         ...items.filter(
-                          (item: { id: string }) =>
-                            !["showImportCode", "fullscreen", "store", "saveDb"].includes(item.id)
+                          (item: { id: string }) => {
+                            console.log('[GrapesJS] Toolbar button:', item.id)
+                            return !["showImportCode", "fullscreen", "store", "saveDb", "cmdStore", "cmdSave"].includes(item.id)
+                          }
                         ),
                         {
                           id: "zoom-out",
