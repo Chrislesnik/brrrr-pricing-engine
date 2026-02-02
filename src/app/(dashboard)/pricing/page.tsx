@@ -2724,7 +2724,7 @@ export default function PricingEnginePage() {
                         <Label htmlFor="loan-type">
                           Loan Type <span className="text-red-600">*</span>
                         </Label>
-                        <Select value={loanType} onValueChange={setLoanType}>
+                        <Select value={loanType ?? ""} onValueChange={setLoanType}>
                           <SelectTrigger id="loan-type" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
@@ -2758,7 +2758,7 @@ export default function PricingEnginePage() {
                           <Label htmlFor="bridge-type">
                             Bridge Type <span className="text-red-600">*</span>
                           </Label>
-                          <Select value={bridgeType} onValueChange={setBridgeType}>
+                          <Select value={bridgeType ?? ""} onValueChange={setBridgeType}>
                             <SelectTrigger id="bridge-type" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -3089,7 +3089,7 @@ export default function PricingEnginePage() {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                          <Select value={otherExp} onValueChange={setOtherExp}>
+                          <Select value={otherExp ?? ""} onValueChange={setOtherExp}>
                             <SelectTrigger id="other-exp" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -3242,7 +3242,7 @@ export default function PricingEnginePage() {
                           <Label htmlFor="state">
                             State <span className="text-red-600">*</span>
                           </Label>
-                          <Select value={stateCode} onValueChange={setStateCode}>
+                          <Select value={stateCode ?? ""} onValueChange={setStateCode}>
                             <SelectTrigger id="state" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -3306,7 +3306,7 @@ export default function PricingEnginePage() {
                         {propertyType === "condo" ? (
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="warrantability">Warrantability</Label>
-                            <Select value={warrantability} onValueChange={setWarrantability}>
+                            <Select value={warrantability ?? ""} onValueChange={setWarrantability}>
                               <SelectTrigger id="warrantability" className="h-9 w-full">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
