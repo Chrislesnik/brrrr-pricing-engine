@@ -469,29 +469,68 @@ export function StudioEditorWrapper({
             onEditorReady(editor)
           }
           
-          // Remove the "Save content" button from the toolbar
+          // Remove the "Save content" button from the toolbar using GrapesJS Panels API
           // We use our own Save button instead
+          try {
+            // Try GrapesJS Panels API to remove save button
+            const panels = editor.Panels
+            if (panels) {
+              // Try various panel/button IDs that might contain the save button
+              const panelIds = ['options', 'views', 'views-actions', 'commands', 'devices-c']
+              const buttonIds = ['sw-visibility', 'export-template', 'open-sm', 'open-tm', 'open-layers', 
+                                 'open-blocks', 'store', 'save', 'saveDb', 'gjs-open-import-webpage']
+              
+              panelIds.forEach(panelId => {
+                buttonIds.forEach(btnId => {
+                  try {
+                    panels.removeButton(panelId, btnId)
+                  } catch (e) { /* ignore */ }
+                })
+              })
+              
+              // Get all panels and log their buttons for debugging
+              const allPanels = panels.getPanels()
+              allPanels.forEach((panel: any) => {
+                const buttons = panel.get('buttons')
+                if (buttons) {
+                  buttons.forEach((btn: any) => {
+                    console.log('[StudioEditor] Panel:', panel.id, 'Button:', btn.id, btn.get('command'))
+                  })
+                }
+              })
+            }
+          } catch (err) {
+            console.debug('Could not access Panels API:', err)
+          }
+          
+          // Also try DOM manipulation as fallback
           setTimeout(() => {
             try {
-              // Find and hide any button with "Save content" tooltip
               const container = document.querySelector('.gs-studio-root')
               if (container) {
-                const allButtons = container.querySelectorAll('button')
-                allButtons.forEach((btn) => {
-                  const tooltip = btn.getAttribute('data-tooltip') || 
-                                  btn.getAttribute('title') || 
-                                  btn.getAttribute('aria-label') ||
-                                  btn.textContent
-                  if (tooltip && tooltip.toLowerCase().includes('save')) {
-                    btn.style.display = 'none'
-                    console.log('[StudioEditor] Hidden save button:', tooltip)
+                // Target the specific floppy disk SVG icon
+                const allButtons = container.querySelectorAll('button, [role="button"]')
+                allButtons.forEach((btn: Element) => {
+                  const htmlBtn = btn as HTMLElement
+                  // Check for save-related attributes or SVG content
+                  const innerHTML = htmlBtn.innerHTML || ''
+                  const hasFloppyDisk = innerHTML.includes('M17') && innerHTML.includes('M19') // Common in save icons
+                  const tooltip = htmlBtn.getAttribute('data-tooltip') || 
+                                  htmlBtn.getAttribute('title') || 
+                                  htmlBtn.getAttribute('aria-label') || ''
+                  
+                  if (tooltip.toLowerCase().includes('save') || 
+                      tooltip.toLowerCase().includes('store') ||
+                      hasFloppyDisk) {
+                    htmlBtn.style.display = 'none'
+                    console.log('[StudioEditor] Hidden button via DOM:', tooltip || 'floppy icon')
                   }
                 })
               }
             } catch (err) {
-              console.debug('Could not hide save button:', err)
+              console.debug('Could not hide save button via DOM:', err)
             }
-          }, 500)
+          }, 1000)
           
           // Set up save functionality
           if (onSave) {
