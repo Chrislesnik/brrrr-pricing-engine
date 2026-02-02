@@ -80,13 +80,20 @@ async function requireAuthAndOrg() {
 }
 
 async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: string) {
+  // First try to get existing org
   const { data, error } = await supabase
     .from("auth_clerk_orgs")
     .select("id")
     .eq("clerk_org_id", orgId)
     .single();
 
-  if (error) {
+  // If org exists, return it
+  if (data?.id) {
+    return data.id as number;
+  }
+
+  // If error is not "not found", throw it
+  if (error && error.code !== "PGRST116") {
     console.error("Supabase query error:", {
       message: error.message,
       details: error.details,
@@ -95,12 +102,32 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     });
     throw new Error(
       `Failed to fetch organization from Supabase: ${error.message}. ` +
-      `This might be a Row Level Security (RLS) policy issue. ` +
-      `Ensure the auth_clerk_orgs table has appropriate RLS policies configured.`
+      `Error code: ${error.code}. ` +
+      `This might be a Row Level Security (RLS) policy issue or the auth_clerk_orgs table may not exist. ` +
+      `Please run the database migration: apps/pricing-engine/supabase/migrations/20260202_create_auth_clerk_orgs.sql`
     );
   }
-  if (!data?.id) throw new Error("Org not found in auth_clerk_orgs");
-  return data.id as number;
+
+  // Org doesn't exist, try to create it using the upsert function
+  console.log(`Organization ${orgId} not found, creating it...`);
+  const { data: newOrgId, error: upsertError } = await supabase
+    .rpc("upsert_clerk_org", {
+      p_clerk_org_id: orgId,
+    });
+
+  if (upsertError) {
+    console.error("Failed to create organization:", upsertError);
+    throw new Error(
+      `Failed to create organization mapping in Supabase: ${upsertError.message}. ` +
+      `Please ensure the migration has been run and RLS policies are configured correctly.`
+    );
+  }
+
+  if (!newOrgId) {
+    throw new Error("Failed to create organization - no ID returned");
+  }
+
+  return newOrgId as number;
 }
 
 // Loader
