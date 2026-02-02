@@ -342,6 +342,9 @@ export function StudioEditorWrapper({
       <StudioEditorComponent
         options={{
           licenseKey: "",
+          // Disable built-in storage to remove the "Save content" button
+          // We handle saving ourselves via the custom Save button
+          storage: false,
           fonts: {
             enableFontManager: true,
           },
@@ -420,19 +423,8 @@ export function StudioEditorWrapper({
                           onClick: () => editor.runCommand("presetPrintable:print"),
                         },
                         ...items.filter(
-                          (item: { id: string }) => {
-                            console.log('[GrapesJS] Toolbar button:', item.id)
-                            // Whitelist approach: only keep buttons we explicitly want
-                            // Exclude any save-related buttons
-                            const excludeIds = [
-                              "showImportCode", "fullscreen", 
-                              "store", "saveDb", "cmdStore", "cmdSave",
-                              "save", "saveProject", "save-db", "storeData"
-                            ]
-                            return !excludeIds.includes(item.id) && 
-                                   !item.id.toLowerCase().includes('save') && 
-                                   !item.id.toLowerCase().includes('store')
-                          }
+                          (item: { id: string }) =>
+                            !["showImportCode", "fullscreen"].includes(item.id)
                         ),
                         {
                           id: "zoom-out",
