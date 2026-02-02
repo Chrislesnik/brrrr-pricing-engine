@@ -16,7 +16,6 @@ import {
   Plug,
   Sparkles,
   Inbox,
-  Apps,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -73,7 +72,7 @@ export const ROUTES = {
 
 export const NAVIGATION_CONFIG: NavItem[] = [
   {
-    title: "Main",
+    title: "Pricing Engine",
     items: [
       {
         title: "Pipeline",
@@ -93,6 +92,11 @@ export const NAVIGATION_CONFIG: NavItem[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    title: "Contacts",
+    items: [
       {
         title: "Applicants",
         icon: IconUsers,
@@ -118,35 +122,39 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         denyOrgRoles: ["org:broker", "broker"],
         shortcut: ["K"],
       },
+    ],
+  },
+  {
+    title: "AI Agent",
+    items: [
       {
         title: "AI Agent",
         url: ROUTES.aiAgent,
         icon: IconSparkles,
         shortcut: ["I"],
       },
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
       {
-        title: "Settings",
-        icon: IconSettings,
-        items: [
-          {
-            title: "Programs",
-            icon: IconApps,
-            url: ROUTES.settings.programs,
-            requiredPermission: "org:manage_programs",
-          },
-          {
-            title: "Integrations",
-            icon: IconPlug,
-            url: ROUTES.settings.integrations,
-          },
-          {
-            title: "Company",
-            icon: IconUser,
-            url: ROUTES.settings.company,
-            // Visible only to broker role
-            allowOrgRoles: ["org:broker", "broker"],
-          },
-        ],
+        title: "Programs",
+        icon: IconApps,
+        url: ROUTES.settings.programs,
+        requiredPermission: "org:manage_programs",
+      },
+      {
+        title: "Integrations",
+        icon: IconPlug,
+        url: ROUTES.settings.integrations,
+      },
+      {
+        title: "Company",
+        icon: IconUser,
+        url: ROUTES.settings.company,
+        // Visible only to broker role
+        allowOrgRoles: ["org:broker", "broker"],
       },
     ],
   },
