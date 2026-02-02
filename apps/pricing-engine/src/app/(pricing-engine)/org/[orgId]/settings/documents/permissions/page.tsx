@@ -14,9 +14,9 @@ import RbacMatrixClient from "@/components/rbac-matrix-client";
 export default async function PermissionsPage({
   params,
 }: {
-  params: { orgId: string };
+  params: Promise<{ orgId: string }>;
 }) {
-  const orgId = params.orgId;
+  const { orgId } = await params;
   
   // Fetch data on the server with error handling
   let matrixData;
