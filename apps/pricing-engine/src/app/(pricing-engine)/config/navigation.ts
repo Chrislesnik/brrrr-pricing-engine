@@ -171,15 +171,36 @@ export function flattenNavigation(items: NavItem[] = NAVIGATION_CONFIG): NavItem
   }, [] as NavItem[]);
 }
 
+/**
+ * Finds a navigation item by its URL path
+ */
+function findNavItemByUrl(url: string, items: NavItem[]): NavItem | null {
+  for (const item of items) {
+    if (item.url === url) return item;
+    if (item.items) {
+      const found = findNavItemByUrl(url, item.items);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Generates breadcrumb segments from pathname using navigation config for labels
+ */
 export function getBreadcrumbSegments(pathname: string): { label: string; href?: string }[] {
-  // Simple heuristic for now - split path and capitalize
-  // In a real app, you might want to map paths to labels using the config
   const segments = pathname.split("/").filter(Boolean);
+  
   return segments.map((segment, index) => {
     const href = "/" + segments.slice(0, index + 1).join("/");
-    return {
-      label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " "),
-      href,
-    };
+    
+    // Try to find matching nav item for accurate label
+    const navItem = findNavItemByUrl(href, NAVIGATION_CONFIG);
+    
+    // Use nav item title if found, otherwise capitalize segment
+    const label = navItem?.title || 
+                  segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+    
+    return { label, href };
   });
 }
