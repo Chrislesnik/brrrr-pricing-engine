@@ -62,12 +62,21 @@ async function requireAuthAndOrg() {
   
   let token: string | null = null;
   try {
-    token = await getToken({ template: "supabase" });
+    // Try to get token without template first (for development)
+    token = await getToken();
+    console.log("Got token successfully (no template)");
   } catch (error) {
-    console.error("Error getting Supabase token:", error);
-    throw new Error(
-      "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard."
-    );
+    console.error("Error getting token without template:", error);
+    // Try with supabase template
+    try {
+      token = await getToken({ template: "supabase" });
+      console.log("Got token successfully (with supabase template)");
+    } catch (templateError) {
+      console.error("Error getting Supabase token with template:", templateError);
+      throw new Error(
+        "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard."
+      );
+    }
   }
   
   if (!token) {
