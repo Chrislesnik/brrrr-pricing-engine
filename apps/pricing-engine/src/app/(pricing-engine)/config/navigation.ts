@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconNumber1, IconCircleDashedNumber1 } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -49,6 +49,11 @@ export interface NavItem {
 
 export const ROUTES = {
   dashboard: "/dashboard",
+  pricingEngine: {
+    scenarios: "/pricing-engine/scenarios",
+    new: "/pricing-engine/new",
+    pricing: "/pricing-engine/pricing",
+  },
   pipeline: "/pipeline",
   applications: "/applications",
   applicants: {
@@ -75,14 +80,19 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     title: "Pricing Engine",
     items: [
       {
-        title: "Pipeline",
-        url: ROUTES.pipeline,
+        title: "Scenarios",
+        url: ROUTES.pricingEngine.scenarios,
         icon: IconUsers,
         shortcut: ["P"],
       },
+    ],
+  },
+  {
+    title: "Deals",
+    items: [
       {
         title: "Loan Setup",
-        icon: IconApps,
+        icon: IconCircleDashedNumber1,
         items: [
           {
             title: "Applications",
@@ -125,13 +135,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     ],
   },
   {
-    title: "AI Agent",
+    title: "Tools",
     items: [
       {
         title: "AI Agent",
         url: ROUTES.aiAgent,
         icon: IconSparkles,
-        shortcut: ["I"],
+        shortcut: ["AI"],
       },
     ],
   },
