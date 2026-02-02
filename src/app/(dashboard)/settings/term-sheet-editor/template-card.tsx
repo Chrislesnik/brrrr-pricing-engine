@@ -62,7 +62,7 @@ export function TemplateCard({
           <div className="flex-1 min-w-0">
             <h4 className="font-medium text-sm truncate">{template.name}</h4>
             <p className="text-xs text-muted-foreground mt-1">
-              Updated {format(template.updated_at, "MMM d, yyyy")}
+              Updated {format(new Date(template.updated_at), "MMM d, yyyy")}
             </p>
           </div>
           
@@ -110,7 +110,7 @@ export function TemplateCard({
         
         {/* Created date */}
         <p className="text-xs text-muted-foreground/70 mt-2">
-          Created {format(template.created_at, "MMM d, yyyy")}
+          Created {format(new Date(template.created_at), "MMM d, yyyy")}
         </p>
       </div>
     </div>

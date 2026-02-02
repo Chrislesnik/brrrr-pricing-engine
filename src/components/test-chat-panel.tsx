@@ -65,8 +65,11 @@ function DetailItem({
   const [status, setStatus] = React.useState<"neutral" | "approved" | "rejected">("neutral")
 
   const handleCitationClick = (citation: Citation) => {
+    console.log("[DetailItem] Citation clicked:", { page: citation.page, bbox: citation.bbox, label: item.label })
     if (onCitationClick) {
       onCitationClick(citation.page, citation.bbox)
+    } else {
+      console.warn("[DetailItem] onCitationClick is NOT defined!")
     }
   }
 
@@ -271,8 +274,11 @@ export function TestChatPanel({ className, title = "AI Assistant", onCitationCli
   }
 
   const handleCitationClick = (citation: Citation) => {
+    console.log("[TestChatPanel] Citation clicked:", { page: citation.page, bbox: citation.bbox })
     if (onCitationClick) {
       onCitationClick(citation.page, citation.bbox)
+    } else {
+      console.warn("[TestChatPanel] onCitationClick is NOT defined!")
     }
   }
 

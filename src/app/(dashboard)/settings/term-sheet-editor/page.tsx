@@ -4,11 +4,11 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { IconDatabase, IconArrowLeft, IconLoader2 } from "@tabler/icons-react"
+import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe } from "@tabler/icons-react"
 import { Field, defaultFields, fieldsToGlobalData } from "./field-types"
 import { FieldEditorModal } from "./field-editor-modal"
-import { DataPanel } from "./data-panel"
 import { TemplateGallery } from "./template-gallery"
+import { VariablePreviewPanel } from "./variable-preview-panel"
 import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
 
 // Dynamic import the wrapper which contains the GrapeJS styles
@@ -103,6 +103,80 @@ const grapejsThemeStyles = `
     border-color: #d97706;
     color: #fef3c7;
   }
+
+  /* ===== Override GrapesJS violet accent colors with org theme primary ===== */
+  /* Text colors - light mode */
+  .gs-studio-root .gs-utl-text-violet-800,
+  .gs-studio-root .gs-utl-text-violet-700,
+  .gs-studio-root .gs-utl-text-violet-600,
+  .gs-studio-root .gs-utl-text-violet-500 {
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Text colors - dark mode */
+  .dark .gs-studio-root .gs-utl-text-violet-400,
+  .dark .gs-studio-root .gs-utl-text-violet-300,
+  .dark .gs-studio-root .gs-utl-text-violet-200 {
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Background colors - light mode */
+  .gs-studio-root .gs-utl-bg-violet-100,
+  .gs-studio-root .gs-utl-bg-violet-50 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  /* Background colors - dark mode */
+  .dark .gs-studio-root .gs-utl-bg-violet-900,
+  .dark .gs-studio-root .gs-utl-bg-violet-800 {
+    background-color: hsl(var(--primary) / 0.2) !important;
+  }
+
+  /* Selected/active states with violet backgrounds */
+  .gs-studio-root [class*="gs-utl-bg-violet"] {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  .dark .gs-studio-root [class*="gs-utl-bg-violet"] {
+    background-color: hsl(var(--primary) / 0.25) !important;
+  }
+
+  /* Hover states - override violet hover colors */
+  .gs-studio-root .gs-theme-cl-hTAo:hover,
+  .gs-studio-root [class*="hover\\:gs-utl-text-violet"]:hover {
+    color: hsl(var(--primary)) !important;
+  }
+
+  .dark .gs-studio-root .gs-theme-cl-hTAo:hover,
+  .dark .gs-studio-root [class*="hover\\:dark\\:gs-utl-text-violet"]:hover {
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Border colors */
+  .gs-studio-root .gs-utl-border-violet-500,
+  .gs-studio-root .gs-utl-border-violet-400,
+  .gs-studio-root .gs-utl-border-violet-300 {
+    border-color: hsl(var(--primary)) !important;
+  }
+
+  /* Ring/focus colors */
+  .gs-studio-root .gs-utl-ring-violet-500,
+  .gs-studio-root .gs-utl-ring-violet-400 {
+    --tw-ring-color: hsl(var(--primary)) !important;
+  }
+
+  /* Active/selected item indicators */
+  .gs-studio-root .gs-block-item--active,
+  .gs-studio-root .gs-layer-item--selected {
+    border-color: hsl(var(--primary)) !important;
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  .dark .gs-studio-root .gs-block-item--active,
+  .dark .gs-studio-root .gs-layer-item--selected {
+    border-color: hsl(var(--primary)) !important;
+    background-color: hsl(var(--primary) / 0.2) !important;
+  }
 `
 
 export default function TermSheetEditorPage() {
@@ -122,9 +196,22 @@ export default function TermSheetEditorPage() {
   const [currentTemplate, setCurrentTemplate] = useState<TermSheetTemplate | null>(null)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
   const [templateError, setTemplateError] = useState<string | null>(null)
+  // Test data panel toggle - when true, show variable inputs panel alongside editor
+  const [showTestPanel, setShowTestPanel] = useState(false)
+  // Preview values for testing term sheet with real data
+  const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
 
-  // Convert fields to globalData for GrapeJS
-  const globalData = useMemo(() => fieldsToGlobalData(fields), [fields])
+  // Convert fields to globalData for GrapeJS, merging with preview values
+  const globalData = useMemo(() => {
+    const baseData = fieldsToGlobalData(fields)
+    // Override with preview values (only non-empty values)
+    Object.entries(previewValues).forEach(([key, value]) => {
+      if (value.trim()) {
+        baseData[key] = value
+      }
+    })
+    return baseData
+  }, [fields, previewValues])
 
   // Generate variable options for RTE toolbar from fields
   const variableOptions = useMemo(() => 
@@ -281,34 +368,49 @@ export default function TermSheetEditorPage() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setFieldEditorOpen(true)}
-          className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
-        >
-          <IconDatabase className="h-4 w-4 mr-2" />
-          Edit Fields
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Test Data Panel Toggle */}
+          <Button
+            variant={showTestPanel ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowTestPanel(!showTestPanel)}
+          >
+            <IconTestPipe className="h-4 w-4 mr-1.5" />
+            Test Data
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setFieldEditorOpen(true)}
+            className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+          >
+            <IconDatabase className="h-4 w-4 mr-2" />
+            Edit Fields
+          </Button>
+        </div>
       </div>
 
-      {/* Main Content - Editor + Data Panel */}
-      <div className="flex-1 flex min-h-0 gap-0 rounded-lg border bg-background overflow-hidden">
-        {/* GrapeJS Editor - takes remaining space */}
-        <div className="flex-1 min-w-0 h-full">
+      {/* Main Content - GrapesJS Editor + Optional Test Data Panel */}
+      <div className="flex-1 flex min-h-0 gap-4">
+        {/* GrapeJS Editor Container */}
+        <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden">
           <StudioEditorWrapper
-            globalData={globalData}
+            key={`editor-${templateId}-${fields.length}`}
+            globalData={showTestPanel ? { ...globalData, ...previewValues } : globalData}
             variableOptions={variableOptions}
             template={editorTemplate}
           />
         </div>
         
-        {/* Data Panel - Right Side */}
-        <div className="w-[280px] flex-shrink-0 border-l">
-          <DataPanel
-            fields={fields}
-            onOpenFieldEditor={() => setFieldEditorOpen(true)}
-          />
-        </div>
+        {/* Test Data Panel - Separate container, only shown when toggled */}
+        {showTestPanel && (
+          <div className="w-[280px] flex-shrink-0 rounded-lg border bg-background overflow-hidden">
+            <VariablePreviewPanel
+              fields={fields}
+              values={previewValues}
+              onValuesChange={setPreviewValues}
+            />
+          </div>
+        )}
       </div>
 
       {/* Field Editor Modal */}

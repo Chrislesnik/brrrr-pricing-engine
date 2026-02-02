@@ -13,8 +13,11 @@ export default function PDFChatTestPage() {
 
   // Handle citation click - navigate to the page and highlight the area
   const handleCitationClick = (page: number, bbox: BBox) => {
+    console.log("[PDFChatPage] handleCitationClick called:", { page, bbox, hasRef: !!pdfViewerRef.current })
     if (pdfViewerRef.current) {
       pdfViewerRef.current.goToPage(page, bbox)
+    } else {
+      console.error("[PDFChatPage] pdfViewerRef.current is null!")
     }
   }
 
