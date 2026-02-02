@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, Shield, AlertCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/shadcn/card";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/shadcn/alert";
 import { getDocumentRbacMatrix } from "./actions";
 import RbacMatrixClient from "@/components/rbac-matrix-client";
 
@@ -17,8 +18,16 @@ export default async function PermissionsPage({
 }) {
   const orgId = params.orgId;
   
-  // Fetch data on the server
-  const matrixData = await getDocumentRbacMatrix();
+  // Fetch data on the server with error handling
+  let matrixData;
+  let error: string | null = null;
+  
+  try {
+    matrixData = await getDocumentRbacMatrix();
+  } catch (e) {
+    error = e instanceof Error ? e.message : "Failed to load permissions data";
+    console.error("Error loading RBAC matrix:", e);
+  }
 
   return (
     <div className="w-full flex justify-center py-8">
@@ -67,8 +76,34 @@ export default async function PermissionsPage({
           </CardContent>
         </Card>
 
+        {/* Error State */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Unable to Load Permissions</AlertTitle>
+            <AlertDescription className="mt-2 space-y-2">
+              <p>{error}</p>
+              {error.includes("template") && (
+                <p className="text-sm">
+                  Please ensure the Supabase JWT template is configured in your Clerk dashboard.
+                  Visit{" "}
+                  <a
+                    href="https://dashboard.clerk.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-foreground"
+                  >
+                    Clerk Dashboard
+                  </a>{" "}
+                  → JWT Templates → Configure Supabase template.
+                </p>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* RBAC Matrix - Client Component */}
-        <RbacMatrixClient initial={matrixData} />
+        {matrixData && !error && <RbacMatrixClient initial={matrixData} />}
       </div>
     </div>
   );

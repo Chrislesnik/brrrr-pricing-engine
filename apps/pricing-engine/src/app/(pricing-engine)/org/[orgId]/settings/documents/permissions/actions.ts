@@ -45,8 +45,23 @@ async function requireAuthAndOrg() {
   const { userId, orgId, getToken } = await auth();
   if (!userId) throw new Error("Not authenticated");
   if (!orgId) throw new Error("No active organization selected");
-  const token = await getToken({ template: "supabase" });
-  if (!token) throw new Error("Missing Clerk Supabase token (template: supabase)");
+  
+  let token: string | null = null;
+  try {
+    token = await getToken({ template: "supabase" });
+  } catch (error) {
+    console.error("Error getting Supabase token:", error);
+    throw new Error(
+      "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard."
+    );
+  }
+  
+  if (!token) {
+    throw new Error(
+      "Missing Clerk Supabase token. Please configure the 'supabase' JWT template in your Clerk Dashboard."
+    );
+  }
+  
   return { orgId, token };
 }
 
