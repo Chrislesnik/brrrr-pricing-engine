@@ -7,9 +7,9 @@ export interface TermSheetTemplate {
   name: string
   html_content: string // GrapesJS HTML output
   gjs_data: object     // GrapesJS project JSON for re-editing
-  created_at: Date
-  updated_at: Date
-  thumbnail_url?: string // Optional cached preview
+  created_at: string
+  updated_at: string
+  user_id: string
 }
 
 // Default blank template HTML for new templates
@@ -63,31 +63,3 @@ export const defaultTemplateHtml = `<!DOCTYPE html>
     </footer>
   </body>
 </html>`
-
-// Mock templates for UI development (will be replaced with Supabase data)
-export const mockTemplates: TermSheetTemplate[] = [
-  {
-    id: "1",
-    name: "Standard DSCR Term Sheet",
-    html_content: defaultTemplateHtml,
-    gjs_data: {},
-    created_at: new Date("2026-01-15"),
-    updated_at: new Date("2026-01-28"),
-  },
-  {
-    id: "2", 
-    name: "Bridge Loan Template",
-    html_content: defaultTemplateHtml,
-    gjs_data: {},
-    created_at: new Date("2026-01-20"),
-    updated_at: new Date("2026-01-25"),
-  },
-  {
-    id: "3",
-    name: "Fix & Flip Term Sheet",
-    html_content: defaultTemplateHtml,
-    gjs_data: {},
-    created_at: new Date("2026-01-22"),
-    updated_at: new Date("2026-01-30"),
-  },
-]

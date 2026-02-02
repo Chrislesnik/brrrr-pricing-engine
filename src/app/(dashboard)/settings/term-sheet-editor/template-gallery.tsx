@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { IconPlus } from "@tabler/icons-react"
-import { TermSheetTemplate, mockTemplates } from "./template-types"
+import { IconPlus, IconLoader2 } from "@tabler/icons-react"
+import { TermSheetTemplate } from "./template-types"
 import { TemplateCard } from "./template-card"
 import { CreateTemplateDialog } from "./create-template-dialog"
 
@@ -16,29 +16,102 @@ export function TemplateGallery({
   onSelectTemplate,
   onCreateTemplate,
 }: TemplateGalleryProps) {
-  const [templates, setTemplates] = useState<TermSheetTemplate[]>(mockTemplates)
+  const [templates, setTemplates] = useState<TermSheetTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this template?")) {
+  // Fetch templates from API
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch("/api/term-sheet-templates")
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to fetch templates")
+      }
+      const data = await res.json()
+      setTemplates(data.templates || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load templates")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [fetchTemplates])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this template?")) return
+    
+    try {
+      const res = await fetch(`/api/term-sheet-templates/${id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to delete template")
+      }
+      // Remove from local state
       setTemplates(prev => prev.filter(t => t.id !== id))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete template")
     }
   }
 
-  const handleDuplicate = (template: TermSheetTemplate) => {
-    const newTemplate: TermSheetTemplate = {
-      ...template,
-      id: `${Date.now()}`,
-      name: `${template.name} (Copy)`,
-      created_at: new Date(),
-      updated_at: new Date(),
+  const handleDuplicate = async (template: TermSheetTemplate) => {
+    try {
+      const res = await fetch("/api/term-sheet-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${template.name} (Copy)`,
+          html_content: template.html_content,
+          gjs_data: template.gjs_data,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to duplicate template")
+      }
+      const data = await res.json()
+      // Add to local state at the beginning
+      setTemplates(prev => [data.template, ...prev])
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to duplicate template")
     }
-    setTemplates(prev => [newTemplate, ...prev])
   }
 
   const handleCreate = (name: string) => {
     onCreateTemplate(name)
     setCreateDialogOpen(false)
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <IconLoader2 className="h-5 w-5 animate-spin" />
+          <span>Loading templates...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
+        <p className="text-destructive">{error}</p>
+        <Button variant="outline" onClick={fetchTemplates}>
+          Try Again
+        </Button>
+      </div>
+    )
   }
 
   return (

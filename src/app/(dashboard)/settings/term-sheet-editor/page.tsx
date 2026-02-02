@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { IconDatabase, IconArrowLeft } from "@tabler/icons-react"
+import { IconDatabase, IconArrowLeft, IconLoader2 } from "@tabler/icons-react"
 import { Field, defaultFields, fieldsToGlobalData } from "./field-types"
 import { FieldEditorModal } from "./field-editor-modal"
 import { DataPanel } from "./data-panel"
 import { TemplateGallery } from "./template-gallery"
-import { TermSheetTemplate, defaultTemplateHtml, mockTemplates } from "./template-types"
+import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
 
 // Dynamic import the wrapper which contains the GrapeJS styles
 // This ensures styles only load when the editor is actually rendered
@@ -120,6 +120,8 @@ export default function TermSheetEditorPage() {
   const [fields, setFields] = useState<Field[]>(defaultFields)
   const [fieldEditorOpen, setFieldEditorOpen] = useState(false)
   const [currentTemplate, setCurrentTemplate] = useState<TermSheetTemplate | null>(null)
+  const [loadingTemplate, setLoadingTemplate] = useState(false)
+  const [templateError, setTemplateError] = useState<string | null>(null)
 
   // Convert fields to globalData for GrapeJS
   const globalData = useMemo(() => fieldsToGlobalData(fields), [fields])
@@ -133,51 +135,84 @@ export default function TermSheetEditorPage() {
     [fields]
   )
 
+  // Fetch template by ID when URL has template param
+  useEffect(() => {
+    if (templateId && !currentTemplate) {
+      setLoadingTemplate(true)
+      setTemplateError(null)
+      
+      fetch(`/api/term-sheet-templates/${templateId}`)
+        .then(res => {
+          if (!res.ok) throw new Error("Template not found")
+          return res.json()
+        })
+        .then(data => {
+          setCurrentTemplate(data.template)
+        })
+        .catch(e => {
+          setTemplateError(e.message)
+        })
+        .finally(() => {
+          setLoadingTemplate(false)
+        })
+    }
+  }, [templateId, currentTemplate])
+
   // Handle selecting a template from gallery
   const handleSelectTemplate = useCallback((template: TermSheetTemplate) => {
     setCurrentTemplate(template)
     router.push(`/settings/term-sheet-editor?template=${template.id}`)
   }, [router])
 
-  // Handle creating a new template
-  const handleCreateTemplate = useCallback((name: string) => {
-    const newTemplate: TermSheetTemplate = {
-      id: `new-${Date.now()}`,
-      name,
-      html_content: defaultTemplateHtml,
-      gjs_data: {},
-      created_at: new Date(),
-      updated_at: new Date(),
+  // Handle creating a new template - creates in Supabase first
+  const handleCreateTemplate = useCallback(async (name: string) => {
+    try {
+      const res = await fetch("/api/term-sheet-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          html_content: defaultTemplateHtml,
+          gjs_data: {},
+        }),
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to create template")
+      }
+      
+      const data = await res.json()
+      setCurrentTemplate(data.template)
+      router.push(`/settings/term-sheet-editor?template=${data.template.id}`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to create template")
     }
-    setCurrentTemplate(newTemplate)
-    router.push(`/settings/term-sheet-editor?new=true&name=${encodeURIComponent(name)}`)
   }, [router])
 
   // Handle going back to gallery
   const handleBackToGallery = useCallback(() => {
     setCurrentTemplate(null)
+    setTemplateError(null)
     router.push("/settings/term-sheet-editor")
   }, [router])
 
   // Get the current template for editor
   const editorTemplate = useMemo(() => {
     if (currentTemplate) return currentTemplate
-    if (templateId) {
-      // Find template by ID (mock data for now)
-      return mockTemplates.find(t => t.id === templateId) || null
-    }
     if (isNewTemplate) {
       return {
         id: `new-${Date.now()}`,
         name: templateName,
         html_content: defaultTemplateHtml,
         gjs_data: {},
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_id: "",
       }
     }
     return null
-  }, [currentTemplate, templateId, isNewTemplate, templateName])
+  }, [currentTemplate, isNewTemplate, templateName])
 
   // Gallery View
   if (!isEditorMode) {
@@ -186,6 +221,30 @@ export default function TermSheetEditorPage() {
         onSelectTemplate={handleSelectTemplate}
         onCreateTemplate={handleCreateTemplate}
       />
+    )
+  }
+
+  // Loading template state
+  if (loadingTemplate) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <IconLoader2 className="h-5 w-5 animate-spin" />
+          <span>Loading template...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Template error state
+  if (templateError) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
+        <p className="text-destructive">{templateError}</p>
+        <Button variant="outline" onClick={handleBackToGallery}>
+          Back to Templates
+        </Button>
+      </div>
     )
   }
 
@@ -211,7 +270,7 @@ export default function TermSheetEditorPage() {
               {editorTemplate?.name || "Term Sheet Editor"}
             </h3>
             <p className="text-muted-foreground text-sm">
-              {isNewTemplate ? "Create a new template" : "Edit template design"}
+              Edit template design
             </p>
           </div>
         </div>
