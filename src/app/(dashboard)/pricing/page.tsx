@@ -2033,17 +2033,23 @@ export default function PricingEnginePage() {
     }
   }, [isDispatching, programResults, lastCalculatedKey])
   // Also detect programmatic/default changes that don't emit input/change events
+  // Note: buildPayload is stable (no deps change it), so we only need to track the key inputs
+  const currentPayloadKey = useMemo(() => {
+    try {
+      return JSON.stringify(buildPayload())
+    } catch {
+      return null
+    }
+  }, [buildPayload])
+  
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
     if (!programResults || programResults.length === 0) return
-    try {
-      const key = JSON.stringify(buildPayload())
-      if (key !== lastCalculatedKey) setResultsStale(true)
-    } catch {
+    if (currentPayloadKey && currentPayloadKey !== lastCalculatedKey) {
       setResultsStale(true)
     }
-  })
+  }, [lastCalculatedKey, isDispatching, programResults, currentPayloadKey])
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
