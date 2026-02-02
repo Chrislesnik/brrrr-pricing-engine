@@ -86,7 +86,19 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     .eq("clerk_org_id", orgId)
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("Supabase query error:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    throw new Error(
+      `Failed to fetch organization from Supabase: ${error.message}. ` +
+      `This might be a Row Level Security (RLS) policy issue. ` +
+      `Ensure the auth_clerk_orgs table has appropriate RLS policies configured.`
+    );
+  }
   if (!data?.id) throw new Error("Org not found in auth_clerk_orgs");
   return data.id as number;
 }
