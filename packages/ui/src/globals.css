@@ -4,7 +4,7 @@
 
 :root {
   --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  --foreground: 0 0% 4%;
   --card: 0 0% 100%;
   --card-foreground: 0 0% 4%;
   --popover: 0 0% 100%;
@@ -42,6 +42,29 @@
   --sidebar-accent-foreground: 240 5.9% 10%;
   --sidebar-border: 220 13% 91%;
   --sidebar-ring: 217.2 91.2% 59.8%;
+  --box-shadow: 0px 1px 3px 0px rgb(0 0 0 / 10%),
+    0px 1px 2px 0px rgb(0 0 0 / 6%);
+  --brand-gradient-orange: radial-gradient(
+    260.69% 202.67% at -4.83% -37.67%,
+    #f72121 24%,
+    #ff9500 71%,
+    #f0d047 100%
+  );
+  --brand-gradient-blue: linear-gradient(
+    165deg,
+    #2c53f0 5.99%,
+    #39accd 91.59%
+  );
+  --brand-gradient-purple: linear-gradient(
+    165deg,
+    #753fef 5.99%,
+    #7697cd 91.59%
+  );
+  --brand-gradient-green: linear-gradient(
+    165deg,
+    #0ebb3f 5.99%,
+    #3df04e 91.59%
+  );  
 }
 
 .dark {
@@ -83,6 +106,27 @@
   --sidebar-accent-foreground: 240 4.8% 95.9%;
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-ring: 217 91.2% 59.8%;
+  --brand-gradient-orange: radial-gradient(
+    260.69% 202.67% at -4.83% -37.67%,
+    #b71a1a 24%,
+    #e07b00 71%,
+    #bfa53d 100%
+  );
+  --brand-gradient-blue: linear-gradient(
+  155deg,
+    #1b3ab8 5.99%,
+    #2c7ea3 91.59%
+  );
+  --brand-gradient-purple: linear-gradient(
+    155deg,
+    #5323cc 5.99%,
+    #627bb5 91.59%
+  );
+  --brand-gradient-green: linear-gradient(
+    155deg,
+    #067e2f 5.99%,
+    #2ac23c 91.59%
+  );
 }
 
 @layer base {
@@ -195,6 +239,24 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  html,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    overflow: hidden;
+    height: 100%;
+  }
+
+  /* Ensure the main page has a slightly different background for inset contrast */
+  body:has([data-variant="inset"]) {
+    background-color: hsl(var(--muted) / 30%);
   }
 }
 
