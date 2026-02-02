@@ -22,10 +22,10 @@ pnpm install
 
 ### 2. Environment Setup
 
-Your `.env.local` already contains the BaseHub token:
+Copy `.env.local.example` to `.env.local` and add your BaseHub token:
 
 ```bash
-BASEHUB_TOKEN=bshb_pk_ye9dx1o3ut6j34ky99l4m9f8ixltp5fyz6h7sn0ornzercan4gg9ibfjzvpea4dw
+BASEHUB_TOKEN=bshb_pk_*****
 ```
 
 ### 3. Start Development Server
