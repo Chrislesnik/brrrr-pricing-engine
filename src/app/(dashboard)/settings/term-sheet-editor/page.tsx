@@ -274,14 +274,6 @@ const grapejsThemeStyles = `
     background-color: hsl(var(--primary) / 0.2) !important;
   }
 
-  /* Hide the GrapesJS "Save content" button - we use our own Save button */
-  .gs-studio-root button[data-tooltip="Save content"],
-  .gs-studio-root [data-tooltip="Save content"],
-  .gs-studio-root button[title="Save content"],
-  .gs-studio-root [title="Save content"],
-  .gs-studio-root [aria-label="Save content"] {
-    display: none !important;
-  }
 `
 
 export default function TermSheetEditorPage() {

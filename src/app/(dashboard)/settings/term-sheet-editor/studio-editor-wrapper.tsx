@@ -469,68 +469,9 @@ export function StudioEditorWrapper({
             onEditorReady(editor)
           }
           
-          // Remove the "Save content" button from the toolbar using GrapesJS Panels API
-          // We use our own Save button instead
-          try {
-            // Try GrapesJS Panels API to remove save button
-            const panels = editor.Panels
-            if (panels) {
-              // Try various panel/button IDs that might contain the save button
-              const panelIds = ['options', 'views', 'views-actions', 'commands', 'devices-c']
-              const buttonIds = ['sw-visibility', 'export-template', 'open-sm', 'open-tm', 'open-layers', 
-                                 'open-blocks', 'store', 'save', 'saveDb', 'gjs-open-import-webpage']
-              
-              panelIds.forEach(panelId => {
-                buttonIds.forEach(btnId => {
-                  try {
-                    panels.removeButton(panelId, btnId)
-                  } catch (e) { /* ignore */ }
-                })
-              })
-              
-              // Get all panels and log their buttons for debugging
-              const allPanels = panels.getPanels()
-              allPanels.forEach((panel: any) => {
-                const buttons = panel.get('buttons')
-                if (buttons) {
-                  buttons.forEach((btn: any) => {
-                    console.log('[StudioEditor] Panel:', panel.id, 'Button:', btn.id, btn.get('command'))
-                  })
-                }
-              })
-            }
-          } catch (err) {
-            console.debug('Could not access Panels API:', err)
-          }
-          
-          // Also try DOM manipulation as fallback
-          setTimeout(() => {
-            try {
-              const container = document.querySelector('.gs-studio-root')
-              if (container) {
-                // Target the specific floppy disk SVG icon
-                const allButtons = container.querySelectorAll('button, [role="button"]')
-                allButtons.forEach((btn: Element) => {
-                  const htmlBtn = btn as HTMLElement
-                  // Check for save-related attributes or SVG content
-                  const innerHTML = htmlBtn.innerHTML || ''
-                  const hasFloppyDisk = innerHTML.includes('M17') && innerHTML.includes('M19') // Common in save icons
-                  const tooltip = htmlBtn.getAttribute('data-tooltip') || 
-                                  htmlBtn.getAttribute('title') || 
-                                  htmlBtn.getAttribute('aria-label') || ''
-                  
-                  if (tooltip.toLowerCase().includes('save') || 
-                      tooltip.toLowerCase().includes('store') ||
-                      hasFloppyDisk) {
-                    htmlBtn.style.display = 'none'
-                    console.log('[StudioEditor] Hidden button via DOM:', tooltip || 'floppy icon')
-                  }
-                })
-              }
-            } catch (err) {
-              console.debug('Could not hide save button via DOM:', err)
-            }
-          }, 1000)
+          // Note: The GrapesJS "Save content" button in the toolbar doesn't do anything
+          // without storage configuration. Our custom Save button handles all saving.
+          // We'll leave it as-is since removing it breaks other UI elements.
           
           // Set up save functionality
           if (onSave) {
