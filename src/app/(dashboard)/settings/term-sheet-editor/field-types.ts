@@ -5,6 +5,7 @@ export interface Field {
   id: string
   name: string
   type: FieldType
+  required?: boolean
 }
 
 // Default fields - empty, will be loaded from Supabase

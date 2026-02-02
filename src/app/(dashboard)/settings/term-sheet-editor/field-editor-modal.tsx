@@ -25,7 +25,10 @@ import {
   IconDownload,
   IconTypography,
   IconTrash,
+  IconAsterisk,
+  IconLoader2,
 } from "@tabler/icons-react"
+import { Switch } from "@/components/ui/switch"
 import { Field, FieldType } from "./field-types"
 import {
   KeyValue,
@@ -44,6 +47,7 @@ interface FieldEditorModalProps {
   onOpenChange: (open: boolean) => void
   fields: Field[]
   onFieldsChange: (fields: Field[]) => void
+  templateId?: string // If provided, saves to Supabase
 }
 
 const fieldTypes: FieldType[] = ["String", "Number", "Boolean", "Array", "Object", "Binary Data"]
@@ -77,22 +81,64 @@ function FieldTypeSelect({ fieldTypes }: { fieldTypes: FieldType[] }) {
   )
 }
 
+// Required toggle component
+function RequiredToggle({ 
+  requiredMap, 
+  onRequiredChange 
+}: { 
+  requiredMap: Record<string, boolean>
+  onRequiredChange: (id: string, required: boolean) => void 
+}) {
+  const itemData = useKeyValueItemContext("RequiredToggle")
+  const isRequired = requiredMap[itemData.id] ?? false
+
+  return (
+    <div className="flex items-center gap-1.5 shrink-0" title={isRequired ? "Required field" : "Optional field"}>
+      <IconAsterisk className={cn(
+        "h-3 w-3 transition-colors",
+        isRequired ? "text-destructive" : "text-muted-foreground/30"
+      )} />
+      <Switch
+        checked={isRequired}
+        onCheckedChange={(checked) => onRequiredChange(itemData.id, checked)}
+        className="data-[state=checked]:bg-destructive h-4 w-7"
+      />
+    </div>
+  )
+}
+
 export function FieldEditorModal({
   open,
   onOpenChange,
   fields,
   onFieldsChange,
+  templateId,
 }: FieldEditorModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [localFields, setLocalFields] = useState<Field[]>(fields)
+  // Track required state separately (by field id)
+  const [requiredMap, setRequiredMap] = useState<Record<string, boolean>>({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Sync local state when modal opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setLocalFields(fields)
+      // Initialize required map from fields
+      const initialRequired: Record<string, boolean> = {}
+      fields.forEach(f => {
+        initialRequired[f.id] = f.required ?? false
+      })
+      setRequiredMap(initialRequired)
     }
     onOpenChange(newOpen)
   }
+
+  // Handle required toggle change
+  const handleRequiredChange = useCallback((id: string, required: boolean) => {
+    setRequiredMap(prev => ({ ...prev, [id]: required }))
+  }, [])
 
   // Convert Field[] to KeyValueItemData[] for the KeyValue component
   const keyValueItems = useMemo<KeyValueItemData[]>(() =>
@@ -106,13 +152,16 @@ export function FieldEditorModal({
       const newFields = items.map(i => ({
         id: i.id,
         name: i.key,
-        type: i.value as FieldType
+        type: i.value as FieldType,
+        required: requiredMap[i.id] ?? false
       }))
       // Only update if actually different to prevent loops
-      if (JSON.stringify(prev) === JSON.stringify(newFields)) return prev
+      const prevWithoutRequired = prev.map(f => ({ id: f.id, name: f.name, type: f.type }))
+      const newWithoutRequired = newFields.map(f => ({ id: f.id, name: f.name, type: f.type }))
+      if (JSON.stringify(prevWithoutRequired) === JSON.stringify(newWithoutRequired)) return prev
       return newFields
     })
-  }, [])
+  }, [requiredMap])
 
   // Move field up
   const handleMoveUp = (index: number) => {
@@ -150,10 +199,55 @@ export function FieldEditorModal({
     URL.revokeObjectURL(url)
   }
 
+  // Check if all fields have valid types
+  const validTypes = ["String", "Number", "Boolean", "Array", "Object", "Binary Data"]
+  const invalidFields = localFields.filter(f => !validTypes.includes(f.type))
+  const hasInvalidFields = invalidFields.length > 0
+
   // Save changes
-  const handleSave = () => {
-    onFieldsChange(localFields)
-    onOpenChange(false)
+  const handleSave = async () => {
+    // Validate all fields have a type selected
+    if (hasInvalidFields) {
+      setSaveError("Please select a type for all fields")
+      return
+    }
+
+    // Merge required state into fields before saving
+    const fieldsWithRequired = localFields.map(f => ({
+      ...f,
+      required: requiredMap[f.id] ?? false
+    }))
+
+    // If we have a templateId, save to Supabase
+    if (templateId) {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        const res = await fetch(`/api/term-sheet-templates/${templateId}/fields`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: fieldsWithRequired }),
+        })
+        
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || "Failed to save fields")
+        }
+        
+        const data = await res.json()
+        // Update local state with saved fields (which now have proper IDs)
+        onFieldsChange(data.fields || fieldsWithRequired)
+        onOpenChange(false)
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : "Failed to save fields")
+      } finally {
+        setSaving(false)
+      }
+    } else {
+      // No templateId, just update local state
+      onFieldsChange(fieldsWithRequired)
+      onOpenChange(false)
+    }
   }
 
   // Get the body element for the portal container
@@ -230,6 +324,10 @@ export function FieldEditorModal({
                 <KeyValueItem className="flex items-center gap-2">
                   <KeyValueKeyInput className="flex-1" />
                   <FieldTypeSelect fieldTypes={fieldTypes} />
+                  <RequiredToggle 
+                    requiredMap={requiredMap} 
+                    onRequiredChange={handleRequiredChange} 
+                  />
                   <KeyValueRemove className="shrink-0" />
                 </KeyValueItem>
               </KeyValueList>
@@ -239,29 +337,52 @@ export function FieldEditorModal({
         </div>
 
         {/* Footer */}
-        <DialogFooter className="flex-none flex items-center justify-between border-t pt-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearSchema}
-              className="text-muted-foreground"
-            >
-              <IconTrash className="h-4 w-4 mr-1" />
-              Clear Schema
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleDownload}>
-              <IconDownload className="h-4 w-4 mr-1" />
-              Download
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            <Button onClick={handleSave} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              Save
-            </Button>
+        <DialogFooter className="flex-none flex flex-col gap-2 border-t pt-4">
+          {saveError && (
+            <p className="text-sm text-destructive text-center w-full">{saveError}</p>
+          )}
+          {!saveError && hasInvalidFields && (
+            <p className="text-sm text-muted-foreground text-center w-full">
+              Select a type for {invalidFields.length === 1 ? "1 field" : `all ${invalidFields.length} fields`} to save
+            </p>
+          )}
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSchema}
+                className="text-muted-foreground"
+                disabled={saving}
+              >
+                <IconTrash className="h-4 w-4 mr-1" />
+                Clear Schema
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleDownload} disabled={saving}>
+                <IconDownload className="h-4 w-4 mr-1" />
+                Download
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+                Close
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={saving || hasInvalidFields}
+                title={hasInvalidFields ? "Select a type for all fields before saving" : undefined}
+              >
+                {saving ? (
+                  <>
+                    <IconLoader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
           </div>
         </DialogFooter>
         

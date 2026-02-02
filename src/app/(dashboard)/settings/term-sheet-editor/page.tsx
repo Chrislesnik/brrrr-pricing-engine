@@ -135,19 +135,26 @@ export default function TermSheetEditorPage() {
     [fields]
   )
 
-  // Fetch template by ID when URL has template param
+  // Fetch template and fields by ID when URL has template param
   useEffect(() => {
     if (templateId && !currentTemplate) {
       setLoadingTemplate(true)
       setTemplateError(null)
       
-      fetch(`/api/term-sheet-templates/${templateId}`)
-        .then(res => {
+      // Fetch template and fields in parallel
+      Promise.all([
+        fetch(`/api/term-sheet-templates/${templateId}`).then(res => {
           if (!res.ok) throw new Error("Template not found")
           return res.json()
+        }),
+        fetch(`/api/term-sheet-templates/${templateId}/fields`).then(res => {
+          if (!res.ok) throw new Error("Failed to load fields")
+          return res.json()
         })
-        .then(data => {
-          setCurrentTemplate(data.template)
+      ])
+        .then(([templateData, fieldsData]) => {
+          setCurrentTemplate(templateData.template)
+          setFields(fieldsData.fields || [])
         })
         .catch(e => {
           setTemplateError(e.message)
@@ -310,6 +317,7 @@ export default function TermSheetEditorPage() {
         onOpenChange={setFieldEditorOpen}
         fields={fields}
         onFieldsChange={setFields}
+        templateId={templateId || undefined}
       />
     </div>
   )
