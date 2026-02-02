@@ -1597,30 +1597,6 @@ export default function PricingEnginePage() {
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // Also POST all inputs (including defaults/placeholders) to the external webhook
-      // This call is non-blocking and won't affect the main dispatch flow.
-      try {
-        const augmented = { ...(toYesNoDeepGlobal(payload) as Record<string, unknown>) }
-        if (selfMemberId) {
-          augmented["organization_member_id"] = selfMemberId
-        }
-        const webhookBody = JSON.stringify(augmented)
-        void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
-          method: "POST",
-          cache: "no-store",
-          // Fire-and-forget; avoid console noise if remote doesn't send CORS headers
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "X-Client-Request-Id": nonce,
-          },
-          body: webhookBody,
-        }).catch(() => {})
-      } catch {
-        // do not block calculation if webhook serialization fails
-      }
       // Kick off per-program dispatch requests so each card fills as soon as it's ready
       const currentPlaceholders = placeholdersLocal.slice()
       await Promise.all(
