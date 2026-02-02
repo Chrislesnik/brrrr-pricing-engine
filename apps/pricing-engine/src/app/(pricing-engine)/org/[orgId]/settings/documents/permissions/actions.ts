@@ -161,7 +161,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
   // Categories (rows)
   const catsRes = await supabase
     .from("document_categories")
-    .select("id,name,description,group")
+    .select("id,name,description")
     .order("name", { ascending: true });
 
   if (catsRes.error) throw new Error(catsRes.error.message);
