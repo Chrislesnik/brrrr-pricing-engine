@@ -59,7 +59,7 @@ export const ROUTES = {
   brokers: "/brokers",
   aiAgent: "/ai-agent",
   settings: {
-    programs: "/settings",
+    programs: "/settings/programs",
     integrations: "/settings/integrations",
     company: "/settings/company",
   },
