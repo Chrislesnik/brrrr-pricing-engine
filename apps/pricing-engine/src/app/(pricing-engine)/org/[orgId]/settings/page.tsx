@@ -12,7 +12,7 @@ import {
   Globe,
   Loader2,
 } from "lucide-react";
-import { cn } from "@repo/lib/utils/cn";
+import { cn } from "@repo/lib/cn";
 
 // Import the tab content components
 import { GeneralSettings } from "./components/general-settings";
