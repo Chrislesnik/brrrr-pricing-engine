@@ -522,6 +522,9 @@ export function StudioEditorWrapper({
                 editor.setComponents(template.html_content)
                 console.log('[StudioEditor] Loaded template content from database:', template.html_content.substring(0, 100))
               }
+              
+              // Refresh the canvas after content changes to ensure proper rendering
+              editor.refresh()
             }
           } catch (err) {
             console.debug("Could not set template content:", err)
