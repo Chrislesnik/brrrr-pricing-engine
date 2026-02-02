@@ -498,37 +498,8 @@ export function StudioEditorWrapper({
             })
           }
           
-          // CRITICAL: presetPrintable injects its own default content
-          // We need to clear it and load our template content AFTER initialization
-          try {
-            const wrapper = editor.getWrapper()
-            if (wrapper && templateHtml) {
-              // Check if this is a blank template (our defaultTemplateHtml)
-              // If so, clear the preset content
-              const isBlankTemplate = templateHtml.includes('data-gjs-type="wrapper"') && 
-                                       !templateHtml.includes('TERM SHEET') &&
-                                       templateHtml.length < 200
-              
-              console.log('[StudioEditor] onReady - isBlankTemplate:', isBlankTemplate, 'templateHtml length:', templateHtml.length)
-              
-              if (isBlankTemplate) {
-                // Clear the preset content - set to empty
-                wrapper.components().reset()
-                console.log('[StudioEditor] Cleared preset content for blank template')
-              } else if (template?.html_content && template.html_content.length > 0) {
-                // Load the actual template content from database
-                // Clear first, then load
-                wrapper.components().reset()
-                editor.setComponents(template.html_content)
-                console.log('[StudioEditor] Loaded template content from database:', template.html_content.substring(0, 100))
-              }
-              
-              // Refresh the canvas after content changes to ensure proper rendering
-              editor.refresh()
-            }
-          } catch (err) {
-            console.debug("Could not set template content:", err)
-          }
+          // Note: We rely on project.default.pages configuration to load template content
+          // Don't manipulate content here as it can interfere with drag-drop functionality
           
           // Inject variable widget CSS and script into the canvas iframe
           // Delay slightly to ensure canvas is ready after content change
