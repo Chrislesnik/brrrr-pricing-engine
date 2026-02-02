@@ -72,7 +72,7 @@ export const ROUTES = {
 
 export const NAVIGATION_CONFIG: NavItem[] = [
   {
-    title: "Pricing Engine",
+    title: "Deals",
     items: [
       {
         title: "Pipeline",
