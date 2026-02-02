@@ -14,6 +14,7 @@ import {
   SidebarMenuButton,
 } from "@repo/ui/shadcn/sidebar";
 import { WorkspaceSwitcher } from "@repo/ui/custom/workspace-switcher";
+import { TeamSwitcherV2 } from "./team-switcher-v2";
 import { NavSearch } from "./nav-search";
 import type { PageTree } from "fumadocs-core/server";
 import Link from "next/link";
@@ -55,6 +56,7 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
+        <TeamSwitcherV2 />
         <WorkspaceSwitcher />
         <NavSearch />
       </SidebarHeader>
