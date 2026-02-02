@@ -68,6 +68,13 @@ export function DocumentCategoryPermissionMatrix({
 }: DocumentCategoryPermissionMatrixProps) {
   const [hasChanges, setHasChanges] = useState(false);
 
+  console.log("DocumentCategoryPermissionMatrix rendering with:", {
+    rolesCount: roles.length,
+    categoriesCount: categories.length,
+    roles: roles.map(r => r.name),
+    categories: categories.map(c => c.name),
+  });
+
   const handlePermissionChange = (
     roleId: string,
     categoryId: string,

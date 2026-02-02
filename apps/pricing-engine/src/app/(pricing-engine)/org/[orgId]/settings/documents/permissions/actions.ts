@@ -157,6 +157,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
     .order("name", { ascending: true });
 
   if (rolesRes.error) throw new Error(rolesRes.error.message);
+  console.log("Fetched roles:", rolesRes.data?.length || 0, "roles");
 
   // Categories (rows)
   const catsRes = await supabase
@@ -165,6 +166,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
     .order("name", { ascending: true });
 
   if (catsRes.error) throw new Error(catsRes.error.message);
+  console.log("Fetched categories:", catsRes.data?.length || 0, "categories");
 
   // Permissions for org
   const permsRes = await supabase
@@ -173,13 +175,23 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
     .eq("clerk_org_id", orgPk);
 
   if (permsRes.error) throw new Error(permsRes.error.message);
+  console.log("Fetched permissions:", permsRes.data?.length || 0, "permission rows");
 
-  return {
+  const payload = {
     orgPk,
     roles: (rolesRes.data ?? []) as DealRoleTypeRow[],
     categories: (catsRes.data ?? []) as DocumentCategoryRow[],
     permissions: (permsRes.data ?? []) as PermissionRow[],
   };
+
+  console.log("Returning payload:", {
+    orgPk: payload.orgPk,
+    rolesCount: payload.roles.length,
+    categoriesCount: payload.categories.length,
+    permissionsCount: payload.permissions.length,
+  });
+
+  return payload;
 }
 
 // Save (bulk upsert)

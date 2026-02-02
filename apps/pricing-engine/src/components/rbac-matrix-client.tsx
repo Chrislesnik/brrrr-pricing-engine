@@ -73,6 +73,12 @@ export default function RbacMatrixClient({
 }: {
   initial: RbacMatrixPayload;
 }) {
+  console.log("RbacMatrixClient received initial data:", {
+    rolesCount: initial.roles?.length || 0,
+    categoriesCount: initial.categories?.length || 0,
+    permissionsCount: initial.permissions?.length || 0,
+  });
+
   const [data, setData] = React.useState(initial);
   const [permissionState, setPermissionState] = React.useState<PermissionState>(
     () => buildState(initial)
