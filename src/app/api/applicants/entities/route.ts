@@ -48,6 +48,22 @@ export async function POST(req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
     const reqId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    // #region agent log
+    fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "dup-debug",
+        hypothesisId: "H-dup",
+        location: "api/applicants/entities/route.ts:entry",
+        message: "entities POST entry",
+        data: { reqId },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+
     const json = await req.json()
     const parsed = schema.parse(json)
     // Preserve raw owners from the request to avoid losing camelCase fields during validation
@@ -88,12 +104,76 @@ export async function POST(req: NextRequest) {
         organization_id: orgUuid,
       })
       .select("*")
-      .single()    if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 })
+      .single()
+    // #region agent log
+    fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "dup-debug",
+        hypothesisId: "H-dup",
+        location: "api/applicants/entities/route.ts:entityInsertResult",
+        message: "entity insert result",
+        data: { reqId, hasError: !!entErr, entityId: entity?.id },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 })
 
     // 2) Insert owners
     if ((parsed.owners && parsed.owners.length) || ownersRaw.length) {
       // Prefer raw array for borrower_id/borrowerId pass-through if available
-      const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[])      const ownersRows = buildOwnerRows({ source, entityId: entity.id, orgUuid })      const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)      if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
+      const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[])
+      // #region agent log
+      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "entity-link",
+          hypothesisId: "H-owners-raw",
+          location: "api/applicants/entities/route.ts:ownersRaw",
+          message: "owners raw payload",
+          data: { count: source.length, sample: source[0] ?? null },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+      const ownersRows = buildOwnerRows({ source, entityId: entity.id, orgUuid })
+      // #region agent log
+      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "entity-link",
+          hypothesisId: "H-owners-rows",
+          location: "api/applicants/entities/route.ts:ownersRows",
+          message: "owners rows before insert",
+          data: { count: ownersRows.length, sample: ownersRows[0] ?? null },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+      const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)
+      // #region agent log
+      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "entity-link",
+          hypothesisId: "H-owners-insert",
+          location: "api/applicants/entities/route.ts:ownersInsert",
+          message: "entity_owners insert result",
+          data: { hasError: !!ownersErr, error: ownersErr?.message },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+      if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
 
       // Link any owners that reference an existing borrower
       const linkables = source.filter((o: any) => (o?.borrower_id || o?.borrowerId))
@@ -128,11 +208,43 @@ export async function POST(req: NextRequest) {
     }
     if (singleOwnerBorrowerId) {
       loanInsert.borrower_id = singleOwnerBorrowerId
-    }    const { data: loanRow, error: loanErr } = await supabaseAdmin
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "loan-insert",
+        hypothesisId: "H-loan-col",
+        location: "api/applicants/entities/route.ts:loanInsert",
+        message: "loan insert payload",
+        data: loanInsert,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    const { data: loanRow, error: loanErr } = await supabaseAdmin
       .from("loans")
       .insert(loanInsert)
       .select("*")
-      .single()    if (loanErr) return NextResponse.json({ error: loanErr.message }, { status: 500 })
+      .single()
+    // #region agent log
+    fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "loan-insert",
+        hypothesisId: "H-loan-col",
+        location: "api/applicants/entities/route.ts:loanInsertResult",
+        message: "loan insert result",
+        data: { hasError: !!loanErr, error: loanErr?.message },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    if (loanErr) return NextResponse.json({ error: loanErr.message }, { status: 500 })
 
     const borrowerName =
       (singleOwnerBorrowerId as string | null) || parsed.link_borrower_id

@@ -20,6 +20,9 @@ export async function POST(
     if (!loanId) return NextResponse.json({ error: "Missing loan id" }, { status: 400 })
     const body = (await req.json().catch(() => ({}))) as Payload
 
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H1',location:'entity-route:entry',message:'entity route entry',data:{loanId,body},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion agent log
 
     const update: Record<string, unknown> = {}
     if (body.entity_id !== undefined) update.entity_id = body.entity_id
@@ -53,12 +56,21 @@ export async function POST(
         })
         .eq("id", primaryScenario.id)
 
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H2',location:'entity-route:update-scenario',message:'updated scenario from entity',data:{loanId,primaryScenarioId:primaryScenario.id,entityId:update.entity_id ?? null,borrowerName:body.borrower_name ?? null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion agent log
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H3',location:'entity-route:ok',message:'entity route ok',data:{loanId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion agent log
 
     return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'entity-route:catch',message:'entity route error',data:{loanId:null,err:msg},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion agent log
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
