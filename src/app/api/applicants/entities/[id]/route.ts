@@ -80,54 +80,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (Array.isArray(parsed.owners) || ownersRaw.length) {
       await supabaseAdmin.from("entity_owners").delete().eq("entity_id", id).eq("organization_id", orgUuid)
       const source = ownersRaw.length ? ownersRaw : (parsed.owners as any[] ?? [])
-      // #region agent log
-      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "entity-link",
-          hypothesisId: "H-owners-raw-patch",
-          location: "api/applicants/entities/[id]/route.ts:ownersRaw",
-          message: "owners raw payload (patch)",
-          data: { count: source.length, sample: source[0] ?? null },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       if (source.length > 0) {
         const ownersRows = buildOwnerRows({ source, entityId: id, orgUuid })
-        // #region agent log
-        fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "entity-link",
-            hypothesisId: "H-owners-rows-patch",
-            location: "api/applicants/entities/[id]/route.ts:ownersRows",
-            message: "owners rows before insert (patch)",
-            data: { count: ownersRows.length, sample: ownersRows[0] ?? null },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
         const { error: ownersErr } = await supabaseAdmin.from("entity_owners").insert(ownersRows)
-        // #region agent log
-        fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "entity-link",
-            hypothesisId: "H-owners-insert-patch",
-            location: "api/applicants/entities/[id]/route.ts:ownersInsert",
-            message: "entity_owners insert result (patch)",
-            data: { hasError: !!ownersErr, error: ownersErr?.message },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
         if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
         // Link any provided borrower_ids
         // Link borrower_ids only (entity_owner_id is stored on entity_owners)

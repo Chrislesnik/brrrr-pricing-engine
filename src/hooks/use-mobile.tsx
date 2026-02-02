@@ -8,21 +8,6 @@ export function useIsMobile(breakpointPx: number = MOBILE_BREAKPOINT) {
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${breakpointPx}px)`)
     const update = (matches: boolean, phase: "init" | "change") => {
-      // #region agent log
-      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "run1",
-          hypothesisId: "H-mobile",
-          location: "src/hooks/use-mobile.tsx:update",
-          message: "useIsMobile state update",
-          data: { matches, phase, breakpointPx },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       setIsMobile(matches)
     }
 
@@ -34,21 +19,6 @@ export function useIsMobile(breakpointPx: number = MOBILE_BREAKPOINT) {
 
     return () => {
       mql.removeEventListener("change", handleMedia)
-      // #region agent log
-      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "debug-session",
-          runId: "run1",
-          hypothesisId: "H-mobile",
-          location: "src/hooks/use-mobile.tsx:cleanup",
-          message: "useIsMobile cleanup",
-          data: { breakpointPx },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
     }
   }, [breakpointPx])
 
