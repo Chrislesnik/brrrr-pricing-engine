@@ -69,11 +69,72 @@ const grapejsThemeStyles = `
     background-color: white !important;
     border-radius: 8px !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: visible !important;
   }
   
   .dark .gs-cmp-modal-container {
     background-color: hsl(0 0% 12%) !important;
     color: #f3f4f6 !important;
+  }
+
+  /* Ensure GrapesJS modal content and buttons are visible */
+  .gs-cmp-modal-container > * {
+    overflow: visible !important;
+  }
+
+  /* Ensure modal footer/buttons are visible */
+  .gs-cmp-modal-container [class*="footer"],
+  .gs-cmp-modal-container [class*="button"],
+  .gs-cmp-modal-container button,
+  .gs-cmp-modal-container [role="button"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: flex !important;
+  }
+
+  /* Ensure modal content area allows scrolling but buttons stay visible */
+  .gs-cmp-modal-container [class*="content"] {
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    max-height: calc(90vh - 120px) !important;
+  }
+
+  /* Ensure modal footer stays at bottom */
+  .gs-cmp-modal-container [class*="footer"] {
+    flex: 0 0 auto !important;
+    padding: 16px !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: flex-end !important;
+  }
+
+  .dark .gs-cmp-modal-container [class*="footer"] {
+    border-top-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* Ensure all buttons in GrapesJS modals are visible */
+  .gs-studio-root .gs-cmp-modal-container button,
+  .gs-studio-root .gs-cmp-modal-container [role="button"],
+  .gs-studio-root .gs-cmp-modal-container [type="button"],
+  .gs-studio-root .gs-cmp-modal-container [type="submit"],
+  .gs-studio-root [data-headlessui-state] button {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: inline-flex !important;
+    pointer-events: auto !important;
+  }
+
+  /* Ensure modal doesn't cut off content */
+  .gs-cmp-modal-container {
+    overflow: visible !important;
+  }
+
+  .gs-cmp-modal-container > div {
+    overflow: visible !important;
   }
 
   /* ===== Data Variable Field Styling ===== */
@@ -132,13 +193,48 @@ const grapejsThemeStyles = `
     background-color: hsl(var(--primary) / 0.2) !important;
   }
 
-  /* Selected/active states with violet backgrounds */
-  .gs-studio-root [class*="gs-utl-bg-violet"] {
+  /* Selected/active states with violet backgrounds (non-button elements) */
+  .gs-studio-root [class*="gs-utl-bg-violet"]:not(button):not([role="button"]) {
     background-color: hsl(var(--primary) / 0.15) !important;
   }
 
-  .dark .gs-studio-root [class*="gs-utl-bg-violet"] {
+  .dark .gs-studio-root [class*="gs-utl-bg-violet"]:not(button):not([role="button"]) {
     background-color: hsl(var(--primary) / 0.25) !important;
+  }
+
+  /* Primary action buttons - solid background */
+  .gs-studio-root button.gs-utl-bg-violet-500,
+  .gs-studio-root button[class*="gs-utl-bg-violet-500"],
+  .gs-studio-root [role="button"].gs-utl-bg-violet-500,
+  #headlessui-portal-root button.gs-utl-bg-violet-500,
+  #headlessui-portal-root button[class*="gs-utl-bg-violet-500"] {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+
+  .gs-studio-root button.gs-utl-bg-violet-500:hover,
+  .gs-studio-root button[class*="gs-utl-bg-violet-500"]:hover,
+  .gs-studio-root [role="button"].gs-utl-bg-violet-500:hover,
+  #headlessui-portal-root button.gs-utl-bg-violet-500:hover,
+  #headlessui-portal-root button[class*="gs-utl-bg-violet-500"]:hover {
+    background-color: hsl(var(--primary) / 0.9) !important;
+  }
+
+  .dark .gs-studio-root button.gs-utl-bg-violet-500,
+  .dark .gs-studio-root button[class*="gs-utl-bg-violet-500"],
+  .dark .gs-studio-root [role="button"].gs-utl-bg-violet-500,
+  .dark #headlessui-portal-root button.gs-utl-bg-violet-500,
+  .dark #headlessui-portal-root button[class*="gs-utl-bg-violet-500"] {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+
+  .dark .gs-studio-root button.gs-utl-bg-violet-500:hover,
+  .dark .gs-studio-root button[class*="gs-utl-bg-violet-500"]:hover,
+  .dark .gs-studio-root [role="button"].gs-utl-bg-violet-500:hover,
+  .dark #headlessui-portal-root button.gs-utl-bg-violet-500:hover,
+  .dark #headlessui-portal-root button[class*="gs-utl-bg-violet-500"]:hover {
+    background-color: hsl(var(--primary) / 0.8) !important;
   }
 
   /* Hover states - override violet hover colors */
@@ -200,20 +296,39 @@ export default function TermSheetEditorPage() {
   const [showTestPanel, setShowTestPanel] = useState(false)
   // Preview values for testing term sheet with real data
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
+  // Counter to force editor remount when preview values change
+  const [previewUpdateCounter, setPreviewUpdateCounter] = useState(0)
+  
+  // Increment counter when preview values change (debounced for performance)
+  useEffect(() => {
+    if (!showTestPanel) return
+    
+    const timer = setTimeout(() => {
+      setPreviewUpdateCounter(prev => prev + 1)
+    }, 200) // 200ms debounce - fast enough to feel responsive
+    
+    return () => clearTimeout(timer)
+  }, [previewValues, showTestPanel])
 
   // Convert fields to globalData for GrapeJS, merging with preview values
+  // GrapesJS expects nested structure: { fieldName: { data: "value" } }
   const globalData = useMemo(() => {
     const baseData = fieldsToGlobalData(fields)
     // Override with preview values (only non-empty values)
     Object.entries(previewValues).forEach(([key, value]) => {
       if (value.trim()) {
-        baseData[key] = value
+        // Ensure the nested structure exists
+        if (!baseData[key]) {
+          baseData[key] = { data: "" }
+        }
+        baseData[key].data = value
       }
     })
     return baseData
   }, [fields, previewValues])
 
   // Generate variable options for RTE toolbar from fields
+  // Keep simple format for user-friendly insertion
   const variableOptions = useMemo(() => 
     fields.map(field => ({
       id: `{{${field.name}}}`,
@@ -390,20 +505,20 @@ export default function TermSheetEditorPage() {
       </div>
 
       {/* Main Content - GrapesJS Editor + Optional Test Data Panel */}
-      <div className="flex-1 flex min-h-0 gap-4">
+      <div className="flex-1 flex min-h-0 gap-0">
         {/* GrapeJS Editor Container */}
         <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden">
           <StudioEditorWrapper
-            key={`editor-${templateId}-${fields.length}`}
-            globalData={showTestPanel ? { ...globalData, ...previewValues } : globalData}
+            key={`editor-${templateId}-${fields.length}${showTestPanel ? `-preview-${previewUpdateCounter}` : ''}`}
+            globalData={globalData}
             variableOptions={variableOptions}
             template={editorTemplate}
           />
         </div>
         
-        {/* Test Data Panel - Separate container, only shown when toggled */}
+        {/* Test Data Panel - Matches GrapesJS sidebar width and style */}
         {showTestPanel && (
-          <div className="w-[280px] flex-shrink-0 rounded-lg border bg-background overflow-hidden">
+          <div className="w-[280px] flex-shrink-0">
             <VariablePreviewPanel
               fields={fields}
               values={previewValues}
