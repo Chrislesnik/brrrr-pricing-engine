@@ -15,7 +15,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../shadcn/dropdown-menu";
-import { useSidebar } from "../shadcn/sidebar";
+import { 
+  useSidebar, 
+  SidebarMenu, 
+  SidebarMenuItem, 
+  SidebarMenuButton 
+} from "../shadcn/sidebar";
 
 interface Workspace {
   id: string;
@@ -76,7 +81,7 @@ const workspaces: Workspace[] = [
 export function WorkspaceSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isMobile } = useSidebar();
+  const { isMobile, state } = useSidebar();
 
   const currentWorkspace =
     workspaces.find((ws) => ws.prefixes.some((p) => pathname.startsWith(p))) ||
@@ -99,21 +104,28 @@ export function WorkspaceSwitcher() {
     router.push(workspace.href);
   };
 
+  const isCollapsed = state === "collapsed";
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="inline-flex items-center justify-center gap-1.5 rounded-md bg-sidebar-accent/10 px-2.5 py-1 text-xs font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-sidebar-ring w-fit">
-          <currentWorkspace.icon className="size-3.5" />
-          <span>{currentWorkspace.shortLabel}</span>
-          <ChevronsUpDown className="size-3 opacity-60" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-56 rounded-lg"
-        side={isMobile ? "bottom" : "right"}
-        align="start"
-        sideOffset={4}
-      >
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton 
+              tooltip={currentWorkspace.label}
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <currentWorkspace.icon />
+              <span>{currentWorkspace.shortLabel}</span>
+              {!isCollapsed && <ChevronsUpDown className="ml-auto size-4 shrink-0" />}
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-56 rounded-lg"
+            side={isMobile ? "bottom" : "right"}
+            align="start"
+            sideOffset={4}
+          >
         {workspaces.map((ws) => (
           <DropdownMenuItem
             key={ws.id}
@@ -134,7 +146,9 @@ export function WorkspaceSwitcher() {
             )}
           </DropdownMenuItem>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }

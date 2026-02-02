@@ -10,14 +10,14 @@ interface Props {
   children: ReactNode;
 }
 
-export default async function DocsLayout({ children }: Props) {
+export default async function HomeLayout({ children }: Props) {
   return (
     <div className="border-grid flex flex-1 flex-col">
       <SWRProvider>
         <SidebarProvider defaultOpen={true}>
           <DocsSidebar variant="inset" />
           <SidebarInset>
-            <DocsHeader />
+            <DocsHeader title="Developer Documentation" />
             <div
               id="content"
               className={cn(

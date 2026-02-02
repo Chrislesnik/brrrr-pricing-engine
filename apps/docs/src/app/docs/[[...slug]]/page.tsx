@@ -109,7 +109,7 @@ function DocsIndexContent({ data }: { data: any }) {
   }, {});
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-4xl p-6">
       <div className="prose prose-neutral dark:prose-invert max-w-none">
       <h1>Documentation</h1>
       <p className="text-muted-foreground">
@@ -166,7 +166,7 @@ function DocsIndexContent({ data }: { data: any }) {
 
 function DocsContent({ item }: { item: any }) {
   return (
-    <article className="mx-auto max-w-4xl">
+    <article className="mx-auto max-w-4xl p-6">
       <div className="prose prose-neutral dark:prose-invert max-w-none">
         <h1>{item._title}</h1>
         {item.category && (
