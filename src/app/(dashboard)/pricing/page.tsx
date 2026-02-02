@@ -1145,28 +1145,7 @@ export default function PricingEnginePage() {
     }
     const svc = new g.StreetViewService()
     setStreetViewStatus(null)
-    svc.getPanorama({ location: mapsCenter, radius: 50 }, (data: any, status: google.maps.StreetViewStatus) => {
-      // #region agent log
-      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: debugSessionId,
-          runId: debugRunId,
-          hypothesisId: "H1",
-          location: "pricing/page.tsx:streetView:getPanorama",
-          message: "StreetViewService callback",
-          data: {
-            status,
-            hasLocation: Boolean(data?.location?.latLng),
-            mapsCenter,
-            mapsView,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-      if (status === g.StreetViewStatus.OK && data?.location?.latLng) {
+    svc.getPanorama({ location: mapsCenter, radius: 50 }, (data: any, status: google.maps.StreetViewStatus) => {      if (status === g.StreetViewStatus.OK && data?.location?.latLng) {
         const pos = data.location.latLng
         setStreetViewPosition({ lat: pos.lat(), lng: pos.lng() })
       } else {
@@ -1177,31 +1156,7 @@ export default function PricingEnginePage() {
   }, [gmapsReady, mapsCenter, mapsView])
 
   useEffect(() => {
-    if (!mapsModalOpen) return
-    // #region agent log
-    fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: debugSessionId,
-        runId: debugRunId,
-        hypothesisId: "H2",
-        location: "pricing/page.tsx:streetView:renderGate",
-        message: "Street view render gate state",
-        data: {
-          mapsView,
-          gmapsReady,
-          hasGmaps: Boolean(gmaps),
-          mapsCenter,
-          mapsLoading,
-          streetViewPosition,
-          streetViewStatus,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
-  }, [gmaps, gmapsReady, mapsCenter, mapsLoading, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
+    if (!mapsModalOpen) return  }, [gmaps, gmapsReady, mapsCenter, mapsLoading, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
 
   useEffect(() => {
     if (!mapsModalOpen) {
@@ -1215,27 +1170,7 @@ export default function PricingEnginePage() {
     if (!gmaps || !streetViewPanoRef.current) return
     if (!streetViewPosition || streetViewStatus !== gmaps.StreetViewStatus.OK) {
       if (streetViewPanoInstanceRef.current) {
-        streetViewPanoInstanceRef.current.setVisible(false)
-        // #region agent log
-        fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: debugSessionId,
-            runId: "fix1",
-            hypothesisId: "H5",
-            location: "pricing/page.tsx:streetView:panoHide",
-            message: "Hide panorama (no position/status)",
-            data: {
-              mapsView,
-              streetViewStatus,
-              hasInstance: true,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
-      }
+        streetViewPanoInstanceRef.current.setVisible(false)      }
       return
     }
     let pano = streetViewPanoInstanceRef.current
@@ -1248,70 +1183,16 @@ export default function PricingEnginePage() {
         motionTracking: false,
         motionTrackingControl: false,
       })
-      streetViewPanoInstanceRef.current = pano
-      // #region agent log
-      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: debugSessionId,
-          runId: "fix1",
-          hypothesisId: "H5",
-          location: "pricing/page.tsx:streetView:panoCreate",
-          message: "Created StreetViewPanorama",
-          data: {
-            mapsView,
-            streetViewPosition,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-    } else {
+      streetViewPanoInstanceRef.current = pano    } else {
       pano.setPosition(streetViewPosition)
-      pano.setVisible(true)
-      // #region agent log
-      fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: debugSessionId,
-          runId: "fix1",
-          hypothesisId: "H5",
-          location: "pricing/page.tsx:streetView:panoUpdate",
-          message: "Updated StreetViewPanorama",
-          data: {
-            mapsView,
-            streetViewPosition,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-    }
+      pano.setVisible(true)    }
   }, [gmaps, mapsModalOpen, mapsView, streetViewPosition, streetViewStatus])
 
   useEffect(() => {
     return () => {
       if (streetViewPanoInstanceRef.current) {
         streetViewPanoInstanceRef.current.setVisible(false)
-        streetViewPanoInstanceRef.current = null
-        // #region agent log
-        fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: debugSessionId,
-            runId: "fix1",
-            hypothesisId: "H5",
-            location: "pricing/page.tsx:streetView:cleanup",
-            message: "Cleanup panorama on unmount",
-            data: {},
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
-      }
+        streetViewPanoInstanceRef.current = null      }
     }
   }, [])
 

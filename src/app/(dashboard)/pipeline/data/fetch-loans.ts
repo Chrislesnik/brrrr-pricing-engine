@@ -16,23 +16,6 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   if (!orgId) return []
   // If no user is provided, show nothing per requirement
   if (!userId) return []
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H9",
-      location: "pipeline/data/fetch-loans.ts:23",
-      message: "fetch-loans entry run5",
-      data: { hasOrg: Boolean(orgId), hasUser: Boolean(userId) },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   const orgUuid = await getOrgUuidFromClerkId(orgId)
   if (!orgUuid) return []
 
@@ -48,44 +31,10 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
     .order("updated_at", { ascending: false })
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H9",
-      location: "pipeline/data/fetch-loans.ts:47",
-      message: "loans query completed run5",
-      data: { error: loansError?.message ?? null, count: loansRaw?.length ?? 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   if (loansError) {
     logError("Error fetching loans:", loansError.message)
     return []
   }
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run2",
-      hypothesisId: "H5",
-      location: "pipeline/data/fetch-loans.ts:53",
-      message: "loans fetched",
-      data: { count: loansRaw?.length ?? 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   // Check user's role - admin/owner sees all loans
   const userRole = await getUserRoleInOrg(orgUuid, userId)
   const hasFullAccess = isPrivilegedRole(userRole)
@@ -110,43 +59,9 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .in("loan_id", loanIds)
     .order("primary", { ascending: false })
     .order("created_at", { ascending: false })
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H9",
-      location: "pipeline/data/fetch-loans.ts:78",
-      message: "scenarios query completed run5",
-      data: { error: scenariosError?.message ?? null, count: scenarios?.length ?? 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   if (scenariosError) {
     logError("Error fetching loan scenarios:", scenariosError.message)
-  }
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run2",
-      hypothesisId: "H5",
-      location: "pipeline/data/fetch-loans.ts:80",
-      message: "scenarios fetched",
-      data: { count: scenarios?.length ?? 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-  type ScenarioRow = {
+  }  type ScenarioRow = {
     loan_id: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inputs?: Record<string, any>
@@ -176,43 +91,9 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .from("organization_members")
     .select("user_id, first_name, last_name")
     .eq("organization_id", orgUuid)
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H9",
-      location: "pipeline/data/fetch-loans.ts:112",
-      message: "members query completed run5",
-      data: { error: membersError?.message ?? null, count: members?.length ?? 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   if (membersError) {
     logError("Error fetching organization members:", membersError.message)
-  }
-
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run2",
-      hypothesisId: "H5",
-      location: "pipeline/data/fetch-loans.ts:108",
-      message: "members fetched",
-      data: { count: members?.length ?? 0 },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-  const userIdToName = new Map<string, string>()
+  }  const userIdToName = new Map<string, string>()
   for (const m of members ?? []) {
     const fullName = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
     if (m.user_id) {
