@@ -335,7 +335,7 @@ export default function AIAgentPage() {
             <div className="text-lg font-semibold">AI Agent</div>
             <div className="text-xs text-muted-foreground">Your conversations</div>
           </div>
-          <Button type="button" className="h-8 w-full" onClick={createNewConversation}>
+          <Button type="button" size="sm" className="w-full" onClick={createNewConversation}>
             New Conversation
           </Button>
         </div>
@@ -487,7 +487,7 @@ export default function AIAgentPage() {
                   <div className="mb-3 text-sm text-muted-foreground">
                     Create a new conversation to start chatting with your AI Agent.
                   </div>
-                  <Button onClick={createNewConversation} className="h-8">
+                  <Button onClick={createNewConversation} size="sm">
                     New Conversation
                   </Button>
                 </div>
@@ -524,7 +524,8 @@ export default function AIAgentPage() {
           <div className="p-4 pt-3">
             <Button
               type="button"
-              className="h-8 w-full"
+              size="sm"
+              className="w-full"
               onClick={async () => {
                 await createNewConversation()
                 setIsSheetOpen(false)
