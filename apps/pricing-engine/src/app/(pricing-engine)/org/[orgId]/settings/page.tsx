@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useOrganization, useOrganizationList } from "@clerk/nextjs";
@@ -10,6 +10,8 @@ import {
   Building2,
   Users,
   Globe,
+  Shield,
+  Palette,
   Loader2,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
@@ -18,14 +20,16 @@ import { cn } from "@repo/lib/cn";
 import { GeneralSettings } from "./components/general-settings";
 import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
+import { ThemesSettings } from "./components/themes-settings";
 
-type SettingsTab = "general" | "members" | "domains";
+type SettingsTab = "general" | "members" | "domains" | "themes";
 
 interface NavItem {
-  id: SettingsTab;
+  id: SettingsTab | "permissions";
   label: string;
   icon: typeof Building2;
   description: string;
+  href?: string; // If provided, navigates to this URL instead of switching tabs
 }
 
 const settingsNavItems: NavItem[] = [
@@ -47,17 +51,34 @@ const settingsNavItems: NavItem[] = [
     icon: Globe,
     description: "Verified domains and SSO",
   },
+  {
+    id: "permissions",
+    label: "Permissions",
+    icon: Shield,
+    description: "Document access permissions",
+    href: "documents/permissions",
+  },
+  {
+    id: "themes",
+    label: "Themes",
+    icon: Palette,
+    description: "Customize appearance",
+  },
 ];
 
 export default function OrganizationSettingsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orgIdFromUrl = params.orgId as string;
   
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { setActive } = useOrganizationList();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [isValidating, setIsValidating] = useState(true);
+  
+  // Get active tab from URL search params, default to "general"
+  const tabParam = searchParams.get("tab");
+  const activeTab = (tabParam as SettingsTab) || "general";
 
   // Validate that the URL org matches the active org, or switch to it
   useEffect(() => {
@@ -153,13 +174,37 @@ export default function OrganizationSettingsPage() {
               {/* Navigation */}
               <nav className="space-y-1">
                 {settingsNavItems.map((item) => {
+                  // If item has href, render as Link to separate page
+                  if (item.href) {
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/org/${orgIdFromUrl}/settings/${item.href}`}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                          "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className="size-5 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{item.label}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {item.description}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }
+
+                  // Otherwise render as Link with tab query parameter
+                  const isActive = activeTab === item.id;
                   return (
-                    <button
+                    <Link
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      href={`/org/${orgIdFromUrl}/settings?tab=${item.id}`}
                       className={cn(
                         "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
-                        activeTab === item.id
+                        isActive
                           ? "bg-accent text-accent-foreground"
                           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                       )}
@@ -171,7 +216,7 @@ export default function OrganizationSettingsPage() {
                           {item.description}
                         </div>
                       </div>
-                    </button>
+                    </Link>
                   );
                 })}
               </nav>
@@ -183,6 +228,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
+            {activeTab === "themes" && <ThemesSettings />}
           </div>
         </div>
       </div>
