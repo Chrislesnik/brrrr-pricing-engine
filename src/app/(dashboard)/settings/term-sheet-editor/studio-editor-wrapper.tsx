@@ -421,7 +421,7 @@ export function StudioEditorWrapper({
                         },
                         ...items.filter(
                           (item: { id: string }) =>
-                            !["showImportCode", "fullscreen"].includes(item.id)
+                            !["showImportCode", "fullscreen", "store", "saveDb"].includes(item.id)
                         ),
                         {
                           id: "zoom-out",
