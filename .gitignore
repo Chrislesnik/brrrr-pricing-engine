@@ -42,3 +42,6 @@ next-env.d.ts
 # iOS (Capacitor)
 ios/App/App/public/
 ios/Pods/
+
+# GrapesJS CSS (copied from node_modules, fetched at runtime)
+public/grapesjs-style.css

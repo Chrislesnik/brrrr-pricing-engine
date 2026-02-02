@@ -4,6 +4,7 @@
   "author": "Shadcnblocks.com",
   "private": true,
   "scripts": {
+    "postinstall": "cp node_modules/@grapesjs/studio-sdk/dist/style.css public/grapesjs-style.css 2>/dev/null || true",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

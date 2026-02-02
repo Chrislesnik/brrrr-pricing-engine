@@ -428,3 +428,24 @@
 [data-slot="dialog-content"][data-state="closed"] {
   animation: dialog-close 400ms cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
+
+/* ===== App Icon Protection ===== */
+/* Ensure app SVG icons display correctly regardless of any third-party CSS */
+/* GrapesJS CSS is now dynamically scoped to .gs-studio-root in studio-editor-wrapper.tsx */
+
+/* App navigation and header icons */
+[data-slot="sidebar"] svg,
+[data-sidebar] svg,
+header svg,
+nav svg,
+#content > header svg {
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+/* Buttons outside of the GrapesJS editor */
+button:not(.gs-studio-root button) > svg,
+button:not(.gs-studio-root button) svg:first-child {
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
