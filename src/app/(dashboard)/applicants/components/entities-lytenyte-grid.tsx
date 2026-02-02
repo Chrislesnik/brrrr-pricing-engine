@@ -66,43 +66,10 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 	const [dataVersion, setDataVersion] = useState(0)
 	const [search, setSearch] = useState("")
 	const [assignedFilter, setAssignedFilter] = useState<string[]>([])
-
-	// #region agent log
-	fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "H1",
-			location: "entities-lytenyte-grid.tsx:entry",
-			message: "component entry",
-			data: { rowsCount: rows?.length ?? null },
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {})
-	// #endregion
-
 	// Load owners for entities that are missing in cache
 	useEffect(() => {
 		const ids = rows.map((r) => ownerKey(r)).filter(Boolean) as string[]
-		const missing = ids.filter((id) => ownersMap[id] === undefined)
-		// #region agent log
-		fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				sessionId: "debug-session",
-				runId: "debug1",
-				hypothesisId: "H1",
-				location: "entities-grid:fetch-effect:missing",
-				message: "owners fetch effect missing ids",
-				data: { idsCount: ids.length, missingCount: missing.length, sampleMissing: missing.slice(0, 3) },
-				timestamp: Date.now(),
-			}),
-		}).catch(() => {})
-		// #endregion
-		if (!missing.length) return
+		const missing = ids.filter((id) => ownersMap[id] === undefined)		if (!missing.length) return
 		let cancelled = false
 		;(async () => {
 			const entries: Array<[string, EntityOwner[] | null]> = []
@@ -121,23 +88,7 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 					}
 				})
 			)
-			if (cancelled) return
-			// #region agent log
-			fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					sessionId: "debug-session",
-					runId: "debug1",
-					hypothesisId: "H2",
-					location: "entities-grid:fetch-effect:entries",
-					message: "owners fetch entries",
-					data: { count: entries.length, keys: entries.map((e) => e[0]).slice(0, 3) },
-					timestamp: Date.now(),
-				}),
-			}).catch(() => {})
-			// #endregion
-			setOwnersMap((prev) => {
+			if (cancelled) return			setOwnersMap((prev) => {
 				const next = { ...prev }
 				for (const [id, owners] of entries) next[id] = owners
 				return next
@@ -288,35 +239,7 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 			const data = (row.data ?? null) as EntityProfile | null
 			if (!data) return null
 			const key = ownerKey(data) ?? (row as any)?.id?.toString?.()
-			const owners = key ? (data as any).__owners ?? rowOwners[key] ?? ownersMap[key] : undefined
-			// #region agent log
-			fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					sessionId: "debug-session",
-					runId: "debug1",
-					hypothesisId: "H3",
-					location: "entities-grid:row-detail",
-					message: "row detail owners state",
-					data: {
-						key,
-						hasInjected: !!(data as any).__owners,
-						ownersFrom: (data as any).__owners
-							? "rowData"
-							: rowOwners[key]
-								? "rowOwners"
-								: ownersMap[key]
-									? "ownersMap"
-									: "none",
-						ownersType: owners === undefined ? "undefined" : owners === null ? "null" : "array",
-						ownersLength: Array.isArray(owners) ? owners.length : null,
-					},
-					timestamp: Date.now(),
-				}),
-			}).catch(() => {})
-			// #endregion
-			return (
+			const owners = key ? (data as any).__owners ?? rowOwners[key] ?? ownersMap[key] : undefined			return (
 				<div className="w-[320px] max-w-[320px] p-4 text-sm">
 					{!key ? (
 						<div className="text-muted-foreground">Missing entity id</div>
@@ -364,43 +287,9 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 
 	// useLyteNyte returns the grid instance (not an object with grid)
 	const grid = lyte as any
-
-	// #region agent log
-	fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "fix-attempt-3",
-			hypothesisId: "H2",
-			location: "entities-lytenyte-grid.tsx:after-useLyteNyte",
-			message: "grid presence after useLyteNyte",
-			data: { hasLyte: !!lyte, gridType: typeof grid, hasGrid: !!grid, keys: grid ? Object.keys(grid).slice(0, 10) : [] },
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {})
-	// #endregion
-
 	// Guard against grid not being ready yet to avoid runtime errors while the
 	// component mounts or the LyteNyte instance is still initializing.
-	const selectedIds = grid?.state?.rowSelectedIds?.useValue?.() ?? []
-
-	// #region agent log
-	fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "fix-attempt-3",
-			hypothesisId: "H3",
-			location: "entities-lytenyte-grid.tsx:selectedIds",
-			message: "selected ids read",
-			data: { hasGrid: !!grid, selectedCount: Array.isArray(selectedIds) ? selectedIds.length : null },
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {})
-	// #endregion
-	useEffect(() => {
+	const selectedIds = grid?.state?.rowSelectedIds?.useValue?.() ?? []	useEffect(() => {
 		const detailExpansions = grid?.state?.rowDetailExpansions
 		if (!detailExpansions) return
 		detailExpansions.set(new Set(selectedIds))
@@ -423,23 +312,7 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 		)
 	}
 
-	if (!grid) {
-		// #region agent log
-		fetch("http://127.0.0.1:7246/ingest/129b7388-6ef0-4f6c-b8cd-48b22b6394cf", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				sessionId: "debug-session",
-				runId: "fix-attempt-3",
-				hypothesisId: "H4",
-				location: "entities-lytenyte-grid.tsx:grid-missing",
-				message: "grid not available yet",
-				data: {},
-				timestamp: Date.now(),
-			}),
-		}).catch(() => {})
-		// #endregion
-		return (
+	if (!grid) {		return (
 			<div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
 				Loading grid...
 			</div>
