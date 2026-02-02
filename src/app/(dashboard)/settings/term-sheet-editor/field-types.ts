@@ -17,29 +17,32 @@ export function generateFieldId(): string {
 }
 
 // Convert fields to GrapeJS globalData format
-export function fieldsToGlobalData(fields: Field[]): Record<string, string> {
-  const globalData: Record<string, string> = {}
+// GrapesJS expects nested structure: { fieldName: { data: "value" } }
+export function fieldsToGlobalData(fields: Field[]): Record<string, { data: string }> {
+  const globalData: Record<string, { data: string }> = {}
   fields.forEach((field) => {
     // Use placeholder value based on type
+    let value: string
     switch (field.type) {
       case "Number":
-        globalData[field.name] = "0"
+        value = "0"
         break
       case "Boolean":
-        globalData[field.name] = "true"
+        value = "true"
         break
       case "Array":
-        globalData[field.name] = "[]"
+        value = "[]"
         break
       case "Object":
-        globalData[field.name] = "{}"
+        value = "{}"
         break
       case "Binary Data":
-        globalData[field.name] = "/placeholder.png"
+        value = "/placeholder.png"
         break
       default:
-        globalData[field.name] = `{{${field.name}}}`
+        value = `{{${field.name}}}`
     }
+    globalData[field.name] = { data: value }
   })
   return globalData
 }

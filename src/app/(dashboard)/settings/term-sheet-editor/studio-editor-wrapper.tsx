@@ -15,8 +15,23 @@ import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
 
+// Suppress React 19 ref warning from @grapesjs/studio-sdk until library updates
+// This is a temporary workaround - the library uses element.ref which was removed in React 19
+if (typeof window !== "undefined") {
+  const originalConsoleError = console.error
+  console.error = (...args) => {
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes("Accessing element.ref was removed in React 19")
+    ) {
+      return // Suppress this specific warning
+    }
+    originalConsoleError.apply(console, args)
+  }
+}
+
 interface StudioEditorWrapperProps {
-  globalData: Record<string, string>
+  globalData: Record<string, { data: string }>
   variableOptions: { id: string; label: string }[]
   template?: TermSheetTemplate | null
   onSave?: (html: string, gjsData: object) => void
@@ -37,6 +52,10 @@ export function StudioEditorWrapper({
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<any>(null)
+  // Track initial globalData to avoid updating on mount
+  const initialGlobalDataRef = useRef(globalData)
 
   // Get the HTML content for the editor
   const templateHtml = template?.html_content || defaultTemplateHtml
@@ -90,6 +109,35 @@ export function StudioEditorWrapper({
       }
     }
   }, [])
+
+  // Update editor's globalData when props change (without remounting)
+  useEffect(() => {
+    if (!editorRef.current) return
+    // Skip the initial render - data is already set via options
+    if (globalData === initialGlobalDataRef.current) return
+    
+    try {
+      const editor = editorRef.current
+      // Access the DataSources manager and update globalData
+      const dsm = editor.DataSources || editor.dataSources
+      if (dsm && typeof dsm.setValue === 'function') {
+        // Update each field individually
+        Object.entries(globalData).forEach(([key, value]) => {
+          dsm.setValue(key, value.data)
+        })
+      } else if (dsm && dsm.getAll) {
+        // Alternative: try to find the global data source and update it
+        const sources = dsm.getAll()
+        const globalSource = sources.find((s: { id: string }) => s.id === 'globalData')
+        if (globalSource && typeof globalSource.setRecords === 'function') {
+          globalSource.setRecords(globalData)
+        }
+      }
+    } catch (err) {
+      // Silently handle - editor may not support dynamic updates
+      console.debug('Could not update globalData dynamically:', err)
+    }
+  }, [globalData])
 
   // Show loading state
   if (!mounted || !stylesReady) {
@@ -215,6 +263,9 @@ export function StudioEditorWrapper({
               ],
             },
           },
+        }}
+        onReady={(editor) => {
+          editorRef.current = editor
         }}
       />
     </div>

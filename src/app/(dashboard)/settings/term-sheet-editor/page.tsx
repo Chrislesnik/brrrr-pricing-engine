@@ -296,19 +296,14 @@ export default function TermSheetEditorPage() {
   const [showTestPanel, setShowTestPanel] = useState(false)
   // Preview values for testing term sheet with real data
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
-  // Counter to force editor remount when preview values change
-  const [previewUpdateCounter, setPreviewUpdateCounter] = useState(0)
+  // Counter to force editor remount when user clicks "Apply to Preview"
+  const [previewApplyCounter, setPreviewApplyCounter] = useState(0)
   
-  // Increment counter when preview values change (debounced for performance)
-  useEffect(() => {
-    if (!showTestPanel) return
-    
-    const timer = setTimeout(() => {
-      setPreviewUpdateCounter(prev => prev + 1)
-    }, 200) // 200ms debounce - fast enough to feel responsive
-    
-    return () => clearTimeout(timer)
-  }, [previewValues, showTestPanel])
+  // Handler for applying preview values - updates values AND triggers remount
+  const handleApplyPreviewValues = useCallback((values: Record<string, string>) => {
+    setPreviewValues(values)
+    setPreviewApplyCounter(prev => prev + 1)
+  }, [])
 
   // Convert fields to globalData for GrapeJS, merging with preview values
   // GrapesJS expects nested structure: { fieldName: { data: "value" } }
@@ -509,7 +504,7 @@ export default function TermSheetEditorPage() {
         {/* GrapeJS Editor Container */}
         <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden">
           <StudioEditorWrapper
-            key={`editor-${templateId}-${fields.length}${showTestPanel ? `-preview-${previewUpdateCounter}` : ''}`}
+            key={`editor-${templateId}-${fields.length}-${previewApplyCounter}`}
             globalData={globalData}
             variableOptions={variableOptions}
             template={editorTemplate}
@@ -522,7 +517,7 @@ export default function TermSheetEditorPage() {
             <VariablePreviewPanel
               fields={fields}
               values={previewValues}
-              onValuesChange={setPreviewValues}
+              onValuesChange={handleApplyPreviewValues}
             />
           </div>
         )}
