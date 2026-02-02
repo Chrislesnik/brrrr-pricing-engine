@@ -1,4 +1,5 @@
 import { Pump } from "basehub/react-pump";
+import { RichText } from "basehub/react-rich-text";
 import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -175,10 +176,9 @@ function DocsContent({ item }: { item: any }) {
           </div>
         )}
         {item.richText ? (
-          <div 
-            className="mt-6"
-            dangerouslySetInnerHTML={{ __html: item.richText.json.content }}
-          />
+          <div className="mt-6">
+            <RichText>{item.richText.json.content}</RichText>
+          </div>
         ) : (
           <p className="text-muted-foreground mt-6">No content available for this document.</p>
         )}
