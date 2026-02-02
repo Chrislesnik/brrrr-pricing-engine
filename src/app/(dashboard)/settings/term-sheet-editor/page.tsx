@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe } from "@tabler/icons-react"
+import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe, IconDeviceFloppy } from "@tabler/icons-react"
 import { Field, defaultFields, fieldsToGlobalData } from "./field-types"
 import { FieldEditorModal } from "./field-editor-modal"
 import { TemplateGallery } from "./template-gallery"
@@ -298,11 +298,53 @@ export default function TermSheetEditorPage() {
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
   // Counter to force editor remount when user clicks "Apply to Preview"
   const [previewApplyCounter, setPreviewApplyCounter] = useState(0)
+  // Saving state for template content
+  const [saving, setSaving] = useState(false)
+  // Editor instance ref for triggering save from button
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorInstanceRef = useRef<any>(null)
   
   // Handler for applying preview values - updates values AND triggers remount
   const handleApplyPreviewValues = useCallback((values: Record<string, string>) => {
     setPreviewValues(values)
     setPreviewApplyCounter(prev => prev + 1)
+  }, [])
+
+  // Handler for saving template content to Supabase
+  const handleSaveTemplate = useCallback(async (html: string, gjsData: object) => {
+    if (!templateId) return
+    
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/term-sheet-templates/${templateId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html_content: html,
+          gjs_data: gjsData,
+        }),
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to save template")
+      }
+      
+      const data = await res.json()
+      // Update current template with saved data
+      setCurrentTemplate(data.template)
+      console.log("[TermSheetEditor] Template saved successfully")
+    } catch (e) {
+      console.error("[TermSheetEditor] Save failed:", e)
+      alert(e instanceof Error ? e.message : "Failed to save template")
+    } finally {
+      setSaving(false)
+    }
+  }, [templateId])
+
+  // Handler to receive editor instance from wrapper
+  const handleEditorReady = useCallback((editor: any) => {
+    editorInstanceRef.current = editor
   }, [])
 
   // Convert fields to globalData for GrapeJS, merging with preview values
@@ -545,6 +587,29 @@ export default function TermSheetEditorPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Save Template Button */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => {
+              if (editorInstanceRef.current) {
+                editorInstanceRef.current.runCommand('save-template')
+              }
+            }}
+            disabled={saving || !templateId}
+          >
+            {saving ? (
+              <>
+                <IconLoader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <IconDeviceFloppy className="h-4 w-4 mr-1.5" />
+                Save
+              </>
+            )}
+          </Button>
           {/* Test Data Panel Toggle */}
           <Button
             variant={showTestPanel ? "secondary" : "outline"}
@@ -574,6 +639,8 @@ export default function TermSheetEditorPage() {
             globalData={globalData}
             variableOptions={variableOptions}
             template={editorTemplate}
+            onSave={handleSaveTemplate}
+            onEditorReady={handleEditorReady}
           />
         </div>
         

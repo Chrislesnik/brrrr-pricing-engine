@@ -216,6 +216,7 @@ interface StudioEditorWrapperProps {
   variableOptions: VariableOption[]
   template?: TermSheetTemplate | null
   onSave?: (html: string, gjsData: object) => void
+  onEditorReady?: (editor: any) => void // Expose editor instance to parent
 }
 
 /**
@@ -229,6 +230,7 @@ export function StudioEditorWrapper({
   variableOptions,
   template,
   onSave,
+  onEditorReady,
 }: StudioEditorWrapperProps) {
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
@@ -458,6 +460,36 @@ export function StudioEditorWrapper({
         }}
         onReady={(editor) => {
           editorRef.current = editor
+          
+          // Expose editor instance to parent component
+          if (onEditorReady) {
+            onEditorReady(editor)
+          }
+          
+          // Set up save functionality
+          if (onSave) {
+            // Helper function to extract and save content
+            const triggerSave = () => {
+              try {
+                const html = editor.getHtml()
+                const css = editor.getCss()
+                const gjsData = editor.getProjectData()
+                // Combine HTML and CSS for full output
+                const fullHtml = css ? `<style>${css}</style>${html}` : html
+                onSave(fullHtml, gjsData)
+              } catch (err) {
+                console.error('[StudioEditor] Save failed:', err)
+              }
+            }
+            
+            // Listen to storage:store event (triggered by GrapesJS save icon or Ctrl+S)
+            editor.on('storage:store', triggerSave)
+            
+            // Add a manual save command that can be triggered from parent
+            editor.Commands.add('save-template', {
+              run: triggerSave
+            })
+          }
           
           // CRITICAL: presetPrintable injects its own default content
           // We need to clear it and load our template content AFTER initialization
