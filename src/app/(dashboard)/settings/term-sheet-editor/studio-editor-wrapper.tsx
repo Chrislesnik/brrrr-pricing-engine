@@ -422,7 +422,16 @@ export function StudioEditorWrapper({
                         ...items.filter(
                           (item: { id: string }) => {
                             console.log('[GrapesJS] Toolbar button:', item.id)
-                            return !["showImportCode", "fullscreen", "store", "saveDb", "cmdStore", "cmdSave"].includes(item.id)
+                            // Whitelist approach: only keep buttons we explicitly want
+                            // Exclude any save-related buttons
+                            const excludeIds = [
+                              "showImportCode", "fullscreen", 
+                              "store", "saveDb", "cmdStore", "cmdSave",
+                              "save", "saveProject", "save-db", "storeData"
+                            ]
+                            return !excludeIds.includes(item.id) && 
+                                   !item.id.toLowerCase().includes('save') && 
+                                   !item.id.toLowerCase().includes('store')
                           }
                         ),
                         {
