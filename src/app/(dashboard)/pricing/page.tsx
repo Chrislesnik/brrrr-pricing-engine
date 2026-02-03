@@ -1493,7 +1493,7 @@ export default function PricingEnginePage() {
         gross: u.gross,
         market: u.market,
       }))
-      payload["units"] = units
+      payload["unit_data"] = units
     }
     return payload
   }
