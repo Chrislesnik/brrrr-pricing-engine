@@ -1492,12 +1492,7 @@ export default function PricingEnginePage() {
         leased: u.leased,
         gross: u.gross,
         market: u.market,
-        // explicit aliases for clarity in saved scenarios
-        gross_rent: u.gross,
-        market_rent: u.market,
       }))
-      payload["unit_data"] = units
-      // add a more descriptive alias without impacting downstream usage
       payload["units"] = units
     }
     return payload
@@ -1834,39 +1829,15 @@ export default function PricingEnginePage() {
       setUnitData([])
       return
     }
-    if (!numUnits || !unitOptions.includes(numUnits)) {
-      const next = unitOptions[0]
-      setNumUnits(next)
-      // If we have saved data to hydrate, prefer that; else blank rows.
-      const saved = hydrateUnitsRef.current
-      if (saved && Array.isArray(saved) && saved.length > 0) {
-        const rows: UnitRow[] = Array.from({ length: next }, (_, i) => ({
-          id: `unit-${i}`,
-          unitNumber: `#${i + 1}`,
-          leased: saved[i]?.leased,
-          gross: saved[i]?.gross ?? "",
-          market: saved[i]?.market ?? "",
-        }))
-        setUnitData(rows)
-        hydrateUnitsRef.current = null
-      } else {
-        setUnitData((prev) => {
-          // Resize array while preserving existing data
-          return Array.from({ length: next }, (_, i) => {
-            const existing = prev[i]
-            if (existing) {
-              return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
-            }
-            return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
-          })
-        })
-      }
-      return
-    }
-    // Maintain length; populate with saved values if present
+    
+    // Check if we have saved data to hydrate
     const saved = hydrateUnitsRef.current
+    
+    // If we have hydration data, use its length as the target (if valid for current unitOptions)
     if (saved && Array.isArray(saved) && saved.length > 0) {
-      const rows: UnitRow[] = Array.from({ length: numUnits }, (_, i) => ({
+      const targetLength = unitOptions.includes(saved.length) ? saved.length : unitOptions[0]
+      setNumUnits(targetLength)
+      const rows: UnitRow[] = Array.from({ length: targetLength }, (_, i) => ({
         id: `unit-${i}`,
         unitNumber: `#${i + 1}`,
         leased: saved[i]?.leased,
@@ -1875,11 +1846,16 @@ export default function PricingEnginePage() {
       }))
       setUnitData(rows)
       hydrateUnitsRef.current = null
-    } else {
+      return
+    }
+    
+    // No hydration data - handle normal numUnits changes
+    if (!numUnits || !unitOptions.includes(numUnits)) {
+      const next = unitOptions[0]
+      setNumUnits(next)
       setUnitData((prev) => {
         // Resize array while preserving existing data
-        return Array.from({ length: numUnits }, (_, i) => {
-          // Keep existing data if available, otherwise create empty row
+        return Array.from({ length: next }, (_, i) => {
           const existing = prev[i]
           if (existing) {
             return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
@@ -1887,7 +1863,21 @@ export default function PricingEnginePage() {
           return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
         })
       })
+      return
     }
+    
+    // numUnits is valid - just resize if needed
+    setUnitData((prev) => {
+      // Resize array while preserving existing data
+      return Array.from({ length: numUnits }, (_, i) => {
+        // Keep existing data if available, otherwise create empty row
+        const existing = prev[i]
+        if (existing) {
+          return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
+        }
+        return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
+      })
+    })
   }, [unitOptions, numUnits])
 
   // Derived requiredness and validation for Calculate button (placed after unitData declaration)
@@ -1901,8 +1891,8 @@ export default function PricingEnginePage() {
     // Only validate the visible rows (first numUnits), not stale rows in unitData
     const visibleRows = unitData.slice(0, numUnits ?? 0)
     return visibleRows.every((u) => {
-      // Leased: accept "yes", "no", or any truthy selection
-      const hasLeased = u.leased === "yes" || u.leased === "no"
+      // Leased: accept any non-empty value
+      const hasLeased = u.leased != null && u.leased !== ""
       // Gross/Market: accept any non-null/undefined value (including "0", "0.00")
       const hasGross = u.gross != null && u.gross !== ""
       const hasMarket = u.market != null && u.market !== ""
@@ -2110,11 +2100,11 @@ export default function PricingEnginePage() {
     if ("flood_premium" in payload) setFloodPremium(String(payload["flood_premium"] ?? ""))
     if ("mortgage_debt" in payload) setMortgageDebtValue(String(payload["mortgage_debt"] ?? ""))
     if ("tax_escrow_months" in payload) setTaxEscrowMonths(String(payload["tax_escrow_months"] ?? ""))
-    // Units (leased/gross/market) from scenario inputs
+    // Units (leased/gross/market) from scenario inputs - supports legacy field names as fallbacks
     const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
     if (Array.isArray(unitsFromPayload)) {
       const normalized = unitsFromPayload.map(
-        (u: { leased?: string | boolean | null; gross?: string | number | null; market?: string | number | null }) => {
+        (u: { leased?: string | boolean | null; gross?: string | number | null; market?: string | number | null; gross_rent?: string | number | null; market_rent?: string | number | null }) => {
           // Normalize leased value to lowercase "yes" or "no"
           let normalizedLeased: "yes" | "no" | undefined = undefined
           if (u?.leased != null) {
@@ -2125,10 +2115,13 @@ export default function PricingEnginePage() {
               normalizedLeased = "no"
             }
           }
+          // Support legacy gross_rent/market_rent field names as fallbacks
+          const grossVal = u?.gross ?? u?.gross_rent
+          const marketVal = u?.market ?? u?.market_rent
           return {
             leased: normalizedLeased,
-            gross: u?.gross != null ? String(u.gross) : "",
-            market: u?.market != null ? String(u.market) : "",
+            gross: grossVal != null ? String(grossVal) : "",
+            market: marketVal != null ? String(marketVal) : "",
           }
         }
       )
