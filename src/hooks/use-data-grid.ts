@@ -987,6 +987,23 @@ function useDataGrid<TData>({
                 break;
               }
 
+              case "currency-calc": {
+                if (!pastedValue) {
+                  processedValue = "";
+                } else {
+                  // Strip currency symbols, commas, spaces - keep digits and decimal
+                  const sanitized = pastedValue.replace(/[^0-9.]/g, "");
+                  // Ensure only one decimal point
+                  const parts = sanitized.split(".");
+                  if (parts.length > 2) {
+                    processedValue = parts[0] + "." + parts.slice(1).join("");
+                  } else {
+                    processedValue = sanitized;
+                  }
+                }
+                break;
+              }
+
               default: {
                 if (!pastedValue) {
                   processedValue = "";
