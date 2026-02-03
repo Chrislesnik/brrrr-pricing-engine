@@ -3,7 +3,7 @@ interface Props {
   children: React.ReactNode
 }
 
-export default function ApplicantsLayout({ children }: Props) {
+export default function ScenariosLayout({ children }: Props) {
   return (
     <>
       <div className="flex flex-1 flex-col overflow-hidden p-4">

@@ -10,7 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@repo/ui/shadcn/breadcrumb"
-import { UserPrimaryActions } from "../users/components/user-primary-actions"
+import { UserPrimaryActions } from "../../users/components/user-primary-actions"
 import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
@@ -46,7 +46,7 @@ export default function PipelinePage() {
         </Breadcrumb>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex-none text-xl font-bold tracking-tight">
-            Loan Pipeline
+            Pricing Engine Scenarios
           </h2>
           <UserPrimaryActions />
         </div>

@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
-import { getEntitiesForOrg } from "@/app/(pricing-engine)/applicants/data/fetch-entities"
+import { getEntitiesForOrg } from "@/app/(pricing-engine)/contacts/applicants/data/fetch-entities"
 
 export async function GET() {
   try {

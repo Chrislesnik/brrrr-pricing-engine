@@ -17,5 +17,5 @@ export default function Page() {
   }).catch(() => {})
   // #endregion
 
-  redirect("/pipeline")
+  redirect("/scenarios")
 }

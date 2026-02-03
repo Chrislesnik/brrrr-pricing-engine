@@ -3,7 +3,7 @@ interface Props {
   children: React.ReactNode
 }
 
-export default function PipelineLayout({ children }: Props) {
+export default function DealsLayout({ children }: Props) {
   return (
     <>
       <div className="flex flex-1 flex-col overflow-hidden p-4">

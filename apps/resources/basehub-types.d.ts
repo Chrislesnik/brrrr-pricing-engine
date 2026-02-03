@@ -100,7 +100,7 @@ export interface BlockColor {
     __typename: 'BlockColor'
 }
 
-export type BlockDocument = (Documentation | DocumentationItem | GettingStarted | _AgentStart | documentationItem_AsList) & { __isUnion?: true }
+export type BlockDocument = (Documentation | DocumentationItem | _AgentStart | documentationItem_AsList) & { __isUnion?: true }
 
 export interface BlockDocumentSys {
     apiNamePath: Scalars['String']
@@ -230,18 +230,6 @@ export interface GetUploadSignedURL {
     __typename: 'GetUploadSignedURL'
 }
 
-export interface GettingStarted {
-    _analyticsKey: Scalars['String']
-    _dashboardUrl: Scalars['String']
-    _id: Scalars['String']
-    _idPath: Scalars['String']
-    _slug: Scalars['String']
-    _slugPath: Scalars['String']
-    _sys: BlockDocumentSys
-    _title: Scalars['String']
-    __typename: 'GettingStarted'
-}
-
 export interface ListMeta {
     /** Number of items after applying filters but before pagination */
     filteredCount: Scalars['Int']
@@ -299,7 +287,6 @@ export interface Query {
     _structure: Scalars['JSON']
     _sys: RepoSys
     documentation: Documentation
-    gettingStarted: GettingStarted
     __typename: 'Query'
 }
 
@@ -545,7 +532,6 @@ export interface BlockDocumentGenqlSelection{
     _title?: boolean | number
     on_Documentation?: DocumentationGenqlSelection
     on_DocumentationItem?: DocumentationItemGenqlSelection
-    on_GettingStarted?: GettingStartedGenqlSelection
     on__AgentStart?: _AgentStartGenqlSelection
     on_documentationItem_AsList?: documentationItem_AsListGenqlSelection
     __typename?: boolean | number
@@ -745,25 +731,6 @@ export interface GetUploadSignedURLGenqlSelection{
     __fragmentOn?: "GetUploadSignedURL"
 }
 
-export interface GettingStartedGenqlSelection{
-    _analyticsKey?: { __args: {
-    /**
-     * The scope of the analytics key. Use `send` for just ingesting data. Use `query` if you need to show an analytics data in your website.
-     * 
-     * Have in mind, if you expose your `query` analytics key in the frontend, you'll be exposing all of this block's analytics data to the public. This is generally safe, but it might not be in your case.
-     */
-    scope?: (AnalyticsKeyScope | null)} } | boolean | number
-    _dashboardUrl?: boolean | number
-    _id?: boolean | number
-    _idPath?: boolean | number
-    _slug?: boolean | number
-    _slugPath?: boolean | number
-    _sys?: BlockDocumentSysGenqlSelection
-    _title?: boolean | number
-    __typename?: boolean | number
-    __fragmentOn?: "GettingStarted"
-}
-
 export interface ListFilter {isEmpty?: (Scalars['Boolean'] | null),length?: (Scalars['Int'] | null)}
 
 export interface ListMetaGenqlSelection{
@@ -897,7 +864,6 @@ export interface QueryGenqlSelection{
     search?: (DocumentationItemSearchInput | null), 
     /** Skip the first n items. */
     skip?: (Scalars['Int'] | null)} })
-    gettingStarted?: GettingStartedGenqlSelection
     __typename?: boolean | number
     __fragmentOn?: "Query"
 }
@@ -1196,10 +1162,6 @@ export interface FragmentsMap {
   GetUploadSignedURL: {
     root: GetUploadSignedURL,
     selection: GetUploadSignedURLGenqlSelection,
-}
-  GettingStarted: {
-    root: GettingStarted,
-    selection: GettingStartedGenqlSelection,
 }
   ListMeta: {
     root: ListMeta,

@@ -7,7 +7,7 @@ import { ResourcesHeader } from "@/components/layout/resources-header";
 import { SWRProvider } from "@/components/providers/swr-provider";
 import { Pump } from "basehub/react-pump";
 import { draftMode } from "next/headers";
-import type { PageTree } from "fumadocs-core/server";
+import type * as PageTree from "fumadocs-core/page-tree";
 import { DraftModeIndicator } from "@/components/draft-mode-indicator";
 import { BaseHubToolbarWrapper } from "@/components/basehub-toolbar-wrapper";
 
@@ -79,7 +79,7 @@ export default async function ResourcesRouteLayout({ children }: Props) {
                   <ResourcesSidebar variant="inset" tree={items} />
                   <SidebarInset>
                     <ResourcesHeader 
-                      toolbarComponent={<BaseHubToolbarWrapper searchKey={documentation._searchKey} />}
+                      toolbarComponent={<BaseHubToolbarWrapper />}
                     />
                     <div
                       id="content"

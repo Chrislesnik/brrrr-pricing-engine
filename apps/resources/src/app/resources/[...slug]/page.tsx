@@ -6,7 +6,7 @@ import { RichText } from "basehub/react-rich-text";
 import Link from "next/link";
 
 interface PageProps {
-  params: Promise<{ slug?: string[] }>;
+  params: Promise<{ slug: string[] }>;
 }
 
 export default async function ResourcePage({ params }: PageProps) {
@@ -14,7 +14,6 @@ export default async function ResourcePage({ params }: PageProps) {
   const { isEnabled } = await draftMode();
 
   if (!slug || slug.length === 0) {
-    // This is the /resources root - let page.tsx handle it
     notFound();
   }
 

@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconNumber1, IconCircleDashedNumber1 } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconNumber1, IconCircleDashedNumber1, IconListTree } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -48,27 +48,30 @@ export interface NavItem {
 // ============================================================================
 
 export const ROUTES = {
-  dashboard: "/dashboard",
+  dashboard: "/",
   pricingEngine: {
-    scenarios: "/pricing-engine/scenarios",
-    new: "/pricing-engine/new",
-    pricing: "/pricing-engine/pricing",
+    pipeline: "/scenarios",
+    deals: "/deals",
+    new: "/pricing/new",
+    pricing: "/pricing",
   },
-  pipeline: "/pipeline",
   applications: "/applications",
-  applicants: {
-    borrowers: "/applicants/borrowers",
-    entities: "/applicants/entities",
+  contacts: {
+    applicants: {
+      borrowers: "/contacts/borrowers",
+      entities: "/contacts/entities",
+    },
+    brokers: "/contacts/brokers",
+    users: "/users",
   },
-  brokers: "/brokers",
   aiAgent: "/ai-agent",
+  docs: "/docs",
+  resources: "/resources",
   settings: {
-    programs: "/settings/programs",
+    programs: "/settings",
     integrations: "/settings/integrations",
     company: "/settings/company",
   },
-  docs: "/docs",
-  resources: "/resources",
 } as const;
 
 // ============================================================================
@@ -81,9 +84,15 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     items: [
       {
         title: "Scenarios",
-        url: ROUTES.pricingEngine.scenarios,
-        icon: IconUsers,
-        shortcut: ["P"],
+        url: ROUTES.pricingEngine.pipeline,
+        icon: IconListTree,
+        shortcut: ["PE"],
+      },
+      {
+        title: "Deals",
+        url: ROUTES.pricingEngine.deals,
+        icon: IconListTree,
+        shortcut: ["D"],
       },
     ],
   },
@@ -113,13 +122,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         items: [
           {
             title: "Borrowers",
-            url: ROUTES.applicants.borrowers,
+            url: ROUTES.contacts.applicants.borrowers,
             icon: IconUser,
             shortcut: ["B"],
           },
           {
             title: "Entities",
-            url: ROUTES.applicants.entities,
+            url: ROUTES.contacts.applicants.entities,
             icon: IconBuilding,
             shortcut: ["E"],
           },
@@ -127,21 +136,10 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
       {
         title: "Brokers",
-        url: ROUTES.brokers,
+        url: ROUTES.contacts.brokers,
         icon: IconUser,
         denyOrgRoles: ["org:broker", "broker"],
         shortcut: ["K"],
-      },
-    ],
-  },
-  {
-    title: "Tools",
-    items: [
-      {
-        title: "AI Agent",
-        url: ROUTES.aiAgent,
-        icon: IconSparkles,
-        shortcut: ["AI"],
       },
     ],
   },
@@ -168,6 +166,17 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
     ],
   },
+  {
+   title: "Tools",
+   items: [
+     {
+       title: "AI Agent",
+       url: ROUTES.aiAgent,
+       icon: IconSparkles,
+       shortcut: ["AI"],
+     },
+   ],
+ },  
 ];
 
 // ============================================================================

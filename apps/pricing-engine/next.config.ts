@@ -20,6 +20,26 @@ const nextConfig: NextConfig = {
     ],
     domains: ["ui.shadcn.com"],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/docs",
+        destination: "http://localhost:3002/docs",
+      },
+      {
+        source: "/docs/:path*",
+        destination: "http://localhost:3002/docs/:path*",
+      },
+      {
+        source: "/resources",
+        destination: "http://localhost:3001/resources",
+      },
+      {
+        source: "/resources/:path*",
+        destination: "http://localhost:3001/resources/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

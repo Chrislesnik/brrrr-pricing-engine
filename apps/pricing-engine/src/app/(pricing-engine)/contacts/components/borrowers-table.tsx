@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DataTablePagination } from "../../../users/components/data-table-pagination"
 import { Borrower } from "../data/types"
 import { BorrowerRowActions } from "./borrower-row-actions"
 

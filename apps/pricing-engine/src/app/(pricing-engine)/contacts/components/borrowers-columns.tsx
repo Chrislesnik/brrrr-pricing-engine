@@ -4,7 +4,7 @@ import { format } from "date-fns"
 import { ColumnDef } from "@tanstack/react-table"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import LongText from "@repo/ui/custom/long-text"
-import { DataTableColumnHeader } from "../../users/components/data-table-column-header"
+import { DataTableColumnHeader } from "../../../users/components/data-table-column-header"
 import { Borrower } from "../data/types"
 import { BorrowerRowActions } from "./borrower-row-actions"
 

@@ -1,9 +1,8 @@
-
 interface Props {
   children: React.ReactNode
 }
 
-export default function BrokersLayout({ children }: Props) {
+export default function ContactsLayout({ children }: Props) {
   return (
     <>
       <div
@@ -17,5 +16,3 @@ export default function BrokersLayout({ children }: Props) {
     </>
   )
 }
-
-

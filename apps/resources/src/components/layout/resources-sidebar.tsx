@@ -16,7 +16,7 @@ import {
 import { WorkspaceSwitcher } from "@repo/ui/custom/workspace-switcher";
 import { TeamSwitcherV2 } from "./team-switcher-v2";
 import { NavSearch } from "./nav-search";
-import type { PageTree } from "fumadocs-core/server";
+import type * as PageTree from "fumadocs-core/page-tree";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen } from "lucide-react";
@@ -29,7 +29,7 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
   const pathname = usePathname();
 
   // Group items by separators
-  const groups: Array<{ title?: string; items: PageTree.Node[] }> = [];
+  const groups: Array<{ title?: React.ReactNode; items: PageTree.Node[] }> = [];
   let currentGroup: PageTree.Node[] = [];
 
   for (const node of tree) {
