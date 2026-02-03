@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import StudioEditorComponent from "@grapesjs/studio-sdk/react"
 import {
   presetPrintable,
@@ -34,7 +34,6 @@ interface StudioEditorWrapperProps {
   globalData: Record<string, { data: string }>
   variableOptions: { id: string; label: string }[]
   template?: TermSheetTemplate | null
-  onSave?: (html: string, gjsData: object) => void
 }
 
 /**
@@ -47,15 +46,9 @@ export function StudioEditorWrapper({
   globalData,
   variableOptions,
   template,
-  onSave,
 }: StudioEditorWrapperProps) {
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const editorRef = useRef<any>(null)
-  // Track initial globalData to avoid updating on mount
-  const initialGlobalDataRef = useRef(globalData)
 
   // Get the HTML content for the editor
   const templateHtml = template?.html_content || defaultTemplateHtml
@@ -110,35 +103,6 @@ export function StudioEditorWrapper({
     }
   }, [])
 
-  // Update editor's globalData when props change (without remounting)
-  useEffect(() => {
-    if (!editorRef.current) return
-    // Skip the initial render - data is already set via options
-    if (globalData === initialGlobalDataRef.current) return
-    
-    try {
-      const editor = editorRef.current
-      // Access the DataSources manager and update globalData
-      const dsm = editor.DataSources || editor.dataSources
-      if (dsm && typeof dsm.setValue === 'function') {
-        // Update each field individually
-        Object.entries(globalData).forEach(([key, value]) => {
-          dsm.setValue(key, value.data)
-        })
-      } else if (dsm && dsm.getAll) {
-        // Alternative: try to find the global data source and update it
-        const sources = dsm.getAll()
-        const globalSource = sources.find((s: { id: string }) => s.id === 'globalData')
-        if (globalSource && typeof globalSource.setRecords === 'function') {
-          globalSource.setRecords(globalData)
-        }
-      }
-    } catch (err) {
-      // Silently handle - editor may not support dynamic updates
-      console.debug('Could not update globalData dynamically:', err)
-    }
-  }, [globalData])
-
   // Show loading state
   if (!mounted || !stylesReady) {
     return (
@@ -149,7 +113,7 @@ export function StudioEditorWrapper({
   }
 
   return (
-    <div ref={containerRef} className="h-full w-full">
+    <div className="h-full w-full">
       <StudioEditorComponent
         options={{
           licenseKey: "",
@@ -265,7 +229,25 @@ export function StudioEditorWrapper({
           },
         }}
         onReady={(editor) => {
-          editorRef.current = editor
+          // Fix for GrapesJS selection/focus issues after drag operations
+          // This ensures the editor properly handles focus after component moves
+          editor.on('component:drag:end', () => {
+            // Small delay to let GrapesJS finish its internal operations
+            setTimeout(() => {
+              // Deselect and allow re-selection
+              const selected = editor.getSelected()
+              if (selected) {
+                editor.select(selected)
+              }
+            }, 50)
+          })
+          
+          // Also handle block drops
+          editor.on('block:drag:stop', () => {
+            setTimeout(() => {
+              editor.refresh()
+            }, 50)
+          })
         }}
       />
     </div>
