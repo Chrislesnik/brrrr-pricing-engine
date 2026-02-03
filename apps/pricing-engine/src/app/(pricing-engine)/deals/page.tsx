@@ -6,7 +6,7 @@ export default function DealsPipelinePage() {
       <div className="flex flex-col gap-4 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">Deals Pipeline</h1>
+            <h1 className="text-2xl font-bold">Deals</h1>
             <p className="text-muted-foreground text-sm">
               Track and manage your deals
             </p>

@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconNumber1, IconCircleDashedNumber1, IconListTree } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFileDownload, IconCircleDashedNumber1 } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -106,7 +106,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
           {
             title: "Applications",
             url: ROUTES.applications,
-            icon: IconInbox,
+            icon: IconFileDownload,
             shortcut: ["A"],
           },
         ],
