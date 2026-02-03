@@ -1,15 +1,6 @@
 "use client"
 
-import Link from "next/link"
 import useSWR from "swr"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@repo/ui/shadcn/breadcrumb"
 import { UserPrimaryActions } from "@/app/(pricing-engine)/users/components/user-primary-actions"
 import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
@@ -31,22 +22,9 @@ export default function PipelinePage() {
   return (
     <>
       <div className="mb-4 flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Pipeline</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex-none text-xl font-bold tracking-tight">
-            Pricing Engine Scenarios
+            Scenarios
           </h2>
           <UserPrimaryActions />
         </div>
