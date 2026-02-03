@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFileDownload, IconCircleDashedNumber1 } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFileDownload, IconSquareRoundedNumber1 } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -101,7 +101,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
       {
         title: "Loan Setup",
-        icon: IconCircleDashedNumber1,
+        icon: IconSquareRoundedNumber1,
         items: [
           {
             title: "Applications",
