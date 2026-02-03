@@ -88,23 +88,17 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         icon: IconListTree,
         shortcut: ["PE"],
       },
-      {
-        title: "Deals",
-        icon: IconListTree,
-        items: [
-          {
-            title: "Pipeline",
-            url: ROUTES.pricingEngine.deals,
-            icon: IconListTree,
-            shortcut: ["D"],
-          },
-        ],
-      },
     ],
   },
   {
     title: "Deals",
     items: [
+      {
+        title: "Pipeline",
+        url: ROUTES.pricingEngine.deals,
+        icon: IconListTree,
+        shortcut: ["D"],
+      },
       {
         title: "Loan Setup",
         icon: IconCircleDashedNumber1,
