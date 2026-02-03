@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
-import { getPipelineLoansForOrg } from "@/app/(pricing-engine)/pipeline/data/fetch-loans"
+import { getPipelineLoansForOrg } from "@/app/(pricing-engine)/scenarios/data/fetch-loans"
 
 export async function GET() {
   try {

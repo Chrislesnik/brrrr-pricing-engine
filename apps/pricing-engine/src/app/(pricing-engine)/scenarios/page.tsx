@@ -10,7 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@repo/ui/shadcn/breadcrumb"
-import { UserPrimaryActions } from "../../users/components/user-primary-actions"
+import { UserPrimaryActions } from "@/app/(pricing-engine)/users/components/user-primary-actions"
 import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
