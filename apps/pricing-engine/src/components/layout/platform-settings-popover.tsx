@@ -7,7 +7,7 @@ import { useOrganization } from "@clerk/nextjs";
 import {
   Plug,
   ExternalLink,
-  Palette,
+  Code,
   Settings2,
   SunMoon,
   Building2,
@@ -57,7 +57,7 @@ export function PlatformSettingsPopover({
   const router = useRouter();
   const { organization } = useOrganization();
   const [internalOpen, setInternalOpen] = React.useState(false);
-  const [orgSettingsOpen, setOrgSettingsOpen] = React.useState(false);
+  const [orgSettingsOpen, setOrgSettingsOpen] = React.useState(true);
   const [integrationsOpen, setIntegrationsOpen] = React.useState(true);
   const [whiteLabelOpen, setWhiteLabelOpen] = React.useState(true);
   const [templateStudioOpen, setTemplateStudioOpen] = React.useState(false);
@@ -68,11 +68,11 @@ export function PlatformSettingsPopover({
     : setInternalOpen;
 
   // Check if integration routes are active (for highlighting active menu items)
-  const isBrexActive = pathname.startsWith(
-    "/platform-settings/integrations/brex",
+  const isFloifyActive = pathname.startsWith(
+    "/settings/integrations",
   );
-  const isOFBActive = pathname.startsWith(
-    "/platform-settings/integrations/ofb",
+  const isXactusActive = pathname.startsWith(
+    "/settings/integrations",
   );
   const isTemplateEditorActive = pathname.startsWith(
     "/platform-settings/integrations/template-editor",
@@ -87,17 +87,17 @@ export function PlatformSettingsPopover({
     ? `/org/${organization.id}/settings`
     : null;
 
-  const handleBrexClick = (e: React.MouseEvent) => {
+  const handleFloifyClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push("/platform-settings/integrations/brex");
+    router.push("/settings/integrations");
     setPopoverOpen(false);
   };
 
-  const handleOFBClick = (e: React.MouseEvent) => {
+  const handleXactusClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push("/platform-settings/integrations/ofb");
+    router.push("/settings/integrations");
     setPopoverOpen(false);
   };
 
@@ -215,28 +215,28 @@ export function PlatformSettingsPopover({
               <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
                 <div className="px-1 pb-2">
                   <Link
-                    href="/platform-settings/integrations/brex"
-                    onClick={handleBrexClick}
+                    href="/settings/integrations"
+                    onClick={handleFloifyClick}
                     className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isBrexActive
+                      isFloifyActive
                         ? "bg-accent text-accent-foreground"
                         : "text-foreground"
                     }`}
                   >
                     <Plug className="h-4 w-4 text-muted-foreground" />
-                    <span>Brex</span>
+                    <span>Floify</span>
                   </Link>
                   <Link
-                    href="/platform-settings/integrations/ofb"
-                    onClick={handleOFBClick}
+                    href="/settings/integrations"
+                    onClick={handleXactusClick}
                     className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isOFBActive
+                      isXactusActive
                         ? "bg-accent text-accent-foreground"
                         : "text-foreground"
                     }`}
                   >
                     <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                    <span>Accounting Automation</span>
+                    <span>Xactus</span>
                   </Link>
                 </div>
               </CollapsibleContent>
@@ -316,12 +316,12 @@ export function PlatformSettingsPopover({
                   </Collapsible>
                   <button
                     type="button"
-                    onClick={() => console.log("Theme editor coming soon")}
+                    onClick={() => console.log("Custom code editor coming soon")}
                     className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
                     <div className="flex items-center gap-3">
-                      <Palette className="h-4 w-4 text-muted-foreground" />
-                      <span>Themes & CSS</span>
+                      <Code className="h-4 w-4 text-muted-foreground" />
+                      <span>Custom Code</span>
                     </div>
                   </button>
                 </div>
