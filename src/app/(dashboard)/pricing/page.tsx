@@ -1891,8 +1891,8 @@ export default function PricingEnginePage() {
     // Only validate the visible rows (first numUnits), not stale rows in unitData
     const visibleRows = unitData.slice(0, numUnits ?? 0)
     return visibleRows.every((u) => {
-      // Leased: accept any non-empty value
-      const hasLeased = u.leased != null && u.leased !== ""
+      // Leased: accept any value (yes or no)
+      const hasLeased = u.leased != null
       // Gross/Market: accept any non-null/undefined value (including "0", "0.00")
       const hasGross = u.gross != null && u.gross !== ""
       const hasMarket = u.market != null && u.market !== ""
