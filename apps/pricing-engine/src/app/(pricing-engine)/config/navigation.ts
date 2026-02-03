@@ -90,9 +90,15 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
       {
         title: "Deals",
-        url: ROUTES.pricingEngine.deals,
         icon: IconListTree,
-        shortcut: ["D"],
+        items: [
+          {
+            title: "Pipeline",
+            url: ROUTES.pricingEngine.deals,
+            icon: IconListTree,
+            shortcut: ["D"],
+          },
+        ],
       },
     ],
   },

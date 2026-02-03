@@ -1,49 +1,23 @@
 "use client"
 
-import Link from "next/link"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@repo/ui/shadcn/breadcrumb"
-import { ContentSection } from "@/components/content-section"
-
 export default function DealsPipelinePage() {
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Deals Pipeline</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Deals Pipeline
-          </h2>
+    <div className="space-y-6 w-full h-full flex flex-col overflow-hidden">
+      <div className="flex flex-col gap-4 flex-shrink-0">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Deals Pipeline</h1>
+            <p className="text-muted-foreground text-sm">
+              Track and manage your deals
+            </p>
+          </div>
         </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <ContentSection
-          title="Deals Pipeline"
-          desc="Manage your deals here."
-        >
-          <div className="p-4 text-muted-foreground">
-            Deals pipeline content coming soon.
-          </div>
-        </ContentSection>
+      <div className="flex-1 overflow-auto">
+        <div className="p-4 text-muted-foreground">
+          Deals pipeline content coming soon.
+        </div>
       </div>
-    </>
+    </div>
   )
 }
