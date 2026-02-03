@@ -40,7 +40,7 @@ const workspaces: Workspace[] = [
     shortLabel: "Lender Platform",
     description: "Lender Platform",
     icon: Building2,
-    href: "/pipeline",
+    href: "/pricing",
     prefixes: [
       "/dashboard",
       "/balance-sheet",
@@ -53,6 +53,8 @@ const workspaces: Workspace[] = [
       "/users",
       "/settings",
       "/ai-agent",
+      "/org",
+      "/contacts",
     ],
     port: 3000,
   },
