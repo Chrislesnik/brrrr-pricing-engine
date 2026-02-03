@@ -1485,8 +1485,10 @@ export default function PricingEnginePage() {
     if (propertyType === "condo") {
       payload["warrantability"] = warrantability ?? ""
     }
-    if (unitData?.length) {
-      const units = unitData.map((u) => ({
+    // Always include unit data - slice to visible rows based on numUnits
+    const visibleUnits = unitData.slice(0, numUnits ?? 0)
+    if (visibleUnits.length > 0) {
+      const units = visibleUnits.map((u) => ({
         leased: u.leased,
         gross: u.gross,
         market: u.market,
@@ -1597,30 +1599,6 @@ export default function PricingEnginePage() {
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // Also POST all inputs (including defaults/placeholders) to the external webhook
-      // This call is non-blocking and won't affect the main dispatch flow.
-      try {
-        const augmented = { ...(toYesNoDeepGlobal(payload) as Record<string, unknown>) }
-        if (selfMemberId) {
-          augmented["organization_member_id"] = selfMemberId
-        }
-        const webhookBody = JSON.stringify(augmented)
-        void fetch(`https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83?_=${encodeURIComponent(nonce)}`, {
-          method: "POST",
-          cache: "no-store",
-          // Fire-and-forget; avoid console noise if remote doesn't send CORS headers
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "X-Client-Request-Id": nonce,
-          },
-          body: webhookBody,
-        }).catch(() => {})
-      } catch {
-        // do not block calculation if webhook serialization fails
-      }
       // Kick off per-program dispatch requests so each card fills as soon as it's ready
       const currentPlaceholders = placeholdersLocal.slice()
       await Promise.all(
@@ -2033,23 +2011,17 @@ export default function PricingEnginePage() {
     }
   }, [isDispatching, programResults, lastCalculatedKey])
   // Also detect programmatic/default changes that don't emit input/change events
-  // Note: buildPayload is stable (no deps change it), so we only need to track the key inputs
-  const currentPayloadKey = useMemo(() => {
-    try {
-      return JSON.stringify(buildPayload())
-    } catch {
-      return null
-    }
-  }, [buildPayload])
-  
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
     if (!programResults || programResults.length === 0) return
-    if (currentPayloadKey && currentPayloadKey !== lastCalculatedKey) {
+    try {
+      const key = JSON.stringify(buildPayload())
+      if (key !== lastCalculatedKey) setResultsStale(true)
+    } catch {
       setResultsStale(true)
     }
-  }, [lastCalculatedKey, isDispatching, programResults, currentPayloadKey])
+  })
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
@@ -2127,6 +2099,7 @@ export default function PricingEnginePage() {
     if ("aiv" in payload) setAiv(String(payload["aiv"] ?? ""))
     if ("arv" in payload) setArv(String(payload["arv"] ?? ""))
     if ("rehab_budget" in payload) setRehabBudget(String(payload["rehab_budget"] ?? ""))
+    if ("rehab_completed" in payload) setRehabCompleted(String(payload["rehab_completed"] ?? ""))
     if ("rehab_holdback" in payload) setRehabHoldback(String(payload["rehab_holdback"] ?? ""))
     if ("emd" in payload) setEmd(String(payload["emd"] ?? ""))
     if ("taxes_annual" in payload) setAnnualTaxes(String(payload["taxes_annual"] ?? ""))
@@ -2141,14 +2114,21 @@ export default function PricingEnginePage() {
     const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
     if (Array.isArray(unitsFromPayload)) {
       const normalized = unitsFromPayload.map(
-        (u: { leased?: "yes" | "no"; gross?: string | number | null; market?: string | number | null; gross_rent?: string | number | null; market_rent?: string | number | null }) => {
-          // Support both "gross"/"market" and legacy "gross_rent"/"market_rent" field names
-          const grossVal = u?.gross ?? u?.gross_rent
-          const marketVal = u?.market ?? u?.market_rent
+        (u: { leased?: string | boolean | null; gross?: string | number | null; market?: string | number | null }) => {
+          // Normalize leased value to lowercase "yes" or "no"
+          let normalizedLeased: "yes" | "no" | undefined = undefined
+          if (u?.leased != null) {
+            const leasedStr = String(u.leased).toLowerCase()
+            if (leasedStr === "yes" || leasedStr === "true") {
+              normalizedLeased = "yes"
+            } else if (leasedStr === "no" || leasedStr === "false") {
+              normalizedLeased = "no"
+            }
+          }
           return {
-            leased: (u?.leased as "yes" | "no" | undefined) ?? undefined,
-            gross: grossVal != null ? String(grossVal) : "",
-            market: marketVal != null ? String(marketVal) : "",
+            leased: normalizedLeased,
+            gross: u?.gross != null ? String(u.gross) : "",
+            market: u?.market != null ? String(u.market) : "",
           }
         }
       )
@@ -2414,7 +2394,7 @@ export default function PricingEnginePage() {
                     className="h-9 w-full"
                   />
                 ) : (
-                <Select value={selectedScenarioId ?? ""} onValueChange={setSelectedScenarioId}>
+                <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
                   <SelectTrigger disabled={scenariosList.length === 0} className="h-9 w-full">
                     <SelectValue placeholder={scenariosList.length === 0 ? "No scenarios" : "Select..."} />
                   </SelectTrigger>
@@ -2730,7 +2710,7 @@ export default function PricingEnginePage() {
                         <Label htmlFor="loan-type">
                           Loan Type <span className="text-red-600">*</span>
                         </Label>
-                        <Select value={loanType ?? ""} onValueChange={setLoanType}>
+                        <Select value={loanType} onValueChange={setLoanType}>
                           <SelectTrigger id="loan-type" className="h-9 w-full">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
@@ -2764,7 +2744,7 @@ export default function PricingEnginePage() {
                           <Label htmlFor="bridge-type">
                             Bridge Type <span className="text-red-600">*</span>
                           </Label>
-                          <Select value={bridgeType ?? ""} onValueChange={setBridgeType}>
+                          <Select value={bridgeType} onValueChange={setBridgeType}>
                             <SelectTrigger id="bridge-type" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -3095,7 +3075,7 @@ export default function PricingEnginePage() {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                          <Select value={otherExp ?? ""} onValueChange={setOtherExp}>
+                          <Select value={otherExp} onValueChange={setOtherExp}>
                             <SelectTrigger id="other-exp" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -3248,7 +3228,7 @@ export default function PricingEnginePage() {
                           <Label htmlFor="state">
                             State <span className="text-red-600">*</span>
                           </Label>
-                          <Select value={stateCode ?? ""} onValueChange={setStateCode}>
+                          <Select value={stateCode} onValueChange={setStateCode}>
                             <SelectTrigger id="state" className="h-9 w-full">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
@@ -3312,7 +3292,7 @@ export default function PricingEnginePage() {
                         {propertyType === "condo" ? (
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="warrantability">Warrantability</Label>
-                            <Select value={warrantability ?? ""} onValueChange={setWarrantability}>
+                            <Select value={warrantability} onValueChange={setWarrantability}>
                               <SelectTrigger id="warrantability" className="h-9 w-full">
                                 <SelectValue placeholder="Select..." />
                               </SelectTrigger>
