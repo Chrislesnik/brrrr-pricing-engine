@@ -1,3 +1,4 @@
+import { basehub } from "basehub";
 import { Pump } from "basehub/react-pump";
 import { RichText } from "basehub/react-rich-text";
 import { draftMode } from "next/headers";
@@ -188,6 +189,15 @@ function DocsContent({ item }: { item: any }) {
 }
 
 export async function generateStaticParams() {
-  // This would be populated from your BaseHub content
-  return [];
+  const data = await basehub().query({
+    documentation: {
+      items: {
+        _slug: true,
+      },
+    },
+  });
+
+  return data.documentation.items.map((item) => ({
+    slug: item._slug.split("/"),
+  }));
 }

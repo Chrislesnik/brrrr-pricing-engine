@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFileDownload, IconSquareRoundedNumber1 } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFileDownload, IconCircleNumber1 } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -83,32 +83,35 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     title: "Pricing Engine",
     items: [
       {
-        title: "Scenarios",
+        title: "Scenario Pipeline",
         url: ROUTES.pricingEngine.pipeline,
         icon: IconListTree,
-        shortcut: ["PE"],
+        shortcut: ["S"],
       },
     ],
   },
   {
-    title: "Deals",
+    title: "Loan Management",
     items: [
+      // Pipeline (no url, now has nested "Loan Setup")
       {
-        title: "Pipeline",
+        title: "Deal Pipeline",
         url: ROUTES.pricingEngine.deals,
         icon: IconListTree,
         shortcut: ["D"],
-      },
-      {
-        title: "Loan Setup",
-        icon: IconSquareRoundedNumber1,
         items: [
           {
-            title: "Applications",
-            url: ROUTES.applications,
-            icon: IconFileDownload,
-            shortcut: ["A"],
-          },
+            title: "Loan Setup",
+            icon: IconCircleNumber1,
+            items: [
+            {
+              title: "Applications",
+              url: ROUTES.applications,
+              icon: IconFileDownload,
+              shortcut: ["A"],
+            },
+          ],
+        },
         ],
       },
     ],
@@ -225,8 +228,14 @@ export function getBreadcrumbSegments(pathname: string): { label: string; href?:
     const navItem = findNavItemByUrl(href, NAVIGATION_CONFIG);
     
     // Use nav item title if found, otherwise capitalize segment
-    const label = navItem?.title || 
-                  segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+    let label =
+      navItem?.title ||
+      segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+
+    // Override Settings label for nested settings routes
+    if (segment === "settings" && segments.length > 1) {
+      label = "Settings";
+    }
     
     return { label, href };
   });

@@ -214,7 +214,7 @@ export function PlatformSettingsPopover({
                     }`}
                   >
                     <Plug className="h-4 w-4 text-muted-foreground" />
-                    <span>Manage Integrations</span>
+                    <span>Integrations</span>
                   </Link>
                 </div>
               </CollapsibleContent>
