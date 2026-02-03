@@ -1926,7 +1926,6 @@ export default function PricingEnginePage() {
     if (rehabSectionVisible && !has(arv)) missing.push("ARV")
     if (rehabPathVisible && !has(initialLoanAmount)) missing.push("Initial Loan Amount")
     if (loanAmountPathVisible && !has(loanAmount)) missing.push("Loan Amount")
-    if (!unitsComplete) missing.push("Unit Data (all rows)")
 
     return missing
   }, [
@@ -1956,7 +1955,6 @@ export default function PricingEnginePage() {
     initialLoanAmount,
     loanAmountPathVisible,
     loanAmount,
-    unitsComplete,
   ])
 
   const canCalculate = missingFields.length === 0
