@@ -12,183 +12,8 @@ import {
   dataSourceHandlebars,
 } from "@grapesjs/studio-sdk-plugins"
 import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
-import { FieldType, typeColorConfig } from "./field-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
-const VARIABLE_WIDGET_STYLE_ID = "variable-widget-styles"
-
-// Generate CSS for variable widgets in the canvas
-function generateVariableWidgetCSS(): string {
-  // Base styles for variable widgets
-  // Uses CSS to hide the {{variable}} text and show the label from data-label attribute
-  let css = `
-    .ts-variable {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      margin: 0 2px;
-      border-radius: 4px;
-      font-size: 0.875em;
-      font-weight: 500;
-      white-space: nowrap;
-      cursor: default;
-      border: 1px solid;
-      position: relative;
-      /* Hide the actual {{variable}} text */
-      color: transparent !important;
-      font-size: 0 !important;
-    }
-    
-    /* Show the label using ::before pseudo-element */
-    .ts-variable::before {
-      content: attr(data-label);
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-  `
-  
-  // Add color-specific styles for each type
-  const types: FieldType[] = ["String", "Number", "Boolean", "Array", "Object", "Binary Data"]
-  types.forEach(type => {
-    const colors = typeColorConfig[type]
-    css += `
-    .ts-variable[data-type="${type}"] {
-      background-color: ${colors.bgHex};
-      border-color: ${colors.borderHex};
-    }
-    .ts-variable[data-type="${type}"]::before {
-      color: ${colors.textHex};
-    }
-    `
-  })
-  
-  return css
-}
-
-// Generate script to style {{variable}} patterns with CSS-only approach
-function generateVariableWidgetScript(variableOptions: VariableOption[]): string {
-  // Create a map of variable names to their types and labels
-  const varDataMap = JSON.stringify(
-    Object.fromEntries(variableOptions.map(opt => [
-      opt.id, 
-      { type: opt.type, label: opt.label }
-    ]))
-  )
-  
-  return `
-    (function() {
-      const varDataMap = ${varDataMap};
-      const defaultType = "String";
-      
-      function formatLabel(name) {
-        return name.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
-      }
-      
-      function wrapVariables(element) {
-        if (!element || element.nodeType !== 1) return;
-        
-        // Skip if already processed
-        if (element.classList && element.classList.contains('ts-variable')) return;
-        if (element.closest && element.closest('.ts-variable')) return;
-        
-        const walker = document.createTreeWalker(
-          element,
-          NodeFilter.SHOW_TEXT,
-          null,
-          false
-        );
-        
-        const textNodes = [];
-        let node;
-        while (node = walker.nextNode()) {
-          if (node.textContent && node.textContent.includes('{{')) {
-            // Skip if inside a ts-variable span
-            if (node.parentNode && node.parentNode.classList && 
-                node.parentNode.classList.contains('ts-variable')) continue;
-            textNodes.push(node);
-          }
-        }
-        
-        textNodes.forEach(textNode => {
-          const text = textNode.textContent;
-          const regex = /\\{\\{([^}]+)\\}\\}/g;
-          
-          if (!regex.test(text)) return;
-          regex.lastIndex = 0;
-          
-          const fragment = document.createDocumentFragment();
-          let lastIndex = 0;
-          let match;
-          
-          while ((match = regex.exec(text)) !== null) {
-            // Add text before the match
-            if (match.index > lastIndex) {
-              fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
-            }
-            
-            // Create styled variable span
-            const varName = match[1];
-            const varData = varDataMap[varName] || { type: defaultType, label: formatLabel(varName) };
-            const span = document.createElement('span');
-            span.className = 'ts-variable';
-            span.setAttribute('data-type', varData.type);
-            span.setAttribute('data-name', varName);
-            span.setAttribute('contenteditable', 'false');
-            // Keep the original handlebars syntax inside for data binding
-            // but use CSS to show the label instead
-            span.setAttribute('data-label', varData.label);
-            span.textContent = match[0]; // Keep {{varName}} for data binding
-            fragment.appendChild(span);
-            
-            lastIndex = regex.lastIndex;
-          }
-          
-          // Add remaining text
-          if (lastIndex < text.length) {
-            fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
-          }
-          
-          // Replace the text node with our fragment
-          if (textNode.parentNode) {
-            textNode.parentNode.replaceChild(fragment, textNode);
-          }
-        });
-      }
-      
-      // Process all content
-      function processDocument() {
-        wrapVariables(document.body);
-      }
-      
-      // Initial processing with delay to ensure content is loaded
-      setTimeout(processDocument, 100);
-      
-      // Watch for changes using MutationObserver
-      const observer = new MutationObserver(function(mutations) {
-        let shouldProcess = false;
-        mutations.forEach(function(mutation) {
-          if (mutation.type === 'childList') {
-            mutation.addedNodes.forEach(function(node) {
-              if (node.nodeType === 1 && !node.classList.contains('ts-variable')) {
-                shouldProcess = true;
-              } else if (node.nodeType === 3 && node.textContent.includes('{{')) {
-                shouldProcess = true;
-              }
-            });
-          }
-        });
-        if (shouldProcess) {
-          setTimeout(processDocument, 50);
-        }
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    })();
-  `
-}
 
 // Suppress React 19 ref warning from @grapesjs/studio-sdk until library updates
 // This is a temporary workaround - the library uses element.ref which was removed in React 19
@@ -205,18 +30,11 @@ if (typeof window !== "undefined") {
   }
 }
 
-interface VariableOption {
-  id: string      // Raw field name
-  label: string   // Human-readable label
-  type: FieldType // Field type for coloring
-}
-
 interface StudioEditorWrapperProps {
   globalData: Record<string, { data: string }>
-  variableOptions: VariableOption[]
+  variableOptions: { id: string; label: string }[]
   template?: TermSheetTemplate | null
   onSave?: (html: string, gjsData: object) => void
-  onEditorReady?: (editor: any) => void // Expose editor instance to parent
 }
 
 /**
@@ -230,7 +48,6 @@ export function StudioEditorWrapper({
   variableOptions,
   template,
   onSave,
-  onEditorReady,
 }: StudioEditorWrapperProps) {
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
@@ -241,13 +58,7 @@ export function StudioEditorWrapper({
   const initialGlobalDataRef = useRef(globalData)
 
   // Get the HTML content for the editor
-  // Use template html_content if it exists and is non-empty, otherwise use default blank template
-  const templateHtml = (template?.html_content && template.html_content.trim().length > 0) 
-    ? template.html_content 
-    : defaultTemplateHtml
-  
-  // Debug: log template state
-  console.log('[StudioEditor] template:', template?.name, 'html_content length:', template?.html_content?.length, 'using:', templateHtml.substring(0, 100))
+  const templateHtml = template?.html_content || defaultTemplateHtml
 
   // Load and scope GrapesJS CSS
   useEffect(() => {
@@ -342,9 +153,6 @@ export function StudioEditorWrapper({
       <StudioEditorComponent
         options={{
           licenseKey: "",
-          // Disable built-in storage to remove the "Save content" button
-          // We handle saving ourselves via the custom Save button
-          storage: false,
           fonts: {
             enableFontManager: true,
           },
@@ -369,14 +177,9 @@ export function StudioEditorWrapper({
                     id: "variables",
                     type: "selectField",
                     emptyState: "Insert Variable",
-                    options: variableOptions.map(opt => ({
-                      id: opt.id,
-                      label: opt.label,
-                    })),
-                    onChange: ({ value }) => {
-                      // Insert handlebars syntax - the injected script will style it
-                      commands.text.replace(`{{${value}}}`, { select: true })
-                    },
+                    options: variableOptions,
+                    onChange: ({ value }) =>
+                      commands.text.replace(value, { select: true }),
                   },
                 ]
               },
@@ -463,74 +266,6 @@ export function StudioEditorWrapper({
         }}
         onReady={(editor) => {
           editorRef.current = editor
-          
-          // Expose editor instance to parent component
-          if (onEditorReady) {
-            onEditorReady(editor)
-          }
-          
-          // Note: The GrapesJS "Save content" button in the toolbar doesn't do anything
-          // without storage configuration. Our custom Save button handles all saving.
-          // We'll leave it as-is since removing it breaks other UI elements.
-          
-          // Set up save functionality
-          if (onSave) {
-            // Helper function to extract and save content
-            const triggerSave = () => {
-              try {
-                const html = editor.getHtml()
-                const css = editor.getCss()
-                const gjsData = editor.getProjectData()
-                // Combine HTML and CSS for full output
-                const fullHtml = css ? `<style>${css}</style>${html}` : html
-                onSave(fullHtml, gjsData)
-              } catch (err) {
-                console.error('[StudioEditor] Save failed:', err)
-              }
-            }
-            
-            // Listen to storage:store event (triggered by GrapesJS save icon or Ctrl+S)
-            editor.on('storage:store', triggerSave)
-            
-            // Add a manual save command that can be triggered from parent
-            editor.Commands.add('save-template', {
-              run: triggerSave
-            })
-          }
-          
-          // Note: We rely on project.default.pages configuration to load template content
-          // Don't manipulate content here as it can interfere with drag-drop functionality
-          
-          // Inject variable widget CSS and script into the canvas iframe
-          // Delay slightly to ensure canvas is ready after content change
-          setTimeout(() => {
-            try {
-              const canvas = editor.Canvas
-              if (canvas) {
-                const canvasDoc = canvas.getDocument()
-                if (canvasDoc) {
-                  // Inject CSS if not already present
-                  if (!canvasDoc.getElementById(VARIABLE_WIDGET_STYLE_ID)) {
-                    const styleEl = canvasDoc.createElement("style")
-                    styleEl.id = VARIABLE_WIDGET_STYLE_ID
-                    styleEl.textContent = generateVariableWidgetCSS()
-                    canvasDoc.head.appendChild(styleEl)
-                  }
-                  
-                  // Inject script if not already present
-                  const scriptId = VARIABLE_WIDGET_STYLE_ID + "-script"
-                  if (!canvasDoc.getElementById(scriptId)) {
-                    const scriptEl = canvasDoc.createElement("script")
-                    scriptEl.id = scriptId
-                    scriptEl.textContent = generateVariableWidgetScript(variableOptions)
-                    canvasDoc.body.appendChild(scriptEl)
-                  }
-                }
-              }
-            } catch (err) {
-              console.debug("Could not inject variable widget styles/script:", err)
-            }
-          }, 100)
         }}
       />
     </div>

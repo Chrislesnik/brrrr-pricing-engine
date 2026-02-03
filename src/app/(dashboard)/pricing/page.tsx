@@ -1485,8 +1485,10 @@ export default function PricingEnginePage() {
     if (propertyType === "condo") {
       payload["warrantability"] = warrantability ?? ""
     }
-    if (unitData?.length) {
-      const units = unitData.map((u) => ({
+    // Always include unit data - slice to visible rows based on numUnits
+    const visibleUnits = unitData.slice(0, numUnits ?? 0)
+    if (visibleUnits.length > 0) {
+      const units = visibleUnits.map((u) => ({
         leased: u.leased,
         gross: u.gross,
         market: u.market,
@@ -2097,6 +2099,7 @@ export default function PricingEnginePage() {
     if ("aiv" in payload) setAiv(String(payload["aiv"] ?? ""))
     if ("arv" in payload) setArv(String(payload["arv"] ?? ""))
     if ("rehab_budget" in payload) setRehabBudget(String(payload["rehab_budget"] ?? ""))
+    if ("rehab_completed" in payload) setRehabCompleted(String(payload["rehab_completed"] ?? ""))
     if ("rehab_holdback" in payload) setRehabHoldback(String(payload["rehab_holdback"] ?? ""))
     if ("emd" in payload) setEmd(String(payload["emd"] ?? ""))
     if ("taxes_annual" in payload) setAnnualTaxes(String(payload["taxes_annual"] ?? ""))
@@ -2111,11 +2114,23 @@ export default function PricingEnginePage() {
     const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
     if (Array.isArray(unitsFromPayload)) {
       const normalized = unitsFromPayload.map(
-        (u: { leased?: "yes" | "no"; gross?: string | number | null; market?: string | number | null }) => ({
-        leased: (u?.leased as "yes" | "no" | undefined) ?? undefined,
-          gross: u?.gross != null ? String(u.gross) : "",
-          market: u?.market != null ? String(u.market) : "",
-        })
+        (u: { leased?: string | boolean | null; gross?: string | number | null; market?: string | number | null }) => {
+          // Normalize leased value to lowercase "yes" or "no"
+          let normalizedLeased: "yes" | "no" | undefined = undefined
+          if (u?.leased != null) {
+            const leasedStr = String(u.leased).toLowerCase()
+            if (leasedStr === "yes" || leasedStr === "true") {
+              normalizedLeased = "yes"
+            } else if (leasedStr === "no" || leasedStr === "false") {
+              normalizedLeased = "no"
+            }
+          }
+          return {
+            leased: normalizedLeased,
+            gross: u?.gross != null ? String(u.gross) : "",
+            market: u?.market != null ? String(u.market) : "",
+          }
+        }
       )
       hydrateUnitsRef.current = normalized
       if (normalized.length > 0) {
