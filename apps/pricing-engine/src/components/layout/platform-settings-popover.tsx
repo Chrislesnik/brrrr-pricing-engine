@@ -68,10 +68,7 @@ export function PlatformSettingsPopover({
     : setInternalOpen;
 
   // Check if integration routes are active (for highlighting active menu items)
-  const isFloifyActive = pathname.startsWith(
-    "/settings/integrations",
-  );
-  const isXactusActive = pathname.startsWith(
+  const isIntegrationsActive = pathname.startsWith(
     "/settings/integrations",
   );
   const isTemplateEditorActive = pathname.startsWith(
@@ -87,14 +84,7 @@ export function PlatformSettingsPopover({
     ? `/org/${organization.id}/settings`
     : null;
 
-  const handleFloifyClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    router.push("/settings/integrations");
-    setPopoverOpen(false);
-  };
-
-  const handleXactusClick = (e: React.MouseEvent) => {
+  const handleIntegrationsClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     router.push("/settings/integrations");
@@ -216,27 +206,15 @@ export function PlatformSettingsPopover({
                 <div className="px-1 pb-2">
                   <Link
                     href="/settings/integrations"
-                    onClick={handleFloifyClick}
+                    onClick={handleIntegrationsClick}
                     className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isFloifyActive
+                      isIntegrationsActive
                         ? "bg-accent text-accent-foreground"
                         : "text-foreground"
                     }`}
                   >
                     <Plug className="h-4 w-4 text-muted-foreground" />
-                    <span>Floify</span>
-                  </Link>
-                  <Link
-                    href="/settings/integrations"
-                    onClick={handleXactusClick}
-                    className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isXactusActive
-                        ? "bg-accent text-accent-foreground"
-                        : "text-foreground"
-                    }`}
-                  >
-                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                    <span>Xactus</span>
+                    <span>Manage Integrations</span>
                   </Link>
                 </div>
               </CollapsibleContent>
