@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 // ---------- Results UI ----------
 import * as React from "react"
 import {
@@ -65,7 +65,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover"
-import { ScrollArea } from "@repo/ui/shadcn/scroll-area"
 import {
   Select,
   SelectContent,
@@ -436,23 +435,14 @@ function ScaledTermSheetPreview({
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
       <div
-        className="relative mx-auto justify-self-center"
+        className="relative mx-auto justify-self-center w-[calc(816px*var(--scale))] h-[calc(1056px*var(--scale))] opacity-[var(--opacity)] transition-opacity duration-150 ease-out"
         style={{
-          width: 816 * scale,
-          height: 1056 * scale,
-          opacity: hasValidMeasure ? 1 : 0,
-          transition: "opacity 150ms ease",
-        }}
+          "--scale": scale,
+          "--opacity": hasValidMeasure ? 1 : 0,
+        } as React.CSSProperties}
       >
         <div
-          style={{
-            width: 816,
-            height: 1056,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            overflow: "hidden",
-          }}
-          className="rounded-sm border border-black/20 bg-white shadow-xl focus:ring-2 focus:ring-amber-400 focus:outline-none"
+          className="h-[1056px] w-[816px] origin-top-left overflow-hidden rounded-sm border border-black/20 bg-white shadow-xl focus:ring-2 focus:ring-amber-400 focus:outline-none [transform:scale(var(--scale))]"
           ref={pageRef}
           tabIndex={0}
         >
@@ -810,6 +800,67 @@ export default function PricingEnginePage() {
   const [isResizing, setIsResizing] = useState<boolean>(false)
   const layoutRef = useRef<HTMLDivElement | null>(null)
   const inputsAreaRef = useRef<HTMLDivElement | null>(null)
+  const inputsScrollViewportRef = useRef<HTMLDivElement | null>(null)
+  const inputsScrollLockActiveRef = useRef(false)
+  const inputsScrollLockPosRef = useRef({ top: 0, left: 0 })
+  const inputsScrollLockRafRef = useRef<number | null>(null)
+  const setInputsAreaRef = useCallback((node: HTMLDivElement | null) => {
+    inputsAreaRef.current = node
+    if (node) {
+      inputsScrollViewportRef.current =
+        (node.closest("[data-radix-scroll-area-viewport]") as HTMLDivElement | null) ??
+        null
+    }
+  }, [])
+  const preserveInputsScroll = useCallback(() => {
+    const viewport = inputsScrollViewportRef.current
+    if (!viewport) return
+    const top = viewport.scrollTop
+    const left = viewport.scrollLeft
+    requestAnimationFrame(() => {
+      viewport.scrollTop = top
+      viewport.scrollLeft = left
+    })
+    setTimeout(() => {
+      viewport.scrollTop = top
+      viewport.scrollLeft = left
+    }, 0)
+  }, [])
+  const lockInputsScroll = useCallback((lock: boolean) => {
+    const viewport = inputsScrollViewportRef.current
+    if (!viewport) return
+    if (!lock) {
+      inputsScrollLockActiveRef.current = false
+      if (inputsScrollLockRafRef.current !== null) {
+        cancelAnimationFrame(inputsScrollLockRafRef.current)
+        inputsScrollLockRafRef.current = null
+      }
+      return
+    }
+    inputsScrollLockActiveRef.current = true
+    inputsScrollLockPosRef.current = {
+      top: viewport.scrollTop,
+      left: viewport.scrollLeft,
+    }
+    const restore = () => {
+      if (!inputsScrollLockActiveRef.current) return
+      const { top, left } = inputsScrollLockPosRef.current
+      if (viewport.scrollTop !== top) viewport.scrollTop = top
+      if (viewport.scrollLeft !== left) viewport.scrollLeft = left
+      inputsScrollLockRafRef.current = requestAnimationFrame(restore)
+    }
+    if (inputsScrollLockRafRef.current !== null) {
+      cancelAnimationFrame(inputsScrollLockRafRef.current)
+    }
+    inputsScrollLockRafRef.current = requestAnimationFrame(restore)
+    // also restore after open tick
+    setTimeout(() => {
+      if (!inputsScrollLockActiveRef.current) return
+      const { top, left } = inputsScrollLockPosRef.current
+      viewport.scrollTop = top
+      viewport.scrollLeft = left
+    }, 0)
+  }, [])
   useEffect(() => {
     if (!isResizing) return
     const onMove = (ev: MouseEvent | TouchEvent) => {
@@ -1223,6 +1274,7 @@ export default function PricingEnginePage() {
       loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
     )
     defaultsAppliedRef.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     initialLoanId,
     borrowerType,
@@ -1246,6 +1298,8 @@ export default function PricingEnginePage() {
     hoiEffective,
     floodEffective,
     taxEscrowMonths,
+    acquisitionDate,
+    loanType,
   ])
 
   // Keep Tax Escrow (months) default in sync with loan type until user edits it
@@ -1767,7 +1821,7 @@ export default function PricingEnginePage() {
   }
 
   // Build payload of current, visible inputs
-  function buildPayload() {
+  const buildPayload = useCallback(() => {
     const payload: Record<string, unknown> = {
       // Ensure keys are always present in JSON (no undefined values)
       loan_type: loanType ?? "",
@@ -1917,7 +1971,8 @@ export default function PricingEnginePage() {
       payload["units"] = units
     }
     return payload
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Log term sheet activity (download/share) to the backend
   async function _logTermSheetActivity(
@@ -2583,8 +2638,10 @@ export default function PricingEnginePage() {
     ppp,
     isPurchase,
     purchasePrice,
-    isRefi,
     aiv,
+    rehabSectionVisible,
+    rehabBudget,
+    arv,
     rehabPathVisible,
     initialLoanAmount,
     loanAmountPathVisible,
@@ -2614,6 +2671,31 @@ export default function PricingEnginePage() {
   useEffect(() => {
     const el = inputsAreaRef.current
     if (!el) return
+    const viewport = inputsScrollViewportRef.current
+    if (!viewport) return
+    let rafId: number | null = null
+    let prevTop = viewport.scrollTop
+    let prevLeft = viewport.scrollLeft
+    const restoreScroll = () => {
+      if (viewport.scrollTop !== prevTop) viewport.scrollTop = prevTop
+      if (viewport.scrollLeft !== prevLeft) viewport.scrollLeft = prevLeft
+    }
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      if (
+        target.matches?.(
+          "button, [role='button'], [role='option'], [role='combobox'], input, textarea, select, [data-radix-select-trigger]"
+        )
+      ) {
+        prevTop = viewport.scrollTop
+        prevLeft = viewport.scrollLeft
+        if (rafId !== null) cancelAnimationFrame(rafId)
+        rafId = requestAnimationFrame(restoreScroll)
+        setTimeout(restoreScroll, 0)
+      }
+    }
+    el.addEventListener("focusin", onFocusIn, true)
     const markDirty = () => {
       // Defer comparison to the next tick so React has time to commit input state
       setTimeout(() => {
@@ -2626,10 +2708,13 @@ export default function PricingEnginePage() {
     el.addEventListener("input", markDirty, true)
     el.addEventListener("change", markDirty, true)
     return () => {
+      lockInputsScroll(false)
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      el.removeEventListener("focusin", onFocusIn, true)
       el.removeEventListener("input", markDirty, true)
       el.removeEventListener("change", markDirty, true)
     }
-  }, [isDispatching, programResults, lastCalculatedKey])
+  }, [isDispatching, programResults, lastCalculatedKey, lockInputsScroll])
   // Also detect programmatic/default changes that don't emit input/change events
   useEffect(() => {
     if (!lastCalculatedKey) return
@@ -2641,7 +2726,7 @@ export default function PricingEnginePage() {
     } catch {
       setResultsStale(true)
     }
-  })
+  }, [lastCalculatedKey, isDispatching, programResults, buildPayload])
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
@@ -3041,12 +3126,15 @@ export default function PricingEnginePage() {
     })
   }
 
+  // #region agent log
+  // #endregion
+
   return (
     <div
       data-layout="fixed"
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
+      className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
         {/* Mobile-only view switch: Inputs / Programs */}
         <div className="lg:hidden">
@@ -3072,12 +3160,18 @@ export default function PricingEnginePage() {
       >
         {/* Left 25% column: scrollable container with header and footer */}
         <aside
-          className={`${isMobile && mobileView === "programs" ? "hidden" : "block"} min-h-0 w-full lg:shrink-0`}
-          style={isMobile ? undefined : { width: `${leftPanePct * 100}%` }}
+          className={`${isMobile && mobileView === "programs" ? "hidden" : "block"} h-full min-h-0 ${isMobile ? "w-full" : "w-[var(--left-pane-width)]"} lg:shrink-0`}
+          style={
+            isMobile
+              ? undefined
+              : ({ "--left-pane-width": `${leftPanePct * 100}%` } as React.CSSProperties)
+          }
         >
-          <div className="flex h-full min-h-0 flex-col rounded-md border">
+          <div className="grid h-full min-h-0 max-h-full grid-rows-[auto_1fr_auto] rounded-md border overflow-hidden">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_auto] items-end gap-2 overflow-hidden border-b p-3">
+            <div 
+              className="grid grid-cols-[1fr_auto] items-end gap-2 overflow-hidden border-b p-3"
+            >
               <div className="flex min-w-0 flex-col gap-1">
                 <label className="text-muted-foreground text-xs font-medium">
                   Scenarios
@@ -3593,8 +3687,8 @@ export default function PricingEnginePage() {
             </div>
 
             {/* Scrollable content area */}
-            <ScrollArea className="min-h-0 flex-1">
-              <div ref={inputsAreaRef} className="p-3 pb-4">
+            <div className="min-h-0 overflow-y-auto">
+                <div ref={setInputsAreaRef} className="p-3 pb-4">
                 <Accordion
                   type="multiple"
                   defaultValue={[
@@ -4179,6 +4273,7 @@ export default function PricingEnginePage() {
                                   ref={predictionsMenuRef}
                                   className="bg-background absolute z-20 mt-1 w-full overflow-hidden rounded-md border shadow"
                                   role="listbox"
+                                  aria-label="Address suggestions"
                                   onMouseDown={() => {
                                     // Mark that the pointer is interacting within the menu (used by onBlur)
                                     pointerInMenuRef.current = true
@@ -4188,10 +4283,14 @@ export default function PricingEnginePage() {
                                     pointerInMenuRef.current = false
                                   }}
                                 >
-                                  {predictions.map((p, idx) => (
+                                  {predictions.map((p, idx) => {
+                                    const isSelected = idx === activePredictionIdx;
+                                    return (
                                     <button
                                       key={p.place_id}
                                       type="button"
+                                      role="option"
+                                      aria-selected={isSelected ? "true" : "false"}
                                       className={`hover:bg-accent flex w-full items-start gap-2 px-2 py-2 text-left ${
                                         idx === activePredictionIdx
                                           ? "bg-accent"
@@ -4216,7 +4315,8 @@ export default function PricingEnginePage() {
                                         </span>
                                       </div>
                                     </button>
-                                  ))}
+                                  );
+                                  })}
                                   <div className="text-muted-foreground border-t px-2 py-1 text-right text-[10px] tracking-wide uppercase">
                                     Powered by Google
                                   </div>
@@ -4293,6 +4393,14 @@ export default function PricingEnginePage() {
                             </Label>
                             <Select
                               value={propertyType}
+                              onOpenChange={(open) => {
+                                if (open) {
+                                  preserveInputsScroll()
+                                  lockInputsScroll(true)
+                                } else {
+                                  lockInputsScroll(false)
+                                }
+                              }}
                               onValueChange={(v) => {
                                 clearReAuto("propertyType")
                                 setPropertyType(v)
@@ -5738,10 +5846,10 @@ export default function PricingEnginePage() {
                   </AccordionItem>
                 </Accordion>
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Footer */}
-            <div className="border-t p-3">
+            <div className="border-t bg-background p-3">
               <div className="flex justify-end">
                 <Button
                   onClick={handleCalculate}
@@ -7416,7 +7524,7 @@ function ResultsPanel({
         setSelected(selectedFromProps)
       }
     }
-  }, [selectedFromProps, results])
+  }, [selectedFromProps, results, selected])
 
   // Main panel term sheet preview/download state
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
