@@ -2220,15 +2220,25 @@ export function CurrencyCalcCell<TData>({
         if (!v.startsWith("=")) {
           setCalcMode(false);
           setExpr("");
-          setValue(sanitizeCurrencyRaw(v));
+          const sanitized = sanitizeCurrencyRaw(v);
+          setValue(sanitized);
+          // Commit immediately so value is never lost
+          if (!readOnly) {
+            tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: sanitized });
+          }
         } else {
           setExpr(v.slice(1));
         }
       } else {
-        setValue(sanitizeCurrencyRaw(v));
+        const sanitized = sanitizeCurrencyRaw(v);
+        setValue(sanitized);
+        // Commit immediately so value is never lost
+        if (!readOnly) {
+          tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: sanitized });
+        }
       }
     },
-    [calcMode],
+    [calcMode, readOnly, tableMeta, rowIndex, columnId],
   );
 
   const onWrapperKeyDown = React.useCallback(
