@@ -3156,18 +3156,17 @@ export default function PricingEnginePage() {
 
       <div
         ref={layoutRef}
-        className="flex h-full min-h-0 flex-1 gap-0 overflow-hidden"
+        className="grid h-0 min-h-0 flex-1 gap-0 overflow-hidden"
+        style={{
+          gridTemplateColumns: isMobile
+            ? "1fr"
+            : `${leftPanePct * 100}% 12px 1fr`,
+        }}
       >
         {/* Left 25% column: scrollable container with header and footer */}
         <aside
-          className={`${isMobile && mobileView === "programs" ? "hidden" : "block"} h-full min-h-0 ${isMobile ? "w-full" : "w-[var(--left-pane-width)]"} lg:shrink-0`}
-          style={
-            isMobile
-              ? undefined
-              : ({ "--left-pane-width": `${leftPanePct * 100}%` } as React.CSSProperties)
-          }
+          className={`${isMobile && mobileView === "programs" ? "hidden" : "grid"} min-h-0 grid-rows-[auto_1fr_auto] rounded-md border overflow-hidden lg:shrink-0`}
         >
-          <div className="grid h-full min-h-0 max-h-full grid-rows-[auto_1fr_auto] rounded-md border overflow-hidden">
             {/* Header */}
             <div 
               className="grid grid-cols-[1fr_auto] items-end gap-2 overflow-hidden border-b p-3"
@@ -5859,7 +5858,6 @@ export default function PricingEnginePage() {
                 </Button>
               </div>
             </div>
-          </div>
         </aside>
 
         {/* Drag handle (desktop only) */}
@@ -5881,9 +5879,9 @@ export default function PricingEnginePage() {
           </button>
         </div>
 
-        {/* Right column: results display (flexes to remaining space) */}
+        {/* Right column: results display (fills remaining space) */}
         <section
-          className={`${isMobile && mobileView === "programs" ? "block" : "hidden"} h-full min-h-0 flex-1 overflow-auto rounded-md border p-3 pb-4 lg:block`}
+          className={`${isMobile && mobileView === "programs" ? "block" : "hidden"} h-full min-h-0 max-h-full overflow-auto rounded-md border p-3 pb-4 lg:block`}
         >
           {resultsStale && !isDispatching ? (
             <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">

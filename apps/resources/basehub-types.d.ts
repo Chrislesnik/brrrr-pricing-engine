@@ -50,7 +50,7 @@ export interface Scalars {
 }))[],
     BSHBRichTextContentSchema: RichTextNode[],
     BSHBRichTextTOCSchema: RichTextTocNode[],
-    BSHBSelect_448350670: 'Documentation' | 'Root',
+    BSHBSelect_448350670: 'Documentation' | 'Loan Programs' | 'Lender Platform' | 'Root' | 'Underwriting',
     Boolean: boolean,
     CodeSnippetLanguage: B_Language,
     DateTime: any,
@@ -217,12 +217,13 @@ export interface DocumentationItem {
     _sys: BlockDocumentSys
     _title: Scalars['String']
     category: (Scalars['BSHBSelect_448350670'] | null)
+    parentPage: (DocumentationItem | null)
     richText: (RichText | null)
     slug: (Scalars['String'] | null)
     __typename: 'DocumentationItem'
 }
 
-export type DocumentationItemOrderByEnum = '_sys_createdAt__ASC' | '_sys_createdAt__DESC' | '_sys_hash__ASC' | '_sys_hash__DESC' | '_sys_id__ASC' | '_sys_id__DESC' | '_sys_lastModifiedAt__ASC' | '_sys_lastModifiedAt__DESC' | '_sys_slug__ASC' | '_sys_slug__DESC' | '_sys_title__ASC' | '_sys_title__DESC' | 'category__ASC' | 'category__DESC' | 'richText__ASC' | 'richText__DESC' | 'slug__ASC' | 'slug__DESC' | 'untitled__ASC' | 'untitled__DESC'
+export type DocumentationItemOrderByEnum = '_sys_createdAt__ASC' | '_sys_createdAt__DESC' | '_sys_hash__ASC' | '_sys_hash__DESC' | '_sys_id__ASC' | '_sys_id__DESC' | '_sys_lastModifiedAt__ASC' | '_sys_lastModifiedAt__DESC' | '_sys_slug__ASC' | '_sys_slug__DESC' | '_sys_title__ASC' | '_sys_title__DESC' | 'category__ASC' | 'category__DESC' | 'parentPage__ASC' | 'parentPage__DESC' | 'richText__ASC' | 'richText__DESC' | 'slug__ASC' | 'slug__DESC' | 'untitled_1__ASC' | 'untitled_1__DESC' | 'untitled__ASC' | 'untitled__DESC'
 
 export interface GetUploadSignedURL {
     signedURL: Scalars['String']
@@ -710,13 +711,16 @@ export interface DocumentationItemGenqlSelection{
     _sys?: BlockDocumentSysGenqlSelection
     _title?: boolean | number
     category?: boolean | number
+    parentPage?: DocumentationItemGenqlSelection
     richText?: RichTextGenqlSelection
     slug?: boolean | number
     __typename?: boolean | number
     __fragmentOn?: "DocumentationItem"
 }
 
-export interface DocumentationItemFilterInput {AND?: (DocumentationItemFilterInput | null),OR?: (DocumentationItemFilterInput | null),_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null),category?: (SelectFilter | null),slug?: (StringFilter | null)}
+export interface DocumentationItemFilterInput {AND?: (DocumentationItemFilterInput | null),OR?: (DocumentationItemFilterInput | null),_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null),category?: (SelectFilter | null),parentPage?: (DocumentationItemFilterInput__parentPage_0___untitled | null),slug?: (StringFilter | null)}
+
+export interface DocumentationItemFilterInput__parentPage_0___untitled {_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null),category?: (SelectFilter | null),slug?: (StringFilter | null)}
 
 export interface DocumentationItemSearchInput {
 /** Searchable fields for query */

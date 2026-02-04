@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.2",
+    "@clerk/types": "^4.101.14",
     "@repo/lib": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tailwindcss/typography": "^0.5.16",

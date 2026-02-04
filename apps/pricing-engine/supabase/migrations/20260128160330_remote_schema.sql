@@ -51,6 +51,8 @@ drop index if exists "public"."documents_pkey";
 drop table "public"."documents";
 
 
+create sequence if not exists "public"."documents_id_seq";
+
   create table "public"."program_documents_chunks_vs" (
     "id" bigint not null default nextval('public.documents_id_seq'::regclass),
     "content" text,

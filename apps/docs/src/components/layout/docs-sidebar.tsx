@@ -63,30 +63,37 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
         <NavSearch />
       </SidebarHeader>
       <SidebarContent>
-        {groups.map((group, index) => (
-          <SidebarGroup key={index}>
-            {group.title && <SidebarGroupLabel>{group.title}</SidebarGroupLabel>}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item, itemIndex) => {
-                  if (item.type !== "page") return null;
-                  const isActive = pathname === item.url;
+        {groups.map((group, index) => {
+          // Create stable key: use title if available, otherwise use first item's URL or fallback to index
+          const groupKey = typeof group.title === 'string' 
+            ? group.title 
+            : group.items[0]?.url || `group-${index}`;
+          
+          return (
+            <SidebarGroup key={groupKey}>
+              {group.title && <SidebarGroupLabel>{group.title}</SidebarGroupLabel>}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => {
+                    if (item.type !== "page") return null;
+                    const isActive = pathname === item.url;
 
-                  return (
-                    <SidebarMenuItem key={itemIndex}>
-                      <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.url}>
-                          <BookOpen className="h-4 w-4" />
-                          <span>{item.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+                    return (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton asChild isActive={isActive}>
+                          <Link href={item.url}>
+                            <BookOpen className="h-4 w-4" />
+                            <span>{item.name}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
       <SidebarFooter>
         {user && (

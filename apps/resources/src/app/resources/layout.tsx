@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
-import { cookies } from "next/headers";
+import { cookies, draftMode } from "next/headers";
 import { cn } from "@repo/lib/cn";
 import { SidebarProvider, SidebarInset } from "@repo/ui/shadcn/sidebar";
 import { ResourcesSidebar } from "@/components/layout/resources-sidebar";
 import { ResourcesHeader } from "@/components/layout/resources-header";
 import { SWRProvider } from "@/components/providers/swr-provider";
 import { Pump } from "basehub/react-pump";
-import { draftMode } from "next/headers";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { DraftModeIndicator } from "@/components/draft-mode-indicator";
 import { BaseHubToolbarWrapper } from "@/components/basehub-toolbar-wrapper";
@@ -34,6 +33,9 @@ export default async function ResourcesRouteLayout({ children }: Props) {
                   _title: true,
                   _slug: true,
                   category: true,
+                  parentPage: {
+                    _id: true,
+                  },
                 },
               },
             },
@@ -42,35 +44,85 @@ export default async function ResourcesRouteLayout({ children }: Props) {
           {async ([{ documentation }]) => {
             "use server";
 
-            // Build PageTree structure from BaseHub data
-            const items: PageTree.Node[] = [];
-            const categoryGroups: Record<string, PageTree.Node[]> = {};
+            type DocItem = {
+              _id: string;
+              _title: string;
+              _slug: string;
+              category: string | null;
+              parentPage?: { _id: string } | null;
+            };
 
-            // Group items by category
-            for (const item of documentation?.items || []) {
-              const pageNode: PageTree.Node = {
+            const docItems = documentation?.items || [];
+            
+            // Build a map for quick lookup
+            const itemMap = new Map<string, DocItem>();
+            const childrenMap = new Map<string, DocItem[]>();
+            
+            for (const item of docItems) {
+              itemMap.set(item._id, item);
+              
+              // Track children
+              const parentId = item.parentPage?._id;
+              if (parentId) {
+                if (!childrenMap.has(parentId)) {
+                  childrenMap.set(parentId, []);
+                }
+                childrenMap.get(parentId)!.push(item);
+              }
+            }
+
+            // Recursively build tree nodes
+            const buildNode = (item: DocItem, isRoot: boolean = false): PageTree.Node => {
+              const children = childrenMap.get(item._id);
+              const hasChildren = children && children.length > 0;
+
+              if (hasChildren) {
+                return {
+                  type: "folder",
+                  name: item._title,
+                  index: isRoot ? undefined : {
+                    type: "page",
+                    name: item._title,
+                    url: `/resources/${item._slug}`,
+                  },
+                  children: children.map((child) => buildNode(child, false)),
+                };
+              }
+
+              return {
                 type: "page",
                 name: item._title,
                 url: `/resources/${item._slug}`,
               };
+            };
+
+            // Build PageTree structure from BaseHub data
+            const items: PageTree.Node[] = [];
+            const categoryGroups: Record<string, PageTree.Node[]> = {};
+
+            // Only process root-level items (no parent)
+            for (const item of docItems) {
+              if (item.parentPage?._id) continue; // Skip items with parents
+              
+              const node = buildNode(item);
 
               if (item.category && item.category !== "Root") {
                 if (!categoryGroups[item.category]) {
                   categoryGroups[item.category] = [];
                 }
-                categoryGroups[item.category].push(pageNode);
+                categoryGroups[item.category].push(node);
               } else {
-                items.push(pageNode);
+                items.push(node);
               }
             }
 
-            // Add categorized items with separators
+            // Add categorized items as collapsible folders
             for (const [category, pages] of Object.entries(categoryGroups)) {
               items.push({
-                type: "separator",
+                type: "folder",
                 name: category,
+                children: pages,
               });
-              items.push(...pages);
             }
 
             return (

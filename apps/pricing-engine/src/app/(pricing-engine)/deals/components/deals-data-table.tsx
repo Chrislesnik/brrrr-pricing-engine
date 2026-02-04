@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSupabase } from "@/hooks/use-supabase";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -32,12 +31,12 @@ import {
   SortableContext,
   arrayMove,
   horizontalListSortingStrategy,
+  useSortable,
 } from "@dnd-kit/sortable";
-import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Badge } from "@/components/ui";
-import { Button } from "@/components/ui";
-import { Checkbox } from "@/components/ui";
+import { Badge } from "@repo/ui/shadcn/badge";
+import { Button } from "@repo/ui/shadcn/button";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -46,8 +45,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui";
-import { Input } from "@/components/ui";
+} from "@repo/ui/shadcn/dropdown-menu";
+import { Input } from "@repo/ui/shadcn/input";
+import { Textarea } from "@repo/ui/shadcn/textarea";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@repo/ui/shadcn/avatar";
 import {
   Table,
   TableBody,
@@ -55,7 +60,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui";
+} from "@repo/ui/shadcn/table";
 import {
   ArrowUpDown,
   Building,
@@ -72,6 +77,8 @@ import {
   FilesIcon,
   TrashIcon,
   FolderOpenIcon,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import {
   Select,
@@ -79,12 +86,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui";
+} from "@repo/ui/shadcn/select";
+import { cn } from "@repo/lib/cn";
 // Removed unused import
 
 // Extended type with joined data
 interface DealWithRelations {
-  id: number;
+  id: string;
   deal_name: string | null;
   deal_stage_2: string | null;
   loan_amount_total: number | null;
@@ -95,8 +103,105 @@ interface DealWithRelations {
   loan_number: string | null;
 }
 
+interface Comment {
+  id: string;
+  author: string;
+  avatar: string;
+  content: string;
+  timestamp: string;
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
+function CommentThread({
+  comments,
+  dealId,
+  onAddComment,
+}: {
+  comments: Comment[];
+  dealId: string;
+  onAddComment: (dealId: string, content: string) => void;
+}) {
+  const [newComment, setNewComment] = useState("");
+
+  const handleSubmit = () => {
+    if (!newComment.trim()) return;
+    onAddComment(dealId, newComment.trim());
+    setNewComment("");
+  };
+
+  return (
+    <div className="border-t bg-muted/30 px-4 py-3">
+      <div className="space-y-3">
+        {comments.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            No comments yet.
+          </div>
+        ) : (
+          comments.map((comment) => (
+            <div className="flex gap-3" key={comment.id}>
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={comment.avatar} />
+                <AvatarFallback className="text-xs">
+                  {getInitials(comment.author)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {comment.author}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {comment.timestamp}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {comment.content}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+
+        <div className="flex gap-3 pt-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs">YO</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-1 gap-2">
+            <Textarea
+              className="min-h-[60px] resize-none text-sm"
+              onChange={(event) => setNewComment(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder="Add a comment..."
+              value={newComment}
+            />
+            <Button
+              className="self-end"
+              disabled={!newComment.trim()}
+              onClick={handleSubmit}
+              size="sm"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Draggable Header Component
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   const columnId = header.column.id;
   const isFixedColumn = columnId === "select" || columnId === "actions";
@@ -147,9 +252,15 @@ const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   );
 };
 
-const createColumns = (router: {
-  push: (path: string) => void;
-}): ColumnDef<DealWithRelations>[] => [
+const createColumns = (
+  router: { push: (path: string) => void },
+  expandedRows: Set<string>,
+  toggleRow: (dealId: string) => void,
+  rowComments: Record<
+    string,
+    { comments: Comment[]; hasUnread: boolean; count: number }
+  >
+): ColumnDef<DealWithRelations>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -332,6 +443,37 @@ const createColumns = (router: {
     ),
   },
   {
+    id: "comments",
+    header: () => <span className="text-sm font-medium">Comments</span>,
+    cell: ({ row }) => {
+      const dealId = String(row.original.id);
+      const isExpanded = expandedRows.has(dealId);
+      const commentState = rowComments[dealId];
+      const count = commentState?.count ?? 0;
+      const hasUnread = commentState?.hasUnread ?? false;
+      return (
+        <Button
+          className={cn("gap-2", hasUnread && "text-primary")}
+          onClick={() => toggleRow(dealId)}
+          size="sm"
+          variant="ghost"
+          data-ignore-row-click
+        >
+          <MessageCircle className="h-4 w-4" />
+          <span>{count}</span>
+          {hasUnread && <span className="h-2 w-2 rounded-full bg-primary" />}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 transition-transform",
+              isExpanded && "rotate-180"
+            )}
+          />
+        </Button>
+      );
+    },
+    enableSorting: false,
+  },
+  {
     id: "funding_date",
     accessorKey: "funding_date",
     header: ({ column }) => {
@@ -412,7 +554,11 @@ const createColumns = (router: {
   },
 ];
 
-export function DealsDataTable() {
+export function DealsDataTable({
+  onNewDeal,
+}: {
+  onNewDeal?: () => void
+}) {
   const [data, setData] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -420,6 +566,10 @@ export function DealsDataTable() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [rowComments, setRowComments] = useState<
+    Record<string, { comments: Comment[]; hasUnread: boolean; count: number }>
+  >({});
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([
     "select",
     "loan_number",
@@ -428,13 +578,124 @@ export function DealsDataTable() {
     "deal_stage_2",
     "loan_amount_total",
     "guarantor_name",
+    "comments",
     "funding_date",
     "actions",
   ]);
 
+  const loadComments = React.useCallback(
+    async (dealId: string, markRead: boolean) => {
+      try {
+        const res = await fetch(
+          `/api/deals/${dealId}/comments?markRead=${markRead ? "1" : "0"}`
+        );
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          comments?: Array<{
+            id: string;
+            author_name: string;
+            author_avatar_url: string | null;
+            content: string;
+            created_at: string;
+          }>;
+        };
+        const comments = (json.comments ?? []).map((c) => ({
+          id: c.id,
+          author: c.author_name,
+          avatar: c.author_avatar_url ?? "",
+          content: c.content,
+          timestamp: new Date(c.created_at).toLocaleString(),
+        }));
+        setRowComments((prev) => {
+          return {
+            ...prev,
+            [dealId]: {
+              comments,
+              count: comments.length,
+              hasUnread: false,
+            },
+          };
+        });
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
+  const addComment = React.useCallback(
+    async (dealId: string, content: string) => {
+      try {
+        const res = await fetch(`/api/deals/${dealId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          comment?: {
+            id: string;
+            author_name: string;
+            author_avatar_url: string | null;
+            content: string;
+            created_at: string;
+          };
+        };
+        if (!json.comment) return;
+        const newComment = {
+          id: json.comment.id,
+          author: json.comment.author_name,
+          avatar: json.comment.author_avatar_url ?? "",
+          content: json.comment.content,
+          timestamp: "Just now",
+        };
+        setRowComments((prev) => {
+          const existing = prev[dealId] ?? {
+            comments: [],
+            hasUnread: false,
+            count: 0,
+          };
+          const comments = [...existing.comments, newComment];
+          return {
+            ...prev,
+            [dealId]: {
+              comments,
+              count: comments.length,
+              hasUnread: false,
+            },
+          };
+        });
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
   const router = useRouter();
-  const supabase = useSupabase();
-  const columns = createColumns(router);
+  const toggleRow = React.useCallback(
+    (dealId: string) => {
+      let shouldOpen = false;
+      setExpandedRows((prev) => {
+        const next = new Set(prev);
+        if (next.has(dealId)) {
+          next.delete(dealId);
+          return next;
+        }
+        next.add(dealId);
+        shouldOpen = true;
+        return next;
+      });
+      if (shouldOpen) {
+        void loadComments(dealId, true);
+      }
+    },
+    [loadComments]
+  );
+  const columns = React.useMemo(
+    () => createColumns(router, expandedRows, toggleRow, rowComments),
+    [router, expandedRows, rowComments, toggleRow]
+  );
 
   // Set up sensors for drag and drop
   const sensors = useSensors(
@@ -453,191 +714,88 @@ export function DealsDataTable() {
   );
 
   useEffect(() => {
+    let active = true
     async function fetchDeals() {
-      if (!supabase) {
-        console.log("Supabase client not ready yet");
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
         setError(null);
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:468',message:'H1: Starting deals fetch - testing simple query first',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
-
-        // H1: First try a simple query WITHOUT any joins to test base deal access
-        console.log("Fetching deals - Step 1: Simple query without joins...");
-        const { data: simpleDeals, error: simpleError } = await supabase
-          .from("deal")
-          .select("id, deal_name")
-          .limit(5);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:478',message:'H1: Simple deal query result',data:{success:!simpleError,error:simpleError?.message,count:simpleDeals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
-
-        if (simpleError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:483',message:'H2: Simple query FAILED - deal_roles policy issue',data:{error:simpleError.message,code:simpleError.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
-          throw simpleError;
+        const response = await fetch("/api/pipeline?view=deals");
+        if (!response.ok) {
+          throw new Error("Failed to load deals");
         }
 
-        // H3: Now try with deal_guarantors join
-        console.log("Fetching deals - Step 2: With deal_guarantors join...");
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:492',message:'H3: Testing deal_guarantors join',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
-
-        const { data: deals, error, status, statusText } = await supabase
-          .from("deal")
-          .select(
-            `
-            id,
-            deal_name,
-            deal_stage_2,
-            loan_amount_total,
-            funding_date,
-            project_type,
-            property_id,
-            loan_number,
-            deal_guarantors(
-              guarantor_id,
-              is_primary,
-              guarantor:guarantor_id(id, name)
-            )
-          `
-          )
-          .order("created_at", { ascending: false });
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:516',message:'H3: Full query result',data:{success:!error,error:error?.message,count:deals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-
-        console.log("Supabase response:", { status, statusText, dataLength: deals?.length, error });
-        // #endregion
-
-        if (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:522',message:'H3/H4: Full query FAILED - recursion in join',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-          // More aggressive error logging to capture the actual message
-          console.error("Error fetching deals - raw:", JSON.stringify(error));
-          console.error("Error message:", String(error.message || 'No message'));
-          console.error("Error code:", String(error.code || 'No code'));
-          console.error("Error hint:", String(error.hint || 'No hint'));
-          console.error("Error details:", String(error.details || 'No details'));
-          setError(
-            error.message ||
-              "Unable to load deals. Please check your permissions or try again later."
-          );
-          setData([]);
-          return;
+        const payload = await response.json();
+        if (active) {
+          setData((payload?.deals ?? []) as DealWithRelations[]);
         }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:538',message:'SUCCESS: All queries passed',data:{dealCount:deals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SUCCESS'})}).catch(()=>{});
-        // #endregion
-
-        console.log("Basic deals data:", deals, "count:", deals?.length, "type:", typeof deals);
-
-        // Now let's try to get property data separately
-        const dealIds = deals?.map((deal) => deal.id) || [];
-
-        // Fetch property data for these deals
-        let propertyData: Record<number, string> = {};
-        if (dealIds.length > 0) {
-          const { data: properties, error: propError } = await supabase
-            .from("property")
-            .select("id, address");
-
-          if (!propError && properties) {
-            propertyData = properties.reduce(
-              (
-                acc: Record<number, string>,
-                prop: { id: number; address: string | null }
-              ) => {
-                if (prop.address) {
-                  acc[prop.id] = prop.address;
-                }
-                return acc;
-              },
-              {}
-            );
-            console.log("Property data:", propertyData);
-          } else {
-            console.error("Property fetch error:", propError);
-          }
-        }
-
-        // Note: Guarantor data is now fetched through the deal_guarantors join above
-
-        // Transform the data to match our interface
-        const transformedData: DealWithRelations[] = (deals || []).map(
-          (deal: {
-            id: number;
-            deal_name: string | null;
-            deal_stage_2: string | null;
-            loan_amount_total: number | null;
-            funding_date: string | null;
-            project_type: string | null;
-            property_id: number | null;
-            loan_number: string | null;
-            deal_guarantors: Array<{
-              guarantor_id: number;
-              is_primary: boolean | null;
-              guarantor: { id: number; name: string | null } | null;
-            }> | null;
-          }) => {
-            const propertyAddress = deal.property_id
-              ? propertyData[deal.property_id] ||
-                `Property ID: ${deal.property_id}`
-              : "No property";
-
-            // Find the primary guarantor from deal_guarantors junction table
-            const primaryGuarantor = deal.deal_guarantors?.find(dg => dg.is_primary);
-            const firstGuarantor = deal.deal_guarantors?.[0];
-            const guarantorRecord = primaryGuarantor || firstGuarantor;
-            const guarantorName = guarantorRecord?.guarantor?.name || "No guarantor";
-
-            console.log(
-              `Deal ${deal.id}: property_id=${deal.property_id}, address=${propertyAddress}`
-            );
-            console.log(
-              `Deal ${deal.id}: guarantor=${guarantorName}`
-            );
-
-            return {
-              id: deal.id,
-              deal_name: deal.deal_name,
-              deal_stage_2: deal.deal_stage_2,
-              loan_amount_total: deal.loan_amount_total,
-              funding_date: deal.funding_date,
-              project_type: deal.project_type,
-              property_address: propertyAddress,
-              guarantor_name: guarantorName,
-              loan_number: deal.loan_number,
-            };
-          }
-        );
-
-        console.log("Final transformed data:", transformedData);
-        setData(transformedData);
       } catch (err) {
         console.error("Unexpected error fetching deals:", err);
         const errorMessage =
           err instanceof Error ? err.message : "An unexpected error occurred";
-        setError(errorMessage);
-        setData([]);
+        if (active) {
+          setError(errorMessage);
+          setData([]);
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     fetchDeals();
-  }, [supabase]);
+    const handleRefresh = () => {
+      fetchDeals();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("app:deals:changed", handleRefresh);
+    }
+    return () => {
+      active = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("app:deals:changed", handleRefresh);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!data.length) return;
+    const ids = data.map((deal) => deal.id).join(",");
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/deals/comments/summary?ids=${encodeURIComponent(ids)}`
+        );
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          summary?: Record<string, { count: number; hasUnread: boolean }>;
+        };
+        if (!active) return;
+        const summary = json?.summary ?? {};
+        setRowComments((prev) => {
+          const next = { ...prev };
+          Object.entries(summary).forEach(([dealId, info]) => {
+            const existing = next[dealId];
+            next[dealId] = {
+              comments: existing?.comments ?? [],
+              count: info.count ?? existing?.count ?? 0,
+              hasUnread: info.hasUnread ?? existing?.hasUnread ?? false,
+            };
+          });
+          return next;
+        });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [data]);
+
+ 
 
   const table = useReactTable({
     data,
@@ -671,6 +829,7 @@ export function DealsDataTable() {
       loan_amount_total: "Total Amount",
       guarantor_name: "Guarantor",
       funding_date: "Funding Date",
+      comments: "Comments",
     };
 
     return (
@@ -682,8 +841,6 @@ export function DealsDataTable() {
   // Handle drag end for column reordering
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-
-    console.log("Drag end:", { active: active?.id, over: over?.id });
 
     if (active && over && active.id !== over.id) {
       const activeId = active.id as string;
@@ -699,14 +856,9 @@ export function DealsDataTable() {
         return;
       }
 
-      const oldOrder = table.getState().columnOrder;
-      console.log("Current column order:", oldOrder);
-
       setColumnOrder((prev) => {
         const oldIndex = prev.indexOf(activeId);
         const newIndex = prev.indexOf(overId);
-
-        console.log("Moving from index", oldIndex, "to", newIndex);
 
         // Create new order but preserve fixed positions
         const newOrder = arrayMove(prev, oldIndex, newIndex);
@@ -717,11 +869,17 @@ export function DealsDataTable() {
         );
         const result = ["select", ...finalOrder, "actions"];
 
-        console.log("New column order:", result);
         return result;
       });
     }
   }
+
+  const shouldIgnoreRowClick = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return !!target.closest(
+      "button, a, input, textarea, select, [data-ignore-row-click]"
+    );
+  };
 
   if (loading) {
     return (
@@ -856,7 +1014,11 @@ export function DealsDataTable() {
             <Button
               size="sm"
               className="h-8"
-              onClick={() => router.push("/balance-sheet/investor-portfolio/deals/new")}
+              onClick={() =>
+                onNewDeal
+                  ? onNewDeal()
+                  : router.push("/balance-sheet/investor-portfolio/deals/new")
+              }
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Deal
@@ -887,22 +1049,47 @@ export function DealsDataTable() {
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className="h-14"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="text-left">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                table.getRowModel().rows.map((row) => {
+                  const dealId = String(row.original.id);
+                  const isExpanded = expandedRows.has(dealId);
+                  const commentState = rowComments[dealId] ?? {
+                    comments: [],
+                    hasUnread: false,
+                    count: 0,
+                  };
+                  return (
+                    <React.Fragment key={row.id}>
+                      <TableRow
+                        className={cn(commentState.hasUnread && "bg-primary/5")}
+                        data-state={row.getIsSelected() && "selected"}
+                        onClick={(event) => {
+                          if (shouldIgnoreRowClick(event.target)) return;
+                          toggleRow(dealId);
+                        }}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className="text-left">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                      {isExpanded ? (
+                        <tr>
+                          <td className="p-0" colSpan={row.getVisibleCells().length}>
+                            <CommentThread
+                              comments={commentState.comments}
+                              onAddComment={addComment}
+                              dealId={dealId}
+                            />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </React.Fragment>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell
@@ -918,7 +1105,15 @@ export function DealsDataTable() {
                         Get started by creating your first investment deal to
                         track performance and manage your portfolio.
                       </p>
-                      <Button onClick={() => router.push("/balance-sheet/investor-portfolio/deals/new")}>
+                      <Button
+                        onClick={() =>
+                          onNewDeal
+                            ? onNewDeal()
+                            : router.push(
+                                "/balance-sheet/investor-portfolio/deals/new"
+                              )
+                        }
+                      >
                         <Plus className="mr-2 h-4 w-4" />
                         Create Deal
                       </Button>

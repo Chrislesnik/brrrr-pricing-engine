@@ -115,13 +115,15 @@ export function CommandMenu() {
           {sidebarData.navGroups.map((group) => (
             <CommandGroup key={group.title} heading={group.title}>
               {group.items.filter(isVisible).map((navItem, i) => {
-                if ("url" in navItem && navItem.url && isVisible(navItem))
+                if ("url" in navItem && isVisible(navItem)) {
+                  const url = navItem.url
+                  if (!url) return null
                   return (
                     <CommandItem
-                      key={`${navItem.url}-${i}`}
+                      key={`${url}-${i}`}
                       value={navItem.title}
                       onSelect={() => {
-                        runCommand(() => router.push(navItem.url))
+                        runCommand(() => router.push(url))
                       }}
                     >
                       <div className="mr-2 flex h-4 w-4 items-center justify-center">
@@ -130,23 +132,28 @@ export function CommandMenu() {
                       {navItem.title}
                     </CommandItem>
                   )
+                }
 
                 return navItem.items
                   ?.filter(isVisible)
-                  .map((subItem, i) => (
-                    <CommandItem
-                      key={`${subItem.url}-${i}`}
-                      value={subItem.title}
-                      onSelect={() => {
-                        runCommand(() => router.push(subItem.url))
-                      }}
-                    >
-                      <div className="mr-2 flex h-4 w-4 items-center justify-center">
-                        <IconArrowRightDashed className="text-muted-foreground/80 size-2" />
-                      </div>
-                      {subItem.title}
-                    </CommandItem>
-                  ))
+                  .map((subItem, i) => {
+                    const url = subItem.url
+                    if (!url) return null
+                    return (
+                      <CommandItem
+                        key={`${url}-${i}`}
+                        value={subItem.title}
+                        onSelect={() => {
+                          runCommand(() => router.push(url))
+                        }}
+                      >
+                        <div className="mr-2 flex h-4 w-4 items-center justify-center">
+                          <IconArrowRightDashed className="text-muted-foreground/80 size-2" />
+                        </div>
+                        {subItem.title}
+                      </CommandItem>
+                    )
+                  })
               })}
             </CommandGroup>
           ))}

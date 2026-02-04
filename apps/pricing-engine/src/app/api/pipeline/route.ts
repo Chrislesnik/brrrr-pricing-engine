@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
       }
 
       const dealsQuery = supabaseAdmin
-        .from("deal")
+        .from("deals")
         .select(
           `
           id,

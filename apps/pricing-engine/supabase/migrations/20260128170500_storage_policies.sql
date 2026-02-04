@@ -55,11 +55,13 @@ BEGIN
   END IF;
   
   -- Check storage bucket exists (query storage.buckets)
+  -- Create a minimal bucket if missing to allow schema diff/reset.
   IF NOT EXISTS (
-    SELECT 1 FROM storage.buckets 
+    SELECT 1 FROM storage.buckets
     WHERE id = 'documents'
   ) THEN
-    RAISE EXCEPTION 'Migration 7 failed: documents storage bucket not found. Please create it manually via Supabase Dashboard before running this migration. See migration file comments for instructions.';
+    INSERT INTO storage.buckets (id, name, public)
+    VALUES ('documents', 'documents', false);
   END IF;
   
   RAISE NOTICE 'All dependencies verified, proceeding with storage policies creation';

@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { DataTableColumnHeader } from "../../../users/components/data-table-column-header"
+import { DataTableColumnHeader } from "../../users/components/data-table-column-header"
 import LongText from "@repo/ui/custom/long-text"
 import { EntityProfile } from "../data/types"
 import { format } from "date-fns"

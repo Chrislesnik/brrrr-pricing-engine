@@ -78,7 +78,8 @@ const workspaces: Workspace[] = [
 export function WorkspaceSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isMobile } = useSidebar();
+  const { isMobile, state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const currentWorkspace =
     workspaces.find((ws) => ws.prefixes.some((p) => pathname.startsWith(p))) ||
@@ -105,40 +106,44 @@ export function WorkspaceSwitcher() {
     <div className="w-fit px-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="inline-flex items-center gap-1.5 rounded-md border border-sidebar-border bg-sidebar-accent/10 px-2.5 py-1 text-xs font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-sidebar-ring">
+          <button className={`inline-flex items-center rounded-md border border-sidebar-border bg-sidebar-accent/10 text-xs font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-sidebar-ring ${isCollapsed ? "size-8 justify-center p-0" : "gap-1.5 px-2.5 py-1"}`}>
             <currentWorkspace.icon className="size-3.5" />
-            <span>{currentWorkspace.shortLabel}</span>
-            <ChevronDown className="size-3 opacity-60" />
+            {!isCollapsed && (
+              <>
+                <span>{currentWorkspace.shortLabel}</span>
+                <ChevronDown className="size-3 opacity-60" />
+              </>
+            )}
           </button>
         </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-56 rounded-lg"
-        side={isMobile ? "bottom" : "right"}
-        align="start"
-        sideOffset={4}
-      >
-        {workspaces.map((ws) => (
-          <DropdownMenuItem
-            key={ws.id}
-            onClick={() => handleWorkspaceChange(ws)}
-            className="gap-3 p-2.5"
-          >
-            <div className="flex size-8 items-center justify-center rounded-md border bg-background">
-              <ws.icon className="size-4" />
-            </div>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="font-medium">{ws.label}</span>
-              <span className="text-xs text-muted-foreground">
-                {ws.description}
-              </span>
-            </div>
-            {currentWorkspace.id === ws.id && (
-              <Check className="size-4 text-primary" />
-            )}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenuContent
+          className="w-56 rounded-lg"
+          side={isMobile ? "bottom" : "right"}
+          align="start"
+          sideOffset={4}
+        >
+          {workspaces.map((ws) => (
+            <DropdownMenuItem
+              key={ws.id}
+              onClick={() => handleWorkspaceChange(ws)}
+              className="gap-3 p-2.5"
+            >
+              <div className="flex size-8 items-center justify-center rounded-md border bg-background">
+                <ws.icon className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="font-medium">{ws.label}</span>
+                <span className="text-xs text-muted-foreground">
+                  {ws.description}
+                </span>
+              </div>
+              {currentWorkspace.id === ws.id && (
+                <Check className="size-4 text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

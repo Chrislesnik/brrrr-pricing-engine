@@ -1,23 +1,36 @@
-"use client"
+"use client";
 
-export default function DealsPipelinePage() {
+import { RouteProtection } from "@/components/auth/route-protection";
+import { useState } from "react";
+import { DealsDataTable } from "./components/deals-data-table";
+import { NewDealSheet } from "./components/new-deal-sheet";
+
+function DealsPageContent() {
+  const [newDealOpen, setNewDealOpen] = useState(false);
   return (
-    <div className="space-y-6 w-full h-full flex flex-col overflow-hidden">
-      <div className="flex flex-col gap-4 flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Deals</h1>
-            <p className="text-muted-foreground text-sm">
-              Track and manage your deals
-            </p>
+    <div className="flex flex-1 flex-col">
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Deals</h1>
+              <p className="text-muted-foreground">
+                Manage your investment deals and track their performance.
+              </p>
+            </div>
           </div>
+          <DealsDataTable onNewDeal={() => setNewDealOpen(true)} />
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 text-muted-foreground">
-          Deals pipeline content coming soon.
-        </div>
-      </div>
+      <NewDealSheet open={newDealOpen} onOpenChange={setNewDealOpen} />
     </div>
-  )
+  );
+}
+
+export default function DealsPage() {
+  return (
+    <RouteProtection>
+      <DealsPageContent />
+    </RouteProtection>
+  );
 }

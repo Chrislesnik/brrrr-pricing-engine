@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFileDownload, IconCircleNumber1 } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFile, IconCircleNumber1, IconLayoutSidebarRightFilled, IconBriefcase } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -83,7 +83,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     title: "Pricing Engine",
     items: [
       {
-        title: "Scenario Pipeline",
+        title: "Scenarios",
         url: ROUTES.pricingEngine.pipeline,
         icon: IconListTree,
         shortcut: ["S"],
@@ -91,13 +91,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     ],
   },
   {
-    title: "Loan Management",
+    title: "Pipeline",
     items: [
       // Pipeline (no url, now has nested "Loan Setup")
       {
-        title: "Deal Pipeline",
+        title: "Deals",
         url: ROUTES.pricingEngine.deals,
-        icon: IconListTree,
+        icon: IconBriefcase,
         shortcut: ["D"],
         items: [
           {
@@ -107,7 +107,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
             {
               title: "Applications",
               url: ROUTES.applications,
-              icon: IconFileDownload,
+              icon: IconFile,
               shortcut: ["A"],
             },
           ],
@@ -154,11 +154,6 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         icon: IconApps,
         url: ROUTES.settings.programs,
         requiredPermission: "org:manage_programs",
-      },
-      {
-        title: "Integrations",
-        icon: IconPlug,
-        url: ROUTES.settings.integrations,
       },
       {
         title: "Company",

@@ -172,7 +172,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
               </Button>
             }
           />
-          <ThemeSwitch />
+          {mounted ? <ThemeSwitch /> : <div className="h-8 w-8" />}
         </div>
       </header>
 

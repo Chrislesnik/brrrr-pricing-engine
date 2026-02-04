@@ -100,7 +100,7 @@ export interface BlockColor {
     __typename: 'BlockColor'
 }
 
-export type BlockDocument = (Documentation | DocumentationItem | _AgentStart | documentationItem_AsList) & { __isUnion?: true }
+export type BlockDocument = (Documentation | DocumentationItem | SupabaseStorageComponent | _AgentStart | documentationItem_AsList | supabaseStorageComponent_AsList) & { __isUnion?: true }
 
 export interface BlockDocumentSys {
     apiNamePath: Scalars['String']
@@ -159,7 +159,7 @@ export interface BlockImage {
     __typename: 'BlockImage'
 }
 
-export type BlockList = (Documentation | documentationItem_AsList) & { __isUnion?: true }
+export type BlockList = (Documentation | documentationItem_AsList | supabaseStorageComponent_AsList) & { __isUnion?: true }
 
 export interface BlockOgImage {
     height: Scalars['Int']
@@ -217,12 +217,13 @@ export interface DocumentationItem {
     _sys: BlockDocumentSys
     _title: Scalars['String']
     category: (Scalars['BSHBSelect_448350670'] | null)
+    reference: (SupabaseStorageComponent | null)
     richText: (RichText | null)
     slug: (Scalars['String'] | null)
     __typename: 'DocumentationItem'
 }
 
-export type DocumentationItemOrderByEnum = '_sys_createdAt__ASC' | '_sys_createdAt__DESC' | '_sys_hash__ASC' | '_sys_hash__DESC' | '_sys_id__ASC' | '_sys_id__DESC' | '_sys_lastModifiedAt__ASC' | '_sys_lastModifiedAt__DESC' | '_sys_slug__ASC' | '_sys_slug__DESC' | '_sys_title__ASC' | '_sys_title__DESC' | 'category__ASC' | 'category__DESC' | 'richText__ASC' | 'richText__DESC' | 'slug__ASC' | 'slug__DESC' | 'untitled__ASC' | 'untitled__DESC'
+export type DocumentationItemOrderByEnum = '_sys_createdAt__ASC' | '_sys_createdAt__DESC' | '_sys_hash__ASC' | '_sys_hash__DESC' | '_sys_id__ASC' | '_sys_id__DESC' | '_sys_lastModifiedAt__ASC' | '_sys_lastModifiedAt__DESC' | '_sys_slug__ASC' | '_sys_slug__DESC' | '_sys_title__ASC' | '_sys_title__DESC' | 'category__ASC' | 'category__DESC' | 'reference__ASC' | 'reference__DESC' | 'richText__ASC' | 'richText__DESC' | 'slug__ASC' | 'slug__DESC' | 'untitled__ASC' | 'untitled__DESC'
 
 export interface GetUploadSignedURL {
     signedURL: Scalars['String']
@@ -326,6 +327,29 @@ export interface SearchHighlight {
     snippet: Scalars['String']
     __typename: 'SearchHighlight'
 }
+
+
+/**
+ * Supabase Storage 
+ * project id: iufoslzvcjmtgsazttkt
+ */
+export interface SupabaseStorageComponent {
+    _analyticsKey: Scalars['String']
+    _dashboardUrl: Scalars['String']
+    /** Array of search highlight information with field names and HTML markup */
+    _highlight: (SearchHighlight[] | null)
+    _id: Scalars['String']
+    _idPath: Scalars['String']
+    _slug: Scalars['String']
+    _slugPath: Scalars['String']
+    _sys: BlockDocumentSys
+    _title: Scalars['String']
+    supabaseIcon: (Scalars['String'] | null)
+    untitled: BlockCodeSnippet
+    __typename: 'SupabaseStorageComponent'
+}
+
+export type SupabaseStorageComponentOrderByEnum = '_sys_createdAt__ASC' | '_sys_createdAt__DESC' | '_sys_hash__ASC' | '_sys_hash__DESC' | '_sys_id__ASC' | '_sys_id__DESC' | '_sys_lastModifiedAt__ASC' | '_sys_lastModifiedAt__DESC' | '_sys_slug__ASC' | '_sys_slug__DESC' | '_sys_title__ASC' | '_sys_title__DESC' | 'supabaseIcon__ASC' | 'supabaseIcon__DESC' | 'untitled_1__ASC' | 'untitled_1__DESC' | 'untitled__ASC' | 'untitled__DESC'
 
 export interface TransactionStatus {
     /** Duration in milliseconds. */
@@ -450,6 +474,7 @@ export interface _agents {
 
 export interface _components {
     documentationItem: documentationItem_AsList
+    supabaseStorage: supabaseStorageComponent_AsList
     __typename: '_components'
 }
 
@@ -470,6 +495,25 @@ export interface documentationItem_AsList {
     /** Returns the list of items after filtering and paginating according to the arguments sent by the client. */
     items: DocumentationItem[]
     __typename: 'documentationItem_AsList'
+}
+
+export interface supabaseStorageComponent_AsList {
+    _analyticsKey: Scalars['String']
+    _dashboardUrl: Scalars['String']
+    _id: Scalars['String']
+    _idPath: Scalars['String']
+    _meta: ListMeta
+    /** The key used to search from the frontend. */
+    _searchKey: Scalars['String']
+    _slug: Scalars['String']
+    _slugPath: Scalars['String']
+    _sys: BlockDocumentSys
+    _title: Scalars['String']
+    /** Returns the first item in the list, or null if the list is empty. Useful when you expect only one result. */
+    item: (SupabaseStorageComponent | null)
+    /** Returns the list of items after filtering and paginating according to the arguments sent by the client. */
+    items: SupabaseStorageComponent[]
+    __typename: 'supabaseStorageComponent_AsList'
 }
 
 export interface BaseRichTextJsonGenqlSelection{
@@ -532,8 +576,10 @@ export interface BlockDocumentGenqlSelection{
     _title?: boolean | number
     on_Documentation?: DocumentationGenqlSelection
     on_DocumentationItem?: DocumentationItemGenqlSelection
+    on_SupabaseStorageComponent?: SupabaseStorageComponentGenqlSelection
     on__AgentStart?: _AgentStartGenqlSelection
     on_documentationItem_AsList?: documentationItem_AsListGenqlSelection
+    on_supabaseStorageComponent_AsList?: supabaseStorageComponent_AsListGenqlSelection
     __typename?: boolean | number
     __fragmentOn?: "BlockDocument"
 }
@@ -618,6 +664,7 @@ export interface BlockListGenqlSelection{
     _title?: boolean | number
     on_Documentation?: DocumentationGenqlSelection
     on_documentationItem_AsList?: documentationItem_AsListGenqlSelection
+    on_supabaseStorageComponent_AsList?: supabaseStorageComponent_AsListGenqlSelection
     __typename?: boolean | number
     __fragmentOn?: "BlockList"
 }
@@ -710,13 +757,16 @@ export interface DocumentationItemGenqlSelection{
     _sys?: BlockDocumentSysGenqlSelection
     _title?: boolean | number
     category?: boolean | number
+    reference?: SupabaseStorageComponentGenqlSelection
     richText?: RichTextGenqlSelection
     slug?: boolean | number
     __typename?: boolean | number
     __fragmentOn?: "DocumentationItem"
 }
 
-export interface DocumentationItemFilterInput {AND?: (DocumentationItemFilterInput | null),OR?: (DocumentationItemFilterInput | null),_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null),category?: (SelectFilter | null),slug?: (StringFilter | null)}
+export interface DocumentationItemFilterInput {AND?: (DocumentationItemFilterInput | null),OR?: (DocumentationItemFilterInput | null),_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null),category?: (SelectFilter | null),reference?: (DocumentationItemFilterInput__reference_0___supabaseStorage | null),slug?: (StringFilter | null)}
+
+export interface DocumentationItemFilterInput__reference_0___supabaseStorage {_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null)}
 
 export interface DocumentationItemSearchInput {
 /** Searchable fields for query */
@@ -928,6 +978,42 @@ export interface StringFilter {contains?: (Scalars['String'] | null),endsWith?: 
 
 export interface StringMatchesFilter {caseSensitive?: (Scalars['Boolean'] | null),pattern: Scalars['String']}
 
+
+/**
+ * Supabase Storage 
+ * project id: iufoslzvcjmtgsazttkt
+ */
+export interface SupabaseStorageComponentGenqlSelection{
+    _analyticsKey?: { __args: {
+    /**
+     * The scope of the analytics key. Use `send` for just ingesting data. Use `query` if you need to show an analytics data in your website.
+     * 
+     * Have in mind, if you expose your `query` analytics key in the frontend, you'll be exposing all of this block's analytics data to the public. This is generally safe, but it might not be in your case.
+     */
+    scope?: (AnalyticsKeyScope | null)} } | boolean | number
+    _dashboardUrl?: boolean | number
+    /** Array of search highlight information with field names and HTML markup */
+    _highlight?: SearchHighlightGenqlSelection
+    _id?: boolean | number
+    _idPath?: boolean | number
+    _slug?: boolean | number
+    _slugPath?: boolean | number
+    _sys?: BlockDocumentSysGenqlSelection
+    _title?: boolean | number
+    supabaseIcon?: boolean | number
+    untitled?: BlockCodeSnippetGenqlSelection
+    __typename?: boolean | number
+    __fragmentOn?: "SupabaseStorageComponent"
+}
+
+export interface SupabaseStorageComponentFilterInput {AND?: (SupabaseStorageComponentFilterInput | null),OR?: (SupabaseStorageComponentFilterInput | null),_id?: (StringFilter | null),_slug?: (StringFilter | null),_sys_apiNamePath?: (StringFilter | null),_sys_createdAt?: (DateFilter | null),_sys_hash?: (StringFilter | null),_sys_id?: (StringFilter | null),_sys_idPath?: (StringFilter | null),_sys_lastModifiedAt?: (DateFilter | null),_sys_slug?: (StringFilter | null),_sys_slugPath?: (StringFilter | null),_sys_title?: (StringFilter | null),_title?: (StringFilter | null)}
+
+export interface SupabaseStorageComponentSearchInput {
+/** Searchable fields for query */
+by?: (Scalars['String'][] | null),
+/** Search query */
+q?: (Scalars['String'] | null)}
+
 export interface TargetBlock {focus?: (Scalars['Boolean'] | null),id: Scalars['String'],label: Scalars['String']}
 
 export interface TransactionStatusGenqlSelection{
@@ -1072,6 +1158,17 @@ export interface _componentsGenqlSelection{
     search?: (DocumentationItemSearchInput | null), 
     /** Skip the first n items. */
     skip?: (Scalars['Int'] | null)} })
+    supabaseStorage?: (supabaseStorageComponent_AsListGenqlSelection & { __args?: {
+    /** Filter by a field. */
+    filter?: (SupabaseStorageComponentFilterInput | null), 
+    /** Limit the number of items returned. Defaults to 500. */
+    first?: (Scalars['Int'] | null), 
+    /** Order by a field. */
+    orderBy?: (SupabaseStorageComponentOrderByEnum | null), 
+    /** Search configuration */
+    search?: (SupabaseStorageComponentSearchInput | null), 
+    /** Skip the first n items. */
+    skip?: (Scalars['Int'] | null)} })
     __typename?: boolean | number
     __fragmentOn?: "_components"
 }
@@ -1100,6 +1197,32 @@ export interface documentationItem_AsListGenqlSelection{
     items?: DocumentationItemGenqlSelection
     __typename?: boolean | number
     __fragmentOn?: "documentationItem_AsList"
+}
+
+export interface supabaseStorageComponent_AsListGenqlSelection{
+    _analyticsKey?: { __args: {
+    /**
+     * The scope of the analytics key. Use `send` for just ingesting data. Use `query` if you need to show an analytics data in your website.
+     * 
+     * Have in mind, if you expose your `query` analytics key in the frontend, you'll be exposing all of this block's analytics data to the public. This is generally safe, but it might not be in your case.
+     */
+    scope?: (AnalyticsKeyScope | null)} } | boolean | number
+    _dashboardUrl?: boolean | number
+    _id?: boolean | number
+    _idPath?: boolean | number
+    _meta?: ListMetaGenqlSelection
+    /** The key used to search from the frontend. */
+    _searchKey?: boolean | number
+    _slug?: boolean | number
+    _slugPath?: boolean | number
+    _sys?: BlockDocumentSysGenqlSelection
+    _title?: boolean | number
+    /** Returns the first item in the list, or null if the list is empty. Useful when you expect only one result. */
+    item?: SupabaseStorageComponentGenqlSelection
+    /** Returns the list of items after filtering and paginating according to the arguments sent by the client. */
+    items?: SupabaseStorageComponentGenqlSelection
+    __typename?: boolean | number
+    __fragmentOn?: "supabaseStorageComponent_AsList"
 }
 
 export interface FragmentsMap {
@@ -1199,6 +1322,10 @@ export interface FragmentsMap {
     root: SearchHighlight,
     selection: SearchHighlightGenqlSelection,
 }
+  SupabaseStorageComponent: {
+    root: SupabaseStorageComponent,
+    selection: SupabaseStorageComponentGenqlSelection,
+}
   TransactionStatus: {
     root: TransactionStatus,
     selection: TransactionStatusGenqlSelection,
@@ -1242,5 +1369,9 @@ export interface FragmentsMap {
   documentationItem_AsList: {
     root: documentationItem_AsList,
     selection: documentationItem_AsListGenqlSelection,
+}
+  supabaseStorageComponent_AsList: {
+    root: supabaseStorageComponent_AsList,
+    selection: supabaseStorageComponent_AsListGenqlSelection,
 }
 }

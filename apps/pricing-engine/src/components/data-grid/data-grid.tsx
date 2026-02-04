@@ -53,6 +53,7 @@ export function DataGrid<TData>({
   height = 600,
   stretchColumns = false,
   adjustLayout = false,
+  focusCell,
   className,
   ...props
 }: DataGridProps<TData>) {

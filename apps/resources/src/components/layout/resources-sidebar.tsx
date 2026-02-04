@@ -92,11 +92,12 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
   };
 
   const renderNode = (node: PageTree.Node, index: number) => {
+    const tooltipLabel = typeof node.name === "string" ? node.name : undefined;
     if (node.type === "page") {
       const isActive = pathname === node.url;
       return (
         <SidebarMenuItem key={index}>
-          <SidebarMenuButton asChild isActive={isActive} tooltip={node.name}>
+          <SidebarMenuButton asChild isActive={isActive} tooltip={tooltipLabel}>
             <Link href={node.url}>
               <BookOpen className="h-4 w-4" />
               <span>{node.name}</span>
@@ -113,7 +114,7 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
         <Collapsible key={index} defaultOpen={hasActive} className="group/collapsible">
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
-              <SidebarMenuButton tooltip={node.name}>
+              <SidebarMenuButton tooltip={tooltipLabel}>
                 <BookOpen className="h-4 w-4" />
                 {node.index ? (
                   <Link href={node.index.url} className="flex-1">
@@ -149,9 +150,10 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
 
     for (const node of tree) {
       if (node.type === "folder") {
+        const title = typeof node.name === "string" ? node.name : undefined;
         // Each folder becomes its own group - render children directly
         groups.push({ 
-          title: node.name, 
+          title,
           indexUrl: node.index?.url,
           nodes: node.children || [] 
         });

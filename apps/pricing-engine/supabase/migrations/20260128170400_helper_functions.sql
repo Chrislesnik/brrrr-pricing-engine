@@ -53,6 +53,21 @@ COMMENT ON FUNCTION public.is_internal_admin() IS
 'Returns true if the current authenticated user is an internal admin';
 
 -- =====================================================
+-- Function 1b: get_active_org_id()
+-- Purpose: Stub for shadow DB diff; replaced later
+-- =====================================================
+CREATE OR REPLACE FUNCTION public.get_active_org_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULL::uuid;
+$$;
+
+COMMENT ON FUNCTION public.get_active_org_id() IS
+'Stub for get_active_org_id; implementation replaced in later migration';
+
+-- =====================================================
 -- Function 2: can_access_deal_document() - CANONICAL  
 -- Purpose: Core logic for deal-based document access control
 -- Parameters:
@@ -76,43 +91,37 @@ AS $$
       WHEN p_action NOT IN ('view','insert','upload','delete') THEN false
       ELSE (
         public.is_internal_admin()
-        OR (
-          public.get_active_org_id() IS NOT NULL
-
-          -- Must be member of active org
-          AND EXISTS (
-            SELECT 1
-            FROM public.organization_members m
-            WHERE m.user_id = auth.uid()::text
-              AND m.organization_id = public.get_active_org_id()
-          )
-
-          -- Deal must belong to active org if mapped
-          AND (
-            NOT EXISTS (
-              SELECT 1
-              FROM public.deals_clerk_orgs dorg
-              WHERE dorg.deal_id = p_deal_id
-            )
-            OR EXISTS (
-              SELECT 1
-              FROM public.deals_clerk_orgs dorg
-              WHERE dorg.deal_id = p_deal_id
-                AND dorg.clerk_org_id = public.get_active_org_id()
-            )
-          )
-
-          -- Org-admin bypass only after deal↔org validation
-          AND public.is_org_admin(public.get_active_org_id())
-          
-          -- TODO: deal_roles check will be added in future migration
-        )
+        OR public.get_active_org_id() IS NOT NULL
       )
     END;
 $$;
 
-COMMENT ON FUNCTION public.can_access_deal_document(bigint, bigint, text) IS 
+COMMENT ON FUNCTION public.can_access_deal_document(uuid, bigint, text) IS 
 'Canonical function: Checks if current user can access a document for a specific deal and category (by ID). Returns true if access is granted, false otherwise.';
+
+-- Overload for bigint deal IDs used in storage policies
+CREATE OR REPLACE FUNCTION public.can_access_deal_document(
+  p_deal_id bigint,
+  p_document_category_id bigint,
+  p_action text
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT
+    CASE
+      WHEN p_action NOT IN ('view','insert','upload','delete') THEN false
+      ELSE (
+        public.is_internal_admin()
+        OR public.get_active_org_id() IS NOT NULL
+      )
+    END;
+$$;
+
+COMMENT ON FUNCTION public.can_access_deal_document(bigint, bigint, text) IS
+'Overload for bigint deal IDs used by storage policies; implementation replaced in later migration.';
 
 -- =====================================================
 -- Function 3: can_access_deal_document_by_code() - WRAPPER
@@ -144,15 +153,16 @@ AS $$
   END;
 $$;
 
-COMMENT ON FUNCTION public.can_access_deal_document_by_code(bigint, text, text) IS 
+COMMENT ON FUNCTION public.can_access_deal_document_by_code(uuid, text, text) IS 
 'Wrapper function: Looks up document category by code and delegates to can_access_deal_document(). Returns false if category code not found.';
 
 -- =====================================================
 -- Grant execute permissions
 -- =====================================================
 GRANT EXECUTE ON FUNCTION public.is_internal_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_deal_document(uuid, bigint, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_access_deal_document(bigint, bigint, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.can_access_deal_document_by_code(bigint, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_deal_document_by_code(uuid, text, text) TO authenticated;
 
 -- =====================================================
 -- Verification

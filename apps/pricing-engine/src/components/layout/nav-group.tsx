@@ -92,10 +92,11 @@ export function NavGroup({ title, items }: NavGroup) {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{title}</SidebarGroupLabel>
+      {title !== "Settings" ? <SidebarGroupLabel>{title}</SidebarGroupLabel> : null}
       <SidebarMenu>
         {items.filter(isVisible).map((item) => {
           if (!item.items) {
+            if (!item.url) return null
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
@@ -115,40 +116,101 @@ export function NavGroup({ title, items }: NavGroup) {
           return (
             <Collapsible
               key={item.title}
-              asChild
               defaultOpen={checkIsActive(pathname, item, true)}
               className="group/collapsible"
             >
               <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    {item.badge && <NavBadge>{item.badge}</NavBadge>}
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
+                {item.url ? (
+                  <div className="relative flex items-center gap-2">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={checkIsActive(pathname, item, true)}
+                      tooltip={item.title}
+                      className="flex-1"
+                    >
+                      <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                        {item.icon && <item.icon />}
+                        <span>{item.title}</span>
+                        {item.badge && <NavBadge>{item.badge}</NavBadge>}
+                      </Link>
+                    </SidebarMenuButton>
+                    <CollapsibleTrigger asChild>
+                      <button 
+                        className="absolute right-1 p-1 rounded-sm hover:bg-sidebar-accent group-data-[collapsible=icon]:hidden"
+                        aria-label={`Toggle ${item.title} submenu`}
+                      >
+                        <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      </button>
+                    </CollapsibleTrigger>
+                  </div>
+                ) : (
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip={item.title}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                      {item.badge && <NavBadge>{item.badge}</NavBadge>}
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                )}
                 <CollapsibleContent className="CollapsibleContent">
                   <SidebarMenuSub>
-                    {item.items.filter(isVisible).map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={checkIsActive(pathname, subItem)}
-                        >
-                          <Link
-                            href={subItem.url}
-                            onClick={() => setOpenMobile(false)}
-                          >
-                            {subItem.icon && <subItem.icon />}
+                    {item.items.filter(isVisible).map((subItem) => {
+                      const nestedItems = subItem.items?.filter(isVisible) ?? []
+                      if (subItem.url) {
+                        return (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={checkIsActive(pathname, subItem)}
+                            >
+                              <Link
+                                href={subItem.url}
+                                onClick={() => setOpenMobile(false)}
+                              >
+                                {subItem.icon && <subItem.icon />}
+                                <span>{subItem.title}</span>
+                                {subItem.badge && (
+                                  <NavBadge>{subItem.badge}</NavBadge>
+                                )}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )
+                      }
+                      return (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <div className="flex items-center gap-2 px-2 py-1 text-sm">
+                            {subItem.icon && <subItem.icon className="h-4 w-4" />}
                             <span>{subItem.title}</span>
-                            {subItem.badge && (
-                              <NavBadge>{subItem.badge}</NavBadge>
-                            )}
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
+                            {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
+                          </div>
+                          {nestedItems.length > 0 ? (
+                            <ul className="mt-1 space-y-1 pl-4">
+                              {nestedItems.map((child) =>
+                                child.url ? (
+                                  <SidebarMenuSubItem key={`${subItem.title}-${child.title}`}>
+                                    <SidebarMenuSubButton
+                                      asChild
+                                      isActive={checkIsActive(pathname, child)}
+                                    >
+                                      <Link
+                                        href={child.url}
+                                        onClick={() => setOpenMobile(false)}
+                                      >
+                                        {child.icon && <child.icon />}
+                                        <span>{child.title}</span>
+                                        {child.badge && <NavBadge>{child.badge}</NavBadge>}
+                                      </Link>
+                                    </SidebarMenuSubButton>
+                                  </SidebarMenuSubItem>
+                                ) : null
+                              )}
+                            </ul>
+                          ) : null}
+                        </SidebarMenuSubItem>
+                      )
+                    })}
                   </SidebarMenuSub>
                 </CollapsibleContent>
               </SidebarMenuItem>

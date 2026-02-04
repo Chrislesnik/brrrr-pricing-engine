@@ -117,30 +117,18 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     );
   }
 
-  // Org doesn't exist, create it
-  console.log(`Organization ${orgId} not found, creating it...`);
-  const { data: newOrg, error: insertError } = await supabase
-    .from("organizations")
-    .insert({
-      clerk_organization_id: orgId,
-      name: "New Organization", // Will be updated when org details are fetched
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    console.error("Failed to create organization:", insertError);
-    throw new Error(
-      `Failed to create organization in Supabase: ${insertError.message}. ` +
-      `Please ensure RLS policies allow organization creation.`
-    );
-  }
-
-  if (!newOrg?.id) {
-    throw new Error("Failed to create organization - no ID returned");
-  }
-
-  return newOrg.id as string;
+  // Org doesn't exist - this shouldn't happen in production
+  // Organizations should be synced via Clerk webhooks
+  // As a fallback, we'll try to fetch from Clerk and create it
+  console.warn(`Organization ${orgId} not found in Supabase. This org should be synced via webhooks.`);
+  
+  // Don't auto-create - instead throw helpful error
+  throw new Error(
+    `Organization not found in Supabase database. ` +
+    `Please ensure Clerk webhooks are properly configured to sync organizations. ` +
+    `Webhook endpoint: ${process.env.NEXT_PUBLIC_APP_URL || 'your-domain'}/api/webhooks/clerk. ` +
+    `Alternatively, you can manually sync this organization using the Supabase SQL Editor.`
+  );
 }
 
 // Loader

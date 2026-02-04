@@ -25,12 +25,13 @@ export default async function ResourcePage({ params }: PageProps) {
       queries={[
         {
           documentation: {
-            items: {
-              __args: {
-                filter: {
-                  _sys_slug: { eq: slugPath },
-                },
+            __args: {
+              filter: {
+                _sys_slug: { eq: slugPath },
               },
+              first: 1,
+            },
+            items: {
               _id: true,
               _slug: true,
               _title: true,
@@ -39,7 +40,6 @@ export default async function ResourcePage({ params }: PageProps) {
                 json: {
                   content: true,
                   toc: true,
-                  blocks: true,
                 },
               },
             },
@@ -114,12 +114,13 @@ export async function generateMetadata({ params }: PageProps) {
 
   const data = await basehub().query({
     documentation: {
-      items: {
-        __args: {
-          filter: {
-            _sys_slug: { eq: slugPath },
-          },
+      __args: {
+        filter: {
+          _sys_slug: { eq: slugPath },
         },
+        first: 1,
+      },
+      items: {
         _title: true,
         category: true,
       },

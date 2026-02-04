@@ -14,6 +14,9 @@ importers:
       '@playwright/test':
         specifier: ^1.53.1
         version: 1.58.0
+      baseline-browser-mapping:
+        specifier: ^2.9.19
+        version: 2.9.19
       prettier:
         specifier: ^3.4.2
         version: 3.8.1
@@ -29,6 +32,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^6.35.2
         version: 6.37.0(next@16.0.7(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@clerk/types':
+        specifier: ^4.101.14
+        version: 4.101.14(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@repo/lib':
         specifier: workspace:*
         version: link:../../packages/lib

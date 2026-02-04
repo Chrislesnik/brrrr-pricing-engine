@@ -32,15 +32,10 @@ interface BaseNavItem {
   allowOrgRoles?: string[]
 }
 
-export type NavItem =
-  | (BaseNavItem & {
-      items: (BaseNavItem & { url: string })[]
-      url?: never
-    })
-  | (BaseNavItem & {
-      url: string
-      items?: never
-    })
+export type NavItem = BaseNavItem & {
+  url?: string
+  items?: NavItem[]
+}
 
 interface NavGroup {
   title: string

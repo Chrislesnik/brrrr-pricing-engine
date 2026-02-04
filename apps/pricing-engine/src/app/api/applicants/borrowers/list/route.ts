@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
-import { getBorrowersForOrg } from "@/app/(pricing-engine)/contacts/applicants/data/fetch-borrowers"
+import { getBorrowersForOrg } from "@/app/(pricing-engine)/contacts/data/fetch-borrowers"
 
 export async function GET() {
   try {

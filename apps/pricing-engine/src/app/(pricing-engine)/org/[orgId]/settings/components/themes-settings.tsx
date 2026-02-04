@@ -74,12 +74,15 @@ export function ThemesSettings() {
     setIsSaving(true);
     try {
       // Store theme preference in organization metadata
-      await organization.update({
+      const updateParams = {
+        name: organization.name,
+        slug: organization.slug || undefined,
         publicMetadata: {
           ...organization.publicMetadata,
           theme: selectedTheme,
         },
-      });
+      } as any;
+      await organization.update(updateParams);
     } catch (error) {
       console.error("Failed to save theme:", error);
     } finally {

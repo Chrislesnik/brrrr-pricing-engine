@@ -4,8 +4,8 @@ import { Cross2Icon } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
-import { DataTableViewOptions } from "../../../users/components/data-table-view-options"
-import { DataTableFacetedFilter } from "../../../users/components/data-table-faceted-filter"
+import { DataTableViewOptions } from "../../users/components/data-table-view-options"
+import { DataTableFacetedFilter } from "../../users/components/data-table-faceted-filter"
 import { IconTrash } from "@tabler/icons-react"
 
 interface Props<TData> {

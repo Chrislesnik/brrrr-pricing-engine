@@ -28,6 +28,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isOwner = orgRole === "org:owner" || orgRole === "owner";
   
   const [allowed, setAllowed] = React.useState<Record<string, boolean>>({});
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Pre-compute permission checks (same logic as AppCommandDialog)
   React.useEffect(() => {
@@ -114,7 +119,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const mainItems = filteredNav[0]?.items || [];
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" className="border-none pt-3" {...props}>
       <SidebarHeader>
         <TeamSwitcherV2 />
         <WorkspaceSwitcher />
@@ -130,7 +135,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        {user && (
+        {mounted && user && (
           <NavUser
             user={{
               name: user.fullName || user.username || "User",
