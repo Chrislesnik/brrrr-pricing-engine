@@ -11,6 +11,7 @@ import {
   Users,
   Globe,
   Shield,
+  ShieldCheck,
   Palette,
   Loader2,
 } from "lucide-react";
@@ -25,7 +26,7 @@ import { ThemesSettings } from "./components/themes-settings";
 type SettingsTab = "general" | "members" | "domains" | "themes";
 
 interface NavItem {
-  id: SettingsTab | "permissions";
+  id: SettingsTab | "permissions" | "policies";
   label: string;
   icon: typeof Building2;
   description: string;
@@ -57,6 +58,13 @@ const settingsNavItems: NavItem[] = [
     icon: Shield,
     description: "Document access permissions",
     href: "documents/permissions",
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    icon: ShieldCheck,
+    description: "Global access policies",
+    href: "policies",
   },
   {
     id: "themes",

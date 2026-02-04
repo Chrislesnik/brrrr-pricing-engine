@@ -76,11 +76,16 @@ export async function POST(req: NextRequest) {
         organization_id?: string
         organization?: { id?: string }
         role?: string
+        public_metadata?: { org_member_role?: string | null }
       }
       const m = (data ?? {}) as ClerkMembershipPayload
       const userId = m.user_id ?? m.public_user_data?.user_id ?? ""
       const organizationId = m.organization_id ?? m.organization?.id ?? ""
       const role = m.role ?? "member"
+      const memberRole =
+        typeof m.public_metadata?.org_member_role === "string"
+          ? m.public_metadata?.org_member_role
+          : null
       const firstName = (m.public_user_data?.first_name ?? "") || null
       const lastName = (m.public_user_data?.last_name ?? "") || null
       // Resolve Supabase org UUID by Clerk organization id
@@ -94,17 +99,18 @@ export async function POST(req: NextRequest) {
       if (!orgUuid) {
         return new Response("Organization not found for membership", { status: 400 })
       }
-      const { error } = await supabaseAdmin.from("organization_members").upsert(
-        {
-          id: m.id as string,
-          organization_id: orgUuid,
-          user_id: userId,
-          role,
-          first_name: firstName,
-          last_name: lastName,
-        },
-        { onConflict: "id" }
-      )
+      const upsertPayload = {
+        id: m.id as string,
+        organization_id: orgUuid,
+        user_id: userId,
+        clerk_org_role: role,
+        ...(memberRole !== null ? { clerk_member_role: memberRole } : {}),
+        first_name: firstName,
+        last_name: lastName,
+      }
+      const { error } = await supabaseAdmin
+        .from("organization_members")
+        .upsert(upsertPayload, { onConflict: "id" })
       if (error) return new Response(error.message, { status: 500 })
       break
     }

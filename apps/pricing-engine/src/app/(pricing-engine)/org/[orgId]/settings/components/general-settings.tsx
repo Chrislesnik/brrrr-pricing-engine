@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { useOrganization } from "@clerk/nextjs";
 import { Building2, Upload, Loader2 } from "lucide-react";
@@ -8,6 +8,7 @@ import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
 import { Separator } from "@repo/ui/shadcn/separator";
+import { Switch } from "@repo/ui/shadcn/switch";
 import {
   Card,
   CardContent,
@@ -15,12 +16,51 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/shadcn/card";
+import { getOrgInternalFlag, setOrgInternalFlag } from "./metadata-actions";
 
 export function GeneralSettings() {
   const { organization, isLoaded } = useOrganization();
   const [isUpdating, setIsUpdating] = useState(false);
   const [name, setName] = useState(organization?.name || "");
   const [slug, setSlug] = useState(organization?.slug || "");
+  const [isInternal, setIsInternal] = useState(false);
+  const [isInternalLoading, setIsInternalLoading] = useState(true);
+  const [internalError, setInternalError] = useState<string | null>(null);
+  const [isSavingInternal, startInternalTransition] = useTransition();
+
+  useEffect(() => {
+    if (!organization) return;
+    setName(organization.name || "");
+    setSlug(organization.slug || "");
+  }, [organization]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadInternalFlag() {
+      setIsInternalLoading(true);
+      setInternalError(null);
+      try {
+        const result = await getOrgInternalFlag();
+        if (isMounted) {
+          setIsInternal(!!result.isInternal);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setInternalError(
+            error instanceof Error ? error.message : "Failed to load flag."
+          );
+        }
+      } finally {
+        if (isMounted) setIsInternalLoading(false);
+      }
+    }
+    if (organization) {
+      loadInternalFlag();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [organization]);
 
   if (!isLoaded || !organization) {
     return (
@@ -150,6 +190,47 @@ export function GeneralSettings() {
               Save changes
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Internal Access</CardTitle>
+          <CardDescription>
+            Mark this organization as internal for policy evaluation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <p className="font-medium">Internal organization</p>
+              <p className="text-sm text-muted-foreground">
+                Enables internal-user policy matching in JWT and RLS.
+              </p>
+            </div>
+            <Switch
+              checked={isInternal}
+              disabled={isInternalLoading || isSavingInternal}
+              onCheckedChange={(checked) => {
+                setIsInternal(checked);
+                startInternalTransition(async () => {
+                  try {
+                    await setOrgInternalFlag({ isInternal: checked });
+                  } catch (error) {
+                    setInternalError(
+                      error instanceof Error
+                        ? error.message
+                        : "Failed to update flag."
+                    );
+                    setIsInternal(!checked);
+                  }
+                });
+              }}
+            />
+          </div>
+          {internalError && (
+            <p className="text-sm text-destructive">{internalError}</p>
+          )}
         </CardContent>
       </Card>
 

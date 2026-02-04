@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { useOrganization, useUser } from "@clerk/nextjs";
 import {
@@ -46,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
+import { getOrgMemberRoles, setOrgMemberRole } from "./metadata-actions";
 
 export function MembersSettings() {
   const { organization, isLoaded, memberships } = useOrganization({
@@ -60,6 +61,12 @@ export function MembersSettings() {
   const [inviteRole, setInviteRole] = useState("org:member");
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [memberRoles, setMemberRoles] = useState<Record<string, string | null>>(
+    {}
+  );
+  const [memberRoleError, setMemberRoleError] = useState<string | null>(null);
+  const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
+  const [isSavingMemberRole, startMemberRoleTransition] = useTransition();
 
   if (!isLoaded || !organization) {
     return (
@@ -68,6 +75,32 @@ export function MembersSettings() {
       </div>
     );
   }
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMemberRoles() {
+      setIsMemberRoleLoading(true);
+      setMemberRoleError(null);
+      try {
+        const result = await getOrgMemberRoles();
+        if (isMounted) setMemberRoles(result.roles ?? {});
+      } catch (error) {
+        if (isMounted) {
+          setMemberRoleError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load member roles."
+          );
+        }
+      } finally {
+        if (isMounted) setIsMemberRoleLoading(false);
+      }
+    }
+    loadMemberRoles();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const membersList = memberships?.data || [];
   const filteredMembers = membersList.filter((m) => {
@@ -118,6 +151,26 @@ export function MembersSettings() {
     } catch (error) {
       console.error("Failed to update role:", error);
     }
+  };
+
+  const handleUpdateMemberRole = (clerkUserId: string, newRole: string) => {
+    setMemberRoleError(null);
+    startMemberRoleTransition(async () => {
+      try {
+        const normalized = newRole || null;
+        await setOrgMemberRole({ clerkUserId, memberRole: normalized });
+        setMemberRoles((prev) => ({
+          ...prev,
+          [clerkUserId]: normalized,
+        }));
+      } catch (error) {
+        setMemberRoleError(
+          error instanceof Error
+            ? error.message
+            : "Failed to update member role."
+        );
+      }
+    });
   };
 
   return (
@@ -197,6 +250,10 @@ export function MembersSettings() {
         <Badge variant="secondary">{membersList.length} members</Badge>
       </div>
 
+      {memberRoleError && (
+        <p className="text-sm text-destructive">{memberRoleError}</p>
+      )}
+
       {/* Members table */}
       <Card>
         <CardContent className="p-0">
@@ -206,6 +263,7 @@ export function MembersSettings() {
                 <TableHead>User</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Member Role</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -213,6 +271,9 @@ export function MembersSettings() {
               {filteredMembers.map((member) => {
                 const isCurrentUser =
                   member.publicUserData?.userId === user?.id;
+                const clerkUserId = member.publicUserData?.userId || "";
+                const memberRoleValue =
+                  (clerkUserId && memberRoles[clerkUserId]) || "member";
 
                 return (
                   <TableRow key={member.id}>
@@ -264,6 +325,30 @@ export function MembersSettings() {
                         <SelectContent>
                           <SelectItem value="org:member">Member</SelectItem>
                           <SelectItem value="org:admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={memberRoleValue || "member"}
+                        onValueChange={(value) =>
+                          clerkUserId &&
+                          handleUpdateMemberRole(clerkUserId, value)
+                        }
+                        disabled={
+                          !clerkUserId ||
+                          isCurrentUser ||
+                          isMemberRoleLoading ||
+                          isSavingMemberRole
+                        }
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>

@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: Props) {
             <div
               id="content"
               className={cn(
-                "flex h-full w-full min-w-0 flex-col",
+                "flex h-full w-full min-w-0 flex-col overflow-y-auto",
                 "has-[div[data-layout=fixed]]:h-svh",
                 "group-data-[scroll-locked=1]/body:h-full",
                 "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
