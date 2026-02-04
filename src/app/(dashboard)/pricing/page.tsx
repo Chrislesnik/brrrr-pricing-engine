@@ -52,7 +52,7 @@ import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
-import DSCRTermSheet, { type DSCRTermSheetProps } from "../../../../components/DSCRTermSheet"
+import DSCRTermSheet, { type DSCRTermSheetProps, type DSCRTermSheetData } from "../../../../components/DSCRTermSheet"
 import BridgeTermSheet from "../../../../components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
@@ -166,11 +166,13 @@ function ScaledTermSheetPreview({
   pageRef,
   forceLoanType,
   readOnly,
+  onLogoChange,
 }: {
-  sheetProps: DSCRTermSheetProps
+  sheetProps: DSCRTermSheetData
   pageRef?: React.Ref<HTMLDivElement>
   forceLoanType?: string
   readOnly?: boolean
+  onLogoChange?: (url: string | null) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   // Start with a conservative scale so the page won't overflow while iOS lays out the modal
@@ -178,6 +180,7 @@ function ScaledTermSheetPreview({
   const [zoom, setZoom] = useState<number>(1) // user-controlled zoom multiplier
   const scale = Math.max(0.1, Math.min(baseScale * zoom, 6))
   const [hasValidMeasure, setHasValidMeasure] = useState<boolean>(false)
+  const [containerDims, setContainerDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
   const isSpaceDownRef = useRef<boolean>(false)
   const isPanningRef = useRef<boolean>(false)
   const panStartRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
@@ -204,6 +207,7 @@ function ScaledTermSheetPreview({
       const s =
         Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.88
       setBaseScale(s)
+      setContainerDims({ width, height })
       setHasValidMeasure(true)
     }
     // Try immediately, then on next frames and a few timed retries to handle iOS Safari layout settles.
@@ -366,18 +370,29 @@ function ScaledTermSheetPreview({
   return (
     <div
       ref={containerRef}
-      className="w-full h-[72vh] overflow-x-auto overflow-y-auto rounded-md bg-neutral-100/40 grid place-items-center pt-2 pb-2 max-sm:h-[64vh] max-sm:pt-1 max-sm:pb-1 relative overscroll-contain"
+      className="w-full h-[72vh] overflow-x-auto overflow-y-auto rounded-md bg-neutral-100/40 pt-2 pb-2 max-sm:h-[64vh] max-sm:pt-1 max-sm:pb-1 relative overscroll-contain"
     >
-      {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
+      {/* Inner wrapper with explicit width/height ensures scrollable area covers the full scaled content */}
       <div
-        className="mx-auto justify-self-center relative"
         style={{
-          width: 816 * scale,
-          height: 1056 * scale,
-          opacity: hasValidMeasure ? 1 : 0,
-          transition: "opacity 150ms ease",
+          width: Math.max(816 * scale + 16, containerDims.width),
+          height: Math.max(1056 * scale + 16, containerDims.height),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
         }}
       >
+        {/* Wrapper takes the visual scaled size */}
+        <div
+          style={{
+            width: 816 * scale,
+            height: 1056 * scale,
+            opacity: hasValidMeasure ? 1 : 0,
+            transition: "opacity 150ms ease",
+            flexShrink: 0,
+          }}
+        >
         <div
           style={{
             width: 816,
@@ -394,9 +409,9 @@ function ScaledTermSheetPreview({
             const lt = String(forceLoanType ?? sheetProps?.loan_type ?? "").toLowerCase()
             return lt.includes("bridge")
           })() ? (
-            <BridgeTermSheet {...sheetProps} />
+            <BridgeTermSheet {...sheetProps} readOnly={readOnly} onLogoChange={onLogoChange} />
           ) : (
-            <DSCRTermSheet {...sheetProps} />
+            <DSCRTermSheet {...sheetProps} readOnly={readOnly} onLogoChange={onLogoChange} />
           )}
         </div>
         {/* Editable text boxes styling (screen-only; hidden on print/download) */}
@@ -419,6 +434,7 @@ function ScaledTermSheetPreview({
             }
           }
         `}</style>
+      </div>
       </div>
       {/* Zoom controls - hard-fixed overlay (never moves on scroll) */}
       <div className="pointer-events-auto fixed bottom-4 right-6 z-50">
@@ -4719,7 +4735,7 @@ function ResultCard({
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
   // Hooks must be called unconditionally at the top of the component.
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
-  const [sheetProps, setSheetProps] = useState<DSCRTermSheetProps>({})
+  const [sheetProps, setSheetProps] = useState<DSCRTermSheetData>({})
   const previewRef = useRef<HTMLDivElement | null>(null)
 
   // Log term sheet activity for this result card
@@ -5151,7 +5167,7 @@ function ResultCard({
   async function openTermSheetPreview(rowIndex?: number, opts?: { autoDownloadPdf?: boolean; autoShare?: boolean }) {
     try {
       // Open modal immediately with loader while webhook response is fetched
-      setSheetProps({} as DSCRTermSheetProps)
+      setSheetProps({} as DSCRTermSheetData)
       setMcpOpen(true)
 
       const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
@@ -5224,11 +5240,11 @@ function ResultCard({
         body: JSON.stringify(body),
       })
       const raw = await res.json().catch(() => ({}))
-      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetProps) : (raw as DSCRTermSheetProps)
-      let enriched: DSCRTermSheetProps =
+      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetData) : (raw as DSCRTermSheetData)
+      let enriched: DSCRTermSheetData =
         json && typeof json === "object" && !Array.isArray(json)
-          ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
-          : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetProps)
+          ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetData)
+          : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetData)
       // Cache any returned default lender values at the program level for subsequent term sheets
       try {
         const retDefOrig = String((json as any)?.default_lender_orig_percent ?? "").trim()
@@ -5635,7 +5651,12 @@ function ResultCard({
           </button>
           <div className="space-y-3">
             {Object.keys(sheetProps ?? {}).length ? (
-              <ScaledTermSheetPreview sheetProps={sheetProps as DSCRTermSheetProps} pageRef={previewRef} readOnly={isBroker} />
+              <ScaledTermSheetPreview
+                sheetProps={sheetProps as DSCRTermSheetData}
+                pageRef={previewRef}
+                readOnly={isBroker}
+                onLogoChange={(url) => setSheetProps((prev) => ({ ...prev, logo: url ?? "" }))}
+              />
             ) : (
               <div className="flex h-[70vh] items-center justify-center">
                 <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
@@ -5820,7 +5841,7 @@ function ResultsPanel({
 
   // Main panel term sheet preview/download state
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
-  const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetProps>({})
+  const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetData>({})
   const previewRefMain = useRef<HTMLDivElement | null>(null)
   const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
 
@@ -6184,11 +6205,11 @@ function ResultsPanel({
         body: JSON.stringify(body),
       })
       const raw = await res.json().catch(() => ({}))
-      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetProps) : (raw as DSCRTermSheetProps)
+      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetData) : (raw as DSCRTermSheetData)
       const enriched =
         json && typeof json === "object" && !Array.isArray(json)
-          ? ({ loan_type: isBridgeResp ? "bridge" : "dscr", ...json } as DSCRTermSheetProps)
-          : ({ loan_type: isBridgeResp ? "bridge" : "dscr" } as DSCRTermSheetProps)
+          ? ({ loan_type: isBridgeResp ? "bridge" : "dscr", ...json } as DSCRTermSheetData)
+          : ({ loan_type: isBridgeResp ? "bridge" : "dscr" } as DSCRTermSheetData)
       // Cache any returned defaults at the program level for reuse
       try {
         const retDefOrig = String((json as any)?.default_lender_orig_percent ?? "").trim()
@@ -6542,7 +6563,12 @@ function ResultsPanel({
               
               <div className="space-y-3">
                 {Object.keys(sheetPropsMain ?? {}).length ? (
-                  <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
+                  <ScaledTermSheetPreview
+                    sheetProps={sheetPropsMain as DSCRTermSheetData}
+                    pageRef={previewRefMain}
+                    readOnly={isBroker}
+                    onLogoChange={(url) => setSheetPropsMain((prev) => ({ ...prev, logo: url ?? "" }))}
+                  />
                 ) : (
                   <div className="flex h-[70vh] items-center justify-center">
                     <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
@@ -6805,7 +6831,12 @@ function ResultsPanel({
             </button>
             <div className="space-y-3">
               {Object.keys(sheetPropsMain ?? {}).length ? (
-                <ScaledTermSheetPreview sheetProps={sheetPropsMain as DSCRTermSheetProps} pageRef={previewRefMain} readOnly={isBroker} />
+                <ScaledTermSheetPreview
+                  sheetProps={sheetPropsMain as DSCRTermSheetData}
+                  pageRef={previewRefMain}
+                  readOnly={isBroker}
+                  onLogoChange={(url) => setSheetPropsMain((prev) => ({ ...prev, logo: url ?? "" }))}
+                />
               ) : (
                 <div className="flex h-[70vh] items-center justify-center">
                   <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
