@@ -1,7 +1,15 @@
 import React from "react";
+import { EditableLogo } from "./EditableLogo";
 
-// Minimal props shape for preview/typing; accepts any placeholder tokens
-export type DSCRTermSheetProps = Record<string, string | number | null | undefined>;
+// Data shape for term sheet values - accepts any placeholder tokens
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DSCRTermSheetData = { [key: string]: any };
+
+// Component props include data + callbacks
+export interface DSCRTermSheetProps extends DSCRTermSheetData {
+  onLogoChange?: (url: string | null) => void;
+  readOnly?: boolean;
+}
 
 // Helper to render the visible value or a styled placeholder/empty box
 const asText = (props: DSCRTermSheetProps, ...keys: string[]): React.ReactNode => {
@@ -166,14 +174,15 @@ const DscrSheet = (props: DSCRTermSheetProps) => {
             {(() => {
               const raw = props["logo"];
               const url = raw !== undefined && raw !== null && String(raw) !== "" ? String(raw) : "";
-              if (!url || url.startsWith("{{")) return null;
+              // Show EditableLogo if editable (not readOnly), even without a URL (to allow adding)
+              if (props.readOnly && (!url || url.startsWith("{{"))) return null;
               return (
                 <div style={{ alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                  <img
-                    src={url}
-                    crossOrigin="anonymous"
-                    alt="Logo"
-                    style={{ height: "100%", maxHeight: 52, width: "auto", objectFit: "contain", display: "block" }}
+                  <EditableLogo
+                    url={url}
+                    onLogoChange={props.onLogoChange}
+                    readOnly={props.readOnly}
+                    maxHeight={52}
                   />
                 </div>
               );

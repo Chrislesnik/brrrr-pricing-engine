@@ -1,7 +1,16 @@
 import React from "react"
 import { Card, CardContent } from "@/components/ui/card"
+import { EditableLogo } from "./EditableLogo"
 
-export type BridgeTermSheetProps = Record<string, string | number | null | undefined>
+// Data shape for term sheet values - accepts any placeholder tokens
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type BridgeTermSheetData = { [key: string]: any }
+
+// Component props include data + callbacks
+export interface BridgeTermSheetProps extends BridgeTermSheetData {
+  onLogoChange?: (url: string | null) => void
+  readOnly?: boolean
+}
 
 function asText(props: BridgeTermSheetProps, ...keys: string[]): React.ReactNode {
   for (const k of keys) {
@@ -345,14 +354,15 @@ const BridgeTermSheet = (props: BridgeTermSheetProps): React.ReactElement => {
         {(() => {
           const raw = props["logo"]
           const url = raw !== undefined && raw !== null && String(raw) !== "" ? String(raw) : ""
-          if (!url || url.startsWith("{{")) return null
+          // Show EditableLogo if editable (not readOnly), even without a URL (to allow adding)
+          if (props.readOnly && (!url || url.startsWith("{{"))) return null
           return (
             <div className="w-1/2 flex justify-end">
-              <img
-                src={url}
-                crossOrigin="anonymous"
-                alt="Logo"
-                style={{ maxHeight: 40, width: "auto", objectFit: "contain", display: "block" }}
+              <EditableLogo
+                url={url}
+                onLogoChange={props.onLogoChange}
+                readOnly={props.readOnly}
+                maxHeight={40}
               />
             </div>
           )
