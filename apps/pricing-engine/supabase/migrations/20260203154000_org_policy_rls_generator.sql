@@ -101,46 +101,60 @@ END $$;
 -- =====================================================
 -- PART 2: Storage policies (idempotent)
 -- =====================================================
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  BEGIN
+    EXECUTE 'ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipping storage.objects policy setup due to insufficient privilege';
+    RETURN;
+  END;
 
-DROP POLICY IF EXISTS "org_policy_storage_select" ON storage.objects;
-CREATE POLICY "org_policy_storage_select"
-ON storage.objects
-FOR SELECT
-TO authenticated
-USING (
-  public.can_access_org_resource('storage_bucket', bucket_id, 'select')
-);
+  BEGIN
+    EXECUTE 'DROP POLICY IF EXISTS "org_policy_storage_select" ON storage.objects';
+    EXECUTE $policy$CREATE POLICY "org_policy_storage_select"
+      ON storage.objects
+      FOR SELECT
+      TO authenticated
+      USING (public.can_access_org_resource('storage_bucket', bucket_id, 'select'))$policy$;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipping org_policy_storage_select due to insufficient privilege';
+  END;
 
-DROP POLICY IF EXISTS "org_policy_storage_insert" ON storage.objects;
-CREATE POLICY "org_policy_storage_insert"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  public.can_access_org_resource('storage_bucket', bucket_id, 'insert')
-);
+  BEGIN
+    EXECUTE 'DROP POLICY IF EXISTS "org_policy_storage_insert" ON storage.objects';
+    EXECUTE $policy$CREATE POLICY "org_policy_storage_insert"
+      ON storage.objects
+      FOR INSERT
+      TO authenticated
+      WITH CHECK (public.can_access_org_resource('storage_bucket', bucket_id, 'insert'))$policy$;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipping org_policy_storage_insert due to insufficient privilege';
+  END;
 
-DROP POLICY IF EXISTS "org_policy_storage_update" ON storage.objects;
-CREATE POLICY "org_policy_storage_update"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (
-  public.can_access_org_resource('storage_bucket', bucket_id, 'update')
-)
-WITH CHECK (
-  public.can_access_org_resource('storage_bucket', bucket_id, 'update')
-);
+  BEGIN
+    EXECUTE 'DROP POLICY IF EXISTS "org_policy_storage_update" ON storage.objects';
+    EXECUTE $policy$CREATE POLICY "org_policy_storage_update"
+      ON storage.objects
+      FOR UPDATE
+      TO authenticated
+      USING (public.can_access_org_resource('storage_bucket', bucket_id, 'update'))
+      WITH CHECK (public.can_access_org_resource('storage_bucket', bucket_id, 'update'))$policy$;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipping org_policy_storage_update due to insufficient privilege';
+  END;
 
-DROP POLICY IF EXISTS "org_policy_storage_delete" ON storage.objects;
-CREATE POLICY "org_policy_storage_delete"
-ON storage.objects
-FOR DELETE
-TO authenticated
-USING (
-  public.can_access_org_resource('storage_bucket', bucket_id, 'delete')
-);
+  BEGIN
+    EXECUTE 'DROP POLICY IF EXISTS "org_policy_storage_delete" ON storage.objects';
+    EXECUTE $policy$CREATE POLICY "org_policy_storage_delete"
+      ON storage.objects
+      FOR DELETE
+      TO authenticated
+      USING (public.can_access_org_resource('storage_bucket', bucket_id, 'delete'))$policy$;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Skipping org_policy_storage_delete due to insufficient privilege';
+  END;
+END $$;
 
 COMMIT;
 

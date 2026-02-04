@@ -177,13 +177,27 @@ CREATE POLICY "org_policies_read_own_org"
   TO authenticated
   USING (org_id = public.get_active_org_id());
 
-DROP POLICY IF EXISTS "org_policies_write_owner_only" ON public.org_policies;
-CREATE POLICY "org_policies_write_owner_only"
+DROP POLICY IF EXISTS "org_policies_insert_owner_only" ON public.org_policies;
+CREATE POLICY "org_policies_insert_owner_only"
   ON public.org_policies
-  FOR INSERT, UPDATE, DELETE
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (org_id = public.get_active_org_id() AND public.is_org_owner(public.get_active_org_id()));
+
+DROP POLICY IF EXISTS "org_policies_update_owner_only" ON public.org_policies;
+CREATE POLICY "org_policies_update_owner_only"
+  ON public.org_policies
+  FOR UPDATE
   TO authenticated
   USING (org_id = public.get_active_org_id() AND public.is_org_owner(public.get_active_org_id()))
   WITH CHECK (org_id = public.get_active_org_id() AND public.is_org_owner(public.get_active_org_id()));
+
+DROP POLICY IF EXISTS "org_policies_delete_owner_only" ON public.org_policies;
+CREATE POLICY "org_policies_delete_owner_only"
+  ON public.org_policies
+  FOR DELETE
+  TO authenticated
+  USING (org_id = public.get_active_org_id() AND public.is_org_owner(public.get_active_org_id()));
 
 COMMIT;
 
