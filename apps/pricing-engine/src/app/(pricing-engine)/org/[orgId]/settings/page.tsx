@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Palette,
   Loader2,
+  Settings,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -22,8 +23,9 @@ import { GeneralSettings } from "./components/general-settings";
 import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
 import { ThemesSettings } from "./components/themes-settings";
+import { ProgramsSettings } from "./components/programs-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "themes";
+type SettingsTab = "general" | "members" | "domains" | "themes" | "programs";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -51,6 +53,12 @@ const settingsNavItems: NavItem[] = [
     label: "Domains",
     icon: Globe,
     description: "Verified domains and SSO",
+  },
+  {
+    id: "programs",
+    label: "Programs",
+    icon: Settings,
+    description: "Loan programs and configurations",
   },
   {
     id: "permissions",
@@ -236,6 +244,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
+            {activeTab === "programs" && <ProgramsSettings />}
             {activeTab === "themes" && <ThemesSettings />}
           </div>
         </div>
