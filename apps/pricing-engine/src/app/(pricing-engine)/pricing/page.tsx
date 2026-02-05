@@ -8,7 +8,7 @@ import { SearchIcon, LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
 import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
-import { useSidebar } from "@/components/ui/sidebar"
+import { useSidebar } from "@repo/ui/shadcn/sidebar"
 import {
   Select,
   SelectContent,
@@ -2341,7 +2341,7 @@ export default function PricingEnginePage() {
   }
 
   return (
-    <div data-layout="fixed" className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+    <div data-layout="fixed" className="flex min-h-0 h-full flex-1 flex-col gap-4 overflow-hidden p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold tracking-tight">Pricing Engine</h2>
         {/* Mobile-only view switch: Inputs / Programs */}
@@ -3283,7 +3283,7 @@ export default function PricingEnginePage() {
                               setPropertyType(v)
                             }}
                           >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "border-2 border-highlight/70" : ""}`}>
+                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-1 ring-warning border-warning" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                           <SelectContent>
@@ -3321,7 +3321,7 @@ export default function PricingEnginePage() {
                               setNumUnits(parseInt(v))
                             }}
                           >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "border-2 border-highlight/70" : ""}`}>
+                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-1 ring-warning border-warning" : ""}`}>
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -3356,7 +3356,7 @@ export default function PricingEnginePage() {
                               clearReAuto("glaSqFt")
                               setGlaSqFt(e.target.value)
                             }}
-                            className={`${reAuto.glaSqFt ? "border-2 border-highlight/70" : ""}`}
+                            className={`${reAuto.glaSqFt ? "ring-1 ring-warning border-warning" : ""}`}
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -3370,7 +3370,7 @@ export default function PricingEnginePage() {
                         >
                           <SelectTrigger
                             id="rural"
-                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "border-2 border-highlight/70" : ""}`}
+                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "ring-1 ring-warning border-warning" : ""}`}
                           >
                               <SelectValue placeholder="No" />
                             </SelectTrigger>
@@ -3717,7 +3717,7 @@ export default function PricingEnginePage() {
                                   clearReAuto("acquisitionDate")
                                   setAcquisitionDate(d)
                                 }}
-                                className={`${reAuto.acquisitionDate ? "border-2 border-highlight/70" : ""}`}
+                                className={`${reAuto.acquisitionDate ? "ring-1 ring-warning border-warning" : ""}`}
                               />
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -3908,7 +3908,7 @@ export default function PricingEnginePage() {
                               id="max-lev"
                               checked={requestMaxLeverage}
                               onCheckedChange={setRequestMaxLeverage}
-                              className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-8.75 [&_span]:data-[state=checked]:rtl:-translate-x-8.75"
+                              className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
                             />
                             <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
                               <span className="text-[10px] font-medium uppercase">No</span>

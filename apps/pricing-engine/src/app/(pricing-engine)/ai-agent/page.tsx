@@ -496,7 +496,7 @@ export default function AIAgentPage() {
           </div>
 
           <div
-            className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[env(safe-area-inset-bottom)]"
+            className="sticky bottom-0 z-10 w-full border-t bg-background px-3 py-2 pb-[max(env(safe-area-inset-bottom),1rem)]"
             style={keyboardOffset ? ({ bottom: keyboardOffset } as React.CSSProperties) : undefined}
           >
             <div className="mx-auto w-full max-w-2xl pb-2">
