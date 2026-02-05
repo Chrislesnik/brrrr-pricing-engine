@@ -19,7 +19,6 @@ import {
   FileCode2,
   Mail,
   Wand2,
-  LayoutGrid,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -47,7 +46,6 @@ const ORG_SETTINGS_ITEMS = [
     path: "/documents/permissions",
   },
   { id: "themes", label: "Themes", icon: Settings2, path: "" },
-  { id: "programs", label: "Programs", icon: LayoutGrid, path: "", isGlobal: true },
 ] as const;
 
 export function PlatformSettingsPopover({
@@ -148,33 +146,6 @@ export function PlatformSettingsPopover({
                               <item.icon className="h-4 w-4 text-muted-foreground" />
                               <span>{item.label}</span>
                             </button>
-                          );
-                        }
-
-                        // Programs is a global page, not org-specific
-                        if ("isGlobal" in item && item.isGlobal) {
-                          const href = "/settings";
-                          const isActive = pathname === href || pathname.startsWith("/settings");
-
-                          return (
-                            <Link
-                              key={item.id}
-                              href={href}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                router.push(href);
-                                setPopoverOpen(false);
-                              }}
-                              className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                                isActive
-                                  ? "bg-accent text-accent-foreground"
-                                  : "text-foreground"
-                              }`}
-                            >
-                              <item.icon className="h-4 w-4 text-muted-foreground" />
-                              <span>{item.label}</span>
-                            </Link>
                           );
                         }
 
