@@ -31,20 +31,32 @@ interface ProgramRow {
 }
 
 export function ProgramsSettings() {
-  const { orgId, orgRole, has } = useAuth();
+  const { orgId } = useAuth();
   const [programs, setPrograms] = useState<ProgramRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
 
   useEffect(() => {
     async function checkAccessAndFetch() {
-      // Check permissions
-      const isOwner = orgRole === "org:owner" || orgRole === "owner";
-      const hasPermission = has ? await has({ permission: "org:manage_programs" }) : false;
-      const access = isOwner || hasPermission;
-      setCanAccess(access);
+      // Check permissions via Supabase (admin/owner in internal org)
+      try {
+        const accessResponse = await fetch("/api/org/programs-access");
+        if (accessResponse.ok) {
+          const accessData = await accessResponse.json();
+          setCanAccess(accessData.canAccess);
 
-      if (!access) {
+          if (!accessData.canAccess) {
+            setLoading(false);
+            return;
+          }
+        } else {
+          setCanAccess(false);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to check access:", error);
+        setCanAccess(false);
         setLoading(false);
         return;
       }
@@ -64,7 +76,7 @@ export function ProgramsSettings() {
     }
 
     checkAccessAndFetch();
-  }, [orgId, orgRole, has]);
+  }, [orgId]);
 
   const refreshPrograms = async () => {
     try {
