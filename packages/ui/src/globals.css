@@ -175,6 +175,24 @@
     --tw-shadow: none !important;
     box-shadow: none !important;
   }
+  
+  /* Remove rings from dropdown/select items */
+  [role="option"]:focus,
+  [role="option"]:focus-visible,
+  [role="menuitem"]:focus,
+  [role="menuitem"]:focus-visible,
+  [role="menuitemcheckbox"]:focus,
+  [role="menuitemcheckbox"]:focus-visible,
+  [role="menuitemradio"]:focus,
+  [role="menuitemradio"]:focus-visible,
+  [data-radix-collection-item]:focus,
+  [data-radix-collection-item]:focus-visible {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
 }
 
 /* Fumadocs Base UI Theme - aligned with Shadcn theme */
