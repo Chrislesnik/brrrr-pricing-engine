@@ -65,7 +65,7 @@ function FieldTypeSelect({ fieldTypes }: { fieldTypes: FieldType[] }) {
     store.setState("value", newValue)
   }
 
-  const colors = getTypeColors(itemData.value)
+  const colors = getTypeColors(itemData.value as FieldType)
 
   return (
     <Select value={itemData.value} onValueChange={handleTypeChange}>

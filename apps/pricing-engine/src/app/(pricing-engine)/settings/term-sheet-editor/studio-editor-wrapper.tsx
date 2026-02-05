@@ -142,7 +142,7 @@ export function StudioEditorWrapper({
                     type: "selectField",
                     emptyState: "Insert Variable",
                     options: variableOptions,
-                    onChange: ({ value }) =>
+                    onChange: ({ value }: { value: string }) =>
                       commands.text.replace(value, { select: true }),
                   },
                 ]

@@ -137,7 +137,7 @@ function lightenColor(hex: string, factor: number): string {
     const g = Math.min(1, rgbColor.g + (1 - rgbColor.g) * factor);
     const b = Math.min(1, rgbColor.b + (1 - rgbColor.b) * factor);
     
-    return formatHex({ mode: "rgb", r, g, b });
+    return formatHex({ mode: "rgb", r, g, b }) || hex;
   } catch {
     return hex;
   }
@@ -157,7 +157,7 @@ function darkenColor(hex: string, factor: number): string {
     const g = Math.max(0, rgbColor.g * (1 - factor));
     const b = Math.max(0, rgbColor.b * (1 - factor));
     
-    return formatHex({ mode: "rgb", r, g, b });
+    return formatHex({ mode: "rgb", r, g, b }) || hex;
   } catch {
     return hex;
   }
@@ -570,7 +570,7 @@ export function TinteEditor({ onChange, onSave, initialTheme }: TinteEditorProps
       }
       const colorObj = oklch(trimmed);
       if (colorObj) {
-        return formatHex(colorObj);
+        return formatHex(colorObj) || colorValue;
       }
       return colorValue;
     } catch {

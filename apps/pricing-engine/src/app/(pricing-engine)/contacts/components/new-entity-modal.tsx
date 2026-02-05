@@ -467,7 +467,7 @@ export function NewEntityModal({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				className="max-w-3xl h-[80vh]"
-				showCloseButton={false}
+				hideClose
 				onPointerDownOutside={(event) => {
 					// Only allow overlay clicks to close; ignore stray clicks on portalled children.
 					const target = event.target as HTMLElement | null

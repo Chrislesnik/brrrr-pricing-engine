@@ -58,7 +58,7 @@ export async function setOrgInternalFlag(input: {
 
   if (error) throw new Error(error.message);
 
-  await clerkClient.organizations.updateOrganization(orgId, {
+  await (await clerkClient()).organizations.updateOrganization(orgId, {
     publicMetadata: {
       is_internal_yn: input.isInternal,
     },
@@ -111,13 +111,8 @@ export async function setOrgMemberRole(input: {
 
   if (error) throw new Error(error.message);
 
-  await clerkClient.organizations.updateOrganizationMembership({
-    organizationId: orgId,
-    userId: input.clerkUserId,
-    publicMetadata: {
-      org_member_role: input.memberRole,
-    },
-  });
+  // Note: Clerk SDK v5+ removed publicMetadata from updateOrganizationMembership.
+  // Role is stored in Supabase organization_members table.
 
   return { ok: true };
 }

@@ -80,7 +80,7 @@ function oklchToRgb(
 }
 
 function rgbToHex(rgbColor: { r: number; g: number; b: number }): string {
-  return formatHex({ mode: "rgb", ...rgbColor });
+  return formatHex({ mode: "rgb", ...rgbColor }) || "#000000";
 }
 
 function interpolate(start: number, end: number, factor: number): number {
@@ -228,7 +228,7 @@ const tweakL = (hex: string, dL: number) => {
     l: clamp01(c.l + dL),
     c: Math.max(0, c.c),
     h: c.h,
-  });
+  }) || hex;
 };
 
 function buildNeutralRamp(block: TinteBlock): string[] {
@@ -266,7 +266,7 @@ function computeShadowVars(
     const parsed = parse(shadowColor);
     if (parsed) {
       const hslString = formatHsl(parsed);
-      hslColor = hslString.replace(/hsl\(|\)|\s+/g, "").replace(/,/g, " ");
+      hslColor = hslString ? hslString.replace(/hsl\(|\)|\s+/g, "").replace(/,/g, " ") : "0 0% 0%";
     } else {
       hslColor = "0 0% 0%";
     }

@@ -40,19 +40,19 @@ const toHex = (colorValue: string): string => {
     if (colorValue.startsWith("#")) return colorValue;
     if (colorValue.startsWith("oklch(")) {
       const parsed = oklch(colorValue);
-      return parsed ? formatHex(parsed) : "#000000";
+      return (parsed && formatHex(parsed)) || "#000000";
     }
     if (colorValue.startsWith("lch(")) {
       const parsed = lch(colorValue);
-      return parsed ? formatHex(parsed) : "#000000";
+      return (parsed && formatHex(parsed)) || "#000000";
     }
     if (colorValue.startsWith("hsl(")) {
       const parsed = culoriHsl(colorValue);
-      return parsed ? formatHex(parsed) : "#000000";
+      return (parsed && formatHex(parsed)) || "#000000";
     }
     if (colorValue.startsWith("rgb(")) {
       const parsed = rgb(colorValue);
-      return parsed ? formatHex(parsed) : "#000000";
+      return (parsed && formatHex(parsed)) || "#000000";
     }
     return "#000000";
   } catch {
