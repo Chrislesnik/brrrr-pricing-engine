@@ -10,7 +10,7 @@
 INSERT INTO public.organizations (clerk_organization_id, name, slug)
 VALUES (
   'org_38MVrtrQBrhnDmbz9w90xrm24uT',  -- ✓ Your Clerk org ID (from error message)
-  'My Organization',                   -- ⚠️ CHANGE THIS to your actual org name
+  'Brrrr Funder LLC',                   -- ⚠️ CHANGE THIS to your actual org name
   NULL                                 -- Leave as NULL if you don't have a slug
 )
 ON CONFLICT (clerk_organization_id) DO UPDATE SET
