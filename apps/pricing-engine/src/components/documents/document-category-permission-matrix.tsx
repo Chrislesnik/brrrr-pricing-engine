@@ -203,28 +203,33 @@ export function DocumentCategoryPermissionMatrix({
     <div className="space-y-6">
       {/* Action buttons */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">
-            {hasChanges && "You have unsaved changes"}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleAllRoles}
-            className="gap-2"
-          >
-            {allExpanded ? (
-              <>
-                <ChevronsUpDown className="size-4" />
-                Collapse All
-              </>
-            ) : (
-              <>
-                <ChevronsDownUp className="size-4" />
-                Expand All
-              </>
-            )}
-          </Button>
+        <div className="flex items-center gap-3">
+          {hasChanges && (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <div className="size-2 rounded-full bg-amber-500 animate-pulse" />
+              You have unsaved changes
+            </div>
+          )}
+          {!hasChanges && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleAllRoles}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              {allExpanded ? (
+                <>
+                  <ChevronsUpDown className="size-4" />
+                  Collapse All Roles
+                </>
+              ) : (
+                <>
+                  <ChevronsDownUp className="size-4" />
+                  Expand All Roles
+                </>
+              )}
+            </Button>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -251,7 +256,7 @@ export function DocumentCategoryPermissionMatrix({
         
         return (
           <Card key={role.id}>
-            <CardHeader>
+            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => toggleRole(role.id)}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -261,6 +266,9 @@ export function DocumentCategoryPermissionMatrix({
                         System
                       </Badge>
                     )}
+                    <span className="text-xs text-muted-foreground font-normal ml-2">
+                      ({categories.length} categories)
+                    </span>
                   </CardTitle>
                   {role.description && (
                     <CardDescription className="mt-1">
@@ -270,16 +278,19 @@ export function DocumentCategoryPermissionMatrix({
                 </div>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={() => toggleRole(role.id)}
-                  className="ml-4"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRole(role.id);
+                  }}
                 >
                   {isExpanded ? (
-                    <ChevronUp className="size-4" />
+                    <ChevronUp className="size-4 text-muted-foreground" />
                   ) : (
-                    <ChevronDown className="size-4" />
+                    <ChevronDown className="size-4 text-muted-foreground" />
                   )}
-                  <span className="ml-2 text-xs">
+                  <span className="sr-only">
                     {isExpanded ? "Collapse" : "Expand"}
                   </span>
                 </Button>
