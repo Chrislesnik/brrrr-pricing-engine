@@ -22,12 +22,12 @@ export async function GET(req: NextRequest) {
     // Resolve current member/role
     const { data: me, error: meErr } = await supabaseAdmin
       .from("organization_members")
-      .select("id, user_id, role")
+      .select("id, user_id, clerk_org_role")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
       .maybeSingle()
     if (meErr) return NextResponse.json({ error: meErr.message }, { status: 500 })
-    const myRole = String((me as any)?.role ?? "").toLowerCase()
+    const myRole = String((me as any)?.clerk_org_role ?? "").toLowerCase()
     const myMemberId = (me?.id as string) ?? null
 
     let members: Array<{ id: string; user_id: string; first_name?: string | null; last_name?: string | null }> = []
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
           .from("organization_members")
           .select("id, user_id, first_name, last_name")
           .eq("organization_id", orgUuid)
-          .eq("role", "owner")
+          .eq("clerk_org_role", "owner")
         if (ownersErr) return NextResponse.json({ error: ownersErr.message }, { status: 500 })
         for (const o of owners ?? []) {
           members.push({
@@ -83,9 +83,9 @@ export async function GET(req: NextRequest) {
       const baseRoles = ["owner", "loan_officer", "loan_processor"]
       const { data: baseMembers, error: baseErr } = await supabaseAdmin
         .from("organization_members")
-        .select("id, user_id, first_name, last_name, role")
+        .select("id, user_id, first_name, last_name, clerk_org_role")
         .eq("organization_id", orgUuid)
-        .in("role", baseRoles)
+        .in("clerk_org_role", baseRoles)
       if (baseErr) return NextResponse.json({ error: baseErr.message }, { status: 500 })
       members = (baseMembers ?? []).map((m) => ({
         id: m.id as string,

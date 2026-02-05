@@ -8,7 +8,7 @@ export const runtime = "nodejs"
 async function waitForOrgMemberId(
   orgUuid: string | null,
   userId: string | null | undefined,
-  maxWaitMs = 45000,
+  maxWaitMs = 5000,  // Reduced from 45s to 5s for faster debugging
   intervalMs = 400
 ): Promise<string | null> {
   const start = Date.now()
@@ -49,28 +49,33 @@ function booleanToYesNoDeep(value: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("[dispatch-one] Starting POST request")
     const { orgId, userId } = await auth()
+    console.log("[dispatch-one] Auth:", { orgId, userId })
 
     const json = (await req.json().catch(() => null)) as {
       loanType?: string
       programId?: string
       data?: Record<string, unknown>
     } | null
+    console.log("[dispatch-one] Payload:", { loanType: json?.loanType, programId: json?.programId, hasData: !!json?.data })
     if (!json?.loanType || !json?.programId || !json?.data) {
+      console.log("[dispatch-one] Missing payload, returning 400")
       return new NextResponse("Missing payload", { status: 400 })
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
+    console.log("[dispatch-one] orgUuid:", orgUuid)
     // Resolve caller's organization_member_id for attribution (wait until available)
     const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
+    console.log("[dispatch-one] myMemberId:", myMemberId)
 
-    let q = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("programs")
       .select("id,internal_name,external_name,webhook_url")
       .eq("loan_type", String(json.loanType).toLowerCase())
       .eq("status", "active")
-    if (orgUuid) q = q.eq("organization_id", orgUuid)
-    const { data, error } = await q
+    console.log("[dispatch-one] Programs query result:", { count: data?.length, error: error?.message, programs: data })
     if (error) return new NextResponse(error.message, { status: 500 })
 
     const match = (data ?? []).find((p) =>
@@ -78,7 +83,9 @@ export async function POST(req: NextRequest) {
         p.internal_name === json.programId ||
         p.external_name === json.programId
     )
+    console.log("[dispatch-one] Looking for programId:", json.programId, "Found match:", match ? { id: match.id, internal_name: match.internal_name, webhook_url: match.webhook_url } : null)
     if (!match || !String(match.webhook_url || "").trim()) {
+      console.log("[dispatch-one] No match or no webhook URL, returning early")
       return NextResponse.json({
         internal_name: match?.internal_name,
         external_name: match?.external_name,
@@ -89,6 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     const url = String(match.webhook_url).trim()
+    console.log("[dispatch-one] Will POST to webhook:", url)
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
     // Ensure admin fee aliases are always present
     if (normalizedData["lender_admin_fee"] === undefined && normalizedData["admin_fee"] !== undefined) {
@@ -102,6 +110,7 @@ export async function POST(req: NextRequest) {
     }
     // Attach organization_member_id for downstream auditing (always)
     normalizedData["organization_member_id"] = myMemberId
+    console.log("[dispatch-one] Sending POST to webhook...")
     const res = await fetch(url, {
       method: "POST",
       cache: "no-store",
@@ -112,6 +121,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify(normalizedData),
     })
+    console.log("[dispatch-one] Webhook response status:", res.status, res.ok)
     let body: Record<string, unknown> | null = null
     try {
       const parsed = await res.json()
@@ -119,6 +129,7 @@ export async function POST(req: NextRequest) {
     } catch {
       body = null
     }
+    console.log("[dispatch-one] Returning success response")
     return NextResponse.json({
       id: (match as any).id,
       internal_name: match.internal_name,
@@ -129,6 +140,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
+    console.error("[dispatch-one] Error:", msg)
     return new NextResponse(`Server error: ${msg}`, { status: 500 })
   }
 }
