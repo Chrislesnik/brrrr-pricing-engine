@@ -30,22 +30,23 @@ export default async function PermissionsPage({
   }
 
   return (
-    <div className="w-full flex justify-center p-6 md:p-8">
-      <div className="w-full max-w-6xl">
-        {/* Header with back button */}
-        <div className="mb-8">
-          <Link
-            href={`/org/${orgId}/settings`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-          >
-            <ArrowLeft className="size-4" />
-            Back to Settings
-          </Link>
-          <h1 className="text-3xl font-bold">Document Permissions</h1>
-          <p className="mt-1 text-muted-foreground">
-            Control which roles can access different document types
-          </p>
-        </div>
+    <div className="w-full h-full overflow-y-auto">
+      <div className="w-full flex justify-center p-6 md:p-8">
+        <div className="w-full max-w-6xl">
+          {/* Header with back button */}
+          <div className="mb-8">
+            <Link
+              href={`/org/${orgId}/settings`}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+            >
+              <ArrowLeft className="size-4" />
+              Back to Settings
+            </Link>
+            <h1 className="text-3xl font-bold">Document Permissions</h1>
+            <p className="mt-1 text-muted-foreground">
+              Control which roles can access different document types
+            </p>
+          </div>
 
         {/* Info Card */}
         <Card className="mb-8">
@@ -120,8 +121,9 @@ export default async function PermissionsPage({
           </Alert>
         )}
 
-        {/* RBAC Matrix - Client Component */}
-        {matrixData && !error && <RbacMatrixClient initial={matrixData} />}
+          {/* RBAC Matrix - Client Component */}
+          {matrixData && !error && <RbacMatrixClient initial={matrixData} />}
+        </div>
       </div>
     </div>
   );
