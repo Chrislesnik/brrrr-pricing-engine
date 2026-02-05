@@ -244,7 +244,11 @@ export default function OrganizationSettingsPage() {
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
-            {activeTab === "programs" && <ProgramsSettings />}
+            {activeTab === "programs" && (
+              <div className="space-y-6">
+                <ProgramsSettings />
+              </div>
+            )}
             {activeTab === "themes" && <ThemesSettings />}
           </div>
         </div>
