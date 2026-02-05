@@ -24,14 +24,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Get organization UUID
     const orgUuid = await getOrgUuidFromClerkId(orgId);
     if (!orgUuid) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 404 }
-      );
+      console.error("Failed to resolve org UUID for:", orgId);
+      // Return empty programs array instead of error - org might not be synced yet
+      return NextResponse.json({ programs: [] });
     }
 
+    // Fetch programs for the organization
     const { data, error } = await supabaseAdmin
       .from("programs")
       .select(
@@ -41,12 +42,14 @@ export async function GET(req: NextRequest) {
       .order("updated_at", { ascending: false });
 
     if (error) {
+      console.error("Database error fetching programs:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ programs: data || [] });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
+    console.error("API /programs error:", e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
