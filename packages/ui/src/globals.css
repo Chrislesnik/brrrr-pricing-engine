@@ -158,15 +158,22 @@
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible {
-    --tw-ring-color: transparent;
-    --tw-ring-shadow: none;
-    box-shadow: none;
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
   }
   
   /* Remove rings from input group wrappers */
-  [data-slot="input-group"]:has(:focus-visible) {
-    --tw-ring-color: transparent;
-    --tw-ring-shadow: none;
+  [data-slot="input-group"],
+  [data-slot="input-group"]:has(:focus-visible),
+  [data-slot="input-group"]:focus-within {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    --tw-shadow: none !important;
+    box-shadow: none !important;
   }
 }
 
