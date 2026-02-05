@@ -22,17 +22,17 @@ import { cn } from "@repo/lib/cn";
 import { GeneralSettings } from "./components/general-settings";
 import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
+import { ProgramsSettings } from "./components/programs-settings";
 import { ThemesSettings } from "./components/themes-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "themes";
+type SettingsTab = "general" | "members" | "domains" | "programs" | "themes";
 
 interface NavItem {
-  id: SettingsTab | "permissions" | "policies" | "programs";
+  id: SettingsTab | "permissions" | "policies";
   label: string;
   icon: typeof Building2;
   description: string;
   href?: string; // If provided, navigates to this URL instead of switching tabs
-  isGlobalHref?: boolean; // If true, href is an absolute path, not relative to org settings
 }
 
 const settingsNavItems: NavItem[] = [
@@ -73,8 +73,6 @@ const settingsNavItems: NavItem[] = [
     label: "Programs",
     icon: LayoutGrid,
     description: "Manage loan programs",
-    href: "/settings",
-    isGlobalHref: true,
   },
   {
     id: "themes",
@@ -194,13 +192,10 @@ export default function OrganizationSettingsPage() {
                 {settingsNavItems.map((item) => {
                   // If item has href, render as Link to separate page
                   if (item.href) {
-                    const linkHref = item.isGlobalHref 
-                      ? item.href 
-                      : `/org/${orgIdFromUrl}/settings/${item.href}`;
                     return (
                       <Link
                         key={item.id}
-                        href={linkHref}
+                        href={`/org/${orgIdFromUrl}/settings/${item.href}`}
                         className={cn(
                           "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
                           "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
@@ -249,6 +244,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
+            {activeTab === "programs" && <ProgramsSettings />}
             {activeTab === "themes" && <ThemesSettings />}
           </div>
         </div>
