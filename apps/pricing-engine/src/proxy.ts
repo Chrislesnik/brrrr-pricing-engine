@@ -15,7 +15,7 @@ const middleware = clerkMiddleware(async (auth, req) => {
   }
 
   if (a.userId && req.nextUrl.pathname.startsWith("/sign-in")) {
-    return NextResponse.redirect(new URL("/pipeline", req.url))
+    return NextResponse.redirect(new URL("/scenarios", req.url))
   }
 
   return NextResponse.next()

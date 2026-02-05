@@ -69,7 +69,7 @@ export default function ResetPasswordVerifyPage() {
         await setActive({ session: result.createdSessionId })
         
         setTimeout(() => {
-          router.push("/pipeline")
+          router.push("/scenarios")
         }, 2000)
       } else {
         setError("Password reset incomplete. Please try again.")

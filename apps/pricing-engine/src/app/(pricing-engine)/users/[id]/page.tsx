@@ -26,7 +26,7 @@ export default function UserDetailPage({ params }: Props) {
   const user = userList.find((user) => user.id === id)
 
   if (!user) {
-    return redirect(`/pipeline`)
+    return redirect(`/scenarios`)
   }
 
   return (
@@ -41,7 +41,7 @@ export default function UserDetailPage({ params }: Props) {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/pipeline">Pipeline</Link>
+              <Link href="/scenarios">Scenarios</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
