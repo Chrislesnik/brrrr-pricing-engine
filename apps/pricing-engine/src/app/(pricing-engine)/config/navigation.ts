@@ -144,12 +144,6 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         denyOrgRoles: ["org:broker", "broker"],
         shortcut: ["K"],
       },
-      {
-        title: "Programs",
-        icon: IconApps,
-        url: ROUTES.settings.programs,
-        requiredPermission: "org:manage_programs",
-      },
     ],
   },
   {

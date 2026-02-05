@@ -19,6 +19,7 @@ import {
   FileCode2,
   Mail,
   Wand2,
+  LayoutGrid,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -45,6 +46,7 @@ const ORG_SETTINGS_ITEMS = [
     icon: Shield,
     path: "/documents/permissions",
   },
+  { id: "programs", label: "Programs", icon: LayoutGrid, path: "", isGlobal: true, globalPath: "/settings" },
   { id: "themes", label: "Themes", icon: Settings2, path: "" },
 ] as const;
 
@@ -146,6 +148,32 @@ export function PlatformSettingsPopover({
                               <item.icon className="h-4 w-4 text-muted-foreground" />
                               <span>{item.label}</span>
                             </button>
+                          );
+                        }
+
+                        // Handle global items (like Programs) that link to a different route
+                        if ("isGlobal" in item && item.isGlobal && "globalPath" in item) {
+                          const globalHref = item.globalPath as string;
+                          const isActive = pathname === globalHref || pathname.startsWith(globalHref + "/");
+                          return (
+                            <Link
+                              key={item.id}
+                              href={globalHref}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(globalHref);
+                                setPopoverOpen(false);
+                              }}
+                              className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                                isActive
+                                  ? "bg-accent text-accent-foreground"
+                                  : "text-foreground"
+                              }`}
+                            >
+                              <item.icon className="h-4 w-4 text-muted-foreground" />
+                              <span>{item.label}</span>
+                            </Link>
                           );
                         }
 
