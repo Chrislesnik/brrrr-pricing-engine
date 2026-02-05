@@ -87,8 +87,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/shadcn/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
-// Removed unused import
+import { MentionTextarea, CommentWithMentions, extractMentions } from "./mention-textarea";
 
 // Extended type with joined data
 interface DealWithRelations {
@@ -111,6 +118,13 @@ interface Comment {
   timestamp: string;
 }
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url?: string | null;
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -122,37 +136,57 @@ function getInitials(name: string): string {
 function CommentThread({
   comments,
   dealId,
+  dealName,
   onAddComment,
 }: {
   comments: Comment[];
   dealId: string;
-  onAddComment: (dealId: string, content: string) => void;
+  dealName: string;
+  onAddComment: (dealId: string, content: string, mentions: string[]) => void;
 }) {
   const [newComment, setNewComment] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+
+  // Fetch users for mention extraction
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const response = await fetch("/api/users");
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data.users || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+      }
+    }
+    fetchUsers();
+  }, []);
 
   const handleSubmit = () => {
     if (!newComment.trim()) return;
-    onAddComment(dealId, newComment.trim());
+    const mentions = extractMentions(newComment.trim(), users);
+    onAddComment(dealId, newComment.trim(), mentions);
     setNewComment("");
   };
 
   return (
-    <div className="border-t bg-muted/30 px-4 py-3">
-      <div className="space-y-3">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {comments.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            No comments yet.
+          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+            No comments yet. Start the conversation!
           </div>
         ) : (
           comments.map((comment) => (
             <div className="flex gap-3" key={comment.id}>
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8 flex-shrink-0">
                 <AvatarImage src={comment.avatar} />
                 <AvatarFallback className="text-xs">
                   {getInitials(comment.author)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 space-y-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">
                     {comment.author}
@@ -161,29 +195,29 @@ function CommentThread({
                     {comment.timestamp}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {comment.content}
-                </p>
+                <CommentWithMentions content={comment.content} />
               </div>
             </div>
           ))
         )}
+      </div>
 
-        <div className="flex gap-3 pt-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs">YO</AvatarFallback>
+      <div className="border-t bg-muted/30 px-6 py-4">
+        <div className="flex gap-3">
+          <Avatar className="h-8 w-8 flex-shrink-0">
+            <AvatarFallback className="text-xs">You</AvatarFallback>
           </Avatar>
           <div className="flex flex-1 gap-2">
-            <Textarea
-              className="min-h-[60px] resize-none text-sm"
-              onChange={(event) => setNewComment(event.target.value)}
+            <MentionTextarea
+              className="min-h-[80px] resize-none text-sm"
+              onChange={setNewComment}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
                   handleSubmit();
                 }
               }}
-              placeholder="Add a comment..."
+              placeholder="Add a comment... (Type @ to mention someone)"
               value={newComment}
             />
             <Button
@@ -254,8 +288,7 @@ const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
 
 const createColumns = (
   router: { push: (path: string) => void },
-  expandedRows: Set<string>,
-  toggleRow: (dealId: string) => void,
+  openCommentsSheet: (dealId: string) => void,
   rowComments: Record<
     string,
     { comments: Comment[]; hasUnread: boolean; count: number }
@@ -447,14 +480,13 @@ const createColumns = (
     header: () => <span className="text-sm font-medium">Comments</span>,
     cell: ({ row }) => {
       const dealId = String(row.original.id);
-      const isExpanded = expandedRows.has(dealId);
       const commentState = rowComments[dealId];
       const count = commentState?.count ?? 0;
       const hasUnread = commentState?.hasUnread ?? false;
       return (
         <Button
           className={cn("gap-2", hasUnread && "text-primary")}
-          onClick={() => toggleRow(dealId)}
+          onClick={() => openCommentsSheet(dealId)}
           size="sm"
           variant="ghost"
           data-ignore-row-click
@@ -462,12 +494,6 @@ const createColumns = (
           <MessageCircle className="h-4 w-4" />
           <span>{count}</span>
           {hasUnread && <span className="h-2 w-2 rounded-full bg-primary" />}
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 transition-transform",
-              isExpanded && "rotate-180"
-            )}
-          />
         </Button>
       );
     },
@@ -564,9 +590,11 @@ export function DealsDataTable({
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    comments: true, // Show comments column
+  });
   const [rowSelection, setRowSelection] = useState({});
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
   const [rowComments, setRowComments] = useState<
     Record<string, { comments: Comment[]; hasUnread: boolean; count: number }>
   >({});
@@ -574,12 +602,12 @@ export function DealsDataTable({
     "select",
     "loan_number",
     "property_address",
-    "project_type",
     "deal_stage_2",
+    "project_type",
     "loan_amount_total",
     "guarantor_name",
-    "comments",
     "funding_date",
+    "comments",
     "actions",
   ]);
 
@@ -624,12 +652,12 @@ export function DealsDataTable({
   );
 
   const addComment = React.useCallback(
-    async (dealId: string, content: string) => {
+    async (dealId: string, content: string, mentions: string[] = []) => {
       try {
         const res = await fetch(`/api/deals/${dealId}/comments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, mentions }),
         });
         if (!res.ok) return;
         const json = (await res.json()) as {
@@ -673,28 +701,22 @@ export function DealsDataTable({
   );
 
   const router = useRouter();
-  const toggleRow = React.useCallback(
+  
+  const openCommentsSheet = React.useCallback(
     (dealId: string) => {
-      let shouldOpen = false;
-      setExpandedRows((prev) => {
-        const next = new Set(prev);
-        if (next.has(dealId)) {
-          next.delete(dealId);
-          return next;
-        }
-        next.add(dealId);
-        shouldOpen = true;
-        return next;
-      });
-      if (shouldOpen) {
-        void loadComments(dealId, true);
-      }
+      setCommentsSheetDealId(dealId);
+      void loadComments(dealId, true);
     },
     [loadComments]
   );
+
+  const closeCommentsSheet = React.useCallback(() => {
+    setCommentsSheetDealId(null);
+  }, []);
+
   const columns = React.useMemo(
-    () => createColumns(router, expandedRows, toggleRow, rowComments),
-    [router, expandedRows, rowComments, toggleRow]
+    () => createColumns(router, openCommentsSheet, rowComments),
+    [router, openCommentsSheet, rowComments]
   );
 
   // Set up sensors for drag and drop
@@ -874,13 +896,6 @@ export function DealsDataTable({
     }
   }
 
-  const shouldIgnoreRowClick = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return false;
-    return !!target.closest(
-      "button, a, input, textarea, select, [data-ignore-row-click]"
-    );
-  };
-
   if (loading) {
     return (
       <div className="w-full">
@@ -1051,43 +1066,26 @@ export function DealsDataTable({
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => {
                   const dealId = String(row.original.id);
-                  const isExpanded = expandedRows.has(dealId);
                   const commentState = rowComments[dealId] ?? {
                     comments: [],
                     hasUnread: false,
                     count: 0,
                   };
                   return (
-                    <React.Fragment key={row.id}>
-                      <TableRow
-                        className={cn(commentState.hasUnread && "bg-primary/5")}
-                        data-state={row.getIsSelected() && "selected"}
-                        onClick={(event) => {
-                          if (shouldIgnoreRowClick(event.target)) return;
-                          toggleRow(dealId);
-                        }}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className="text-left">
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      {isExpanded ? (
-                        <tr>
-                          <td className="p-0" colSpan={row.getVisibleCells().length}>
-                            <CommentThread
-                              comments={commentState.comments}
-                              onAddComment={addComment}
-                              dealId={dealId}
-                            />
-                          </td>
-                        </tr>
-                      ) : null}
-                    </React.Fragment>
+                    <TableRow
+                      key={row.id}
+                      className={cn(commentState.hasUnread && "bg-primary/5")}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="text-left">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
                   );
                 })
               ) : (
@@ -1198,6 +1196,30 @@ export function DealsDataTable({
             </div>
           </div>
         </div>
+
+        {/* Comments Sheet */}
+        <Sheet open={commentsSheetDealId !== null} onOpenChange={(open) => {
+          if (!open) closeCommentsSheet();
+        }}>
+          <SheetContent className="w-full sm:max-w-xl flex flex-col p-0">
+            <SheetHeader className="px-6 py-4 border-b">
+              <SheetTitle>
+                {commentsSheetDealId && data.find(d => String(d.id) === commentsSheetDealId)?.deal_name || "Deal Comments"}
+              </SheetTitle>
+              <SheetDescription>
+                View and add comments for this deal
+              </SheetDescription>
+            </SheetHeader>
+            {commentsSheetDealId && (
+              <CommentThread
+                comments={rowComments[commentsSheetDealId]?.comments ?? []}
+                dealId={commentsSheetDealId}
+                dealName={data.find(d => String(d.id) === commentsSheetDealId)?.deal_name || ""}
+                onAddComment={addComment}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </DndContext>
   );

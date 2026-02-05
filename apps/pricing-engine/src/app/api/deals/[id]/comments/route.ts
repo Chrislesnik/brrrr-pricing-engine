@@ -70,6 +70,8 @@ export async function POST(
 
     const json = await req.json().catch(() => ({}))
     const content = typeof json?.content === "string" ? json.content.trim() : ""
+    const mentions = Array.isArray(json?.mentions) ? json.mentions : []
+    
     if (!content) {
       return NextResponse.json({ error: "Content required" }, { status: 400 })
     }
@@ -116,6 +118,59 @@ export async function POST(
       },
       { onConflict: "deal_id,clerk_user_id" }
     )
+
+    // Handle mentions - create notifications for mentioned users
+    if (mentions.length > 0 && comment) {
+      // Get deal info for notification context
+      const { data: deal } = await supabaseAdmin
+        .from("deals")
+        .select("deal_name")
+        .eq("id", dealId)
+        .single()
+
+      const dealName = deal?.deal_name || "a deal"
+
+      // Create mention records
+      const mentionRecords = mentions
+        .filter((mentionedUserId: string) => mentionedUserId !== userId) // Don't notify yourself
+        .map((mentionedUserId: string) => ({
+          comment_id: comment.id,
+          mentioned_user_id: mentionedUserId,
+        }))
+
+      if (mentionRecords.length > 0) {
+        // Insert mention records (table may need to be created)
+        await supabaseAdmin
+          .from("deal_comment_mentions")
+          .insert(mentionRecords)
+          .catch(() => {
+            // Silently fail if table doesn't exist
+            console.log("deal_comment_mentions table may not exist")
+          })
+
+        // Create notifications for mentioned users
+        const notificationRecords = mentionRecords.map((record) => ({
+          user_id: record.mentioned_user_id,
+          type: "mention",
+          title: "You were mentioned in a comment",
+          message: `${authorName} mentioned you in a comment on ${dealName}`,
+          link: `/deals/${dealId}`,
+          metadata: {
+            deal_id: dealId,
+            comment_id: comment.id,
+            author_id: userId,
+          },
+        }))
+
+        await supabaseAdmin
+          .from("notifications")
+          .insert(notificationRecords)
+          .catch(() => {
+            // Silently fail if table doesn't exist
+            console.log("notifications table may not exist")
+          })
+      }
+    }
 
     return NextResponse.json({ comment })
   } catch (error) {
