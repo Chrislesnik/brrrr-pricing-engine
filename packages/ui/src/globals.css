@@ -154,11 +154,19 @@
     cursor: pointer;
   }
 
-  /* Reset focus ring to neutral color - prevent gold/warning rings on generic inputs */
+  /* Remove focus rings from inputs - prevent gold/warning rings */
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible {
-    --tw-ring-color: hsl(var(--ring));
+    --tw-ring-color: transparent;
+    --tw-ring-shadow: none;
+    box-shadow: none;
+  }
+  
+  /* Remove rings from input group wrappers */
+  [data-slot="input-group"]:has(:focus-visible) {
+    --tw-ring-color: transparent;
+    --tw-ring-shadow: none;
   }
 }
 
