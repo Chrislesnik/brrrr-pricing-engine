@@ -95,6 +95,62 @@ export function DocumentCategoryPermissionMatrix({
     setHasChanges(true);
   };
 
+  // Select all checkboxes in a column for a specific role
+  const handleColumnSelectAll = (
+    roleId: string,
+    action: ActionKey,
+    checked: boolean
+  ) => {
+    const newState = { ...value };
+    if (!newState[roleId]) return;
+
+    // Toggle all categories for this action
+    Object.keys(newState[roleId]).forEach((categoryId) => {
+      newState[roleId][categoryId] = {
+        ...newState[roleId][categoryId],
+        [action]: checked,
+      };
+    });
+
+    onChange(newState);
+    setHasChanges(true);
+  };
+
+  // Select all checkboxes in a row for a specific role
+  const handleRowSelectAll = (
+    roleId: string,
+    categoryId: string,
+    checked: boolean
+  ) => {
+    const newState = {
+      ...value,
+      [roleId]: {
+        ...value[roleId],
+        [categoryId]: {
+          can_view: checked,
+          can_insert: checked,
+          can_upload: checked,
+          can_delete: checked,
+        },
+      },
+    };
+    onChange(newState);
+    setHasChanges(true);
+  };
+
+  // Check if all checkboxes in a column are checked
+  const isColumnAllChecked = (roleId: string, action: ActionKey): boolean => {
+    if (!value[roleId]) return false;
+    return Object.values(value[roleId]).every((perms) => perms[action]);
+  };
+
+  // Check if all checkboxes in a row are checked
+  const isRowAllChecked = (roleId: string, categoryId: string): boolean => {
+    const perms = value[roleId]?.[categoryId];
+    if (!perms) return false;
+    return perms.can_view && perms.can_insert && perms.can_upload && perms.can_delete;
+  };
+
   const handleSave = () => {
     onSave();
     setHasChanges(false);
@@ -168,9 +224,25 @@ export function DocumentCategoryPermissionMatrix({
                   <TableHead className="w-[300px]">Document Category</TableHead>
                   {(Object.keys(actionLabels) as ActionKey[]).map((action) => (
                     <TableHead key={action} className="text-center">
-                      {actionLabels[action]}
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-xs font-medium">
+                          {actionLabels[action]}
+                        </span>
+                        <Checkbox
+                          checked={isColumnAllChecked(role.id, action)}
+                          onCheckedChange={(checked) =>
+                            handleColumnSelectAll(role.id, action, checked === true)
+                          }
+                          disabled={role.isSystem}
+                          className="mt-1"
+                          title={`Select all ${actionLabels[action]}`}
+                        />
+                      </div>
                     </TableHead>
                   ))}
+                  <TableHead className="w-[80px] text-center">
+                    <span className="text-xs font-medium">All</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -178,7 +250,7 @@ export function DocumentCategoryPermissionMatrix({
                   <React.Fragment key={group}>
                     {/* Group header row */}
                     <TableRow className="bg-muted/50">
-                      <TableCell colSpan={5} className="font-semibold">
+                      <TableCell colSpan={6} className="font-semibold">
                         {group}
                       </TableCell>
                     </TableRow>
@@ -215,6 +287,22 @@ export function DocumentCategoryPermissionMatrix({
                             </div>
                           </TableCell>
                         ))}
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Checkbox
+                              checked={isRowAllChecked(role.id, category.id)}
+                              onCheckedChange={(checked) =>
+                                handleRowSelectAll(
+                                  role.id,
+                                  category.id,
+                                  checked === true
+                                )
+                              }
+                              disabled={role.isSystem}
+                              title="Select all actions for this category"
+                            />
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </React.Fragment>
