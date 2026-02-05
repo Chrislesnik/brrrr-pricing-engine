@@ -60,23 +60,16 @@ async function requireAuthAndOrg() {
   if (!userId) throw new Error("Not authenticated");
   if (!orgId) throw new Error("No active organization selected");
   
+  // Always use the supabase template
   let token: string | null = null;
   try {
-    // Try to get token without template first (for development)
-    token = await getToken();
-    console.log("Got token successfully (no template)");
+    token = await getToken({ template: "supabase" });
+    console.log("Got token successfully (with supabase template)");
   } catch (error) {
-    console.error("Error getting token without template:", error);
-    // Try with supabase template
-    try {
-      token = await getToken({ template: "supabase" });
-      console.log("Got token successfully (with supabase template)");
-    } catch (templateError) {
-      console.error("Error getting Supabase token with template:", templateError);
-      throw new Error(
-        "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard."
-      );
-    }
+    console.error("Error getting Supabase token with template:", error);
+    throw new Error(
+      "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard with name 'supabase'."
+    );
   }
   
   if (!token) {
@@ -89,6 +82,15 @@ async function requireAuthAndOrg() {
 }
 
 async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: string) {
+  // Validate that this is an organization ID, not a user ID
+  if (!orgId.startsWith('org_')) {
+    throw new Error(
+      `Invalid organization ID: "${orgId}". ` +
+      `Organization IDs must start with "org_", not "user_". ` +
+      `Please check your URL and ensure you're using the correct organization ID.`
+    );
+  }
+
   // Query the existing organizations table
   const { data, error } = await supabase
     .from("organizations")

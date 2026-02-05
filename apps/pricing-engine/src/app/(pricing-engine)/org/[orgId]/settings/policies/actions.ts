@@ -60,11 +60,16 @@ async function requireAuthAndOrg() {
   if (!userId) throw new Error("Not authenticated");
   if (!orgId) throw new Error("No active organization selected");
 
+  // Always use the supabase template - don't fallback to default
   let token: string | null = null;
   try {
-    token = await getToken();
-  } catch {
     token = await getToken({ template: "supabase" });
+    console.log("Got token successfully (with supabase template)");
+  } catch (error) {
+    console.error("Error getting Supabase token with template:", error);
+    throw new Error(
+      "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard with name 'supabase'."
+    );
   }
 
   if (!token) {
@@ -80,6 +85,15 @@ async function getOrgPk(
   supabase: ReturnType<typeof supabaseForUser>,
   orgId: string
 ) {
+  // Validate that this is an organization ID, not a user ID
+  if (!orgId.startsWith('org_')) {
+    throw new Error(
+      `Invalid organization ID: "${orgId}". ` +
+      `Organization IDs must start with "org_", not "user_". ` +
+      `Please check your URL and ensure you're using the correct organization ID.`
+    );
+  }
+
   const { data, error } = await supabase
     .from("organizations")
     .select("id")
@@ -94,22 +108,14 @@ async function getOrgPk(
     );
   }
 
-  const { data: newOrg, error: insertError } = await supabase
-    .from("organizations")
-    .insert({
-      clerk_organization_id: orgId,
-      name: "New Organization",
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !newOrg?.id) {
-    throw new Error(
-      `Failed to create organization in Supabase: ${insertError?.message ?? "no id returned"}.`
-    );
-  }
-
-  return newOrg.id as string;
+  // Org doesn't exist - should be synced via Clerk webhooks
+  console.warn(`Organization ${orgId} not found in Supabase. Should be synced via webhooks.`);
+  
+  throw new Error(
+    `Organization not found in Supabase database. ` +
+    `Please ensure Clerk webhooks are properly configured to sync organizations. ` +
+    `If you just created this organization, you may need to manually sync it using the SQL script provided.`
+  );
 }
 
 function normalizeRole(value?: string) {

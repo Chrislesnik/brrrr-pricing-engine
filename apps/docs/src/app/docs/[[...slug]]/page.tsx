@@ -42,6 +42,9 @@ export default async function DocsPage({ params }: PageProps) {
               _id: true,
               _title: true,
               _slug: true,
+              _sys: {
+                slug: true,
+              },
               category: true,
               richText: {
                 json: {
