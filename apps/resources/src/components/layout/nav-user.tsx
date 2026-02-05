@@ -47,11 +47,9 @@ export function NavUser({
   const handleSignOut = async () => {
     try {
       await signOut({ redirectUrl: "/sign-in" });
-      // Force page reload to ensure clean state
       window.location.href = "/sign-in";
     } catch (error) {
       console.error("Sign out error:", error);
-      // Force redirect even if signOut fails
       window.location.href = "/sign-in";
     }
   };
@@ -68,7 +66,6 @@ export function NavUser({
             <SidebarMenuButton
               size="lg"
               className="h-12 rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-              data-testid="user-button"
             >
               <Avatar className="size-8 rounded-lg">
                 <AvatarImage src={user.avatar || undefined} alt={user.name} />

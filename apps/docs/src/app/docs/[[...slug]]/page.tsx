@@ -1,4 +1,5 @@
 import { Pump } from "basehub/react-pump";
+import { RichText } from "basehub/react-rich-text";
 import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -109,7 +110,7 @@ function DocsIndexContent({ data }: { data: any }) {
   }, {});
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-4xl p-6">
       <div className="prose prose-neutral dark:prose-invert max-w-none">
       <h1>Documentation</h1>
       <p className="text-muted-foreground">
@@ -166,7 +167,7 @@ function DocsIndexContent({ data }: { data: any }) {
 
 function DocsContent({ item }: { item: any }) {
   return (
-    <article className="mx-auto max-w-4xl">
+    <article className="mx-auto max-w-4xl p-6">
       <div className="prose prose-neutral dark:prose-invert max-w-none">
         <h1>{item._title}</h1>
         {item.category && (
@@ -175,10 +176,9 @@ function DocsContent({ item }: { item: any }) {
           </div>
         )}
         {item.richText ? (
-          <div 
-            className="mt-6"
-            dangerouslySetInnerHTML={{ __html: item.richText.json.content }}
-          />
+          <div className="mt-6">
+            <RichText>{item.richText.json.content}</RichText>
+          </div>
         ) : (
           <p className="text-muted-foreground mt-6">No content available for this document.</p>
         )}

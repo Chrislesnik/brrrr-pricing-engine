@@ -58,3 +58,6 @@ packages/*/.turbo
 /ios/
 /capacitor.config.ts
 /README-IOS.md
+
+# Clerk (contains secrets in keyless mode)
+.clerk/.tmp/**

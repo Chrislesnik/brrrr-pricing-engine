@@ -16,11 +16,10 @@ import {
   Plug,
   Sparkles,
   Inbox,
-  Apps,
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconNumber1, IconCircleDashedNumber1 } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -50,6 +49,11 @@ export interface NavItem {
 
 export const ROUTES = {
   dashboard: "/dashboard",
+  pricingEngine: {
+    scenarios: "/pricing-engine/scenarios",
+    new: "/pricing-engine/new",
+    pricing: "/pricing-engine/pricing",
+  },
   pipeline: "/pipeline",
   applications: "/applications",
   applicants: {
@@ -59,7 +63,7 @@ export const ROUTES = {
   brokers: "/brokers",
   aiAgent: "/ai-agent",
   settings: {
-    programs: "/settings",
+    programs: "/settings/programs",
     integrations: "/settings/integrations",
     company: "/settings/company",
   },
@@ -73,17 +77,22 @@ export const ROUTES = {
 
 export const NAVIGATION_CONFIG: NavItem[] = [
   {
-    title: "Main",
+    title: "Pricing Engine",
     items: [
       {
-        title: "Pipeline",
-        url: ROUTES.pipeline,
+        title: "Scenarios",
+        url: ROUTES.pricingEngine.scenarios,
         icon: IconUsers,
         shortcut: ["P"],
       },
+    ],
+  },
+  {
+    title: "Deals",
+    items: [
       {
         title: "Loan Setup",
-        icon: IconApps,
+        icon: IconCircleDashedNumber1,
         items: [
           {
             title: "Applications",
@@ -93,6 +102,11 @@ export const NAVIGATION_CONFIG: NavItem[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    title: "Contacts",
+    items: [
       {
         title: "Applicants",
         icon: IconUsers,
@@ -118,35 +132,39 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         denyOrgRoles: ["org:broker", "broker"],
         shortcut: ["K"],
       },
+    ],
+  },
+  {
+    title: "Tools",
+    items: [
       {
         title: "AI Agent",
         url: ROUTES.aiAgent,
         icon: IconSparkles,
-        shortcut: ["I"],
+        shortcut: ["AI"],
+      },
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
+      {
+        title: "Programs",
+        icon: IconApps,
+        url: ROUTES.settings.programs,
+        requiredPermission: "org:manage_programs",
       },
       {
-        title: "Settings",
-        icon: IconSettings,
-        items: [
-          {
-            title: "Programs",
-            icon: IconApps,
-            url: ROUTES.settings.programs,
-            requiredPermission: "org:manage_programs",
-          },
-          {
-            title: "Integrations",
-            icon: IconPlug,
-            url: ROUTES.settings.integrations,
-          },
-          {
-            title: "Company",
-            icon: IconUser,
-            url: ROUTES.settings.company,
-            // Visible only to broker role
-            allowOrgRoles: ["org:broker", "broker"],
-          },
-        ],
+        title: "Integrations",
+        icon: IconPlug,
+        url: ROUTES.settings.integrations,
+      },
+      {
+        title: "Company",
+        icon: IconUser,
+        url: ROUTES.settings.company,
+        // Visible only to broker role
+        allowOrgRoles: ["org:broker", "broker"],
       },
     ],
   },
@@ -171,15 +189,36 @@ export function flattenNavigation(items: NavItem[] = NAVIGATION_CONFIG): NavItem
   }, [] as NavItem[]);
 }
 
+/**
+ * Finds a navigation item by its URL path
+ */
+function findNavItemByUrl(url: string, items: NavItem[]): NavItem | null {
+  for (const item of items) {
+    if (item.url === url) return item;
+    if (item.items) {
+      const found = findNavItemByUrl(url, item.items);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Generates breadcrumb segments from pathname using navigation config for labels
+ */
 export function getBreadcrumbSegments(pathname: string): { label: string; href?: string }[] {
-  // Simple heuristic for now - split path and capitalize
-  // In a real app, you might want to map paths to labels using the config
   const segments = pathname.split("/").filter(Boolean);
+  
   return segments.map((segment, index) => {
     const href = "/" + segments.slice(0, index + 1).join("/");
-    return {
-      label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " "),
-      href,
-    };
+    
+    // Try to find matching nav item for accurate label
+    const navItem = findNavItemByUrl(href, NAVIGATION_CONFIG);
+    
+    // Use nav item title if found, otherwise capitalize segment
+    const label = navItem?.title || 
+                  segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+    
+    return { label, href };
   });
 }

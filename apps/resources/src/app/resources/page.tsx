@@ -1,13 +1,8 @@
 import { Pump } from "basehub/react-pump";
 import { draftMode } from "next/headers";
-import { ResourcesLayoutWrapper } from "@/components/resources-layout-wrapper";
 
 export default async function ResourcesPage() {
-  return (
-    <ResourcesLayoutWrapper>
-      <ResourcesPageContent />
-    </ResourcesLayoutWrapper>
-  );
+  return <ResourcesPageContent />;
 }
 
 async function ResourcesPageContent() {
@@ -37,7 +32,7 @@ async function ResourcesPageContent() {
 
 function ResourcesContent({ data }: { data: any }) {
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-6">
       <h1 className="text-4xl font-bold mb-4">Lender Resources</h1>
       <p className="text-muted-foreground mb-8">
         Underwriting guidelines, document templates, and help guides for

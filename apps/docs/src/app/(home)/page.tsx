@@ -2,14 +2,9 @@ import { Pump } from "basehub/react-pump";
 import { draftMode } from "next/headers";
 import Link from "next/link";
 import { ArrowRight, Book, Code, Webhook } from "lucide-react";
-import { HomeLayoutWrapper } from "@/components/home-layout-wrapper";
 
 export default async function DocsHomePage() {
-  return (
-    <HomeLayoutWrapper>
-      <DocsHomePageContent />
-    </HomeLayoutWrapper>
-  );
+  return <DocsHomePageContent />;
 }
 
 async function DocsHomePageContent() {
@@ -53,7 +48,7 @@ function DocsHomeContent({ data }: { data: any }) {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-16 max-w-6xl">
+        <div className="container mx-auto px-6 py-16 max-w-6xl">
           <h1 className="text-5xl font-bold mb-4">
             Developer Documentation
           </h1>
@@ -80,7 +75,7 @@ function DocsHomeContent({ data }: { data: any }) {
       </div>
 
       {/* Features Grid */}
-      <div className="container mx-auto px-4 py-16 max-w-6xl">
+      <div className="container mx-auto px-6 py-16 max-w-6xl">
         <div className="grid md:grid-cols-3 gap-6 mb-16">
           <div className="rounded-lg border bg-card p-6">
             <div className="rounded-full bg-primary/10 w-12 h-12 flex items-center justify-center mb-4">
