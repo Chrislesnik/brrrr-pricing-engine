@@ -13,11 +13,11 @@ export default async function DashboardLayout({ children }: Props) {
   const cookieStore = await cookies()
   const defaultClose = cookieStore.get("sidebar:state")?.value === "false"
   return (
-    <div className="border-grid flex flex-1 flex-col">
+    <div className="border-grid flex flex-1 flex-col h-full">
       <SWRProvider>
         <SidebarProvider defaultOpen={!defaultClose}>
           <AppSidebar variant="inset" />
-          <SidebarInset>
+          <SidebarInset className="max-h-screen">
             <SiteHeader />
             <div
               id="content"

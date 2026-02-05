@@ -54,8 +54,8 @@ export default function RootLayout({
   // #endregion
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} group/body antialiased overflow-x-hidden`}>
+    <html lang="en" suppressHydrationWarning className="h-full">
+      <body className={`${inter.className} group/body antialiased h-full overflow-hidden`}>
         <Providers>
           <LinkInAppFix />
           {children}
