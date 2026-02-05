@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import {
@@ -67,6 +67,36 @@ export function DocumentCategoryPermissionMatrix({
   saving,
 }: DocumentCategoryPermissionMatrixProps) {
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Track which roles are expanded (start with all expanded)
+  const [expandedRoles, setExpandedRoles] = useState<Record<string, boolean>>(
+    () => {
+      const initial: Record<string, boolean> = {};
+      roles.forEach((role) => {
+        initial[role.id] = true; // All expanded by default
+      });
+      return initial;
+    }
+  );
+
+  const toggleRole = (roleId: string) => {
+    setExpandedRoles((prev) => ({
+      ...prev,
+      [roleId]: !prev[roleId],
+    }));
+  };
+
+  // Toggle all roles at once
+  const toggleAllRoles = () => {
+    const allExpanded = Object.values(expandedRoles).every((v) => v === true);
+    const newState: Record<string, boolean> = {};
+    roles.forEach((role) => {
+      newState[role.id] = !allExpanded;
+    });
+    setExpandedRoles(newState);
+  };
+
+  const allExpanded = Object.values(expandedRoles).every((v) => v === true);
 
   console.log("DocumentCategoryPermissionMatrix rendering with:", {
     rolesCount: roles.length,
@@ -173,8 +203,28 @@ export function DocumentCategoryPermissionMatrix({
     <div className="space-y-6">
       {/* Action buttons */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          {hasChanges && "You have unsaved changes"}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            {hasChanges && "You have unsaved changes"}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleAllRoles}
+            className="gap-2"
+          >
+            {allExpanded ? (
+              <>
+                <ChevronsUpDown className="size-4" />
+                Collapse All
+              </>
+            ) : (
+              <>
+                <ChevronsDownUp className="size-4" />
+                Expand All
+              </>
+            )}
+          </Button>
         </div>
         <div className="flex gap-2">
           <Button
@@ -196,28 +246,47 @@ export function DocumentCategoryPermissionMatrix({
       </div>
 
       {/* Roles */}
-      {roles.map((role) => (
-        <Card key={role.id}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  {role.name}
-                  {role.isSystem && (
-                    <Badge variant="secondary" className="text-xs">
-                      System
-                    </Badge>
+      {roles.map((role) => {
+        const isExpanded = expandedRoles[role.id] ?? true;
+        
+        return (
+          <Card key={role.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {role.name}
+                    {role.isSystem && (
+                      <Badge variant="secondary" className="text-xs">
+                        System
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {role.description && (
+                    <CardDescription className="mt-1">
+                      {role.description}
+                    </CardDescription>
                   )}
-                </CardTitle>
-                {role.description && (
-                  <CardDescription className="mt-1">
-                    {role.description}
-                  </CardDescription>
-                )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleRole(role.id)}
+                  className="ml-4"
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="size-4" />
+                  ) : (
+                    <ChevronDown className="size-4" />
+                  )}
+                  <span className="ml-2 text-xs">
+                    {isExpanded ? "Collapse" : "Expand"}
+                  </span>
+                </Button>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
+            </CardHeader>
+            {isExpanded && (
+              <CardContent className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -310,8 +379,10 @@ export function DocumentCategoryPermissionMatrix({
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      ))}
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
