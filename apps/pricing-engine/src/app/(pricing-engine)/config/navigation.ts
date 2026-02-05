@@ -107,7 +107,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
             {
               title: "Applications",
               url: ROUTES.applications,
-              icon: IconFile,
+              // Icon removed for nested sub-items
               shortcut: ["A"],
             },
           ],
@@ -126,13 +126,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
           {
             title: "Borrowers",
             url: ROUTES.contacts.applicants.borrowers,
-            icon: IconUser,
+            // Icon removed for nested sub-items
             shortcut: ["B"],
           },
           {
             title: "Entities",
             url: ROUTES.contacts.applicants.entities,
-            icon: IconBuilding,
+            // Icon removed for nested sub-items
             shortcut: ["E"],
           },
         ],

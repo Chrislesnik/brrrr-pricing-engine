@@ -434,6 +434,7 @@ function ScaledTermSheetPreview({
       className="relative grid h-[72vh] w-full place-items-center overflow-x-auto overflow-y-auto overscroll-contain rounded-md bg-neutral-100/40 pt-2 pb-2 max-sm:h-[64dvh] max-sm:pt-1 max-sm:pb-1"
     >
       {/* Wrapper takes the visual scaled size so flex centering uses the real pixel box */}
+      {/* Inline styles are intentional: CSS custom properties require runtime values for dynamic scaling */}
       <div
         className="relative mx-auto justify-self-center w-[calc(816px*var(--scale))] h-[calc(1056px*var(--scale))] opacity-[var(--opacity)] transition-opacity duration-150 ease-out"
         style={{

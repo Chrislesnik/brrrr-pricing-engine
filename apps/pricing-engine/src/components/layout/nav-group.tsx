@@ -198,7 +198,7 @@ export function NavGroup({ title, items }: NavGroup) {
                                         href={child.url}
                                         onClick={() => setOpenMobile(false)}
                                       >
-                                        {child.icon && <child.icon />}
+                                        {/* Icons removed for deeply nested items (3rd level) */}
                                         <span>{child.title}</span>
                                         {child.badge && <NavBadge>{child.badge}</NavBadge>}
                                       </Link>

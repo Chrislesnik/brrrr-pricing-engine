@@ -27,10 +27,10 @@ type RuleState = {
   memberRole: string;
 };
 
-const defaultRule: RuleState = { orgRole: "owner", memberRole: "" };
+const defaultRule: RuleState = { orgRole: "owner", memberRole: "*" };
 
 const orgRoleOptions = [
-  { value: "", label: "Any org role" },
+  { value: "*", label: "Any org role" },
   { value: "owner", label: "Owner" },
   { value: "admin", label: "Admin" },
   { value: "member", label: "Member" },
@@ -38,7 +38,7 @@ const orgRoleOptions = [
 ];
 
 const memberRoleOptions = [
-  { value: "", label: "Any member role" },
+  { value: "*", label: "Any member role" },
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
   { value: "member", label: "Member" },
