@@ -29,7 +29,7 @@ export default async function PoliciesPage({
   }
 
   return (
-    <div className="w-full flex justify-center py-8">
+    <div className="w-full flex justify-center p-6 md:p-8">
       <div className="w-full max-w-6xl space-y-8">
         <div>
           <Link
