@@ -12,13 +12,13 @@ import {
 } from "@repo/ui/shadcn/table";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { cn } from "@repo/lib/cn";
-import { AddProgramDialog } from "../../../settings/components/add-program-dialog";
-import { ProgramRowActions } from "../../../settings/components/program-row-actions";
+import { AddProgramDialog } from "../../../../settings/components/add-program-dialog";
+import { ProgramRowActions } from "../../../../settings/components/program-row-actions";
 import {
   addProgramAction,
   updateProgramAction,
   deleteProgramAction,
-} from "../../../settings/programs-actions";
+} from "../../../../settings/programs-actions";
 import { Loader2 } from "lucide-react";
 
 interface ProgramRow {
