@@ -69,10 +69,9 @@ export default async function PoliciesPage({
           </Alert>
         )}
 
-          {policiesData && !error && (
-            <OrgPolicyBuilder initialPolicies={policiesData.policies} />
-          )}
-        </div>
+        {policiesData && !error && (
+          <OrgPolicyBuilder initialPolicies={policiesData.policies} />
+        )}
       </div>
     </div>
   );

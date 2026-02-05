@@ -120,9 +120,8 @@ export default async function PermissionsPage({
           </Alert>
         )}
 
-          {/* RBAC Matrix - Client Component */}
-          {matrixData && !error && <RbacMatrixClient initial={matrixData} />}
-        </div>
+        {/* RBAC Matrix - Client Component */}
+        {matrixData && !error && <RbacMatrixClient initial={matrixData} />}
       </div>
     </div>
   );
