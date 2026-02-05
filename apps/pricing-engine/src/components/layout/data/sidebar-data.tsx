@@ -81,12 +81,6 @@ export const sidebarData: SidebarData = {
           icon: IconSettings,
           items: [
             {
-              title: "Programs",
-              icon: IconApps,
-              url: "/settings",
-              requiredPermission: "org:manage_programs",
-            },
-            {
               title: "Integrations",
               icon: IconPlug,
               url: "/settings/integrations",
