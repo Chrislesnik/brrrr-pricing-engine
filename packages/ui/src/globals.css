@@ -153,6 +153,13 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+
+  /* Reset focus ring to neutral color - prevent gold/warning rings on generic inputs */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    --tw-ring-color: hsl(var(--ring));
+  }
 }
 
 /* Fumadocs Base UI Theme - aligned with Shadcn theme */
