@@ -43,7 +43,7 @@ const ORG_SETTINGS_ITEMS = [
     id: "permissions",
     label: "Permissions",
     icon: Shield,
-    path: "/documents/permissions",
+    path: "/permissions",
   },
   { id: "themes", label: "Themes", icon: Settings2, path: "" },
 ] as const;

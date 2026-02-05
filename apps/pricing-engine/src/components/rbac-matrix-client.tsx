@@ -7,7 +7,7 @@ import {
   saveDocumentRbacMatrix,
   type RbacMatrixPayload,
   type PermissionRow,
-} from "@/app/(pricing-engine)/org/[orgId]/settings/documents/permissions/actions";
+} from "@/app/(pricing-engine)/org/[orgId]/settings/permissions/actions";
 
 import { DocumentCategoryPermissionMatrix } from "@/components/documents/document-category-permission-matrix";
 
