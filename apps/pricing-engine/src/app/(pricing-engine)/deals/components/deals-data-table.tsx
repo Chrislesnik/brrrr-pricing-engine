@@ -568,7 +568,7 @@ const createColumns = (
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => router.push(`/balance-sheet/investor-portfolio/deals/${deal.id}`)}
+                onClick={() => router.push(`/deals/${deal.id}`)}
               >
                 <FolderOpenIcon
                   size={16}
@@ -578,7 +578,7 @@ const createColumns = (
                 Open
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => router.push(`/balance-sheet/investor-portfolio/deals/${deal.id}`)}
+                onClick={() => router.push(`/deals/${deal.id}`)}
               >
                 <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
                 Edit
@@ -1129,11 +1129,11 @@ export function DealsDataTable({
                   return (
                     <React.Fragment key={row.id}>
                       <TableRow
-                        className={cn(commentState.hasUnread && "bg-primary/5")}
+                        className={cn(commentState.hasUnread && "bg-primary/5", "cursor-pointer")}
                         data-state={row.getIsSelected() && "selected"}
                         onClick={(event) => {
                           if (shouldIgnoreRowClick(event.target)) return;
-                          toggleRow(dealId);
+                          router.push(`/deals/${dealId}`);
                         }}
                       >
                         {row.getVisibleCells().map((cell) => (
