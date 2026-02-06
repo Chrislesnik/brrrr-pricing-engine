@@ -19,7 +19,8 @@ import {
   updateProgramAction,
   deleteProgramAction,
 } from "../../../../settings/programs-actions";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Check } from "lucide-react";
+import { useCallback } from "react";
 
 interface ProgramRow {
   id: string;
@@ -28,6 +29,36 @@ interface ProgramRow {
   external_name: string;
   webhook_url: string | null;
   status: "active" | "inactive";
+}
+
+function CopyButton({ value, label }: { value: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }, [value]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="group flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1 text-xs font-mono hover:bg-muted transition-colors max-w-full"
+      title={`Click to copy: ${value}`}
+    >
+      <span className="truncate">{label || value}</span>
+      {copied ? (
+        <Check className="size-3 shrink-0 text-green-600" />
+      ) : (
+        <Copy className="size-3 shrink-0 text-muted-foreground group-hover:text-foreground" />
+      )}
+    </button>
+  );
 }
 
 export function ProgramsSettings() {
@@ -147,11 +178,19 @@ export function ProgramsSettings() {
           <TableBody>
             {programs.map((p) => (
               <TableRow key={p.id}>
-                <TableCell className="font-mono text-xs max-w-[100px] truncate" title={p.id}>{p.id}</TableCell>
+                <TableCell className="max-w-[120px]">
+                  <CopyButton value={p.id} label={p.id.slice(0, 8) + "..."} />
+                </TableCell>
                 <TableCell className="uppercase">{p.loan_type}</TableCell>
                 <TableCell className="font-medium">{p.internal_name}</TableCell>
                 <TableCell>{p.external_name}</TableCell>
-                <TableCell className="max-w-[200px] truncate" title={p.webhook_url ?? ""}>{p.webhook_url ?? ""}</TableCell>
+                <TableCell className="max-w-[250px]">
+                  {p.webhook_url ? (
+                    <CopyButton value={p.webhook_url} />
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant="outline"
