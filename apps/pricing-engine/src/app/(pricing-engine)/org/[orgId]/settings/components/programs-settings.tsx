@@ -147,11 +147,11 @@ export function ProgramsSettings() {
           <TableBody>
             {programs.map((p) => (
               <TableRow key={p.id}>
-                <TableCell className="font-mono text-xs">{p.id}</TableCell>
+                <TableCell className="font-mono text-xs max-w-[100px] truncate" title={p.id}>{p.id}</TableCell>
                 <TableCell className="uppercase">{p.loan_type}</TableCell>
                 <TableCell className="font-medium">{p.internal_name}</TableCell>
                 <TableCell>{p.external_name}</TableCell>
-                <TableCell className="truncate">{p.webhook_url ?? ""}</TableCell>
+                <TableCell className="max-w-[200px] truncate" title={p.webhook_url ?? ""}>{p.webhook_url ?? ""}</TableCell>
                 <TableCell>
                   <Badge
                     variant="outline"
