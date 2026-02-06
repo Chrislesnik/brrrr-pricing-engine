@@ -150,7 +150,7 @@ export function EditProgramDialog({ open, onOpenChange, program, action, orgId }
           <DialogDescription>Update the fields and click Save.</DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto">
-          <div className="grid gap-3 py-2">
+          <div className="grid gap-3 p-4">
           <Label htmlFor="id">ID</Label>
           <Input id="id" value={program.id} readOnly className="font-mono text-xs" />
 

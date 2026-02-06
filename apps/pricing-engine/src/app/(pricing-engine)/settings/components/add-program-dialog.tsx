@@ -101,7 +101,7 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
             </p>
           ) : null}
           <div className="flex-1 overflow-y-auto">
-            <div className="grid gap-3 py-2">
+            <div className="grid gap-3 p-4">
             <Label htmlFor="loanType">Loan Type</Label>
             <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
               <SelectTrigger id="loanType">
