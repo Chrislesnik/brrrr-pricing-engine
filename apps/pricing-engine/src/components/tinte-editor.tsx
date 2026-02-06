@@ -733,6 +733,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
   }, []);
 
   // Apply theme CSS to DOM for preview (without saving)
+  // Merges with current theme to avoid losing any tokens
   const applyThemePreview = useCallback((themeToApply: ShadcnTheme) => {
     const styleId = "tinte-dynamic-theme";
     let styleElement = document.getElementById(styleId) as HTMLStyleElement;
@@ -743,11 +744,14 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       document.head.appendChild(styleElement);
     }
 
+    // Filter out undefined/invalid values
     const lightTokens = Object.entries(themeToApply.light)
+      .filter(([_, value]) => value && value !== "undefined" && !value.includes("undefined"))
       .map(([key, value]) => `  --${key}: ${value};`)
       .join("\n");
 
     const darkTokens = Object.entries(themeToApply.dark)
+      .filter(([_, value]) => value && value !== "undefined" && !value.includes("undefined"))
       .map(([key, value]) => `  --${key}: ${value};`)
       .join("\n");
 
@@ -772,16 +776,28 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       }
 
       if (shadcnTheme) {
-        // Convert all colors to hex format
-        const lightHex: ShadcnTokens = {};
-        const darkHex: ShadcnTokens = {};
+        // Convert all colors to hex format, keeping current theme as base
+        const currentTheme = themeRef.current;
+        const lightHex: ShadcnTokens = { ...currentTheme.light };
+        const darkHex: ShadcnTokens = { ...currentTheme.dark };
 
+        // Overlay the new theme values
         Object.entries(shadcnTheme.light).forEach(([key, value]) => {
-          lightHex[key] = convertToHex(value);
+          if (value) {
+            const hexValue = convertToHex(value);
+            if (hexValue && hexValue !== "undefined" && !hexValue.includes("undefined")) {
+              lightHex[key] = hexValue;
+            }
+          }
         });
 
         Object.entries(shadcnTheme.dark).forEach(([key, value]) => {
-          darkHex[key] = convertToHex(value);
+          if (value) {
+            const hexValue = convertToHex(value);
+            if (hexValue && hexValue !== "undefined" && !hexValue.includes("undefined")) {
+              darkHex[key] = hexValue;
+            }
+          }
         });
 
         const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
