@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@repo/ui/shadcn/switch";
+import { Badge } from "@repo/ui/shadcn/badge";
 import {
   Select,
   SelectContent,
