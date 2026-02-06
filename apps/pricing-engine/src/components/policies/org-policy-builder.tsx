@@ -200,54 +200,67 @@ export default function OrgPolicyBuilder({
 
             <div className="space-y-4">
               {rules.map((rule, index) => (
-                <div
-                  key={`rule-${index}`}
-                  className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_1fr_auto]"
-                >
-                  <div className="space-y-2">
-                    <Label>Organization type</Label>
-                    <Select
-                      value={rule.orgType}
-                      onValueChange={(value) =>
-                        updateRule(index, { orgType: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any organization" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {orgTypeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div key={`rule-${index}`} className="relative">
+                  {index > 0 && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                      <Badge variant="secondary" className="font-mono text-xs bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                        OR
+                      </Badge>
+                    </div>
+                  )}
+                  <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto]">
+                    <div className="space-y-2">
+                      <Label>Organization type</Label>
+                      <Select
+                        value={rule.orgType}
+                        onValueChange={(value) =>
+                          updateRule(index, { orgType: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Any organization" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {orgTypeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>Organization role</Label>
-                    <Select
-                      value={rule.orgRole}
-                      onValueChange={(value) =>
-                        updateRule(index, { orgRole: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any org role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {orgRoleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="flex items-end pb-2">
+                      <Badge variant="outline" className="font-mono text-xs">AND</Badge>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>Member role</Label>
+                    <div className="space-y-2">
+                      <Label>Organization role</Label>
+                      <Select
+                        value={rule.orgRole}
+                        onValueChange={(value) =>
+                          updateRule(index, { orgRole: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Any org role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {orgRoleOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-end pb-2">
+                      <Badge variant="outline" className="font-mono text-xs">AND</Badge>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Member role</Label>
                     <Select
                       value={rule.memberRole}
                       onValueChange={(value) =>
@@ -267,7 +280,7 @@ export default function OrgPolicyBuilder({
                     </Select>
                   </div>
 
-                  <div className="flex items-start justify-end">
+                  <div className="flex items-end justify-end pb-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -276,6 +289,7 @@ export default function OrgPolicyBuilder({
                     >
                       Remove
                     </Button>
+                  </div>
                   </div>
                 </div>
               ))}
