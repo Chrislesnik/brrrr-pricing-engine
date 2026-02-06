@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Save, RotateCcw, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Save, RotateCcw, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import {
@@ -12,6 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/shadcn/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@repo/ui/shadcn/collapsible";
 import {
   Table,
   TableBody,
@@ -255,49 +260,46 @@ export function DocumentCategoryPermissionMatrix({
         const isExpanded = expandedRoles[role.id] ?? true;
         
         return (
-          <Card key={role.id}>
-            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => toggleRole(role.id)}>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    {role.name}
-                    {role.isSystem && (
-                      <Badge variant="secondary" className="text-xs">
-                        System
-                      </Badge>
+          <Collapsible
+            key={role.id}
+            open={isExpanded}
+            onOpenChange={() => toggleRole(role.id)}
+          >
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      {role.name}
+                      {role.isSystem && (
+                        <Badge variant="secondary" className="text-xs">
+                          System
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground font-normal ml-2">
+                        ({categories.length} categories)
+                      </span>
+                    </CardTitle>
+                    {role.description && (
+                      <CardDescription className="mt-1">
+                        {role.description}
+                      </CardDescription>
                     )}
-                    <span className="text-xs text-muted-foreground font-normal ml-2">
-                      ({categories.length} categories)
-                    </span>
-                  </CardTitle>
-                  {role.description && (
-                    <CardDescription className="mt-1">
-                      {role.description}
-                    </CardDescription>
-                  )}
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                    >
+                      <ChevronsUpDown className="size-4" />
+                      <span className="sr-only">Toggle permissions</span>
+                    </Button>
+                  </CollapsibleTrigger>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleRole(role.id);
-                  }}
-                >
-                  {isExpanded ? (
-                    <ChevronUp className="size-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="size-4 text-muted-foreground" />
-                  )}
-                  <span className="sr-only">
-                    {isExpanded ? "Collapse" : "Expand"}
-                  </span>
-                </Button>
-              </div>
-            </CardHeader>
-            {isExpanded && (
-              <CardContent className="overflow-x-auto">
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -389,9 +391,10 @@ export function DocumentCategoryPermissionMatrix({
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-            )}
-          </Card>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         );
       })}
     </div>
