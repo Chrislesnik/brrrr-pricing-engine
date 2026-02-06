@@ -226,9 +226,9 @@ export default function OrgPolicyBuilder({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium">Allow rules (OR)</h3>
+                <h3 className="text-sm font-medium">OR if user matches any rule:</h3>
                 <p className="text-xs text-muted-foreground">
-                  Each rule is an AND of: organization type + org role + member role.
+                  Each rule is an AND of: organization type + org role + member role
                 </p>
               </div>
               <Button variant="outline" size="sm" onClick={addRule}>
