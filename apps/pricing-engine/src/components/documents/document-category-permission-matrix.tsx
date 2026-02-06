@@ -217,20 +217,19 @@ export function DocumentCategoryPermissionMatrix({
           )}
           {!hasChanges && (
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
               onClick={toggleAllRoles}
-              className="gap-2 text-muted-foreground hover:text-foreground"
+              className="gap-2"
             >
               {allExpanded ? (
                 <>
                   <ChevronsUpDown className="size-4" />
-                  Collapse All Roles
+                  Collapse All
                 </>
               ) : (
                 <>
                   <ChevronsDownUp className="size-4" />
-                  Expand All Roles
+                  Expand All
                 </>
               )}
             </Button>
