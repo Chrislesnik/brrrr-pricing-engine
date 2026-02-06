@@ -14,6 +14,8 @@ import {
   Users,
   Globe,
   Shield,
+  ShieldCheck,
+  Palette,
   ChevronRight,
   ArrowRightLeft,
   FileCode2,
@@ -39,13 +41,15 @@ const ORG_SETTINGS_ITEMS = [
   { id: "general", label: "General", icon: Building2, path: "" },
   { id: "members", label: "Members", icon: Users, path: "" },
   { id: "domains", label: "Domains", icon: Globe, path: "" },
+  { id: "programs", label: "Programs", icon: Settings2, path: "?tab=programs" },
   {
     id: "permissions",
     label: "Permissions",
     icon: Shield,
     path: "/permissions",
   },
-  { id: "themes", label: "Themes", icon: Settings2, path: "" },
+  { id: "policies", label: "Policies", icon: ShieldCheck, path: "/policies" },
+  { id: "themes", label: "Themes", icon: Palette, path: "" },
 ] as const;
 
 export function PlatformSettingsPopover({
