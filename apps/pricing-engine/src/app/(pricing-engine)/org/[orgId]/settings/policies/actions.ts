@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 export type PolicyRuleInput = {
   orgRole?: string;
   memberRole?: string;
+  orgType?: string; // "any" | "internal" | "external"
 };
 
 export type PolicyDefinitionInput = {

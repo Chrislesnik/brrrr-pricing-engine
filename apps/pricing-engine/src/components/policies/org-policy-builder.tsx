@@ -25,9 +25,14 @@ import { Separator } from "@repo/ui/shadcn/separator";
 type RuleState = {
   orgRole: string;
   memberRole: string;
+  orgType: string;
 };
 
-const defaultRule: RuleState = { orgRole: "owner", memberRole: "*" };
+const defaultRule: RuleState = { 
+  orgRole: "owner", 
+  memberRole: "*",
+  orgType: "any"
+};
 
 const orgRoleOptions = [
   { value: "*", label: "Any org role" },
@@ -42,6 +47,12 @@ const memberRoleOptions = [
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
   { value: "member", label: "Member" },
+];
+
+const orgTypeOptions = [
+  { value: "any", label: "Any organization" },
+  { value: "internal", label: "Internal only" },
+  { value: "external", label: "External only" },
 ];
 
 export default function OrgPolicyBuilder({
@@ -199,7 +210,7 @@ export default function OrgPolicyBuilder({
               <div>
                 <h3 className="text-sm font-medium">Allow rules (OR)</h3>
                 <p className="text-xs text-muted-foreground">
-                  Each rule is an AND between org role and member role.
+                  Each rule is an AND of: organization type + org role + member role.
                 </p>
               </div>
               <Button variant="outline" size="sm" onClick={addRule}>
@@ -211,8 +222,29 @@ export default function OrgPolicyBuilder({
               {rules.map((rule, index) => (
                 <div
                   key={`rule-${index}`}
-                  className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_auto]"
+                  className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_1fr_auto]"
                 >
+                  <div className="space-y-2">
+                    <Label>Organization type</Label>
+                    <Select
+                      value={rule.orgType}
+                      onValueChange={(value) =>
+                        updateRule(index, { orgType: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Any organization" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Organization role</Label>
                     <Select
