@@ -24,10 +24,11 @@ export async function getMemberRoles(): Promise<{ roles: MemberRole[] }> {
   const orgUuid = await getOrgUuidFromClerkId(orgId);
   if (!orgUuid) throw new Error("Organization not found");
 
+  // Fetch both global roles (organization_id IS NULL) and org-specific roles
   const { data, error } = await supabaseAdmin
     .from("organization_member_roles")
     .select("*")
-    .eq("organization_id", orgUuid)
+    .or(`organization_id.is.null,organization_id.eq.${orgUuid}`)
     .order("display_order", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -65,7 +66,7 @@ export async function createMemberRole(input: {
   const { error } = await supabaseAdmin
     .from("organization_member_roles")
     .insert({
-      organization_id: orgUuid,
+      organization_id: input.isGlobal ? null : orgUuid,
       role_code: cleanCode,
       role_name: input.roleName,
       description: input.description || null,

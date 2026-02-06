@@ -13,10 +13,11 @@ export async function getMemberRolesForPolicies(): Promise<
   const orgUuid = await getOrgUuidFromClerkId(orgId);
   if (!orgUuid) return [{ value: "*", label: "Any member role" }];
 
+  // Fetch both global roles (organization_id IS NULL) and org-specific roles
   const { data } = await supabaseAdmin
     .from("organization_member_roles")
-    .select("role_code, role_name")
-    .eq("organization_id", orgUuid)
+    .select("role_code, role_name, organization_id")
+    .or(`organization_id.is.null,organization_id.eq.${orgUuid}`)
     .eq("is_active", true)
     .order("display_order", { ascending: true });
 
@@ -26,7 +27,9 @@ export async function getMemberRolesForPolicies(): Promise<
     options.push(
       ...data.map((role) => ({
         value: role.role_code,
-        label: role.role_name,
+        label: role.organization_id 
+          ? `${role.role_name} (Org)` 
+          : role.role_name, // Show "(Org)" suffix for org-specific roles
       }))
     );
   }

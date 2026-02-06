@@ -55,6 +55,7 @@ export function MemberRolesSettings() {
   const [roleName, setRoleName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [isGlobal, setIsGlobal] = useState(false);
 
   // Load roles
   useEffect(() => {
@@ -112,6 +113,7 @@ export function MemberRolesSettings() {
           roleName: roleName.trim(),
           description: description.trim(),
           isActive,
+          isGlobal,
         });
         toast({ title: "Role created successfully" });
       }
@@ -157,6 +159,7 @@ export function MemberRolesSettings() {
     setRoleName("");
     setDescription("");
     setIsActive(true);
+    setIsGlobal(false);
   }
 
   return (
@@ -223,7 +226,14 @@ export function MemberRolesSettings() {
                         </code>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {role.role_name}
+                        <div className="flex items-center gap-2">
+                          {role.role_name}
+                          {!role.organization_id && (
+                            <Badge variant="outline" className="text-xs">
+                              Global
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-md">
                         {role.description || "—"}
@@ -321,6 +331,21 @@ export function MemberRolesSettings() {
                 rows={3}
               />
             </div>
+
+            {!editingRole && (
+              <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/50">
+                <Switch
+                  checked={isGlobal}
+                  onCheckedChange={setIsGlobal}
+                />
+                <div>
+                  <Label className="cursor-pointer">Global Role</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Available to all organizations (leave unchecked for org-specific)
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <Switch
