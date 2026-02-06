@@ -141,7 +141,8 @@ export function OrgThemeLoader() {
           .map(([key, value]) => `  --${key}: ${convertCssValue(key, value)};`)
           .join("\n")
 
-        styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`
+        // Use html selector for higher specificity than :root in globals.css
+        styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`
       } catch (error) {
         console.error("Failed to load organization theme:", error)
       }

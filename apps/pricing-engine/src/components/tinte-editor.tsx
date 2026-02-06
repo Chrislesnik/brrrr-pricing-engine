@@ -478,6 +478,15 @@ const STATUS_TOKEN_FALLBACKS: Record<string, { light: string; dark: string }> = 
   "highlight": { light: "#f59e0b", dark: "#fbbf24" },         // amber
   "highlight-foreground": { light: "#000000", dark: "#000000" },
   "highlight-muted": { light: "#fef3c7", dark: "#422006" },
+  // Sidebar tokens (fallback when not derived from theme)
+  "sidebar-background": { light: "#fafafa", dark: "#171717" },
+  "sidebar-foreground": { light: "#0a0a0a", dark: "#fafafa" },
+  "sidebar-primary": { light: "#18181b", dark: "#fafafa" },
+  "sidebar-primary-foreground": { light: "#fafafa", dark: "#18181b" },
+  "sidebar-accent": { light: "#f4f4f5", dark: "#27272a" },
+  "sidebar-accent-foreground": { light: "#18181b", dark: "#fafafa" },
+  "sidebar-border": { light: "#e4e4e7", dark: "#27272a" },
+  "sidebar-ring": { light: "#3b82f6", dark: "#3b82f6" },
 };
 
 /**
@@ -599,6 +608,74 @@ function deriveStatusColors(
   return derived;
 }
 
+// Derive sidebar tokens from main theme tokens
+function deriveSidebarTokens(tokens: ShadcnTokens, mode: "light" | "dark"): ShadcnTokens {
+  const derived: ShadcnTokens = {};
+  
+  // sidebar-background: Use muted or a slightly different shade of background
+  if (!tokens["sidebar-background"]) {
+    if (tokens.muted) {
+      derived["sidebar-background"] = tokens.muted;
+    } else if (tokens.background) {
+      // Slightly darken/lighten the background
+      try {
+        const color = parse(tokens.background);
+        if (color) {
+          const rgbColor = rgb(color);
+          if (rgbColor) {
+            const factor = mode === "light" ? 0.02 : 0.05;
+            derived["sidebar-background"] = formatHex({
+              mode: "rgb",
+              r: mode === "light" ? Math.max(0, rgbColor.r - factor) : Math.min(1, rgbColor.r + factor),
+              g: mode === "light" ? Math.max(0, rgbColor.g - factor) : Math.min(1, rgbColor.g + factor),
+              b: mode === "light" ? Math.max(0, rgbColor.b - factor) : Math.min(1, rgbColor.b + factor),
+            }) || tokens.background;
+          }
+        }
+      } catch {
+        derived["sidebar-background"] = tokens.background;
+      }
+    }
+  }
+  
+  // sidebar-foreground: Use foreground
+  if (!tokens["sidebar-foreground"] && tokens.foreground) {
+    derived["sidebar-foreground"] = tokens.foreground;
+  }
+  
+  // sidebar-primary: Use primary
+  if (!tokens["sidebar-primary"] && tokens.primary) {
+    derived["sidebar-primary"] = tokens.primary;
+  }
+  
+  // sidebar-primary-foreground: Use primary-foreground
+  if (!tokens["sidebar-primary-foreground"] && tokens["primary-foreground"]) {
+    derived["sidebar-primary-foreground"] = tokens["primary-foreground"];
+  }
+  
+  // sidebar-accent: Use accent or muted
+  if (!tokens["sidebar-accent"]) {
+    derived["sidebar-accent"] = tokens.accent || tokens.muted;
+  }
+  
+  // sidebar-accent-foreground: Use accent-foreground
+  if (!tokens["sidebar-accent-foreground"] && tokens["accent-foreground"]) {
+    derived["sidebar-accent-foreground"] = tokens["accent-foreground"];
+  }
+  
+  // sidebar-border: Use border
+  if (!tokens["sidebar-border"] && tokens.border) {
+    derived["sidebar-border"] = tokens.border;
+  }
+  
+  // sidebar-ring: Use ring or primary
+  if (!tokens["sidebar-ring"]) {
+    derived["sidebar-ring"] = tokens.ring || tokens.primary;
+  }
+  
+  return derived;
+}
+
 // Ensure theme has all status tokens - derive from theme or use fallbacks
 function ensureStatusTokens(theme: ShadcnTheme): ShadcnTheme {
   const result: ShadcnTheme = {
@@ -610,6 +687,10 @@ function ensureStatusTokens(theme: ShadcnTheme): ShadcnTheme {
   const derivedLight = deriveStatusColors(result.light, "light");
   const derivedDark = deriveStatusColors(result.dark, "dark");
   
+  // Derive sidebar tokens from main theme
+  const sidebarLight = deriveSidebarTokens(result.light, "light");
+  const sidebarDark = deriveSidebarTokens(result.dark, "dark");
+  
   // Apply derived colors first (if available)
   for (const [token, value] of Object.entries(derivedLight)) {
     if (!result.light[token] && value) {
@@ -617,6 +698,18 @@ function ensureStatusTokens(theme: ShadcnTheme): ShadcnTheme {
     }
   }
   for (const [token, value] of Object.entries(derivedDark)) {
+    if (!result.dark[token] && value) {
+      result.dark[token] = value;
+    }
+  }
+  
+  // Apply derived sidebar tokens
+  for (const [token, value] of Object.entries(sidebarLight)) {
+    if (!result.light[token] && value) {
+      result.light[token] = value;
+    }
+  }
+  for (const [token, value] of Object.entries(sidebarDark)) {
     if (!result.dark[token] && value) {
       result.dark[token] = value;
     }
@@ -695,6 +788,10 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     if (!styleElement) {
       styleElement = document.createElement("style");
       styleElement.id = styleId;
+      // Append to end of head to ensure highest cascade priority
+      document.head.appendChild(styleElement);
+    } else {
+      // Move to end of head to ensure it takes priority
       document.head.appendChild(styleElement);
     }
 
@@ -710,7 +807,8 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       .join("\n");
 
     if (lightTokens || darkTokens) {
-      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+      // Use html selector for higher specificity than :root in globals.css
+      styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`;
     }
   }, []);
 
@@ -871,7 +969,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
 
-      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+      styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`;
 
       // Auto-save to Supabase when applying from AI Agent
       if (onSave) {
@@ -1086,7 +1184,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       const darkTokens = Object.entries(initialTheme.dark)
         .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
-      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+      styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`;
     } else if (!initializedRef.current) {
       initializedRef.current = true;
       loadTheme();
@@ -1279,7 +1377,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
 
-      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+      styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`;
 
       // If onSave callback provided, persist to backend
       if (onSave) {
