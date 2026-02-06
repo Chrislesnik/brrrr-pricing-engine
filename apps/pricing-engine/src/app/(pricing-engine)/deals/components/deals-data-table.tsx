@@ -79,6 +79,7 @@ import {
   FolderOpenIcon,
   MessageCircle,
   Send,
+  ChevronRight as ChevronRightIcon,
 } from "lucide-react";
 import {
   Select,
@@ -96,6 +97,7 @@ import {
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
 import { MentionTextarea, CommentWithMentions, extractMentions } from "./mention-textarea";
+import { DealTaskTracker } from "./deal-task-tracker";
 
 // Extended type with joined data
 interface DealWithRelations {
@@ -238,7 +240,7 @@ function CommentThread({
 // Draggable Header Component
 const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   const columnId = header.column.id;
-  const isFixedColumn = columnId === "select" || columnId === "actions";
+  const isFixedColumn = columnId === "select" || columnId === "expand" || columnId === "actions";
 
   const { attributes, isDragging, listeners, setNodeRef, transform } =
     useSortable({
@@ -288,6 +290,8 @@ const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
 
 const createColumns = (
   router: { push: (path: string) => void },
+  expandedRows: Set<string>,
+  toggleRow: (dealId: string) => void,
   openCommentsSheet: (dealId: string) => void,
   rowComments: Record<
     string,
@@ -317,6 +321,33 @@ const createColumns = (
         />
       </div>
     ),
+    enableSorting: false,
+    enableHiding: false,
+    size: 50,
+  },
+  {
+    id: "expand",
+    header: () => null,
+    cell: ({ row }) => {
+      const dealId = String(row.original.id);
+      const isExpanded = expandedRows.has(dealId);
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => toggleRow(dealId)}
+          data-ignore-row-click
+        >
+          <ChevronRightIcon
+            className={cn(
+              "h-4 w-4 transition-transform duration-200",
+              isExpanded && "rotate-90"
+            )}
+          />
+        </Button>
+      );
+    },
     enableSorting: false,
     enableHiding: false,
     size: 50,
@@ -594,12 +625,14 @@ export function DealsDataTable({
     comments: true, // Show comments column
   });
   const [rowSelection, setRowSelection] = useState({});
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
   const [rowComments, setRowComments] = useState<
     Record<string, { comments: Comment[]; hasUnread: boolean; count: number }>
   >({});
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([
     "select",
+    "expand",
     "loan_number",
     "property_address",
     "deal_stage_2",
@@ -702,6 +735,18 @@ export function DealsDataTable({
 
   const router = useRouter();
   
+  const toggleRow = React.useCallback((dealId: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(dealId)) {
+        next.delete(dealId);
+      } else {
+        next.add(dealId);
+      }
+      return next;
+    });
+  }, []);
+
   const openCommentsSheet = React.useCallback(
     (dealId: string) => {
       setCommentsSheetDealId(dealId);
@@ -715,8 +760,8 @@ export function DealsDataTable({
   }, []);
 
   const columns = React.useMemo(
-    () => createColumns(router, openCommentsSheet, rowComments),
-    [router, openCommentsSheet, rowComments]
+    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, rowComments),
+    [router, expandedRows, toggleRow, openCommentsSheet, rowComments]
   );
 
   // Set up sensors for drag and drop
@@ -871,8 +916,10 @@ export function DealsDataTable({
       // Don't allow dragging fixed columns
       if (
         activeId === "select" ||
+        activeId === "expand" ||
         activeId === "actions" ||
         overId === "select" ||
+        overId === "expand" ||
         overId === "actions"
       ) {
         return;
@@ -885,16 +932,23 @@ export function DealsDataTable({
         // Create new order but preserve fixed positions
         const newOrder = arrayMove(prev, oldIndex, newIndex);
 
-        // Ensure select is first and actions is last
+        // Ensure select and expand are first, actions is last
         const finalOrder = newOrder.filter(
-          (id) => id !== "select" && id !== "actions"
+          (id) => id !== "select" && id !== "expand" && id !== "actions"
         );
-        const result = ["select", ...finalOrder, "actions"];
+        const result = ["select", "expand", ...finalOrder, "actions"];
 
         return result;
       });
     }
   }
+
+  const shouldIgnoreRowClick = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return !!target.closest(
+      "button, a, input, textarea, select, [data-ignore-row-click]"
+    );
+  };
 
   if (loading) {
     return (
@@ -1047,7 +1101,7 @@ export function DealsDataTable({
                 <TableRow key={headerGroup.id} className="bg-muted">
                   <SortableContext
                     items={columnOrder.filter(
-                      (id) => id !== "select" && id !== "actions"
+                      (id) => id !== "select" && id !== "expand" && id !== "actions"
                     )}
                     strategy={horizontalListSortingStrategy}
                   >
@@ -1066,26 +1120,46 @@ export function DealsDataTable({
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => {
                   const dealId = String(row.original.id);
+                  const isExpanded = expandedRows.has(dealId);
                   const commentState = rowComments[dealId] ?? {
                     comments: [],
                     hasUnread: false,
                     count: 0,
                   };
                   return (
-                    <TableRow
-                      key={row.id}
-                      className={cn(commentState.hasUnread && "bg-primary/5")}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="text-left">
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
+                    <React.Fragment key={row.id}>
+                      <TableRow
+                        className={cn(commentState.hasUnread && "bg-primary/5")}
+                        data-state={row.getIsSelected() && "selected"}
+                        onClick={(event) => {
+                          if (shouldIgnoreRowClick(event.target)) return;
+                          toggleRow(dealId);
+                        }}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className="text-left">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell className="p-0" colSpan={row.getVisibleCells().length}>
+                            <div
+                              className={cn(
+                                "overflow-hidden transition-all duration-300 ease-in-out",
+                                isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+                              )}
+                            >
+                              <DealTaskTracker dealId={dealId} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
                   );
                 })
               ) : (
