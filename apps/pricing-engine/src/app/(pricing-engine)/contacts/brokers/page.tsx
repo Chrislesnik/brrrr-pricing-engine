@@ -26,10 +26,10 @@ export default async function BrokersPage() {
     const s = (status || "").toLowerCase()
     const color =
       s === "active"
-        ? "bg-green-100 text-green-800 border-green-200"
+        ? "bg-success-muted text-success border-success/30"
         : s === "inactive"
-        ? "bg-red-100 text-red-800 border-red-200"
-        : "bg-yellow-100 text-yellow-800 border-yellow-200" // pending
+        ? "bg-danger-muted text-danger border-danger/30"
+        : "bg-warning-muted text-warning-foreground border-warning/30" // pending
     return <Badge variant="outline" className={cn("capitalize", color)}>{s || "-"}</Badge>
   }
   const permissionBadge = (perm: string) => {
@@ -37,7 +37,7 @@ export default async function BrokersPage() {
     const color =
       p === "custom"
         ? "bg-purple-100 text-purple-800 border-purple-200"
-        : "bg-yellow-100 text-yellow-800 border-yellow-200" // default
+        : "bg-highlight-muted text-highlight-foreground border-highlight/30" // default
     return <Badge variant="outline" className={cn("uppercase", color)}>{(p || "-").toUpperCase()}</Badge>
   }
 

@@ -77,14 +77,13 @@ export async function addProgramAction(formData: FormData) {
   const { data: inserted, error } = await supabaseAdmin
     .from("programs")
     .insert({
-    loan_type: loanType,
-    internal_name: internalName,
-    external_name: externalName,
-    webhook_url: webhookUrl || null,
-    status,
-    user_id: userId,
-    organization_id: orgUuid,
-  })
+      loan_type: loanType,
+      internal_name: internalName,
+      external_name: externalName,
+      webhook_url: webhookUrl || null,
+      status,
+      user_id: userId,
+    })
     .select("id")
     .single()
   if (error) return { ok: false, error: error.message }
@@ -196,7 +195,6 @@ export async function updateProgramAction(formData: FormData) {
       status,
     })
     .eq("id", id)
-    .eq("organization_id", orgUuid)
 
   if (error) {
     return { ok: false, error: error.message }
@@ -316,7 +314,7 @@ export async function deleteProgramAction(formData: FormData) {
     return { ok: false, error: "Unable to resolve organization. Try reloading and selecting an org." }
   }
 
-  const { error } = await supabaseAdmin.from("programs").delete().eq("id", id).eq("organization_id", orgUuid)
+  const { error } = await supabaseAdmin.from("programs").delete().eq("id", id)
   if (error) {
     return { ok: false, error: error.message }
   }

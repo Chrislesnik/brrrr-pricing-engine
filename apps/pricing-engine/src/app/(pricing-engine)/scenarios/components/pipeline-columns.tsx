@@ -23,6 +23,8 @@ import {
   Loader2,
   MousePointerClick,
   Clipboard,
+  CircleCheck,
+  CircleX,
 } from "lucide-react"
 import Link from "next/link"
 import { createSupabaseBrowser } from "@/lib/supabase-browser"
@@ -71,9 +73,9 @@ import { DataTableColumnHeader } from "../../users/components/data-table-column-
 import { LoanRow } from "../data/fetch-loans"
 import { AssignMembersDialog } from "./assign-members-dialog"
 
-const statusClass: Record<string, string> = {
-  active: "bg-green-100 text-green-800 border-green-200",
-  dead: "bg-red-100 text-red-800 border-red-200",
+const statusStyles: Record<string, string> = {
+  active: "bg-success-muted text-success border-success/30",
+  inactive: "bg-danger-muted text-danger border-danger/30",
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [
@@ -383,7 +385,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
   const opposite =
-    (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
+    (localStatus ?? "").toLowerCase() === "active" ? "inactive" : "active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
   const [floifyEnabled, setFloifyEnabled] = React.useState<boolean | null>(null)
@@ -549,9 +551,17 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setStatus(opposite)}
-          >{`Set to ${opposite}`}</DropdownMenuItem>
+            className="gap-2"
+          >
+            {opposite === "active" ? (
+              <CircleCheck className="h-4 w-4 text-success" />
+            ) : (
+              <CircleX className="h-4 w-4 text-danger" />
+            )}
+            {`Set to ${opposite}`}
+          </DropdownMenuItem>
           <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
+            className="text-red-600 focus:text-red-600 gap-2"
             onSelect={(e) => {
               e.preventDefault()
               setConfirmOpen(true)
@@ -1278,12 +1288,10 @@ function StatusCell({
         onUpdate as EventListener
       )
   }, [id])
-  const badgeColor = statusClass[status] ?? ""
+  const badgeColor = statusStyles[status] ?? statusStyles.inactive
   return (
-    <div className="flex space-x-2">
-      <Badge variant="outline" className={cn("capitalize", badgeColor)}>
-        {status}
-      </Badge>
-    </div>
+    <Badge variant="outline" className={cn("capitalize", badgeColor)}>
+      {status}
+    </Badge>
   )
 }

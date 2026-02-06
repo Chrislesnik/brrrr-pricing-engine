@@ -4,7 +4,7 @@ import { Button } from "../ui/button"
 
 export default function NotFoundError() {
   return (
-    <div className="h-svh">
+    <div className="h-[100vh]">
       <div className="m-auto flex h-full w-full flex-col items-center justify-center gap-2">
         <h1 className="text-[7rem] leading-tight font-bold">404</h1>
         <span className="font-medium">Oops! Page Not Found!</span>

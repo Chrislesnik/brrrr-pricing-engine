@@ -114,10 +114,10 @@ export function TeamSwitcherV2() {
             </div>
             {!isCollapsed && (
               <div className="grid flex-1 text-left">
-                <span className="truncate text-sm font-medium">
+                <span className="truncate text-sm font-medium text-sidebar-foreground">
                   Create Organization
                 </span>
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="truncate text-xs text-sidebar-foreground/70">
                   Get started
                 </span>
               </div>
@@ -157,10 +157,10 @@ export function TeamSwitcherV2() {
                 </div>
                 {!isCollapsed && (
                   <div className="grid flex-1 text-left">
-                    <span className="truncate text-sm font-medium">
+                    <span className="truncate text-sm font-medium text-sidebar-foreground">
                       {currentOrg.name}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-sidebar-foreground/70">
                       {userRole}
                     </span>
                   </div>

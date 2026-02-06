@@ -21,10 +21,15 @@
   --destructive-foreground: 0 0% 98%;
   --info: 217 92% 61%;
   --info-foreground: 223 85% 47%;
-  --success: 142 76% 85%;
-  --success-foreground: 142 76% 36%;
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+  --success-muted: 142 76% 90%;
+  --danger: 0 84% 60%;
+  --danger-foreground: 0 0% 100%;
+  --danger-muted: 0 84% 95%;
   --warning: 38 92% 50%;
-  --warning-foreground: 33 92% 36%;
+  --warning-foreground: 0 0% 0%;
+  --warning-muted: 48 96% 89%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
   --ring: 0 0% 4%;
@@ -42,6 +47,10 @@
   --sidebar-accent-foreground: 240 5.9% 10%;
   --sidebar-border: 220 13% 91%;
   --sidebar-ring: 217.2 91.2% 59.8%;
+  /* Loader wave gradient colors */
+  --gradient-warm-1: #ff3b30;
+  --gradient-warm-2: #ff6a00;
+  --gradient-warm-3: #ffd60a;
   --box-shadow: 0px 1px 3px 0px rgb(0 0 0 / 10%),
     0px 1px 2px 0px rgb(0 0 0 / 6%);
   --brand-gradient-orange: radial-gradient(
@@ -86,10 +95,15 @@
   --destructive-foreground: 0 0% 98%;
   --info: 217 92% 61%;
   --info-foreground: 217 91% 72%;
-  --success: 142 70% 18%;
-  --success-foreground: 142 76% 75%;
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+  --success-muted: 142 70% 12%;
+  --danger: 0 63% 31%;
+  --danger-foreground: 0 0% 100%;
+  --danger-muted: 0 63% 10%;
   --warning: 38 92% 50%;
-  --warning-foreground: 42 96% 56%;
+  --warning-foreground: 0 0% 0%;
+  --warning-muted: 38 92% 15%;
   --border: 240 3.7% 15.9%;
   --input: 240 3.7% 15.9%;
   --ring: 240 4.9% 83.9%;
@@ -106,6 +120,10 @@
   --sidebar-accent-foreground: 240 4.8% 95.9%;
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-ring: 217 91.2% 59.8%;
+  /* Loader wave gradient colors */
+  --gradient-warm-1: #ff453a;
+  --gradient-warm-2: #ff7a1a;
+  --gradient-warm-3: #ffd60a;
   --brand-gradient-orange: radial-gradient(
     260.69% 202.67% at -4.83% -37.67%,
     #b71a1a 24%,
@@ -152,6 +170,58 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  /* Remove focus rings from inputs - prevent gold/warning rings */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  /* Remove rings from input group wrappers */
+  [data-slot="input-group"],
+  [data-slot="input-group"]:has(:focus-visible),
+  [data-slot="input-group"]:focus-within {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    --tw-shadow: none !important;
+    box-shadow: none !important;
+  }
+  
+  /* Remove rings from dropdown/select items */
+  [role="option"]:focus,
+  [role="option"]:focus-visible,
+  [role="menuitem"]:focus,
+  [role="menuitem"]:focus-visible,
+  [role="menuitemcheckbox"]:focus,
+  [role="menuitemcheckbox"]:focus-visible,
+  [role="menuitemradio"]:focus,
+  [role="menuitemradio"]:focus-visible,
+  [data-radix-collection-item]:focus,
+  [data-radix-collection-item]:focus-visible {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  /* Remove rings from dropdown menu trigger buttons */
+  button[aria-haspopup="menu"]:focus,
+  button[aria-haspopup="menu"]:focus-visible,
+  button[data-state="open"]:focus,
+  button[data-state="open"]:focus-visible {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
   }
 }
 

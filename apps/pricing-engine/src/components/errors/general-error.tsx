@@ -9,7 +9,7 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 
 export default function GeneralError({ className, minimal = false }: Props) {
   return (
-    <div className={cn("h-svh w-full", className)}>
+    <div className={cn("h-[100vh] w-full", className)}>
       <div className="m-auto flex h-full w-full flex-col items-center justify-center gap-2">
         {!minimal && (
           <h1 className="text-[7rem] leading-tight font-bold">500</h1>

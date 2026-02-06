@@ -60,14 +60,14 @@ import { Input } from "@repo/ui/shadcn/input"
 import { CopyButton } from "@repo/ui/custom/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
 import { IconDots } from "@tabler/icons-react"
-import { Trash2 } from "lucide-react"
+import { Trash2, CircleCheck, CircleX } from "lucide-react"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
 declare module "@tanstack/react-table" {
    
   interface ColumnMeta<TData extends RowData, TValue> {
-    className: string
+    className?: string
   }
 }
 
@@ -174,11 +174,11 @@ export function PipelineTable({ columns, data }: Props) {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0 overflow-hidden">
       <PipelineToolbar table={table} />
       {/* Desktop/tablet view */}
       <div className="rounded-md border hidden md:block overflow-x-auto">
-        <Table>
+        <Table className="min-w-[1000px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -255,12 +255,9 @@ export function PipelineTable({ columns, data }: Props) {
                 (orig as { lastName?: string; borrowerLastName?: string }).borrowerLastName
               const borrower = [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
               const status = String((orig as { status?: string }).status ?? "-").toLowerCase()
-              const badgeColor =
-                status === "active"
-                  ? "bg-green-100 text-green-800 border-green-200"
-                  : status === "dead"
-                  ? "bg-red-100 text-red-800 border-red-200"
-                  : ""
+              const badgeColor = status === "active" 
+                ? "bg-success-muted text-success border-success/30"
+                : "bg-danger-muted text-danger border-danger/30"
               return (
                 <div key={row.id} className="rounded-lg border p-3">
                   <div className="flex items-start justify-between gap-2">
@@ -283,7 +280,7 @@ export function PipelineTable({ columns, data }: Props) {
                     <div className="text-muted-foreground">
                       <span className="font-medium text-foreground">Borrower</span>: {borrower}
                     </div>
-                    <Badge variant="outline" className={`capitalize ${badgeColor}`}>
+                    <Badge variant="outline" className={cn("capitalize", badgeColor)}>
                       {status || "-"}
                     </Badge>
                   </div>
@@ -305,7 +302,7 @@ export function PipelineTable({ columns, data }: Props) {
 function MobileRowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
-  const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
+  const opposite = (localStatus ?? "").toLowerCase() === "active" ? "inactive" : "active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
   const [guarantors, setGuarantors] = React.useState<Array<{ id: string | null; name: string; email: string | null }>>([])
@@ -415,9 +412,16 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
             Assigned To
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setStatus(opposite)} className="gap-2">
+            {opposite === "active" ? (
+              <CircleCheck className="h-4 w-4 text-success" />
+            ) : (
+              <CircleX className="h-4 w-4 text-danger" />
+            )}
+            {`Set to ${opposite}`}
+          </DropdownMenuItem>
           <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
+            className="text-red-600 focus:text-red-600 gap-2"
             onSelect={(e) => {
               e.preventDefault()
               setConfirmOpen(true)

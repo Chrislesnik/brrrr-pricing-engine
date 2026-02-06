@@ -1,4 +1,4 @@
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding } from "@tabler/icons-react"
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconPalette, IconFileText } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Logo } from "@/components/logo"
@@ -81,15 +81,14 @@ export const sidebarData: SidebarData = {
           icon: IconSettings,
           items: [
             {
-              title: "Programs",
-              icon: IconApps,
-              url: "/settings",
-              requiredPermission: "org:manage_programs",
-            },
-            {
               title: "Integrations",
               icon: IconPlug,
               url: "/settings/integrations",
+            },
+            {
+              title: "Term Sheet Editor",
+              icon: IconFileText,
+              url: "/settings/term-sheet-editor",
             },
             {
               title: "Company",
@@ -97,6 +96,13 @@ export const sidebarData: SidebarData = {
               url: "/settings/company",
               // Visible only to broker role
               allowOrgRoles: ["org:broker", "broker"],
+            },
+            {
+              title: "Appearance",
+              icon: IconPalette,
+              url: "/settings/appearance",
+              // Visible only to org owners
+              allowOrgRoles: ["org:owner", "owner"],
             },
           ],
         }

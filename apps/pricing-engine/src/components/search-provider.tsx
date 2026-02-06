@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext } from "react"
+import { usePathname } from "next/navigation"
 import { CommandMenu } from "./command-menu"
 
 interface SearchContextType {
@@ -16,10 +17,14 @@ interface Props {
 }
 
 export default function SearchProvider({ children, value }: Props) {
+  const pathname = usePathname()
+  // Don't render CommandMenu on auth pages - it uses useAuth which can conflict with sign-in flow
+  const isAuthPage = pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up") || pathname?.startsWith("/test-login")
+  
   return (
     <SearchContext.Provider value={value}>
       {children}
-      <CommandMenu />
+      {!isAuthPage && <CommandMenu />}
     </SearchContext.Provider>
   )
 }

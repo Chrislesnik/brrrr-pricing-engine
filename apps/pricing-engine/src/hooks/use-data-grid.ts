@@ -149,6 +149,9 @@ function useDataGrid<TData>({
   initialState,
   ...props
 }: UseDataGridProps<TData>) {
+  // Ensure columns is always an array to prevent undefined errors
+  const safeColumns = columns ?? [];
+  
   const dir = useDirection(dirProp);
   const dataGridRef = React.useRef<HTMLDivElement>(null);
   // Track when dataGridRef is assigned to force keyboard effect re-run
@@ -165,7 +168,7 @@ function useDataGrid<TData>({
   const propsRef = useAsRef({
     ...props,
     data,
-    columns,
+    columns: safeColumns,
     initialState,
   });
 
@@ -342,15 +345,14 @@ function useDataGrid<TData>({
   );
 
   const columnIds = React.useMemo(() => {
-    if (!columns) return [];
-    return columns
+    return safeColumns
       .map((c) => {
         if (c.id) return c.id;
         if ("accessorKey" in c) return c.accessorKey as string;
         return undefined;
       })
       .filter((id): id is string => Boolean(id));
-  }, [columns]);
+  }, [safeColumns]);
 
   const navigableColumnIds = React.useMemo(() => {
     return columnIds.filter((c) => !NON_NAVIGABLE_COLUMN_IDS.includes(c));
@@ -980,6 +982,23 @@ function useDataGrid<TData>({
                         shouldSkip = true;
                       }
                     }
+                  }
+                }
+                break;
+              }
+
+              case "currency-calc": {
+                if (!pastedValue) {
+                  processedValue = "";
+                } else {
+                  // Strip currency symbols, commas, spaces - keep digits and decimal
+                  const sanitized = pastedValue.replace(/[^0-9.]/g, "");
+                  // Ensure only one decimal point
+                  const parts = sanitized.split(".");
+                  if (parts.length > 2) {
+                    processedValue = parts[0] + "." + parts.slice(1).join("");
+                  } else {
+                    processedValue = sanitized;
                   }
                 }
                 break;
@@ -2215,7 +2234,7 @@ function useDataGrid<TData>({
     return {
       ...propsRef.current,
       data,
-      columns,
+      columns: safeColumns,
       defaultColumn,
       initialState: propsRef.current.initialState,
       state: tableState,
@@ -2232,7 +2251,7 @@ function useDataGrid<TData>({
   }, [
     propsRef,
     data,
-    columns,
+    safeColumns,
     defaultColumn,
     tableState,
     dir,
@@ -2253,6 +2272,7 @@ function useDataGrid<TData>({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: columnSizingInfo and columnSizing are used for calculating the column size vars
   const columnSizeVars = React.useMemo(() => {
+    if (!table) return {};
     const headers = table.getFlatHeaders();
     const colSizes: { [key: string]: number } = {};
     for (const header of headers) {
@@ -2260,7 +2280,7 @@ function useDataGrid<TData>({
       colSizes[`--col-${header.column.id}-size`] = header.column.getSize();
     }
     return colSizes;
-  }, [table.getState().columnSizingInfo, table.getState().columnSizing]);
+  }, [table?.getState().columnSizingInfo, table?.getState().columnSizing]);
 
   const isFirefox = React.useSyncExternalStore(
     React.useCallback(() => () => {}, []),
@@ -2275,16 +2295,28 @@ function useDataGrid<TData>({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: columnPinning is used for calculating the adjustLayout
   const adjustLayout = React.useMemo(() => {
+    if (!table) return false;
     const columnPinning = table.getState().columnPinning;
     return (
       isFirefox &&
       ((columnPinning.left?.length ?? 0) > 0 ||
         (columnPinning.right?.length ?? 0) > 0)
     );
-  }, [isFirefox, table.getState().columnPinning]);
+  }, [isFirefox, table?.getState().columnPinning]);
+
+  // Safely compute row count to avoid errors when table isn't ready
+  const rowCount = React.useMemo(() => {
+    if (!table) return 0;
+    try {
+      const rowModel = table.getRowModel();
+      return rowModel?.rows?.length ?? 0;
+    } catch {
+      return 0;
+    }
+  }, [table, data]);
 
   const rowVirtualizer = useVirtualizer({
-    count: table.getRowModel().rows.length,
+    count: rowCount,
     getScrollElement: () => dataGridRef.current,
     estimateSize: () => rowHeightValue,
     overscan,
@@ -3151,7 +3183,7 @@ function useDataGrid<TData>({
     if (
       autoFocus &&
       data.length > 0 &&
-      columns?.length > 0 &&
+      safeColumns.length > 0 &&
       !currentState.focusedCell
     ) {
       if (navigableColumnIds.length > 0) {
@@ -3172,7 +3204,7 @@ function useDataGrid<TData>({
         return () => cancelAnimationFrame(rafId);
       }
     }
-  }, [store, propsRef, data, columns, navigableColumnIds, focusCell]);
+  }, [store, propsRef, data, safeColumns, navigableColumnIds, focusCell]);
 
   // Restore focus to container when virtualized cells are unmounted
   React.useEffect(() => {
@@ -3298,16 +3330,16 @@ function useDataGrid<TData>({
     return () => cancelAnimationFrame(rafId);
   }, [
     rowHeight,
-    table.getState().columnFilters,
-    table.getState().columnOrder,
-    table.getState().columnPinning,
-    table.getState().columnSizing,
-    table.getState().columnVisibility,
-    table.getState().expanded,
-    table.getState().globalFilter,
-    table.getState().grouping,
-    table.getState().rowSelection,
-    table.getState().sorting,
+    table?.getState().columnFilters,
+    table?.getState().columnOrder,
+    table?.getState().columnPinning,
+    table?.getState().columnSizing,
+    table?.getState().columnVisibility,
+    table?.getState().expanded,
+    table?.getState().globalFilter,
+    table?.getState().grouping,
+    table?.getState().rowSelection,
+    table?.getState().sorting,
   ]);
 
   // Calculate virtual values outside of child render to avoid flushSync issues
@@ -3327,7 +3359,7 @@ function useDataGrid<TData>({
       virtualTotalSize,
       virtualItems,
       measureElement,
-      columns,
+      columns: safeColumns,
       columnSizeVars,
       searchState,
       searchMatchesByRow,
@@ -3350,7 +3382,7 @@ function useDataGrid<TData>({
       virtualTotalSize,
       virtualItems,
       measureElement,
-      columns,
+      safeColumns,
       columnSizeVars,
       searchState,
       searchMatchesByRow,

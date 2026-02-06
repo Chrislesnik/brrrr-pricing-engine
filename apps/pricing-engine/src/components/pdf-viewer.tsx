@@ -35,7 +35,8 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
     const [loading, setLoading] = React.useState(true)
     const [error, setError] = React.useState<string | null>(null)
     const [highlightBox, setHighlightBox] = React.useState<BBox | null>(null)
-    const [viewportInfo, setViewportInfo] = React.useState<{ scale: number; width: number; height: number } | null>(null)
+    const [viewportInfo, setViewportInfo] = React.useState<{ scale: number; width: number; height: number; pdfHeight: number } | null>(null)
+    const viewportInfoRef = React.useRef<{ scale: number; width: number; height: number; pdfHeight: number } | null>(null)
     const [rotation, setRotation] = React.useState(0)
     const [showSearch, setShowSearch] = React.useState(false)
     const [searchQuery, setSearchQuery] = React.useState("")
@@ -51,10 +52,16 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
         if (page >= 1 && page <= totalPages) {
           setCurrentPage(page)
           setHighlightBox(bbox ?? null)
-          // Scroll to top of the PDF container
+          // Scroll to highlight after page renders
           setTimeout(() => {
-            scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-          }, 100)
+            const vInfo = viewportInfoRef.current
+            if (bbox && vInfo) {
+              const scrollY = Math.max(0, (bbox.y * vInfo.scale) - 100)
+              scrollContainerRef.current?.scrollTo({ top: scrollY, behavior: "smooth" })
+            } else {
+              scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+            }
+          }, 300)
         }
       },
       clearHighlight: () => {
@@ -132,11 +139,15 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
           canvas.width = scaledViewport.width
 
           // Store viewport info for highlight scaling
-          setViewportInfo({
+          // pdfHeight is the original PDF page height (used for Y-axis inversion)
+          const newViewportInfo = {
             scale: finalScale,
             width: viewport.width,
             height: viewport.height,
-          })
+            pdfHeight: viewport.height, // Original PDF height in points
+          }
+          setViewportInfo(newViewportInfo)
+          viewportInfoRef.current = newViewportInfo
 
           const renderContext = {
             canvasContext: context,
@@ -296,26 +307,6 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       setSearchMessage("")
     }
 
-    // Calculate highlight position based on viewport scale
-    const getHighlightStyle = (): React.CSSProperties | null => {
-      if (!highlightBox || !viewportInfo) return null
-
-      const { scale: vpScale } = viewportInfo
-      
-      return {
-        position: "absolute",
-        left: highlightBox.x * vpScale,
-        top: highlightBox.y * vpScale,
-        width: highlightBox.w * vpScale,
-        height: highlightBox.h * vpScale,
-        backgroundColor: "rgba(255, 235, 59, 0.4)",
-        border: "2px solid rgba(255, 193, 7, 0.8)",
-        borderRadius: "2px",
-        pointerEvents: "none",
-        animation: "pulse 2s ease-in-out infinite",
-      }
-    }
-
     if (loading) {
       return (
         <div className={cn("flex h-full items-center justify-center bg-muted/30", className)}>
@@ -340,18 +331,8 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       )
     }
 
-    const highlightStyle = getHighlightStyle()
-
     return (
       <div className={cn("flex h-full flex-col bg-muted/30", className)} ref={containerRef}>
-        {/* Highlight animation keyframes */}
-        <style jsx>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-          }
-        `}</style>
-
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b bg-background px-4 py-2 gap-2">
           {/* Page Navigation */}
@@ -500,8 +481,21 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
                 className="shadow-lg rounded-sm bg-white"
               />
               {/* Highlight overlay */}
-              {highlightStyle && (
-                <div style={highlightStyle} />
+              {highlightBox && viewportInfo && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    left: `${highlightBox.x * viewportInfo.scale}px`,
+                    top: `${highlightBox.y * viewportInfo.scale}px`,
+                    width: `${highlightBox.w * viewportInfo.scale}px`,
+                    height: `${highlightBox.h * viewportInfo.scale}px`,
+                    backgroundColor: 'rgba(255, 235, 59, 0.35)', // Subtle yellow
+                    border: '2px solid rgba(255, 193, 7, 0.8)', // Amber border
+                    borderRadius: '3px',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                  }}
+                />
               )}
             </div>
           </div>

@@ -37,22 +37,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // #region agent log
-  fetch("http://127.0.0.1:7248/ingest/ec0bec5e-b211-47a6-b631-2389d2cc86bc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: "debug-session",
-      runId: "run5",
-      hypothesisId: "H10",
-      location: "app/layout.tsx:40",
-      message: "root layout rendered",
-      data: {},
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
       <body className={`${inter.className} group/body antialiased h-full overflow-hidden`}>

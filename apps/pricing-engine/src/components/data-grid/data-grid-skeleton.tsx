@@ -9,7 +9,7 @@ function DataGridSkeleton({ className, ...props }: DivProps) {
     <div
       data-slot="grid-skeleton"
       className={cn(
-        "flex h-[calc(100dvh-(--spacing(16)))] w-full flex-col gap-4 has-[>[data-slot=grid-skeleton-toolbar]]:h-[calc(100dvh-(--spacing(20)))]",
+        "flex h-[calc(100vh-(--spacing(16)))] w-full flex-col gap-4 has-[>[data-slot=grid-skeleton-toolbar]]:h-[calc(100vh-(--spacing(20)))]",
         className,
       )}
       {...props}

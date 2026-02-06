@@ -37,10 +37,10 @@ export function SearchForm({
         <Button
           variant="outline"
           className={cn(
-            "inline-flex items-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input hover:text-accent-foreground px-4 py-2 bg-muted/25 text-muted-foreground hover:bg-muted/50 relative h-8 w-full justify-start rounded-md text-sm font-normal shadow-none sm:pr-12",
+            "inline-flex items-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-hidden focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 px-4 py-2 relative h-8 w-full justify-start rounded-md text-sm font-normal shadow-none sm:pr-12",
             variant === "default"
-              ? "md:w-40 lg:w-56 xl:w-64"
-              : "md:w-full lg:w-full xl:w-full",
+              ? "border border-input bg-muted/25 text-muted-foreground hover:bg-muted/50 hover:text-accent-foreground focus-visible:ring-ring md:w-40 lg:w-56 xl:w-64"
+              : "border-sidebar-border bg-sidebar-accent/50 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring md:w-full lg:w-full xl:w-full",
             variant === "sidebar" && "group-data-[collapsible=icon]:!w-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center"
           )}
           onClick={() => setOpen(true)}
@@ -61,7 +61,10 @@ export function SearchForm({
           </span>
           <kbd 
             className={cn(
-              "bg-muted pointer-events-none absolute top-[0.3rem] right-[0.3rem] hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex",
+              "pointer-events-none absolute top-[0.3rem] right-[0.3rem] hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex",
+              variant === "default" 
+                ? "bg-muted"
+                : "bg-sidebar-accent border-sidebar-border",
               variant === "sidebar" && "group-data-[collapsible=icon]:hidden"
             )}
           >

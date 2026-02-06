@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     }
     // Create Pipeline loan + primary scenario for this borrower
     const { data: loanRow, error: loanErr } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .insert({
         organization_id: orgUuid,
         assigned_to_user_id: userId ? [userId] : [],

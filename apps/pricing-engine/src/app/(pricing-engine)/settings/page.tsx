@@ -6,7 +6,6 @@ import { ProgramRowActions } from "./components/program-row-actions"
 import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { cn } from "@repo/lib/cn"
 
@@ -29,18 +28,11 @@ export default async function SettingsProgramsPage() {
     notFound()
   }
 
-  let programs: ProgramRow[] = []
-  if (orgId) {
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (orgUuid) {
-    const { data } = await supabaseAdmin
-      .from("programs")
-      .select("id, loan_type, internal_name, external_name, webhook_url, status")
-        .eq("organization_id", orgUuid)
-      .order("updated_at", { ascending: false })
-      programs = (data as ProgramRow[]) ?? []
-    }
-  }
+  const { data } = await supabaseAdmin
+    .from("programs")
+    .select("id, loan_type, internal_name, external_name, webhook_url, status")
+    .order("updated_at", { ascending: false })
+  const programs: ProgramRow[] = (data as ProgramRow[]) ?? []
 
   return (
     <ContentSection

@@ -14,8 +14,7 @@ import {
   ShieldCheck,
   Palette,
   Loader2,
-  Settings,
-  UserCog,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -23,11 +22,10 @@ import { cn } from "@repo/lib/cn";
 import { GeneralSettings } from "./components/general-settings";
 import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
-import { ThemesSettings } from "./components/themes-settings";
 import { ProgramsSettings } from "./components/programs-settings";
-import { MemberRolesSettings } from "./components/member-roles-settings";
+import { ThemesSettings } from "./components/themes-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "themes" | "programs" | "member-roles";
+type SettingsTab = "general" | "members" | "domains" | "programs" | "themes";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -57,23 +55,11 @@ const settingsNavItems: NavItem[] = [
     description: "Verified domains and SSO",
   },
   {
-    id: "programs",
-    label: "Programs",
-    icon: Settings,
-    description: "Loan programs and configurations",
-  },
-  {
-    id: "member-roles",
-    label: "Member Roles",
-    icon: UserCog,
-    description: "Custom member role definitions",
-  },
-  {
     id: "permissions",
     label: "Permissions",
     icon: Shield,
-    description: "Access control and permissions",
-    href: "permissions",
+    description: "Document access permissions",
+    href: "documents/permissions",
   },
   {
     id: "policies",
@@ -81,6 +67,12 @@ const settingsNavItems: NavItem[] = [
     icon: ShieldCheck,
     description: "Global access policies",
     href: "policies",
+  },
+  {
+    id: "programs",
+    label: "Programs",
+    icon: LayoutGrid,
+    description: "Manage loan programs",
   },
   {
     id: "themes",
@@ -157,7 +149,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="w-full flex justify-center px-6 py-6 md:px-8 md:py-8">
+    <div className="w-full flex justify-center py-8">
       <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -252,12 +244,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
-            {activeTab === "programs" && (
-              <div className="space-y-6">
-                <ProgramsSettings />
-              </div>
-            )}
-            {activeTab === "member-roles" && <MemberRolesSettings />}
+            {activeTab === "programs" && <ProgramsSettings />}
             {activeTab === "themes" && <ThemesSettings />}
           </div>
         </div>

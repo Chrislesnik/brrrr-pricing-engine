@@ -24,18 +24,21 @@ export async function getOrgUuidFromClerkId(clerkOrgId: string | null | undefine
 export async function getUserRoleInOrg(orgUuid: string, userId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from("organization_members")
-    .select("role")
+    .select("clerk_org_role")
     .eq("organization_id", orgUuid)
     .eq("user_id", userId)
     .maybeSingle()
-  return (data?.role as string) ?? null
+  return (data?.clerk_org_role as string) ?? null
 }
 
 /**
  * Check if a role has privileged access (owner or admin)
  */
 export function isPrivilegedRole(role: string | null): boolean {
-  return role === "owner" || role === "admin"
+  if (!role) return false
+  // Handle both "owner" and "org:owner" formats
+  const normalizedRole = role.replace(/^org:/, "")
+  return normalizedRole === "owner" || normalizedRole === "admin"
 }
 
 

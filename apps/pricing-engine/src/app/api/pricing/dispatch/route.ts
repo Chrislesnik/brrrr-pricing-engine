@@ -10,12 +10,8 @@ async function waitForOrgMemberId(
   userId: string | null | undefined,
   maxWaitMs = 45000,
   intervalMs = 400
-): Promise<string> {
+): Promise<string | null> {
   const start = Date.now()
-  // Keep polling until we resolve an org member id; this is required for program webhooks
-  // to always receive organization_member_id.
-  // We do not hard-fail on timeout; we continue polling.
-  // To avoid a tight loop, always sleep between attempts.
   while (true) {
     try {
       if (orgUuid && userId) {
@@ -31,9 +27,9 @@ async function waitForOrgMemberId(
     } catch {
       // ignore and retry
     }
-    // If we've exceeded maxWaitMs, keep waiting but ensure we still yield to the event loop.
     if (Date.now() - start >= maxWaitMs) {
-      // no-op; fall through to sleep
+      // Timeout reached - return null instead of looping forever
+      return null
     }
     await new Promise((r) => setTimeout(r, intervalMs))
   }
@@ -72,8 +68,8 @@ export async function POST(req: NextRequest) {
     // Resolve caller's organization_member_id (wait until available)
     const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
 
-    // fetch active program webhooks for this org + loan type
-    const { data, error } = await superFetchPrograms(orgUuid ?? null, json.loanType)
+    // fetch active program webhooks for this loan type
+    const { data, error } = await superFetchPrograms(json.loanType)
     if (error) {
       return new NextResponse(`Query error: ${error}`, { status: 500 })
     }
@@ -159,16 +155,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function superFetchPrograms(orgUuid: string | null, loanType: string) {
-  let q = supabaseAdmin
+async function superFetchPrograms(loanType: string) {
+  const { data, error } = await supabaseAdmin
     .from("programs")
     .select("internal_name,external_name,webhook_url")
     .eq("loan_type", loanType.toLowerCase())
     .eq("status", "active")
-  if (orgUuid) {
-    q = q.eq("organization_id", orgUuid)
-  }
-  const { data, error } = await q
   return { data, error: error?.message }
 }
 

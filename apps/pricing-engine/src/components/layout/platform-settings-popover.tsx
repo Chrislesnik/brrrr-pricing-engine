@@ -12,16 +12,14 @@ import {
   SunMoon,
   Building2,
   Users,
-  UserCog,
   Globe,
   Shield,
-  ShieldCheck,
-  Palette,
   ChevronRight,
   ArrowRightLeft,
   FileCode2,
   Mail,
   Wand2,
+  LayoutGrid,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -39,19 +37,17 @@ interface PlatformSettingsPopoverProps {
 
 // Organization settings navigation items
 const ORG_SETTINGS_ITEMS = [
-  { id: "general", label: "General", icon: Building2, path: "?tab=general" },
-  { id: "members", label: "Members", icon: Users, path: "?tab=members" },
-  { id: "domains", label: "Domains", icon: Globe, path: "?tab=domains" },
-  { id: "programs", label: "Programs", icon: Settings2, path: "?tab=programs" },
-  { id: "member-roles", label: "Member Roles", icon: UserCog, path: "?tab=member-roles" },
+  { id: "general", label: "General", icon: Building2, path: "" },
+  { id: "members", label: "Members", icon: Users, path: "" },
+  { id: "domains", label: "Domains", icon: Globe, path: "" },
   {
     id: "permissions",
     label: "Permissions",
     icon: Shield,
-    path: "/permissions",
+    path: "/documents/permissions",
   },
-  { id: "policies", label: "Policies", icon: ShieldCheck, path: "/policies" },
-  { id: "themes", label: "Themes", icon: Palette, path: "?tab=themes" },
+  { id: "programs", label: "Programs", icon: LayoutGrid, path: "?tab=programs" },
+  { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;
 
 export function PlatformSettingsPopover({
@@ -140,42 +136,10 @@ export function PlatformSettingsPopover({
                   <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
                     <div className="px-1 pb-2">
                       {ORG_SETTINGS_ITEMS.map((item) => {
-                        // Special handling for Themes - it's a button, not a link
-                        if (item.id === "themes") {
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => console.log("Theme manager coming soon")}
-                              className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                            >
-                              <item.icon className="h-4 w-4 text-muted-foreground" />
-                              <span>{item.label}</span>
-                            </button>
-                          );
-                        }
-
                         const href = `${orgSettingsBaseUrl}${item.path}`;
-                        
-                        // Improved active state detection
-                        let isActive = false;
-                        if (item.path.startsWith("?tab=")) {
-                          // For tab-based items, check both pathname and search params
-                          const tabName = item.path.replace("?tab=", "");
-                          isActive = pathname === orgSettingsBaseUrl && pathname.includes(`tab=${tabName}`);
-                        } else if (item.path.startsWith("/")) {
-                          // For route-based items, check exact pathname match
-                          isActive = pathname === `${orgSettingsBaseUrl}${item.path}`;
-                        } else if (item.path === "") {
-                          // For base settings (General, Members, Domains, Themes)
-                          // Only active if on base settings page with that specific tab
-                          const searchParams = new URLSearchParams(window.location.search);
-                          const currentTab = searchParams.get("tab");
-                          isActive = pathname === orgSettingsBaseUrl && (
-                            (item.id === "general" && (!currentTab || currentTab === "general")) ||
-                            (item.id === currentTab)
-                          );
-                        }
+                        const isActive =
+                          pathname === orgSettingsBaseUrl && 
+                          (item.path === "" || item.path.includes(`tab=${item.id}`));
 
                         return (
                           <Link

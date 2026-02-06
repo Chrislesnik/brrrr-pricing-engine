@@ -147,24 +147,6 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     ],
   },
   {
-    title: "Settings",
-    items: [
-      {
-        title: "Programs",
-        icon: IconApps,
-        url: ROUTES.settings.programs,
-        requiredPermission: "org:manage_programs",
-      },
-      {
-        title: "Company",
-        icon: IconUser,
-        url: ROUTES.settings.company,
-        // Visible only to broker role
-        allowOrgRoles: ["org:broker", "broker"],
-      },
-    ],
-  },
-  {
    title: "Tools",
    items: [
      {

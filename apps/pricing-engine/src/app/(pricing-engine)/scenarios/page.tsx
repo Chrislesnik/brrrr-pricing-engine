@@ -29,7 +29,7 @@ export default function PipelinePage() {
           <UserPrimaryActions />
         </div>
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <PipelineTable data={loans} columns={pipelineColumns} />
       </div>
     </>

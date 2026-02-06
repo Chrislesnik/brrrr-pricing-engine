@@ -62,7 +62,7 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
   } else {
     // Other roles: filter by assigned loans
     const { data: assignedLoans, error: loansError } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .select("id, assigned_to_user_id")
       .eq("organization_id", orgUuid)
 
