@@ -60,7 +60,7 @@ import { Input } from "@repo/ui/shadcn/input"
 import { CopyButton } from "@repo/ui/custom/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
 import { IconDots } from "@tabler/icons-react"
-import { Trash2 } from "lucide-react"
+import { Trash2, CircleCheck, CircleX } from "lucide-react"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
@@ -412,9 +412,16 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
             Assigned To
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setStatus(opposite)}>{`Set to ${opposite}`}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setStatus(opposite)} className="gap-2">
+            {opposite === "active" ? (
+              <CircleCheck className="h-4 w-4 text-success" />
+            ) : (
+              <CircleX className="h-4 w-4 text-danger" />
+            )}
+            {`Set to ${opposite}`}
+          </DropdownMenuItem>
           <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
+            className="text-red-600 focus:text-red-600 gap-2"
             onSelect={(e) => {
               e.preventDefault()
               setConfirmOpen(true)

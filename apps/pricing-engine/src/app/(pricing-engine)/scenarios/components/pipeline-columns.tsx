@@ -23,6 +23,8 @@ import {
   Loader2,
   MousePointerClick,
   Clipboard,
+  CircleCheck,
+  CircleX,
 } from "lucide-react"
 import Link from "next/link"
 import { createSupabaseBrowser } from "@/lib/supabase-browser"
@@ -549,9 +551,17 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setStatus(opposite)}
-          >{`Set to ${opposite}`}</DropdownMenuItem>
+            className="gap-2"
+          >
+            {opposite === "active" ? (
+              <CircleCheck className="h-4 w-4 text-success" />
+            ) : (
+              <CircleX className="h-4 w-4 text-danger" />
+            )}
+            {`Set to ${opposite}`}
+          </DropdownMenuItem>
           <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
+            className="text-red-600 focus:text-red-600 gap-2"
             onSelect={(e) => {
               e.preventDefault()
               setConfirmOpen(true)
