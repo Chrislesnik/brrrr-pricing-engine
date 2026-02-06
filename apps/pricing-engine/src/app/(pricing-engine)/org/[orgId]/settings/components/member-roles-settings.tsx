@@ -213,6 +213,7 @@ export function MemberRolesSettings() {
                     <TableHead>Role Code</TableHead>
                     <TableHead>Role Name</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead className="w-[100px]">Scope</TableHead>
                     <TableHead className="w-[100px]">Status</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
@@ -226,17 +227,21 @@ export function MemberRolesSettings() {
                         </code>
                       </TableCell>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {role.role_name}
-                          {!role.organization_id && (
-                            <Badge variant="outline" className="text-xs">
-                              Global
-                            </Badge>
-                          )}
-                        </div>
+                        {role.role_name}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-md">
                         {role.description || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {!role.organization_id ? (
+                          <Badge variant="outline" className="text-xs">
+                            Global
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            Org
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge
