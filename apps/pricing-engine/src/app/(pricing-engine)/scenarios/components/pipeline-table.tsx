@@ -257,7 +257,7 @@ export function PipelineTable({ columns, data }: Props) {
               const status = String((orig as { status?: string }).status ?? "-").toLowerCase()
               const badgeColor = status === "active" 
                 ? "bg-success-muted text-success border-success/30"
-                : "bg-muted text-muted-foreground border-border"
+                : "bg-danger-muted text-danger border-danger/30"
               return (
                 <div key={row.id} className="rounded-lg border p-3">
                   <div className="flex items-start justify-between gap-2">
