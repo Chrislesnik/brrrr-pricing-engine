@@ -28,12 +28,14 @@ type RuleState = {
   orgRole: string;
   memberRole: string;
   orgType: string;
+  operator: "AND" | "OR";
 };
 
 const defaultRule: RuleState = { 
   orgRole: "owner", 
   memberRole: "*",
-  orgType: "any"
+  orgType: "any",
+  operator: "AND"
 };
 
 const orgRoleOptions = [
@@ -187,12 +189,12 @@ export default function OrgPolicyBuilder({
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium">OR user matches any of these rules:</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Each rule combines: organization type AND org role AND member role
-                  </p>
-                </div>
+              <div>
+                <h4 className="text-sm font-medium">OR user matches any of these rules:</h4>
+                <p className="text-xs text-muted-foreground">
+                  Click AND/OR badges to toggle logical operators in each rule
+                </p>
+              </div>
                 <Button variant="outline" size="sm" onClick={addRule}>
                   Add rule
                 </Button>
@@ -231,7 +233,23 @@ export default function OrgPolicyBuilder({
                     </div>
 
                     <div className="flex items-end pb-2">
-                      <Badge variant="outline" className="font-mono text-xs">AND</Badge>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateRule(index, { 
+                            operator: rule.operator === "AND" ? "OR" : "AND" 
+                          });
+                        }}
+                        className="group"
+                      >
+                        <Badge 
+                          variant="outline" 
+                          className="font-mono text-xs cursor-pointer hover:bg-accent transition-colors"
+                          title="Click to toggle AND/OR"
+                        >
+                          {rule.operator}
+                        </Badge>
+                      </button>
                     </div>
 
                     <div className="space-y-2">
@@ -256,7 +274,23 @@ export default function OrgPolicyBuilder({
                     </div>
 
                     <div className="flex items-end pb-2">
-                      <Badge variant="outline" className="font-mono text-xs">AND</Badge>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateRule(index, { 
+                            operator: rule.operator === "AND" ? "OR" : "AND" 
+                          });
+                        }}
+                        className="group"
+                      >
+                        <Badge 
+                          variant="outline" 
+                          className="font-mono text-xs cursor-pointer hover:bg-accent transition-colors"
+                          title="Click to toggle AND/OR"
+                        >
+                          {rule.operator}
+                        </Badge>
+                      </button>
                     </div>
 
                     <div className="space-y-2">

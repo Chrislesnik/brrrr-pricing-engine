@@ -7,6 +7,7 @@ export type PolicyRuleInput = {
   orgRole?: string;
   memberRole?: string;
   orgType?: string; // "any" | "internal" | "external"
+  operator?: "AND" | "OR"; // How to combine conditions within this rule
 };
 
 export type PolicyDefinitionInput = {
