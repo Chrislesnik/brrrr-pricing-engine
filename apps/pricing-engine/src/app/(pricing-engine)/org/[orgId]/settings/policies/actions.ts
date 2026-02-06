@@ -164,7 +164,7 @@ export async function getOrgPolicies(): Promise<{
   const orgPk = await getOrgPk(supabase, orgId);
 
   const { data, error } = await supabase
-    .from("org_policies")
+    .from("organization_policies")
     .select(
       "id,resource_type,resource_name,action,definition_json,compiled_config,version,is_active,created_at"
     )
@@ -222,7 +222,7 @@ export async function saveOrgPolicy(
   const rows = await Promise.all(
     actions.map(async (action) => {
       const { data: existing } = await supabase
-        .from("org_policies")
+        .from("organization_policies")
         .select("id,version")
         .eq("org_id", orgPk)
         .eq("resource_type", input.resourceType)
@@ -246,7 +246,7 @@ export async function saveOrgPolicy(
   );
 
   const { error } = await supabase
-    .from("org_policies")
+    .from("organization_policies")
     .upsert(rows, {
       onConflict: "org_id,resource_type,resource_name,action",
     });
@@ -264,7 +264,7 @@ export async function setOrgPolicyActive(input: {
   const supabase = supabaseForUser(token);
 
   const { error } = await supabase
-    .from("org_policies")
+    .from("organization_policies")
     .update({ is_active: input.isActive })
     .eq("id", input.id);
 
