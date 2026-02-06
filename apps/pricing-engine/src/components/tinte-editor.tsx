@@ -547,87 +547,37 @@ function deriveStatusColors(
   }
   
   // ---- GRADIENT: derive warm gradient from theme colors ----
-  // Create a warm gradient (red → orange → yellow) that matches the theme's aesthetic
-  // by using the theme's saturation/lightness characteristics
+  // Create 3 distinct warm colors derived from the theme's base color
   
-  // First, try to find existing warm colors in chart colors
-  const redColor = findColorByHueRange(chartColors, 345, 15) || findColorByHueRange(chartColors, 0, 20);
-  const orangeColor = findColorByHueRange(chartColors, 15, 45);
-  const yellowColor = findColorByHueRange(chartColors, 40, 65);
+  // Use the theme's chart-1, accent, or primary as the base
+  const baseColor = tokens["chart-1"] || tokens["accent"] || tokens["primary"];
   
-  // If we found all three distinct warm colors in the theme, use them
-  if (redColor && orangeColor && yellowColor) {
-    const areDistinct = redColor !== orangeColor && orangeColor !== yellowColor && redColor !== yellowColor;
-    if (areDistinct) {
-      derived["gradient-warm-1"] = redColor;
-      derived["gradient-warm-2"] = orangeColor;
-      derived["gradient-warm-3"] = yellowColor;
-      return derived;
-    }
-  }
-  
-  // Otherwise, derive a warm gradient from the theme's most colorful color
-  // Find the most saturated/vibrant color from theme palette
-  const themeColors = [
-    tokens["chart-1"],
-    tokens["chart-2"],
-    tokens["chart-3"],
-    tokens["chart-4"],
-    tokens["chart-5"],
-    tokens["primary"],
-    tokens["accent"],
-  ].filter((c): c is string => !!c);
-  
-  // Find the color with highest saturation to use as reference
-  let bestColor: string | null = null;
-  let bestSaturation = 0;
-  
-  for (const color of themeColors) {
-    const parsed = parse(color);
-    if (parsed) {
-      const hslColor = culoriHsl(parsed);
-      if (hslColor && hslColor.s !== undefined && hslColor.s > bestSaturation) {
-        bestSaturation = hslColor.s;
-        bestColor = color;
-      }
-    }
-  }
-  
-  if (bestColor) {
-    const parsed = parse(bestColor);
-    if (parsed) {
-      const hslColor = culoriHsl(parsed);
-      if (hslColor && hslColor.s !== undefined && hslColor.l !== undefined) {
-        // Use the theme's saturation (clamped to ensure vibrant colors)
-        const saturation = Math.max(0.7, Math.min(0.95, hslColor.s));
-        // Use lightness inspired by theme, but ensure good visibility
-        const baseLightness = mode === "light" 
-          ? Math.max(0.45, Math.min(0.55, hslColor.l))
-          : Math.max(0.50, Math.min(0.60, hslColor.l));
-        
-        // Create three distinct warm colors with different hues
-        // Warm-1: Red (hue ~8)
+  if (baseColor) {
+    const color = parse(baseColor);
+    if (color) {
+      const rgbColor = rgb(color);
+      if (rgbColor) {
+        // Create 3 distinct warm variations from the base color
+        // Warm-1: Red tint
         derived["gradient-warm-1"] = formatHex({
-          mode: "hsl",
-          h: 8,
-          s: saturation,
-          l: baseLightness,
+          mode: "rgb",
+          r: Math.min(1, rgbColor.r * 1.2 + 0.3),
+          g: rgbColor.g * 0.6,
+          b: rgbColor.b * 0.3,
         });
-        
-        // Warm-2: Orange (hue ~28)  
+        // Warm-2: Orange tint  
         derived["gradient-warm-2"] = formatHex({
-          mode: "hsl",
-          h: 28,
-          s: saturation,
-          l: baseLightness + 0.05,
+          mode: "rgb",
+          r: Math.min(1, rgbColor.r * 1.1 + 0.4),
+          g: Math.min(1, rgbColor.g * 0.8 + 0.2),
+          b: rgbColor.b * 0.2,
         });
-        
-        // Warm-3: Yellow/Gold (hue ~48)
+        // Warm-3: Yellow tint
         derived["gradient-warm-3"] = formatHex({
-          mode: "hsl",
-          h: 48,
-          s: saturation,
-          l: baseLightness + 0.10,
+          mode: "rgb",
+          r: Math.min(1, rgbColor.r * 1.0 + 0.5),
+          g: Math.min(1, rgbColor.g * 1.0 + 0.4),
+          b: rgbColor.b * 0.1,
         });
       }
     }
