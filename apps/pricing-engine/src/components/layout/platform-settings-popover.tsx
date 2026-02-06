@@ -154,9 +154,26 @@ export function PlatformSettingsPopover({
                         }
 
                         const href = `${orgSettingsBaseUrl}${item.path}`;
-                        const isActive =
-                          pathname === href ||
-                          (item.path === "" && pathname === orgSettingsBaseUrl);
+                        
+                        // Improved active state detection
+                        let isActive = false;
+                        if (item.path.startsWith("?tab=")) {
+                          // For tab-based items, check both pathname and search params
+                          const tabName = item.path.replace("?tab=", "");
+                          isActive = pathname === orgSettingsBaseUrl && pathname.includes(`tab=${tabName}`);
+                        } else if (item.path.startsWith("/")) {
+                          // For route-based items, check exact pathname match
+                          isActive = pathname === `${orgSettingsBaseUrl}${item.path}`;
+                        } else if (item.path === "") {
+                          // For base settings (General, Members, Domains, Themes)
+                          // Only active if on base settings page with that specific tab
+                          const searchParams = new URLSearchParams(window.location.search);
+                          const currentTab = searchParams.get("tab");
+                          isActive = pathname === orgSettingsBaseUrl && (
+                            (item.id === "general" && (!currentTab || currentTab === "general")) ||
+                            (item.id === currentTab)
+                          );
+                        }
 
                         return (
                           <Link
