@@ -71,9 +71,9 @@ import { DataTableColumnHeader } from "../../users/components/data-table-column-
 import { LoanRow } from "../data/fetch-loans"
 import { AssignMembersDialog } from "./assign-members-dialog"
 
-const statusClass: Record<string, string> = {
+const statusStyles: Record<string, string> = {
   active: "bg-success-muted text-success border-success/30",
-  dead: "bg-danger-muted text-danger border-danger/30",
+  inactive: "bg-muted text-muted-foreground border-border",
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [
@@ -383,7 +383,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
   const opposite =
-    (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
+    (localStatus ?? "").toLowerCase() === "active" ? "inactive" : "active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
   const [floifyEnabled, setFloifyEnabled] = React.useState<boolean | null>(null)
@@ -1278,12 +1278,10 @@ function StatusCell({
         onUpdate as EventListener
       )
   }, [id])
-  const badgeColor = statusClass[status] ?? ""
+  const badgeColor = statusStyles[status] ?? statusStyles.inactive
   return (
-    <div className="flex space-x-2">
-      <Badge variant="outline" className={cn("capitalize", badgeColor)}>
-        {status}
-      </Badge>
-    </div>
+    <Badge variant="outline" className={cn("capitalize", badgeColor)}>
+      {status}
+    </Badge>
   )
 }

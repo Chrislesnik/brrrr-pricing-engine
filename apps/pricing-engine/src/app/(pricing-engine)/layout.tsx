@@ -19,12 +19,12 @@ export default async function DashboardLayout({ children }: Props) {
         <OrgThemeLoader />
         <SidebarProvider defaultOpen={!defaultClose}>
           <AppSidebar variant="inset" />
-          <SidebarInset className="min-h-0 h-full">
+          <SidebarInset className="min-h-0 h-full min-w-0 overflow-hidden">
             <SiteHeader />
             <div
               id="content"
               className={cn(
-                "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto",
+                "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
                 "has-[div[data-layout=fixed]]:overflow-hidden"
               )}
             >

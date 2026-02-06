@@ -174,11 +174,11 @@ export function PipelineTable({ columns, data }: Props) {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0 overflow-hidden">
       <PipelineToolbar table={table} />
       {/* Desktop/tablet view */}
       <div className="rounded-md border hidden md:block overflow-x-auto">
-        <Table>
+        <Table className="min-w-[1000px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -255,12 +255,9 @@ export function PipelineTable({ columns, data }: Props) {
                 (orig as { lastName?: string; borrowerLastName?: string }).borrowerLastName
               const borrower = [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
               const status = String((orig as { status?: string }).status ?? "-").toLowerCase()
-              const badgeColor =
-                status === "active"
-                  ? "bg-success-muted text-success border-success/30"
-                  : status === "dead"
-                  ? "bg-danger-muted text-danger border-danger/30"
-                  : ""
+              const badgeColor = status === "active" 
+                ? "bg-success-muted text-success border-success/30"
+                : "bg-muted text-muted-foreground border-border"
               return (
                 <div key={row.id} className="rounded-lg border p-3">
                   <div className="flex items-start justify-between gap-2">
@@ -283,7 +280,7 @@ export function PipelineTable({ columns, data }: Props) {
                     <div className="text-muted-foreground">
                       <span className="font-medium text-foreground">Borrower</span>: {borrower}
                     </div>
-                    <Badge variant="outline" className={`capitalize ${badgeColor}`}>
+                    <Badge variant="outline" className={cn("capitalize", badgeColor)}>
                       {status || "-"}
                     </Badge>
                   </div>
@@ -305,7 +302,7 @@ export function PipelineTable({ columns, data }: Props) {
 function MobileRowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
-  const opposite = (localStatus ?? "").toLowerCase() === "active" ? "dead" : "active"
+  const opposite = (localStatus ?? "").toLowerCase() === "active" ? "inactive" : "active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
   const [guarantors, setGuarantors] = React.useState<Array<{ id: string | null; name: string; email: string | null }>>([])
