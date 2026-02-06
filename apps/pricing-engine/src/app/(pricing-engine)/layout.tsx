@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarInset } from "@repo/ui/shadcn/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SWRProvider } from "@/components/providers/swr-provider"
 import { SiteHeader } from "@/components/layout/site-header"
+import { OrgThemeLoader } from "@/components/org-theme-loader"
 
 interface Props {
   children: React.ReactNode
@@ -15,6 +16,7 @@ export default async function DashboardLayout({ children }: Props) {
   return (
     <div className="border-grid flex h-svh flex-col overflow-hidden">
       <SWRProvider>
+        <OrgThemeLoader />
         <SidebarProvider defaultOpen={!defaultClose}>
           <AppSidebar variant="inset" />
           <SidebarInset className="min-h-0 h-full">

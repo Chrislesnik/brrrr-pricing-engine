@@ -27,10 +27,13 @@ type RuleState = {
   memberRole: string;
 };
 
-const defaultRule: RuleState = { orgRole: "owner", memberRole: "" };
+// Sentinel value for "any" since Radix Select reserves empty string for clearing selection
+const ANY_VALUE = "_any";
+
+const defaultRule: RuleState = { orgRole: "owner", memberRole: ANY_VALUE };
 
 const orgRoleOptions = [
-  { value: "", label: "Any org role" },
+  { value: ANY_VALUE, label: "Any org role" },
   { value: "owner", label: "Owner" },
   { value: "admin", label: "Admin" },
   { value: "member", label: "Member" },
@@ -38,7 +41,7 @@ const orgRoleOptions = [
 ];
 
 const memberRoleOptions = [
-  { value: "", label: "Any member role" },
+  { value: ANY_VALUE, label: "Any member role" },
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
   { value: "member", label: "Member" },
@@ -92,12 +95,17 @@ export default function OrgPolicyBuilder({
     setStatus(null);
     startTransition(async () => {
       try {
+        // Convert ANY_VALUE sentinel back to empty string for storage
+        const normalizedRules = rules.map((rule) => ({
+          orgRole: rule.orgRole === ANY_VALUE ? "" : rule.orgRole,
+          memberRole: rule.memberRole === ANY_VALUE ? "" : rule.memberRole,
+        }));
         await saveOrgPolicy({
           resourceType,
           actions: actionList,
           definition: {
             allowInternalUsers,
-            rules: rules as PolicyRuleInput[],
+            rules: normalizedRules as PolicyRuleInput[],
           },
         });
         setStatus("Policy saved successfully.");
