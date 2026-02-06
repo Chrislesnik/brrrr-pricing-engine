@@ -473,10 +473,39 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
   const [activeSearch, setActiveSearch] = useState("");
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Store the theme state before preview so we can revert if needed
+  const prePreviewThemeRef = useRef<ShadcnTheme | null>(null);
 
   useEffect(() => {
     themeRef.current = theme;
   }, [theme]);
+  
+  // Apply CSS to DOM for preview
+  const applyPreviewToDOM = useCallback((themeToApply: ShadcnTheme) => {
+    const styleId = "tinte-dynamic-theme";
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+
+    if (!styleElement) {
+      styleElement = document.createElement("style");
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+
+    const lightTokens = Object.entries(themeToApply.light)
+      .filter(([_, value]) => value && typeof value === 'string' && value.startsWith('#'))
+      .map(([key, value]) => `  --${key}: ${value};`)
+      .join("\n");
+
+    const darkTokens = Object.entries(themeToApply.dark)
+      .filter(([_, value]) => value && typeof value === 'string' && value.startsWith('#'))
+      .map(([key, value]) => `  --${key}: ${value};`)
+      .join("\n");
+
+    if (lightTokens || darkTokens) {
+      styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+    }
+  }, []);
 
   const [apiKeyError, setApiKeyError] = useState(false);
   
@@ -732,7 +761,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     }
   }, []);
 
-  // Apply Tinte theme (updates state only - CSS applied when Save is clicked)
+  // Apply Tinte theme with live CSS preview
   const applyTinteTheme = useCallback(
     (tinteTheme: TinteThemePreview) => {
       let shadcnTheme: { light: ShadcnTokens; dark: ShadcnTokens } | null =
@@ -750,28 +779,42 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       }
 
       if (shadcnTheme) {
+        // Save current theme before preview (only if not already saved)
+        if (!prePreviewThemeRef.current) {
+          prePreviewThemeRef.current = { ...themeRef.current };
+        }
+        
         // Convert all colors to hex format
         const lightHex: ShadcnTokens = {};
         const darkHex: ShadcnTokens = {};
 
         Object.entries(shadcnTheme.light).forEach(([key, value]) => {
-          lightHex[key] = convertToHex(value);
+          const hex = convertToHex(value);
+          if (hex && hex.startsWith('#')) {
+            lightHex[key] = hex;
+          }
         });
 
         Object.entries(shadcnTheme.dark).forEach(([key, value]) => {
-          darkHex[key] = convertToHex(value);
+          const hex = convertToHex(value);
+          if (hex && hex.startsWith('#')) {
+            darkHex[key] = hex;
+          }
         });
 
         const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
 
-        // Update state only - don't apply to DOM until Save
+        // Update state
         setTheme(hexTheme);
         onChange?.(hexTheme);
         setSelectedThemeId(tinteTheme.id);
         setHasUnsavedChanges(true);
+        
+        // Apply CSS preview to DOM
+        applyPreviewToDOM(hexTheme);
       }
     },
-    [onChange, convertToHex],
+    [onChange, convertToHex, applyPreviewToDOM],
   );
 
   // Initialize theme
@@ -818,6 +861,11 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
 
   const handleTokenEdit = useCallback(
     (token: string, newValue: string) => {
+      // Save current theme before preview (only if not already saved)
+      if (!prePreviewThemeRef.current) {
+        prePreviewThemeRef.current = { ...themeRef.current };
+      }
+      
       setTheme((prev) => {
         const updated = {
           ...prev,
@@ -828,6 +876,10 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         };
 
         onChange?.(updated);
+        
+        // Apply CSS preview to DOM
+        applyPreviewToDOM(updated);
+        
         return updated;
       });
 
@@ -843,7 +895,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       // Mark as unsaved
       setHasUnsavedChanges(true);
     },
-    [mode, onChange],
+    [mode, onChange, applyPreviewToDOM],
   );
 
   // Sync mode with DOM changes (controlled by next-themes)
@@ -882,6 +934,11 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
   const parseRawCss = useCallback(
     (css: string) => {
       try {
+        // Save current theme before preview (only if not already saved)
+        if (!prePreviewThemeRef.current) {
+          prePreviewThemeRef.current = { ...themeRef.current };
+        }
+        
         const light: ShadcnTokens = {};
         const dark: ShadcnTokens = {};
 
@@ -917,11 +974,14 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         setTheme(parsedTheme);
         onChange?.(parsedTheme);
         setHasUnsavedChanges(true);
+        
+        // Apply CSS preview to DOM
+        applyPreviewToDOM(parsedTheme);
       } catch (error) {
         console.error("Failed to parse CSS:", error);
       }
     },
-    [onChange],
+    [onChange, applyPreviewToDOM],
   );
 
   // Update raw CSS when theme changes
@@ -987,6 +1047,8 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
 
       setSaveStatus("success");
       setHasUnsavedChanges(false);
+      // Clear pre-preview state since we've saved
+      prePreviewThemeRef.current = null;
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (error) {
       console.error("Error saving theme:", error);
