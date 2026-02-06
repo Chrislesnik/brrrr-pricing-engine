@@ -1,7 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import {
+  getMemberRoles,
+  createMemberRole,
+  updateMemberRole,
+  deleteMemberRole,
+  type MemberRole,
+} from "./member-roles-actions";
 import {
   Card,
   CardContent,
@@ -31,27 +39,125 @@ import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
 import { Textarea } from "@repo/ui/shadcn/textarea";
 import { Switch } from "@repo/ui/shadcn/switch";
-
-interface MemberRole {
-  id: string;
-  role_code: string;
-  role_name: string;
-  description: string | null;
-  display_order: number;
-  is_active: boolean;
-}
+import { ConfirmDialog } from "@repo/ui/custom/confirm-dialog";
 
 export function MemberRolesSettings() {
   const [roles, setRoles] = useState<MemberRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<MemberRole | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<MemberRole | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form state
   const [roleCode, setRoleCode] = useState("");
   const [roleName, setRoleName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+
+  // Load roles
+  useEffect(() => {
+    loadRoles();
+  }, []);
+
+  async function loadRoles() {
+    setIsLoading(true);
+    try {
+      const { roles: data } = await getMemberRoles();
+      setRoles(data);
+    } catch (error) {
+      toast({
+        title: "Error loading roles",
+        description: error instanceof Error ? error.message : "Failed to load member roles",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!roleName.trim()) {
+      toast({
+        title: "Validation error",
+        description: "Role name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editingRole && !roleCode.trim()) {
+      toast({
+        title: "Validation error",
+        description: "Role code is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (editingRole) {
+        await updateMemberRole({
+          id: editingRole.id,
+          roleName: roleName.trim(),
+          description: description.trim(),
+          isActive,
+        });
+        toast({ title: "Role updated successfully" });
+      } else {
+        await createMemberRole({
+          roleCode: roleCode.trim(),
+          roleName: roleName.trim(),
+          description: description.trim(),
+          isActive,
+        });
+        toast({ title: "Role created successfully" });
+      }
+      
+      handleCloseDialog();
+      await loadRoles();
+    } catch (error) {
+      toast({
+        title: "Error saving role",
+        description: error instanceof Error ? error.message : "Failed to save role",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!roleToDelete) return;
+
+    setIsSaving(true);
+    try {
+      await deleteMemberRole({ id: roleToDelete.id });
+      toast({ title: "Role deleted successfully" });
+      setDeleteDialogOpen(false);
+      setRoleToDelete(null);
+      await loadRoles();
+    } catch (error) {
+      toast({
+        title: "Error deleting role",
+        description: error instanceof Error ? error.message : "Failed to delete role",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleCloseDialog() {
+    setDialogOpen(false);
+    setEditingRole(null);
+    setRoleCode("");
+    setRoleName("");
+    setDescription("");
+    setIsActive(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -150,6 +256,10 @@ export function MemberRolesSettings() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
+                            onClick={() => {
+                              setRoleToDelete(role);
+                              setDeleteDialogOpen(true);
+                            }}
                           >
                             <Trash2 className="size-4" />
                           </Button>
@@ -224,23 +334,29 @@ export function MemberRolesSettings() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setDialogOpen(false);
-                setEditingRole(null);
-                setRoleCode("");
-                setRoleName("");
-                setDescription("");
-                setIsActive(true);
-              }}
+              onClick={handleCloseDialog}
+              disabled={isSaving}
             >
               Cancel
             </Button>
-            <Button onClick={() => console.log("Save role")}>
-              {editingRole ? "Update" : "Create"}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : editingRole ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        handleConfirm={handleDelete}
+        isLoading={isSaving}
+        destructive
+        title="Delete member role?"
+        desc={`This will permanently delete the "${roleToDelete?.role_name}" role. Members with this role will need to be reassigned.`}
+        confirmText="Delete"
+      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   SunMoon,
   Building2,
   Users,
+  UserCog,
   Globe,
   Shield,
   ShieldCheck,
@@ -42,6 +43,7 @@ const ORG_SETTINGS_ITEMS = [
   { id: "members", label: "Members", icon: Users, path: "?tab=members" },
   { id: "domains", label: "Domains", icon: Globe, path: "?tab=domains" },
   { id: "programs", label: "Programs", icon: Settings2, path: "?tab=programs" },
+  { id: "member-roles", label: "Member Roles", icon: UserCog, path: "?tab=member-roles" },
   {
     id: "permissions",
     label: "Permissions",

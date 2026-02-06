@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getMemberRolesForPolicies } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/member-roles-api";
 import {
   saveOrgPolicy,
   setOrgPolicyActive,
@@ -42,7 +43,7 @@ const orgRoleOptions = [
   { value: "broker", label: "Broker" },
 ];
 
-const memberRoleOptions = [
+const defaultMemberRoleOptions = [
   { value: "*", label: "Any member role" },
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
@@ -75,6 +76,23 @@ export default function OrgPolicyBuilder({
   const [rules, setRules] = useState<RuleState[]>([{ ...defaultRule }]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [memberRoleOptions, setMemberRoleOptions] = useState<
+    Array<{ value: string; label: string }>
+  >(defaultMemberRoleOptions);
+
+  // Load member roles from database
+  useEffect(() => {
+    async function loadMemberRoles() {
+      try {
+        const roles = await getMemberRolesForPolicies();
+        setMemberRoleOptions(roles);
+      } catch (error) {
+        console.error("Failed to load member roles:", error);
+        // Keep default hardcoded options on error
+      }
+    }
+    loadMemberRoles();
+  }, []);
 
   const actionList = useMemo(
     () =>

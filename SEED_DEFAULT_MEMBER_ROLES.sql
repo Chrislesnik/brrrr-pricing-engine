@@ -77,9 +77,9 @@ ORDER BY display_order;
 
 -- =====================================================
 -- Expected Results:
--- admin              | Admin              | Full administrative access...          | 1 | true
--- manager            | Manager            | Can manage deals...                    | 2 | true  
--- member             | Member             | Standard team member...                | 3 | true
--- account_executive  | Account Executive  | Manage client relationships...         | 4 | true
--- loan_processor     | Loan Processor     | Process loan applications...           | 5 | true
+-- admin               | Admin               | Full administrative access...          | 1 | true
+-- manager             | Manager             | Can manage deals...                    | 2 | true  
+-- member              | Member              | Standard team member...                | 3 | true
+-- account_executive   | Account Executive   | Manage client relationships...         | 4 | true
+-- loan_processor      | Loan Processor      | Process loan applications...           | 5 | true
 -- =====================================================

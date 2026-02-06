@@ -15,6 +15,7 @@ import {
   Palette,
   Loader2,
   Settings,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -24,8 +25,9 @@ import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
 import { ThemesSettings } from "./components/themes-settings";
 import { ProgramsSettings } from "./components/programs-settings";
+import { MemberRolesSettings } from "./components/member-roles-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "themes" | "programs";
+type SettingsTab = "general" | "members" | "domains" | "themes" | "programs" | "member-roles";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -59,6 +61,12 @@ const settingsNavItems: NavItem[] = [
     label: "Programs",
     icon: Settings,
     description: "Loan programs and configurations",
+  },
+  {
+    id: "member-roles",
+    label: "Member Roles",
+    icon: UserCog,
+    description: "Custom member role definitions",
   },
   {
     id: "permissions",
@@ -249,6 +257,7 @@ export default function OrganizationSettingsPage() {
                 <ProgramsSettings />
               </div>
             )}
+            {activeTab === "member-roles" && <MemberRolesSettings />}
             {activeTab === "themes" && <ThemesSettings />}
           </div>
         </div>
