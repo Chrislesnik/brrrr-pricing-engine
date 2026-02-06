@@ -64,6 +64,79 @@ interface TinteThemePreview {
 // ============ Color Analysis Utilities ============
 
 /**
+ * Convert hex color to HSL values (space-separated, no hsl() wrapper)
+ * e.g. "#ffffff" -> "0 0% 100%"
+ */
+function hexToHslValues(hex: string): string {
+  // Remove # if present
+  hex = hex.replace(/^#/, "")
+  
+  // Parse hex to RGB
+  let r = 0, g = 0, b = 0
+  if (hex.length === 3) {
+    r = parseInt(hex[0] + hex[0], 16)
+    g = parseInt(hex[1] + hex[1], 16)
+    b = parseInt(hex[2] + hex[2], 16)
+  } else if (hex.length === 6) {
+    r = parseInt(hex.substring(0, 2), 16)
+    g = parseInt(hex.substring(2, 4), 16)
+    b = parseInt(hex.substring(4, 6), 16)
+  } else {
+    // Invalid hex, return as-is
+    return hex
+  }
+  
+  // Convert to 0-1 range
+  r /= 255
+  g /= 255
+  b /= 255
+  
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+  
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+        break
+      case g:
+        h = ((b - r) / d + 2) / 6
+        break
+      case b:
+        h = ((r - g) / d + 4) / 6
+        break
+    }
+  }
+  
+  // Return as "H S% L%" format (what Tailwind expects)
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+}
+
+/**
+ * Convert a CSS value for injection - if it's a hex color, convert to HSL; otherwise keep as-is
+ */
+function convertCssValueForInjection(key: string, value: string): string {
+  // Non-color properties should be kept as-is
+  const nonColorProps = ["radius", "font", "shadow", "spacing", "size"]
+  if (nonColorProps.some(prop => key.includes(prop))) {
+    return value
+  }
+  
+  // If it's a hex color, convert to HSL
+  if (value.startsWith("#")) {
+    return hexToHslValues(value)
+  }
+  
+  return value
+}
+
+/**
  * Extract hue (0-360) from a hex color
  */
 function getHue(hex: string): number | null {
@@ -495,12 +568,12 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     // Allow all valid CSS values through (colors start with #, non-colors like radius/fonts are kept as-is)
     const lightTokens = Object.entries(themeToApply.light)
       .filter(([_, value]) => value && typeof value === 'string')
-      .map(([key, value]) => `  --${key}: ${value};`)
+      .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
       .join("\n");
 
     const darkTokens = Object.entries(themeToApply.dark)
       .filter(([_, value]) => value && typeof value === 'string')
-      .map(([key, value]) => `  --${key}: ${value};`)
+      .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
       .join("\n");
 
     if (lightTokens || darkTokens) {
@@ -644,11 +717,11 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       }
 
       const lightTokens = Object.entries(hexTheme.light)
-        .map(([key, value]) => `  --${key}: ${value};`)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
 
       const darkTokens = Object.entries(hexTheme.dark)
-        .map(([key, value]) => `  --${key}: ${value};`)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
 
       styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
@@ -861,10 +934,10 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         document.head.appendChild(styleElement);
       }
       const lightTokens = Object.entries(initialTheme.light)
-        .map(([key, value]) => `  --${key}: ${value};`)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
       const darkTokens = Object.entries(initialTheme.dark)
-        .map(([key, value]) => `  --${key}: ${value};`)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
       styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
     } else if (!initializedRef.current) {
@@ -939,11 +1012,11 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     if (!theme.light || !theme.dark) return "";
 
     const lightTokens = Object.entries(theme.light)
-      .map(([key, value]) => `  --${key}: ${value};`)
+      .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
       .join("\n");
 
     const darkTokens = Object.entries(theme.dark)
-      .map(([key, value]) => `  --${key}: ${value};`)
+      .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
       .join("\n");
 
     if (!lightTokens && !darkTokens) return "";
@@ -1052,11 +1125,11 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       }
 
       const lightTokens = Object.entries(lightHex)
-        .map(([key, value]) => `  --${key}: ${value};`)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
 
       const darkTokens = Object.entries(darkHex)
-        .map(([key, value]) => `  --${key}: ${value};`)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
         .join("\n");
 
       styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
