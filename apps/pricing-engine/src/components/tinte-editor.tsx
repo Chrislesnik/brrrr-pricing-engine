@@ -42,57 +42,123 @@ interface ShadcnTheme {
 // Default theme values matching globals.css (converted from HSL to hex)
 const DEFAULT_THEME: ShadcnTheme = {
   light: {
+    // Background & Text
     background: "#ffffff",
     foreground: "#0a0a0a",
+    muted: "#f4f4f5",
+    "muted-foreground": "#71717a",
+    // Cards & Surfaces
     card: "#ffffff",
     "card-foreground": "#0a0a0a",
     popover: "#ffffff",
     "popover-foreground": "#0a0a0a",
+    // Interactive Elements
     primary: "#171717",
     "primary-foreground": "#fafafa",
     secondary: "#f4f4f5",
     "secondary-foreground": "#18181b",
-    muted: "#f4f4f5",
-    "muted-foreground": "#71717a",
     accent: "#f4f4f5",
     "accent-foreground": "#18181b",
-    destructive: "#ef4444",
-    "destructive-foreground": "#fafafa",
+    // Forms & States
     border: "#e4e4e7",
     input: "#e4e4e7",
     ring: "#0a0a0a",
+    destructive: "#ef4444",
+    "destructive-foreground": "#fafafa",
+    // Charts
     "chart-1": "#e45a3b",
     "chart-2": "#2a9d8f",
     "chart-3": "#264653",
     "chart-4": "#e9b44c",
     "chart-5": "#f4a261",
+    // Status Badges
+    success: "#16a34a",
+    "success-foreground": "#ffffff",
+    "success-muted": "#dcfce7",
+    danger: "#dc2626",
+    "danger-foreground": "#ffffff",
+    "danger-muted": "#fee2e2",
+    warning: "#f59e0b",
+    "warning-foreground": "#000000",
+    "warning-muted": "#fef3c7",
+    // Loader Gradient
+    "gradient-warm-1": "#ff3b30",
+    "gradient-warm-2": "#ff6a00",
+    "gradient-warm-3": "#ffd60a",
+    // Highlight
+    highlight: "#f59e0b",
+    "highlight-foreground": "#000000",
+    "highlight-muted": "#fef3c7",
+    // Sidebar
+    "sidebar-background": "#fafafa",
+    "sidebar-foreground": "#0a0a0a",
+    "sidebar-primary": "#18181b",
+    "sidebar-primary-foreground": "#fafafa",
+    "sidebar-accent": "#f4f4f5",
+    "sidebar-accent-foreground": "#18181b",
+    "sidebar-border": "#e5e7eb",
+    "sidebar-ring": "#3b82f6",
+    // Radius
     radius: "0.625rem",
   },
   dark: {
+    // Background & Text
     background: "#0a0a0a",
     foreground: "#fafafa",
+    muted: "#27272a",
+    "muted-foreground": "#a3a3a3",
+    // Cards & Surfaces
     card: "#171717",
     "card-foreground": "#fafafa",
     popover: "#0a0a0f",
     "popover-foreground": "#fafafa",
+    // Interactive Elements
     primary: "#e5e5e5",
     "primary-foreground": "#18181b",
     secondary: "#27272a",
     "secondary-foreground": "#fafafa",
-    muted: "#27272a",
-    "muted-foreground": "#a3a3a3",
     accent: "#27272a",
     "accent-foreground": "#fafafa",
-    destructive: "#7f1d1d",
-    "destructive-foreground": "#fafafa",
+    // Forms & States
     border: "#27272a",
     input: "#27272a",
     ring: "#d4d4d8",
+    destructive: "#7f1d1d",
+    "destructive-foreground": "#fafafa",
+    // Charts
     "chart-1": "#3b82f6",
     "chart-2": "#2dd4bf",
     "chart-3": "#f97316",
     "chart-4": "#a855f7",
     "chart-5": "#ec4899",
+    // Status Badges
+    success: "#22c55e",
+    "success-foreground": "#ffffff",
+    "success-muted": "#14532d",
+    danger: "#b91c1c",
+    "danger-foreground": "#ffffff",
+    "danger-muted": "#450a0a",
+    warning: "#f59e0b",
+    "warning-foreground": "#000000",
+    "warning-muted": "#422006",
+    // Loader Gradient
+    "gradient-warm-1": "#ff453a",
+    "gradient-warm-2": "#ff7a1a",
+    "gradient-warm-3": "#ffd60a",
+    // Highlight
+    highlight: "#fbbf24",
+    "highlight-foreground": "#000000",
+    "highlight-muted": "#422006",
+    // Sidebar
+    "sidebar-background": "#171717",
+    "sidebar-foreground": "#fafafa",
+    "sidebar-primary": "#3b82f6",
+    "sidebar-primary-foreground": "#fafafa",
+    "sidebar-accent": "#27272a",
+    "sidebar-accent-foreground": "#f4f4f5",
+    "sidebar-border": "#27272a",
+    "sidebar-ring": "#3b82f6",
+    // Radius
     radius: "0.625rem",
   },
 };
