@@ -47,7 +47,7 @@ const ORG_SETTINGS_ITEMS = [
     path: "/documents/permissions",
   },
   { id: "programs", label: "Programs", icon: LayoutGrid, path: "?tab=programs" },
-  { id: "themes", label: "Themes", icon: Settings2, path: "" },
+  { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;
 
 export function PlatformSettingsPopover({
@@ -136,21 +136,6 @@ export function PlatformSettingsPopover({
                   <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
                     <div className="px-1 pb-2">
                       {ORG_SETTINGS_ITEMS.map((item) => {
-                        // Special handling for Themes - it's a button, not a link
-                        if (item.id === "themes") {
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => console.log("Theme manager coming soon")}
-                              className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                            >
-                              <item.icon className="h-4 w-4 text-muted-foreground" />
-                              <span>{item.label}</span>
-                            </button>
-                          );
-                        }
-
                         const href = `${orgSettingsBaseUrl}${item.path}`;
                         const isActive =
                           pathname === orgSettingsBaseUrl && 
