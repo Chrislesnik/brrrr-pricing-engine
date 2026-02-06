@@ -732,7 +732,29 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     }
   }, []);
 
-  // Apply Tinte theme
+  // Apply theme CSS to DOM for preview (without saving)
+  const applyThemePreview = useCallback((themeToApply: ShadcnTheme) => {
+    const styleId = "tinte-dynamic-theme";
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+
+    if (!styleElement) {
+      styleElement = document.createElement("style");
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+
+    const lightTokens = Object.entries(themeToApply.light)
+      .map(([key, value]) => `  --${key}: ${value};`)
+      .join("\n");
+
+    const darkTokens = Object.entries(themeToApply.dark)
+      .map(([key, value]) => `  --${key}: ${value};`)
+      .join("\n");
+
+    styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
+  }, []);
+
+  // Apply Tinte theme (preview only - doesn't save until user clicks Save)
   const applyTinteTheme = useCallback(
     (tinteTheme: TinteThemePreview) => {
       let shadcnTheme: { light: ShadcnTokens; dark: ShadcnTokens } | null =
@@ -764,13 +786,17 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
 
         const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
 
+        // Update state
         setTheme(hexTheme);
         onChange?.(hexTheme);
         setSelectedThemeId(tinteTheme.id);
         setHasUnsavedChanges(true);
+
+        // Apply CSS preview to DOM (but don't save yet)
+        applyThemePreview(hexTheme);
       }
     },
-    [onChange, convertToHex],
+    [onChange, convertToHex, applyThemePreview],
   );
 
   // Initialize theme
@@ -827,6 +853,10 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         };
 
         onChange?.(updated);
+        
+        // Apply CSS preview to DOM immediately
+        applyThemePreview(updated);
+        
         return updated;
       });
 
@@ -842,7 +872,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       // Mark as unsaved
       setHasUnsavedChanges(true);
     },
-    [mode, onChange],
+    [mode, onChange, applyThemePreview],
   );
 
   // Sync mode with DOM changes (controlled by next-themes)
@@ -912,13 +942,18 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
           }
         }
 
-        setTheme({ light, dark });
-        onChange?.({ light, dark });
+        const parsedTheme = { light, dark };
+        setTheme(parsedTheme);
+        onChange?.(parsedTheme);
+        setHasUnsavedChanges(true);
+        
+        // Apply CSS preview to DOM
+        applyThemePreview(parsedTheme);
       } catch (error) {
         console.error("Failed to parse CSS:", error);
       }
     },
-    [onChange],
+    [onChange, applyThemePreview],
   );
 
   // Update raw CSS when theme changes

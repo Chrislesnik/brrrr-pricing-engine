@@ -193,6 +193,18 @@
     box-shadow: none !important;
     outline: none !important;
   }
+  
+  /* Remove rings from dropdown menu trigger buttons */
+  button[aria-haspopup="menu"]:focus,
+  button[aria-haspopup="menu"]:focus-visible,
+  button[data-state="open"]:focus,
+  button[data-state="open"]:focus-visible {
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: none !important;
+    --tw-ring-offset-shadow: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
 }
 
 /* Fumadocs Base UI Theme - aligned with Shadcn theme */
