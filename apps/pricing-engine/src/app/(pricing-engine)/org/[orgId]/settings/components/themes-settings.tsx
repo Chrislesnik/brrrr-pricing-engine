@@ -132,86 +132,47 @@ export function ThemesSettings() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h2 className="text-xl font-semibold">Themes</h2>
-        <p className="text-sm text-muted-foreground">
-          Customize the appearance of your organization&apos;s interface
-        </p>
-      </div>
-
-      {/* Theme Editor Card */}
-      <div className="rounded-lg border bg-card p-6">
-        <h4 className="text-sm font-medium mb-2">Theme Editor</h4>
-        <p className="text-sm text-muted-foreground mb-4">
-          Customize your organization&apos;s color theme using the Tinte
-          editor. Changes will apply to all users in your organization.
-        </p>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-medium">
-              1
-            </span>
-            <span>
-              Click the floating{" "}
-              <strong className="text-foreground">Tinte button</strong>{" "}
-              (bottom-right corner)
-            </span>
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-medium">
-              2
-            </span>
-            <span>
-              Use <strong className="text-foreground">AI</strong>, browse
-              community themes, or edit colors manually
-            </span>
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-medium">
-              3
-            </span>
-            <span>
-              Click <strong className="text-foreground">Save</strong> to persist
-              changes for your organization
-            </span>
-          </li>
-        </ul>
-
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Themes</h2>
+          <p className="text-sm text-muted-foreground">
+            Customize the appearance of your organization&apos;s interface
+          </p>
+        </div>
         {hasCustomTheme && (
-          <div className="mt-4 pt-4 border-t">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={resetting}>
-                  {resetting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                  )}
-                  Reset to Default Theme
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset to default theme?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will reset your organization&apos;s theme to the
-                    default colors. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleReset}>
-                    Reset Theme
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" disabled={resetting}>
+                {resetting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                )}
+                Reset to Default
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reset to default theme?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will reset your organization&apos;s theme to the default
+                  colors. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>
+                  Reset Theme
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
 
-      {/* TinteEditor renders as a floating button + dialog portal */}
+      {/* Inline Theme Editor */}
       <TinteEditor
+        inline
         initialTheme={initialTheme ?? undefined}
         onSave={handleSave}
       />

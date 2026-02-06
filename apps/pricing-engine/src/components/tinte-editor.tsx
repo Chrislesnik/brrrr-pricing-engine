@@ -442,9 +442,11 @@ interface TinteEditorProps {
   onChange?: (theme: ShadcnTheme) => void;
   onSave?: (theme: ShadcnTheme) => Promise<void>;
   initialTheme?: ShadcnTheme;
+  /** Render inline instead of as a floating button + dialog */
+  inline?: boolean;
 }
 
-export function TinteEditor({ onChange, onSave, initialTheme }: TinteEditorProps) {
+export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: TinteEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<ShadcnTheme>(() => 
     ensureStatusTokens(initialTheme ?? { light: {}, dark: {} })
@@ -806,12 +808,12 @@ export function TinteEditor({ onChange, onSave, initialTheme }: TinteEditorProps
     }
   }, [loadTheme, initialTheme]);
 
-  // Fetch Tinte themes when dialog opens
+  // Fetch Tinte themes when dialog opens or when inline
   useEffect(() => {
-    if (isOpen && tinteThemes.length === 0) {
+    if ((isOpen || inline) && tinteThemes.length === 0) {
       fetchTinteThemes();
     }
-  }, [isOpen, tinteThemes.length, fetchTinteThemes]);
+  }, [isOpen, inline, tinteThemes.length, fetchTinteThemes]);
 
   const handleTokenEdit = useCallback(
     (token: string, newValue: string) => {
@@ -994,87 +996,73 @@ export function TinteEditor({ onChange, onSave, initialTheme }: TinteEditorProps
     group.tokens.filter((token) => theme[mode]?.[token] !== undefined),
   );
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {/* Floating Ball Trigger */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <DialogTrigger asChild>
+  // Shared header component for both inline and dialog modes
+  const headerContent = (
+    <div className="flex items-center justify-between w-full">
+      <div className="flex items-center gap-2">
+        <TinteLogo className="w-5 h-5" />
+        <span className="text-base font-semibold">Theme Editor</span>
+        <a
+          href="https://tinte.dev"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
+        >
+          tinte.dev ↗
+        </a>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={loadTheme}
+          disabled={loading}
+          className="p-1.5 hover:bg-accent rounded-md transition-colors disabled:opacity-50"
+          title="Reload theme"
+        >
+          <RefreshCw
+            size={14}
+            className={loading ? "animate-spin" : ""}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={writeToGlobals}
+          disabled={saveStatus === "saving"}
+          className={`relative px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+            hasUnsavedChanges
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse"
+              : "bg-primary/80 text-primary-foreground hover:bg-primary/90"
+          }`}
+        >
+          {hasUnsavedChanges && saveStatus === "idle" && (
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
+            </span>
+          )}
+          {saveStatus === "saving" && "Saving..."}
+          {saveStatus === "success" && "✅ Saved!"}
+          {saveStatus === "error" && "❌ Error"}
+          {saveStatus === "idle" &&
+            (hasUnsavedChanges ? "💾 Save" : "Save")}
+        </button>
+        {!inline && (
           <button
             type="button"
-            className="w-14 h-14 bg-card border-2 border-border rounded-full shadow-lg hover:scale-110 transition-all duration-200 flex items-center justify-center hover:shadow-xl"
-            title="Open Theme Editor"
+            onClick={() => setIsOpen(false)}
+            className="p-1.5 hover:bg-accent rounded-md transition-colors ml-1"
+            title="Close"
           >
-            <TinteLogo className="w-7 h-7 drop-shadow-sm" />
+            <X size={16} />
           </button>
-        </DialogTrigger>
+        )}
       </div>
+    </div>
+  );
 
-      {/* Dialog Content */}
-      <DialogContent showCloseButton={false} className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <DialogHeader>
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <TinteLogo className="w-5 h-5" />
-              <DialogTitle className="text-base">Theme Editor</DialogTitle>
-              <a
-                href="https://tinte.dev"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
-              >
-                tinte.dev ↗
-              </a>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={loadTheme}
-                disabled={loading}
-                className="p-1.5 hover:bg-accent rounded-md transition-colors disabled:opacity-50"
-                title="Reload from globals.css"
-              >
-                <RefreshCw
-                  size={14}
-                  className={loading ? "animate-spin" : ""}
-                />
-              </button>
-              <button
-                type="button"
-                onClick={writeToGlobals}
-                disabled={saveStatus === "saving"}
-                className={`relative px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                  hasUnsavedChanges
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse"
-                    : "bg-primary/80 text-primary-foreground hover:bg-primary/90"
-                }`}
-              >
-                {hasUnsavedChanges && saveStatus === "idle" && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
-                  </span>
-                )}
-                {saveStatus === "saving" && "Saving..."}
-                {saveStatus === "success" && "✅ Saved!"}
-                {saveStatus === "error" && "❌ Error"}
-                {saveStatus === "idle" &&
-                  (hasUnsavedChanges ? "💾 Save" : "Save")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-accent rounded-md transition-colors ml-1"
-                title="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+  // Shared tabs content for both inline and dialog modes
+  const tabsContent = (
+    <div className="flex-1 overflow-hidden flex flex-col">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <RefreshCw className="animate-spin mr-2" size={20} />
@@ -1516,6 +1504,47 @@ export function TinteEditor({ onChange, onSave, initialTheme }: TinteEditorProps
             </Tabs>
           )}
         </div>
+  );
+
+  // Inline mode: render content directly without dialog
+  if (inline) {
+    return (
+      <div className="flex flex-col rounded-lg border bg-card">
+        <div className="border-b p-4">
+          {headerContent}
+        </div>
+        <div className="flex-1 min-h-0">
+          {tabsContent}
+        </div>
+      </div>
+    );
+  }
+
+  // Dialog mode: render as floating button + modal
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      {/* Floating Ball Trigger */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="w-14 h-14 bg-card border-2 border-border rounded-full shadow-lg hover:scale-110 transition-all duration-200 flex items-center justify-center hover:shadow-xl"
+            title="Open Theme Editor"
+          >
+            <TinteLogo className="w-7 h-7 drop-shadow-sm" />
+          </button>
+        </DialogTrigger>
+      </div>
+
+      {/* Dialog Content */}
+      <DialogContent showCloseButton={false} className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <DialogHeader>
+          {headerContent}
+        </DialogHeader>
+
+        {/* Content */}
+        {tabsContent}
       </DialogContent>
     </Dialog>
   );
