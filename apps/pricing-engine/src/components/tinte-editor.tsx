@@ -732,33 +732,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     }
   }, []);
 
-  // Apply theme CSS to DOM for preview (without saving)
-  // Merges with current theme to avoid losing any tokens
-  const applyThemePreview = useCallback((themeToApply: ShadcnTheme) => {
-    const styleId = "tinte-dynamic-theme";
-    let styleElement = document.getElementById(styleId) as HTMLStyleElement;
-
-    if (!styleElement) {
-      styleElement = document.createElement("style");
-      styleElement.id = styleId;
-      document.head.appendChild(styleElement);
-    }
-
-    // Filter out undefined/invalid values
-    const lightTokens = Object.entries(themeToApply.light)
-      .filter(([_, value]) => value && value !== "undefined" && !value.includes("undefined"))
-      .map(([key, value]) => `  --${key}: ${value};`)
-      .join("\n");
-
-    const darkTokens = Object.entries(themeToApply.dark)
-      .filter(([_, value]) => value && value !== "undefined" && !value.includes("undefined"))
-      .map(([key, value]) => `  --${key}: ${value};`)
-      .join("\n");
-
-    styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
-  }, []);
-
-  // Apply Tinte theme (preview only - doesn't save until user clicks Save)
+  // Apply Tinte theme (updates state only - CSS applied when Save is clicked)
   const applyTinteTheme = useCallback(
     (tinteTheme: TinteThemePreview) => {
       let shadcnTheme: { light: ShadcnTokens; dark: ShadcnTokens } | null =
@@ -776,43 +750,28 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       }
 
       if (shadcnTheme) {
-        // Convert all colors to hex format, keeping current theme as base
-        const currentTheme = themeRef.current;
-        const lightHex: ShadcnTokens = { ...currentTheme.light };
-        const darkHex: ShadcnTokens = { ...currentTheme.dark };
+        // Convert all colors to hex format
+        const lightHex: ShadcnTokens = {};
+        const darkHex: ShadcnTokens = {};
 
-        // Overlay the new theme values
         Object.entries(shadcnTheme.light).forEach(([key, value]) => {
-          if (value) {
-            const hexValue = convertToHex(value);
-            if (hexValue && hexValue !== "undefined" && !hexValue.includes("undefined")) {
-              lightHex[key] = hexValue;
-            }
-          }
+          lightHex[key] = convertToHex(value);
         });
 
         Object.entries(shadcnTheme.dark).forEach(([key, value]) => {
-          if (value) {
-            const hexValue = convertToHex(value);
-            if (hexValue && hexValue !== "undefined" && !hexValue.includes("undefined")) {
-              darkHex[key] = hexValue;
-            }
-          }
+          darkHex[key] = convertToHex(value);
         });
 
         const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
 
-        // Update state
+        // Update state only - don't apply to DOM until Save
         setTheme(hexTheme);
         onChange?.(hexTheme);
         setSelectedThemeId(tinteTheme.id);
         setHasUnsavedChanges(true);
-
-        // Apply CSS preview to DOM (but don't save yet)
-        applyThemePreview(hexTheme);
       }
     },
-    [onChange, convertToHex, applyThemePreview],
+    [onChange, convertToHex],
   );
 
   // Initialize theme
@@ -869,10 +828,6 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         };
 
         onChange?.(updated);
-        
-        // Apply CSS preview to DOM immediately
-        applyThemePreview(updated);
-        
         return updated;
       });
 
@@ -888,7 +843,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       // Mark as unsaved
       setHasUnsavedChanges(true);
     },
-    [mode, onChange, applyThemePreview],
+    [mode, onChange],
   );
 
   // Sync mode with DOM changes (controlled by next-themes)
@@ -962,14 +917,11 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
         setTheme(parsedTheme);
         onChange?.(parsedTheme);
         setHasUnsavedChanges(true);
-        
-        // Apply CSS preview to DOM
-        applyThemePreview(parsedTheme);
       } catch (error) {
         console.error("Failed to parse CSS:", error);
       }
     },
-    [onChange, applyThemePreview],
+    [onChange],
   );
 
   // Update raw CSS when theme changes
