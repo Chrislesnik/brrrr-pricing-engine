@@ -119,8 +119,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const mainItems = filteredNav[0]?.items || [];
 
   return (
-    <Sidebar collapsible="icon" className="border-none pt-3" {...props}>
-      <SidebarHeader>
+    <Sidebar collapsible="icon" className="border-none" {...props}>
+      <SidebarHeader className="pt-3">
         <TeamSwitcherV2 />
         <WorkspaceSwitcher />
         <NavSearch />
