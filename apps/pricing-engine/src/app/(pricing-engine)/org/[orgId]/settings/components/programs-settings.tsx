@@ -61,9 +61,9 @@ export function ProgramsSettings() {
         return;
       }
 
-      // Fetch programs
+      // Fetch all programs for management
       try {
-        const response = await fetch("/api/pricing/programs");
+        const response = await fetch("/api/org/programs/list");
         if (response.ok) {
           const data = await response.json();
           setPrograms(data.programs || []);
@@ -80,7 +80,7 @@ export function ProgramsSettings() {
 
   const refreshPrograms = async () => {
     try {
-      const response = await fetch("/api/pricing/programs");
+      const response = await fetch("/api/org/programs/list");
       if (response.ok) {
         const data = await response.json();
         setPrograms(data.programs || []);
