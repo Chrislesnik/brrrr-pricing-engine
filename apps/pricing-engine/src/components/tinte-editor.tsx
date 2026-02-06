@@ -39,6 +39,64 @@ interface ShadcnTheme {
   dark: ShadcnTokens;
 }
 
+// Default theme values matching globals.css (converted from HSL to hex)
+const DEFAULT_THEME: ShadcnTheme = {
+  light: {
+    background: "#ffffff",
+    foreground: "#0a0a0a",
+    card: "#ffffff",
+    "card-foreground": "#0a0a0a",
+    popover: "#ffffff",
+    "popover-foreground": "#0a0a0a",
+    primary: "#171717",
+    "primary-foreground": "#fafafa",
+    secondary: "#f4f4f5",
+    "secondary-foreground": "#18181b",
+    muted: "#f4f4f5",
+    "muted-foreground": "#71717a",
+    accent: "#f4f4f5",
+    "accent-foreground": "#18181b",
+    destructive: "#ef4444",
+    "destructive-foreground": "#fafafa",
+    border: "#e4e4e7",
+    input: "#e4e4e7",
+    ring: "#0a0a0a",
+    "chart-1": "#e45a3b",
+    "chart-2": "#2a9d8f",
+    "chart-3": "#264653",
+    "chart-4": "#e9b44c",
+    "chart-5": "#f4a261",
+    radius: "0.625rem",
+  },
+  dark: {
+    background: "#0a0a0a",
+    foreground: "#fafafa",
+    card: "#171717",
+    "card-foreground": "#fafafa",
+    popover: "#0a0a0f",
+    "popover-foreground": "#fafafa",
+    primary: "#e5e5e5",
+    "primary-foreground": "#18181b",
+    secondary: "#27272a",
+    "secondary-foreground": "#fafafa",
+    muted: "#27272a",
+    "muted-foreground": "#a3a3a3",
+    accent: "#27272a",
+    "accent-foreground": "#fafafa",
+    destructive: "#7f1d1d",
+    "destructive-foreground": "#fafafa",
+    border: "#27272a",
+    input: "#27272a",
+    ring: "#d4d4d8",
+    "chart-1": "#3b82f6",
+    "chart-2": "#2dd4bf",
+    "chart-3": "#f97316",
+    "chart-4": "#a855f7",
+    "chart-5": "#ec4899",
+    radius: "0.625rem",
+  },
+};
+
 interface TinteThemePreview {
   id: string;
   slug: string;
@@ -519,12 +577,21 @@ interface TinteEditorProps {
   inline?: boolean;
 }
 
+// Merge initial theme with defaults, so empty/missing tokens get default values
+function mergeWithDefaults(theme: ShadcnTheme | undefined): ShadcnTheme {
+  const merged: ShadcnTheme = {
+    light: { ...DEFAULT_THEME.light, ...(theme?.light ?? {}) },
+    dark: { ...DEFAULT_THEME.dark, ...(theme?.dark ?? {}) },
+  };
+  return merged;
+}
+
 export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: TinteEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<ShadcnTheme>(() => 
-    ensureStatusTokens(initialTheme ?? { light: {}, dark: {} })
+    ensureStatusTokens(mergeWithDefaults(initialTheme))
   );
-  const themeRef = useRef<ShadcnTheme>(ensureStatusTokens(initialTheme ?? { light: {}, dark: {} }));
+  const themeRef = useRef<ShadcnTheme>(ensureStatusTokens(mergeWithDefaults(initialTheme)));
   const initializedRef = useRef(false);
   const [_originalFormats, setOriginalFormats] = useState<
     Record<string, Record<string, string>>
