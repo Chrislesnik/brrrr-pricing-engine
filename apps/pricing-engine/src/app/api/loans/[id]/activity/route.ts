@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     // Verify loan belongs to user's organization
     if (orgUuid) {
       const { data: loan, error: loanErr } = await supabaseAdmin
-        .from("deals")
+        .from("loans")
         .select("organization_id")
         .eq("id", loanId)
         .single()

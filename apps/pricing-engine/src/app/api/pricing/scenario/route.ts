@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     if (!loanId) {
       // Create minimal loan shell
       const { data: loanRow, error: loanErr } = await supabaseAdmin
-        .from("deals")
+        .from("loans")
         .insert({
           organization_id: orgUuid,
           assigned_to_user_id: [userId], // Clerk user id
