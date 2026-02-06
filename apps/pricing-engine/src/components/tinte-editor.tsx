@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { formatHex, oklch, parse, rgb } from "culori";
+import { formatHex, hsl as culoriHsl, oklch, parse, rgb } from "culori";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
 
 import {
@@ -806,6 +806,20 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       if (trimmed.startsWith("#")) {
         return trimmed; // Already hex
       }
+      
+      // Handle Tailwind's space-separated HSL format: "0 0% 100%" -> "hsl(0 0% 100%)"
+      // Pattern: number, space, number%, space, number%
+      const hslPattern = /^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/;
+      const hslMatch = trimmed.match(hslPattern);
+      if (hslMatch) {
+        const hslString = `hsl(${hslMatch[1]} ${hslMatch[2]}% ${hslMatch[3]}%)`;
+        const colorObj = culoriHsl(hslString);
+        if (colorObj) {
+          return formatHex(colorObj) || colorValue;
+        }
+      }
+      
+      // Try parsing as-is (oklch, rgb, etc.)
       const colorObj = oklch(trimmed);
       if (colorObj) {
         return formatHex(colorObj) || colorValue;
