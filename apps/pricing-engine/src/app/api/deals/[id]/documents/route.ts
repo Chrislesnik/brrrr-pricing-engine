@@ -160,12 +160,13 @@ export async function POST(
     // Generate unique filename
     const fileExt = file.name.split(".").pop();
     const uniqueId = nanoid();
-    const storagePath = `deals/${dealId}/${uniqueId}.${fileExt}`;
+    const fileName = `${uniqueId}.${fileExt}`;
+    const storagePath = `${dealId}/${fileName}`;
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage in "deals" bucket
     const fileBuffer = await file.arrayBuffer();
     const { error: uploadError } = await supabaseAdmin.storage
-      .from("documents")
+      .from("deals")
       .upload(storagePath, fileBuffer, {
         contentType: file.type,
         upsert: false,
@@ -186,7 +187,7 @@ export async function POST(
         document_name: documentName || file.name,
         file_type: file.type,
         file_size: file.size,
-        storage_bucket: "documents",
+        storage_bucket: "deals",
         storage_path: storagePath,
         uploaded_by: userId,
         uploaded_at: new Date().toISOString(),
@@ -198,7 +199,7 @@ export async function POST(
     if (docError || !docFile) {
       console.error("Error creating document record:", docError);
       // Cleanup uploaded file
-      await supabaseAdmin.storage.from("documents").remove([storagePath]);
+      await supabaseAdmin.storage.from("deals").remove([storagePath]);
       return NextResponse.json(
         { error: "Failed to create document record" },
         { status: 500 }
@@ -219,7 +220,7 @@ export async function POST(
       console.error("Error linking document to deal:", linkError);
       // Cleanup
       await supabaseAdmin.from("document_files").delete().eq("id", docFile.id);
-      await supabaseAdmin.storage.from("documents").remove([storagePath]);
+      await supabaseAdmin.storage.from("deals").remove([storagePath]);
       return NextResponse.json(
         { error: "Failed to link document to deal" },
         { status: 500 }

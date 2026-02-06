@@ -48,7 +48,7 @@ export async function GET(
 
     // Generate signed URL (valid for 1 hour)
     const { data, error } = await supabaseAdmin.storage
-      .from(docFile.storage_bucket || "documents")
+      .from(docFile.storage_bucket || "deals")
       .createSignedUrl(docFile.storage_path || "", 3600);
 
     if (error || !data?.signedUrl) {
