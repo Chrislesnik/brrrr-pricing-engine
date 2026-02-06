@@ -10,7 +10,7 @@ import {
   type PolicyRuleInput,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import { Button } from "@repo/ui/shadcn/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/shadcn/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/shadcn/card";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@repo/ui/shadcn/switch";
