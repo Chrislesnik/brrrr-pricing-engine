@@ -38,9 +38,9 @@ interface PlatformSettingsPopoverProps {
 
 // Organization settings navigation items
 const ORG_SETTINGS_ITEMS = [
-  { id: "general", label: "General", icon: Building2, path: "" },
-  { id: "members", label: "Members", icon: Users, path: "" },
-  { id: "domains", label: "Domains", icon: Globe, path: "" },
+  { id: "general", label: "General", icon: Building2, path: "?tab=general" },
+  { id: "members", label: "Members", icon: Users, path: "?tab=members" },
+  { id: "domains", label: "Domains", icon: Globe, path: "?tab=domains" },
   { id: "programs", label: "Programs", icon: Settings2, path: "?tab=programs" },
   {
     id: "permissions",
@@ -49,7 +49,7 @@ const ORG_SETTINGS_ITEMS = [
     path: "/permissions",
   },
   { id: "policies", label: "Policies", icon: ShieldCheck, path: "/policies" },
-  { id: "themes", label: "Themes", icon: Palette, path: "" },
+  { id: "themes", label: "Themes", icon: Palette, path: "?tab=themes" },
 ] as const;
 
 export function PlatformSettingsPopover({
