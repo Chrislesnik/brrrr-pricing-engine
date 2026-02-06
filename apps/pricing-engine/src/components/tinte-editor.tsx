@@ -547,28 +547,91 @@ function deriveStatusColors(
   }
   
   // ---- GRADIENT: derive warm gradient from theme colors ----
-  // Only derive if we find THREE DISTINCT warm colors in chart colors
-  // Otherwise, let the fallbacks provide a proper red → orange → yellow gradient
+  // Create a warm gradient (red → orange → yellow) that matches the theme's aesthetic
+  // by using the theme's saturation/lightness characteristics
   
-  // Try to find warm colors in chart colors
+  // First, try to find existing warm colors in chart colors
   const redColor = findColorByHueRange(chartColors, 345, 15) || findColorByHueRange(chartColors, 0, 20);
   const orangeColor = findColorByHueRange(chartColors, 15, 45);
   const yellowColor = findColorByHueRange(chartColors, 40, 65);
   
-  // Only use derived gradients if we found ALL THREE distinct warm colors
-  // This prevents the ugly duplication where all gradients become the same color
+  // If we found all three distinct warm colors in the theme, use them
   if (redColor && orangeColor && yellowColor) {
-    // Verify they're actually distinct colors (not the same color matching multiple ranges)
     const areDistinct = redColor !== orangeColor && orangeColor !== yellowColor && redColor !== yellowColor;
     if (areDistinct) {
       derived["gradient-warm-1"] = redColor;
       derived["gradient-warm-2"] = orangeColor;
       derived["gradient-warm-3"] = yellowColor;
+      return derived;
     }
-    // If not distinct, don't derive - let fallbacks handle it
   }
-  // For partial matches or no matches, don't derive anything
-  // The fallback gradient (red → orange → yellow) will be used instead
+  
+  // Otherwise, derive a warm gradient from the theme's most colorful color
+  // Find the most saturated/vibrant color from theme palette
+  const themeColors = [
+    tokens["chart-1"],
+    tokens["chart-2"],
+    tokens["chart-3"],
+    tokens["chart-4"],
+    tokens["chart-5"],
+    tokens["primary"],
+    tokens["accent"],
+  ].filter((c): c is string => !!c);
+  
+  // Find the color with highest saturation to use as reference
+  let bestColor: string | null = null;
+  let bestSaturation = 0;
+  
+  for (const color of themeColors) {
+    const parsed = parse(color);
+    if (parsed) {
+      const hslColor = culoriHsl(parsed);
+      if (hslColor && hslColor.s !== undefined && hslColor.s > bestSaturation) {
+        bestSaturation = hslColor.s;
+        bestColor = color;
+      }
+    }
+  }
+  
+  if (bestColor) {
+    const parsed = parse(bestColor);
+    if (parsed) {
+      const hslColor = culoriHsl(parsed);
+      if (hslColor && hslColor.s !== undefined && hslColor.l !== undefined) {
+        // Use the theme's saturation (clamped to ensure vibrant colors)
+        const saturation = Math.max(0.7, Math.min(0.95, hslColor.s));
+        // Use lightness inspired by theme, but ensure good visibility
+        const baseLightness = mode === "light" 
+          ? Math.max(0.45, Math.min(0.55, hslColor.l))
+          : Math.max(0.50, Math.min(0.60, hslColor.l));
+        
+        // Create three distinct warm colors with different hues
+        // Warm-1: Red (hue ~8)
+        derived["gradient-warm-1"] = formatHex({
+          mode: "hsl",
+          h: 8,
+          s: saturation,
+          l: baseLightness,
+        });
+        
+        // Warm-2: Orange (hue ~28)  
+        derived["gradient-warm-2"] = formatHex({
+          mode: "hsl",
+          h: 28,
+          s: saturation,
+          l: baseLightness + 0.05,
+        });
+        
+        // Warm-3: Yellow/Gold (hue ~48)
+        derived["gradient-warm-3"] = formatHex({
+          mode: "hsl",
+          h: 48,
+          s: saturation,
+          l: baseLightness + 0.10,
+        });
+      }
+    }
+  }
   
   return derived;
 }
