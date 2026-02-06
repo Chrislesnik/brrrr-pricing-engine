@@ -547,69 +547,28 @@ function deriveStatusColors(
   }
   
   // ---- GRADIENT: derive warm gradient from theme colors ----
-  // Strategy: Find the most vibrant/saturated colors from the theme and create a gradient
+  // Only derive if we find THREE DISTINCT warm colors in chart colors
+  // Otherwise, let the fallbacks provide a proper red → orange → yellow gradient
   
-  // First, try to find warm colors in chart colors
+  // Try to find warm colors in chart colors
   const redColor = findColorByHueRange(chartColors, 345, 15) || findColorByHueRange(chartColors, 0, 20);
   const orangeColor = findColorByHueRange(chartColors, 15, 45);
   const yellowColor = findColorByHueRange(chartColors, 40, 65);
   
-  // If we found warm colors in charts, use them
+  // Only use derived gradients if we found ALL THREE distinct warm colors
+  // This prevents the ugly duplication where all gradients become the same color
   if (redColor && orangeColor && yellowColor) {
-    derived["gradient-warm-1"] = redColor;
-    derived["gradient-warm-2"] = orangeColor;
-    derived["gradient-warm-3"] = yellowColor;
-  } else if (redColor || orangeColor || yellowColor) {
-    // Partial match - use what we found and fill gaps
-    derived["gradient-warm-1"] = redColor || orangeColor || yellowColor;
-    derived["gradient-warm-2"] = orangeColor || redColor || yellowColor;
-    derived["gradient-warm-3"] = yellowColor || orangeColor || redColor;
-  } else {
-    // No warm colors found - derive from primary/accent
-    // Create a cohesive gradient based on the theme's key colors
-    const primaryColor = tokens["primary"];
-    const accentColor = tokens["accent"];
-    const chart1 = tokens["chart-1"];
-    
-    // Use the most colorful option as base
-    const baseColor = chart1 || accentColor || primaryColor;
-    
-    if (baseColor) {
-      const baseHue = getHue(baseColor);
-      
-      if (baseHue !== null) {
-        // Create a warm-ish gradient inspired by the theme
-        // Shift the base color toward warm tones
-        const color = parse(baseColor);
-        if (color) {
-          const rgbColor = rgb(color);
-          if (rgbColor) {
-            // Warm-1: Add red tint
-            derived["gradient-warm-1"] = formatHex({
-              mode: "rgb",
-              r: Math.min(1, rgbColor.r * 1.2 + 0.3),
-              g: rgbColor.g * 0.6,
-              b: rgbColor.b * 0.3,
-            });
-            // Warm-2: Orange tint  
-            derived["gradient-warm-2"] = formatHex({
-              mode: "rgb",
-              r: Math.min(1, rgbColor.r * 1.1 + 0.4),
-              g: Math.min(1, rgbColor.g * 0.8 + 0.2),
-              b: rgbColor.b * 0.2,
-            });
-            // Warm-3: Yellow tint
-            derived["gradient-warm-3"] = formatHex({
-              mode: "rgb",
-              r: Math.min(1, rgbColor.r * 1.0 + 0.5),
-              g: Math.min(1, rgbColor.g * 1.0 + 0.4),
-              b: rgbColor.b * 0.1,
-            });
-          }
-        }
-      }
+    // Verify they're actually distinct colors (not the same color matching multiple ranges)
+    const areDistinct = redColor !== orangeColor && orangeColor !== yellowColor && redColor !== yellowColor;
+    if (areDistinct) {
+      derived["gradient-warm-1"] = redColor;
+      derived["gradient-warm-2"] = orangeColor;
+      derived["gradient-warm-3"] = yellowColor;
     }
+    // If not distinct, don't derive - let fallbacks handle it
   }
+  // For partial matches or no matches, don't derive anything
+  // The fallback gradient (red → orange → yellow) will be used instead
   
   return derived;
 }
