@@ -156,85 +156,46 @@ export default function OrgPolicyBuilder({
     <div className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle>Global Policy Builder (v1)</CardTitle>
+          <CardTitle>Create Access Policy</CardTitle>
+          <CardDescription>
+            Define a policy using IF (conditions) THEN (grant access) logic
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Resource scope</Label>
-              <Select
-                value={resourceType}
-                onValueChange={(value) =>
-                  setResourceType(
-                    value === "storage_bucket" ? "storage_bucket" : "table"
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="table">All tables</SelectItem>
-                  <SelectItem value="storage_bucket">All storage buckets</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                v1 policies apply globally via resource_name = "*".
-              </p>
+          {/* IF Section */}
+          <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/20">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="font-mono">IF</Badge>
+              <h3 className="text-sm font-semibold">Conditions (who can access)</h3>
             </div>
+
             <div className="space-y-2">
-              <Label>Allow internal users</Label>
+              <Label>Internal users bypass</Label>
               <div className="flex items-center gap-3">
                 <Switch
                   checked={allowInternalUsers}
                   onCheckedChange={setAllowInternalUsers}
                 />
                 <span className="text-sm text-muted-foreground">
-                  Bypass for internal users
+                  Users with is_internal_yn = true get automatic access
                 </span>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Actions</Label>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {(["select", "insert", "update", "delete"] as const).map(
-                (action) => (
-                  <label
-                    key={action}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={actions[action]}
-                      onCheckedChange={(checked) =>
-                        setActions((prev) => ({
-                          ...prev,
-                          [action]: Boolean(checked),
-                        }))
-                      }
-                    />
-                    {action}
-                  </label>
-                )
-              )}
-            </div>
-          </div>
+            <Separator />
 
-          <Separator />
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">OR if user matches any rule:</h3>
-                <p className="text-xs text-muted-foreground">
-                  Each rule is an AND of: organization type + org role + member role
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">OR user matches any of these rules:</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Each rule combines: organization type AND org role AND member role
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={addRule}>
+                  Add rule
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={addRule}>
-                Add rule
-              </Button>
-            </div>
 
             <div className="space-y-4">
               {rules.map((rule, index) => (
@@ -317,6 +278,63 @@ export default function OrgPolicyBuilder({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+          </div>
+
+          {/* THEN Section */}
+          <div className="space-y-4 rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-900 dark:bg-green-950/20">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="font-mono bg-green-600">THEN</Badge>
+              <h3 className="text-sm font-semibold">Grant Access (what they can do)</h3>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Actions (database operations)</Label>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {(["select", "insert", "update", "delete"] as const).map(
+                  (action) => (
+                    <label
+                      key={action}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={actions[action]}
+                        onCheckedChange={(checked) =>
+                          setActions((prev) => ({
+                            ...prev,
+                            [action]: Boolean(checked),
+                          }))
+                        }
+                      />
+                      <span className="capitalize">{action}</span>
+                    </label>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Resource scope (where they can access)</Label>
+              <Select
+                value={resourceType}
+                onValueChange={(value) =>
+                  setResourceType(
+                    value === "storage_bucket" ? "storage_bucket" : "table"
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="table">All tables</SelectItem>
+                  <SelectItem value="storage_bucket">All storage buckets</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                v1 policies apply globally via resource_name = "*"
+              </p>
             </div>
           </div>
 
