@@ -260,11 +260,11 @@ export function MembersSettings() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Member Role</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-[40%]">User</TableHead>
+                <TableHead className="w-[15%]">Joined</TableHead>
+                <TableHead className="w-[15%]">Role</TableHead>
+                <TableHead className="w-[15%]">Member Role</TableHead>
+                <TableHead className="w-[15%]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
