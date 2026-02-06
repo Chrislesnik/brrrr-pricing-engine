@@ -1,79 +1,37 @@
 -- =====================================================
--- SEED: Default Organization Member Roles
+-- SEED: Global Default Member Roles
 -- =====================================================
--- Run this AFTER creating organization_member_roles table
--- This seeds global default roles that all orgs can use
+-- Run this AFTER running UPDATE_MEMBER_ROLES_FOR_HYBRID.sql
+-- Seeds GLOBAL member roles (organization_id = NULL)
+-- that are available to ALL organizations
 -- =====================================================
 
--- Note: If organization_member_roles is org-scoped, you'll need to 
--- insert these for each organization. For now, this assumes a global
--- roles table OR you're seeding for a specific org.
-
--- Option 1: If table has organization_id (org-scoped roles)
--- Replace 'YOUR_ORG_UUID_HERE' with actual org UUID
-
+-- Insert GLOBAL member roles (organization_id = NULL)
 INSERT INTO public.organization_member_roles 
   (organization_id, role_code, role_name, description, display_order, is_active)
 VALUES
-  (
-    (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'admin',
-    'Admin',
-    'Full administrative access to organization settings and data',
-    1,
-    true
-  ),
-  (
-    (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'manager',
-    'Manager',
-    'Can manage deals, contacts, and team members',
-    2,
-    true
-  ),
-  (
-    (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'member',
-    'Member',
-    'Standard team member with basic access',
-    3,
-    true
-  ),
-  (
-    (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'account_executive',
-    'Account Executive',
-    'Manage client relationships and close deals',
-    4,
-    true
-  ),
-  (
-    (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'loan_processor',
-    'Loan Processor',
-    'Process loan applications and manage documentation',
-    5,
-    true
-  )
-ON CONFLICT (organization_id, role_code) 
-DO UPDATE SET
-  role_name = EXCLUDED.role_name,
-  description = EXCLUDED.description,
-  display_order = EXCLUDED.display_order;
+  (NULL, 'admin', 'Admin', 'Full administrative access to organization settings and data', 1, true),
+  (NULL, 'manager', 'Manager', 'Can manage deals, contacts, and team members', 2, true),
+  (NULL, 'member', 'Member', 'Standard team member with basic access', 3, true),
+  (NULL, 'account_executive', 'Account Executive', 'Manage client relationships and close deals', 4, true),
+  (NULL, 'loan_processor', 'Loan Processor', 'Process loan applications and manage documentation', 5, true)
+ON CONFLICT DO NOTHING;
 
--- Verify
+-- Verify - show ALL roles (global and org-specific)
 SELECT 
+  CASE 
+    WHEN organization_id IS NULL THEN 'GLOBAL'
+    ELSE 'ORG-SPECIFIC'
+  END as scope,
   role_code,
   role_name,
   description,
   display_order,
   is_active
 FROM public.organization_member_roles
-WHERE organization_id = (
-  SELECT id FROM organizations 
-  WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'
-)
-ORDER BY display_order;
+ORDER BY 
+  CASE WHEN organization_id IS NULL THEN 0 ELSE 1 END,
+  display_order;
 
 -- =====================================================
 -- Expected Results:
