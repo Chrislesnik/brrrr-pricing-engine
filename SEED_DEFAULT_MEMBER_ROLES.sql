@@ -41,17 +41,17 @@ VALUES
   ),
   (
     (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'analyst',
-    'Analyst',
-    'View and analyze data without modification rights',
+    'account_executive',
+    'Account Executive',
+    'Manage client relationships and close deals',
     4,
     true
   ),
   (
     (SELECT id FROM organizations WHERE clerk_organization_id = 'org_38MVrtrQBrhnDmbz9w90xrm24uT'),
-    'processor',
-    'Processor',
-    'Process deals and documents',
+    'loan_processor',
+    'Loan Processor',
+    'Process loan applications and manage documentation',
     5,
     true
   )
@@ -77,9 +77,9 @@ ORDER BY display_order;
 
 -- =====================================================
 -- Expected Results:
--- admin     | Admin     | Full administrative access... | 1 | true
--- manager   | Manager   | Can manage deals...           | 2 | true  
--- member    | Member    | Standard team member...       | 3 | true
--- analyst   | Analyst   | View and analyze data...      | 4 | true
--- processor | Processor | Process deals...              | 5 | true
+-- admin              | Admin              | Full administrative access...          | 1 | true
+-- manager            | Manager            | Can manage deals...                    | 2 | true  
+-- member             | Member             | Standard team member...                | 3 | true
+-- account_executive  | Account Executive  | Manage client relationships...         | 4 | true
+-- loan_processor     | Loan Processor     | Process loan applications...           | 5 | true
 -- =====================================================
