@@ -146,7 +146,7 @@ export type Database = {
             foreignKeyName: "application_signings_loan_id_fkey"
             columns: ["loan_id"]
             isOneToOne: false
-            referencedRelation: "deals"
+            referencedRelation: "loans"
             referencedColumns: ["id"]
           },
         ]
@@ -225,7 +225,7 @@ export type Database = {
             foreignKeyName: "applications_loan_id_fkey"
             columns: ["loan_id"]
             isOneToOne: true
-            referencedRelation: "deals"
+            referencedRelation: "loans"
             referencedColumns: ["id"]
           },
         ]
@@ -256,6 +256,144 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      appraisal: {
+        Row: {
+          appraiser_id: number | null
+          co_amc: string | null
+          co_appraisal: string | null
+          created_at: string
+          date_amc_vendor_accept: string | null
+          date_amc_vendor_assign: string | null
+          date_inspection_completed: string | null
+          date_inspection_scheduled: string | null
+          date_report_effective: string | null
+          date_report_expiration: string | null
+          date_report_ordered: string | null
+          date_report_received: string | null
+          deal_id: string | null
+          document_id: number | null
+          file_number: string | null
+          file_number_amc: string | null
+          id: number
+          order_status: string | null
+          order_type: string | null
+          property_id: number | null
+          updated_at: string | null
+          value_conclusion_as_is: number | null
+          value_conclusion_as_repaired: number | null
+          value_conclusion_fair_market_rent: number | null
+        }
+        Insert: {
+          appraiser_id?: number | null
+          co_amc?: string | null
+          co_appraisal?: string | null
+          created_at?: string
+          date_amc_vendor_accept?: string | null
+          date_amc_vendor_assign?: string | null
+          date_inspection_completed?: string | null
+          date_inspection_scheduled?: string | null
+          date_report_effective?: string | null
+          date_report_expiration?: string | null
+          date_report_ordered?: string | null
+          date_report_received?: string | null
+          deal_id?: string | null
+          document_id?: number | null
+          file_number?: string | null
+          file_number_amc?: string | null
+          id?: number
+          order_status?: string | null
+          order_type?: string | null
+          property_id?: number | null
+          updated_at?: string | null
+          value_conclusion_as_is?: number | null
+          value_conclusion_as_repaired?: number | null
+          value_conclusion_fair_market_rent?: number | null
+        }
+        Update: {
+          appraiser_id?: number | null
+          co_amc?: string | null
+          co_appraisal?: string | null
+          created_at?: string
+          date_amc_vendor_accept?: string | null
+          date_amc_vendor_assign?: string | null
+          date_inspection_completed?: string | null
+          date_inspection_scheduled?: string | null
+          date_report_effective?: string | null
+          date_report_expiration?: string | null
+          date_report_ordered?: string | null
+          date_report_received?: string | null
+          deal_id?: string | null
+          document_id?: number | null
+          file_number?: string | null
+          file_number_amc?: string | null
+          id?: number
+          order_status?: string | null
+          order_type?: string | null
+          property_id?: number | null
+          updated_at?: string | null
+          value_conclusion_as_is?: number | null
+          value_conclusion_as_repaired?: number | null
+          value_conclusion_fair_market_rent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_appraiser_id_fkey"
+            columns: ["appraiser_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_co_amc_fkey"
+            columns: ["co_amc"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_co_amc_fkey"
+            columns: ["co_amc"]
+            isOneToOne: false
+            referencedRelation: "entities_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_co_appraisal_fkey"
+            columns: ["co_appraisal"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_co_appraisal_fkey"
+            columns: ["co_appraisal"]
+            isOneToOne: false
+            referencedRelation: "entities_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "property"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       borrower_entities: {
         Row: {
@@ -479,6 +617,54 @@ export type Database = {
           },
         ]
       }
+      contact: {
+        Row: {
+          cell_phone: string | null
+          created_at: string | null
+          email_address: string | null
+          first_name: string | null
+          home_phone: string | null
+          id: number
+          last_name: string | null
+          middle_name: string | null
+          name: string | null
+          office_phone: string | null
+          portal_access: boolean | null
+          profile_picture: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cell_phone?: string | null
+          created_at?: string | null
+          email_address?: string | null
+          first_name?: string | null
+          home_phone?: string | null
+          id?: number
+          last_name?: string | null
+          middle_name?: string | null
+          name?: string | null
+          office_phone?: string | null
+          portal_access?: boolean | null
+          profile_picture?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cell_phone?: string | null
+          created_at?: string | null
+          email_address?: string | null
+          first_name?: string | null
+          home_phone?: string | null
+          id?: number
+          last_name?: string | null
+          middle_name?: string | null
+          name?: string | null
+          office_phone?: string | null
+          portal_access?: boolean | null
+          profile_picture?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       credit_report_chat_messages: {
         Row: {
           content: string
@@ -562,6 +748,78 @@ export type Database = {
           },
         ]
       }
+      credit_report_data_xactus: {
+        Row: {
+          borrower_id: string | null
+          cleaned_data: Json | null
+          created_at: string
+          date_ordered: string | null
+          equifax_score: number | null
+          experian_score: number | null
+          file_size: number | null
+          file_type: string | null
+          guarantor_id: number | null
+          id: string
+          pull_type: string | null
+          raw_data: string | null
+          report_id: string | null
+          transunion_score: number | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          borrower_id?: string | null
+          cleaned_data?: Json | null
+          created_at?: string
+          date_ordered?: string | null
+          equifax_score?: number | null
+          experian_score?: number | null
+          file_size?: number | null
+          file_type?: string | null
+          guarantor_id?: number | null
+          id?: string
+          pull_type?: string | null
+          raw_data?: string | null
+          report_id?: string | null
+          transunion_score?: number | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          borrower_id?: string | null
+          cleaned_data?: Json | null
+          created_at?: string
+          date_ordered?: string | null
+          equifax_score?: number | null
+          experian_score?: number | null
+          file_size?: number | null
+          file_type?: string | null
+          guarantor_id?: number | null
+          id?: string
+          pull_type?: string | null
+          raw_data?: string | null
+          report_id?: string | null
+          transunion_score?: number | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_report_data_xactus_guarantor_id_fkey"
+            columns: ["guarantor_id"]
+            isOneToOne: false
+            referencedRelation: "guarantor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xactus_reports_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_report_user_chats: {
         Row: {
           chat_id: string
@@ -638,6 +896,7 @@ export type Database = {
           id: string
           metadata: Json
           organization_id: string | null
+          report_id: number | null
           status: string | null
           storage_path: string
         }
@@ -651,6 +910,7 @@ export type Database = {
           id?: string
           metadata?: Json
           organization_id?: string | null
+          report_id?: number | null
           status?: string | null
           storage_path: string
         }
@@ -664,6 +924,7 @@ export type Database = {
           id?: string
           metadata?: Json
           organization_id?: string | null
+          report_id?: number | null
           status?: string | null
           storage_path?: string
         }
@@ -754,6 +1015,204 @@ export type Database = {
             columns: ["organization_member_id"]
             isOneToOne: false
             referencedRelation: "organization_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_clerk_orgs: {
+        Row: {
+          clerk_org_id: string
+          deal_id: string
+          id: number
+        }
+        Insert: {
+          clerk_org_id: string
+          deal_id: string
+          id?: number
+        }
+        Update: {
+          clerk_org_id?: string
+          deal_id?: string
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_clerk_orgs_clerk_org_id_fkey"
+            columns: ["clerk_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_clerk_orgs_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_comment_reads: {
+        Row: {
+          clerk_user_id: string
+          deal_id: string
+          last_read_at: string
+        }
+        Insert: {
+          clerk_user_id: string
+          deal_id: string
+          last_read_at?: string
+        }
+        Update: {
+          clerk_user_id?: string
+          deal_id?: string
+          last_read_at?: string
+        }
+        Relationships: []
+      }
+      deal_comments: {
+        Row: {
+          author_avatar_url: string | null
+          author_clerk_user_id: string
+          author_name: string
+          content: string
+          created_at: string
+          deal_id: string
+          id: string
+        }
+        Insert: {
+          author_avatar_url?: string | null
+          author_clerk_user_id: string
+          author_name: string
+          content: string
+          created_at?: string
+          deal_id: string
+          id?: string
+        }
+        Update: {
+          author_avatar_url?: string | null
+          author_clerk_user_id?: string
+          author_name?: string
+          content?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      deal_document_participants: {
+        Row: {
+          created_at: string
+          deal_id: string
+          document_file_id: number
+          source_pk: number
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          document_file_id: number
+          source_pk: number
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          document_file_id?: number
+          source_pk?: number
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_document_participants_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_document_participants_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_guarantors: {
+        Row: {
+          created_at: string | null
+          deal_id: string
+          display_order: number | null
+          guarantor_id: number
+          id: number
+          is_primary: boolean | null
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id: string
+          display_order?: number | null
+          guarantor_id: number
+          id?: number
+          is_primary?: boolean | null
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: string
+          display_order?: number | null
+          guarantor_id?: number
+          id?: number
+          is_primary?: boolean | null
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_guarantors_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_guarantors_guarantor_id_fkey"
+            columns: ["guarantor_id"]
+            isOneToOne: false
+            referencedRelation: "guarantor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_property: {
+        Row: {
+          deal_id: string
+          id: number
+          property_id: number
+        }
+        Insert: {
+          deal_id: string
+          id?: number
+          property_id: number
+        }
+        Update: {
+          deal_id?: string
+          id?: number
+          property_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_deal_property_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_deal_property_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "property"
             referencedColumns: ["id"]
           },
         ]
@@ -917,39 +1376,6 @@ export type Database = {
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      deals_clerk_orgs: {
-        Row: {
-          clerk_org_id: string
-          deal_id: string
-          id: number
-        }
-        Insert: {
-          clerk_org_id: string
-          deal_id: string
-          id?: number
-        }
-        Update: {
-          clerk_org_id?: string
-          deal_id?: string
-          id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "deals_clerk_orgs_clerk_org_id_fkey"
-            columns: ["clerk_org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_clerk_orgs_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]
@@ -1288,6 +1714,45 @@ export type Database = {
           },
         ]
       }
+      document_files_borrowers: {
+        Row: {
+          borrower_id: string
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          borrower_id: string
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          borrower_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_borrowers_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_borrowers_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_files_clerk_orgs: {
         Row: {
           clerk_org_id: string
@@ -1359,6 +1824,45 @@ export type Database = {
           },
           {
             foreignKeyName: "document_files_clerk_users_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_deals: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_deals_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_deals_document_file_id_fkey"
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
@@ -1750,6 +2254,143 @@ export type Database = {
           },
         ]
       }
+      guarantor: {
+        Row: {
+          borrower_id: string | null
+          cell_phone: string | null
+          citizenship: string | null
+          created_at: string
+          date_of_birth: string | null
+          email_address: string | null
+          first_name: string | null
+          home_phone: string | null
+          id: number
+          last_name: string | null
+          mailing_address_city: string | null
+          mailing_address_country: string | null
+          mailing_address_is_primary_residence: boolean | null
+          mailing_address_po_box: string | null
+          mailing_address_postal_code: string | null
+          mailing_address_state: string | null
+          mailing_address_state_long: string | null
+          mailing_address_street: string | null
+          mailing_address_suite_apt: string | null
+          marital_status: string | null
+          middle_name: string | null
+          name: string | null
+          office_phone: string | null
+          previous_residence_address_city: string | null
+          previous_residence_address_country: string | null
+          previous_residence_address_postal_code: string | null
+          previous_residence_address_state: string | null
+          previous_residence_address_state_long: string | null
+          previous_residence_address_street: string | null
+          previous_residence_address_suite_apt: string | null
+          primary_residence_address_city: string | null
+          primary_residence_address_country: string | null
+          primary_residence_address_postal_code: string | null
+          primary_residence_address_state: string | null
+          primary_residence_address_state_long: string | null
+          primary_residence_address_street: string | null
+          primary_residence_address_suite_apt: string | null
+          primary_residence_occupancy_start_date: string | null
+          primary_residence_ownership: string | null
+          social_security_number: string | null
+        }
+        Insert: {
+          borrower_id?: string | null
+          cell_phone?: string | null
+          citizenship?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email_address?: string | null
+          first_name?: string | null
+          home_phone?: string | null
+          id?: number
+          last_name?: string | null
+          mailing_address_city?: string | null
+          mailing_address_country?: string | null
+          mailing_address_is_primary_residence?: boolean | null
+          mailing_address_po_box?: string | null
+          mailing_address_postal_code?: string | null
+          mailing_address_state?: string | null
+          mailing_address_state_long?: string | null
+          mailing_address_street?: string | null
+          mailing_address_suite_apt?: string | null
+          marital_status?: string | null
+          middle_name?: string | null
+          name?: string | null
+          office_phone?: string | null
+          previous_residence_address_city?: string | null
+          previous_residence_address_country?: string | null
+          previous_residence_address_postal_code?: string | null
+          previous_residence_address_state?: string | null
+          previous_residence_address_state_long?: string | null
+          previous_residence_address_street?: string | null
+          previous_residence_address_suite_apt?: string | null
+          primary_residence_address_city?: string | null
+          primary_residence_address_country?: string | null
+          primary_residence_address_postal_code?: string | null
+          primary_residence_address_state?: string | null
+          primary_residence_address_state_long?: string | null
+          primary_residence_address_street?: string | null
+          primary_residence_address_suite_apt?: string | null
+          primary_residence_occupancy_start_date?: string | null
+          primary_residence_ownership?: string | null
+          social_security_number?: string | null
+        }
+        Update: {
+          borrower_id?: string | null
+          cell_phone?: string | null
+          citizenship?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email_address?: string | null
+          first_name?: string | null
+          home_phone?: string | null
+          id?: number
+          last_name?: string | null
+          mailing_address_city?: string | null
+          mailing_address_country?: string | null
+          mailing_address_is_primary_residence?: boolean | null
+          mailing_address_po_box?: string | null
+          mailing_address_postal_code?: string | null
+          mailing_address_state?: string | null
+          mailing_address_state_long?: string | null
+          mailing_address_street?: string | null
+          mailing_address_suite_apt?: string | null
+          marital_status?: string | null
+          middle_name?: string | null
+          name?: string | null
+          office_phone?: string | null
+          previous_residence_address_city?: string | null
+          previous_residence_address_country?: string | null
+          previous_residence_address_postal_code?: string | null
+          previous_residence_address_state?: string | null
+          previous_residence_address_state_long?: string | null
+          previous_residence_address_street?: string | null
+          previous_residence_address_suite_apt?: string | null
+          primary_residence_address_city?: string | null
+          primary_residence_address_country?: string | null
+          primary_residence_address_postal_code?: string | null
+          primary_residence_address_state?: string | null
+          primary_residence_address_state_long?: string | null
+          primary_residence_address_street?: string | null
+          primary_residence_address_suite_apt?: string | null
+          primary_residence_occupancy_start_date?: string | null
+          primary_residence_ownership?: string | null
+          social_security_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guarantor_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["display_id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           created_at: string
@@ -1946,11 +2587,49 @@ export type Database = {
             foreignKeyName: "loan_scenarios_loan_id_fkey"
             columns: ["loan_id"]
             isOneToOne: false
-            referencedRelation: "deals"
+            referencedRelation: "loans"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "loan_scenarios_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loans: {
+        Row: {
+          assigned_to_user_id: Json | null
+          created_at: string
+          id: string
+          organization_id: string
+          primary_user_id: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to_user_id?: Json | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          primary_user_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to_user_id?: Json | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          primary_user_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1976,32 +2655,76 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_member_roles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: number
+          is_active: boolean | null
+          organization_id: string | null
+          role_code: string
+          role_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: number
+          is_active?: boolean | null
+          organization_id?: string | null
+          role_code: string
+          role_name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: number
+          is_active?: boolean | null
+          organization_id?: string | null
+          role_code?: string
+          role_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_member_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
+          clerk_member_role: string | null
+          clerk_org_role: string
           created_at: string
           first_name: string | null
           id: string
           last_name: string | null
           organization_id: string
-          role: string
           user_id: string
         }
         Insert: {
+          clerk_member_role?: string | null
+          clerk_org_role?: string
           created_at?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
           organization_id: string
-          role?: string
           user_id: string
         }
         Update: {
+          clerk_member_role?: string | null
+          clerk_org_role?: string
           created_at?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
           organization_id?: string
-          role?: string
           user_id?: string
         }
         Relationships: [
@@ -2014,12 +2737,109 @@ export type Database = {
           },
         ]
       }
+      organization_policies: {
+        Row: {
+          action: string
+          compiled_config: Json
+          created_at: string
+          created_by_clerk_sub: string | null
+          created_by_user_id: number | null
+          definition_json: Json
+          id: string
+          is_active: boolean
+          org_id: string
+          resource_name: string
+          resource_type: string
+          version: number
+        }
+        Insert: {
+          action: string
+          compiled_config: Json
+          created_at?: string
+          created_by_clerk_sub?: string | null
+          created_by_user_id?: number | null
+          definition_json: Json
+          id?: string
+          is_active?: boolean
+          org_id: string
+          resource_name?: string
+          resource_type: string
+          version?: number
+        }
+        Update: {
+          action?: string
+          compiled_config?: Json
+          created_at?: string
+          created_by_clerk_sub?: string | null
+          created_by_user_id?: number | null
+          definition_json?: Json
+          id?: string
+          is_active?: boolean
+          org_id?: string
+          resource_name?: string
+          resource_type?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_policies_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_policies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_themes: {
+        Row: {
+          created_at: string | null
+          id: string
+          organization_id: string | null
+          theme_dark: Json
+          theme_light: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          theme_dark: Json
+          theme_light: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          theme_dark?: Json
+          theme_light?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_themes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           clerk_organization_id: string | null
           created_at: string
           id: string
+          is_internal_yn: boolean | null
           name: string
+          org_id: number
           slug: string | null
           updated_at: string
         }
@@ -2027,7 +2847,9 @@ export type Database = {
           clerk_organization_id?: string | null
           created_at?: string
           id?: string
+          is_internal_yn?: boolean | null
           name: string
+          org_id?: number
           slug?: string | null
           updated_at?: string
         }
@@ -2035,7 +2857,9 @@ export type Database = {
           clerk_organization_id?: string | null
           created_at?: string
           id?: string
+          is_internal_yn?: boolean | null
           name?: string
+          org_id?: number
           slug?: string | null
           updated_at?: string
         }
@@ -2092,7 +2916,7 @@ export type Database = {
             foreignKeyName: "pricing_activity_log_loan_id_fkey"
             columns: ["loan_id"]
             isOneToOne: false
-            referencedRelation: "deals"
+            referencedRelation: "loans"
             referencedColumns: ["id"]
           },
           {
@@ -2173,7 +2997,6 @@ export type Database = {
           id: string
           internal_name: string
           loan_type: string
-          organization_id: string
           status: string
           updated_at: string
           user_id: string
@@ -2185,7 +3008,6 @@ export type Database = {
           id?: string
           internal_name: string
           loan_type: string
-          organization_id: string
           status?: string
           updated_at?: string
           user_id: string
@@ -2197,18 +3019,197 @@ export type Database = {
           id?: string
           internal_name?: string
           loan_type?: string
-          organization_id?: string
           status?: string
           updated_at?: string
           user_id?: string
           webhook_url?: string | null
         }
+        Relationships: []
+      }
+      property: {
+        Row: {
+          address: string | null
+          address_city: string | null
+          address_country: string | null
+          address_county: string | null
+          address_postal_code: string | null
+          address_state: string | null
+          address_state_long: string | null
+          address_street: string | null
+          address_suite_apt: string | null
+          bathrooms_aiv: number | null
+          bathrooms_arv: number | null
+          bedrooms_aiv: number | null
+          bedrooms_arv: number | null
+          created_at: string | null
+          declining_market: string | null
+          expense_annual_association_hoa: number | null
+          expense_annual_insurance_flood: number | null
+          expense_annual_insurance_hoi: number | null
+          expense_annual_management: number | null
+          expense_annual_property_tax: number | null
+          flood_zone: string | null
+          hoa_contact: number | null
+          hoa_contact_email: string | null
+          hoa_contact_person: string | null
+          hoa_contact_phone: string | null
+          hoa_name: string | null
+          id: number
+          income_monthly_fair_market_rent: number | null
+          income_monthly_gross_rent: number | null
+          inspection: string | null
+          latitude: number | null
+          longitude: number | null
+          occupancy: string | null
+          photo_url: string | null
+          property_type: string | null
+          purchase_date: string | null
+          purchase_price: number | null
+          recently_renovated: string | null
+          rehab_completed_post_acquisition: number | null
+          renovation_completed: string | null
+          renovation_cost: number | null
+          rural: string | null
+          sale_date: string | null
+          sale_price: number | null
+          short_term_rental: string | null
+          sq_footage_gla_aiv: number | null
+          sq_footage_gla_arv: number | null
+          sq_footage_lot_aiv: number | null
+          sq_footage_lot_arv: number | null
+          units: number | null
+          updated_at: string | null
+          value_aiv_appraised: number | null
+          value_aiv_estimate: number | null
+          value_arv_appraised: number | null
+          value_arv_estimate: number | null
+          warrantability: string | null
+          year_built: number | null
+        }
+        Insert: {
+          address?: string | null
+          address_city?: string | null
+          address_country?: string | null
+          address_county?: string | null
+          address_postal_code?: string | null
+          address_state?: string | null
+          address_state_long?: string | null
+          address_street?: string | null
+          address_suite_apt?: string | null
+          bathrooms_aiv?: number | null
+          bathrooms_arv?: number | null
+          bedrooms_aiv?: number | null
+          bedrooms_arv?: number | null
+          created_at?: string | null
+          declining_market?: string | null
+          expense_annual_association_hoa?: number | null
+          expense_annual_insurance_flood?: number | null
+          expense_annual_insurance_hoi?: number | null
+          expense_annual_management?: number | null
+          expense_annual_property_tax?: number | null
+          flood_zone?: string | null
+          hoa_contact?: number | null
+          hoa_contact_email?: string | null
+          hoa_contact_person?: string | null
+          hoa_contact_phone?: string | null
+          hoa_name?: string | null
+          id?: number
+          income_monthly_fair_market_rent?: number | null
+          income_monthly_gross_rent?: number | null
+          inspection?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          occupancy?: string | null
+          photo_url?: string | null
+          property_type?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          recently_renovated?: string | null
+          rehab_completed_post_acquisition?: number | null
+          renovation_completed?: string | null
+          renovation_cost?: number | null
+          rural?: string | null
+          sale_date?: string | null
+          sale_price?: number | null
+          short_term_rental?: string | null
+          sq_footage_gla_aiv?: number | null
+          sq_footage_gla_arv?: number | null
+          sq_footage_lot_aiv?: number | null
+          sq_footage_lot_arv?: number | null
+          units?: number | null
+          updated_at?: string | null
+          value_aiv_appraised?: number | null
+          value_aiv_estimate?: number | null
+          value_arv_appraised?: number | null
+          value_arv_estimate?: number | null
+          warrantability?: string | null
+          year_built?: number | null
+        }
+        Update: {
+          address?: string | null
+          address_city?: string | null
+          address_country?: string | null
+          address_county?: string | null
+          address_postal_code?: string | null
+          address_state?: string | null
+          address_state_long?: string | null
+          address_street?: string | null
+          address_suite_apt?: string | null
+          bathrooms_aiv?: number | null
+          bathrooms_arv?: number | null
+          bedrooms_aiv?: number | null
+          bedrooms_arv?: number | null
+          created_at?: string | null
+          declining_market?: string | null
+          expense_annual_association_hoa?: number | null
+          expense_annual_insurance_flood?: number | null
+          expense_annual_insurance_hoi?: number | null
+          expense_annual_management?: number | null
+          expense_annual_property_tax?: number | null
+          flood_zone?: string | null
+          hoa_contact?: number | null
+          hoa_contact_email?: string | null
+          hoa_contact_person?: string | null
+          hoa_contact_phone?: string | null
+          hoa_name?: string | null
+          id?: number
+          income_monthly_fair_market_rent?: number | null
+          income_monthly_gross_rent?: number | null
+          inspection?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          occupancy?: string | null
+          photo_url?: string | null
+          property_type?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          recently_renovated?: string | null
+          rehab_completed_post_acquisition?: number | null
+          renovation_completed?: string | null
+          renovation_cost?: number | null
+          rural?: string | null
+          sale_date?: string | null
+          sale_price?: number | null
+          short_term_rental?: string | null
+          sq_footage_gla_aiv?: number | null
+          sq_footage_gla_arv?: number | null
+          sq_footage_lot_aiv?: number | null
+          sq_footage_lot_arv?: number | null
+          units?: number | null
+          updated_at?: string | null
+          value_aiv_appraised?: number | null
+          value_aiv_estimate?: number | null
+          value_arv_appraised?: number | null
+          value_arv_estimate?: number | null
+          warrantability?: string | null
+          year_built?: number | null
+        }
         Relationships: [
           {
-            foreignKeyName: "programs_organization_id_fkey"
-            columns: ["organization_id"]
+            foreignKeyName: "property_hoa_contact_fkey"
+            columns: ["hoa_contact"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "contact"
             referencedColumns: ["id"]
           },
         ]
@@ -2270,6 +3271,88 @@ export type Database = {
         }
         Relationships: []
       }
+      term_sheet_template_fields: {
+        Row: {
+          created_at: string
+          field_type: string
+          id: string
+          name: string
+          position: number
+          required: boolean
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_type: string
+          id?: string
+          name: string
+          position?: number
+          required?: boolean
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          name?: string
+          position?: number
+          required?: boolean
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "term_sheet_template_fields_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "term_sheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      term_sheet_templates: {
+        Row: {
+          created_at: string
+          gjs_data: Json
+          html_content: string
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gjs_data: Json
+          html_content?: string
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gjs_data?: Json
+          html_content?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "term_sheet_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       term_sheets: {
         Row: {
           created_at: string
@@ -2300,7 +3383,7 @@ export type Database = {
             foreignKeyName: "term_sheets_loan_id_fkey"
             columns: ["loan_id"]
             isOneToOne: false
-            referencedRelation: "deals"
+            referencedRelation: "loans"
             referencedColumns: ["id"]
           },
         ]
@@ -2413,53 +3496,6 @@ export type Database = {
         }
         Relationships: []
       }
-      xactus_data: {
-        Row: {
-          borrower_id: string | null
-          cleaned_data: Json | null
-          created_at: string
-          equifax_score: number | null
-          experian_score: number | null
-          id: string
-          pull_type: string | null
-          raw_data: string | null
-          report_id: string | null
-          transunion_score: number | null
-        }
-        Insert: {
-          borrower_id?: string | null
-          cleaned_data?: Json | null
-          created_at?: string
-          equifax_score?: number | null
-          experian_score?: number | null
-          id?: string
-          pull_type?: string | null
-          raw_data?: string | null
-          report_id?: string | null
-          transunion_score?: number | null
-        }
-        Update: {
-          borrower_id?: string | null
-          cleaned_data?: Json | null
-          created_at?: string
-          equifax_score?: number | null
-          experian_score?: number | null
-          id?: string
-          pull_type?: string | null
-          raw_data?: string | null
-          report_id?: string | null
-          transunion_score?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "xactus_reports_borrower_id_fkey"
-            columns: ["borrower_id"]
-            isOneToOne: false
-            referencedRelation: "borrowers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       entities_view: {
@@ -2557,6 +3593,10 @@ export type Database = {
             }
             Returns: boolean
           }
+        | {
+            Args: { p_deal_id: string; p_document_id: string }
+            Returns: boolean
+          }
       can_access_deal_document_by_code:
         | {
             Args: {
@@ -2574,14 +3614,103 @@ export type Database = {
             }
             Returns: boolean
           }
+      can_access_document: {
+        Args: { p_action: string; p_document_file_id: number }
+        Returns: boolean
+      }
+      can_access_org_resource: {
+        Args: {
+          p_action: string
+          p_resource_name: string
+          p_resource_type: string
+        }
+        Returns: boolean
+      }
+      create_document_with_deal_link: {
+        Args: {
+          p_deal_id: string
+          p_document_category_id: number
+          p_document_name: string
+          p_file_size?: number
+          p_file_type?: string
+          p_original_filename: string
+          p_storage_bucket: string
+        }
+        Returns: {
+          document_id: number
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
+      create_document_with_subject_link: {
+        Args: {
+          p_document_category_id: number
+          p_document_name: string
+          p_file_size?: number
+          p_file_type?: string
+          p_original_filename: string
+          p_storage_bucket: string
+          p_subject_id?: string
+          p_subject_type?: string
+        }
+        Returns: {
+          document_id: number
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
+      document_file_deal_ids: {
+        Args: { p_document_file_id: number }
+        Returns: {
+          deal_id: string
+        }[]
+      }
       ensure_user_chat: {
         Args: { p_org_id: string; p_report_id: string; p_user_id: string }
         Returns: undefined
       }
+      finalize_document_upload: {
+        Args: { p_document_file_id: number; p_file_size?: number }
+        Returns: boolean
+      }
+      generate_tag_slug: { Args: { tag_name: string }; Returns: string }
       get_active_org_id: { Args: never; Returns: string }
+      get_clerk_user_id: { Args: never; Returns: string }
       get_current_user_id: { Args: never; Returns: number }
+      get_deal_documents: {
+        Args: { p_deal_id: string }
+        Returns: {
+          created_at: string
+          document_category_id: number | null
+          document_name: string | null
+          document_status: Database["public"]["Enums"]["document_status"] | null
+          effective_date: string | null
+          expiration_date: string | null
+          file_size: number | null
+          file_type: string | null
+          id: number
+          is_required: boolean | null
+          period_end: string | null
+          period_start: string | null
+          private_notes: string | null
+          public_notes: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+          tags: string[] | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+          uuid: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "document_files"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       is_internal_admin: { Args: never; Returns: boolean }
       is_org_admin: { Args: { p_org_id: string }; Returns: boolean }
+      is_org_owner: { Args: { p_org_id: string }; Returns: boolean }
       match_documents: {
         Args: { filter?: Json; match_count?: number; query_embedding: string }
         Returns: {
@@ -2615,12 +3744,377 @@ export type Database = {
       }
     }
     Enums: {
+      country:
+        | "Bonaire, Sint Eustatius and Saba"
+        | "Curaçao"
+        | "Guernsey"
+        | "Isle of Man"
+        | "Jersey"
+        | "Åland Islands"
+        | "Montenegro"
+        | "Saint Barthélemy"
+        | "Saint Martin (French part)"
+        | "Serbia"
+        | "Sint Maarten (Dutch part)"
+        | "South Sudan"
+        | "Timor-Leste"
+        | "American Samoa"
+        | "Andorra"
+        | "Angola"
+        | "Anguilla"
+        | "Antarctica"
+        | "Antigua and Barbuda"
+        | "Argentina"
+        | "Armenia"
+        | "Aruba"
+        | "Australia"
+        | "Austria"
+        | "Azerbaijan"
+        | "Bahamas"
+        | "Bahrain"
+        | "Bangladesh"
+        | "Barbados"
+        | "Belarus"
+        | "Belgium"
+        | "Belize"
+        | "Benin"
+        | "Bermuda"
+        | "Bhutan"
+        | "Bolivia"
+        | "Bosnia and Herzegovina"
+        | "Botswana"
+        | "Bouvet Island"
+        | "Brazil"
+        | "British Indian Ocean Territory"
+        | "Brunei Darussalam"
+        | "Bulgaria"
+        | "Burkina Faso"
+        | "Burundi"
+        | "Cambodia"
+        | "Cameroon"
+        | "Canada"
+        | "Cape Verde"
+        | "Cayman Islands"
+        | "Central African Republic"
+        | "Chad"
+        | "Chile"
+        | "China"
+        | "Christmas Island"
+        | "Cocos (Keeling) Islands"
+        | "Colombia"
+        | "Comoros"
+        | "Congo"
+        | "Congo, the Democratic Republic of the"
+        | "Cook Islands"
+        | "Costa Rica"
+        | "Cote DIvoire"
+        | "Croatia"
+        | "Cuba"
+        | "Cyprus"
+        | "Czech Republic"
+        | "Denmark"
+        | "Djibouti"
+        | "Dominica"
+        | "Dominican Republic"
+        | "Ecuador"
+        | "Egypt"
+        | "El Salvador"
+        | "Equatorial Guinea"
+        | "Eritrea"
+        | "Estonia"
+        | "Ethiopia"
+        | "Falkland Islands (Malvinas)"
+        | "Faroe Islands"
+        | "Fiji"
+        | "Finland"
+        | "France"
+        | "French Guiana"
+        | "French Polynesia"
+        | "French Southern Territories"
+        | "Gabon"
+        | "Gambia"
+        | "Georgia"
+        | "Germany"
+        | "Ghana"
+        | "Gibraltar"
+        | "Greece"
+        | "Greenland"
+        | "Grenada"
+        | "Guadeloupe"
+        | "Guam"
+        | "Guatemala"
+        | "Guinea"
+        | "Guinea-Bissau"
+        | "Guyana"
+        | "Haiti"
+        | "Heard Island and Mcdonald Islands"
+        | "Holy See (Vatican City State)"
+        | "Honduras"
+        | "Hong Kong"
+        | "Hungary"
+        | "Iceland"
+        | "India"
+        | "Indonesia"
+        | "Iran, Islamic Republic of"
+        | "Iraq"
+        | "Ireland"
+        | "Israel"
+        | "Italy"
+        | "Jamaica"
+        | "Japan"
+        | "Jordan"
+        | "Kazakhstan"
+        | "Kenya"
+        | "Kiribati"
+        | "Korea, Democratic People's Republic of"
+        | "Korea, Republic of"
+        | "Kuwait"
+        | "Kyrgyzstan"
+        | "Lao People's Democratic Republic"
+        | "Latvia"
+        | "Lebanon"
+        | "Lesotho"
+        | "Liberia"
+        | "Libya"
+        | "Liechtenstein"
+        | "Lithuania"
+        | "Luxembourg"
+        | "Macao"
+        | "Macedonia, the Former Yugoslav Republic of"
+        | "Madagascar"
+        | "Malawi"
+        | "Malaysia"
+        | "Maldives"
+        | "Mali"
+        | "Malta"
+        | "Marshall Islands"
+        | "Martinique"
+        | "Mauritania"
+        | "Mauritius"
+        | "Mayotte"
+        | "Mexico"
+        | "Micronesia, Federated States of"
+        | "Moldova, Republic of"
+        | "Monaco"
+        | "Mongolia"
+        | "Albania"
+        | "Montserrat"
+        | "Morocco"
+        | "Mozambique"
+        | "Myanmar"
+        | "Namibia"
+        | "Nauru"
+        | "Nepal"
+        | "Netherlands"
+        | "New Caledonia"
+        | "New Zealand"
+        | "Nicaragua"
+        | "Niger"
+        | "Nigeria"
+        | "Niue"
+        | "Norfolk Island"
+        | "Northern Mariana Islands"
+        | "Norway"
+        | "Oman"
+        | "Pakistan"
+        | "Palau"
+        | "Palestine, State of"
+        | "Panama"
+        | "Papua New Guinea"
+        | "Paraguay"
+        | "Peru"
+        | "Philippines"
+        | "Pitcairn"
+        | "Poland"
+        | "Portugal"
+        | "Puerto Rico"
+        | "Qatar"
+        | "Reunion"
+        | "Romania"
+        | "Russian Federation"
+        | "Rwanda"
+        | "Saint Helena, Ascension and Tristan da Cunha"
+        | "Saint Kitts and Nevis"
+        | "Saint Lucia"
+        | "Saint Pierre and Miquelon"
+        | "Saint Vincent and the Grenadines"
+        | "Samoa"
+        | "San Marino"
+        | "Sao Tome and Principe"
+        | "Saudi Arabia"
+        | "Senegal"
+        | "Seychelles"
+        | "Sierra Leone"
+        | "Singapore"
+        | "Slovakia"
+        | "Slovenia"
+        | "Solomon Islands"
+        | "Somalia"
+        | "South Africa"
+        | "South Georgia and the South Sandwich Islands"
+        | "Spain"
+        | "Sri Lanka"
+        | "Sudan"
+        | "Suriname"
+        | "Svalbard and Jan Mayen"
+        | "Swaziland"
+        | "Sweden"
+        | "Switzerland"
+        | "Syrian Arab Republic"
+        | "Taiwan (Province of China)"
+        | "Tajikistan"
+        | "Tanzania, United Republic of"
+        | "Thailand"
+        | "Togo"
+        | "Tokelau"
+        | "Tonga"
+        | "Trinidad and Tobago"
+        | "Tunisia"
+        | "Turkey"
+        | "Turkmenistan"
+        | "Turks and Caicos Islands"
+        | "Tuvalu"
+        | "Uganda"
+        | "Ukraine"
+        | "United Arab Emirates"
+        | "United Kingdom"
+        | "United States"
+        | "United States Minor Outlying Islands"
+        | "Uruguay"
+        | "Uzbekistan"
+        | "Vanuatu"
+        | "Venezuela"
+        | "Viet Nam"
+        | "Virgin Islands (British)"
+        | "Virgin Islands (U.S.)"
+        | "Wallis and Futuna"
+        | "Western Sahara"
+        | "Yemen"
+        | "Zambia"
+        | "Zimbabwe"
+        | "Afghanistan"
+        | "Algeria"
       document_status:
         | "draft"
         | "pending"
         | "approved"
         | "rejected"
         | "archived"
+      entity_type:
+        | "general_partnership"
+        | "limited_liability_company"
+        | "limited_liability_partnership"
+        | "limited_partnership"
+        | "corp"
+        | "c-corp"
+        | "s_corp"
+        | "sole_proprietorship"
+        | "other"
+      us_states:
+        | "AL"
+        | "AK"
+        | "AZ"
+        | "AR"
+        | "CA"
+        | "CO"
+        | "CT"
+        | "DE"
+        | "FL"
+        | "GA"
+        | "HI"
+        | "ID"
+        | "IL"
+        | "IN"
+        | "IA"
+        | "KS"
+        | "KY"
+        | "LA"
+        | "ME"
+        | "MD"
+        | "MA"
+        | "MI"
+        | "MN"
+        | "MS"
+        | "MO"
+        | "MT"
+        | "NE"
+        | "NV"
+        | "NH"
+        | "NJ"
+        | "NM"
+        | "NY"
+        | "NC"
+        | "ND"
+        | "OH"
+        | "OK"
+        | "OR"
+        | "PA"
+        | "RI"
+        | "SC"
+        | "SD"
+        | "TN"
+        | "TX"
+        | "UT"
+        | "VT"
+        | "VA"
+        | "WA"
+        | "WV"
+        | "WI"
+        | "WY"
+        | "DC"
+        | "PR"
+      us_states_long:
+        | "alabama"
+        | "alaska"
+        | "arizona"
+        | "arkansas"
+        | "california"
+        | "colorado"
+        | "connecticut"
+        | "delaware"
+        | "district_of_columbia"
+        | "florida"
+        | "georgia"
+        | "hawaii"
+        | "idaho"
+        | "illinois"
+        | "indiana"
+        | "iowa"
+        | "kansas"
+        | "kentucky"
+        | "louisiana"
+        | "maine"
+        | "maryland"
+        | "massachusetts"
+        | "michigan"
+        | "minnesota"
+        | "mississippi"
+        | "missouri"
+        | "montana"
+        | "nebraska"
+        | "nevada"
+        | "new_hampshire"
+        | "new_jersey"
+        | "new_mexico"
+        | "new_york"
+        | "north_carolina"
+        | "north_dakota"
+        | "ohio"
+        | "oklahoma"
+        | "oregon"
+        | "pennsylvania"
+        | "rhode_island"
+        | "south_carolina"
+        | "south_dakota"
+        | "tennessee"
+        | "texas"
+        | "utah"
+        | "vermont"
+        | "virginia"
+        | "washington"
+        | "west_virginia"
+        | "wisconsin"
+        | "wyoming"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2751,7 +4245,376 @@ export const Constants = {
   },
   public: {
     Enums: {
+      country: [
+        "Bonaire, Sint Eustatius and Saba",
+        "Curaçao",
+        "Guernsey",
+        "Isle of Man",
+        "Jersey",
+        "Åland Islands",
+        "Montenegro",
+        "Saint Barthélemy",
+        "Saint Martin (French part)",
+        "Serbia",
+        "Sint Maarten (Dutch part)",
+        "South Sudan",
+        "Timor-Leste",
+        "American Samoa",
+        "Andorra",
+        "Angola",
+        "Anguilla",
+        "Antarctica",
+        "Antigua and Barbuda",
+        "Argentina",
+        "Armenia",
+        "Aruba",
+        "Australia",
+        "Austria",
+        "Azerbaijan",
+        "Bahamas",
+        "Bahrain",
+        "Bangladesh",
+        "Barbados",
+        "Belarus",
+        "Belgium",
+        "Belize",
+        "Benin",
+        "Bermuda",
+        "Bhutan",
+        "Bolivia",
+        "Bosnia and Herzegovina",
+        "Botswana",
+        "Bouvet Island",
+        "Brazil",
+        "British Indian Ocean Territory",
+        "Brunei Darussalam",
+        "Bulgaria",
+        "Burkina Faso",
+        "Burundi",
+        "Cambodia",
+        "Cameroon",
+        "Canada",
+        "Cape Verde",
+        "Cayman Islands",
+        "Central African Republic",
+        "Chad",
+        "Chile",
+        "China",
+        "Christmas Island",
+        "Cocos (Keeling) Islands",
+        "Colombia",
+        "Comoros",
+        "Congo",
+        "Congo, the Democratic Republic of the",
+        "Cook Islands",
+        "Costa Rica",
+        "Cote DIvoire",
+        "Croatia",
+        "Cuba",
+        "Cyprus",
+        "Czech Republic",
+        "Denmark",
+        "Djibouti",
+        "Dominica",
+        "Dominican Republic",
+        "Ecuador",
+        "Egypt",
+        "El Salvador",
+        "Equatorial Guinea",
+        "Eritrea",
+        "Estonia",
+        "Ethiopia",
+        "Falkland Islands (Malvinas)",
+        "Faroe Islands",
+        "Fiji",
+        "Finland",
+        "France",
+        "French Guiana",
+        "French Polynesia",
+        "French Southern Territories",
+        "Gabon",
+        "Gambia",
+        "Georgia",
+        "Germany",
+        "Ghana",
+        "Gibraltar",
+        "Greece",
+        "Greenland",
+        "Grenada",
+        "Guadeloupe",
+        "Guam",
+        "Guatemala",
+        "Guinea",
+        "Guinea-Bissau",
+        "Guyana",
+        "Haiti",
+        "Heard Island and Mcdonald Islands",
+        "Holy See (Vatican City State)",
+        "Honduras",
+        "Hong Kong",
+        "Hungary",
+        "Iceland",
+        "India",
+        "Indonesia",
+        "Iran, Islamic Republic of",
+        "Iraq",
+        "Ireland",
+        "Israel",
+        "Italy",
+        "Jamaica",
+        "Japan",
+        "Jordan",
+        "Kazakhstan",
+        "Kenya",
+        "Kiribati",
+        "Korea, Democratic People's Republic of",
+        "Korea, Republic of",
+        "Kuwait",
+        "Kyrgyzstan",
+        "Lao People's Democratic Republic",
+        "Latvia",
+        "Lebanon",
+        "Lesotho",
+        "Liberia",
+        "Libya",
+        "Liechtenstein",
+        "Lithuania",
+        "Luxembourg",
+        "Macao",
+        "Macedonia, the Former Yugoslav Republic of",
+        "Madagascar",
+        "Malawi",
+        "Malaysia",
+        "Maldives",
+        "Mali",
+        "Malta",
+        "Marshall Islands",
+        "Martinique",
+        "Mauritania",
+        "Mauritius",
+        "Mayotte",
+        "Mexico",
+        "Micronesia, Federated States of",
+        "Moldova, Republic of",
+        "Monaco",
+        "Mongolia",
+        "Albania",
+        "Montserrat",
+        "Morocco",
+        "Mozambique",
+        "Myanmar",
+        "Namibia",
+        "Nauru",
+        "Nepal",
+        "Netherlands",
+        "New Caledonia",
+        "New Zealand",
+        "Nicaragua",
+        "Niger",
+        "Nigeria",
+        "Niue",
+        "Norfolk Island",
+        "Northern Mariana Islands",
+        "Norway",
+        "Oman",
+        "Pakistan",
+        "Palau",
+        "Palestine, State of",
+        "Panama",
+        "Papua New Guinea",
+        "Paraguay",
+        "Peru",
+        "Philippines",
+        "Pitcairn",
+        "Poland",
+        "Portugal",
+        "Puerto Rico",
+        "Qatar",
+        "Reunion",
+        "Romania",
+        "Russian Federation",
+        "Rwanda",
+        "Saint Helena, Ascension and Tristan da Cunha",
+        "Saint Kitts and Nevis",
+        "Saint Lucia",
+        "Saint Pierre and Miquelon",
+        "Saint Vincent and the Grenadines",
+        "Samoa",
+        "San Marino",
+        "Sao Tome and Principe",
+        "Saudi Arabia",
+        "Senegal",
+        "Seychelles",
+        "Sierra Leone",
+        "Singapore",
+        "Slovakia",
+        "Slovenia",
+        "Solomon Islands",
+        "Somalia",
+        "South Africa",
+        "South Georgia and the South Sandwich Islands",
+        "Spain",
+        "Sri Lanka",
+        "Sudan",
+        "Suriname",
+        "Svalbard and Jan Mayen",
+        "Swaziland",
+        "Sweden",
+        "Switzerland",
+        "Syrian Arab Republic",
+        "Taiwan (Province of China)",
+        "Tajikistan",
+        "Tanzania, United Republic of",
+        "Thailand",
+        "Togo",
+        "Tokelau",
+        "Tonga",
+        "Trinidad and Tobago",
+        "Tunisia",
+        "Turkey",
+        "Turkmenistan",
+        "Turks and Caicos Islands",
+        "Tuvalu",
+        "Uganda",
+        "Ukraine",
+        "United Arab Emirates",
+        "United Kingdom",
+        "United States",
+        "United States Minor Outlying Islands",
+        "Uruguay",
+        "Uzbekistan",
+        "Vanuatu",
+        "Venezuela",
+        "Viet Nam",
+        "Virgin Islands (British)",
+        "Virgin Islands (U.S.)",
+        "Wallis and Futuna",
+        "Western Sahara",
+        "Yemen",
+        "Zambia",
+        "Zimbabwe",
+        "Afghanistan",
+        "Algeria",
+      ],
       document_status: ["draft", "pending", "approved", "rejected", "archived"],
+      entity_type: [
+        "general_partnership",
+        "limited_liability_company",
+        "limited_liability_partnership",
+        "limited_partnership",
+        "corp",
+        "c-corp",
+        "s_corp",
+        "sole_proprietorship",
+        "other",
+      ],
+      us_states: [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "DC",
+        "PR",
+      ],
+      us_states_long: [
+        "alabama",
+        "alaska",
+        "arizona",
+        "arkansas",
+        "california",
+        "colorado",
+        "connecticut",
+        "delaware",
+        "district_of_columbia",
+        "florida",
+        "georgia",
+        "hawaii",
+        "idaho",
+        "illinois",
+        "indiana",
+        "iowa",
+        "kansas",
+        "kentucky",
+        "louisiana",
+        "maine",
+        "maryland",
+        "massachusetts",
+        "michigan",
+        "minnesota",
+        "mississippi",
+        "missouri",
+        "montana",
+        "nebraska",
+        "nevada",
+        "new_hampshire",
+        "new_jersey",
+        "new_mexico",
+        "new_york",
+        "north_carolina",
+        "north_dakota",
+        "ohio",
+        "oklahoma",
+        "oregon",
+        "pennsylvania",
+        "rhode_island",
+        "south_carolina",
+        "south_dakota",
+        "tennessee",
+        "texas",
+        "utah",
+        "vermont",
+        "virginia",
+        "washington",
+        "west_virginia",
+        "wisconsin",
+        "wyoming",
+      ],
     },
   },
 } as const
