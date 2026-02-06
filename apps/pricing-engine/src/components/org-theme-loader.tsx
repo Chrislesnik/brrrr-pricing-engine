@@ -62,13 +62,19 @@ function hexToHslValues(hex: string): string {
  * Convert a CSS value - if it's a hex color, convert to HSL; otherwise keep as-is
  */
 function convertCssValue(key: string, value: string): string {
-  // Non-color properties should be kept as-is
+  // Non-color properties should be kept as-is (not converted to HSL)
   const nonColorProps = ["radius", "font", "shadow", "spacing", "size"]
   if (nonColorProps.some(prop => key.includes(prop))) {
     return value
   }
   
-  // If it's a hex color, convert to HSL
+  // Gradient colors need to stay as hex for use in radial-gradient()
+  // (Tailwind's hsl(var(--color)) pattern doesn't work with gradient functions)
+  if (key.includes("gradient")) {
+    return value
+  }
+  
+  // If it's a hex color, convert to HSL for Tailwind compatibility
   if (value.startsWith("#")) {
     return hexToHslValues(value)
   }

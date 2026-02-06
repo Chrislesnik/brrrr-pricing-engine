@@ -252,7 +252,13 @@ function convertCssValueForInjection(key: string, value: string): string {
     return value
   }
   
-  // If it's a hex color, convert to HSL
+  // Gradient colors need to stay as hex for use in radial-gradient()
+  // (Tailwind's hsl(var(--color)) pattern doesn't work with gradient functions)
+  if (key.includes("gradient")) {
+    return value
+  }
+  
+  // If it's a hex color, convert to HSL for Tailwind compatibility
   if (value.startsWith("#")) {
     return hexToHslValues(value)
   }
