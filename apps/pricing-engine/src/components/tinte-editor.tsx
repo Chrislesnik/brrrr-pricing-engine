@@ -492,13 +492,14 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       document.head.appendChild(styleElement);
     }
 
+    // Allow all valid CSS values through (colors start with #, non-colors like radius/fonts are kept as-is)
     const lightTokens = Object.entries(themeToApply.light)
-      .filter(([_, value]) => value && typeof value === 'string' && value.startsWith('#'))
+      .filter(([_, value]) => value && typeof value === 'string')
       .map(([key, value]) => `  --${key}: ${value};`)
       .join("\n");
 
     const darkTokens = Object.entries(themeToApply.dark)
-      .filter(([_, value]) => value && typeof value === 'string' && value.startsWith('#'))
+      .filter(([_, value]) => value && typeof value === 'string')
       .map(([key, value]) => `  --${key}: ${value};`)
       .join("\n");
 
@@ -784,25 +785,45 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
           prePreviewThemeRef.current = { ...themeRef.current };
         }
         
-        // Convert all colors to hex format
+        // Separate color values (need hex conversion) from non-color values (keep as-is)
         const lightHex: ShadcnTokens = {};
         const darkHex: ShadcnTokens = {};
+        const lightNonColor: ShadcnTokens = {};
+        const darkNonColor: ShadcnTokens = {};
+
+        // Non-color CSS property patterns
+        const nonColorKeys = ['radius', 'font', 'shadow', 'spacing', 'border-width'];
+        const isNonColorKey = (key: string) => nonColorKeys.some(pattern => key.includes(pattern));
 
         Object.entries(shadcnTheme.light).forEach(([key, value]) => {
-          const hex = convertToHex(value);
-          if (hex && hex.startsWith('#')) {
-            lightHex[key] = hex;
+          if (isNonColorKey(key)) {
+            // Keep non-color values as-is
+            lightNonColor[key] = value;
+          } else {
+            const hex = convertToHex(value);
+            if (hex && hex.startsWith('#')) {
+              lightHex[key] = hex;
+            }
           }
         });
 
         Object.entries(shadcnTheme.dark).forEach(([key, value]) => {
-          const hex = convertToHex(value);
-          if (hex && hex.startsWith('#')) {
-            darkHex[key] = hex;
+          if (isNonColorKey(key)) {
+            // Keep non-color values as-is
+            darkNonColor[key] = value;
+          } else {
+            const hex = convertToHex(value);
+            if (hex && hex.startsWith('#')) {
+              darkHex[key] = hex;
+            }
           }
         });
 
-        const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
+        // Merge color and non-color values
+        const hexTheme = ensureStatusTokens({ 
+          light: { ...lightHex, ...lightNonColor }, 
+          dark: { ...darkHex, ...darkNonColor } 
+        });
 
         // Update state
         setTheme(hexTheme);

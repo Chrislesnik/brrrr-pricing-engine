@@ -44,10 +44,10 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
     
-    // Only org owners can save themes
-    const isOwner = orgRole === "org:owner" || orgRole === "owner"
-    if (!isOwner) {
-      return NextResponse.json({ error: "Only organization owners can update themes" }, { status: 403 })
+    // Only org owners and admins can save themes
+    const canEdit = orgRole === "org:owner" || orgRole === "owner" || orgRole === "org:admin" || orgRole === "admin"
+    if (!canEdit) {
+      return NextResponse.json({ error: "Only organization owners and admins can update themes" }, { status: 403 })
     }
     
     const orgUuid = await getOrgUuidFromClerkId(orgId)
@@ -90,10 +90,10 @@ export async function DELETE() {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
     
-    // Only org owners can delete themes
-    const isOwner = orgRole === "org:owner" || orgRole === "owner"
-    if (!isOwner) {
-      return NextResponse.json({ error: "Only organization owners can reset themes" }, { status: 403 })
+    // Only org owners and admins can delete themes
+    const canEdit = orgRole === "org:owner" || orgRole === "owner" || orgRole === "org:admin" || orgRole === "admin"
+    if (!canEdit) {
+      return NextResponse.json({ error: "Only organization owners and admins can reset themes" }, { status: 403 })
     }
     
     const orgUuid = await getOrgUuidFromClerkId(orgId)
