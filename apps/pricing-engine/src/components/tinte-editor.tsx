@@ -546,42 +546,14 @@ function deriveStatusColors(
       : darkenColor(amberColor, 0.7);
   }
   
-  // ---- GRADIENT: derive warm gradient from theme colors ----
-  // Create 3 distinct warm colors derived from the theme's base color
+  // ---- GRADIENT: pick 3 different colors from the theme ----
+  const color1 = tokens["chart-1"] || tokens["primary"];
+  const color2 = tokens["chart-2"] || tokens["accent"];
+  const color3 = tokens["chart-3"] || tokens["chart-4"] || tokens["chart-5"];
   
-  // Use the theme's chart-1, accent, or primary as the base
-  const baseColor = tokens["chart-1"] || tokens["accent"] || tokens["primary"];
-  
-  if (baseColor) {
-    const color = parse(baseColor);
-    if (color) {
-      const rgbColor = rgb(color);
-      if (rgbColor) {
-        // Create 3 distinct warm variations from the base color
-        // Warm-1: Red tint
-        derived["gradient-warm-1"] = formatHex({
-          mode: "rgb",
-          r: Math.min(1, rgbColor.r * 1.2 + 0.3),
-          g: rgbColor.g * 0.6,
-          b: rgbColor.b * 0.3,
-        });
-        // Warm-2: Orange tint  
-        derived["gradient-warm-2"] = formatHex({
-          mode: "rgb",
-          r: Math.min(1, rgbColor.r * 1.1 + 0.4),
-          g: Math.min(1, rgbColor.g * 0.8 + 0.2),
-          b: rgbColor.b * 0.2,
-        });
-        // Warm-3: Yellow tint
-        derived["gradient-warm-3"] = formatHex({
-          mode: "rgb",
-          r: Math.min(1, rgbColor.r * 1.0 + 0.5),
-          g: Math.min(1, rgbColor.g * 1.0 + 0.4),
-          b: rgbColor.b * 0.1,
-        });
-      }
-    }
-  }
+  if (color1) derived["gradient-warm-1"] = color1;
+  if (color2) derived["gradient-warm-2"] = color2;
+  if (color3) derived["gradient-warm-3"] = color3;
   
   return derived;
 }
