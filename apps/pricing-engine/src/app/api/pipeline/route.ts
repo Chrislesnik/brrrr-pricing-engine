@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
         let orgDealIds: string[] = []
         if (orgIds.length > 0) {
           const { data: orgDeals, error: orgDealsErr } = await supabaseAdmin
-            .from("deals_clerk_orgs")
+            .from("deal_clerk_orgs")
             .select("deal_id")
             .in("clerk_org_id", orgIds)
           if (
