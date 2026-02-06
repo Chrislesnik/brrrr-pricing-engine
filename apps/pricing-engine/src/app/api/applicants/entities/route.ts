@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       loanInsert.borrower_id = singleOwnerBorrowerId
     }
     const { data: loanRow, error: loanErr } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .insert(loanInsert)
       .select("*")
       .single()

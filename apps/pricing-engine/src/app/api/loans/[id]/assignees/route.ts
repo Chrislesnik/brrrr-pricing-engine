@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const orgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null
 
     const { data, error } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .select("assigned_to_user_id, organization_id, primary_user_id")
       .eq("id", id)
       .single()
@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 
     // Get previous state for diff calculation
     const { data: loan } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .select("assigned_to_user_id")
       .eq("id", id)
       .single()
@@ -75,7 +75,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const { error } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .update({ assigned_to_user_id: userIds })
       .eq("id", id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

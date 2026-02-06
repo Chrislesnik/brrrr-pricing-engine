@@ -23,7 +23,7 @@ export async function PATCH(
       )
     }
     const { error } = await supabaseAdmin
-      .from("loans")
+      .from("deals")
       .update({ status: body.status })
       .eq("id", id)
     if (error) {
@@ -54,7 +54,7 @@ export async function DELETE(
     if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
-    const { error } = await supabaseAdmin.from("loans").delete().eq("id", id)
+    const { error } = await supabaseAdmin.from("deals").delete().eq("id", id)
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }

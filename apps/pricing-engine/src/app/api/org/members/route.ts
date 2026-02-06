@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       editable = false
       if (loanId) {
         const { data: loan, error: loanErr } = await supabaseAdmin
-          .from("loans")
+          .from("deals")
           .select("assigned_to_user_id, organization_id")
           .eq("id", loanId)
           .maybeSingle()

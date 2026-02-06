@@ -29,7 +29,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
 
   // 1) Fetch loans scoped to organization
   const { data: loansRaw, error: loansError } = await supabaseAdmin
-    .from("loans")
+    .from("deals")
     .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
     .order("updated_at", { ascending: false })
