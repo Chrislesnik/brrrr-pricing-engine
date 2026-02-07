@@ -272,9 +272,11 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
         header: "Assigned To",
         accessorKey: "assigned_to_names",
         cell: ({ row }) => {
-          const names = Array.isArray(row.original.assigned_to_names)
+          const rawNames = Array.isArray(row.original.assigned_to_names)
             ? row.original.assigned_to_names
             : []
+          // Deduplicate names
+          const names = [...new Set(rawNames)]
           return (
             <span className="text-muted-foreground text-sm">
               {names.length ? names.join(", ") : "Unassigned"}

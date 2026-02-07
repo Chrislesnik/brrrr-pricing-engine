@@ -190,7 +190,9 @@ export function EntitiesLyteNyteGrid({ rows }: Props) {
 				widthMin: 180,
 				type: "string",
 				cellRenderer: ({ row }) => {
-					const names = Array.isArray((row as any).data?.assigned_to_names) ? (row as any).data.assigned_to_names : []
+					const rawNames = Array.isArray((row as any).data?.assigned_to_names) ? (row as any).data.assigned_to_names : []
+					// Deduplicate names
+					const names = [...new Set(rawNames)]
 					return <span className="truncate">{names.length ? names.join(", ") : "-"}</span>
 				},
 			},

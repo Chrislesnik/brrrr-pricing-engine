@@ -204,34 +204,30 @@ function CommentThread({
         )}
       </div>
 
-      <div className="border-t bg-muted/30 px-6 py-4">
-        <div className="flex gap-3">
-          <Avatar className="h-8 w-8 flex-shrink-0">
-            <AvatarFallback className="text-xs">You</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-1 gap-2">
-            <MentionTextarea
-              className="min-h-[80px] resize-none text-sm"
-              onChange={setNewComment}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder="Add a comment... (Type @ to mention someone)"
-              value={newComment}
-            />
-            <Button
-              className="self-end"
-              disabled={!newComment.trim()}
-              onClick={handleSubmit}
-              size="sm"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      <div className="border-t bg-muted/30 flex w-full items-start gap-2 py-3 pl-3">
+        <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
+          <AvatarFallback className="text-xs">You</AvatarFallback>
+        </Avatar>
+        <MentionTextarea
+          className="min-h-[72px] min-w-0 flex-1 resize-none text-sm"
+          onChange={setNewComment}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              handleSubmit();
+            }
+          }}
+          placeholder="Add a comment... (Type @ to mention someone)"
+          value={newComment}
+        />
+        <Button
+          className="mt-auto shrink-0"
+          disabled={!newComment.trim()}
+          onClick={handleSubmit}
+          size="icon"
+        >
+          <Send className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

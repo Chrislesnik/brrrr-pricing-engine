@@ -34,8 +34,6 @@ const schema = z.object({
   state: z.string().optional().or(z.literal("")),
   zip: z.string().optional().or(z.literal("")),
   county: z.string().optional().or(z.literal("")),
-  bank_name: z.string().optional().or(z.literal("")),
-  account_balances: z.string().optional().or(z.literal("")),
   owners: z.array(ownerSchema).optional(),
   link_borrower_id: z.string().uuid().optional(),
 })
@@ -82,8 +80,6 @@ export async function POST(req: NextRequest) {
         state: parsed.state || null,
         zip: parsed.zip || null,
         county: parsed.county || null,
-        bank_name: parsed.bank_name || null,
-        account_balances: parsed.account_balances || null,
         // Auto-assign to current user by default
         assigned_to: userId ? [userId] : [],
         organization_id: orgUuid,
@@ -126,13 +122,28 @@ export async function POST(req: NextRequest) {
     }
 
     // 4) Create Pipeline loan + primary scenario
+    // Fetch borrower name if linked
+    let borrowerFirstName: string | null = null
+    let borrowerLastName: string | null = null
+    if (singleOwnerBorrowerId) {
+      const { data: borrower } = await supabaseAdmin
+        .from("borrowers")
+        .select("first_name, last_name")
+        .eq("id", singleOwnerBorrowerId)
+        .single()
+      if (borrower) {
+        borrowerFirstName = borrower.first_name ?? null
+        borrowerLastName = borrower.last_name ?? null
+      }
+    }
+    
     const loanInsert: Record<string, unknown> = {
       organization_id: orgUuid,
       assigned_to_user_id: [userId],
       status: "active",
-    }
-    if (singleOwnerBorrowerId) {
-      loanInsert.borrower_id = singleOwnerBorrowerId
+      borrower_first_name: borrowerFirstName,
+      borrower_last_name: borrowerLastName,
+      inputs: {},
     }
     const { data: loanRow, error: loanErr } = await supabaseAdmin
       .from("deals")
@@ -141,20 +152,13 @@ export async function POST(req: NextRequest) {
       .single()
     if (loanErr) return NextResponse.json({ error: loanErr.message }, { status: 500 })
 
-    const borrowerName =
-      (singleOwnerBorrowerId as string | null) || parsed.link_borrower_id
-        ? (await (async () => {
-            const { data: b } = await supabaseAdmin
-              .from("borrowers")
-              .select("first_name,last_name,id")
-              .eq("id", (singleOwnerBorrowerId as string) || (parsed.link_borrower_id as string))
-              .single()
-            return b ? `${b.first_name ?? ""} ${b.last_name ?? ""}`.trim() : null
-          })())
-        : null
+    // Use the borrower name we already fetched
+    const borrowerName = (borrowerFirstName || borrowerLastName) 
+      ? `${borrowerFirstName ?? ""} ${borrowerLastName ?? ""}`.trim() 
+      : null
 
     const inputs = {
-      borrower_name: borrowerName ?? null,
+      borrower_name: borrowerName,
       entity_name: parsed.entity_name,
       address: {
         street: parsed.address_line1 ?? null,

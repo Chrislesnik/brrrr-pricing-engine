@@ -5598,14 +5598,14 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+        <DialogContent hideClose className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
           <DialogHeader className="mb-1">
             <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
           <button
             type="button"
             aria-label="Share term sheet"
-            className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
@@ -5634,7 +5634,7 @@ function ResultCard({
           <button
             type="button"
             aria-label="Download term sheet"
-            className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
@@ -5648,6 +5648,14 @@ function ResultCard({
             }}
           >
             <IconDownload />
+          </button>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            onClick={() => setMcpOpen(false)}
+          >
+            <IconX />
           </button>
           <div className="space-y-3">
             {Object.keys(sheetProps ?? {}).length ? (
@@ -6512,14 +6520,14 @@ function ResultsPanel({
             )}
           </div>
           <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
-            <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+            <DialogContent hideClose className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
               <DialogHeader className="mb-1">
                 <DialogTitle className="text-base">Term Sheet</DialogTitle>
               </DialogHeader>
               <button
                 type="button"
                 aria-label="Share term sheet"
-                className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
@@ -6546,7 +6554,7 @@ function ResultsPanel({
               <button
                 type="button"
                 aria-label="Download term sheet"
-                className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
@@ -6559,6 +6567,14 @@ function ResultsPanel({
                 }}
               >
                 <IconDownload />
+              </button>
+              <button
+                type="button"
+                aria-label="Close"
+                className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                onClick={() => setMcpOpenMain(false)}
+              >
+                <IconX />
               </button>
               
               <div className="space-y-3">
