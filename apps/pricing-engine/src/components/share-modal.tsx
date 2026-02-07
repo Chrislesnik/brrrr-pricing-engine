@@ -13,12 +13,10 @@ import {
   Check,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/shadcn/dialog";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
 import { Button } from "@repo/ui/shadcn/button";
 
 interface ShareModalProps {
@@ -105,22 +103,20 @@ export function ShareModal({
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild disabled={disabled}>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild disabled={disabled}>
         {trigger || defaultTrigger}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center text-xl">{title}</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-2 py-4">
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-3">
+        <div className="mb-2 text-center font-semibold">{title}</div>
+        <div className="flex flex-col gap-1">
           {/* Native Share (mobile) */}
           {typeof navigator !== "undefined" && navigator.share && (
             <button
               onClick={handleNativeShare}
-              className="flex items-center gap-4 rounded-lg px-4 py-3 text-left transition-colors hover:bg-muted"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
             >
-              <Share2 className="h-5 w-5 text-muted-foreground" />
+              <Share2 className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">Share</span>
             </button>
           )}
@@ -128,38 +124,38 @@ export function ShareModal({
           {/* Copy URL */}
           <button
             onClick={handleCopyUrl}
-            className="flex items-center gap-4 rounded-lg px-4 py-3 text-left transition-colors hover:bg-muted"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
           >
             {copied ? (
-              <Check className="h-5 w-5 text-green-500" />
+              <Check className="h-4 w-4 text-green-500" />
             ) : (
-              <Copy className="h-5 w-5 text-muted-foreground" />
+              <Copy className="h-4 w-4 text-muted-foreground" />
             )}
             <span className="font-medium">{copied ? "Copied!" : "Copy URL"}</span>
           </button>
 
           {/* Divider */}
-          <div className="py-2">
-            <p className="text-sm text-muted-foreground">Share via:</p>
+          <div className="py-1">
+            <p className="text-xs text-muted-foreground">Share via:</p>
           </div>
 
           {/* Share Links Grid */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1">
             {shareLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-muted"
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
               >
-                <link.icon className="h-5 w-5 text-muted-foreground" />
+                <link.icon className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">{link.name}</span>
               </a>
             ))}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </PopoverContent>
+    </Popover>
   );
 }
