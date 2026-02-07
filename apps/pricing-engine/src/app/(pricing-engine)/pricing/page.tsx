@@ -53,6 +53,7 @@ import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
 import DSCRTermSheet, { type DSCRTermSheetProps, type DSCRTermSheetData } from "@/components/DSCRTermSheet"
+import { ShareModal } from "@/components/share-modal"
 import BridgeTermSheet from "@/components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
@@ -5602,35 +5603,20 @@ function ResultCard({
           <DialogHeader className="mb-1">
             <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
-          <button
-            type="button"
-            aria-label="Share term sheet"
-            className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            onClick={async () => {
-              try {
-                const file = await renderPreviewToPdf()
-                if (!file) throw new Error("Could not render PDF")
-                const canShareFiles =
-                  typeof navigator !== "undefined" &&
-                  "canShare" in navigator &&
-                  (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                if (nav?.share && canShareFiles) {
-                  await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                  void logCardTermSheetActivity("shared", file)
-                } else {
-                  await saveFileWithPrompt(file)
-                  toast({ title: "Saved", description: "PDF saved to your device." })
-                  void logCardTermSheetActivity("downloaded", file)
-                }
-              } catch (e) {
-                const message = e instanceof Error ? e.message : "Unable to share"
-                toast({ title: "Share failed", description: message, variant: "destructive" })
+          <div className="absolute right-[104px] top-2">
+            <ShareModal
+              title="Share Term Sheet"
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Share term sheet"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                >
+                  <IconShare3 />
+                </button>
               }
-            }}
-          >
-            <IconShare3 />
-          </button>
+            />
+          </div>
           <button
             type="button"
             aria-label="Download term sheet"
@@ -6524,33 +6510,20 @@ function ResultsPanel({
               <DialogHeader className="mb-1">
                 <DialogTitle className="text-base">Term Sheet</DialogTitle>
               </DialogHeader>
-              <button
-                type="button"
-                aria-label="Share term sheet"
-                className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-                onClick={async () => {
-                  try {
-                    const file = await renderPreviewToPdfMain()
-                    if (!file) throw new Error("Could not render PDF")
-                    const canShareFiles =
-                      typeof navigator !== "undefined" &&
-                      "canShare" in navigator &&
-                      (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                    const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                  if (nav?.share && canShareFiles) {
-                      await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                    } else {
-                      await saveFileWithPrompt(file)
-                      toast({ title: "Saved", description: "PDF saved to your device." })
-                    }
-                  } catch (e) {
-                    const message = e instanceof Error ? e.message : "Unable to share"
-                    toast({ title: "Share failed", description: message, variant: "destructive" })
+              <div className="absolute right-[104px] top-2">
+                <ShareModal
+                  title="Share Term Sheet"
+                  trigger={
+                    <button
+                      type="button"
+                      aria-label="Share term sheet"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                    >
+                      <IconShare3 />
+                    </button>
                   }
-                }}
-              >
-                <IconShare3 />
-              </button>
+                />
+              </div>
               <button
                 type="button"
                 aria-label="Download term sheet"
