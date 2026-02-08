@@ -46,7 +46,10 @@ export function DayView({
 
       {/* Scrollable time grid */}
       <div className="flex-1 overflow-y-auto">
-        <div className="relative flex min-h-full">
+        <div 
+          className="relative flex"
+          style={{ height: hours.length * WeekCellsHeight }}
+        >
           {/* Time labels column */}
           <div className="sticky left-0 z-10 w-16 shrink-0 bg-background">
             {hours.map((hour) => (

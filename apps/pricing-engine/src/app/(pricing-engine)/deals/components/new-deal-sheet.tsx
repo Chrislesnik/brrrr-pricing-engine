@@ -49,6 +49,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/shadcn/select"
+import { DatePickerField } from "@/components/date-picker-field"
 
 const optionalNumber = (min = 0, max?: number) =>
   z.preprocess(
@@ -860,7 +861,10 @@ export function NewDealSheet({
                           <FormItem>
                             <FormLabel>Date of Purchase</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <DatePickerField
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -899,7 +903,10 @@ export function NewDealSheet({
                           <FormItem>
                             <FormLabel>Renovation Completed</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <DatePickerField
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1307,7 +1314,10 @@ export function NewDealSheet({
                           <FormItem>
                             <FormLabel>Note Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <DatePickerField
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1320,7 +1330,10 @@ export function NewDealSheet({
                           <FormItem>
                             <FormLabel>Target Closing Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <DatePickerField
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1333,7 +1346,10 @@ export function NewDealSheet({
                           <FormItem>
                             <FormLabel>Funding Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <DatePickerField
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1346,7 +1362,10 @@ export function NewDealSheet({
                           <FormItem>
                             <FormLabel>Loan Sale Date</FormLabel>
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <DatePickerField
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

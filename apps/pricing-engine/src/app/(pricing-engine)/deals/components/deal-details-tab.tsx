@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { DatePickerField } from "@/components/date-picker-field";
 
 interface DealData {
   id: string;
@@ -364,6 +365,11 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                 ))}
               </SelectContent>
             </Select>
+          ) : type === "date" ? (
+            <DatePickerField
+              value={(value as string) || ""}
+              onChange={(val) => updateField(field, val as DealData[typeof field])}
+            />
           ) : (
             <Input
               type={type}
