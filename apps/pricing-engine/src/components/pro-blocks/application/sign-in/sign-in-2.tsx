@@ -10,6 +10,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import { RetroGrid } from "@/components/ui/retro-grid";
+import { PasswordInput } from "@/components/password-input";
 
 export function SignIn2() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -154,16 +155,13 @@ export function SignIn2() {
                   Forgot password?
                 </Link>
               </div>
-              <InputGroup>
-                <InputGroupInput
-                  id="password2"
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </InputGroup>
+              <PasswordInput
+                id="password2"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </Field>
 
             {/* Sign-in button */}

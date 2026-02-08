@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/password-input"
 import AuthLines from "@/assets/svg/auth-lines"
 
 export default function ResetPasswordVerifyPage() {
@@ -148,9 +149,8 @@ export default function ResetPasswordVerifyPage() {
               <Label className="leading-5" htmlFor="password">
                 New Password*
               </Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="Enter new password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -164,9 +164,8 @@ export default function ResetPasswordVerifyPage() {
               <Label className="leading-5" htmlFor="confirmPassword">
                 Confirm Password*
               </Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 placeholder="Confirm new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover"
 import { DateInput } from "@/components/date-input"
+import { Button } from "@repo/ui/shadcn/button"
 import { cn } from "@repo/lib/cn"
 
 interface DatePickerFieldProps {
@@ -96,32 +97,39 @@ export function DatePickerField({
   }, [disableBefore, disableAfter])
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild disabled={disabled}>
-        <div className={cn("relative", className)}>
-          <DateInput
-            emptyOnMount={emptyOnMount}
-            value={dateValue}
-            onChange={handleDateInputChange}
-            className={cn(disabled && "opacity-50 cursor-not-allowed")}
-          />
-          <span className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
+    <div className={cn("relative flex items-center", className)}>
+      <DateInput
+        emptyOnMount={emptyOnMount}
+        value={dateValue}
+        onChange={handleDateInputChange}
+        className={cn("pr-9", disabled && "opacity-50 cursor-not-allowed")}
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            className="absolute right-0 h-9 w-9 rounded-l-none text-muted-foreground hover:text-foreground"
+            aria-label="Open calendar"
+          >
             <CalendarIcon className="h-4 w-4" />
-          </span>
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          captionLayout="dropdown"
-          selected={dateValue}
-          month={calendarMonth}
-          onMonthChange={setCalendarMonth}
-          onSelect={handleCalendarSelect}
-          disabled={disabledMatcher}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar
+            mode="single"
+            captionLayout="dropdown"
+            selected={dateValue}
+            month={calendarMonth}
+            onMonthChange={setCalendarMonth}
+            onSelect={handleCalendarSelect}
+            disabled={disabledMatcher}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }
