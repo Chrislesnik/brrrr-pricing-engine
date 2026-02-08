@@ -204,12 +204,9 @@ function CommentThread({
         )}
       </div>
 
-      <div className="border-t bg-muted/30 flex w-full items-start gap-2 py-3 pl-3">
-        <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
-          <AvatarFallback className="text-xs">You</AvatarFallback>
-        </Avatar>
+      <div className="border-t bg-muted/30 flex w-full items-end gap-3 p-3">
         <MentionTextarea
-          className="min-h-[72px] min-w-0 flex-1 resize-none text-sm"
+          className="min-h-[72px] resize-none text-sm"
           onChange={setNewComment}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -221,7 +218,7 @@ function CommentThread({
           value={newComment}
         />
         <Button
-          className="mt-auto shrink-0"
+          className="shrink-0 mb-1"
           disabled={!newComment.trim()}
           onClick={handleSubmit}
           size="icon"
