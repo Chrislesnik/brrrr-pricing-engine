@@ -3,11 +3,6 @@
 import { useMemo, useState } from "react";
 import { parse } from "date-fns";
 import {
-  Card,
-  CardContent,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   EventCalendar,
   type CalendarEvent,
   type EventColor,
@@ -94,15 +89,6 @@ export function DealCalendarTab({ dealId }: DealCalendarTabProps) {
     [events]
   );
 
-  // Calculate stats
-  const upcomingCount = events.filter(
-    (event) => new Date(event.date) >= new Date()
-  ).length;
-
-  const pastCount = events.filter(
-    (event) => new Date(event.date) < new Date()
-  ).length;
-
   // Event handlers
   const handleEventAdd = (event: CalendarEvent) => {
     // TODO: Integrate with API to save event
@@ -126,37 +112,6 @@ export function DealCalendarTab({ dealId }: DealCalendarTabProps) {
         <p className="text-sm text-muted-foreground">
           Important dates and scheduled events for this deal
         </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <div className="p-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Events
-            </CardTitle>
-            <div className="mt-2 text-2xl font-bold">{events.length}</div>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Upcoming
-            </CardTitle>
-            <div className="mt-2 text-2xl font-bold text-blue-600">
-              {upcomingCount}
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <div className="p-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Past
-            </CardTitle>
-            <div className="mt-2 text-2xl font-bold text-muted-foreground">
-              {pastCount}
-            </div>
-          </div>
-        </Card>
       </div>
 
       <EventCalendar

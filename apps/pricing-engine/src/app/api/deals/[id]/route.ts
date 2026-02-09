@@ -1,13 +1,14 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getOrgUuidFromClerkId } from "@/lib/orgs";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -16,101 +17,18 @@ export async function GET(
     // Await params in Next.js 15+
     const { id: dealId } = await params;
 
-    // Get user info to check permissions
-    const { data: userRow, error: userErr } = await supabaseAdmin
-      .from("users")
-      .select("id, is_internal_yn")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
+    // Get user's organization UUID
+    const userOrgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null;
 
-    if (userErr) {
-      console.error("Error fetching user:", userErr);
-      return NextResponse.json(
-        { error: "Failed to verify user" },
-        { status: 500 }
-      );
-    }
-
-    if (!userRow) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    const isInternal = Boolean(userRow.is_internal_yn);
-    const userNumericId = userRow.id as number;
-
-    // Check if user has access to this deal (unless they're internal)
-    if (!isInternal) {
-      // Check direct deal roles
-      const { data: directAccess } = await supabaseAdmin
-        .from("deal_roles")
-        .select("deal_id")
-        .eq("users_id", userNumericId)
-        .eq("deal_id", dealId)
-        .maybeSingle();
-
-      // Check organization access
-      const { data: orgMemberships } = await supabaseAdmin
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", userId);
-
-      const orgIds = (orgMemberships ?? [])
-        .map((row) => row.organization_id)
-        .filter(Boolean) as string[];
-
-      let orgAccess = false;
-      if (orgIds.length > 0) {
-        const { data: orgDeals } = await supabaseAdmin
-          .from("deal_clerk_orgs")
-          .select("deal_id")
-          .in("clerk_org_id", orgIds)
-          .eq("deal_id", dealId)
-          .maybeSingle();
-        
-        orgAccess = Boolean(orgDeals);
-      }
-
-      // If user doesn't have access, return 403
-      if (!directAccess && !orgAccess) {
-        return NextResponse.json(
-          { error: "Access denied" },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Try fetching from "deals" table first (with relationships)
-    let { data: deal, error } = await supabaseAdmin
+    // First, fetch the deal to check organization access
+    const { data: deal, error } = await supabaseAdmin
       .from("deals")
-      .select(`
-        *,
-        deal_guarantors(
-          guarantor_id,
-          is_primary,
-          guarantor:guarantor_id(id, name)
-        )
-      `)
+      .select("*")
       .eq("id", dealId)
       .single();
 
-    // If there's a relationship error, fall back to simpler query without relationships
-    if (error && (error.message?.includes("relationship") || error.message?.includes("deal_guarantors"))) {
-      console.log("Falling back to query without relationships");
-      const result = await supabaseAdmin
-        .from("deals")
-        .select("*")
-        .eq("id", dealId)
-        .single();
-      
-      deal = result.data;
-      error = result.error;
-    }
-
     if (error) {
-      console.error("Error fetching deal:", error.message, error.details, error.hint);
+      console.error("Error fetching deal:", error.message);
       return NextResponse.json(
         { error: error.message || "Failed to fetch deal" },
         { status: 500 }
@@ -121,30 +39,56 @@ export async function GET(
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
 
-    // If property_id exists, fetch property address
-    if (deal.property_id) {
-      const { data: property } = await supabaseAdmin
-        .from("property")
-        .select("id, address")
-        .eq("id", deal.property_id)
-        .single();
-      
-      if (property?.address) {
-        deal.property_address = property.address;
-      }
+    // Check if user has access to this deal via organization
+    const dealOrgId = deal.organization_id;
+    const hasOrgAccess = userOrgUuid && dealOrgId === userOrgUuid;
+
+    // Also check if user is assigned to this deal
+    const assignedUsers = Array.isArray(deal.assigned_to_user_id) ? deal.assigned_to_user_id : [];
+    const isAssigned = assignedUsers.includes(userId);
+    const isPrimaryUser = deal.primary_user_id === userId;
+
+    // Check for internal user status (fallback)
+    let isInternal = false;
+    const { data: userRow } = await supabaseAdmin
+      .from("users")
+      .select("id, is_internal_yn")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+    
+    if (userRow) {
+      isInternal = Boolean(userRow.is_internal_yn);
     }
 
-    // Extract guarantor name if available
-    if (deal.deal_guarantors && Array.isArray(deal.deal_guarantors)) {
-      const primaryGuarantor = deal.deal_guarantors.find((dg: any) => dg.is_primary);
-      const firstGuarantor = deal.deal_guarantors[0];
-      const guarantorRecord = primaryGuarantor || firstGuarantor;
-      if (guarantorRecord?.guarantor?.name) {
-        deal.guarantor_name = guarantorRecord.guarantor.name;
-      }
+    // If user doesn't have access, return 403
+    if (!hasOrgAccess && !isAssigned && !isPrimaryUser && !isInternal) {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
     }
 
-    return NextResponse.json({ deal });
+    // Transform the deal data to include useful fields from inputs
+    const inputs = (deal.inputs as Record<string, unknown>) || {};
+    
+    // Add computed/extracted fields for the UI
+    const transformedDeal = {
+      ...deal,
+      // Extract commonly needed fields from inputs for convenience
+      loan_number: (inputs.loan_number as string) || deal.id,
+      deal_name: (inputs.deal_name as string) || null,
+      deal_stage_1: (inputs.deal_stage_1 as string) || null,
+      deal_stage_2: (inputs.deal_stage_2 as string) || deal.status || null,
+      loan_amount_total: deal.loan_amount || (inputs.loan_amount_total as number) || null,
+      funding_date: (inputs.funding_date as string) || null,
+      project_type: (inputs.project_type as string) || deal.transaction_type || null,
+      guarantor_name: (inputs.guarantor_name as string) || null,
+      note_rate: deal.rate || (inputs.note_rate as number) || null,
+      // Include borrower info
+      borrower_name: [deal.borrower_first_name, deal.borrower_last_name].filter(Boolean).join(" ") || (inputs.borrower_name as string) || null,
+    };
+
+    return NextResponse.json({ deal: transformedDeal });
   } catch (error) {
     console.error("Unexpected error:", error);
     return NextResponse.json(
@@ -159,7 +103,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -168,174 +112,81 @@ export async function PATCH(
     // Await params in Next.js 15+
     const { id: dealId } = await params;
 
-    // Get user info to check permissions
-    const { data: userRow, error: userErr } = await supabaseAdmin
+    // Get user's organization UUID
+    const userOrgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null;
+
+    // First, fetch the deal to check organization access
+    const { data: existingDeal, error: fetchError } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id, inputs")
+      .eq("id", dealId)
+      .single();
+
+    if (fetchError || !existingDeal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    // Check if user has access to this deal via organization
+    const dealOrgId = existingDeal.organization_id;
+    const hasOrgAccess = userOrgUuid && dealOrgId === userOrgUuid;
+
+    // Also check if user is assigned to this deal
+    const assignedUsers = Array.isArray(existingDeal.assigned_to_user_id) ? existingDeal.assigned_to_user_id : [];
+    const isAssigned = assignedUsers.includes(userId);
+    const isPrimaryUser = existingDeal.primary_user_id === userId;
+
+    // Check for internal user status (fallback)
+    let isInternal = false;
+    const { data: userRow } = await supabaseAdmin
       .from("users")
       .select("id, is_internal_yn")
       .eq("clerk_user_id", userId)
       .maybeSingle();
-
-    if (userErr || !userRow) {
-      return NextResponse.json(
-        { error: "Failed to verify user" },
-        { status: 500 }
-      );
+    
+    if (userRow) {
+      isInternal = Boolean(userRow.is_internal_yn);
     }
 
-    const isInternal = Boolean(userRow.is_internal_yn);
-    const userNumericId = userRow.id as number;
-
-    // Check if user has access to this deal (unless they're internal)
-    if (!isInternal) {
-      const { data: directAccess } = await supabaseAdmin
-        .from("deal_roles")
-        .select("deal_id")
-        .eq("users_id", userNumericId)
-        .eq("deal_id", dealId)
-        .maybeSingle();
-
-      const { data: orgMemberships } = await supabaseAdmin
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", userId);
-
-      const orgIds = (orgMemberships ?? [])
-        .map((row) => row.organization_id)
-        .filter(Boolean) as string[];
-
-      let orgAccess = false;
-      if (orgIds.length > 0) {
-        const { data: orgDeals } = await supabaseAdmin
-          .from("deal_clerk_orgs")
-          .select("deal_id")
-          .in("clerk_org_id", orgIds)
-          .eq("deal_id", dealId)
-          .maybeSingle();
-        
-        orgAccess = Boolean(orgDeals);
-      }
-
-      if (!directAccess && !orgAccess) {
-        return NextResponse.json(
-          { error: "Access denied" },
-          { status: 403 }
-        );
-      }
+    // If user doesn't have access, return 403
+    if (!hasOrgAccess && !isAssigned && !isPrimaryUser && !isInternal) {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
     }
 
     // Get the updated data from request body
     const body = await request.json();
 
-    // Clean the data - remove null/undefined/empty strings
-    const cleanText = (value: any) =>
-      value && String(value).trim().length > 0 ? String(value).trim() : null;
-
-    const cleanNumber = (value: any) => {
-      const num = Number(value);
-      return !isNaN(num) && value !== "" && value !== null ? num : null;
-    };
-
-    const updateData: Record<string, any> = {};
-
-    // Only include fields that were provided in the request
-    const allowedFields = [
-      "deal_name",
-      "vesting_type",
-      "guarantor_count",
-      "lead_source_type",
-      "property_id",
-      "property_type",
-      "warrantability",
-      "company_id",
-      "note_date",
-      "mid_fico",
-      "pricing_is_locked",
-      "lead_source_name",
-      "loan_number",
-      "title_file_number",
-      "declaration_1_lawsuits",
-      "declaration_2_bankruptcy",
-      "declaration_3_felony",
-      "declaration_5_license",
-      "declaration_1_lawsuits_explanation",
-      "declaration_2_bankruptcy_explanation",
-      "declaration_3_felony_explanation",
-      "recourse_type",
+    // Fields that map to top-level columns in deals table
+    const topLevelFields = [
+      "property_address",
+      "loan_amount",
+      "rate",
+      "status",
+      "loan_type",
       "transaction_type",
-      "payoff_mtg1_amount",
-      "loan_structure_dscr",
-      "guarantor_fico_score",
-      "title_company_id",
-      "insurance_carrier_company_id",
-      "cash_out_purpose",
-      "target_closing_date",
-      "date_of_purchase",
-      "loan_amount_total",
-      "construction_holdback",
-      "loan_amount_initial",
-      "loan_term",
-      "deal_type",
-      "project_type",
-      "deal_stage_1",
-      "deal_stage_2",
-      "deal_disposition_1",
-      "loan_type_rtl",
-      "renovation_cost",
-      "renovation_completed",
-      "recently_renovated",
-      "purchase_price",
-      "funding_date",
-      "loan_sale_date",
-      "pricing_file_path",
-      "pricing_file_url",
-      "loan_buyer_company_id",
-      "note_rate",
-      "cost_of_capital",
-      "broker_company_id",
-      "escrow_company_id",
-      "ltv_asis",
-      "ltv_after_repair",
-      "io_period",
-      "ppp_term",
-      "ppp_structure_1",
+      "borrower_first_name",
+      "borrower_last_name",
     ];
 
-    const numberFields = [
-      "guarantor_count",
-      "property_id",
-      "mid_fico",
-      "payoff_mtg1_amount",
-      "guarantor_fico_score",
-      "loan_amount_total",
-      "construction_holdback",
-      "loan_amount_initial",
-      "renovation_cost",
-      "purchase_price",
-      "note_rate",
-      "cost_of_capital",
-      "ltv_asis",
-      "ltv_after_repair",
-      "io_period",
-    ];
+    // Build update payload
+    const updateData: Record<string, unknown> = {};
+    const inputsUpdate: Record<string, unknown> = { ...(existingDeal.inputs as Record<string, unknown> || {}) };
 
-    const booleanFields = [
-      "pricing_is_locked",
-      "declaration_1_lawsuits",
-      "declaration_2_bankruptcy",
-      "declaration_3_felony",
-      "declaration_5_license",
-    ];
-
-    for (const field of allowedFields) {
-      if (field in body) {
-        if (booleanFields.includes(field)) {
-          updateData[field] = Boolean(body[field]);
-        } else if (numberFields.includes(field)) {
-          updateData[field] = cleanNumber(body[field]);
-        } else {
-          updateData[field] = cleanText(body[field]);
-        }
+    for (const [key, value] of Object.entries(body)) {
+      if (topLevelFields.includes(key)) {
+        // Update top-level column
+        updateData[key] = value;
+      } else {
+        // Update in inputs JSONB
+        inputsUpdate[key] = value;
       }
+    }
+
+    // Always update inputs if we have changes
+    if (Object.keys(inputsUpdate).length > 0) {
+      updateData.inputs = inputsUpdate;
     }
 
     // Update the deal

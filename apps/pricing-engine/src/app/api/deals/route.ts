@@ -2,6 +2,8 @@ import { z } from "zod"
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
+
 const optionalNumber = (min = 0, max?: number) =>
   z.preprocess(
     (val) => (val === "" || val == null ? undefined : Number(val)),
@@ -11,15 +13,23 @@ const optionalNumber = (min = 0, max?: number) =>
   )
 
 const schema = z.object({
-  id: optionalNumber(0),
+  // Top-level fields that map to deals table columns
+  loan_type: z.string().optional(),
+  transaction_type: z.string().optional(),
+  loan_amount: optionalNumber(0),
+  rate: optionalNumber(0),
+  status: z.string().optional(),
+  property_address: z.string().optional(),
+  borrower_first_name: z.string().optional(),
+  borrower_last_name: z.string().optional(),
+  
+  // All other fields go into inputs JSONB
   deal_name: z.string().optional(),
   vesting_type: z.string().optional(),
   guarantor_count: optionalNumber(0),
   lead_source_type: z.string().optional(),
   property_id: optionalNumber(0),
   company_id: z.string().optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
   note_date: z.string().optional(),
   mid_fico: optionalNumber(0),
   pricing_is_locked: z.boolean().optional(),
@@ -33,7 +43,6 @@ const schema = z.object({
   declaration_2_bankruptcy_explanation: z.string().optional(),
   declaration_3_felony_explanation: z.string().optional(),
   recourse_type: z.string().optional(),
-  transaction_type: z.string().optional(),
   payoff_mtg1_amount: optionalNumber(0),
   loan_structure_dscr: z.string().optional(),
   guarantor_fico_score: optionalNumber(0),
@@ -83,9 +92,18 @@ function dropUndefined<T extends Record<string, unknown>>(obj: T) {
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth()
+    const { userId, orgId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (!orgId) {
+      return NextResponse.json({ error: "No active organization" }, { status: 400 })
+    }
+
+    // Get the organization UUID from Clerk org ID
+    const organizationId = await getOrgUuidFromClerkId(orgId)
+    if (!organizationId) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
 
     const json = await req.json().catch(() => null)
@@ -94,16 +112,14 @@ export async function POST(req: Request) {
     const cleanText = (value?: string) =>
       value && value.trim().length > 0 ? value.trim() : undefined
 
-    const payload = dropUndefined({
-      id: parsed.id,
+    // Build the inputs JSONB object with all deal details
+    const inputs = dropUndefined({
       deal_name: cleanText(parsed.deal_name),
       vesting_type: cleanText(parsed.vesting_type),
       guarantor_count: parsed.guarantor_count,
       lead_source_type: cleanText(parsed.lead_source_type),
       property_id: parsed.property_id,
       company_id: cleanText(parsed.company_id),
-      created_at: cleanText(parsed.created_at),
-      updated_at: cleanText(parsed.updated_at),
       note_date: cleanText(parsed.note_date),
       mid_fico: parsed.mid_fico,
       pricing_is_locked: parsed.pricing_is_locked ?? false,
@@ -113,15 +129,9 @@ export async function POST(req: Request) {
       declaration_2_bankruptcy: parsed.declaration_2_bankruptcy ?? false,
       declaration_3_felony: parsed.declaration_3_felony ?? false,
       declaration_5_license: parsed.declaration_5_license ?? false,
-      declaration_1_lawsuits_explanation: cleanText(
-        parsed.declaration_1_lawsuits_explanation
-      ),
-      declaration_2_bankruptcy_explanation: cleanText(
-        parsed.declaration_2_bankruptcy_explanation
-      ),
-      declaration_3_felony_explanation: cleanText(
-        parsed.declaration_3_felony_explanation
-      ),
+      declaration_1_lawsuits_explanation: cleanText(parsed.declaration_1_lawsuits_explanation),
+      declaration_2_bankruptcy_explanation: cleanText(parsed.declaration_2_bankruptcy_explanation),
+      declaration_3_felony_explanation: cleanText(parsed.declaration_3_felony_explanation),
       recourse_type: cleanText(parsed.recourse_type),
       transaction_type: cleanText(parsed.transaction_type),
       payoff_mtg1_amount: parsed.payoff_mtg1_amount,
@@ -163,18 +173,36 @@ export async function POST(req: Request) {
       ppp_structure_1: cleanText(parsed.ppp_structure_1),
     })
 
+    // Build the row to insert - matches actual deals table schema
+    const payload = {
+      organization_id: organizationId,
+      loan_type: cleanText(parsed.loan_type) || cleanText(parsed.loan_type_rtl),
+      transaction_type: cleanText(parsed.transaction_type),
+      loan_amount: parsed.loan_amount || parsed.loan_amount_total,
+      rate: parsed.rate || parsed.note_rate,
+      status: cleanText(parsed.status) || "active",
+      property_address: cleanText(parsed.property_address),
+      borrower_first_name: cleanText(parsed.borrower_first_name),
+      borrower_last_name: cleanText(parsed.borrower_last_name),
+      inputs,
+      assigned_to_user_id: [userId],
+      primary_user_id: userId,
+    }
+
     const { data, error } = await supabaseAdmin
-      .from("deal")
+      .from("deals")
       .insert(payload)
       .select("*")
       .single()
 
     if (error) {
+      console.error("[POST /api/deals] Supabase error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, deal: data })
   } catch (error) {
+    console.error("[POST /api/deals] Error:", error)
     const message = error instanceof Error ? error.message : "Unknown error"
     return NextResponse.json({ error: message }, { status: 400 })
   }
