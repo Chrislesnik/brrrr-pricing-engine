@@ -156,12 +156,12 @@ export function SignIn2() {
                 </Link>
               </div>
               <PasswordInput
-                id="password2"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+                  id="password2"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
             </Field>
 
             {/* Sign-in button */}

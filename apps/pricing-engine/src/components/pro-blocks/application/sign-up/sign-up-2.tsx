@@ -88,9 +88,9 @@ export function SignUp2() {
             <Field>
               <FieldLabel htmlFor="password">Password</FieldLabel>
               <PasswordInput
-                id="password"
-                placeholder="Password"
-              />
+                  id="password"
+                  placeholder="Password"
+                />
               <p className="text-muted-foreground text-sm">
                 Minimum 8 characters.
               </p>

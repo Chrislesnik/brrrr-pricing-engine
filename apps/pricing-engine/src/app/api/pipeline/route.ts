@@ -49,15 +49,15 @@ export async function GET(req: NextRequest) {
       if (dealsErr) {
         console.error("[Pipeline API] Error fetching deals:", dealsErr)
         return NextResponse.json({ error: dealsErr.message }, { status: 500 })
-      }
+        }
 
       // Transform the deals to match the expected format for the data table
       const transformed = (deals ?? []).map((deal) => {
         const inputs = (deal.inputs as Record<string, unknown>) || {}
         
         // Get borrower name from top-level or inputs
-        const borrowerName = [deal.borrower_first_name, deal.borrower_last_name]
-          .filter(Boolean)
+            const borrowerName = [deal.borrower_first_name, deal.borrower_last_name]
+              .filter(Boolean)
           .join(" ") || (inputs.borrower_name as string) || null
         
         // Get loan number from inputs

@@ -55,7 +55,7 @@ export async function GET(
       .select("id, is_internal_yn")
       .eq("clerk_user_id", userId)
       .maybeSingle();
-    
+      
     if (userRow) {
       isInternal = Boolean(userRow.is_internal_yn);
     }
@@ -142,17 +142,17 @@ export async function PATCH(
       .select("id, is_internal_yn")
       .eq("clerk_user_id", userId)
       .maybeSingle();
-    
+
     if (userRow) {
       isInternal = Boolean(userRow.is_internal_yn);
     }
 
     // If user doesn't have access, return 403
     if (!hasOrgAccess && !isAssigned && !isPrimaryUser && !isInternal) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
+        return NextResponse.json(
+          { error: "Access denied" },
+          { status: 403 }
+        );
     }
 
     // Get the updated data from request body
@@ -178,7 +178,7 @@ export async function PATCH(
       if (topLevelFields.includes(key)) {
         // Update top-level column
         updateData[key] = value;
-      } else {
+        } else {
         // Update in inputs JSONB
         inputsUpdate[key] = value;
       }
