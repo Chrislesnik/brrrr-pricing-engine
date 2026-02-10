@@ -291,7 +291,17 @@ export function ApplicationsTable({ data }: Props) {
               <span className="text-muted-foreground text-sm">
                 {Math.round(val)}% {total > 0 ? `(${signed}/${total})` : ""}
               </span>
-              <Progress value={val} className="w-40" />
+              <Progress
+                value={val}
+                className="w-40"
+                indicatorClassName={
+                  val >= 100
+                    ? "bg-success"
+                    : val > 0
+                      ? "bg-warning"
+                      : undefined
+                }
+              />
             </div>
           )
         },
