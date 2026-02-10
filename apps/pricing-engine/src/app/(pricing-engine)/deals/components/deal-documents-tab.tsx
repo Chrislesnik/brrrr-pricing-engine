@@ -233,6 +233,7 @@ export function DealDocumentsTab({ dealId }: DealDocumentsTabProps) {
       <input
         ref={fileInputRef}
         type="file"
+        hidden
         className="hidden"
         onChange={handleFileSelect}
         accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif"
