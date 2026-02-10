@@ -1,6 +1,7 @@
 "use client"
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -65,7 +66,6 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
-import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { ApplicationRow } from "../data/fetch-applications"
 
@@ -76,6 +76,7 @@ interface Props {
 }
 
 export function ApplicationsTable({ data }: Props) {
+  const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
@@ -89,7 +90,6 @@ export function ApplicationsTable({ data }: Props) {
     id: string
     borrower?: string | null
   } | null>(null)
-  const [startModalRow, setStartModalRow] = useState<AppRow | null>(null)
   const [liveData, setLiveData] = useState<
     Record<
       string,
@@ -332,7 +332,7 @@ export function ApplicationsTable({ data }: Props) {
               className="min-w-[90px]"
               onClick={(e) => {
                 e.stopPropagation()
-                setStartModalRow(row.original)
+                router.push(`/applications/${row.original.id}`)
               }}
             >
               Start
@@ -511,13 +511,6 @@ export function ApplicationsTable({ data }: Props) {
           <UploadWidget />
         </DialogContent>
       </Dialog>
-      <StartModal
-        row={startModalRow}
-        open={!!startModalRow}
-        onOpenChange={(open) => {
-          if (!open) setStartModalRow(null)
-        }}
-      />
       <style jsx global>{`
         @keyframes email-shake {
           0% {
@@ -716,34 +709,3 @@ function UploadList() {
   )
 }
 
-interface StartModalProps {
-  row: AppRow | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}
-
-function StartModal({ row, open, onOpenChange }: StartModalProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (open && scrollRef.current) {
-      scrollRef.current.scrollTop = 0
-    }
-  }, [open])
-
-  if (!row) return null
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[90vh] w-[75vw] max-w-[1100px] border-none p-0 shadow-2xl sm:max-w-[1200px]">
-        <div ref={scrollRef} className="h-full overflow-hidden">
-          <span className="sr-only">Application workflow</span>
-          <MultiStepForm
-            entityName={row.borrowerEntityName}
-            guarantors={row.guarantors ?? undefined}
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}

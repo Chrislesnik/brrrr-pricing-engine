@@ -7,8 +7,6 @@ import { FaUserShield } from "react-icons/fa6"
 import { TbHomeSearch } from "react-icons/tb"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
-import { Card, CardContent } from "@repo/ui/shadcn/card"
-import { Separator } from "@repo/ui/shadcn/separator"
 import CartStep from "./CartStep"
 
 const { useStepper } = Stepperize.defineStepper(
@@ -82,70 +80,79 @@ const MultiStepForm = ({
   const next = () => setCarouselIndex((i) => (i + 1) % labels.length)
 
   return (
-    <Card className={cn("h-full", className)}>
-      <CardContent className="flex h-full max-h-[90vh] flex-col overflow-hidden p-4 sm:p-6">
-        <nav aria-label="Multi Steps">
-          <ol className="flex justify-center gap-x-6 gap-y-6 max-sm:flex-col sm:items-center md:gap-x-12">
-            {stepper.all.map((step, index, array) => (
-              <Fragment key={step.id}>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => stepper.goTo(step.id)}
-                    className={cn(
-                      "hover:text-foreground focus-visible:ring-ring flex h-auto w-full shrink-0 items-center justify-start gap-5 rounded-md transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:flex-col",
-                      stepper.current.id === step.id
-                        ? "text-foreground"
-                        : "text-muted-foreground"
-                    )}
-                    aria-pressed={stepper.current.id === step.id}
-                  >
-                    <step.icon className="size-14" aria-hidden="true" />
-                    <span className="text-xl">{step.title}</span>
-                  </button>
-                </li>
-                {index < array.length - 1 && (
-                  <li className="max-sm:hidden">
-                    <ChevronRight
-                      className="text-muted-foreground size-4 shrink-0"
-                      aria-hidden="true"
-                    />
+    <div className={cn("flex h-full flex-col overflow-hidden", className)}>
+      {/* Compact header: stepper tabs + entity carousel in one row */}
+      <div className="border-b bg-muted/30 px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          {/* Step tabs */}
+          <nav aria-label="Multi Steps" className="flex-1">
+            <ol className="flex items-center gap-1">
+              {stepper.all.map((step, index, array) => (
+                <Fragment key={step.id}>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => stepper.goTo(step.id)}
+                      className={cn(
+                        "hover:text-foreground focus-visible:ring-ring flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+                        stepper.current.id === step.id
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      )}
+                      aria-pressed={stepper.current.id === step.id}
+                    >
+                      <step.icon className="size-5 shrink-0" aria-hidden="true" />
+                      <span>{step.title}</span>
+                    </button>
                   </li>
-                )}
-              </Fragment>
-            ))}
-          </ol>
-        </nav>
-        {stepper.current.id !== "confirmation" ? (
-          <>
-            <Separator className="my-2" />
-            <div className="my-2 flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={prev}
-                aria-label="Previous item"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="min-w-[160px] text-center text-sm font-medium">
+                  {index < array.length - 1 && (
+                    <li>
+                      <ChevronRight
+                        className="text-muted-foreground size-4 shrink-0"
+                        aria-hidden="true"
+                      />
+                    </li>
+                  )}
+                </Fragment>
+              ))}
+            </ol>
+          </nav>
+
+          {/* Entity / guarantor carousel -- only show on non-appraisal tabs */}
+          {stepper.current.id !== "confirmation" && (
+            <div className="flex items-center gap-2">
+              {labels.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={prev}
+                  aria-label="Previous item"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <div className="min-w-[140px] text-center text-sm font-medium">
                 {labels[carouselIndex]}
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={next}
-                aria-label="Next item"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              {labels.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={next}
+                  aria-label="Next item"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
-            <Separator className="my-2" />
-          </>
-        ) : (
-          // Keep a single separator for spacing on the Appraisal tab, with a bit more room below.
-          <Separator className="mt-2 mb-3" />
-        )}
+          )}
+        </div>
+      </div>
+
+      {/* Step content -- fills remaining height, scrollable */}
+      <div className="relative min-h-0 flex-1 overflow-auto p-4 sm:p-6">
         {stepper.switch({
           background: () => (
             <CartStep
@@ -163,8 +170,8 @@ const MultiStepForm = ({
           ),
           confirmation: () => <CartStep data={orderItems} stepper={stepper} />,
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 

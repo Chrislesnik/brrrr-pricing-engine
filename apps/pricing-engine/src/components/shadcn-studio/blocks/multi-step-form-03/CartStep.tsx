@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Download } from "lucide-react"
-import { motion } from "motion/react"
+import { Download, MessageCircle, X } from "lucide-react"
+import { motion, AnimatePresence } from "motion/react"
 import { FaFeatherAlt } from "react-icons/fa"
 import { GiStoneBlock } from "react-icons/gi"
 import { createSupabaseBrowser } from "@/lib/supabase-browser"
@@ -457,6 +457,7 @@ const CartStep = ({
   const [runPhase, setRunPhase] = useState<
     "idle" | "bounce" | "running" | "error"
   >("idle")
+  const [chatOpen, setChatOpen] = useState(false)
 
   // Entity-specific state
   const [entityName, setEntityName] = useState("")
@@ -538,41 +539,122 @@ const CartStep = ({
 
   return (
     <div
-      className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-3"
+      className="flex flex-col gap-4"
       key={stepper.current.id}
     >
-      <div
-        className={cn(
-          "flex h-full min-h-0 flex-col gap-6",
-          isAppraisal ? "lg:col-span-3" : "lg:col-span-2"
-        )}
-      >
-        {/* Order button for Appraisal tab - shown at top right like other tabs */}
-        {isAppraisal && (
-          <div className="flex justify-end">
+      {/* Toolbar: Run/Order button + file selector + download */}
+      <div className="flex flex-wrap items-center gap-2">
+        {isAppraisal ? (
+          <>
             {runPhase === "error" ? (
               <ShakeButton
-                className="h-9 min-w-[180px] px-6 py-2"
+                className="h-9 min-w-[130px] px-4 py-2"
                 onClick={handleRun}
               >
                 Order
               </ShakeButton>
             ) : runPhase === "running" ? (
-              <LoadingButton className="h-9 min-w-[180px] px-6 py-2" disabled>
+              <LoadingButton className="h-9 min-w-[130px] px-4 py-2" disabled>
                 Ordering...
               </LoadingButton>
             ) : (
               <BounceButton
-                className="h-9 min-w-[180px] px-6 py-2"
+                className="h-9 min-w-[130px] px-4 py-2"
                 onClick={handleRun}
                 disabled={runPhase !== "idle"}
               >
                 Order
               </BounceButton>
             )}
-          </div>
+          </>
+        ) : (
+          <>
+            {runPhase === "error" ? (
+              <ShakeButton
+                className="h-9 min-w-[130px] px-4 py-2"
+                onClick={handleRun}
+              >
+                Run
+              </ShakeButton>
+            ) : runPhase === "running" ? (
+              <LoadingButton className="h-9 min-w-[130px] px-4 py-2" disabled>
+                Running...
+              </LoadingButton>
+            ) : (
+              <BounceButton
+                className="h-9 min-w-[130px] px-4 py-2"
+                onClick={handleRun}
+                disabled={runPhase !== "idle"}
+              >
+                Run
+              </BounceButton>
+            )}
+            <Select
+              onValueChange={(val) => {
+                const next = val?.trim?.() ?? val
+                const normalized = isUuid(next) ? next : undefined
+                if (next) {
+                  setSelectedReportId(normalized)
+                }
+              }}
+              value={selectedReportId}
+              disabled={filesLoading || files.length === 0}
+            >
+              <SelectTrigger className="h-9 w-[180px] truncate">
+                <SelectValue
+                  placeholder={
+                    filesLoading
+                      ? "Loading…"
+                      : files.length
+                        ? "Files"
+                        : "No files"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent className="data-[state=open]:!zoom-in-0 origin-center duration-400">
+                {files.length > 0 ? (
+                  <SelectGroup>
+                    <SelectLabel>Files</SelectLabel>
+                    {files.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ) : null}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-10 shadow-sm"
+              disabled={filesLoading || !selectedReport?.url}
+              onClick={() => {
+                if (!selectedReport?.url) return
+                const anchor = document.createElement("a")
+                anchor.href = selectedReport.url
+                anchor.download = selectedReport.name || "report.pdf"
+                anchor.target = "_blank"
+                anchor.rel = "noopener noreferrer"
+                anchor.click()
+                anchor.remove()
+              }}
+              aria-label={
+                selectedReport?.name
+                  ? `Download ${selectedReport.name}`
+                  : "No file to download"
+              }
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </>
         )}
-        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto pr-2">
+      </div>
+
+      {/* Full-width form content */}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           {isCredit ? (
             <>
               <h3 className="text-sm font-semibold">
@@ -1857,116 +1939,90 @@ const CartStep = ({
           )}
         </div>
       </div>
+      {/* Floating AI Chat Button + Popup */}
       {!isAppraisal && (
-        <div className="flex h-full min-h-0 flex-col gap-6">
-          <div className="flex w-full items-center gap-2">
-            {runPhase === "error" ? (
-              <ShakeButton
-                className="h-9 min-w-[130px] px-4 py-2"
-                onClick={handleRun}
-              >
-                Run
-              </ShakeButton>
-            ) : runPhase === "running" ? (
-              <LoadingButton className="h-9 min-w-[130px] px-4 py-2" disabled>
-                Running...
-              </LoadingButton>
-            ) : (
-              <BounceButton
-                className="h-9 min-w-[130px] px-4 py-2"
-                onClick={handleRun}
-                disabled={runPhase !== "idle"}
-              >
-                Run
-              </BounceButton>
-            )}
-            <Select
-              onValueChange={(val) => {
-                const next = val?.trim?.() ?? val
-                const normalized = isUuid(next) ? next : undefined
-                if (next) {
-                  setSelectedReportId(normalized)
-                }
-                // no automatic open; selection only
-              }}
-              value={selectedReportId}
-              disabled={filesLoading || files.length === 0}
-            >
-              <SelectTrigger className="h-9 w-[180px] truncate">
-                <SelectValue
-                  placeholder={
-                    filesLoading
-                      ? "Loading…"
-                      : files.length
-                        ? "Files"
-                        : "No files"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent className="data-[state=open]:!zoom-in-0 origin-center duration-400">
-                {files.length > 0 ? (
-                  <SelectGroup>
-                    <SelectLabel>Files</SelectLabel>
-                    {files.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ) : null}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-10 shadow-sm"
-              disabled={filesLoading || !selectedReport?.url}
-              onClick={() => {
-                if (!selectedReport?.url) return
-                const anchor = document.createElement("a")
-                anchor.href = selectedReport.url
-                anchor.download = selectedReport.name || "report.pdf"
-                anchor.target = "_blank"
-                anchor.rel = "noopener noreferrer"
-                anchor.click()
-                anchor.remove()
-              }}
-              aria-label={
-                selectedReport?.name
-                  ? `Download ${selectedReport.name}`
-                  : "No file to download"
-              }
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-          {effectiveReportId ? (
-            <ChatPanel
-              key={effectiveReportId}
-              className="h-full min-h-0 flex-1 rounded-md border p-4"
-              reportId={effectiveReportId}
-            />
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden rounded-md border p-4 text-center">
+        <div className="pointer-events-none fixed right-8 bottom-8 z-50 flex flex-col items-end gap-3">
+          <AnimatePresence>
+            {chatOpen && (
               <motion.div
-                className="text-muted-foreground"
-                animate={{ opacity: [0.4, 1, 0.4] }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 2,
-                  ease: "easeInOut",
-                }}
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="bg-background pointer-events-auto flex h-[480px] w-[380px] flex-col overflow-hidden rounded-xl border shadow-2xl"
               >
-                <SparklesSolidIcon size={96} />
+                {/* Chat header */}
+                <div className="bg-primary flex items-center justify-between px-4 py-3">
+                  <div>
+                    <h3 className="text-primary-foreground text-sm font-semibold">
+                      AI Assistant
+                    </h3>
+                    <p className="text-primary-foreground/70 text-xs">
+                      {stepper.current.id === "credit"
+                        ? "Credit report analysis"
+                        : "Background check assistant"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setChatOpen(false)}
+                    className="text-primary-foreground/70 hover:text-primary-foreground rounded-md p-1 transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {/* Chat body */}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {effectiveReportId ? (
+                    <ChatPanel
+                      key={effectiveReportId}
+                      className="h-full min-h-0 flex-1 p-3"
+                      reportId={effectiveReportId}
+                    />
+                  ) : (
+                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
+                      <motion.div
+                        className="text-muted-foreground"
+                        animate={{ opacity: [0.4, 1, 0.4] }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: 2,
+                          ease: "easeInOut",
+                        }}
+                      >
+                        <SparklesSolidIcon size={64} />
+                      </motion.div>
+                      <Shimmer className="text-sm">
+                        {stepper.current.id === "credit"
+                          ? "Agent ready to assist when credit is ran"
+                          : "Agent ready to assist when background is ran"}
+                      </Shimmer>
+                    </div>
+                  )}
+                </div>
               </motion.div>
-              <Shimmer className="text-lg">
-                {stepper.current.id === "credit"
-                  ? "Agent ready to assist when credit is ran"
-                  : "Agent ready to assist when background is ran"}
-              </Shimmer>
-            </div>
-          )}
+            )}
+          </AnimatePresence>
+
+          {/* Toggle button */}
+          <button
+            type="button"
+            onClick={() => setChatOpen((prev) => !prev)}
+            className={cn(
+              "pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all hover:scale-105",
+              chatOpen
+                ? "bg-muted text-muted-foreground"
+                : "bg-primary text-primary-foreground",
+              effectiveReportId && !chatOpen && "ring-success ring-2 ring-offset-2"
+            )}
+            aria-label={chatOpen ? "Close AI assistant" : "Open AI assistant"}
+          >
+            {chatOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <MessageCircle className="h-5 w-5" />
+            )}
+          </button>
         </div>
       )}
     </div>
