@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const { id } = await ctx.params
     const { data, error } = await supabaseAdmin
       .from("entities")
-      .select("id, display_id, entity_name, entity_type, members, ein, date_formed, state_formed, address_line1, address_line2, city, state, zip, county, bank_name, account_balances, organization_id, created_at, updated_at")
+      .select("id, display_id, entity_name, entity_type, members, ein, date_formed, state_formed, address_line1, address_line2, city, state, zip, county, organization_id, created_at, updated_at")
       .eq("id", id)
       .eq("organization_id", orgUuid)
       .maybeSingle()

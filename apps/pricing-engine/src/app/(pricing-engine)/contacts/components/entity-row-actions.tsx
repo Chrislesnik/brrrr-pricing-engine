@@ -68,8 +68,6 @@ export function EntityRowActions({ entity }: Props) {
         state: e.state ?? "",
         zip: e.zip ?? "",
         county: e.county ?? "",
-        bank_name: e.bank_name ?? "",
-        account_balances: e.account_balances ?? "",
       }
       setInitial(init)
       // Load owners for Schedule A

@@ -31,7 +31,7 @@ Command.displayName = CommandPrimitive.displayName
 const CommandDialog = ({ children, ...props }: DialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0">
+      <DialogContent className="overflow-hidden p-0 [&>[data-slot=dialog-close]]:top-2">
         <VisuallyHidden asChild>
           <DialogTitle />
         </VisuallyHidden>
