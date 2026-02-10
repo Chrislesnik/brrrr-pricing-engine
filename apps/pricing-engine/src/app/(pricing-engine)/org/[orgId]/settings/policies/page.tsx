@@ -39,9 +39,9 @@ export default async function PoliciesPage({
             <ArrowLeft className="size-4" />
             Back to Settings
           </Link>
-          <h1 className="text-3xl font-bold">Access Policies</h1>
+          <h1 className="text-3xl font-bold">Custom Permission Policies</h1>
           <p className="mt-1 text-muted-foreground">
-            Define global policies for tables and storage buckets.
+            Define custom, organization-scoped permission rules.
           </p>
         </div>
 
