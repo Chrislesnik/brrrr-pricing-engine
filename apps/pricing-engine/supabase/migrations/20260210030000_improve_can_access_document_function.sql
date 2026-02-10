@@ -41,6 +41,7 @@ AS $$
 DECLARE
   v_org_id uuid;
   v_user_id text;
+  v_user_pk bigint;
   v_doc_category_id bigint;
   v_uploaded_by text;
   v_uploaded_at timestamptz;
@@ -49,6 +50,12 @@ BEGIN
   -- Resolve user and org once (performance improvement)
   v_user_id := auth.jwt() ->> 'sub';
   v_org_id := public.get_active_org_id();
+
+  -- Resolve user PK (bigint) for tables that reference users.id
+  SELECT id INTO v_user_pk
+  FROM public.users
+  WHERE clerk_user_id = v_user_id
+  LIMIT 1;
 
   -- Validate action
   IF p_action NOT IN ('view', 'insert', 'upload', 'delete') THEN
@@ -110,13 +117,14 @@ BEGIN
     RETURN true;
   END IF;
 
-  -- Check 6: Direct user link can view
+  -- Check 6: Direct user link can view (clerk_user_id is bigint = users.id)
   IF p_action = 'view'
+    AND v_user_pk IS NOT NULL
     AND EXISTS (
       SELECT 1
       FROM public.document_files_clerk_users dfcu
       WHERE dfcu.document_file_id = p_document_file_id
-        AND dfcu.clerk_user_id = v_user_id
+        AND dfcu.clerk_user_id = v_user_pk
     )
   THEN
     RETURN true;
