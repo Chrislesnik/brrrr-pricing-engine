@@ -9,8 +9,12 @@ import {
 import {
   saveOrgPolicy,
   setOrgPolicyActive,
+  updateOrgPolicy,
+  deleteOrgPolicy,
+  getAvailableResources,
   type OrgPolicyRow,
   type ConditionInput,
+  type PolicyDefinitionInput,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import {
   PolicyConditionRow,
@@ -41,7 +45,18 @@ import {
   CommandList,
 } from "@repo/ui/shadcn/command";
 import { Separator } from "@repo/ui/shadcn/separator";
-import { ChevronsUpDown, Check, X, Plus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@repo/ui/shadcn/alert-dialog";
+import { ChevronsUpDown, Check, X, Plus, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
 // ============================================================================
@@ -77,9 +92,9 @@ const actionOptions = [
   { value: "delete", label: "Delete" },
 ];
 
-const resourceOptions = [
-  { value: "table", label: "All Tables" },
-  { value: "storage_bucket", label: "All Storage Buckets" },
+const resourceScopeOptions = [
+  { value: "table:*", label: "All Tables" },
+  { value: "storage_bucket:*", label: "All Storage Buckets" },
 ];
 
 const defaultCondition: ConditionState = {
@@ -196,6 +211,76 @@ function ChipsSelect({
 // Main Component
 // ============================================================================
 
+// ============================================================================
+// Helper: extract human-readable summary from a policy's definition_json
+// ============================================================================
+
+function summarizeConditions(policy: OrgPolicyRow): string {
+  const def = policy.definition_json as {
+    conditions?: Array<{ field: string; operator: string; values: string[] }>;
+    connector?: string;
+    allow_internal_users?: boolean;
+  };
+
+  if (!def?.conditions?.length) {
+    return def?.allow_internal_users ? "Internal users only" : "No conditions";
+  }
+
+  const fieldLabels: Record<string, string> = {
+    org_role: "Org Role",
+    member_role: "Member Role",
+    org_type: "Org Type",
+    internal_user: "User Type",
+  };
+
+  const parts = def.conditions.map((c) => {
+    const label = fieldLabels[c.field] ?? c.field;
+    const op = c.operator === "is_not" ? "is not" : "is";
+    return `${label} ${op} ${c.values.join(", ")}`;
+  });
+
+  const joined = parts.join(` ${def.connector ?? "AND"} `);
+  if (def.allow_internal_users) return `${joined} (+ internal bypass)`;
+  return joined;
+}
+
+function loadPolicyIntoForm(
+  policy: OrgPolicyRow,
+  setters: {
+    setConditions: (c: ConditionState[]) => void;
+    setConnector: (c: "AND" | "OR") => void;
+    setAllowInternalUsers: (b: boolean) => void;
+    setSelectedActions: (a: string[]) => void;
+    setSelectedResources: (r: string[]) => void;
+    setEditingPolicyId: (id: string | null) => void;
+  }
+) {
+  const def = policy.definition_json as {
+    conditions?: Array<{ field: string; operator: string; values: string[] }>;
+    connector?: "AND" | "OR";
+    allow_internal_users?: boolean;
+  };
+
+  setters.setConditions(
+    def?.conditions?.length
+      ? def.conditions.map((c) => ({
+          field: c.field,
+          operator: c.operator,
+          values: c.values,
+        }))
+      : [{ ...defaultCondition }]
+  );
+  setters.setConnector(def?.connector ?? "AND");
+  setters.setAllowInternalUsers(def?.allow_internal_users ?? false);
+  setters.setSelectedActions([policy.action === "all" ? "select" : policy.action]);
+  setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
+  setters.setEditingPolicyId(policy.id);
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export default function OrgPolicyBuilder({
   initialPolicies,
 }: {
@@ -203,6 +288,9 @@ export default function OrgPolicyBuilder({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Edit mode
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
   // WHEN state
   const [conditions, setConditions] = useState<ConditionState[]>([
@@ -217,8 +305,9 @@ export default function OrgPolicyBuilder({
     "update",
     "delete",
   ]);
+  // Resource selection: format is "type:name" e.g. "table:*", "table:deals", "storage_bucket:deals"
   const [selectedResources, setSelectedResources] = useState<string[]>([
-    "table",
+    "table:*",
   ]);
 
   // Global override
@@ -233,8 +322,14 @@ export default function OrgPolicyBuilder({
     Array<{ value: string; label: string; description?: string | null }>
   >([]);
 
+  // Available resources for per-table/per-bucket granularity
+  const [resourceOptions, setResourceOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([...resourceScopeOptions]);
+
   useEffect(() => {
-    async function loadMemberRoles() {
+    async function loadDynamicData() {
+      // Load member roles
       try {
         const roles = await getMemberRolesForPolicies();
         setMemberRoleValueOptions(
@@ -249,8 +344,32 @@ export default function OrgPolicyBuilder({
       } catch (err) {
         console.error("Failed to load member roles:", err);
       }
+
+      // Load available tables and buckets
+      try {
+        const resources = await getAvailableResources();
+        const opts: Array<{ value: string; label: string }> = [
+          ...resourceScopeOptions,
+        ];
+        if (resources.tables.length > 0) {
+          for (const table of resources.tables) {
+            opts.push({ value: `table:${table}`, label: `Table: ${table}` });
+          }
+        }
+        if (resources.buckets.length > 0) {
+          for (const bucket of resources.buckets) {
+            opts.push({
+              value: `storage_bucket:${bucket}`,
+              label: `Bucket: ${bucket}`,
+            });
+          }
+        }
+        setResourceOptions(opts);
+      } catch (err) {
+        console.error("Failed to load available resources:", err);
+      }
     }
-    loadMemberRoles();
+    loadDynamicData();
   }, []);
 
   // Build field options with dynamic member roles
@@ -296,7 +415,18 @@ export default function OrgPolicyBuilder({
     setConditions((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Save
+  function resetForm() {
+    setEditingPolicyId(null);
+    setConditions([{ ...defaultCondition }]);
+    setConnector("AND");
+    setSelectedActions(["select", "insert", "update", "delete"]);
+    setSelectedResources(["table:*"]);
+    setAllowInternalUsers(false);
+    setError(null);
+    setStatus(null);
+  }
+
+  // Save (create or update)
   async function handleSave() {
     setError(null);
     setStatus(null);
@@ -308,21 +438,37 @@ export default function OrgPolicyBuilder({
           values: c.values,
         }));
 
-        // Save one policy per action+resource combination
-        for (const resourceType of selectedResources) {
-          await saveOrgPolicy({
-            resourceType: resourceType as "table" | "storage_bucket",
-            actions: selectedActions as Array<
-              "select" | "insert" | "update" | "delete"
-            >,
-            definition: {
-              allowInternalUsers,
-              conditions: conditionInputs,
-              connector,
-            },
-          });
+        const definition: PolicyDefinitionInput = {
+          allowInternalUsers,
+          conditions: conditionInputs,
+          connector,
+        };
+
+        if (editingPolicyId) {
+          // Update existing policy
+          await updateOrgPolicy({ id: editingPolicyId, definition });
+          setStatus("Policy updated successfully.");
+          resetForm();
+        } else {
+          // Create new policies - parse "type:name" format
+          for (const resource of selectedResources) {
+            const colonIdx = resource.indexOf(":");
+            const resourceType = resource.substring(0, colonIdx) as
+              | "table"
+              | "storage_bucket";
+            const resourceName = resource.substring(colonIdx + 1);
+
+            await saveOrgPolicy({
+              resourceType,
+              resourceName: resourceName === "*" ? undefined : resourceName,
+              actions: selectedActions as Array<
+                "select" | "insert" | "update" | "delete"
+              >,
+              definition,
+            });
+          }
+          setStatus("Policy saved successfully.");
         }
-        setStatus("Policy saved successfully.");
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save policy.");
@@ -345,15 +491,59 @@ export default function OrgPolicyBuilder({
     });
   }
 
+  async function handleDelete(id: string) {
+    setError(null);
+    setStatus(null);
+    startTransition(async () => {
+      try {
+        await deleteOrgPolicy({ id });
+        if (editingPolicyId === id) resetForm();
+        router.refresh();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to delete policy."
+        );
+      }
+    });
+  }
+
+  function handleEdit(policy: OrgPolicyRow) {
+    loadPolicyIntoForm(policy, {
+      setConditions,
+      setConnector,
+      setAllowInternalUsers,
+      setSelectedActions,
+      setSelectedResources,
+      setEditingPolicyId,
+    });
+    setError(null);
+    setStatus(null);
+    // Scroll to top of form
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="space-y-8">
       {/* Policy Builder Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Create Access Policy</CardTitle>
-          <CardDescription>
-            Define who can access what using conditions and actions
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                {editingPolicyId ? "Edit Access Policy" : "Create Access Policy"}
+              </CardTitle>
+              <CardDescription>
+                {editingPolicyId
+                  ? "Update the conditions and actions for this policy"
+                  : "Define who can access what using conditions and actions"}
+              </CardDescription>
+            </div>
+            {editingPolicyId && (
+              <Button variant="ghost" size="sm" onClick={resetForm}>
+                Cancel Edit
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* ============================================================ */}
@@ -432,7 +622,7 @@ export default function OrgPolicyBuilder({
                 options={resourceOptions}
                 selected={selectedResources}
                 onChange={setSelectedResources}
-                placeholder="Select resources..."
+                placeholder="Select resources (tables, buckets)..."
               />
             </div>
           </div>
@@ -471,7 +661,12 @@ export default function OrgPolicyBuilder({
             </p>
           )}
 
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-2">
+            {editingPolicyId && (
+              <Button variant="outline" onClick={resetForm} disabled={isPending}>
+                Cancel
+              </Button>
+            )}
             <Button
               onClick={handleSave}
               disabled={
@@ -480,7 +675,11 @@ export default function OrgPolicyBuilder({
                 selectedResources.length === 0
               }
             >
-              {isPending ? "Saving..." : "Save policy"}
+              {isPending
+                ? "Saving..."
+                : editingPolicyId
+                  ? "Update policy"
+                  : "Save policy"}
             </Button>
           </div>
         </CardContent>
@@ -492,39 +691,111 @@ export default function OrgPolicyBuilder({
       <Card>
         <CardHeader>
           <CardTitle>Existing Policies</CardTitle>
+          <CardDescription>
+            {initialPolicies.length} {initialPolicies.length === 1 ? "policy" : "policies"} configured
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {initialPolicies.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+        <CardContent>
+          {initialPolicies.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
               No policies found for this organization.
             </p>
-          )}
-          {initialPolicies.map((policy) => (
-            <div
-              key={policy.id}
-              className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
-            >
-              <div className="space-y-1">
-                <p className="text-sm font-medium">
-                  {policy.resource_type} &bull; {policy.resource_name} &bull;{" "}
-                  {policy.action}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Version {policy.version} &bull;{" "}
-                  {policy.is_active ? "Active" : "Inactive"}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={policy.is_active}
-                  onCheckedChange={(checked) =>
-                    handleToggleActive(policy.id, checked)
-                  }
-                />
-                <span className="text-xs text-muted-foreground">Active</span>
-              </div>
+          ) : (
+            <div className="divide-y">
+              {initialPolicies.map((policy) => {
+                const resourceLabel =
+                  policy.resource_type === "storage_bucket"
+                    ? "Storage Buckets"
+                    : "Tables";
+                const resourceScope =
+                  policy.resource_name === "*"
+                    ? `All ${resourceLabel}`
+                    : policy.resource_name;
+
+                return (
+                  <div
+                    key={policy.id}
+                    className={cn(
+                      "flex items-center gap-4 py-3 px-1",
+                      editingPolicyId === policy.id && "bg-muted/50 -mx-1 px-2 rounded"
+                    )}
+                  >
+                    {/* Policy info */}
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs font-mono uppercase">
+                          {policy.action}
+                        </Badge>
+                        <span className="text-sm font-medium">{resourceScope}</span>
+                        {!policy.is_active && (
+                          <Badge variant="secondary" className="text-xs">
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {summarizeConditions(policy)}
+                      </p>
+                    </div>
+
+                    {/* Active toggle */}
+                    <Switch
+                      checked={policy.is_active}
+                      onCheckedChange={(checked) =>
+                        handleToggleActive(policy.id, checked)
+                      }
+                      className="shrink-0"
+                    />
+
+                    {/* Edit */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => handleEdit(policy)}
+                      aria-label="Edit policy"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+
+                    {/* Delete */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                          aria-label="Delete policy"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete policy?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently remove the{" "}
+                            <strong>{policy.action}</strong> policy for{" "}
+                            <strong>{resourceScope}</strong>. This action cannot
+                            be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(policy.id)}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
     </div>

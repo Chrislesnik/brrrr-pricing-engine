@@ -16,11 +16,7 @@ export type PolicyDefinitionInput = {
   connector: "AND" | "OR";
 };
 
-// Legacy v1 type (kept for backward compatibility)
-export type PolicyRuleInput = {
-  orgRole?: string;
-  memberRole?: string;
-};
+// v1 PolicyRuleInput has been removed — all policies now use v2 ConditionInput format
 
 export type OrgPolicyRow = {
   id: string;
@@ -36,6 +32,7 @@ export type OrgPolicyRow = {
 
 type SavePolicyInput = {
   resourceType: "table" | "storage_bucket";
+  resourceName?: string; // specific table/bucket name, defaults to "*" (all)
   actions: Array<"select" | "insert" | "update" | "delete">;
   definition: PolicyDefinitionInput;
 };
@@ -221,6 +218,8 @@ export async function saveOrgPolicy(
     ? input.actions
     : ["select", "insert", "update", "delete"];
 
+  const resourceName = input.resourceName || "*";
+
   const rows = await Promise.all(
     actions.map(async (action) => {
       const { data: existing } = await supabase
@@ -228,7 +227,7 @@ export async function saveOrgPolicy(
         .select("id,version")
         .eq("org_id", orgPk)
         .eq("resource_type", input.resourceType)
-        .eq("resource_name", "*")
+        .eq("resource_name", resourceName)
         .eq("action", action)
         .maybeSingle();
 
@@ -236,7 +235,7 @@ export async function saveOrgPolicy(
         id: existing?.id,
         org_id: orgPk,
         resource_type: input.resourceType,
-        resource_name: "*",
+        resource_name: resourceName,
         action,
         definition_json: definitionJson,
         compiled_config: compiledConfig,
@@ -268,6 +267,101 @@ export async function setOrgPolicyActive(input: {
   const { error } = await supabase
     .from("organization_policies")
     .update({ is_active: input.isActive })
+    .eq("id", input.id);
+
+  if (error) throw new Error(error.message);
+
+  return { ok: true };
+}
+
+export async function updateOrgPolicy(input: {
+  id: string;
+  definition: PolicyDefinitionInput;
+}): Promise<{ ok: true }> {
+  const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const compiledConfig = compilePolicy(input.definition);
+  const definitionJson = buildDefinition(input.definition);
+
+  if (
+    !compiledConfig.allow_internal_users &&
+    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
+  ) {
+    throw new Error("At least one condition or internal-user allowance is required.");
+  }
+
+  const normalizedOrgRole = normalizeRole(orgRole ?? "");
+  const currentUserAllowed =
+    normalizedOrgRole === "owner" ||
+    compiledConfig.allow_internal_users ||
+    compiledConfig.conditions.some(
+      (c: { field: string; operator: string; values: string[] }) =>
+        c.field === "org_role" &&
+        c.operator === "is" &&
+        (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+    );
+
+  if (!currentUserAllowed && normalizedOrgRole !== "owner") {
+    throw new Error(
+      "This policy would deny your access based on your org role. Update the conditions or use an owner account."
+    );
+  }
+
+  const { error } = await supabase
+    .from("organization_policies")
+    .update({
+      definition_json: definitionJson,
+      compiled_config: compiledConfig,
+      created_by_clerk_sub: userId,
+    })
+    .eq("id", input.id);
+
+  if (error) throw new Error(error.message);
+
+  return { ok: true };
+}
+
+export async function getAvailableResources(): Promise<{
+  tables: string[];
+  buckets: string[];
+}> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  // Fetch public table names (excluding system/excluded tables)
+  const excludedTables = [
+    "organization_policies",
+    "organizations",
+    "organization_members",
+    "users",
+    "organization_member_roles",
+    "schema_migrations",
+  ];
+
+  const { data: tables } = await supabase.rpc("get_public_table_names").select();
+
+  // Fetch storage buckets
+  const { data: buckets } = await supabase.storage.listBuckets();
+
+  return {
+    tables: (tables as Array<{ table_name: string }> | null)
+      ?.map((t) => t.table_name)
+      .filter((t) => !excludedTables.includes(t))
+      .sort() ?? [],
+    buckets: buckets?.map((b) => b.name).sort() ?? [],
+  };
+}
+
+export async function deleteOrgPolicy(input: {
+  id: string;
+}): Promise<{ ok: true }> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { error } = await supabase
+    .from("organization_policies")
+    .delete()
     .eq("id", input.id);
 
   if (error) throw new Error(error.message);
