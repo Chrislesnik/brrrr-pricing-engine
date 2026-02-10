@@ -13,10 +13,11 @@ import {
   type PolicyRuleInput,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import { Button } from "@repo/ui/shadcn/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/shadcn/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/shadcn/card";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@repo/ui/shadcn/switch";
+import { Badge } from "@repo/ui/shadcn/badge";
 import {
   Select,
   SelectContent,
@@ -24,20 +25,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/shadcn/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
 import { Separator } from "@repo/ui/shadcn/separator";
+import { ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@repo/lib/cn";
 
 type RuleState = {
   orgRole: string;
-  memberRole: string;
+  memberRoles: string[];
 };
 
-// Sentinel value for "any" since Radix Select reserves empty string for clearing selection
-const ANY_VALUE = "_any";
+// Sentinel value for "any/all" since Radix Select reserves empty string for clearing selection
+const ALL_VALUE = "_all";
 
-const defaultRule: RuleState = { orgRole: "owner", memberRole: ANY_VALUE };
+const defaultRule: RuleState = { orgRole: "owner", memberRoles: [ALL_VALUE] };
 
 const orgRoleOptions = [
-  { value: ANY_VALUE, label: "Any org role" },
+  { value: ALL_VALUE, label: "All" },
   { value: "owner", label: "Owner" },
   { value: "admin", label: "Admin" },
   { value: "member", label: "Member" },
@@ -45,7 +53,7 @@ const orgRoleOptions = [
 ];
 
 const defaultMemberRoleOptions: MemberRoleOption[] = [
-  { value: ANY_VALUE, label: "Any member role", description: "Matches all member roles", isOrgSpecific: false },
+  { value: ALL_VALUE, label: "All", description: "Matches all member roles", isOrgSpecific: false },
   { value: "admin", label: "Admin", description: null, isOrgSpecific: false },
   { value: "manager", label: "Manager", description: null, isOrgSpecific: false },
   { value: "member", label: "Member", description: null, isOrgSpecific: false },
@@ -117,10 +125,12 @@ export default function OrgPolicyBuilder({
     setStatus(null);
     startTransition(async () => {
       try {
-        // Convert ANY_VALUE sentinel back to empty string for storage
+        // Convert ALL_VALUE sentinel back to wildcard for storage
         const normalizedRules = rules.map((rule) => ({
-          orgRole: rule.orgRole === ANY_VALUE ? "" : rule.orgRole,
-          memberRole: rule.memberRole === ANY_VALUE ? "" : rule.memberRole,
+          orgRole: rule.orgRole === ALL_VALUE ? "*" : rule.orgRole,
+          memberRole: rule.memberRoles.includes(ALL_VALUE)
+            ? "*"
+            : rule.memberRoles.join(","),
         }));
         await saveOrgPolicy({
           resourceType,
@@ -244,7 +254,7 @@ export default function OrgPolicyBuilder({
                   className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_auto]"
                 >
                   <div className="space-y-2">
-                    <Label>Organization role</Label>
+                    <Label>Organization Role</Label>
                     <Select
                       value={rule.orgRole}
                       onValueChange={(value) =>
@@ -252,7 +262,7 @@ export default function OrgPolicyBuilder({
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Any org role" />
+                        <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
                         {orgRoleOptions.map((option) => (
@@ -265,36 +275,100 @@ export default function OrgPolicyBuilder({
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Member role</Label>
-                    <Select
-                      value={rule.memberRole}
-                      onValueChange={(value) =>
-                        updateRule(index, { memberRole: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any member role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {memberRoleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span>{option.label}</span>
-                                {option.isOrgSpecific && (
-                                  <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">Org</span>
-                                )}
-                              </div>
-                              {option.description && (
-                                <span className="text-xs text-muted-foreground">
-                                  {option.description}
-                                </span>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Member Role</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between font-normal h-9 shadow-xs"
+                        >
+                          <span className="truncate">
+                            {rule.memberRoles.includes(ALL_VALUE)
+                              ? "All"
+                              : rule.memberRoles
+                                  .map(
+                                    (v) =>
+                                      memberRoleOptions.find((o) => o.value === v)
+                                        ?.label ?? v
+                                  )
+                                  .join(", ")}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[280px] p-0" align="start">
+                        <div className="max-h-[300px] overflow-y-auto p-1">
+                          {memberRoleOptions.map((option) => {
+                            const isSelected =
+                              option.value === ALL_VALUE
+                                ? rule.memberRoles.includes(ALL_VALUE)
+                                : rule.memberRoles.includes(option.value);
+
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                className="flex w-full items-start gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                onClick={() => {
+                                  if (option.value === ALL_VALUE) {
+                                    // Toggle "All" - select only ALL or deselect
+                                    updateRule(index, {
+                                      memberRoles: isSelected ? [] : [ALL_VALUE],
+                                    });
+                                  } else {
+                                    let next: string[];
+                                    if (isSelected) {
+                                      // Remove this role
+                                      next = rule.memberRoles.filter(
+                                        (v) => v !== option.value && v !== ALL_VALUE
+                                      );
+                                    } else {
+                                      // Add this role, remove ALL_VALUE
+                                      next = [
+                                        ...rule.memberRoles.filter(
+                                          (v) => v !== ALL_VALUE
+                                        ),
+                                        option.value,
+                                      ];
+                                    }
+                                    updateRule(index, {
+                                      memberRoles: next.length === 0 ? [ALL_VALUE] : next,
+                                    });
+                                  }
+                                }}
+                              >
+                                <div
+                                  className={cn(
+                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border mt-0.5",
+                                    isSelected
+                                      ? "bg-primary border-primary text-primary-foreground"
+                                      : "border-muted-foreground/25"
+                                  )}
+                                >
+                                  {isSelected && <Check className="h-3 w-3" />}
+                                </div>
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{option.label}</span>
+                                    {option.isOrgSpecific && (
+                                      <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
+                                        Org
+                                      </span>
+                                    )}
+                                  </div>
+                                  {option.description && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {option.description}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="flex items-start justify-end">

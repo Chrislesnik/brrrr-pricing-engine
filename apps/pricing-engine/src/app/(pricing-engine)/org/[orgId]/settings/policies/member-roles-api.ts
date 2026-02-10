@@ -13,10 +13,10 @@ export type MemberRoleOption = {
 
 export async function getMemberRolesForPolicies(): Promise<MemberRoleOption[]> {
   const { orgId } = await auth();
-  if (!orgId) return [{ value: "_any", label: "Any member role", description: null, isOrgSpecific: false }];
+  if (!orgId) return [{ value: "_all", label: "All", description: "Matches all member roles", isOrgSpecific: false }];
 
   const orgUuid = await getOrgUuidFromClerkId(orgId);
-  if (!orgUuid) return [{ value: "_any", label: "Any member role", description: null, isOrgSpecific: false }];
+  if (!orgUuid) return [{ value: "_all", label: "All", description: "Matches all member roles", isOrgSpecific: false }];
 
   // Fetch both global roles (organization_id IS NULL) and org-specific roles
   const { data } = await supabaseAdmin
@@ -27,7 +27,7 @@ export async function getMemberRolesForPolicies(): Promise<MemberRoleOption[]> {
     .order("display_order", { ascending: true });
 
   const options: MemberRoleOption[] = [
-    { value: "_any", label: "Any member role", description: "Matches all member roles", isOrgSpecific: false },
+    { value: "_all", label: "All", description: "Matches all member roles", isOrgSpecific: false },
   ];
 
   if (data) {
