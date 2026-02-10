@@ -118,7 +118,7 @@ export default function OrganizationSettingsPage() {
 
   if (!orgLoaded || isValidating) {
     return (
-      <div className="w-full flex justify-center py-8">
+      <div className="w-full flex justify-center px-4 py-8 md:px-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-5 animate-spin" />
           <span>Loading organization...</span>
@@ -129,7 +129,7 @@ export default function OrganizationSettingsPage() {
 
   if (!organization) {
     return (
-      <div className="w-full flex justify-center py-8">
+      <div className="w-full flex justify-center px-4 py-8 md:px-6">
         <div className="text-center">
           <Building2 className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-medium">No organization selected</h2>
@@ -149,7 +149,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="w-full flex justify-center py-8">
+    <div className="w-full flex justify-center px-4 py-8 md:px-6">
       <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="mb-8">
