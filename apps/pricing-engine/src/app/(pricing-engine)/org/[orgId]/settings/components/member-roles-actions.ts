@@ -41,6 +41,7 @@ export async function createMemberRole(input: {
   roleName: string;
   description: string;
   isActive: boolean;
+  isGlobal?: boolean;
 }): Promise<{ ok: true }> {
   const { userId, orgId } = await auth();
   if (!userId) throw new Error("Not authenticated");

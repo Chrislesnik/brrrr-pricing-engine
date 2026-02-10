@@ -64,10 +64,11 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         {groups.map((group, index) => {
-          // Create stable key: use title if available, otherwise use first item's URL or fallback to index
+          // Create stable key: use title if available, otherwise use first page item's URL or fallback to index
+          const firstPage = group.items.find((n): n is PageTree.Item => n.type === "page");
           const groupKey = typeof group.title === 'string' 
             ? group.title 
-            : group.items[0]?.url || `group-${index}`;
+            : firstPage?.url || `group-${index}`;
           
           return (
             <SidebarGroup key={groupKey}>

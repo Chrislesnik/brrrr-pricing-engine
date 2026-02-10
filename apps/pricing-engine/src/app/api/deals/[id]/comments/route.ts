@@ -140,16 +140,19 @@ export async function POST(
 
       if (mentionRecords.length > 0) {
         // Insert mention records (table may need to be created)
-        await supabaseAdmin
-          .from("deal_comment_mentions")
-          .insert(mentionRecords)
-          .catch(() => {
-            // Silently fail if table doesn't exist
-            console.log("deal_comment_mentions table may not exist")
-          })
+        try {
+          const { error: mentionErr } = await supabaseAdmin
+            .from("deal_comment_mentions")
+            .insert(mentionRecords)
+          if (mentionErr) {
+            console.log("deal_comment_mentions insert failed:", mentionErr.message)
+          }
+        } catch {
+          console.log("deal_comment_mentions table may not exist")
+        }
 
         // Create notifications for mentioned users
-        const notificationRecords = mentionRecords.map((record) => ({
+        const notificationRecords = mentionRecords.map((record: { comment_id: string; mentioned_user_id: string }) => ({
           user_id: record.mentioned_user_id,
           type: "mention",
           title: "You were mentioned in a comment",
@@ -162,13 +165,16 @@ export async function POST(
           },
         }))
 
-        await supabaseAdmin
-          .from("notifications")
-          .insert(notificationRecords)
-          .catch(() => {
-            // Silently fail if table doesn't exist
-            console.log("notifications table may not exist")
-          })
+        try {
+          const { error: notifErr } = await supabaseAdmin
+            .from("notifications")
+            .insert(notificationRecords)
+          if (notifErr) {
+            console.log("notifications insert failed:", notifErr.message)
+          }
+        } catch {
+          console.log("notifications table may not exist")
+        }
       }
     }
 
