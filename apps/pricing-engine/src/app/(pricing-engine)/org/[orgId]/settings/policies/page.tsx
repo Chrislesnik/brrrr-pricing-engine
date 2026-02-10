@@ -39,9 +39,9 @@ export default async function PoliciesPage({
             <ArrowLeft className="size-4" />
             Back to Settings
           </Link>
-          <h1 className="text-3xl font-bold">Custom Permission Policies</h1>
+          <h1 className="text-3xl font-bold">Permission Policies</h1>
           <p className="mt-1 text-muted-foreground">
-            Create conditional rules to manage access and permissions.
+            Create conditional rules to customize user access and org-scoped permissions.
           </p>
         </div>
 
