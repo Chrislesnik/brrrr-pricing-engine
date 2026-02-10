@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
         let docDealIds: string[] = []
         if (documentFileIds.length > 0) {
           const { data: ddpRows, error: ddpErr } = await supabaseAdmin
-            .from("deal_document_participants")
+            .from("document_files_deals")
             .select("deal_id")
             .in("document_file_id", documentFileIds)
           if (
