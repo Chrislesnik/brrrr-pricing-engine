@@ -30,8 +30,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@repo/ui/shadcn/command";
 import { Separator } from "@repo/ui/shadcn/separator";
-import { ChevronsUpDown, Check } from "lucide-react";
+import { ChevronsUpDown, Check, X } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
 type RuleState = {
@@ -281,92 +289,116 @@ export default function OrgPolicyBuilder({
                         <Button
                           variant="outline"
                           role="combobox"
-                          className="w-full justify-between font-normal h-9 shadow-xs"
+                          className="w-full justify-between font-normal h-auto min-h-9 shadow-xs"
                         >
-                          <span className="truncate">
-                            {rule.memberRoles.includes(ALL_VALUE)
-                              ? "All"
-                              : rule.memberRoles
-                                  .map(
-                                    (v) =>
-                                      memberRoleOptions.find((o) => o.value === v)
-                                        ?.label ?? v
-                                  )
-                                  .join(", ")}
-                          </span>
+                          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                            {rule.memberRoles.includes(ALL_VALUE) ? (
+                              <span className="text-sm">All</span>
+                            ) : rule.memberRoles.length === 0 ? (
+                              <span className="text-sm text-muted-foreground">Select roles...</span>
+                            ) : (
+                              rule.memberRoles.map((v) => {
+                                const opt = memberRoleOptions.find((o) => o.value === v);
+                                return (
+                                  <Badge
+                                    key={v}
+                                    variant="secondary"
+                                    className="text-xs gap-1 pr-1"
+                                  >
+                                    {opt?.label ?? v}
+                                    <button
+                                      type="button"
+                                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const next = rule.memberRoles.filter((r) => r !== v);
+                                        updateRule(index, {
+                                          memberRoles: next.length === 0 ? [ALL_VALUE] : next,
+                                        });
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                );
+                              })
+                            )}
+                          </div>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[280px] p-0" align="start">
-                        <div className="max-h-[300px] overflow-y-auto p-1">
-                          {memberRoleOptions.map((option) => {
-                            const isSelected =
-                              option.value === ALL_VALUE
-                                ? rule.memberRoles.includes(ALL_VALUE)
-                                : rule.memberRoles.includes(option.value);
+                      <PopoverContent className="w-[300px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search roles..." />
+                          <CommandList>
+                            <CommandEmpty>No roles found.</CommandEmpty>
+                            <CommandGroup>
+                              {memberRoleOptions.map((option) => {
+                                const isSelected =
+                                  option.value === ALL_VALUE
+                                    ? rule.memberRoles.includes(ALL_VALUE)
+                                    : rule.memberRoles.includes(option.value);
 
-                            return (
-                              <button
-                                key={option.value}
-                                type="button"
-                                className="flex w-full items-start gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                                onClick={() => {
-                                  if (option.value === ALL_VALUE) {
-                                    // Toggle "All" - select only ALL or deselect
-                                    updateRule(index, {
-                                      memberRoles: isSelected ? [] : [ALL_VALUE],
-                                    });
-                                  } else {
-                                    let next: string[];
-                                    if (isSelected) {
-                                      // Remove this role
-                                      next = rule.memberRoles.filter(
-                                        (v) => v !== option.value && v !== ALL_VALUE
-                                      );
-                                    } else {
-                                      // Add this role, remove ALL_VALUE
-                                      next = [
-                                        ...rule.memberRoles.filter(
-                                          (v) => v !== ALL_VALUE
-                                        ),
-                                        option.value,
-                                      ];
-                                    }
-                                    updateRule(index, {
-                                      memberRoles: next.length === 0 ? [ALL_VALUE] : next,
-                                    });
-                                  }
-                                }}
-                              >
-                                <div
-                                  className={cn(
-                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border mt-0.5",
-                                    isSelected
-                                      ? "bg-primary border-primary text-primary-foreground"
-                                      : "border-muted-foreground/25"
-                                  )}
-                                >
-                                  {isSelected && <Check className="h-3 w-3" />}
-                                </div>
-                                <div className="flex flex-col flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{option.label}</span>
-                                    {option.isOrgSpecific && (
-                                      <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
-                                        Org
-                                      </span>
-                                    )}
-                                  </div>
-                                  {option.description && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {option.description}
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                                return (
+                                  <CommandItem
+                                    key={option.value}
+                                    value={option.value}
+                                    onSelect={() => {
+                                      if (option.value === ALL_VALUE) {
+                                        updateRule(index, {
+                                          memberRoles: isSelected ? [] : [ALL_VALUE],
+                                        });
+                                      } else {
+                                        let next: string[];
+                                        if (isSelected) {
+                                          next = rule.memberRoles.filter(
+                                            (v) => v !== option.value && v !== ALL_VALUE
+                                          );
+                                        } else {
+                                          next = [
+                                            ...rule.memberRoles.filter(
+                                              (v) => v !== ALL_VALUE
+                                            ),
+                                            option.value,
+                                          ];
+                                        }
+                                        updateRule(index, {
+                                          memberRoles: next.length === 0 ? [ALL_VALUE] : next,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <div
+                                      className={cn(
+                                        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                                        isSelected
+                                          ? "bg-primary border-primary text-primary-foreground"
+                                          : "border-muted-foreground/25"
+                                      )}
+                                    >
+                                      {isSelected && <Check className="h-3 w-3" />}
+                                    </div>
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span>{option.label}</span>
+                                        {option.isOrgSpecific && (
+                                          <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
+                                            Org
+                                          </span>
+                                        )}
+                                      </div>
+                                      {option.description && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {option.description}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
                       </PopoverContent>
                     </Popover>
                   </div>
