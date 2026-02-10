@@ -41,7 +41,7 @@ export default async function PoliciesPage({
           </Link>
           <h1 className="text-3xl font-bold">Custom Permission Policies</h1>
           <p className="mt-1 text-muted-foreground">
-            Control who can access what by creating rules based on roles, user type, and organization.
+            Create conditional rules to manage access and permissions.
           </p>
         </div>
 
