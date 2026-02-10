@@ -45,22 +45,6 @@ export default async function PoliciesPage({
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="size-4" />
-              v1 Scope (Global)
-            </CardTitle>
-            <CardDescription>
-              Policies apply to all tables or all buckets using resource_name = "*".
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            v2 will introduce row-level filters and UI field visibility. For now,
-            use rules that combine org role and member role conditions.
-          </CardContent>
-        </Card>
-
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
