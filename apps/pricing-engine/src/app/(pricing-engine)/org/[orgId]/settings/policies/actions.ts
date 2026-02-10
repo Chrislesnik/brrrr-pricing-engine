@@ -3,16 +3,23 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-export type PolicyRuleInput = {
-  orgRole?: string;
-  memberRole?: string;
-  orgType?: string; // "any" | "internal" | "external"
-  operator?: "AND" | "OR"; // How to combine conditions within this rule
+// v2 condition-based input
+export type ConditionInput = {
+  field: string;      // "org_role" | "member_role" | "org_type" | "internal_user"
+  operator: "is" | "is_not";
+  values: string[];
 };
 
 export type PolicyDefinitionInput = {
   allowInternalUsers: boolean;
-  rules: PolicyRuleInput[];
+  conditions: ConditionInput[];
+  connector: "AND" | "OR";
+};
+
+// Legacy v1 type (kept for backward compatibility)
+export type PolicyRuleInput = {
+  orgRole?: string;
+  memberRole?: string;
 };
 
 export type OrgPolicyRow = {
@@ -127,32 +134,29 @@ function normalizeRole(value?: string) {
 }
 
 function compilePolicy(definition: PolicyDefinitionInput) {
-  const allowInternalUsers = !!definition.allowInternalUsers;
-  const pairs = new Set<string>();
-
-  for (const rule of definition.rules ?? []) {
-    const orgRole = normalizeRole(rule.orgRole) || "*";
-    const memberRole = normalizeRole(rule.memberRole) || "*";
-    pairs.add(`${orgRole}|${memberRole}`);
-  }
-
-  const allowedRolePairs = Array.from(pairs);
-
   return {
-    allow_internal_users: allowInternalUsers,
-    allowed_role_pairs: allowedRolePairs,
+    version: 2,
+    allow_internal_users: !!definition.allowInternalUsers,
+    conditions: (definition.conditions ?? []).map((c) => ({
+      field: c.field,
+      operator: c.operator,
+      values: c.values.map((v) => v.toLowerCase()),
+    })),
+    connector: definition.connector || "AND",
   };
 }
 
 function buildDefinition(definition: PolicyDefinitionInput) {
   return {
-    version: 1,
+    version: 2,
     effect: "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
-    rules: (definition.rules ?? []).map((rule) => ({
-      org_role: normalizeRole(rule.orgRole) || "*",
-      member_role: normalizeRole(rule.memberRole) || "*",
+    conditions: (definition.conditions ?? []).map((c) => ({
+      field: c.field,
+      operator: c.operator,
+      values: c.values,
     })),
+    connector: definition.connector || "AND",
   };
 }
 
@@ -192,27 +196,24 @@ export async function saveOrgPolicy(
 
   if (
     !compiledConfig.allow_internal_users &&
-    (!compiledConfig.allowed_role_pairs ||
-      compiledConfig.allowed_role_pairs.length === 0)
+    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
   ) {
-    throw new Error("At least one rule or internal-user allowance is required.");
+    throw new Error("At least one condition or internal-user allowance is required.");
   }
 
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
   const currentUserAllowed =
     normalizedOrgRole === "owner" ||
-    compiledConfig.allowed_role_pairs.some((pair) => {
-      const [orgRolePart, memberRolePart] = pair.split("|");
-      return (
-        (orgRolePart === "*" || orgRolePart === normalizedOrgRole) &&
-        memberRolePart === "*"
-      );
-    }) ||
-    compiledConfig.allow_internal_users;
+    compiledConfig.allow_internal_users ||
+    compiledConfig.conditions.some((c: { field: string; operator: string; values: string[] }) =>
+      c.field === "org_role" &&
+      c.operator === "is" &&
+      (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+    );
 
   if (!currentUserAllowed && normalizedOrgRole !== "owner") {
     throw new Error(
-      "This policy would deny your access based on your org role. Update the rules or use an owner account."
+      "This policy would deny your access based on your org role. Update the conditions or use an owner account."
     );
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   getMemberRolesForPolicies,
@@ -10,21 +10,24 @@ import {
   saveOrgPolicy,
   setOrgPolicyActive,
   type OrgPolicyRow,
-  type PolicyRuleInput,
+  type ConditionInput,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
+import {
+  PolicyConditionRow,
+  type ConditionFieldOption,
+  type ConditionState,
+} from "@/components/policies/policy-condition-row";
 import { Button } from "@repo/ui/shadcn/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/shadcn/card";
-import { Checkbox } from "@repo/ui/shadcn/checkbox";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/shadcn/card";
+import { Badge } from "@repo/ui/shadcn/badge";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@repo/ui/shadcn/switch";
-import { Badge } from "@repo/ui/shadcn/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/shadcn/select";
 import {
   Popover,
   PopoverContent,
@@ -34,38 +37,164 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@repo/ui/shadcn/command";
 import { Separator } from "@repo/ui/shadcn/separator";
-import { ChevronsUpDown, Check, X } from "lucide-react";
+import { ChevronsUpDown, Check, X, Plus } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
-type RuleState = {
-  orgRoles: string[];
-  memberRoles: string[];
-};
+// ============================================================================
+// Constants
+// ============================================================================
 
-// Sentinel value for "any/all" since Radix Select reserves empty string for clearing selection
-const ALL_VALUE = "_all";
-
-const defaultRule: RuleState = { orgRoles: ["owner"], memberRoles: [ALL_VALUE] };
-
-const orgRoleOptions = [
-  { value: ALL_VALUE, label: "All" },
+const orgRoleValueOptions = [
   { value: "owner", label: "Owner" },
   { value: "admin", label: "Admin" },
   { value: "member", label: "Member" },
   { value: "broker", label: "Broker" },
 ];
 
-const defaultMemberRoleOptions: MemberRoleOption[] = [
-  { value: ALL_VALUE, label: "All", description: "Matches all member roles", isOrgSpecific: false },
-  { value: "admin", label: "Admin", description: null, isOrgSpecific: false },
-  { value: "manager", label: "Manager", description: null, isOrgSpecific: false },
-  { value: "member", label: "Member", description: null, isOrgSpecific: false },
+const orgTypeValueOptions = [
+  { value: "internal", label: "Internal" },
+  { value: "external", label: "External" },
 ];
+
+const userTypeValueOptions = [
+  { value: "yes", label: "Internal" },
+  { value: "no", label: "External" },
+];
+
+const standardOperators = [
+  { value: "is", label: "is" },
+  { value: "is_not", label: "is not" },
+];
+
+const actionOptions = [
+  { value: "select", label: "Select" },
+  { value: "insert", label: "Insert" },
+  { value: "update", label: "Update" },
+  { value: "delete", label: "Delete" },
+];
+
+const resourceOptions = [
+  { value: "table", label: "All Tables" },
+  { value: "storage_bucket", label: "All Storage Buckets" },
+];
+
+const defaultCondition: ConditionState = {
+  field: "org_role",
+  operator: "is",
+  values: [],
+};
+
+// ============================================================================
+// Multi-Select Chips Component (reused for SET and ON)
+// ============================================================================
+
+function ChipsSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: Array<{ value: string; label: string }>;
+  selected: string[];
+  onChange: (values: string[]) => void;
+  placeholder: string;
+}) {
+  function toggle(value: string) {
+    if (selected.includes(value)) {
+      onChange(selected.filter((v) => v !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="justify-between font-normal h-auto min-h-9 shadow-xs"
+        >
+          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+            {selected.length === 0 ? (
+              <span className="text-sm text-muted-foreground">{placeholder}</span>
+            ) : (
+              selected.map((v) => {
+                const opt = options.find((o) => o.value === v);
+                return (
+                  <Badge key={v} variant="secondary" className="text-xs gap-1 pr-1">
+                    {opt?.label ?? v}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20 cursor-pointer"
+                      aria-label={`Remove ${opt?.label ?? v}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggle(v);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          toggle(v);
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  </Badge>
+                );
+              })
+            )}
+          </div>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0 w-[var(--radix-popover-trigger-width)]"
+        align="start"
+      >
+        <Command>
+          <CommandList>
+            <CommandEmpty>No options.</CommandEmpty>
+            <CommandGroup>
+              {options.map((opt) => {
+                const isSelected = selected.includes(opt.value);
+                return (
+                  <CommandItem
+                    key={opt.value}
+                    value={opt.value}
+                    onSelect={() => toggle(opt.value)}
+                  >
+                    <div
+                      className={cn(
+                        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-muted-foreground/25"
+                      )}
+                    >
+                      {isSelected && <Check className="h-3 w-3" />}
+                    </div>
+                    <span>{opt.label}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export default function OrgPolicyBuilder({
   initialPolicies,
@@ -74,31 +203,49 @@ export default function OrgPolicyBuilder({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [resourceType, setResourceType] = useState<"table" | "storage_bucket">(
-    "table"
-  );
-  const [actions, setActions] = useState({
-    select: true,
-    insert: true,
-    update: true,
-    delete: true,
-  });
+
+  // WHEN state
+  const [conditions, setConditions] = useState<ConditionState[]>([
+    { ...defaultCondition },
+  ]);
+  const [connector, setConnector] = useState<"AND" | "OR">("AND");
+
+  // THEN state
+  const [selectedActions, setSelectedActions] = useState<string[]>([
+    "select",
+    "insert",
+    "update",
+    "delete",
+  ]);
+  const [selectedResources, setSelectedResources] = useState<string[]>([
+    "table",
+  ]);
+
+  // Global override
   const [allowInternalUsers, setAllowInternalUsers] = useState(false);
-  const [rules, setRules] = useState<RuleState[]>([{ ...defaultRule }]);
+
+  // Status
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [memberRoleOptions, setMemberRoleOptions] = useState<MemberRoleOption[]>(
-    defaultMemberRoleOptions
-  );
 
-  // Load member roles dynamically from database
+  // Dynamic member role options
+  const [memberRoleValueOptions, setMemberRoleValueOptions] = useState<
+    Array<{ value: string; label: string; description?: string | null }>
+  >([]);
+
   useEffect(() => {
     async function loadMemberRoles() {
       try {
         const roles = await getMemberRolesForPolicies();
-        if (roles.length > 0) {
-          setMemberRoleOptions(roles);
-        }
+        setMemberRoleValueOptions(
+          roles
+            .filter((r) => r.value !== "_all")
+            .map((r) => ({
+              value: r.value,
+              label: r.label,
+              description: r.description,
+            }))
+        );
       } catch (err) {
         console.error("Failed to load member roles:", err);
       }
@@ -106,50 +253,75 @@ export default function OrgPolicyBuilder({
     loadMemberRoles();
   }, []);
 
-  const actionList = useMemo(
-    () =>
-      (Object.entries(actions) as Array<[keyof typeof actions, boolean]>)
-        .filter(([, enabled]) => enabled)
-        .map(([action]) => action),
-    [actions]
-  );
+  // Build field options with dynamic member roles
+  const fieldOptions: ConditionFieldOption[] = [
+    {
+      value: "org_role",
+      label: "Organization Role",
+      operators: standardOperators,
+      valueOptions: orgRoleValueOptions,
+    },
+    {
+      value: "member_role",
+      label: "Member Role",
+      operators: standardOperators,
+      valueOptions: memberRoleValueOptions,
+    },
+    {
+      value: "org_type",
+      label: "Organization Type",
+      operators: standardOperators,
+      valueOptions: orgTypeValueOptions,
+    },
+    {
+      value: "internal_user",
+      label: "User Type",
+      operators: [{ value: "is", label: "is" }],
+      valueOptions: userTypeValueOptions,
+    },
+  ];
 
-  function updateRule(index: number, update: Partial<RuleState>) {
-    setRules((prev) =>
-      prev.map((rule, idx) => (idx === index ? { ...rule, ...update } : rule))
+  // Condition CRUD
+  function updateCondition(index: number, updated: ConditionState) {
+    setConditions((prev) =>
+      prev.map((c, i) => (i === index ? updated : c))
     );
   }
 
-  function addRule() {
-    setRules((prev) => [...prev, { ...defaultRule }]);
+  function addCondition() {
+    setConditions((prev) => [...prev, { ...defaultCondition }]);
   }
 
-  function removeRule(index: number) {
-    setRules((prev) => prev.filter((_, idx) => idx !== index));
+  function removeCondition(index: number) {
+    setConditions((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Save
   async function handleSave() {
     setError(null);
     setStatus(null);
     startTransition(async () => {
       try {
-        // Convert ALL_VALUE sentinel back to wildcard for storage
-        const normalizedRules = rules.map((rule) => ({
-          orgRole: rule.orgRoles.includes(ALL_VALUE)
-            ? "*"
-            : rule.orgRoles.join(","),
-          memberRole: rule.memberRoles.includes(ALL_VALUE)
-            ? "*"
-            : rule.memberRoles.join(","),
+        const conditionInputs: ConditionInput[] = conditions.map((c) => ({
+          field: c.field,
+          operator: c.operator as "is" | "is_not",
+          values: c.values,
         }));
-        await saveOrgPolicy({
-          resourceType,
-          actions: actionList,
-          definition: {
-            allowInternalUsers,
-            rules: normalizedRules as PolicyRuleInput[],
-          },
-        });
+
+        // Save one policy per action+resource combination
+        for (const resourceType of selectedResources) {
+          await saveOrgPolicy({
+            resourceType: resourceType as "table" | "storage_bucket",
+            actions: selectedActions as Array<
+              "select" | "insert" | "update" | "delete"
+            >,
+            definition: {
+              allowInternalUsers,
+              conditions: conditionInputs,
+              connector,
+            },
+          });
+        }
         setStatus("Policy saved successfully.");
         router.refresh();
       } catch (err) {
@@ -175,337 +347,119 @@ export default function OrgPolicyBuilder({
 
   return (
     <div className="space-y-8">
+      {/* Policy Builder Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Global Policy Builder (v1)</CardTitle>
+          <CardTitle>Create Access Policy</CardTitle>
+          <CardDescription>
+            Define who can access what using conditions and actions
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Resource scope</Label>
-              <Select
-                value={resourceType}
-                onValueChange={(value) =>
-                  setResourceType(
-                    value === "storage_bucket" ? "storage_bucket" : "table"
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="table">All tables</SelectItem>
-                  <SelectItem value="storage_bucket">All storage buckets</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                v1 policies apply globally via resource_name = "*".
-              </p>
+          {/* ============================================================ */}
+          {/* WHEN Section */}
+          {/* ============================================================ */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">When</h3>
             </div>
-            <div className="space-y-2">
-              <Label>Allow internal users</Label>
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={allowInternalUsers}
-                  onCheckedChange={setAllowInternalUsers}
-                />
-                <span className="text-sm text-muted-foreground">
-                  Bypass for internal users
-                </span>
-              </div>
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Actions</Label>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {(["select", "insert", "update", "delete"] as const).map(
-                (action) => (
-                  <label
-                    key={action}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={actions[action]}
-                      onCheckedChange={(checked) =>
-                        setActions((prev) => ({
-                          ...prev,
-                          [action]: Boolean(checked),
-                        }))
-                      }
-                    />
-                    {action}
-                  </label>
-                )
-              )}
+            <div className="space-y-2 rounded-lg border p-4">
+              {conditions.map((condition, index) => (
+                <div key={`condition-${index}`}>
+                  {/* Connector between conditions */}
+                  {index > 0 && (
+                    <div className="flex items-center gap-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConnector(connector === "AND" ? "OR" : "AND")
+                        }
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      >
+                        {connector}
+                      </button>
+                      <Separator className="flex-1" />
+                    </div>
+                  )}
+
+                  <PolicyConditionRow
+                    condition={condition}
+                    fieldOptions={fieldOptions}
+                    onChange={(updated) => updateCondition(index, updated)}
+                    onRemove={() => removeCondition(index)}
+                    canRemove={conditions.length > 1}
+                  />
+                </div>
+              ))}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addCondition}
+                className="mt-2 gap-1 text-muted-foreground"
+              >
+                <Plus className="h-4 w-4" />
+                Add Condition
+              </Button>
             </div>
           </div>
 
           <Separator />
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">Allow rules (OR)</h3>
-                <p className="text-xs text-muted-foreground">
-                  Each rule is an AND between org role and member role.
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={addRule}>
-                Add rule
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              {rules.map((rule, index) => (
-                <div
-                  key={`rule-${index}`}
-                  className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_auto]"
-                >
-                  <div className="space-y-2">
-                    <Label>Organization Role</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between font-normal h-auto min-h-9 shadow-xs"
-                        >
-                          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                            {rule.orgRoles.includes(ALL_VALUE) ? (
-                              <span className="text-sm">All</span>
-                            ) : rule.orgRoles.length === 0 ? (
-                              <span className="text-sm text-muted-foreground">Select roles...</span>
-                            ) : (
-                              rule.orgRoles.map((v) => {
-                                const opt = orgRoleOptions.find((o) => o.value === v);
-                                return (
-                                  <Badge
-                                    key={v}
-                                    variant="secondary"
-                                    className="text-xs gap-1 pr-1"
-                                  >
-                                    {opt?.label ?? v}
-                                    <button
-                                      type="button"
-                                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const next = rule.orgRoles.filter((r) => r !== v);
-                                        updateRule(index, {
-                                          orgRoles: next.length === 0 ? [ALL_VALUE] : next,
-                                        });
-                                      }}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </Badge>
-                                );
-                              })
-                            )}
-                          </div>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search roles..." />
-                          <CommandList>
-                            <CommandEmpty>No roles found.</CommandEmpty>
-                            <CommandGroup>
-                              {orgRoleOptions.map((option) => {
-                                const isSelected =
-                                  option.value === ALL_VALUE
-                                    ? rule.orgRoles.includes(ALL_VALUE)
-                                    : rule.orgRoles.includes(option.value);
-
-                                return (
-                                  <CommandItem
-                                    key={option.value}
-                                    value={option.value}
-                                    onSelect={() => {
-                                      if (option.value === ALL_VALUE) {
-                                        updateRule(index, {
-                                          orgRoles: isSelected ? [] : [ALL_VALUE],
-                                        });
-                                      } else {
-                                        let next: string[];
-                                        if (isSelected) {
-                                          next = rule.orgRoles.filter(
-                                            (v) => v !== option.value && v !== ALL_VALUE
-                                          );
-                                        } else {
-                                          next = [
-                                            ...rule.orgRoles.filter(
-                                              (v) => v !== ALL_VALUE
-                                            ),
-                                            option.value,
-                                          ];
-                                        }
-                                        updateRule(index, {
-                                          orgRoles: next.length === 0 ? [ALL_VALUE] : next,
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <div
-                                      className={cn(
-                                        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
-                                        isSelected
-                                          ? "bg-primary border-primary text-primary-foreground"
-                                          : "border-muted-foreground/25"
-                                      )}
-                                    >
-                                      {isSelected && <Check className="h-3 w-3" />}
-                                    </div>
-                                    <span>{option.label}</span>
-                                  </CommandItem>
-                                );
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Member Role</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between font-normal h-auto min-h-9 shadow-xs"
-                        >
-                          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                            {rule.memberRoles.includes(ALL_VALUE) ? (
-                              <span className="text-sm">All</span>
-                            ) : rule.memberRoles.length === 0 ? (
-                              <span className="text-sm text-muted-foreground">Select roles...</span>
-                            ) : (
-                              rule.memberRoles.map((v) => {
-                                const opt = memberRoleOptions.find((o) => o.value === v);
-                                return (
-                                  <Badge
-                                    key={v}
-                                    variant="secondary"
-                                    className="text-xs gap-1 pr-1"
-                                  >
-                                    {opt?.label ?? v}
-                                    <button
-                                      type="button"
-                                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const next = rule.memberRoles.filter((r) => r !== v);
-                                        updateRule(index, {
-                                          memberRoles: next.length === 0 ? [ALL_VALUE] : next,
-                                        });
-                                      }}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </Badge>
-                                );
-                              })
-                            )}
-                          </div>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search roles..." />
-                          <CommandList>
-                            <CommandEmpty>No roles found.</CommandEmpty>
-                            <CommandGroup>
-                              {memberRoleOptions.map((option) => {
-                                const isSelected =
-                                  option.value === ALL_VALUE
-                                    ? rule.memberRoles.includes(ALL_VALUE)
-                                    : rule.memberRoles.includes(option.value);
-
-                                return (
-                                  <CommandItem
-                                    key={option.value}
-                                    value={option.value}
-                                    onSelect={() => {
-                                      if (option.value === ALL_VALUE) {
-                                        updateRule(index, {
-                                          memberRoles: isSelected ? [] : [ALL_VALUE],
-                                        });
-                                      } else {
-                                        let next: string[];
-                                        if (isSelected) {
-                                          next = rule.memberRoles.filter(
-                                            (v) => v !== option.value && v !== ALL_VALUE
-                                          );
-                                        } else {
-                                          next = [
-                                            ...rule.memberRoles.filter(
-                                              (v) => v !== ALL_VALUE
-                                            ),
-                                            option.value,
-                                          ];
-                                        }
-                                        updateRule(index, {
-                                          memberRoles: next.length === 0 ? [ALL_VALUE] : next,
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <div
-                                      className={cn(
-                                        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
-                                        isSelected
-                                          ? "bg-primary border-primary text-primary-foreground"
-                                          : "border-muted-foreground/25"
-                                      )}
-                                    >
-                                      {isSelected && <Check className="h-3 w-3" />}
-                                    </div>
-                                    <div className="flex flex-col flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span>{option.label}</span>
-                                        {option.isOrgSpecific && (
-                                          <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
-                                            Org
-                                          </span>
-                                        )}
-                                      </div>
-                                      {option.description && (
-                                        <span className="text-xs text-muted-foreground">
-                                          {option.description}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </CommandItem>
-                                );
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="flex items-start justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeRule(index)}
-                      disabled={rules.length === 1}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ))}
+          {/* ============================================================ */}
+          {/* SET Section (Actions) */}
+          {/* ============================================================ */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold shrink-0">Set permissions to</span>
+            <div className="flex-1 min-w-[200px]">
+              <ChipsSelect
+                options={actionOptions}
+                selected={selectedActions}
+                onChange={setSelectedActions}
+                placeholder="Select actions..."
+              />
             </div>
           </div>
 
+          {/* ============================================================ */}
+          {/* ON Section (Resources) */}
+          {/* ============================================================ */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold shrink-0">on</span>
+            <div className="flex-1 min-w-[200px]">
+              <ChipsSelect
+                options={resourceOptions}
+                selected={selectedResources}
+                onChange={setSelectedResources}
+                placeholder="Select resources..."
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* ============================================================ */}
+          {/* Global Override */}
+          {/* ============================================================ */}
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={allowInternalUsers}
+              onCheckedChange={setAllowInternalUsers}
+            />
+            <div>
+              <Label className="cursor-pointer">
+                Bypass for internal users
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Internal users skip all conditions above
+              </p>
+            </div>
+          </div>
+
+          {/* ============================================================ */}
+          {/* Status + Save */}
+          {/* ============================================================ */}
           {error && (
             <p className="text-sm text-destructive" role="alert">
               {error}
@@ -518,16 +472,26 @@ export default function OrgPolicyBuilder({
           )}
 
           <div className="flex items-center justify-end">
-            <Button onClick={handleSave} disabled={isPending}>
+            <Button
+              onClick={handleSave}
+              disabled={
+                isPending ||
+                selectedActions.length === 0 ||
+                selectedResources.length === 0
+              }
+            >
               {isPending ? "Saving..." : "Save policy"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* ============================================================ */}
+      {/* Existing Policies */}
+      {/* ============================================================ */}
       <Card>
         <CardHeader>
-          <CardTitle>Existing policies</CardTitle>
+          <CardTitle>Existing Policies</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {initialPolicies.length === 0 && (
@@ -542,11 +506,12 @@ export default function OrgPolicyBuilder({
             >
               <div className="space-y-1">
                 <p className="text-sm font-medium">
-                  {policy.resource_type} • {policy.resource_name} •{" "}
+                  {policy.resource_type} &bull; {policy.resource_name} &bull;{" "}
                   {policy.action}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Version {policy.version} • {policy.is_active ? "Active" : "Inactive"}
+                  Version {policy.version} &bull;{" "}
+                  {policy.is_active ? "Active" : "Inactive"}
                 </p>
               </div>
               <div className="flex items-center gap-2">
