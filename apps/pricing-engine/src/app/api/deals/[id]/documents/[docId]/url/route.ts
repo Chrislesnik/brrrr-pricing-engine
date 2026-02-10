@@ -33,7 +33,7 @@ export async function GET(
 
     // Verify document is linked to this deal
     const { data: linkExists } = await supabaseAdmin
-      .from("deal_document_participants")
+      .from("document_files_deals")
       .select("deal_id")
       .eq("deal_id", dealId)
       .eq("document_file_id", docId)

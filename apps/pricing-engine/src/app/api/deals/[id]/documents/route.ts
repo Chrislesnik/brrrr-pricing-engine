@@ -29,9 +29,9 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Fetch documents for this deal via deal_document_participants
+    // Fetch documents for this deal via document_files_deals
     const { data: documents, error } = await supabaseAdmin
-      .from("deal_document_participants")
+      .from("document_files_deals")
       .select(`
         document_file_id,
         document_files:document_file_id (
@@ -206,9 +206,9 @@ export async function POST(
       );
     }
 
-    // Link document to deal via deal_document_participants
+    // Link document to deal via document_files_deals
     const { error: linkError } = await supabaseAdmin
-      .from("deal_document_participants")
+      .from("document_files_deals")
       .insert({
         deal_id: dealId,
         document_file_id: docFile.id,
