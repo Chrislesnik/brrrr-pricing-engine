@@ -288,6 +288,7 @@ export interface Query {
     _structure: Scalars['JSON']
     _sys: RepoSys
     documentation: Documentation
+    supabaseStorage: SupabaseStorageComponent
     __typename: 'Query'
 }
 
@@ -914,6 +915,7 @@ export interface QueryGenqlSelection{
     search?: (DocumentationItemSearchInput | null), 
     /** Skip the first n items. */
     skip?: (Scalars['Int'] | null)} })
+    supabaseStorage?: SupabaseStorageComponentGenqlSelection
     __typename?: boolean | number
     __fragmentOn?: "Query"
 }
