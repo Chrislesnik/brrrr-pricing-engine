@@ -59,7 +59,7 @@ const settingsNavItems: NavItem[] = [
     label: "Permissions",
     icon: Shield,
     description: "Document access permissions",
-    href: "documents/permissions",
+    href: "permissions",
   },
   {
     id: "policies",
