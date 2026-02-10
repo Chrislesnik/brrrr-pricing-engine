@@ -128,17 +128,24 @@ function ChipsSelect({
                 return (
                   <Badge key={v} variant="secondary" className="text-xs gap-1 pr-1">
                     {opt?.label ?? v}
-                    <button
-                      type="button"
-                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20 cursor-pointer"
                       aria-label={`Remove ${opt?.label ?? v}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggle(v);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          toggle(v);
+                        }
+                      }}
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </span>
                   </Badge>
                 );
               })
