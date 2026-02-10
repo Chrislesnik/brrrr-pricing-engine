@@ -5,6 +5,12 @@ import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FileText } from "lucide-react";
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
+import {
+  getRichTextBlocks,
+  richTextBlocks,
+  richTextComponents,
+} from "@/components/docs/basehub-renderers";
 
 interface PageProps {
   params: Promise<{
@@ -49,6 +55,8 @@ export default async function DocsPage({ params }: PageProps) {
               richText: {
                 json: {
                   content: true,
+                  blocks: true,
+                  toc: true,
                 },
               },
             },
@@ -114,80 +122,88 @@ function DocsIndexContent({ data }: { data: any }) {
   }, {});
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <div className="prose prose-neutral dark:prose-invert max-w-none">
-      <h1>Documentation</h1>
-      <p className="text-muted-foreground">
+    <DocsPage>
+      <DocsTitle>Documentation</DocsTitle>
+      <DocsDescription>
         Browse all available documentation for the BRRRR Pricing Engine API.
-      </p>
-
-      <div className="not-prose mt-8 space-y-8">
-        {Object.keys(groupedDocs).length > 0 ? (
-          Object.entries(groupedDocs).map(([category, items]: [string, any]) => (
-            <div key={category}>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                {category}
-              </h2>
-              <div className="grid gap-3">
-                {items.map((item: any) => (
-                  <Link
-                    key={item._id}
-                    href={`/docs/${item._slug}`}
-                    className="group block rounded-lg border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-md bg-primary/10 p-2 group-hover:bg-primary/20 transition-colors">
-                        <FileText className="h-5 w-5 text-primary" />
+      </DocsDescription>
+      <DocsBody>
+        <div className="not-prose mt-8 space-y-8">
+          {Object.keys(groupedDocs).length > 0 ? (
+            Object.entries(groupedDocs).map(([category, items]: [string, any]) => (
+              <div key={category}>
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  {category}
+                </h2>
+                <div className="grid gap-3">
+                  {items.map((item: any) => (
+                    <Link
+                      key={item._id}
+                      href={`/docs/${item._slug}`}
+                      className="group block rounded-lg border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-md bg-primary/10 p-2 group-hover:bg-primary/20 transition-colors">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium group-hover:text-primary transition-colors">
+                            {item._title}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            View documentation
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium group-hover:text-primary transition-colors">
-                          {item._title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          View documentation
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
+                </div>
               </div>
+            ))
+          ) : (
+            <div className="rounded-lg border bg-card p-8 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No documentation yet</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Add content to your BaseHub repository to see it here. Documentation
+                will automatically sync and appear in this section.
+              </p>
             </div>
-          ))
-        ) : (
-          <div className="rounded-lg border bg-card p-8 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No documentation yet</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Add content to your BaseHub repository to see it here. Documentation
-              will automatically sync and appear in this section.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-    </div>
+          )}
+        </div>
+      </DocsBody>
+    </DocsPage>
   );
 }
 
 function DocsContent({ item }: { item: any }) {
+  const blocks = getRichTextBlocks(item.richText?.json?.blocks);
+
   return (
-    <article className="mx-auto max-w-4xl p-6">
-      <div className="prose prose-neutral dark:prose-invert max-w-none">
-        <h1>{item._title}</h1>
-        {item.category && (
-          <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80 mb-4">
-            {item.category}
-          </div>
-        )}
+    <DocsPage>
+      <DocsTitle>{item._title}</DocsTitle>
+      {item.category ? (
+        <DocsDescription>{item.category}</DocsDescription>
+      ) : null}
+      <DocsBody>
         {item.richText ? (
           <div className="mt-6">
-            <RichText>{item.richText.json.content}</RichText>
+            <RichText
+              content={item.richText.json.content}
+              blocks={blocks}
+              components={{
+                ...richTextComponents,
+                ...richTextBlocks,
+              }}
+            />
           </div>
         ) : (
-          <p className="text-muted-foreground mt-6">No content available for this document.</p>
+          <p className="text-muted-foreground mt-6">
+            No content available for this document.
+          </p>
         )}
-      </div>
-    </article>
+      </DocsBody>
+    </DocsPage>
   );
 }
 

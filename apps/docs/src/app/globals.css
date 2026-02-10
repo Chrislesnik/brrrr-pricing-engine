@@ -1,4 +1,6 @@
 /* Import shared UI styles */
 @import "@repo/ui/globals.css";
+@import "fumadocs-ui/style.css";
+@import "fumadocs-ui/image-zoom.css";
 
 /* App-specific styles can be added below */

@@ -17,6 +17,34 @@ export default async function DocsLayout({ children }: Props) {
   const defaultClose = cookieStore.get("sidebar:state")?.value === "false";
   const { isEnabled } = await draftMode();
 
+  const formatSegment = (segment: string) =>
+    segment
+      .split(/[-_]/g)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+
+  const getOrCreateFolder = (
+    index: Map<string, PageTree.Folder>,
+    key: string,
+    name: string,
+    container: PageTree.Node[],
+    defaultOpen = false
+  ) => {
+    let folder = index.get(key);
+    if (!folder) {
+      folder = {
+        type: "folder",
+        name,
+        children: [],
+        collapsible: true,
+        defaultOpen,
+      };
+      index.set(key, folder);
+      container.push(folder);
+    }
+    return folder;
+  };
+
   return (
     <div className="border-grid flex flex-1 flex-col">
       <SWRProvider>
@@ -39,31 +67,46 @@ export default async function DocsLayout({ children }: Props) {
             "use server";
 
             const items: PageTree.Node[] = [];
-            const categoryGroups: Record<string, PageTree.Node[]> = {};
+            const folderIndex = new Map<string, PageTree.Folder>();
 
             for (const item of documentation?.items || []) {
-              const pageNode: PageTree.Node = {
+              const slug = item._slug?.trim() ?? "";
+              if (!slug) continue;
+
+              const pageNode: PageTree.Item = {
                 type: "page",
                 name: item._title,
-                url: `/docs/${item._slug}`,
+                url: `/docs/${slug}`,
               };
 
-              if (item.category && item.category !== "Root") {
-                if (!categoryGroups[item.category]) {
-                  categoryGroups[item.category] = [];
-                }
-                categoryGroups[item.category].push(pageNode);
-              } else {
-                items.push(pageNode);
-              }
-            }
+              let container = items;
+              let keyPrefix = "";
 
-            for (const [category, pages] of Object.entries(categoryGroups)) {
-              items.push({
-                type: "separator",
-                name: category,
-              });
-              items.push(...pages);
+              if (item.category && item.category !== "Root") {
+                keyPrefix = `cat:${item.category}`;
+                const categoryFolder = getOrCreateFolder(
+                  folderIndex,
+                  keyPrefix,
+                  item.category,
+                  items,
+                  true
+                );
+                container = categoryFolder.children;
+              }
+
+              const segments = slug.split("/").filter(Boolean);
+              for (let i = 0; i < segments.length - 1; i += 1) {
+                keyPrefix = `${keyPrefix}/${segments[i]}`;
+                const folder = getOrCreateFolder(
+                  folderIndex,
+                  keyPrefix,
+                  formatSegment(segments[i]),
+                  container
+                );
+                container = folder.children;
+              }
+
+              container.push(pageNode);
             }
 
             return (
