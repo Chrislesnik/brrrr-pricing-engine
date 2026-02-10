@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getMemberRolesForPolicies,
+  type MemberRoleOption,
+} from "@/app/(pricing-engine)/org/[orgId]/settings/policies/member-roles-api";
 import {
   saveOrgPolicy,
   setOrgPolicyActive,
@@ -40,11 +44,11 @@ const orgRoleOptions = [
   { value: "broker", label: "Broker" },
 ];
 
-const memberRoleOptions = [
-  { value: ANY_VALUE, label: "Any member role" },
-  { value: "admin", label: "Admin" },
-  { value: "manager", label: "Manager" },
-  { value: "member", label: "Member" },
+const defaultMemberRoleOptions: MemberRoleOption[] = [
+  { value: ANY_VALUE, label: "Any member role", description: "Matches all member roles", isOrgSpecific: false },
+  { value: "admin", label: "Admin", description: null, isOrgSpecific: false },
+  { value: "manager", label: "Manager", description: null, isOrgSpecific: false },
+  { value: "member", label: "Member", description: null, isOrgSpecific: false },
 ];
 
 export default function OrgPolicyBuilder({
@@ -67,6 +71,24 @@ export default function OrgPolicyBuilder({
   const [rules, setRules] = useState<RuleState[]>([{ ...defaultRule }]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [memberRoleOptions, setMemberRoleOptions] = useState<MemberRoleOption[]>(
+    defaultMemberRoleOptions
+  );
+
+  // Load member roles dynamically from database
+  useEffect(() => {
+    async function loadMemberRoles() {
+      try {
+        const roles = await getMemberRolesForPolicies();
+        if (roles.length > 0) {
+          setMemberRoleOptions(roles);
+        }
+      } catch (err) {
+        console.error("Failed to load member roles:", err);
+      }
+    }
+    loadMemberRoles();
+  }, []);
 
   const actionList = useMemo(
     () =>
@@ -256,7 +278,19 @@ export default function OrgPolicyBuilder({
                       <SelectContent>
                         {memberRoleOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <span>{option.label}</span>
+                                {option.isOrgSpecific && (
+                                  <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">Org</span>
+                                )}
+                              </div>
+                              {option.description && (
+                                <span className="text-xs text-muted-foreground">
+                                  {option.description}
+                                </span>
+                              )}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
