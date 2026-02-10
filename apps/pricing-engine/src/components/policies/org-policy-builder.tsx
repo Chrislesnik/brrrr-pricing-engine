@@ -60,9 +60,9 @@ const orgTypeValueOptions = [
   { value: "external", label: "External" },
 ];
 
-const internalUserValueOptions = [
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
+const userTypeValueOptions = [
+  { value: "yes", label: "Internal" },
+  { value: "no", label: "External" },
 ];
 
 const standardOperators = [
@@ -275,9 +275,9 @@ export default function OrgPolicyBuilder({
     },
     {
       value: "internal_user",
-      label: "Internal User",
+      label: "User Type",
       operators: [{ value: "is", label: "is" }],
-      valueOptions: internalUserValueOptions,
+      valueOptions: userTypeValueOptions,
     },
   ];
 
