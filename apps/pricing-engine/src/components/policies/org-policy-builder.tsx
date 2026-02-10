@@ -43,14 +43,14 @@ import { ChevronsUpDown, Check, X } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
 type RuleState = {
-  orgRole: string;
+  orgRoles: string[];
   memberRoles: string[];
 };
 
 // Sentinel value for "any/all" since Radix Select reserves empty string for clearing selection
 const ALL_VALUE = "_all";
 
-const defaultRule: RuleState = { orgRole: "owner", memberRoles: [ALL_VALUE] };
+const defaultRule: RuleState = { orgRoles: ["owner"], memberRoles: [ALL_VALUE] };
 
 const orgRoleOptions = [
   { value: ALL_VALUE, label: "All" },
@@ -135,7 +135,9 @@ export default function OrgPolicyBuilder({
       try {
         // Convert ALL_VALUE sentinel back to wildcard for storage
         const normalizedRules = rules.map((rule) => ({
-          orgRole: rule.orgRole === ALL_VALUE ? "*" : rule.orgRole,
+          orgRole: rule.orgRoles.includes(ALL_VALUE)
+            ? "*"
+            : rule.orgRoles.join(","),
           memberRole: rule.memberRoles.includes(ALL_VALUE)
             ? "*"
             : rule.memberRoles.join(","),
@@ -263,23 +265,109 @@ export default function OrgPolicyBuilder({
                 >
                   <div className="space-y-2">
                     <Label>Organization Role</Label>
-                    <Select
-                      value={rule.orgRole}
-                      onValueChange={(value) =>
-                        updateRule(index, { orgRole: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {orgRoleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between font-normal h-auto min-h-9 shadow-xs"
+                        >
+                          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                            {rule.orgRoles.includes(ALL_VALUE) ? (
+                              <span className="text-sm">All</span>
+                            ) : rule.orgRoles.length === 0 ? (
+                              <span className="text-sm text-muted-foreground">Select roles...</span>
+                            ) : (
+                              rule.orgRoles.map((v) => {
+                                const opt = orgRoleOptions.find((o) => o.value === v);
+                                return (
+                                  <Badge
+                                    key={v}
+                                    variant="secondary"
+                                    className="text-xs gap-1 pr-1"
+                                  >
+                                    {opt?.label ?? v}
+                                    <button
+                                      type="button"
+                                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const next = rule.orgRoles.filter((r) => r !== v);
+                                        updateRule(index, {
+                                          orgRoles: next.length === 0 ? [ALL_VALUE] : next,
+                                        });
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                );
+                              })
+                            )}
+                          </div>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[250px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search roles..." />
+                          <CommandList>
+                            <CommandEmpty>No roles found.</CommandEmpty>
+                            <CommandGroup>
+                              {orgRoleOptions.map((option) => {
+                                const isSelected =
+                                  option.value === ALL_VALUE
+                                    ? rule.orgRoles.includes(ALL_VALUE)
+                                    : rule.orgRoles.includes(option.value);
+
+                                return (
+                                  <CommandItem
+                                    key={option.value}
+                                    value={option.value}
+                                    onSelect={() => {
+                                      if (option.value === ALL_VALUE) {
+                                        updateRule(index, {
+                                          orgRoles: isSelected ? [] : [ALL_VALUE],
+                                        });
+                                      } else {
+                                        let next: string[];
+                                        if (isSelected) {
+                                          next = rule.orgRoles.filter(
+                                            (v) => v !== option.value && v !== ALL_VALUE
+                                          );
+                                        } else {
+                                          next = [
+                                            ...rule.orgRoles.filter(
+                                              (v) => v !== ALL_VALUE
+                                            ),
+                                            option.value,
+                                          ];
+                                        }
+                                        updateRule(index, {
+                                          orgRoles: next.length === 0 ? [ALL_VALUE] : next,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <div
+                                      className={cn(
+                                        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                                        isSelected
+                                          ? "bg-primary border-primary text-primary-foreground"
+                                          : "border-muted-foreground/25"
+                                      )}
+                                    >
+                                      {isSelected && <Check className="h-3 w-3" />}
+                                    </div>
+                                    <span>{option.label}</span>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-2">
