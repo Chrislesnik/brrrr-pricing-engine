@@ -15,6 +15,7 @@ import {
   Palette,
   Loader2,
   LayoutGrid,
+  TextCursorInput,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -24,8 +25,9 @@ import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
 import { ProgramsSettings } from "./components/programs-settings";
 import { ThemesSettings } from "./components/themes-settings";
+import { InputsSettings } from "./components/inputs-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "programs" | "themes";
+type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -73,6 +75,12 @@ const settingsNavItems: NavItem[] = [
     label: "Programs",
     icon: LayoutGrid,
     description: "Manage loan programs",
+  },
+  {
+    id: "inputs",
+    label: "Inputs",
+    icon: TextCursorInput,
+    description: "Manage deal input fields",
   },
   {
     id: "themes",
@@ -246,6 +254,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "domains" && <DomainsSettings />}
             {activeTab === "programs" && <ProgramsSettings />}
             {activeTab === "themes" && <ThemesSettings />}
+            {activeTab === "inputs" && <InputsSettings />}
           </div>
         </div>
       </div>

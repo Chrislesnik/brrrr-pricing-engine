@@ -21,6 +21,7 @@ import {
   Mail,
   Wand2,
   LayoutGrid,
+  TextCursorInput,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -54,6 +55,7 @@ const ORG_SETTINGS_ITEMS = [
     path: "/policies",
   },
   { id: "programs", label: "Programs", icon: LayoutGrid, path: "?tab=programs" },
+  { id: "inputs", label: "Inputs", icon: TextCursorInput, path: "?tab=inputs" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;
 
