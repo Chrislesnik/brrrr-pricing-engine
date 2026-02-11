@@ -37,6 +37,16 @@ import {
   TagsInputInput,
   TagsInputItem,
 } from "@/components/ui/tags-input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 
 /* -------------------------------------------------------------------------- */
@@ -117,6 +127,14 @@ export function InputsSettings() {
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
   const [logicBuilderInputId, setLogicBuilderInputId] = useState<string | null>(null);
 
+  // Delete confirmation state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    type: "category" | "input";
+    id: number | string;
+    name: string;
+  }>({ open: false, type: "input", id: "", name: "" });
+
   /* ---- Fetch data ---- */
 
   const fetchData = useCallback(async () => {
@@ -175,6 +193,15 @@ export function InputsSettings() {
     } catch (err) {
       console.error("Failed to delete category:", err);
     }
+  };
+
+  const confirmDelete = async () => {
+    if (deleteDialog.type === "category") {
+      await handleDeleteCategory(deleteDialog.id as number);
+    } else {
+      await handleDeleteInput(deleteDialog.id as string);
+    }
+    setDeleteDialog((prev) => ({ ...prev, open: false }));
   };
 
   const handleStartEditCategory = (cat: InputCategory) => {
@@ -535,7 +562,14 @@ export function InputsSettings() {
                           variant="ghost"
                           size="icon"
                           className="size-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteCategory(cat.id)}
+                          onClick={() =>
+                            setDeleteDialog({
+                              open: true,
+                              type: "category",
+                              id: cat.id,
+                              name: cat.category,
+                            })
+                          }
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -719,7 +753,12 @@ export function InputsSettings() {
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteInput(input.id);
+                                  setDeleteDialog({
+                                    open: true,
+                                    type: "input",
+                                    id: input.id,
+                                    name: input.input_label,
+                                  });
                                 }}
                               >
                                 <X className="size-3" />
@@ -858,6 +897,39 @@ export function InputsSettings() {
         onOpenChange={setLogicBuilderOpen}
         filterInputId={logicBuilderInputId}
       />
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {deleteDialog.type === "category" ? "Category" : "Input"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-foreground">
+                &ldquo;{deleteDialog.name}&rdquo;
+              </span>
+              ? This action cannot be undone
+              {deleteDialog.type === "category"
+                ? " and will remove all inputs within this category."
+                : "."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
