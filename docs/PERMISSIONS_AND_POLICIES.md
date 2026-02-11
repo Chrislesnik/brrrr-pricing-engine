@@ -143,6 +143,7 @@ Stores all access policies (org-specific and global defaults).
 | `definition_json` | jsonb | -- | Human-readable policy definition |
 | `compiled_config` | jsonb | -- | Machine-evaluated policy (conditions, rules) |
 | `scope` | text | `'all'` | Row-level scope: `'all'`, `'org_records'`, `'user_records'`, `'org_and_user'` |
+| `effect` | text | `'ALLOW'` | Policy effect: `'ALLOW'` or `'DENY'`. DENY evaluated before ALLOW. |
 | `version` | integer | 1 | Incremented on each update |
 | `is_active` | boolean | true | Soft disable toggle |
 | `created_at` | timestamptz | `now()` | Creation timestamp |
@@ -696,17 +697,36 @@ Global defaults (`org_id IS NULL`) serve as fallback for organizations that have
 
 ## 12. Known Limitations
 
-### 12.1 Client-side/DB-side disconnect
+### ~~12.1 Client-side/DB-side disconnect~~ (RESOLVED)
 
-`RouteProtection` reads Clerk `publicMetadata` and has **no awareness** of DB-stored policies. A user could be denied data by RLS but still see the page skeleton, leading to empty or error states.
+`RouteProtection` now supports an optional `requiredResource` prop that calls `/api/policies/check` to verify DB-level access before rendering. Usage:
 
-**Mitigation**: Wire `RouteProtection` to call `/api/policies/check` for DB-level verification.
+```tsx
+<RouteProtection
+  requiredResource={{
+    resourceType: "table",
+    resourceName: "deals",
+    action: "select"
+  }}
+>
+  <DealsPage />
+</RouteProtection>
+```
 
-### 12.2 Storage policies use a separate access path
+When `requiredResource` is specified, both the Clerk metadata check AND the DB policy check must pass. When omitted, only the Clerk metadata check runs (backward compatible).
 
-Storage bucket access (`can_access_document`) is **not connected** to the `organization_policies` table. Storage uses its own function chain (`can_access_document` -> `can_access_deal_document` -> deal_roles + document_access_permissions). The `scope` column in `organization_policies` does not affect storage access.
+### ~~12.2 Storage policies use a separate access path~~ (RESOLVED)
 
-**Impact**: You cannot use the policy builder UI to create per-file or per-path storage access rules. Storage access is governed by deal membership, org admin status, and uploader ownership.
+The `companies` and `persons` storage buckets now have `check_org_access('storage_bucket', ...)` RLS policies, meaning org-scoped policies in `organization_policies` with `resource_type = 'storage_bucket'` now control access to these buckets.
+
+**Current storage enforcement:**
+
+| Bucket | Enforcement | Controlled by org policies? |
+|--------|------------|---------------------------|
+| `deals` | `can_access_document()` (fine-grained per-file) | No (uses deal roles + RBAC matrix) |
+| `companies` | `check_org_access('storage_bucket', 'companies', ...)` | **Yes** |
+| `persons` | `check_org_access('storage_bucket', 'persons', ...)` | **Yes** |
+| `org-assets` | Public read, authenticated write | No (public bucket) |
 
 ### 12.3 No per-column granularity
 
@@ -714,9 +734,18 @@ The system controls access at the **table + row** level but not at the **column*
 
 **Mitigation**: Use Supabase views or server-side field filtering.
 
-### 12.4 No deny policies
+### ~~12.4 No deny policies~~ (RESOLVED)
 
-The system only supports `ALLOW` policies. There is no way to create a policy that explicitly denies access. If no policy matches, access is denied by default (closed by default).
+The system now supports both `ALLOW` and `DENY` policies. DENY policies are evaluated **before** ALLOW policies -- if any DENY condition matches, access is denied regardless of any ALLOW policies.
+
+**Evaluation order:**
+1. Service role bypass (skips DENY)
+2. Owner bypass (skips DENY)
+3. **DENY phase**: evaluate all DENY policies; if any match, return `denied`
+4. **ALLOW phase**: evaluate all ALLOW policies; if any match, return `allowed + scope`
+5. Default: deny (no policy matched)
+
+The policy builder UI includes an ALLOW/DENY toggle at the top of the form. DENY policies display with a red destructive badge.
 
 ### 12.5 `check_org_access()` is called twice per row
 

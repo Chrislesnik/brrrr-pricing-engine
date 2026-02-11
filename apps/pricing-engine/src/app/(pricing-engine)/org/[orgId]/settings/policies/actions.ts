@@ -11,15 +11,15 @@ export type ConditionInput = {
 };
 
 export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
+export type PolicyEffect = "ALLOW" | "DENY";
 
 export type PolicyDefinitionInput = {
   allowInternalUsers: boolean;
   conditions: ConditionInput[];
   connector: "AND" | "OR";
   scope?: PolicyScope;
+  effect?: PolicyEffect;
 };
-
-// v1 PolicyRuleInput has been removed — all policies now use v2 ConditionInput format
 
 export type OrgPolicyRow = {
   id: string;
@@ -29,6 +29,7 @@ export type OrgPolicyRow = {
   definition_json: Record<string, unknown>;
   compiled_config: Record<string, unknown>;
   scope: PolicyScope;
+  effect: PolicyEffect;
   version: number;
   is_active: boolean;
   created_at: string;
@@ -174,7 +175,7 @@ export async function getOrgPolicies(): Promise<{
   const { data, error } = await supabase
     .from("organization_policies")
     .select(
-      "id,resource_type,resource_name,action,definition_json,compiled_config,scope,version,is_active,created_at"
+      "id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
     )
     .eq("org_id", orgPk)
     .order("created_at", { ascending: false });
@@ -252,6 +253,7 @@ export async function saveOrgPolicy(
         definition_json: definitionJson,
         compiled_config: compiledConfig,
         scope: input.definition.scope || "all",
+        effect: input.definition.effect || "ALLOW",
         version: (existing?.version ?? 0) + 1,
         is_active: true,
         created_by_clerk_sub: userId,
@@ -327,6 +329,7 @@ export async function updateOrgPolicy(input: {
       definition_json: definitionJson,
       compiled_config: compiledConfig,
       scope: input.definition.scope || "all",
+      effect: input.definition.effect || "ALLOW",
       created_by_clerk_sub: userId,
     })
     .eq("id", input.id);

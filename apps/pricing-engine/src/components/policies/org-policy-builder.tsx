@@ -17,6 +17,7 @@ import {
   type ConditionInput,
   type PolicyDefinitionInput,
   type PolicyScope,
+  type PolicyEffect,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import {
   PolicyConditionRow,
@@ -263,6 +264,7 @@ function loadPolicyIntoForm(
     setSelectedActions: (a: string[]) => void;
     setSelectedResources: (r: string[]) => void;
     setSelectedScope: (s: PolicyScope) => void;
+    setSelectedEffect: (e: PolicyEffect) => void;
     setEditingPolicyId: (id: string | null) => void;
   }
 ) {
@@ -271,6 +273,7 @@ function loadPolicyIntoForm(
     connector?: "AND" | "OR";
     allow_internal_users?: boolean;
     scope?: PolicyScope;
+    effect?: PolicyEffect;
   };
 
   setters.setConditions(
@@ -287,6 +290,7 @@ function loadPolicyIntoForm(
   setters.setSelectedActions([policy.action === "all" ? "select" : policy.action]);
   setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
   setters.setSelectedScope(policy.scope ?? def?.scope ?? "all");
+  setters.setSelectedEffect(policy.effect ?? def?.effect ?? "ALLOW");
   setters.setEditingPolicyId(policy.id);
 }
 
@@ -325,6 +329,9 @@ export default function OrgPolicyBuilder({
 
   // Scope
   const [selectedScope, setSelectedScope] = useState<PolicyScope>("all");
+
+  // Effect (ALLOW or DENY)
+  const [selectedEffect, setSelectedEffect] = useState<PolicyEffect>("ALLOW");
 
   // Global override
   const [allowInternalUsers, setAllowInternalUsers] = useState(false);
@@ -463,6 +470,7 @@ export default function OrgPolicyBuilder({
     setSelectedActions(["select", "insert", "update", "delete"]);
     setSelectedResources(["table:*"]);
     setSelectedScope("all");
+    setSelectedEffect("ALLOW");
     setAllowInternalUsers(false);
     setError(null);
     setStatus(null);
@@ -485,6 +493,7 @@ export default function OrgPolicyBuilder({
           conditions: conditionInputs,
           connector,
           scope: selectedScope,
+          effect: selectedEffect,
         };
 
         if (editingPolicyId) {
@@ -558,6 +567,7 @@ export default function OrgPolicyBuilder({
       setSelectedActions,
       setSelectedResources,
       setSelectedScope,
+      setSelectedEffect,
       setEditingPolicyId,
     });
     setError(null);
@@ -590,6 +600,39 @@ export default function OrgPolicyBuilder({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* ============================================================ */}
+          {/* Effect Toggle (ALLOW / DENY) */}
+          {/* ============================================================ */}
+          <div className="flex items-center gap-3">
+            <RadioGroup
+              value={selectedEffect}
+              onValueChange={(v) => setSelectedEffect(v as PolicyEffect)}
+              className="flex gap-4"
+            >
+              <label className={cn(
+                "flex items-center gap-2 rounded-lg border px-4 py-2 cursor-pointer transition-colors",
+                selectedEffect === "ALLOW" ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" : "border-border"
+              )}>
+                <RadioGroupItem value="ALLOW" />
+                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Allow</span>
+              </label>
+              <label className={cn(
+                "flex items-center gap-2 rounded-lg border px-4 py-2 cursor-pointer transition-colors",
+                selectedEffect === "DENY" ? "border-destructive bg-destructive/5" : "border-border"
+              )}>
+                <RadioGroupItem value="DENY" />
+                <span className="text-sm font-medium text-destructive">Deny</span>
+              </label>
+            </RadioGroup>
+            <span className="text-xs text-muted-foreground">
+              {selectedEffect === "DENY"
+                ? "Deny policies override Allow policies"
+                : "Grant access when conditions match"}
+            </span>
+          </div>
+
+          <Separator />
+
           {/* ============================================================ */}
           {/* WHEN Section */}
           {/* ============================================================ */}
@@ -806,9 +849,15 @@ export default function OrgPolicyBuilder({
                     {/* Policy info */}
                     <div className="flex-1 min-w-0 space-y-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs font-mono uppercase">
-                          {policy.action}
-                        </Badge>
+                        {policy.effect === "DENY" ? (
+                          <Badge variant="destructive" className="text-xs font-mono uppercase">
+                            DENY {policy.action}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs font-mono uppercase">
+                            {policy.action}
+                          </Badge>
+                        )}
                         <span className="text-sm font-medium">{resourceScope}</span>
                         {policy.scope && policy.scope !== "all" && (
                           <Badge variant="secondary" className="text-xs">

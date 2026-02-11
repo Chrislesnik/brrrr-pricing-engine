@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import type { UserPermissions, ContactType, UserRole } from "@/types/auth"
@@ -21,10 +21,40 @@ interface RouteProtectionProps {
   requiredContactTypes?: ContactType[]
   requiredRoles?: UserRole[]
   requiredPermissions?: Array<keyof UserPermissions>
+  /** Check DB-level org policy for this resource (calls /api/policies/check) */
+  requiredResource?: {
+    resourceType: "table" | "storage_bucket"
+    resourceName: string
+    action: "select" | "insert" | "update" | "delete"
+  }
   fallbackComponent?: React.ComponentType<{
     permissions: UserPermissions | null
   }>
   redirectTo?: string
+}
+
+/**
+ * Check a DB-level org policy via the /api/policies/check endpoint.
+ * Returns true if the policy allows the action for the current user.
+ */
+async function checkDbPolicy(resource: {
+  resourceType: string
+  resourceName: string
+  action: string
+}): Promise<boolean> {
+  try {
+    const res = await fetch("/api/policies/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(resource),
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    return !!data.allowed
+  } catch {
+    console.error("Failed to check DB policy")
+    return false
+  }
 }
 
 export function RouteProtection({
@@ -32,6 +62,7 @@ export function RouteProtection({
   requiredContactTypes = [],
   requiredRoles = [],
   requiredPermissions = [],
+  requiredResource,
   fallbackComponent: FallbackComponent,
   redirectTo,
 }: RouteProtectionProps) {
@@ -44,43 +75,53 @@ export function RouteProtection({
   } = useUserPermissionsHook()
   const router = useRouter()
 
-  useEffect(() => {
-    async function checkPermissions() {
-      if (!isLoaded) return
+  const checkPermissions = useCallback(async () => {
+    if (!isLoaded) return
 
-      if (!isSignedIn) {
-        if (redirectTo) {
-          router.push(redirectTo)
-        } else {
-          router.push("/sign-in")
-        }
-        return
-      }
-
-      if (!permissions && !permissionsLoading && !error) {
-        setHasAccess(false)
-        return
-      }
-
-      if (permissions) {
-        const contactTypeMatch =
-          requiredContactTypes.length === 0 ||
-          requiredContactTypes.includes(permissions.contactType)
-
-        const roleMatch =
-          requiredRoles.length === 0 || requiredRoles.includes(permissions.role)
-
-        const permissionMatch =
-          requiredPermissions.length === 0 ||
-          requiredPermissions.every((perm) => permissions[perm])
-
-        setHasAccess(contactTypeMatch && roleMatch && permissionMatch)
+    if (!isSignedIn) {
+      if (redirectTo) {
+        router.push(redirectTo)
       } else {
-        setHasAccess(false)
+        router.push("/sign-in")
       }
+      return
     }
 
-    checkPermissions()
+    if (!permissions && !permissionsLoading && !error) {
+      setHasAccess(false)
+      return
+    }
+
+    if (permissions) {
+      // Client-side checks (Clerk publicMetadata)
+      const contactTypeMatch =
+        requiredContactTypes.length === 0 ||
+        requiredContactTypes.includes(permissions.contactType)
+
+      const roleMatch =
+        requiredRoles.length === 0 || requiredRoles.includes(permissions.role)
+
+      const permissionMatch =
+        requiredPermissions.length === 0 ||
+        requiredPermissions.every((perm) => permissions[perm])
+
+      const clientAllowed = contactTypeMatch && roleMatch && permissionMatch
+
+      if (!clientAllowed) {
+        setHasAccess(false)
+        return
+      }
+
+      // DB-level policy check (if requiredResource is specified)
+      if (requiredResource) {
+        const dbAllowed = await checkDbPolicy(requiredResource)
+        setHasAccess(dbAllowed)
+      } else {
+        setHasAccess(true)
+      }
+    } else {
+      setHasAccess(false)
+    }
   }, [
     isLoaded,
     isSignedIn,
@@ -90,9 +131,14 @@ export function RouteProtection({
     requiredContactTypes,
     requiredRoles,
     requiredPermissions,
+    requiredResource,
     router,
     redirectTo,
   ])
+
+  useEffect(() => {
+    checkPermissions()
+  }, [checkPermissions])
 
   if (!isLoaded || permissionsLoading) {
     return (
