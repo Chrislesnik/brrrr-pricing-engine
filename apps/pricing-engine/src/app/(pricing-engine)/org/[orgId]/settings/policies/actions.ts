@@ -198,20 +198,26 @@ export async function saveOrgPolicy(
     throw new Error("At least one condition or internal-user allowance is required.");
   }
 
+  // Self-lockout protection: owners and admins can always save policies
+  // (the DB-level is_org_owner/is_org_admin bypass ensures they're never locked out)
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
-  const currentUserAllowed =
-    normalizedOrgRole === "owner" ||
-    compiledConfig.allow_internal_users ||
-    compiledConfig.conditions.some((c: { field: string; operator: string; values: string[] }) =>
-      c.field === "org_role" &&
-      c.operator === "is" &&
-      (c.values.includes("*") || c.values.includes(normalizedOrgRole))
-    );
+  const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
 
-  if (!currentUserAllowed && normalizedOrgRole !== "owner") {
-    throw new Error(
-      "This policy would deny your access based on your org role. Update the conditions or use an owner account."
-    );
+  if (!isPrivileged) {
+    // For non-admin users, check if the policy would still grant them access
+    const currentUserAllowed =
+      compiledConfig.allow_internal_users ||
+      compiledConfig.conditions.some((c: { field: string; operator: string; values: string[] }) =>
+        c.field === "org_role" &&
+        c.operator === "is" &&
+        (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+      );
+
+    if (!currentUserAllowed) {
+      throw new Error(
+        "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
+      );
+    }
   }
 
   const actions = input.actions.length
