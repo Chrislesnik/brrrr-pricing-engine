@@ -19,7 +19,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFile, IconCircleNumber1, IconLayoutSidebarRightFilled, IconBriefcase } from "@tabler/icons-react";
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFile, IconCircleNumber1, IconLayoutSidebarRightFilled, IconBriefcase, IconFolder, IconFilter, IconSquareRoundedNumber0, IconSquareRoundedNumber1, IconSquareRoundedNumber2, IconSquareRoundedNumber3, IconSquareRoundedNumber4, IconSquareRoundedNumber5, IconSquareRoundedNumber6, IconSquareRoundedNumber7, IconSquareRoundedNumber8, IconSquareRoundedNumber9 } from "@tabler/icons-react";
 
 // ============================================================================
 // TYPES
@@ -41,6 +41,7 @@ export interface NavItem {
   disabled?: boolean;
   external?: boolean;
   shortcut?: string[]; // e.g. ["⌘", "P"]
+  tooltip?: string; // Hover tooltip text
 }
 
 // ============================================================================
@@ -57,9 +58,11 @@ export const ROUTES = {
   },
   applications: "/applications",
   contacts: {
-    applicants: {
-      borrowers: "/contacts/borrowers",
+    borrowers: {
+      individuals: "/contacts/borrowers",
       entities: "/contacts/entities",
+      guarantors: "/contacts/guarantors",
+      thirdParties: "/contacts/third-parties",
     },
     brokers: "/contacts/brokers",
     users: "/users",
@@ -93,25 +96,69 @@ export const NAVIGATION_CONFIG: NavItem[] = [
   {
     title: "Pipeline",
     items: [
-      // Pipeline (no url, now has nested "Loan Setup")
       {
         title: "Deals",
         url: ROUTES.pricingEngine.deals,
-        icon: IconBriefcase,
+        icon: IconFilter,
         shortcut: ["D"],
         items: [
           {
             title: "Loan Setup",
-            icon: IconCircleNumber1,
+            icon: IconSquareRoundedNumber1,
             items: [
-            {
-              title: "Applications",
-              url: ROUTES.applications,
-              icon: IconFile,
-              shortcut: ["A"],
-            },
-          ],
-        },
+              {
+                title: "Applications",
+                url: ROUTES.applications,
+                icon: IconFolder,
+                shortcut: ["A"],
+              },
+            ],
+          },
+          {
+            title: "Processing 1",
+            icon: IconSquareRoundedNumber2,
+            items: [],
+          },
+          {
+            title: "Appraisal Review",
+            icon: IconSquareRoundedNumber3,
+            items: [],
+          },
+          {
+            title: "Processing 2",
+            icon: IconSquareRoundedNumber4,
+            items: [],
+          },
+          {
+            title: "QC 1",
+            icon: IconSquareRoundedNumber5,
+            items: [],
+          },
+          {
+            title: "Underwriting",
+            icon: IconSquareRoundedNumber6,
+            items: [],
+          },
+          {
+            title: "Conditionally Approved",
+            icon: IconSquareRoundedNumber7,
+            items: [],
+          },
+          {
+            title: "QC 2",
+            icon: IconSquareRoundedNumber8,
+            items: [],
+          },
+          {
+            title: "Clear to Close",
+            icon: IconSquareRoundedNumber9,
+            items: [],
+          },
+          {
+            title: "Closed and Funded",
+            icon: IconSquareRoundedNumber0,
+            items: [],
+          },
         ],
       },
     ],
@@ -120,20 +167,26 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     title: "Contacts",
     items: [
       {
-        title: "Applicants",
+        title: "Borrowers",
         icon: IconUsers,
         items: [
           {
-            title: "Borrowers",
-            url: ROUTES.contacts.applicants.borrowers,
-            // Icon removed for nested sub-items
-            shortcut: ["B"],
+            title: "Individuals",
+            url: ROUTES.contacts.borrowers.individuals,
+            shortcut: ["I"],
+            tooltip: "Persons vesting title in the name of one or more individuals.",
           },
           {
             title: "Entities",
-            url: ROUTES.contacts.applicants.entities,
-            // Icon removed for nested sub-items
+            url: ROUTES.contacts.borrowers.entities,
             shortcut: ["E"],
+            tooltip: "Companies vesting title in the name of one or more entities.",
+          },
+          {
+            title: "Guarantors",
+            url: ROUTES.contacts.borrowers.guarantors,
+            shortcut: ["G"],
+            tooltip: "Person(s) obligated by a Personal Guarantee",
           },
         ],
       },
@@ -143,6 +196,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         icon: IconUser,
         denyOrgRoles: ["org:broker", "broker"],
         shortcut: ["K"],
+      },
+      {
+        title: "3rd Parties",
+        url: ROUTES.contacts.borrowers.thirdParties,
+        icon: IconUser,
+        shortcut: ["3"],
+        tooltip: "Third party service providers, companies, and company contacts (e.g., title agent, title company)",
       },
     ],
   },
