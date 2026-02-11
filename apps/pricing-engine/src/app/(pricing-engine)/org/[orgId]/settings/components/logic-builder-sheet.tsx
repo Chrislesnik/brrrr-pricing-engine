@@ -25,6 +25,7 @@ import {
   Check,
   ChevronsUpDown,
 } from "lucide-react";
+import { useLogicRules } from "@/context/logic-rules-context";
 import { cn } from "@repo/lib/cn";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -236,6 +237,7 @@ export function LogicBuilderSheet({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { refreshRules } = useLogicRules();
 
   // Fetch inputs metadata when sheet opens
   useEffect(() => {
@@ -521,6 +523,7 @@ export function LogicBuilderSheet({
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || "Failed to save logic rules");
       }
+      refreshRules();
       onOpenChange(false);
     } catch (err) {
       setSubmitError(
@@ -529,7 +532,7 @@ export function LogicBuilderSheet({
     } finally {
       setSubmitting(false);
     }
-  }, [rules, onOpenChange]);
+  }, [rules, onOpenChange, refreshRules]);
 
   /* ---- Render ---- */
 

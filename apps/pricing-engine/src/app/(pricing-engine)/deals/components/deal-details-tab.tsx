@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Button as AriaButton,
   Group,
@@ -8,6 +8,7 @@ import {
   NumberField,
 } from "react-aria-components";
 import { Loader2, MinusIcon, PlusIcon, Pencil, Save, X } from "lucide-react";
+import { useLogicEngine } from "@/hooks/use-logic-engine";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import {
@@ -161,12 +162,67 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
 
   const updateValue = useCallback((inputId: string, value: unknown) => {
     setEditedValues((prev) => ({ ...prev, [inputId]: value }));
+    userEditedRef.current.add(inputId);
   }, []);
+
+  // Track user-edited fields to avoid overwriting with computed values
+  const userEditedRef = useRef<Set<string>>(new Set());
+  const [computedFieldIds, setComputedFieldIds] = useState<Set<string>>(new Set());
+
+  // Logic engine — evaluate rules against current values
+  const { hiddenFields, requiredFields, computedValues } = useLogicEngine(
+    editedValues
+  );
+
+  // Apply computed values (unless user manually edited them)
+  useEffect(() => {
+    const updates: Record<string, unknown> = {};
+    const newComputed = new Set<string>();
+
+    for (const [inputId, val] of Object.entries(computedValues)) {
+      if (val === null || val === undefined) continue;
+      if (userEditedRef.current.has(inputId)) continue;
+
+      if (editedValues[inputId] !== val) {
+        updates[inputId] = val;
+      }
+      newComputed.add(inputId);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setEditedValues((prev) => ({ ...prev, ...updates }));
+    }
+    setComputedFieldIds(newComputed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computedValues]);
+
+  // Reset user-edited tracking when editing starts/stops
+  useEffect(() => {
+    if (!isEditing) {
+      userEditedRef.current = new Set();
+    }
+  }, [isEditing]);
 
   // Build the changed values diff for save
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
+      // Validate required fields
+      for (const inputId of requiredFields) {
+        if (hiddenFields.has(inputId)) continue;
+        const val = editedValues[inputId];
+        if (val === undefined || val === null || val === "" || val === false) {
+          const label = inputFields.find((f) => f.id === inputId)?.input_label ?? inputId;
+          toast({
+            title: "Required field",
+            description: `"${label}" is required.`,
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+      }
+
       // Build a payload of { [input_id]: value } for changed values
       const payload: Record<string, unknown> = {};
       for (const [inputId, value] of Object.entries(editedValues)) {
@@ -217,7 +273,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [deal, editedValues]);
+  }, [deal, editedValues, requiredFields, hiddenFields, inputFields]);
 
   const handleCancel = () => {
     setEditedValues(deal.inputs ?? {});
@@ -231,12 +287,19 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const DetailRow = ({
     label,
     value,
+    isRequired: reqd = false,
+    isComputed: comp = false,
   }: {
     label: string;
     value: React.ReactNode;
+    isRequired?: boolean;
+    isComputed?: boolean;
   }) => (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b last:border-0">
-      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+    <div className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}>
+      <div className="text-sm font-medium text-muted-foreground">
+        {label}
+        {reqd && <span className="ml-1 text-destructive">*</span>}
+      </div>
       <div className="col-span-2 text-sm">{value}</div>
     </div>
   );
@@ -504,7 +567,9 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
               </div>
             </div>
 
-            {leftCategories.map(({ category, fields }) => (
+            {leftCategories.map(({ category, fields }) => {
+              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+              return (
               <Accordion
                 key={category.id}
                 type="multiple"
@@ -519,30 +584,35 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                     <span>{category.category}</span>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4 pt-0">
-                    {fields.length === 0 ? (
+                    {visibleFields.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         No inputs in this category.
                       </p>
                     ) : (
                       <div className="space-y-1">
-                        {fields.map((field) => {
+                        {visibleFields.map((field) => {
                           const rawValue = editedValues[field.id] ?? null;
+                          const reqd = requiredFields.has(field.id);
+                          const comp = computedFieldIds.has(field.id);
                           if (!isEditing) {
                             return (
                               <DetailRow
                                 key={field.id}
                                 label={field.input_label}
                                 value={renderReadValue(field, rawValue)}
+                                isRequired={reqd}
+                                isComputed={comp}
                               />
                             );
                           }
                           return (
                             <div
                               key={field.id}
-                              className="grid grid-cols-3 gap-4 py-2 border-b last:border-0"
+                              className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
                             >
                               <div className="text-sm font-medium text-muted-foreground">
                                 {field.input_label}
+                                {reqd && <span className="ml-1 text-destructive">*</span>}
                               </div>
                               <div className="col-span-2">
                                 {renderEditControl(field, rawValue)}
@@ -555,12 +625,15 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
-            ))}
+              );
+            })}
           </div>
 
           {/* Right column: even-indexed categories */}
           <div className="flex flex-col gap-4">
-            {rightCategories.map(({ category, fields }) => (
+            {rightCategories.map(({ category, fields }) => {
+              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+              return (
               <Accordion
                 key={category.id}
                 type="multiple"
@@ -575,30 +648,35 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                     <span>{category.category}</span>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4 pt-0">
-                    {fields.length === 0 ? (
+                    {visibleFields.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         No inputs in this category.
                       </p>
                     ) : (
                       <div className="space-y-1">
-                        {fields.map((field) => {
+                        {visibleFields.map((field) => {
                           const rawValue = editedValues[field.id] ?? null;
+                          const reqd = requiredFields.has(field.id);
+                          const comp = computedFieldIds.has(field.id);
                           if (!isEditing) {
                             return (
                               <DetailRow
                                 key={field.id}
                                 label={field.input_label}
                                 value={renderReadValue(field, rawValue)}
+                                isRequired={reqd}
+                                isComputed={comp}
                               />
                             );
                           }
                           return (
                             <div
                               key={field.id}
-                              className="grid grid-cols-3 gap-4 py-2 border-b last:border-0"
+                              className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
                             >
                               <div className="text-sm font-medium text-muted-foreground">
                                 {field.input_label}
+                                {reqd && <span className="ml-1 text-destructive">*</span>}
                               </div>
                               <div className="col-span-2">
                                 {renderEditControl(field, rawValue)}
@@ -611,7 +689,8 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

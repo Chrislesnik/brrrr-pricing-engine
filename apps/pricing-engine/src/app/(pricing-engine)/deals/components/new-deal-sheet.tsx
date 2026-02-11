@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import {
   Button as AriaButton,
   Group,
@@ -8,6 +8,7 @@ import {
   NumberField,
 } from "react-aria-components"
 import { Loader2, MinusIcon, PlusIcon } from "lucide-react"
+import { useLogicEngine } from "@/hooks/use-logic-engine"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
@@ -139,12 +140,69 @@ export function NewDealSheet({
 
   const updateValue = useCallback((inputId: string, value: string | boolean) => {
     setFormValues((prev) => ({ ...prev, [inputId]: value }))
+    // Track user-edited fields so we don't overwrite them with computed values
+    userEditedRef.current.add(inputId)
   }, [])
+
+  // Track which fields the user has manually edited (overrides computed values)
+  const userEditedRef = useRef<Set<string>>(new Set())
+  // Track which fields currently hold a computed value (for highlight)
+  const [computedFieldIds, setComputedFieldIds] = useState<Set<string>>(new Set())
+
+  // Logic engine — evaluate rules against current form values
+  const { hiddenFields, requiredFields, computedValues } = useLogicEngine(
+    formValues as Record<string, unknown>
+  )
+
+  // Apply computed values to form (unless user manually edited them)
+  useEffect(() => {
+    const updates: Record<string, string | boolean> = {}
+    const newComputed = new Set<string>()
+
+    for (const [inputId, val] of Object.entries(computedValues)) {
+      if (val === null || val === undefined) continue
+
+      // Don't overwrite user-edited fields
+      if (userEditedRef.current.has(inputId)) continue
+
+      const strVal = typeof val === "boolean" ? val : String(val)
+      if (formValues[inputId] !== strVal) {
+        updates[inputId] = strVal
+      }
+      newComputed.add(inputId)
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setFormValues((prev) => ({ ...prev, ...updates }))
+    }
+    setComputedFieldIds(newComputed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computedValues])
+
+  // Reset user-edited tracking when sheet closes/opens
+  useEffect(() => {
+    if (open) {
+      userEditedRef.current = new Set()
+      setComputedFieldIds(new Set())
+    }
+  }, [open])
 
   const handleCreateDeal = useCallback(async () => {
     setSubmitting(true)
     setSubmitError(null)
     try {
+      // Check required fields
+      for (const inputId of requiredFields) {
+        if (hiddenFields.has(inputId)) continue // hidden fields can't be required
+        const val = formValues[inputId]
+        if (val === undefined || val === null || val === "" || val === false) {
+          const label = inputs.find((i) => i.id === inputId)?.input_label ?? inputId
+          setSubmitError(`"${label}" is required.`)
+          setSubmitting(false)
+          return
+        }
+      }
+
       // Build deal_inputs array — one entry per input field (including blanks)
       const dealInputs = inputs.map((field) => {
         const raw = formValues[field.id]
@@ -204,7 +262,7 @@ export function NewDealSheet({
     } finally {
       setSubmitting(false)
     }
-  }, [formValues, inputs, onOpenChange])
+  }, [formValues, inputs, onOpenChange, requiredFields, hiddenFields])
 
   // Group inputs by category_id, preserving display_order
   const inputsByCategory = categories.map((cat) => ({
@@ -264,12 +322,16 @@ export function NewDealSheet({
                         </p>
                       ) : (
                         <div className="grid gap-4 sm:grid-cols-2">
-                          {fields.map((field) => (
+                          {fields
+                            .filter((f) => !hiddenFields.has(f.id))
+                            .map((field) => (
                             <DynamicInput
                               key={field.id}
                               field={field}
                               value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
                               onChange={(val) => updateValue(field.id, val)}
+                              isRequired={requiredFields.has(field.id)}
+                              isComputed={computedFieldIds.has(field.id)}
                             />
                           ))}
                         </div>
@@ -320,24 +382,33 @@ function DynamicInput({
   field,
   value,
   onChange,
+  isRequired = false,
+  isComputed = false,
 }: {
   field: InputField
   value: string | boolean
   onChange: (value: string | boolean) => void
+  isRequired?: boolean
+  isComputed?: boolean
 }) {
   const stringVal = typeof value === "string" ? value : ""
   const boolVal = typeof value === "boolean" ? value : false
+  const computedClass = isComputed ? "ring-1 ring-blue-400/40 bg-blue-50/50 dark:bg-blue-950/20" : ""
 
   switch (field.input_type) {
     case "text":
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <Label htmlFor={field.id}>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <Input
             id={field.id}
             placeholder={field.input_label}
             value={stringVal}
             onChange={(e) => onChange(e.target.value)}
+            className={computedClass}
           />
         </div>
       )
@@ -345,12 +416,15 @@ function DynamicInput({
     case "dropdown":
       return (
         <div className="space-y-2">
-          <Label>{field.input_label}</Label>
+          <Label>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <Select
             value={stringVal || undefined}
             onValueChange={(val) => onChange(val)}
           >
-            <SelectTrigger>
+            <SelectTrigger className={computedClass}>
               <SelectValue placeholder={`Select ${field.input_label.toLowerCase()}`} />
             </SelectTrigger>
             <SelectContent>
@@ -367,18 +441,26 @@ function DynamicInput({
     case "date":
       return (
         <div className="space-y-2">
-          <Label>{field.input_label}</Label>
-          <DatePickerField
-            value={stringVal || ""}
-            onChange={(val) => onChange(val)}
-          />
+          <Label>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
+          <div className={computedClass ? `rounded-md ${computedClass}` : ""}>
+            <DatePickerField
+              value={stringVal || ""}
+              onChange={(val) => onChange(val)}
+            />
+          </div>
         </div>
       )
 
     case "currency":
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <Label htmlFor={field.id}>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
               $
@@ -387,7 +469,7 @@ function DynamicInput({
               id={field.id}
               value={stringVal}
               onValueChange={(val) => onChange(val)}
-              className="pl-7"
+              className={`pl-7 ${computedClass}`}
               placeholder="0.00"
             />
           </div>
@@ -397,14 +479,17 @@ function DynamicInput({
     case "number":
       return (
         <div className="space-y-2">
-          <Label>{field.input_label}</Label>
+          <Label>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <NumberField
             value={stringVal ? Number(stringVal) : undefined}
             onChange={(val) => onChange(isNaN(val) ? "" : String(val))}
             minValue={0}
             className="w-full"
           >
-            <Group className="border-input data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1">
+            <Group className={`border-input data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1 ${computedClass}`}>
               <AriaInput
                 placeholder="0"
                 className="placeholder:text-muted-foreground w-full grow bg-transparent px-3 py-1 text-base outline-none md:text-sm"
@@ -431,7 +516,10 @@ function DynamicInput({
     case "percentage":
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <Label htmlFor={field.id}>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <div className="relative">
             <Input
               id={field.id}
@@ -462,7 +550,7 @@ function DynamicInput({
                 const clamped = Math.min(100, Math.max(0, num))
                 onChange(clamped.toFixed(2).replace(/\.?0+$/, "") || "0")
               }}
-              className="pr-8"
+              className={`pr-8 ${computedClass}`}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
               %
@@ -474,12 +562,15 @@ function DynamicInput({
     case "boolean":
       return (
         <div className="space-y-2">
-          <Label>{field.input_label}</Label>
+          <Label>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <Select
             value={boolVal ? "true" : "false"}
             onValueChange={(val) => onChange(val === "true")}
           >
-            <SelectTrigger>
+            <SelectTrigger className={computedClass}>
               <SelectValue placeholder={`Select ${field.input_label.toLowerCase()}`} />
             </SelectTrigger>
             <SelectContent>
@@ -493,12 +584,16 @@ function DynamicInput({
     default:
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <Label htmlFor={field.id}>
+            {field.input_label}
+            {isRequired && <span className="ml-1 text-destructive">*</span>}
+          </Label>
           <Input
             id={field.id}
             placeholder={field.input_label}
             value={stringVal}
             onChange={(e) => onChange(e.target.value)}
+            className={computedClass}
           />
         </div>
       )

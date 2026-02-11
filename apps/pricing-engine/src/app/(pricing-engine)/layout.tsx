@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SWRProvider } from "@/components/providers/swr-provider"
 import { SiteHeader } from "@/components/layout/site-header"
 import { OrgThemeLoader } from "@/components/org-theme-loader"
+import { LogicRulesProvider } from "@/context/logic-rules-context"
 
 interface Props {
   children: React.ReactNode
@@ -16,22 +17,24 @@ export default async function DashboardLayout({ children }: Props) {
   return (
     <div className="flex h-svh w-full overflow-hidden bg-sidebar">
       <SWRProvider>
-        <OrgThemeLoader />
-        <SidebarProvider defaultOpen={!defaultClose} className="h-full w-full bg-sidebar">
-          <AppSidebar variant="inset" />
-          <SidebarInset className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-            <SiteHeader />
-            <div
-              id="content"
-              className={cn(
-                "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
-                "has-[div[data-layout=fixed]]:overflow-hidden"
-              )}
-            >
-              {children}
-            </div>
-          </SidebarInset>
-        </SidebarProvider>
+        <LogicRulesProvider>
+          <OrgThemeLoader />
+          <SidebarProvider defaultOpen={!defaultClose} className="h-full w-full bg-sidebar">
+            <AppSidebar variant="inset" />
+            <SidebarInset className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
+              <SiteHeader />
+              <div
+                id="content"
+                className={cn(
+                  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
+                  "has-[div[data-layout=fixed]]:overflow-hidden"
+                )}
+              >
+                {children}
+              </div>
+            </SidebarInset>
+          </SidebarProvider>
+        </LogicRulesProvider>
       </SWRProvider>
     </div>
   )
