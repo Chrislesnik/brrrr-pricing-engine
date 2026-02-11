@@ -237,7 +237,8 @@ export async function saveOrgPolicy(
         .eq("action", action)
         .maybeSingle();
 
-      const row: Record<string, unknown> = {
+      return {
+        id: existing?.id ?? crypto.randomUUID(),
         org_id: orgPk,
         resource_type: input.resourceType,
         resource_name: resourceName,
@@ -248,14 +249,6 @@ export async function saveOrgPolicy(
         is_active: true,
         created_by_clerk_sub: userId,
       };
-
-      // Only include id when updating an existing row;
-      // omit it for new rows so gen_random_uuid() default applies
-      if (existing?.id) {
-        row.id = existing.id;
-      }
-
-      return row;
     })
   );
 
