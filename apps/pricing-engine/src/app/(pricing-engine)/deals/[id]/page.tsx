@@ -13,14 +13,10 @@ import { DealCalendarTab } from "../components/deal-calendar-tab";
 
 interface DealData {
   id: string;
-  deal_name: string | null;
-  deal_stage_2: string | null;
-  loan_amount_total: number | null;
-  funding_date: string | null;
-  project_type: string | null;
-  property_address: string | null;
-  guarantor_name: string | null;
-  loan_number: string | null;
+  inputs: Record<string, unknown>;
+  organization_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 function DealRecordContent() {
@@ -134,10 +130,10 @@ function DealRecordContent() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {deal.deal_name || deal.property_address || `Deal ${deal.loan_number}`}
+              Deal {deal.id.slice(0, 8)}
             </h1>
-            <p className="text-sm text-muted-foreground">
-              {deal.loan_number && `Loan #${deal.loan_number}`}
+            <p className="text-sm text-muted-foreground font-mono">
+              {deal.id}
             </p>
           </div>
         </div>

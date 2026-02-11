@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (!input_label?.trim()) return NextResponse.json({ error: "input_label is required" }, { status: 400 })
     if (!input_type) return NextResponse.json({ error: "input_type is required" }, { status: 400 })
 
-    const validTypes = ["text", "dropdown", "number", "currency", "date", "boolean"]
+    const validTypes = ["text", "dropdown", "number", "currency", "percentage", "date", "boolean"]
     if (!validTypes.includes(input_type)) {
       return NextResponse.json({ error: `input_type must be one of: ${validTypes.join(", ")}` }, { status: 400 })
     }
@@ -113,13 +113,13 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}))
 
-    // Single input update (edit label, type, dropdown_options)
+    // Single input update (edit label, type, dropdown_options, starred)
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options } = body
+      const { id, input_label, input_type, dropdown_options, starred } = body
       const updatePayload: Record<string, unknown> = {}
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
       if (input_type !== undefined) {
-        const validTypes = ["text", "dropdown", "number", "currency", "date", "boolean"]
+        const validTypes = ["text", "dropdown", "number", "currency", "percentage", "date", "boolean"]
         if (!validTypes.includes(input_type)) {
           return NextResponse.json({ error: `input_type must be one of: ${validTypes.join(", ")}` }, { status: 400 })
         }
@@ -128,6 +128,7 @@ export async function PATCH(req: NextRequest) {
       }
       if (dropdown_options !== undefined && !(input_type !== undefined && input_type !== "dropdown"))
         updatePayload.dropdown_options = dropdown_options
+      if (typeof starred === "boolean") updatePayload.starred = starred
       if (Object.keys(updatePayload).length === 0) {
         return NextResponse.json({ error: "No fields to update" }, { status: 400 })
       }

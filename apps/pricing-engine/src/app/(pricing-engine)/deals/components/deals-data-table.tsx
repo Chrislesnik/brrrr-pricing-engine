@@ -99,17 +99,20 @@ import { cn } from "@repo/lib/cn";
 import { MentionTextarea, CommentWithMentions, extractMentions } from "./mention-textarea";
 import { DealTaskTracker } from "./deal-task-tracker";
 
-// Extended type with joined data
+// Deal row returned from the pipeline API
 interface DealWithRelations {
   id: string;
-  deal_name: string | null;
-  deal_stage_2: string | null;
-  loan_amount_total: number | null;
-  funding_date: string | null;
-  project_type: string | null;
-  property_address: string | null;
-  guarantor_name: string | null;
-  loan_number: string | null;
+  inputs: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+interface StarredInput {
+  id: string;
+  input_label: string;
+  input_type: string;
+  dropdown_options: string[] | null;
+  starred: boolean;
+  display_order: number;
 }
 
 interface Comment {
@@ -281,6 +284,64 @@ const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   );
 };
 
+/* -------------------------------------------------------------------------- */
+/*  Dynamic cell renderer for starred input columns                            */
+/* -------------------------------------------------------------------------- */
+
+function renderDynamicCell(value: unknown, inputType: string): React.ReactNode {
+  if (value == null || value === "") return <span className="text-muted-foreground">—</span>;
+
+  switch (inputType) {
+    case "currency": {
+      const num = typeof value === "number" ? value : Number(value);
+      if (isNaN(num)) return <span className="text-muted-foreground">—</span>;
+      return (
+        <div>
+          {new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+          }).format(num)}
+        </div>
+      );
+    }
+    case "number": {
+      return <div>{String(value)}</div>;
+    }
+    case "percentage": {
+      return <div>{String(value)}%</div>;
+    }
+    case "date": {
+      const str = String(value);
+      try {
+        return <div>{new Date(str).toLocaleDateString()}</div>;
+      } catch {
+        return <div>{str}</div>;
+      }
+    }
+    case "dropdown": {
+      const display = String(value)
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+      return <Badge variant="outline">{display}</Badge>;
+    }
+    case "boolean": {
+      const bool = value === true || value === "true";
+      return (
+        <Badge variant={bool ? "default" : "outline"}>
+          {bool ? "Yes" : "No"}
+        </Badge>
+      );
+    }
+    case "text":
+    default:
+      return <div className="max-w-[200px] truncate">{String(value)}</div>;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Column builder                                                             */
+/* -------------------------------------------------------------------------- */
+
 const createColumns = (
   router: { push: (path: string) => void },
   expandedRows: Set<string>,
@@ -289,320 +350,196 @@ const createColumns = (
   rowComments: Record<
     string,
     { comments: Comment[]; hasUnread: boolean; count: number }
-  >
-): ColumnDef<DealWithRelations>[] => [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <div className="p-2">
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="p-2">
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      </div>
-    ),
-    enableSorting: false,
-    enableHiding: false,
-    size: 50,
-  },
-  {
-    id: "expand",
-    header: () => null,
-    cell: ({ row }) => {
-      const dealId = String(row.original.id);
-      const isExpanded = expandedRows.has(dealId);
-      return (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => toggleRow(dealId)}
-          data-ignore-row-click
-        >
-          <ChevronRightIcon
-            className={cn(
-              "h-4 w-4 transition-transform duration-200",
-              isExpanded && "rotate-90"
-            )}
+  >,
+  starredInputs: StarredInput[],
+): ColumnDef<DealWithRelations>[] => {
+  const fixedStart: ColumnDef<DealWithRelations>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
           />
-        </Button>
-      );
-    },
-    enableSorting: false,
-    enableHiding: false,
-    size: 50,
-  },
-  {
-    id: "loan_number",
-    accessorKey: "loan_number",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-8 px-1"
-        >
-          Loan Number
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => (
-      <div className="text-sm font-medium">
-        {row.getValue("loan_number") || "—"}
-      </div>
-    ),
-  },
-  {
-    id: "property_address",
-    accessorKey: "property_address",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-8 px-1"
-        >
-          Property Address
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => (
-      <div className="max-w-[200px] truncate">
-        {row.getValue("property_address") || "No address"}
-      </div>
-    ),
-  },
-  {
-    id: "project_type",
-    accessorKey: "project_type",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-8 px-1"
-        >
-          Project Type
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const projectType = row.getValue("project_type") as string;
-      const displayValue = projectType
-        ? projectType
-            .replace(/_/g, " ")
-            .replace(/\b\w/g, (l) => l.toUpperCase())
-        : "Unknown";
-
-      return <Badge variant="outline">{displayValue}</Badge>;
-    },
-  },
-  {
-    id: "deal_stage_2",
-    accessorKey: "deal_stage_2",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-8 px-1"
-        >
-          Deal Stage
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const stage = row.getValue("deal_stage_2") as string;
-      const displayValue = stage
-        ? stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-        : "Not Set";
-
-      return (
-        <Badge
-          variant={
-            stage === "closed_and_funded"
-              ? "default"
-              : stage === "clear_to_close"
-                ? "secondary"
-                : "outline"
-          }
-        >
-          {displayValue}
-        </Badge>
-      );
-    },
-  },
-  {
-    id: "loan_amount_total",
-    accessorKey: "loan_amount_total",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-8 px-1"
-        >
-          Total Amount
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const amount = row.getValue("loan_amount_total") as number;
-      return (
-        <div>
-          {amount
-            ? new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(amount)
-            : "—"}
         </div>
-      );
+      ),
+      cell: ({ row }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
     },
-  },
-  {
-    id: "guarantor_name",
-    accessorKey: "guarantor_name",
-    header: ({ column }) => {
-      return (
+    {
+      id: "expand",
+      header: () => null,
+      cell: ({ row }) => {
+        const dealId = String(row.original.id);
+        const isExpanded = expandedRows.has(dealId);
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => toggleRow(dealId)}
+            data-ignore-row-click
+          >
+            <ChevronRightIcon
+              className={cn(
+                "h-4 w-4 transition-transform duration-200",
+                isExpanded && "rotate-90"
+              )}
+            />
+          </Button>
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
+    },
+    {
+      id: "deal_id",
+      accessorKey: "id",
+      header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="h-8 px-1"
         >
-          Guarantor
+          Deal ID
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      );
+      ),
+      cell: ({ row }) => (
+        <div className="text-sm font-medium font-mono">
+          {row.original.id || "—"}
+        </div>
+      ),
+      enableHiding: false,
     },
-    cell: ({ row }) => (
-      <div className="max-w-[150px] truncate">
-        {row.getValue("guarantor_name") || "No guarantor"}
-      </div>
-    ),
-  },
-  {
-    id: "comments",
-    header: () => <span className="text-sm font-medium">Comments</span>,
-    cell: ({ row }) => {
-      const dealId = String(row.original.id);
-      const commentState = rowComments[dealId];
-      const count = commentState?.count ?? 0;
-      const hasUnread = commentState?.hasUnread ?? false;
-      return (
-        <Button
-          className={cn("gap-2", hasUnread && "text-primary")}
-          onClick={() => openCommentsSheet(dealId)}
-          size="sm"
-          variant="ghost"
-          data-ignore-row-click
-        >
-          <MessageCircle className="h-4 w-4" />
-          <span>{count}</span>
-          {hasUnread && <span className="h-2 w-2 rounded-full bg-primary" />}
-        </Button>
-      );
-    },
-    enableSorting: false,
-  },
-  {
-    id: "funding_date",
-    accessorKey: "funding_date",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-8 px-1"
-        >
-          Funding Date
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const date = row.getValue("funding_date") as string;
-      return date ? new Date(date).toLocaleDateString() : "—";
-    },
-  },
-  {
-    id: "actions",
-    enableHiding: false,
-    size: 60,
-    cell: ({ row }) => {
-      const deal = row.original;
+  ];
 
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => router.push(`/deals/${deal.id}`)}
-              >
-                <FolderOpenIcon
-                  size={16}
-                  className="opacity-60"
-                  aria-hidden="true"
-                />
-                Open
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => router.push(`/deals/${deal.id}`)}
-              >
-                <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
-                Edit
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  navigator.clipboard.writeText(deal.id.toString());
-                  // Could add toast notification here
-                }}
-              >
-                <FilesIcon
-                  size={16}
-                  className="opacity-60"
-                  aria-hidden="true"
-                />
-                Copy ID
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600">
-                <TrashIcon size={16} aria-hidden="true" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
+  // Dynamic columns from starred inputs
+  const dynamicCols: ColumnDef<DealWithRelations>[] = starredInputs.map(
+    (input) => ({
+      id: input.id,
+      accessorFn: (row: DealWithRelations) => {
+        const val = row.inputs?.[input.id];
+        return val ?? null;
+      },
+      header: ({ column }: { column: any }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 px-1"
+        >
+          {input.input_label}
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ getValue }: { getValue: () => unknown }) =>
+        renderDynamicCell(getValue(), input.input_type),
+    })
+  );
+
+  const fixedEnd: ColumnDef<DealWithRelations>[] = [
+    {
+      id: "comments",
+      header: () => <span className="text-sm font-medium">Comments</span>,
+      cell: ({ row }) => {
+        const dealId = String(row.original.id);
+        const commentState = rowComments[dealId];
+        const count = commentState?.count ?? 0;
+        const hasUnread = commentState?.hasUnread ?? false;
+        return (
+          <Button
+            className={cn("gap-2", hasUnread && "text-primary")}
+            onClick={() => openCommentsSheet(dealId)}
+            size="sm"
+            variant="ghost"
+            data-ignore-row-click
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>{count}</span>
+            {hasUnread && <span className="h-2 w-2 rounded-full bg-primary" />}
+          </Button>
+        );
+      },
+      enableSorting: false,
     },
-  },
-];
+    {
+      id: "actions",
+      enableHiding: false,
+      size: 60,
+      cell: ({ row }) => {
+        const deal = row.original;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/deals/${deal.id}`)}
+                >
+                  <FolderOpenIcon
+                    size={16}
+                    className="opacity-60"
+                    aria-hidden="true"
+                  />
+                  Open
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/deals/${deal.id}`)}
+                >
+                  <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
+                  Edit
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigator.clipboard.writeText(deal.id.toString());
+                  }}
+                >
+                  <FilesIcon
+                    size={16}
+                    className="opacity-60"
+                    aria-hidden="true"
+                  />
+                  Copy ID
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-red-600">
+                  <TrashIcon size={16} aria-hidden="true" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
+
+  return [...fixedStart, ...dynamicCols, ...fixedEnd];
+};
 
 export function DealsDataTable({
   onNewDeal,
@@ -614,28 +551,52 @@ export function DealsDataTable({
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    comments: true, // Show comments column
-  });
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
   const [rowComments, setRowComments] = useState<
     Record<string, { comments: Comment[]; hasUnread: boolean; count: number }>
   >({});
-  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([
-    "select",
-    "expand",
-    "loan_number",
-    "property_address",
-    "deal_stage_2",
-    "project_type",
-    "loan_amount_total",
-    "guarantor_name",
-    "funding_date",
-    "comments",
-    "actions",
-  ]);
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+  const [starredInputs, setStarredInputs] = useState<StarredInput[]>([]);
+
+  // Fetch starred inputs on mount
+  useEffect(() => {
+    let active = true;
+    async function fetchInputs() {
+      try {
+        const res = await fetch("/api/inputs");
+        if (!res.ok) return;
+        const json = await res.json();
+        // API returns array directly or { inputs: [...] }
+        const allInputs = (Array.isArray(json) ? json : json.inputs ?? []) as StarredInput[];
+        const starred = allInputs
+          .filter((i) => i.starred)
+          .sort((a, b) => a.display_order - b.display_order);
+        if (active) {
+          setStarredInputs(starred);
+          // Set initial column order based on starred inputs
+          setColumnOrder([
+            "select",
+            "expand",
+            "deal_id",
+            ...starred.map((i) => i.id),
+            "comments",
+            "actions",
+          ]);
+          // Default all dynamic columns to visible
+          const vis: VisibilityState = { comments: true };
+          starred.forEach((i) => { vis[i.id] = true; });
+          setColumnVisibility(vis);
+        }
+      } catch (err) {
+        console.error("Failed to fetch inputs:", err);
+      }
+    }
+    fetchInputs();
+    return () => { active = false; };
+  }, []);
 
   const loadComments = React.useCallback(
     async (dealId: string, markRead: boolean) => {
@@ -753,8 +714,8 @@ export function DealsDataTable({
   }, []);
 
   const columns = React.useMemo(
-    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, rowComments),
-    [router, expandedRows, toggleRow, openCommentsSheet, rowComments]
+    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, rowComments, starredInputs),
+    [router, expandedRows, toggleRow, openCommentsSheet, rowComments, starredInputs]
   );
 
   // Set up sensors for drag and drop
@@ -879,18 +840,16 @@ export function DealsDataTable({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // Format column names for display
+  // Format column names for display – built dynamically from starred inputs
   function formatColumnName(columnId: string): string {
     const columnNameMap: Record<string, string> = {
-      loan_number: "Loan Number",
-      property_address: "Property Address",
-      project_type: "Project Type",
-      deal_stage_2: "Deal Stage",
-      loan_amount_total: "Total Amount",
-      guarantor_name: "Guarantor",
-      funding_date: "Funding Date",
+      deal_id: "Deal ID",
       comments: "Comments",
     };
+    // Add starred input labels
+    starredInputs.forEach((input) => {
+      columnNameMap[input.id] = input.input_label;
+    });
 
     return (
       columnNameMap[columnId] ||
@@ -1026,12 +985,12 @@ export function DealsDataTable({
               placeholder="Filter deals..."
               value={
                 (table
-                  .getColumn("property_address")
+                  .getColumn("deal_id")
                   ?.getFilterValue() as string) ?? ""
               }
               onChange={(event) =>
                 table
-                  .getColumn("property_address")
+                  .getColumn("deal_id")
                   ?.setFilterValue(event.target.value)
               }
               className="max-w-sm"
@@ -1271,7 +1230,7 @@ export function DealsDataTable({
           <SheetContent className="w-full sm:max-w-xl flex flex-col p-0">
             <SheetHeader className="px-6 py-4 border-b">
               <SheetTitle>
-                {commentsSheetDealId && data.find(d => String(d.id) === commentsSheetDealId)?.deal_name || "Deal Comments"}
+                {commentsSheetDealId ? `Deal ${commentsSheetDealId.slice(0, 8)}...` : "Deal Comments"}
               </SheetTitle>
               <SheetDescription>
                 View and add comments for this deal
@@ -1281,7 +1240,7 @@ export function DealsDataTable({
               <CommentThread
                 comments={rowComments[commentsSheetDealId]?.comments ?? []}
                 dealId={commentsSheetDealId}
-                dealName={data.find(d => String(d.id) === commentsSheetDealId)?.deal_name || ""}
+                dealName={commentsSheetDealId ?? ""}
                 onAddComment={addComment}
               />
             )}

@@ -1,39 +1,22 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { z } from "zod"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { toast } from "@/hooks/use-toast"
-import { Button } from "@repo/ui/shadcn/button"
-import { Checkbox } from "@repo/ui/shadcn/checkbox"
+import { useEffect, useState, useCallback } from "react"
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@repo/ui/shadcn/form"
+  Button as AriaButton,
+  Group,
+  Input as AriaInput,
+  NumberField,
+} from "react-aria-components"
+import { Loader2, MinusIcon, PlusIcon } from "lucide-react"
+import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
-import { Textarea } from "@repo/ui/shadcn/textarea"
-import SelectDropdown from "@/components/select-dropdown"
+import { Label } from "@repo/ui/shadcn/label"
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@repo/ui/shadcn/accordion"
-import {
-  BadgeDollarSign,
-  Briefcase,
-  Calendar,
-  FileText,
-  Home,
-  ShieldCheck,
-  Users,
-} from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -50,319 +33,38 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select"
 import { DatePickerField } from "@/components/date-picker-field"
+import { CalcInput } from "@/components/calc-input"
 
-const optionalNumber = (min = 0, max?: number) =>
-  z.preprocess(
-    (val) => (val === "" || val == null ? undefined : Number(val)),
-    max == null
-      ? z.number().min(min).optional()
-      : z.number().min(min).max(max).optional()
-  )
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                      */
+/* -------------------------------------------------------------------------- */
 
-const optionalText = z.string().optional().or(z.literal(""))
-
-const CUSTOM_OPTION = "__custom__"
-
-const enumOptions = {
-  vesting_type: ["entity", "individual"],
-  lead_source_type: ["broker", "referral", "direct", "online", "partner"],
-  recourse_type: ["full_recourse", "limited_recourse", "non_recourse"],
-  transaction_type: [
-    "purchase",
-    "delayed_purchase",
-    "refinance_rate_term",
-    "refinance_cash_out",
-  ],
-  loan_structure_dscr: [
-    "30_yr_fixed",
-    "5/1_arm",
-    "5/1_arm_io",
-    "7/1_arm",
-    "7/1_arm_io",
-    "10/1_arm",
-    "10/1_arm_io",
-    "5/6_arm",
-    "5/6_arm_io",
-    "10/6_arm",
-    "10/6_arm_io",
-  ],
-  loan_term: [
-    "0",
-    "12",
-    "24",
-    "36",
-    "48",
-    "60",
-    "72",
-    "84",
-    "96",
-    "108",
-    "120",
-    "300",
-    "360",
-  ],
-  deal_type: ["dscr", "rtl"],
-  project_type: ["rental", "fix_and_flip", "ground_up", "mixed_use"],
-  deal_stage_1: ["lead", "scenario", "deal"],
-  deal_stage_2: [
-    "loan_setup",
-    "processing_1",
-    "appraisal_review",
-    "processing_2",
-    "qc_1",
-    "underwriting",
-    "conditionally_approved",
-    "qc_2",
-    "clear_to_close",
-    "closed_and_funded",
-  ],
-  deal_disposition_1: ["active", "dead", "on_hold"],
-  loan_type_rtl: ["bridge", "bridge_plus_rehab"],
-  recently_renovated: ["yes", "no"],
-  ppp_term: [
-    "0",
-    "12",
-    "24",
-    "36",
-    "48",
-    "60",
-    "72",
-    "84",
-    "96",
-    "108",
-    "120",
-    "300",
-    "360",
-  ],
-  ppp_structure_1: ["declining", "fixed", "minimum_interest"],
-  property_type: [
-    "single_family",
-    "condominium",
-    "condominium_warrantable",
-    "condominium_non-warrantable",
-    "townhome/pud",
-    "multifamily 2-4",
-    "multifamily 5-10",
-    "multifamily 11+",
-    "mixed_use 2-4",
-    "mixed_use 5-10",
-    "mixed_use 11+",
-    "other",
-  ],
-  warrantability: ["warrantable", "non_warrantable"],
+interface InputCategory {
+  id: number
+  category: string
+  organization_id: string
+  display_order: number
+  created_at: string
 }
 
-function EnumSelectField({
-  control,
-  name,
-  label,
-  options,
-  placeholder,
-  description,
-  customPlaceholder,
-}: {
-  control: any
-  name: keyof DealFormValues
-  label: string
-  options: string[]
-  placeholder?: string
-  description?: string
-  customPlaceholder?: string
-}) {
-  return (
-    <FormField
-      control={control}
-      name={name}
-      render={({ field }) => {
-        const current = typeof field.value === "string" ? field.value : ""
-        const isKnown = options.includes(current)
-        const selectValue = isKnown
-          ? current
-          : current
-            ? CUSTOM_OPTION
-            : undefined
-
-        return (
-          <FormItem>
-            <FormLabel>{label}</FormLabel>
-            <Select
-              value={selectValue}
-              onValueChange={(value) => {
-                if (value === CUSTOM_OPTION) {
-                  field.onChange("")
-                  return
-                }
-                field.onChange(value)
-              }}
-            >
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder={placeholder ?? "Select"} />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {options.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {opt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\bQc\b/g, "QC").replace(/\bDscr\b/g, "DSCR").replace(/\bRtl\b/g, "RTL").replace(/\bIo\b/g, "IO").replace(/\bPud\b/g, "PUD")}
-                  </SelectItem>
-                ))}
-                <SelectItem value={CUSTOM_OPTION}>Custom</SelectItem>
-              </SelectContent>
-            </Select>
-            {selectValue === CUSTOM_OPTION ? (
-              <div className="mt-2">
-                <FormControl>
-                  <Input
-                    placeholder={customPlaceholder ?? "Enter value"}
-                    value={current}
-                    onChange={(event) => field.onChange(event.target.value)}
-                  />
-                </FormControl>
-              </div>
-            ) : null}
-            {description ? <FormDescription>{description}</FormDescription> : null}
-            <FormMessage />
-          </FormItem>
-        )
-      }}
-    />
-  )
+interface InputField {
+  id: string
+  category_id: number
+  category: string
+  input_label: string
+  input_type: string
+  dropdown_options: string[] | null
+  starred: boolean
+  organization_id: string
+  display_order: number
+  created_at: string
 }
 
-const dealFormSchema = z.object({
-  id: optionalNumber(0),
-  deal_name: optionalText,
-  vesting_type: optionalText,
-  guarantor_count: optionalNumber(0),
-  lead_source_type: optionalText,
-  property_id: optionalNumber(0),
-  property_type: optionalText,
-  warrantability: optionalText,
-  company_id: optionalText,
-  created_at: optionalText,
-  updated_at: optionalText,
-  note_date: optionalText,
-  mid_fico: optionalNumber(0),
-  pricing_is_locked: z.boolean().optional(),
-  lead_source_name: optionalText,
-  loan_number: z.string().min(1, "Loan number is required"),
-  declaration_1_lawsuits: z.boolean().optional(),
-  declaration_2_bankruptcy: z.boolean().optional(),
-  declaration_3_felony: z.boolean().optional(),
-  declaration_5_license: z.boolean().optional(),
-  declaration_1_lawsuits_explanation: optionalText,
-  declaration_2_bankruptcy_explanation: optionalText,
-  declaration_3_felony_explanation: optionalText,
-  recourse_type: optionalText,
-  transaction_type: optionalText,
-  payoff_mtg1_amount: optionalNumber(0),
-  loan_structure_dscr: optionalText,
-  guarantor_fico_score: optionalNumber(0),
-  title_company_id: optionalText,
-  insurance_carrier_company_id: optionalText,
-  cash_out_purpose: optionalText,
-  target_closing_date: optionalText,
-  date_of_purchase: optionalText,
-  loan_amount_total: optionalNumber(0),
-  construction_holdback: optionalNumber(0),
-  loan_amount_initial: optionalNumber(0),
-  loan_term: optionalText,
-  title_file_number: optionalText,
-  deal_type: optionalText,
-  project_type: optionalText,
-  deal_stage_1: optionalText,
-  deal_stage_2: optionalText,
-  deal_disposition_1: optionalText,
-  loan_type_rtl: optionalText,
-  renovation_cost: optionalNumber(0),
-  renovation_completed: optionalText,
-  recently_renovated: optionalText,
-  purchase_price: optionalNumber(0),
-  funding_date: optionalText,
-  loan_sale_date: optionalText,
-  pricing_file_path: optionalText,
-  pricing_file_url: optionalText,
-  loan_buyer_company_id: optionalText,
-  note_rate: optionalNumber(0),
-  cost_of_capital: optionalNumber(0),
-  broker_company_id: optionalText,
-  escrow_company_id: optionalText,
-  ltv_asis: optionalNumber(0),
-  ltv_after_repair: optionalNumber(0),
-  io_period: optionalNumber(0),
-  ppp_term: optionalText,
-  ppp_structure_1: optionalText,
-})
+type FormValues = Record<string, string | boolean>
 
-type DealFormValues = z.infer<typeof dealFormSchema>
-
-const defaultValues: DealFormValues = {
-  id: undefined,
-  deal_name: "",
-  vesting_type: "",
-  guarantor_count: undefined,
-  lead_source_type: "",
-  property_id: undefined,
-  property_type: "",
-  warrantability: "",
-  company_id: "",
-  created_at: "",
-  updated_at: "",
-  note_date: "",
-  mid_fico: undefined,
-  pricing_is_locked: false,
-  lead_source_name: "",
-  loan_number: "",
-  declaration_1_lawsuits: false,
-  declaration_2_bankruptcy: false,
-  declaration_3_felony: false,
-  declaration_5_license: false,
-  declaration_1_lawsuits_explanation: "",
-  declaration_2_bankruptcy_explanation: "",
-  declaration_3_felony_explanation: "",
-  recourse_type: "",
-  transaction_type: "",
-  payoff_mtg1_amount: undefined,
-  loan_structure_dscr: "",
-  guarantor_fico_score: undefined,
-  title_company_id: "",
-  insurance_carrier_company_id: "",
-  cash_out_purpose: "",
-  target_closing_date: "",
-  date_of_purchase: "",
-  loan_amount_total: undefined,
-  construction_holdback: undefined,
-  loan_amount_initial: undefined,
-  loan_term: "",
-  title_file_number: "",
-  deal_type: "",
-  project_type: "",
-  deal_stage_1: "",
-  deal_stage_2: "",
-  deal_disposition_1: "",
-  loan_type_rtl: "",
-  renovation_cost: undefined,
-  renovation_completed: "",
-  recently_renovated: "",
-  purchase_price: undefined,
-  funding_date: "",
-  loan_sale_date: "",
-  pricing_file_path: "",
-  pricing_file_url: "",
-  loan_buyer_company_id: "",
-  note_rate: undefined,
-  cost_of_capital: undefined,
-  broker_company_id: "",
-  escrow_company_id: "",
-  ltv_asis: undefined,
-  ltv_after_repair: undefined,
-  io_period: undefined,
-  ppp_term: "",
-  ppp_structure_1: "",
-}
-
-const cleanText = (value?: string) =>
-  value && value.trim().length > 0 ? value.trim() : undefined
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function NewDealSheet({
   open,
@@ -371,164 +73,146 @@ export function NewDealSheet({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const formId = "new-deal-form"
+  const [categories, setCategories] = useState<InputCategory[]>([])
+  const [inputs, setInputs] = useState<InputField[]>([])
+  const [formValues, setFormValues] = useState<FormValues>({})
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const form = useForm<DealFormValues>({
-    resolver: zodResolver(dealFormSchema),
-    defaultValues,
-  })
-
-  const [entityOptions, setEntityOptions] = useState<
-    { label: string; value: string }[]
-  >([])
-  const [entitiesLoading, setEntitiesLoading] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    form.reset(defaultValues)
-  }, [form, open])
-
+  // Fetch categories + inputs when sheet opens
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    const fetchEntities = async () => {
-      setEntitiesLoading(true)
+
+    const fetchData = async () => {
+      setLoading(true)
       try {
-        const res = await fetch("/api/applicants/entities/list")
-        const json = await res.json().catch(() => ({}))
+        const [catsRes, inputsRes] = await Promise.all([
+          fetch("/api/input-categories"),
+          fetch("/api/inputs"),
+        ])
+        const catsJson = await catsRes.json().catch(() => [])
+        const inputsJson = await inputsRes.json().catch(() => [])
         if (cancelled) return
-        const items = Array.isArray(json?.items) ? json.items : []
-        const options = items
-          .map((item: any) => {
-            const entityId = String(item?.id ?? "")
-            if (!entityId) return null
-            const displayId = item?.display_id
-            const name = item?.entity_name ?? displayId ?? entityId
-            const label =
-              item?.entity_name && displayId
-                ? `${item.entity_name} (${displayId})`
-                : String(name)
-            return { label, value: entityId }
-          })
-          .filter((option: { label: string; value: string } | null) => !!option)
-          .sort((a: { label: string }, b: { label: string }) =>
-            a.label.localeCompare(b.label)
-          ) as { label: string; value: string }[]
-        setEntityOptions(options)
-      } catch (error) {
+
+        const cats: InputCategory[] = Array.isArray(catsJson) ? catsJson : []
+        const inp: InputField[] = Array.isArray(inputsJson) ? inputsJson : []
+
+        setCategories(cats)
+        setInputs(inp)
+
+        // Initialize form values with defaults based on type
+        const defaults: FormValues = {}
+        for (const input of inp) {
+          if (input.input_type === "boolean") {
+            defaults[input.id] = false
+          } else {
+            defaults[input.id] = ""
+          }
+        }
+        setFormValues(defaults)
+      } catch {
         if (!cancelled) {
-          setEntityOptions([])
+          setCategories([])
+          setInputs([])
+          setFormValues({})
         }
       } finally {
-        if (!cancelled) {
-          setEntitiesLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       }
     }
-    fetchEntities()
+
+    fetchData()
     return () => {
       cancelled = true
     }
   }, [open])
 
-  const onSubmit = async (values: DealFormValues) => {
+  // Reset form values and errors when sheet closes
+  useEffect(() => {
+    if (!open) {
+      setFormValues({})
+      setSubmitError(null)
+    }
+  }, [open])
+
+  const updateValue = useCallback((inputId: string, value: string | boolean) => {
+    setFormValues((prev) => ({ ...prev, [inputId]: value }))
+  }, [])
+
+  const handleCreateDeal = useCallback(async () => {
+    setSubmitting(true)
+    setSubmitError(null)
     try {
-      const payload = {
-        id: values.id,
-        deal_name: cleanText(values.deal_name),
-        vesting_type: cleanText(values.vesting_type),
-        guarantor_count: values.guarantor_count,
-        lead_source_type: cleanText(values.lead_source_type),
-        property_id: values.property_id,
-        company_id: cleanText(values.company_id),
-        created_at: cleanText(values.created_at),
-        updated_at: cleanText(values.updated_at),
-        note_date: cleanText(values.note_date),
-        mid_fico: values.mid_fico,
-        pricing_is_locked: values.pricing_is_locked ?? false,
-        lead_source_name: cleanText(values.lead_source_name),
-        loan_number: values.loan_number.trim(),
-        declaration_1_lawsuits: values.declaration_1_lawsuits ?? false,
-        declaration_2_bankruptcy: values.declaration_2_bankruptcy ?? false,
-        declaration_3_felony: values.declaration_3_felony ?? false,
-        declaration_5_license: values.declaration_5_license ?? false,
-        declaration_1_lawsuits_explanation: cleanText(
-          values.declaration_1_lawsuits_explanation
-        ),
-        declaration_2_bankruptcy_explanation: cleanText(
-          values.declaration_2_bankruptcy_explanation
-        ),
-        declaration_3_felony_explanation: cleanText(
-          values.declaration_3_felony_explanation
-        ),
-        recourse_type: cleanText(values.recourse_type),
-        transaction_type: cleanText(values.transaction_type),
-        payoff_mtg1_amount: values.payoff_mtg1_amount,
-        loan_structure_dscr: cleanText(values.loan_structure_dscr),
-        guarantor_fico_score: values.guarantor_fico_score,
-        title_company_id: cleanText(values.title_company_id),
-        insurance_carrier_company_id: cleanText(
-          values.insurance_carrier_company_id
-        ),
-        cash_out_purpose: cleanText(values.cash_out_purpose),
-        target_closing_date: cleanText(values.target_closing_date),
-        date_of_purchase: cleanText(values.date_of_purchase),
-        loan_amount_total: values.loan_amount_total,
-        construction_holdback: values.construction_holdback,
-        loan_amount_initial: values.loan_amount_initial,
-        loan_term: cleanText(values.loan_term),
-        title_file_number: cleanText(values.title_file_number),
-        deal_type: cleanText(values.deal_type),
-        project_type: cleanText(values.project_type),
-        deal_stage_1: cleanText(values.deal_stage_1),
-        deal_stage_2: cleanText(values.deal_stage_2),
-        deal_disposition_1: cleanText(values.deal_disposition_1),
-        loan_type_rtl: cleanText(values.loan_type_rtl),
-        renovation_cost: values.renovation_cost,
-        renovation_completed: cleanText(values.renovation_completed),
-        recently_renovated: cleanText(values.recently_renovated),
-        purchase_price: values.purchase_price,
-        funding_date: cleanText(values.funding_date),
-        loan_sale_date: cleanText(values.loan_sale_date),
-        pricing_file_path: cleanText(values.pricing_file_path),
-        pricing_file_url: cleanText(values.pricing_file_url),
-        loan_buyer_company_id: cleanText(values.loan_buyer_company_id),
-        note_rate: values.note_rate,
-        cost_of_capital: values.cost_of_capital,
-        broker_company_id: cleanText(values.broker_company_id),
-        escrow_company_id: cleanText(values.escrow_company_id),
-        ltv_asis: values.ltv_asis,
-        ltv_after_repair: values.ltv_after_repair,
-        io_period: values.io_period,
-        ppp_term: cleanText(values.ppp_term),
-        ppp_structure_1: cleanText(values.ppp_structure_1),
-      }
+      // Build deal_inputs array — one entry per input field (including blanks)
+      const dealInputs = inputs.map((field) => {
+        const raw = formValues[field.id]
+        let value: string | number | boolean | null = null
+
+        if (raw !== undefined && raw !== "") {
+          switch (field.input_type) {
+            case "currency":
+            case "number":
+            case "percentage": {
+              const num = typeof raw === "string" ? Number(raw) : raw
+              value = typeof num === "number" && !isNaN(num) ? num : null
+              break
+            }
+            case "boolean":
+              value = typeof raw === "boolean" ? raw : raw === "true"
+              break
+            case "text":
+            case "dropdown":
+            case "date":
+            default:
+              if (typeof raw === "string" && raw.trim().length > 0) {
+                value = raw.trim()
+              } else if (typeof raw === "boolean") {
+                value = raw
+              }
+              break
+          }
+        }
+
+        return {
+          input_id: field.id,
+          input_type: field.input_type,
+          value,
+        }
+      })
+
       const res = await fetch("/api/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ deal_inputs: dealInputs }),
       })
+
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
-        throw new Error(json?.error || "Failed to create deal")
+        throw new Error(json.error || "Failed to create deal")
       }
-      toast({
-        title: "Deal created",
-        description: "Your deal has been added to the pipeline.",
-      })
+
+      // Success — close sheet and refresh the deals table
       onOpenChange(false)
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("app:deals:changed"))
       }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create deal"
-      toast({
-        title: "Unable to create deal",
-        description: message,
-      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong"
+      setSubmitError(message)
+    } finally {
+      setSubmitting(false)
     }
-  }
+  }, [formValues, inputs, onOpenChange])
+
+  // Group inputs by category_id, preserving display_order
+  const inputsByCategory = categories.map((cat) => ({
+    category: cat,
+    fields: inputs
+      .filter((inp) => inp.category_id === cat.id)
+      .sort((a, b) => a.display_order - b.display_order),
+  }))
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -539,1025 +223,284 @@ export function NewDealSheet({
             Capture the core deal details and keep them organized.
           </SheetDescription>
         </SheetHeader>
+
         <div className="mt-6 max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
-          <Form {...form}>
-            <form
-              id={formId}
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-6 rounded-xl border bg-background/70 p-4 shadow-sm"
-            >
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">
+                Loading form...
+              </span>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                No input categories configured yet.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set up categories and inputs in your organization settings.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 rounded-xl border bg-background/70 p-4 shadow-sm">
               <Accordion
                 type="multiple"
-                defaultValue={["overview", "borrowers", "loan", "property"]}
+                defaultValue={categories.map((c) => String(c.id))}
                 className="w-full space-y-4"
               >
-                <AccordionItem
-                  value="overview"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span>Deal Overview</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Deal ID</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Auto-generated"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Leave blank to auto-generate.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="deal_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Deal Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Deal name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="loan_number"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Loan Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Loan number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="title_file_number"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title File Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Title file number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="deal_stage_1"
-                        label="Deal Stage 1"
-                        options={enumOptions.deal_stage_1}
-                        placeholder="Select stage"
-                        customPlaceholder="Custom stage"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="deal_stage_2"
-                        label="Deal Stage 2"
-                        options={enumOptions.deal_stage_2}
-                        placeholder="Select stage"
-                        customPlaceholder="Custom stage"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="deal_disposition_1"
-                        label="Deal Disposition"
-                        options={enumOptions.deal_disposition_1}
-                        placeholder="Select disposition"
-                        customPlaceholder="Custom disposition"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="project_type"
-                        label="Project Type"
-                        options={enumOptions.project_type}
-                        placeholder="Select project type"
-                        customPlaceholder="Custom project type"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="deal_type"
-                        label="Deal Type"
-                        options={enumOptions.deal_type}
-                        placeholder="Select deal type"
-                        customPlaceholder="Custom deal type"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="transaction_type"
-                        label="Transaction Type"
-                        options={enumOptions.transaction_type}
-                        placeholder="Select transaction type"
-                        customPlaceholder="Custom transaction type"
-                      />
-                      <FormField
-                        control={form.control}
-                        name="lead_source_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Lead Source Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Lead source name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="lead_source_type"
-                        label="Lead Source Type"
-                        options={enumOptions.lead_source_type}
-                        placeholder="Select lead source"
-                        customPlaceholder="Custom lead source"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="loan_type_rtl"
-                        label="Loan Type RTL"
-                        options={enumOptions.loan_type_rtl}
-                        placeholder="Select RTL type"
-                        customPlaceholder="Custom RTL type"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="loan_structure_dscr"
-                        label="Loan Structure DSCR"
-                        options={enumOptions.loan_structure_dscr}
-                        placeholder="Select structure"
-                        customPlaceholder="Custom structure"
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem
-                  value="borrowers"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>Borrower &amp; Guarantors</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <EnumSelectField
-                        control={form.control}
-                        name="vesting_type"
-                        label="Vesting Type"
-                        options={enumOptions.vesting_type}
-                        placeholder="Select vesting type"
-                        customPlaceholder="Custom vesting type"
-                      />
-                      <FormField
-                        control={form.control}
-                        name="guarantor_count"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Guarantor Count</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="1"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="guarantor_fico_score"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Guarantor FICO</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="mid_fico"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Mid FICO</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem
-                  value="property"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-4 w-4 text-muted-foreground" />
-                      <span>Property &amp; Renovation</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="property_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Property ID</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Property ID"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="property_type"
-                        label="Property Type"
-                        options={enumOptions.property_type}
-                        placeholder="Select property type"
-                        customPlaceholder="Custom property type"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="warrantability"
-                        label="Warrantability"
-                        options={enumOptions.warrantability}
-                        placeholder="Select warrantability"
-                        customPlaceholder="Custom warrantability"
-                      />
-                      <FormField
-                        control={form.control}
-                        name="purchase_price"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Purchase Price</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="date_of_purchase"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Date of Purchase</FormLabel>
-                            <FormControl>
-                              <DatePickerField
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="recently_renovated"
-                        label="Recently Renovated"
-                        options={enumOptions.recently_renovated}
-                        placeholder="Select yes/no"
-                        customPlaceholder="Custom value"
-                      />
-                      <FormField
-                        control={form.control}
-                        name="renovation_cost"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Renovation Cost</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="renovation_completed"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Renovation Completed</FormLabel>
-                            <FormControl>
-                              <DatePickerField
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem
-                  value="loan"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <BadgeDollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span>Loan Amounts &amp; Terms</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="loan_amount_total"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Loan Amount Total</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="loan_amount_initial"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Loan Amount Initial</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="construction_holdback"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Construction Holdback</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="payoff_mtg1_amount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Payoff MTG1 Amount</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="cost_of_capital"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cost of Capital</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="ltv_asis"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>LTV As-Is</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="ltv_after_repair"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>LTV After Repair</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="loan_term"
-                        label="Loan Term"
-                        options={enumOptions.loan_term}
-                        placeholder="Select loan term"
-                        customPlaceholder="Custom loan term"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="recourse_type"
-                        label="Recourse Type"
-                        options={enumOptions.recourse_type}
-                        placeholder="Select recourse type"
-                        customPlaceholder="Custom recourse type"
-                      />
-                      <FormField
-                        control={form.control}
-                        name="io_period"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>IO Period</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="ppp_term"
-                        label="PPP Term"
-                        options={enumOptions.ppp_term}
-                        placeholder="Select PPP term"
-                        customPlaceholder="Custom PPP term"
-                      />
-                      <EnumSelectField
-                        control={form.control}
-                        name="ppp_structure_1"
-                        label="PPP Structure"
-                        options={enumOptions.ppp_structure_1}
-                        placeholder="Select PPP structure"
-                        customPlaceholder="Custom PPP structure"
-                      />
-                      <FormField
-                        control={form.control}
-                        name="note_rate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Note Rate</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                value={field.value ?? ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="pricing_is_locked"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-md border p-3">
-                            <div className="space-y-0.5">
-                              <FormLabel>Pricing Locked</FormLabel>
-                              <FormDescription>
-                                Lock pricing changes on this deal.
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value ?? false}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="cash_out_purpose"
-                        render={({ field }) => (
-                          <FormItem className="sm:col-span-2">
-                            <FormLabel>Cash Out Purpose</FormLabel>
-                            <FormControl>
-                              <Textarea rows={3} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem
-                  value="assignments"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-muted-foreground" />
-                      <span>Assignments</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="company_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company</FormLabel>
-                            <FormControl>
-                              <SelectDropdown
-                                defaultValue={field.value ?? ""}
-                                onValueChange={field.onChange}
-                                items={entityOptions}
-                                isPending={entitiesLoading}
-                                placeholder="Select company"
-                                isControlled
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="broker_company_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Broker Company</FormLabel>
-                            <FormControl>
-                              <SelectDropdown
-                                defaultValue={field.value ?? ""}
-                                onValueChange={field.onChange}
-                                items={entityOptions}
-                                isPending={entitiesLoading}
-                                placeholder="Select broker company"
-                                isControlled
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="escrow_company_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Escrow Company</FormLabel>
-                            <FormControl>
-                              <SelectDropdown
-                                defaultValue={field.value ?? ""}
-                                onValueChange={field.onChange}
-                                items={entityOptions}
-                                isPending={entitiesLoading}
-                                placeholder="Select escrow company"
-                                isControlled
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="title_company_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title Company</FormLabel>
-                            <FormControl>
-                              <SelectDropdown
-                                defaultValue={field.value ?? ""}
-                                onValueChange={field.onChange}
-                                items={entityOptions}
-                                isPending={entitiesLoading}
-                                placeholder="Select title company"
-                                isControlled
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="insurance_carrier_company_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Insurance Carrier</FormLabel>
-                            <FormControl>
-                              <SelectDropdown
-                                defaultValue={field.value ?? ""}
-                                onValueChange={field.onChange}
-                                items={entityOptions}
-                                isPending={entitiesLoading}
-                                placeholder="Select insurance carrier"
-                                isControlled
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="loan_buyer_company_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Loan Buyer</FormLabel>
-                            <FormControl>
-                              <SelectDropdown
-                                defaultValue={field.value ?? ""}
-                                onValueChange={field.onChange}
-                                items={entityOptions}
-                                isPending={entitiesLoading}
-                                placeholder="Select loan buyer"
-                                isControlled
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem
-                  value="timeline"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>Timeline &amp; Documents</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="note_date"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Note Date</FormLabel>
-                            <FormControl>
-                              <DatePickerField
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="target_closing_date"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Target Closing Date</FormLabel>
-                            <FormControl>
-                              <DatePickerField
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="funding_date"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Funding Date</FormLabel>
-                            <FormControl>
-                              <DatePickerField
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="loan_sale_date"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Loan Sale Date</FormLabel>
-                            <FormControl>
-                              <DatePickerField
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="created_at"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Created At</FormLabel>
-                            <FormControl>
-                              <Input type="datetime-local" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="updated_at"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Updated At</FormLabel>
-                            <FormControl>
-                              <Input type="datetime-local" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="pricing_file_path"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pricing File Path</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Storage path" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="pricing_file_url"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pricing File URL</FormLabel>
-                            <FormControl>
-                              <Input placeholder="https://..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem
-                  value="declarations"
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                      <span>Declarations</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="declaration_1_lawsuits"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-md border p-3">
-                            <FormLabel>Lawsuits</FormLabel>
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value ?? false}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="declaration_1_lawsuits_explanation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Lawsuits Explanation</FormLabel>
-                            <FormControl>
-                              <Textarea rows={3} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="declaration_2_bankruptcy"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-md border p-3">
-                            <FormLabel>Bankruptcy</FormLabel>
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value ?? false}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="declaration_2_bankruptcy_explanation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bankruptcy Explanation</FormLabel>
-                            <FormControl>
-                              <Textarea rows={3} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="declaration_3_felony"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-md border p-3">
-                            <FormLabel>Felony</FormLabel>
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value ?? false}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="declaration_3_felony_explanation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Felony Explanation</FormLabel>
-                            <FormControl>
-                              <Textarea rows={3} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="declaration_5_license"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between rounded-md border p-3">
-                            <FormLabel>License</FormLabel>
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value ?? false}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                {inputsByCategory.map(({ category, fields }) => (
+                  <AccordionItem
+                    key={category.id}
+                    value={String(category.id)}
+                    className="rounded-lg border bg-muted/30 shadow-sm"
+                  >
+                    <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
+                      <span>{category.category}</span>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-0">
+                      {fields.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No inputs in this category.
+                        </p>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {fields.map((field) => (
+                            <DynamicInput
+                              key={field.id}
+                              field={field}
+                              value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
+                              onChange={(val) => updateValue(field.id, val)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
               </Accordion>
-            </form>
-          </Form>
+            </div>
+          )}
         </div>
-        <SheetFooter className="mt-4 gap-2">
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" form={formId}>
-            Create Deal
-          </Button>
+
+        <SheetFooter className="mt-4 flex-col gap-2">
+          {submitError && (
+            <p className="text-sm text-destructive text-center w-full">
+              {submitError}
+            </p>
+          )}
+          <div className="flex gap-2 justify-end w-full">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateDeal}
+              disabled={submitting || loading}
+            >
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Deal
+            </Button>
+          </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>
   )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Dynamic Input Renderer                                                     */
+/* -------------------------------------------------------------------------- */
+
+function DynamicInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: InputField
+  value: string | boolean
+  onChange: (value: string | boolean) => void
+}) {
+  const stringVal = typeof value === "string" ? value : ""
+  const boolVal = typeof value === "boolean" ? value : false
+
+  switch (field.input_type) {
+    case "text":
+      return (
+        <div className="space-y-2">
+          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <Input
+            id={field.id}
+            placeholder={field.input_label}
+            value={stringVal}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      )
+
+    case "dropdown":
+      return (
+        <div className="space-y-2">
+          <Label>{field.input_label}</Label>
+          <Select
+            value={stringVal || undefined}
+            onValueChange={(val) => onChange(val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.input_label.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.dropdown_options ?? []).map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )
+
+    case "date":
+      return (
+        <div className="space-y-2">
+          <Label>{field.input_label}</Label>
+          <DatePickerField
+            value={stringVal || ""}
+            onChange={(val) => onChange(val)}
+          />
+        </div>
+      )
+
+    case "currency":
+      return (
+        <div className="space-y-2">
+          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              $
+            </span>
+            <CalcInput
+              id={field.id}
+              value={stringVal}
+              onValueChange={(val) => onChange(val)}
+              className="pl-7"
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+      )
+
+    case "number":
+      return (
+        <div className="space-y-2">
+          <Label>{field.input_label}</Label>
+          <NumberField
+            value={stringVal ? Number(stringVal) : undefined}
+            onChange={(val) => onChange(isNaN(val) ? "" : String(val))}
+            minValue={0}
+            className="w-full"
+          >
+            <Group className="border-input data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1">
+              <AriaInput
+                placeholder="0"
+                className="placeholder:text-muted-foreground w-full grow bg-transparent px-3 py-1 text-base outline-none md:text-sm"
+              />
+              <AriaButton
+                slot="decrement"
+                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+              >
+                <MinusIcon className="size-4" />
+                <span className="sr-only">Decrease</span>
+              </AriaButton>
+              <AriaButton
+                slot="increment"
+                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+              >
+                <PlusIcon className="size-4" />
+                <span className="sr-only">Increase</span>
+              </AriaButton>
+            </Group>
+          </NumberField>
+        </div>
+      )
+
+    case "percentage":
+      return (
+        <div className="space-y-2">
+          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <div className="relative">
+            <Input
+              id={field.id}
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              min={0}
+              max={100}
+              step={0.01}
+              value={stringVal}
+              onChange={(e) => {
+                const raw = e.target.value
+                if (raw === "") {
+                  onChange("")
+                  return
+                }
+                // Allow typing but clamp on blur
+                onChange(raw)
+              }}
+              onBlur={() => {
+                if (stringVal === "") return
+                const num = parseFloat(stringVal)
+                if (isNaN(num)) {
+                  onChange("")
+                  return
+                }
+                // Clamp 0-100 and limit to 2 decimal places
+                const clamped = Math.min(100, Math.max(0, num))
+                onChange(clamped.toFixed(2).replace(/\.?0+$/, "") || "0")
+              }}
+              className="pr-8"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              %
+            </span>
+          </div>
+        </div>
+      )
+
+    case "boolean":
+      return (
+        <div className="space-y-2">
+          <Label>{field.input_label}</Label>
+          <Select
+            value={boolVal ? "true" : "false"}
+            onValueChange={(val) => onChange(val === "true")}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.input_label.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Yes</SelectItem>
+              <SelectItem value="false">No</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )
+
+    default:
+      return (
+        <div className="space-y-2">
+          <Label htmlFor={field.id}>{field.input_label}</Label>
+          <Input
+            id={field.id}
+            placeholder={field.input_label}
+            value={stringVal}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      )
+  }
 }

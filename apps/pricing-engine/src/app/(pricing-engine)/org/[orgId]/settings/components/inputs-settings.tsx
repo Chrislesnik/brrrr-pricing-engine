@@ -6,6 +6,7 @@ import {
   GripVertical,
   Pencil,
   Plus,
+  Star,
   Trash2,
   Loader2,
   X,
@@ -55,6 +56,7 @@ interface InputField {
   input_label: string;
   input_type: string;
   dropdown_options: string[] | null;
+  starred: boolean;
   organization_id: string;
   display_order: number;
   created_at: string;
@@ -65,6 +67,7 @@ const INPUT_TYPES = [
   { value: "dropdown", label: "Dropdown" },
   { value: "number", label: "Number" },
   { value: "currency", label: "Currency" },
+  { value: "percentage", label: "Percentage" },
   { value: "date", label: "Date" },
   { value: "boolean", label: "Boolean" },
 ] as const;
@@ -76,6 +79,7 @@ const TYPE_COLORS: Record<string, string> = {
   currency: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
   date: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   boolean: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+  percentage: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -253,6 +257,26 @@ export function InputsSettings() {
       }
     } finally {
       setSavingInput(false);
+    }
+  };
+
+  const handleToggleStar = async (input: InputField) => {
+    try {
+      const res = await fetch("/api/inputs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: input.id, starred: !input.starred }),
+      });
+      if (res.ok) {
+        // Optimistically update local state
+        setInputs((prev) =>
+          prev.map((inp) =>
+            inp.id === input.id ? { ...inp, starred: !inp.starred } : inp
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Failed to toggle star:", err);
     }
   };
 
@@ -603,7 +627,13 @@ export function InputsSettings() {
                           asHandle
                           asChild
                         >
-                          <div className="group flex items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-xs">
+                          <div
+                            className={`group flex items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-xs transition-shadow ${
+                              input.starred
+                                ? "ring-1 ring-warning/60 shadow-[0_0_8px_hsl(var(--warning)/0.25)]"
+                                : ""
+                            }`}
+                          >
                             <GripVertical className="size-3.5 text-muted-foreground shrink-0" />
                             <span className="text-sm font-medium truncate">
                               {input.input_label}
@@ -622,6 +652,19 @@ export function InputsSettings() {
                                     ({input.dropdown_options.length} opts)
                                   </span>
                                 )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-warning shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleStar(input);
+                                }}
+                              >
+                                <Star
+                                  className={`size-3 ${input.starred ? "fill-warning text-warning" : ""}`}
+                                />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
