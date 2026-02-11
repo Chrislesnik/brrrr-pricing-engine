@@ -15,7 +15,7 @@ export function NavSearch() {
       <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu className="w-full">
           <SidebarMenuItem className="flex items-center gap-2 w-full">
-            <SearchForm variant="sidebar" className="w-full" />
+            <SearchForm variant="sidebar" disableShortcut className="w-full" />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroupContent>

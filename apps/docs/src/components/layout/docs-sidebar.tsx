@@ -11,131 +11,182 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@repo/ui/shadcn/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@repo/ui/shadcn/collapsible";
 import { useUser } from "@clerk/nextjs";
 import { WorkspaceSwitcher } from "@repo/ui/custom/workspace-switcher";
-import { NavUser } from "./nav-user";
 import { TeamSwitcherV2 } from "./team-switcher-v2";
 import { NavSearch } from "./nav-search";
+import { NavUser } from "./nav-user";
 import type * as PageTree from "fumadocs-core/page-tree";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronRight, Folder } from "lucide-react";
+import { BookOpen, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@repo/ui/shadcn/collapsible";
 
 interface DocsSidebarProps extends React.ComponentProps<typeof Sidebar> {
   tree: PageTree.Node[];
 }
 
 export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
-  const { user } = useUser();
   const pathname = usePathname();
+  const { user } = useUser();
 
-  const hasActivePath = (node: PageTree.Node): boolean => {
+  const hasActiveDescendant = (node: PageTree.Node): boolean => {
     if (node.type === "page") return pathname === node.url;
-    if (node.type === "folder") return node.children.some(hasActivePath);
+    if (node.type === "folder" && node.children) {
+      return node.children.some(hasActiveDescendant);
+    }
     return false;
   };
 
-  const renderPage = (item: PageTree.Item, level: number) => {
-    const isActive = pathname === item.url;
-    return (
-      <SidebarMenuItem key={item.url}>
-        <SidebarMenuButton asChild isActive={isActive} style={{ paddingLeft: 8 + level * 12 }}>
-          <Link href={item.url}>
-            <BookOpen className="h-4 w-4" />
-            <span>{item.name}</span>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    );
-  };
+  const renderChildren = (children: PageTree.Node[]) =>
+    children.map((child, childIndex) => {
+      if (child.type === "page") {
+        const isActive = pathname === child.url;
+        return (
+          <SidebarMenuSubItem key={childIndex}>
+            <SidebarMenuSubButton asChild isActive={isActive}>
+              <Link href={child.url}>
+                <span>{child.name}</span>
+              </Link>
+            </SidebarMenuSubButton>
+          </SidebarMenuSubItem>
+        );
+      }
 
-  const renderFolderMenu = (folder: PageTree.Folder, level: number) => {
-    const defaultOpen = folder.defaultOpen ?? hasActivePath(folder);
-    return (
-      <SidebarMenuItem key={`${folder.name}-${level}`}>
-        <Collapsible defaultOpen={defaultOpen}>
-          <CollapsibleTrigger asChild>
-            <SidebarMenuButton style={{ paddingLeft: 8 + level * 12 }}>
-              <Folder className="h-4 w-4" />
-              <span className="flex-1">{folder.name}</span>
-              <ChevronRight className="h-4 w-4 transition-transform data-[state=open]:rotate-90" />
-            </SidebarMenuButton>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <SidebarMenu className="ml-3 border-l pl-2">
-              {folder.children.map((child) =>
-                child.type === "page"
-                  ? renderPage(child, level + 1)
-                  : child.type === "folder"
-                    ? renderFolderMenu(child, level + 1)
-                    : null
-              )}
-            </SidebarMenu>
-          </CollapsibleContent>
+      if (child.type === "folder") {
+        const hasActive = hasActiveDescendant(child);
+        return (
+          <SidebarMenuSubItem key={childIndex}>
+            <Collapsible defaultOpen={hasActive} className="group/collapsible">
+              <CollapsibleTrigger asChild>
+                <SidebarMenuSubButton>
+                  {child.index ? (
+                    <Link href={child.index.url} className="flex-1">
+                      <span>{child.name}</span>
+                    </Link>
+                  ) : (
+                    <span className="flex-1">{child.name}</span>
+                  )}
+                  <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
+                </SidebarMenuSubButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {child.children && renderChildren(child.children)}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarMenuSubItem>
+        );
+      }
+
+      return null;
+    });
+
+  const renderNode = (node: PageTree.Node, index: number) => {
+    const tooltipLabel = typeof node.name === "string" ? node.name : undefined;
+    if (node.type === "page") {
+      const isActive = pathname === node.url;
+      return (
+        <SidebarMenuItem key={index}>
+          <SidebarMenuButton asChild isActive={isActive} tooltip={tooltipLabel}>
+            <Link href={node.url}>
+              <BookOpen className="h-4 w-4" />
+              <span>{node.name}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    }
+
+    if (node.type === "folder") {
+      const hasActive = hasActiveDescendant(node);
+      return (
+        <Collapsible key={index} defaultOpen={hasActive} className="group/collapsible">
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip={tooltipLabel}>
+                <BookOpen className="h-4 w-4" />
+                {node.index ? (
+                  <Link href={node.index.url} className="flex-1">
+                    <span>{node.name}</span>
+                  </Link>
+                ) : (
+                  <span>{node.name}</span>
+                )}
+                <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>{node.children && renderChildren(node.children)}</SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
         </Collapsible>
-      </SidebarMenuItem>
-    );
+      );
+    }
+
+    if (node.type === "separator") {
+      return <SidebarGroupLabel key={index}>{node.name}</SidebarGroupLabel>;
+    }
+
+    return null;
   };
 
-  const topLevelFolders = tree.filter(
-    (node): node is PageTree.Folder => node.type === "folder"
-  );
-  const topLevelPages = tree.filter(
-    (node): node is PageTree.Item => node.type === "page"
-  );
+  const renderGroupedContent = () => {
+    const groups: { title?: string; indexUrl?: string; nodes: PageTree.Node[] }[] = [];
+    const rootNodes: PageTree.Node[] = [];
+
+    for (const node of tree) {
+      if (node.type === "folder") {
+        const title = typeof node.name === "string" ? node.name : undefined;
+        groups.push({
+          title,
+          indexUrl: node.index?.url,
+          nodes: node.children || [],
+        });
+      } else {
+        rootNodes.push(node);
+      }
+    }
+
+    if (rootNodes.length > 0) {
+      groups.unshift({ nodes: rootNodes });
+    }
+
+    return groups.map((group, groupIndex) => (
+      <SidebarGroup key={groupIndex}>
+        {group.title && (
+          <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+            {group.indexUrl ? (
+              <Link href={group.indexUrl} className="hover:text-sidebar-foreground transition-colors">
+                {group.title}
+              </Link>
+            ) : (
+              group.title
+            )}
+          </SidebarGroupLabel>
+        )}
+        <SidebarGroupContent className="flex flex-col gap-2">
+          <SidebarMenu>{group.nodes.map((node, index) => renderNode(node, index))}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    ));
+  };
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="pt-3">
         <TeamSwitcherV2 />
         <WorkspaceSwitcher />
         <NavSearch />
       </SidebarHeader>
-      <SidebarContent>
-        {topLevelFolders.map((folder) => (
-          <SidebarGroup key={`group-${folder.name}`}>
-            <Collapsible defaultOpen={folder.defaultOpen ?? hasActivePath(folder)}>
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center gap-2">
-                  <span className="flex-1">{folder.name}</span>
-                  <ChevronRight className="h-4 w-4 transition-transform data-[state=open]:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {folder.children.map((child) =>
-                      child.type === "page"
-                        ? renderPage(child, 0)
-                        : child.type === "folder"
-                          ? renderFolderMenu(child, 0)
-                          : null
-                    )}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
-        ))}
-        {topLevelPages.length > 0 ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Docs</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {topLevelPages.map((item) => renderPage(item, 0))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : null}
-      </SidebarContent>
+      <SidebarContent>{renderGroupedContent()}</SidebarContent>
       <SidebarFooter>
         {user && (
           <NavUser

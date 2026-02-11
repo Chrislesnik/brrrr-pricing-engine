@@ -7,14 +7,12 @@ import { AppCommandDialog } from "@/components/layout/app-command-dialog";
 import { cn } from "@repo/lib/cn";
 
 interface SearchFormProps extends React.ComponentProps<"div"> {
-  onOpenTeamSwitcher?: () => void;
   variant?: "default" | "sidebar";
   disableShortcut?: boolean;
 }
 
 export function SearchForm({
   className,
-  onOpenTeamSwitcher,
   variant = "default",
   disableShortcut = false,
   ...props
@@ -48,13 +46,13 @@ export function SearchForm({
           )}
           onClick={() => setOpen(true)}
         >
-          <Search 
+          <Search
             className={cn(
               "absolute top-1/2 left-1.5 -translate-y-1/2 size-4",
               variant === "sidebar" && "group-data-[collapsible=icon]:static group-data-[collapsible=icon]:translate-y-0"
-            )} 
+            )}
           />
-          <span 
+          <span
             className={cn(
               "ml-3",
               variant === "sidebar" && "group-data-[collapsible=icon]:hidden"
@@ -62,10 +60,10 @@ export function SearchForm({
           >
             Search
           </span>
-          <kbd 
+          <kbd
             className={cn(
               "pointer-events-none absolute top-[0.3rem] right-[0.3rem] hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex",
-              variant === "default" 
+              variant === "default"
                 ? "bg-muted"
                 : "bg-sidebar-accent border-sidebar-border",
               variant === "sidebar" && "group-data-[collapsible=icon]:hidden"
@@ -75,11 +73,7 @@ export function SearchForm({
           </kbd>
         </Button>
       </div>
-      <AppCommandDialog
-        open={open}
-        onOpenChange={setOpen}
-        onOpenTeamSwitcher={onOpenTeamSwitcher}
-      />
+      <AppCommandDialog open={open} onOpenChange={setOpen} />
     </>
   );
 }

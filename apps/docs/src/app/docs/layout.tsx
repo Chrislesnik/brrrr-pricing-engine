@@ -17,34 +17,6 @@ export default async function DocsLayout({ children }: Props) {
   const defaultClose = cookieStore.get("sidebar:state")?.value === "false";
   const { isEnabled } = await draftMode();
 
-  const formatSegment = (segment: string) =>
-    segment
-      .split(/[-_]/g)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-
-  const getOrCreateFolder = (
-    index: Map<string, PageTree.Folder>,
-    key: string,
-    name: string,
-    container: PageTree.Node[],
-    defaultOpen = false
-  ) => {
-    let folder = index.get(key);
-    if (!folder) {
-      folder = {
-        type: "folder",
-        name,
-        children: [],
-        collapsible: true,
-        defaultOpen,
-      };
-      index.set(key, folder);
-      container.push(folder);
-    }
-    return folder;
-  };
-
   return (
     <div className="border-grid flex flex-1 flex-col">
       <SWRProvider>
@@ -65,6 +37,34 @@ export default async function DocsLayout({ children }: Props) {
         >
           {async ([{ documentation }]) => {
             "use server";
+
+            const formatSegment = (segment: string) =>
+              segment
+                .split(/[-_]/g)
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(" ");
+
+            const getOrCreateFolder = (
+              index: Map<string, PageTree.Folder>,
+              key: string,
+              name: string,
+              container: PageTree.Node[],
+              defaultOpen = false
+            ) => {
+              let folder = index.get(key);
+              if (!folder) {
+                folder = {
+                  type: "folder",
+                  name,
+                  children: [],
+                  collapsible: true,
+                  defaultOpen,
+                };
+                index.set(key, folder);
+                container.push(folder);
+              }
+              return folder;
+            };
 
             const items: PageTree.Node[] = [];
             const folderIndex = new Map<string, PageTree.Folder>();

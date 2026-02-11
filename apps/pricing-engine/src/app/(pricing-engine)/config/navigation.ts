@@ -107,7 +107,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
             {
               title: "Applications",
               url: ROUTES.applications,
-              // Icon removed for nested sub-items
+              icon: IconFile,
               shortcut: ["A"],
             },
           ],

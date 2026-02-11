@@ -9,7 +9,7 @@ const config: Config = {
   ],
   plugins: [
     ...(baseConfig.plugins || []),
-    require('@tailwindcss/typography'),
+    require("@tailwindcss/typography"),
   ],
 };
 

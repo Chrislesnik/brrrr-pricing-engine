@@ -5,12 +5,6 @@ import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FileText } from "lucide-react";
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
-import {
-  getRichTextBlocks,
-  richTextBlocks,
-  richTextComponents,
-} from "@/components/docs/basehub-renderers";
 
 interface PageProps {
   params: Promise<{
@@ -18,7 +12,7 @@ interface PageProps {
   }>;
 }
 
-export default async function DocsPage({ params }: PageProps) {
+export default async function DocsSlugPage({ params }: PageProps) {
   const { slug = [] } = await params;
   const { isEnabled } = await draftMode();
 
@@ -55,7 +49,6 @@ export default async function DocsPage({ params }: PageProps) {
               richText: {
                 json: {
                   content: true,
-                  blocks: true,
                   toc: true,
                 },
               },
@@ -122,13 +115,13 @@ function DocsIndexContent({ data }: { data: any }) {
   }, {});
 
   return (
-    <DocsPage>
-      <DocsTitle>Documentation</DocsTitle>
-      <DocsDescription>
+    <article className="flex w-full flex-1 flex-col gap-6 px-4 py-8 md:px-8 lg:px-12">
+      <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
+      <p className="text-muted-foreground">
         Browse all available documentation for the BRRRR Pricing Engine API.
-      </DocsDescription>
-      <DocsBody>
-        <div className="not-prose mt-8 space-y-8">
+      </p>
+      <div className="prose prose-neutral dark:prose-invert max-w-none">
+        <div className="not-prose mt-4 space-y-8">
           {Object.keys(groupedDocs).length > 0 ? (
             Object.entries(groupedDocs).map(([category, items]: [string, any]) => (
               <div key={category}>
@@ -171,39 +164,30 @@ function DocsIndexContent({ data }: { data: any }) {
             </div>
           )}
         </div>
-      </DocsBody>
-    </DocsPage>
+      </div>
+    </article>
   );
 }
 
 function DocsContent({ item }: { item: any }) {
-  const blocks = getRichTextBlocks(item.richText?.json?.blocks);
-
   return (
-    <DocsPage>
-      <DocsTitle>{item._title}</DocsTitle>
+    <article className="flex w-full flex-1 flex-col gap-6 px-4 py-8 md:px-8 lg:px-12">
+      <h1 className="text-3xl font-bold tracking-tight">{item._title}</h1>
       {item.category ? (
-        <DocsDescription>{item.category}</DocsDescription>
+        <p className="text-muted-foreground -mt-2">{item.category}</p>
       ) : null}
-      <DocsBody>
-        {item.richText ? (
-          <div className="mt-6">
-            <RichText
-              content={item.richText.json.content}
-              blocks={blocks}
-              components={{
-                ...richTextComponents,
-                ...richTextBlocks,
-              }}
-            />
+      <div className="prose prose-neutral dark:prose-invert max-w-none">
+        {item.richText?.json?.content ? (
+          <div className="mt-2">
+            <RichText>{item.richText.json.content}</RichText>
           </div>
         ) : (
           <p className="text-muted-foreground mt-6">
             No content available for this document.
           </p>
         )}
-      </DocsBody>
-    </DocsPage>
+      </div>
+    </article>
   );
 }
 

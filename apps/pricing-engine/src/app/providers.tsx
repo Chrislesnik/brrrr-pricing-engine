@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { ClerkProvider } from "@clerk/nextjs"
 import SearchProvider from "@/components/search-provider"
 import { ThemeProvider } from "@repo/ui/providers/theme-provider"
@@ -10,18 +10,9 @@ interface Props {
 }
 
 export function Providers({ children }: Props) {
+  // Cmd+K shortcut is handled by the header's SearchForm component.
+  // This state is kept for SearchProvider context compatibility.
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        setOpen((open) => !open)
-      }
-    }
-    document.addEventListener("keydown", down)
-    return () => document.removeEventListener("keydown", down)
-  }, [])
 
   return (
     <ClerkProvider
