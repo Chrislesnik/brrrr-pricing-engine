@@ -14,7 +14,12 @@ interface ConditionPayload {
 
 interface ActionPayload {
   input_id: string;
-  value_text: string;
+  value_type?: string;
+  value_text?: string;
+  value_visible?: boolean;
+  value_required?: boolean;
+  value_field?: string;
+  value_expression?: string;
 }
 
 interface RulePayload {
@@ -80,10 +85,12 @@ export async function GET(request: NextRequest) {
       .select("id, input_logic_id, field, operator, value")
       .in("input_logic_id", allRuleIds);
 
-    // 3. Fetch actions for these rules
+    // 3. Fetch actions for these rules (all value columns)
     const { data: actionRows } = await supabaseAdmin
       .from("input_logic_actions")
-      .select("id, input_logic_id, input_id, value_text")
+      .select(
+        "id, input_logic_id, input_id, value_type, value_visible, value_required, value_text, value_field, value_expression"
+      )
       .in("input_logic_id", allRuleIds);
 
     // 4. Assemble
@@ -101,7 +108,12 @@ export async function GET(request: NextRequest) {
         .filter((a) => a.input_logic_id === rule.id)
         .map((a) => ({
           input_id: a.input_id ?? "",
+          value_type: a.value_type ?? "value",
           value_text: a.value_text ?? "",
+          value_visible: a.value_visible ?? undefined,
+          value_required: a.value_required ?? undefined,
+          value_field: a.value_field ?? undefined,
+          value_expression: a.value_expression ?? undefined,
         })),
     }));
 
@@ -118,7 +130,7 @@ export async function GET(request: NextRequest) {
 /* -------------------------------------------------------------------------- */
 /*  POST /api/input-logic                                                      */
 /*  Body: { rules: RulePayload[] }                                             */
-/*  Saves rules + conditions. Actions are UI-only for now.                     */
+/*  Saves rules + conditions + actions.                                        */
 /* -------------------------------------------------------------------------- */
 
 export async function POST(request: NextRequest) {
@@ -181,7 +193,48 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Actions are not saved to DB yet — UI-only for now
+      // Insert actions
+      if (rule.actions && rule.actions.length > 0) {
+        const actionRows = rule.actions
+          .filter((a) => a.input_id)
+          .map((a) => {
+            const vt = a.value_type || "value";
+            return {
+              input_logic_id: ruleId,
+              input_id: a.input_id || null,
+              value_type: vt,
+              value_visible:
+                vt === "visible"
+                  ? true
+                  : vt === "not_visible"
+                    ? false
+                    : null,
+              value_required:
+                vt === "required"
+                  ? true
+                  : vt === "not_required"
+                    ? false
+                    : null,
+              value_text: vt === "value" ? (a.value_text || null) : null,
+              value_field: vt === "field" ? (a.value_field || null) : null,
+              value_expression:
+                vt === "expression" ? (a.value_expression || null) : null,
+            };
+          });
+
+        if (actionRows.length > 0) {
+          const { error: actionErr } = await supabaseAdmin
+            .from("input_logic_actions")
+            .insert(actionRows);
+
+          if (actionErr) {
+            console.error(
+              "[POST /api/input-logic] actions insert error:",
+              actionErr
+            );
+          }
+        }
+      }
     }
 
     return NextResponse.json({ ok: true, ruleIds: createdRuleIds });
