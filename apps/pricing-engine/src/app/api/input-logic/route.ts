@@ -10,6 +10,9 @@ interface ConditionPayload {
   field: string;
   operator: string;
   value: string;
+  value_type?: string;
+  value_field?: string;
+  value_expression?: string;
 }
 
 interface ActionPayload {
@@ -82,7 +85,7 @@ export async function GET(request: NextRequest) {
     // 2. Fetch conditions for these rules
     const { data: condRows } = await supabaseAdmin
       .from("input_logic_conditions")
-      .select("id, input_logic_id, field, operator, value")
+      .select("id, input_logic_id, field, operator, value, value_type, value_field, value_expression")
       .in("input_logic_id", allRuleIds);
 
     // 3. Fetch actions for these rules (all value columns)
@@ -103,6 +106,9 @@ export async function GET(request: NextRequest) {
           field: c.field ?? "",
           operator: c.operator ?? "",
           value: c.value ?? "",
+          value_type: c.value_type ?? "value",
+          value_field: c.value_field ?? undefined,
+          value_expression: c.value_expression ?? undefined,
         })),
       actions: (actionRows ?? [])
         .filter((a) => a.input_logic_id === rule.id)
@@ -172,12 +178,18 @@ export async function POST(request: NextRequest) {
       if (rule.conditions && rule.conditions.length > 0) {
         const condRows = rule.conditions
           .filter((c) => c.field || c.operator || c.value)
-          .map((c) => ({
-            input_logic_id: ruleId,
-            field: c.field || null,
-            operator: c.operator || null,
-            value: c.value || null,
-          }));
+          .map((c) => {
+            const vt = c.value_type || "value";
+            return {
+              input_logic_id: ruleId,
+              field: c.field || null,
+              operator: c.operator || null,
+              value_type: vt,
+              value: vt === "value" ? (c.value || null) : null,
+              value_field: vt === "field" ? (c.value_field || null) : null,
+              value_expression: vt === "expression" ? (c.value_expression || null) : null,
+            };
+          });
 
         if (condRows.length > 0) {
           const { error: condErr } = await supabaseAdmin

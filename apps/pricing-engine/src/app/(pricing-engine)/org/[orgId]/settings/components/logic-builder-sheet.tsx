@@ -82,10 +82,15 @@ interface InputField {
   dropdown_options?: string[] | null;
 }
 
+type ConditionValueType = "value" | "field" | "expression";
+
 interface Condition {
   field: string;
   operator: string;
   value: string;
+  value_type: ConditionValueType;
+  value_field?: string;
+  value_expression?: string;
 }
 
 interface Action {
@@ -186,6 +191,25 @@ const VALUE_TYPE_OPTIONS: {
   { value: "expression", label: "Expression", icon: Sigma },
 ];
 
+const CONDITION_VALUE_TYPE_OPTIONS: {
+  value: ConditionValueType;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: "value", label: "Value", icon: Type },
+  { value: "field", label: "Field", icon: Grid2x2 },
+  { value: "expression", label: "Expression", icon: Sigma },
+];
+
+function defaultCondition(): Condition {
+  return {
+    field: "",
+    operator: "",
+    value: "",
+    value_type: "value",
+  };
+}
+
 function defaultAction(filterInputId?: string | null): Action {
   return {
     input_id: filterInputId ?? "",
@@ -253,9 +277,13 @@ export function LogicBuilderSheet({
         if (res.ok) {
           const json = await res.json();
           if (!cancelled && Array.isArray(json.rules)) {
-            // Ensure actions have value_type defaulted
+            // Ensure conditions & actions have value_type defaulted
             const normalized = json.rules.map((r: LogicRule) => ({
               ...r,
+              conditions: (r.conditions ?? []).map((c: Condition) => ({
+                ...c,
+                value_type: (c.value_type as ConditionValueType) || "value",
+              })),
               actions: (r.actions ?? []).map((a: Action) => ({
                 ...a,
                 value_type: a.value_type || "value",
@@ -308,7 +336,7 @@ export function LogicBuilderSheet({
   const addRule = useCallback(() => {
     const newRule: LogicRule = {
       type: "AND",
-      conditions: [{ field: "", operator: "", value: "" }],
+      conditions: [defaultCondition()],
       actions: [defaultAction(filterInputId)],
     };
     setRules((prev) => [...prev, newRule]);
@@ -337,7 +365,7 @@ export function LogicBuilderSheet({
               ...r,
               conditions: [
                 ...r.conditions,
-                { field: "", operator: "", value: "" },
+                defaultCondition(),
               ],
             }
           : r
@@ -373,6 +401,27 @@ export function LogicBuilderSheet({
           if (i !== ruleIndex) return r;
           const newConds = [...r.conditions];
           newConds[condIndex] = { ...newConds[condIndex], [field]: value };
+          return { ...r, conditions: newConds };
+        })
+      );
+    },
+    []
+  );
+
+  const setConditionValueType = useCallback(
+    (ruleIndex: number, condIndex: number, vt: ConditionValueType) => {
+      setRules((prev) =>
+        prev.map((r, i) => {
+          if (i !== ruleIndex) return r;
+          const newConds = [...r.conditions];
+          newConds[condIndex] = {
+            ...newConds[condIndex],
+            value_type: vt,
+            // Clear the other value columns when switching type
+            value: vt === "value" ? newConds[condIndex].value : "",
+            value_field: vt === "field" ? (newConds[condIndex].value_field ?? "") : undefined,
+            value_expression: vt === "expression" ? (newConds[condIndex].value_expression ?? "") : undefined,
+          };
           return { ...r, conditions: newConds };
         })
       );
@@ -575,6 +624,7 @@ export function LogicBuilderSheet({
                               inputs={inputs}
                               inputMap={inputMap}
                               updateCondition={updateCondition}
+                              setConditionValueType={setConditionValueType}
                               removeCondition={removeCondition}
                             />
                           ))}
@@ -709,10 +759,15 @@ function SearchableInputSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
         <Command>
           <CommandInput placeholder={`Search...`} />
-          <CommandList>
+          <CommandList className="max-h-48 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               {inputs.map((inp) => (
@@ -746,6 +801,7 @@ function ConditionRow({
   inputs,
   inputMap,
   updateCondition,
+  setConditionValueType,
   removeCondition,
 }: {
   cond: Condition;
@@ -759,70 +815,161 @@ function ConditionRow({
     field: keyof Condition,
     value: string
   ) => void;
+  setConditionValueType: (
+    ruleIndex: number,
+    condIndex: number,
+    vt: ConditionValueType
+  ) => void;
   removeCondition: (ruleIndex: number, condIndex: number) => void;
 }) {
   const fieldInput = cond.field ? inputMap.get(cond.field) : undefined;
   const fieldType = fieldInput?.input_type;
+  const vt = cond.value_type || "value";
 
   const operators = getOperatorsForType(fieldType);
   const isValueless = VALUELESS_OPERATORS.has(cond.operator);
 
-  // Render the value input based on the selected field's input_type
+  const valueTypeLabel =
+    CONDITION_VALUE_TYPE_OPTIONS.find((o) => o.value === vt)?.label ?? "Value";
+
+  // 3-dot popover for switching condition value type
+  const threeDotButton = (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors z-10"
+          title={`Type: ${valueTypeLabel}`}
+        >
+          <MoreVertical className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1" sideOffset={4}>
+        <div className="flex flex-col">
+          {CONDITION_VALUE_TYPE_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const isActive = vt === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                className={`flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-muted transition-colors w-full text-left ${
+                  isActive
+                    ? "bg-muted font-medium"
+                    : "text-muted-foreground"
+                }`}
+                onClick={() =>
+                  setConditionValueType(ruleIndex, condIndex, opt.value)
+                }
+              >
+                <Icon className="size-3.5" />
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
+  // Render the value input based on the value_type and field's input_type
   const renderConditionValue = () => {
     // Hide value input for valueless operators (exists, is_empty, is_true, etc.)
     if (isValueless) return null;
 
+    /* -- Field mode: dropdown of all inputs (searchable) -- */
+    if (vt === "field") {
+      return (
+        <div className="relative flex-1">
+          <SearchableInputSelect
+            inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
+            value={cond.value_field || ""}
+            onValueChange={(val) =>
+              updateCondition(ruleIndex, condIndex, "value_field", val)
+            }
+            placeholder="Select field"
+          />
+          {threeDotButton}
+        </div>
+      );
+    }
+
+    /* -- Expression mode -- */
+    if (vt === "expression") {
+      return (
+        <div className="relative flex-1">
+          <ExpressionInput
+            value={cond.value_expression ?? ""}
+            onChange={(val) =>
+              updateCondition(ruleIndex, condIndex, "value_expression", val)
+            }
+            inputs={inputs}
+            className="pr-6"
+          />
+          {threeDotButton}
+        </div>
+      );
+    }
+
+    /* -- Value mode (default): mirror the field's input_type -- */
     const onChangeValue = (val: string) =>
       updateCondition(ruleIndex, condIndex, "value", val);
 
     // Dropdown field → show its dropdown_options
     if (fieldType === "dropdown" && fieldInput?.dropdown_options) {
       return (
-        <Select
-          value={cond.value || undefined}
-          onValueChange={onChangeValue}
-        >
-          <SelectTrigger className="h-8 text-xs flex-1">
-            <SelectValue placeholder="Select value" />
-          </SelectTrigger>
-          <SelectContent>
-            {fieldInput.dropdown_options.map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {opt}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative flex-1">
+          <Select
+            value={cond.value || undefined}
+            onValueChange={onChangeValue}
+          >
+            <SelectTrigger className="h-8 text-xs pr-8">
+              <SelectValue placeholder="Select value" />
+            </SelectTrigger>
+            <SelectContent>
+              {fieldInput.dropdown_options.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {threeDotButton}
+        </div>
       );
     }
 
     // Boolean field → Yes/No dropdown
     if (fieldType === "boolean") {
       return (
-        <Select
-          value={cond.value || undefined}
-          onValueChange={onChangeValue}
-        >
-          <SelectTrigger className="h-8 text-xs flex-1">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Yes</SelectItem>
-            <SelectItem value="false">No</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="relative flex-1">
+          <Select
+            value={cond.value || undefined}
+            onValueChange={onChangeValue}
+          >
+            <SelectTrigger className="h-8 text-xs pr-8">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Yes</SelectItem>
+              <SelectItem value="false">No</SelectItem>
+            </SelectContent>
+          </Select>
+          {threeDotButton}
+        </div>
       );
     }
 
     // Date field → DatePickerField
     if (fieldType === "date") {
       return (
-        <div className="flex-1">
+        <div className="relative flex-1">
           <DatePickerField
             value={cond.value || ""}
             onChange={onChangeValue}
             className="h-8 text-xs"
           />
+          {threeDotButton}
         </div>
       );
     }
@@ -830,7 +977,7 @@ function ConditionRow({
     // Number field → NumberField with +/- buttons
     if (fieldType === "number") {
       return (
-        <div className="flex-1">
+        <div className="relative flex-1">
           <NumberField
             value={cond.value ? Number(cond.value) : undefined}
             onChange={(val) => onChangeValue(isNaN(val) ? "" : String(val))}
@@ -856,6 +1003,7 @@ function ConditionRow({
               </AriaButton>
             </Group>
           </NumberField>
+          {threeDotButton}
         </div>
       );
     }
@@ -870,9 +1018,10 @@ function ConditionRow({
           <CalcInput
             value={cond.value}
             onValueChange={onChangeValue}
-            className="h-8 text-xs pl-6"
+            className="h-8 text-xs pl-6 pr-8"
             placeholder="0.00"
           />
+          {threeDotButton}
         </div>
       );
     }
@@ -904,21 +1053,25 @@ function ConditionRow({
             }}
             className="h-8 text-xs pr-7"
           />
-          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+          <span className="pointer-events-none absolute right-7 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
             %
           </span>
+          {threeDotButton}
         </div>
       );
     }
 
     // Default: text → plain text input
     return (
-      <Input
-        value={cond.value}
-        onChange={(e) => onChangeValue(e.target.value)}
-        placeholder="Value"
-        className="h-8 text-xs flex-1"
-      />
+      <div className="relative flex-1">
+        <Input
+          value={cond.value}
+          onChange={(e) => onChangeValue(e.target.value)}
+          placeholder="Value"
+          className="h-8 text-xs pr-8"
+        />
+        {threeDotButton}
+      </div>
     );
   };
 
@@ -962,7 +1115,7 @@ function ConditionRow({
         </SelectContent>
       </Select>
 
-      {/* Dynamic value input */}
+      {/* Dynamic value input with value_type switcher */}
       {renderConditionValue()}
 
       {/* Remove condition */}
