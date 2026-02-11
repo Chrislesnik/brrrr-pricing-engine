@@ -203,7 +203,7 @@ function EnumSelectField({
               <SelectContent>
                 {options.map((opt) => (
                   <SelectItem key={opt} value={opt}>
-                    {opt.replace(/_/g, " ")}
+                    {opt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\bQc\b/g, "QC").replace(/\bDscr\b/g, "DSCR").replace(/\bRtl\b/g, "RTL").replace(/\bIo\b/g, "IO").replace(/\bPud\b/g, "PUD")}
                   </SelectItem>
                 ))}
                 <SelectItem value={CUSTOM_OPTION}>Custom</SelectItem>

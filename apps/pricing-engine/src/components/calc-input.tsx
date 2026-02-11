@@ -139,7 +139,7 @@ export function CalcInput({ id, value, onValueChange, className, highlighted, ..
 				// Remove ring on normal focus, only show ring for calc mode or highlighted
 				!calcMode && !highlighted ? "focus-visible:ring-0 focus-visible:border-neutral-400" : "",
 			calcMode
-				? "ring-2 ring-purple-500/60 border-purple-500/70 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:border-purple-500/70"
+				? "ring-2 ring-purple-500 border-purple-500 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:border-purple-500"
 				: "",
 				!calcMode && highlighted ? "ring-1 ring-warning border-warning" : "",
 				className

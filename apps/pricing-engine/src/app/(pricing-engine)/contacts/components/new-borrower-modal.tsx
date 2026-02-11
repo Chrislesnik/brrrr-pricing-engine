@@ -407,7 +407,7 @@ export function NewBorrowerModal({
       ssn: vals.ssn ? vals.ssn.replace(/\D+/g, "") : undefined,
     }
     if (borrowerId) {
-      await fetch(
+      const res = await fetch(
         `/api/applicants/borrowers/${encodeURIComponent(borrowerId)}`,
         {
           method: "PATCH",
@@ -415,6 +415,12 @@ export function NewBorrowerModal({
           body: JSON.stringify(payload),
         }
       )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to save" }))
+        console.error("[Borrower Save] Error:", err.error ?? res.statusText)
+        // Don't close the modal on error so the user can retry
+        return
+      }
     } else {
       await createBorrower(payload)
     }
