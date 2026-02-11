@@ -726,8 +726,8 @@ function StartModal({ row, open, onOpenChange }: StartModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[90vh] w-[75vw] max-w-[1100px] border-none p-0 shadow-2xl sm:max-w-[1200px]">
+        <DialogTitle className="sr-only">Application workflow</DialogTitle>
         <div ref={scrollRef} className="h-full overflow-hidden">
-          <span className="sr-only">Application workflow</span>
           <MultiStepForm
             entityName={row.borrowerEntityName}
             guarantors={row.guarantors ?? undefined}

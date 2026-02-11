@@ -152,6 +152,7 @@ Stores all access policies (org-specific and global defaults).
 **Unique constraint**: `(org_id, resource_type, resource_name, action)`
 
 **Policy priority order**:
+
 1. Org-specific (`org_id IS NOT NULL`) before global (`org_id IS NULL`)
 2. Specific resource name before wildcard (`'*'`)
 
@@ -259,6 +260,7 @@ flowchart TD
 ```
 
 **Use cases**:
+
 - Called by every `org_policy_*` RLS policy on every table (288 policies across 72 tables)
 - Called indirectly via `can_access_org_resource()` by the `/api/policies/check` endpoint
 
@@ -273,6 +275,7 @@ SELECT (public.check_org_access(p_resource_type, p_resource_name, p_action)).all
 ```
 
 **Use cases**:
+
 - Called by `/api/policies/check` route handler via RPC
 - Can be called directly in application code for simple allow/deny checks
 
@@ -288,6 +291,7 @@ WHERE co.clerk_organization_id = (auth.jwt() ->> 'org_id') LIMIT 1;
 ```
 
 **Use cases**:
+
 - Called by `check_org_access()` to determine which org's policies to evaluate
 - Called by RLS scope CASE expressions to compare `org_column = get_active_org_id()`
 - Called by `can_access_document()` for document org membership checks
@@ -303,6 +307,7 @@ SELECT auth.jwt() ->> 'sub';
 ```
 
 **Use cases**:
+
 - Called by `can_access_document()` to check document uploader ownership
 
 ### 4.5 `is_org_owner(org_id)` -- OWNER BYPASS
@@ -321,6 +326,7 @@ SELECT EXISTS (
 ```
 
 **Use cases**:
+
 - Called by `check_org_access()` as priority-2 bypass (after service_role)
 - Ensures org owners can never be locked out by misconfigured policies
 
@@ -331,6 +337,7 @@ SELECT EXISTS (
 **Purpose**: Checks if the current user is an **admin or owner** of the specified organization.
 
 **Use cases**:
+
 - Called by `can_access_document()` for document admin access
 - Called by `can_access_deal_document()` for deal document admin access
 - Used in `organization_policies` RLS to allow admins to manage policies
@@ -363,6 +370,7 @@ flowchart TD
 ```
 
 **Use cases**:
+
 - Called by `deals` storage bucket RLS policies for SELECT, UPDATE, DELETE
 - Provides the bridge between storage objects and the document management tables
 
@@ -373,6 +381,7 @@ flowchart TD
 **Purpose**: Checks deal-level document access using deal role assignments and document access permissions (RBAC matrix).
 
 **Use cases**:
+
 - Called by `can_access_document()` as the final access check
 - Implements the RBAC matrix defined on the `/settings/permissions` page
 
@@ -383,6 +392,7 @@ flowchart TD
 **Purpose**: Automatically creates 8 default policies (4 for tables, 4 for storage buckets) when a new organization is inserted. Uses v3 multi-rule format with A/B/C/D scopes.
 
 **Use cases**:
+
 - Attached as `AFTER INSERT` trigger on `organizations` table
 - Ensures no organization starts with zero policies
 
@@ -470,6 +480,7 @@ flowchart LR
 ### 6.3 Generated RLS examples by category
 
 **Both columns (e.g., `deals`):**
+
 ```sql
 CREATE POLICY org_policy_select ON public.deals
   FOR SELECT TO authenticated
@@ -488,6 +499,7 @@ CREATE POLICY org_policy_select ON public.deals
 ```
 
 **Indirect org via join (e.g., `deal_comments`):**
+
 ```sql
 WHEN 'org_records' THEN EXISTS (
   SELECT 1 FROM public.deals
@@ -500,6 +512,7 @@ WHEN 'org_and_user' THEN
 ```
 
 **Neither column (e.g., `program_documents`):**
+
 ```sql
 USING (
   (check_org_access('table', 'program_documents', 'select')).allowed
@@ -739,6 +752,7 @@ The system controls access at the **table + row** level but not at the **column*
 The system now supports both `ALLOW` and `DENY` policies. DENY policies are evaluated **before** ALLOW policies -- if any DENY condition matches, access is denied regardless of any ALLOW policies.
 
 **Evaluation order:**
+
 1. Service role bypass (skips DENY)
 2. Owner bypass (skips DENY)
 3. **DENY phase**: evaluate all DENY policies; if any match, return `denied`
@@ -801,6 +815,7 @@ CREATE TABLE public.organization_members (
 ### Step 3: Create helper functions
 
 Copy these functions in order:
+
 1. `get_active_org_id()` -- resolves org UUID from JWT
 2. `get_clerk_user_id()` -- returns JWT sub
 3. `is_org_owner()` -- owner bypass check
@@ -835,6 +850,7 @@ $$;
 ### Step 7: Seed the column filters registry
 
 For every public table, INSERT a row into `organization_policies_column_filters` specifying:
+
 - Which column holds the org FK (if any)
 - Which column holds the user ID (if any)
 - Whether the user column is a text Clerk ID or bigint PK
@@ -855,6 +871,7 @@ Insert global default policies (`org_id IS NULL`) for each action/resource_type 
 ### Step 11: Build the UI
 
 Create the policy builder component with:
+
 - Condition rows (field, operator, multi-select values)
 - Action and resource selectors
 - Scope radio group
