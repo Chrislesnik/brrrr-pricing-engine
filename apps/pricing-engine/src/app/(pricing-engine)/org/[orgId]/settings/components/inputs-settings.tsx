@@ -37,6 +37,7 @@ import {
   TagsInputInput,
   TagsInputItem,
 } from "@/components/ui/tags-input";
+import { LogicBuilderSheet } from "./logic-builder-sheet";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -112,6 +113,10 @@ export function InputsSettings() {
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
 
+  // Logic Builder sheet state
+  const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
+  const [logicBuilderInputId, setLogicBuilderInputId] = useState<string | null>(null);
+
   /* ---- Fetch data ---- */
 
   const fetchData = useCallback(async () => {
@@ -136,7 +141,7 @@ export function InputsSettings() {
   /* ---- Build Kanban columns (Record<string, InputField[]>) ---- */
 
   const kanbanColumns = buildKanbanColumns(categories, inputs);
-  const categoryMap = new Map(categories.map((c) => [String(c.id), c]));
+  const categoryMap = new Map(categories.map((c) => [colKey(c.id), c]));
 
   /* ---- Category CRUD ---- */
 
@@ -293,7 +298,7 @@ export function InputsSettings() {
 
   const handleKanbanChange = (newColumns: Record<string, InputField[]>) => {
     const newColumnKeys = Object.keys(newColumns);
-    const oldColumnKeys = categories.map((c) => String(c.id));
+    const oldColumnKeys = categories.map((c) => colKey(c.id));
 
     // Check if column order changed (category drag)
     const columnOrderChanged =
@@ -302,7 +307,7 @@ export function InputsSettings() {
 
     if (columnOrderChanged) {
       // Reorder the categories array to match the new column key order
-      const catById = new Map(categories.map((c) => [String(c.id), c]));
+      const catById = new Map(categories.map((c) => [colKey(c.id), c]));
       const reorderedCategories = newColumnKeys
         .map((key) => catById.get(key)!)
         .filter(Boolean);
@@ -324,9 +329,9 @@ export function InputsSettings() {
     const reorderPayload: { id: string; category_id: number; display_order: number }[] = [];
     const newInputs: InputField[] = [];
 
-    for (const [colKey, items] of Object.entries(newColumns)) {
-      const categoryId = Number(colKey);
-      const cat = categoryMap.get(colKey);
+    for (const [key, items] of Object.entries(newColumns)) {
+      const categoryId = colId(key);
+      const cat = categoryMap.get(key);
       items.forEach((item, index) => {
         reorderPayload.push({
           id: item.id,
@@ -414,14 +419,27 @@ export function InputsSettings() {
             </Button>
           </div>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowCategoryInput(true)}
-          >
-            <Plus className="size-4 mr-1.5" />
-            Add Category
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCategoryInput(true)}
+            >
+              <Plus className="size-4 mr-1.5" />
+              Add Category
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLogicBuilderInputId(null);
+                setLogicBuilderOpen(true);
+              }}
+            >
+              <Workflow className="size-4 mr-1.5" />
+              Logic Builder
+            </Button>
+          </div>
         )}
       </div>
 
@@ -438,11 +456,11 @@ export function InputsSettings() {
         >
           <KanbanBoard>
             {categories.map((cat) => {
-              const colKey = String(cat.id);
-              const colInputs = kanbanColumns[colKey] ?? [];
+              const ck = colKey(cat.id);
+              const colInputs = kanbanColumns[ck] ?? [];
 
               return (
-                <KanbanColumn key={colKey} value={colKey}>
+                <KanbanColumn key={ck} value={ck}>
                   {/* Column header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -672,6 +690,8 @@ export function InputsSettings() {
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setLogicBuilderInputId(input.id);
+                                  setLogicBuilderOpen(true);
                                 }}
                               >
                                 <Workflow className="size-3" />
@@ -831,6 +851,13 @@ export function InputsSettings() {
           </KanbanOverlay>
         </Kanban>
       )}
+
+      {/* Logic Builder Sheet */}
+      <LogicBuilderSheet
+        open={logicBuilderOpen}
+        onOpenChange={setLogicBuilderOpen}
+        filterInputId={logicBuilderInputId}
+      />
     </div>
   );
 }
@@ -839,16 +866,25 @@ export function InputsSettings() {
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Prefix numeric IDs so Object.keys() preserves insertion order */
+const COL_PREFIX = "col-";
+function colKey(id: number): string {
+  return `${COL_PREFIX}${id}`;
+}
+function colId(key: string): number {
+  return Number(key.slice(COL_PREFIX.length));
+}
+
 function buildKanbanColumns(
   categories: InputCategory[],
   inputs: InputField[],
 ): Record<string, InputField[]> {
   const columns: Record<string, InputField[]> = {};
   for (const cat of categories) {
-    columns[String(cat.id)] = [];
+    columns[colKey(cat.id)] = [];
   }
   for (const input of inputs) {
-    const key = String(input.category_id);
+    const key = colKey(input.category_id);
     if (columns[key]) {
       columns[key].push(input);
     }
