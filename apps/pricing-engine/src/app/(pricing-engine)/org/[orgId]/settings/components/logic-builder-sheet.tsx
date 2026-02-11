@@ -22,7 +22,10 @@ import {
   Sigma,
   MinusIcon,
   PlusIcon,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import { cn } from "@repo/lib/cn";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
@@ -46,6 +49,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@repo/ui/shadcn/command";
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
 import { ExpressionInput } from "./expression-input";
@@ -663,6 +674,68 @@ export function LogicBuilderSheet({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  SearchableInputSelect – combobox with search for input fields             */
+/* -------------------------------------------------------------------------- */
+
+function SearchableInputSelect({
+  inputs,
+  value,
+  onValueChange,
+  placeholder = "Select field",
+  disabled = false,
+}: {
+  inputs: InputField[];
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = inputs.find((inp) => inp.id === value)?.label;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal h-9 text-sm"
+        >
+          <span className={cn("truncate", !selectedLabel && "text-muted-foreground")}>
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={`Search...`} />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {inputs.map((inp) => (
+                <CommandItem
+                  key={inp.id}
+                  value={inp.label}
+                  onSelect={() => {
+                    onValueChange(inp.id);
+                    setOpen(false);
+                  }}
+                >
+                  {inp.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  ConditionRow – dynamic value input based on field's input_type            */
 /* -------------------------------------------------------------------------- */
 
@@ -851,27 +924,20 @@ function ConditionRow({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Field dropdown */}
-      <Select
-        value={cond.field || undefined}
-        onValueChange={(val) => {
-          updateCondition(ruleIndex, condIndex, "field", val);
-          // Clear operator and value when field changes since the available operators differ
-          updateCondition(ruleIndex, condIndex, "operator", "");
-          updateCondition(ruleIndex, condIndex, "value", "");
-        }}
-      >
-        <SelectTrigger className="h-8 text-xs flex-1">
-          <SelectValue placeholder="Select field" />
-        </SelectTrigger>
-        <SelectContent>
-          {inputs.map((inp) => (
-            <SelectItem key={inp.id} value={inp.id}>
-              {inp.input_label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Field dropdown – searchable */}
+      <div className="flex-1">
+        <SearchableInputSelect
+          inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
+          value={cond.field || ""}
+          onValueChange={(val) => {
+            updateCondition(ruleIndex, condIndex, "field", val);
+            // Clear operator and value when field changes since the available operators differ
+            updateCondition(ruleIndex, condIndex, "operator", "");
+            updateCondition(ruleIndex, condIndex, "value", "");
+          }}
+          placeholder="Select field"
+        />
+      </div>
 
       {/* Operator dropdown – dynamic based on field type */}
       <Select
@@ -961,29 +1027,22 @@ function ActionRow({
         Set
       </span>
 
-      {/* Input dropdown */}
+      {/* Input dropdown – searchable */}
       {filterInputId && action.input_id === filterInputId ? (
         <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
           <span className="truncate">{filteredInputLabel}</span>
         </div>
       ) : (
-        <Select
-          value={action.input_id || undefined}
-          onValueChange={(val) =>
-            updateAction(ruleIndex, actionIndex, { input_id: val })
-          }
-        >
-          <SelectTrigger className="h-8 text-xs flex-1">
-            <SelectValue placeholder="Select input" />
-          </SelectTrigger>
-          <SelectContent>
-            {inputs.map((inp) => (
-              <SelectItem key={inp.id} value={inp.id}>
-                {inp.input_label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex-1">
+          <SearchableInputSelect
+            inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
+            value={action.input_id || ""}
+            onValueChange={(val) =>
+              updateAction(ruleIndex, actionIndex, { input_id: val })
+            }
+            placeholder="Select input"
+          />
+        </div>
       )}
 
       <span className="text-xs font-medium text-muted-foreground shrink-0">
@@ -1111,27 +1170,18 @@ function ActionValueInput({
     );
   }
 
-  /* -- Field mode: dropdown of all inputs -- */
+  /* -- Field mode: dropdown of all inputs (searchable) -- */
   if (vt === "field") {
     return (
       <div className="relative flex-1">
-        <Select
-          value={action.value_field || undefined}
+        <SearchableInputSelect
+          inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
+          value={action.value_field || ""}
           onValueChange={(val) =>
             updateAction(ruleIndex, actionIndex, { value_field: val })
           }
-        >
-          <SelectTrigger className="h-8 text-xs pr-8">
-            <SelectValue placeholder="Select field" />
-          </SelectTrigger>
-          <SelectContent>
-            {inputs.map((inp) => (
-              <SelectItem key={inp.id} value={inp.id}>
-                {inp.input_label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Select field"
+        />
         {threeDotButton}
       </div>
     );
