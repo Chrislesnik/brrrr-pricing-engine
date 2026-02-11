@@ -9,6 +9,7 @@ import {
   Star,
   Trash2,
   Loader2,
+  Workflow,
   X,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
@@ -664,6 +665,16 @@ export function InputsSettings() {
                                 <Star
                                   className={`size-3 ${input.starred ? "fill-warning text-warning" : ""}`}
                                 />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                              >
+                                <Workflow className="size-3" />
                               </Button>
                               <Button
                                 variant="ghost"
