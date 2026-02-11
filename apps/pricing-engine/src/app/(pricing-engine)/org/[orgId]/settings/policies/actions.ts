@@ -10,10 +10,13 @@ export type ConditionInput = {
   values: string[];
 };
 
+export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
+
 export type PolicyDefinitionInput = {
   allowInternalUsers: boolean;
   conditions: ConditionInput[];
   connector: "AND" | "OR";
+  scope?: PolicyScope;
 };
 
 // v1 PolicyRuleInput has been removed — all policies now use v2 ConditionInput format
@@ -25,6 +28,7 @@ export type OrgPolicyRow = {
   action: "select" | "insert" | "update" | "delete" | "all";
   definition_json: Record<string, unknown>;
   compiled_config: Record<string, unknown>;
+  scope: PolicyScope;
   version: number;
   is_active: boolean;
   created_at: string;
@@ -140,6 +144,7 @@ function compilePolicy(definition: PolicyDefinitionInput) {
       values: c.values.map((v) => v.toLowerCase()),
     })),
     connector: definition.connector || "AND",
+    scope: definition.scope || "all",
   };
 }
 
@@ -154,6 +159,7 @@ function buildDefinition(definition: PolicyDefinitionInput) {
       values: c.values,
     })),
     connector: definition.connector || "AND",
+    scope: definition.scope || "all",
   };
 }
 
@@ -168,7 +174,7 @@ export async function getOrgPolicies(): Promise<{
   const { data, error } = await supabase
     .from("organization_policies")
     .select(
-      "id,resource_type,resource_name,action,definition_json,compiled_config,version,is_active,created_at"
+      "id,resource_type,resource_name,action,definition_json,compiled_config,scope,version,is_active,created_at"
     )
     .eq("org_id", orgPk)
     .order("created_at", { ascending: false });
@@ -245,6 +251,7 @@ export async function saveOrgPolicy(
         action,
         definition_json: definitionJson,
         compiled_config: compiledConfig,
+        scope: input.definition.scope || "all",
         version: (existing?.version ?? 0) + 1,
         is_active: true,
         created_by_clerk_sub: userId,
@@ -319,6 +326,7 @@ export async function updateOrgPolicy(input: {
     .update({
       definition_json: definitionJson,
       compiled_config: compiledConfig,
+      scope: input.definition.scope || "all",
       created_by_clerk_sub: userId,
     })
     .eq("id", input.id);
@@ -357,6 +365,21 @@ export async function getAvailableResources(): Promise<{
       .sort() ?? [],
     buckets: buckets?.map((b) => b.name).sort() ?? [],
   };
+}
+
+export async function getColumnFilters(): Promise<
+  Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { data } = await supabase
+    .from("organization_policies_column_filters")
+    .select("table_name,org_column,user_column")
+    .eq("is_excluded", false)
+    .order("table_name");
+
+  return (data ?? []) as Array<{ table_name: string; org_column: string | null; user_column: string | null }>;
 }
 
 export async function deleteOrgPolicy(input: {

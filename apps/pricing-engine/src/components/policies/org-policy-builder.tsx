@@ -12,9 +12,11 @@ import {
   updateOrgPolicy,
   deleteOrgPolicy,
   getAvailableResources,
+  getColumnFilters,
   type OrgPolicyRow,
   type ConditionInput,
   type PolicyDefinitionInput,
+  type PolicyScope,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import {
   PolicyConditionRow,
@@ -45,6 +47,7 @@ import {
   CommandList,
 } from "@repo/ui/shadcn/command";
 import { Separator } from "@repo/ui/shadcn/separator";
+import { RadioGroup, RadioGroupItem } from "@repo/ui/shadcn/radio-group";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,6 +98,13 @@ const actionOptions = [
 const resourceScopeOptions = [
   { value: "table:*", label: "All Tables" },
   { value: "storage_bucket:*", label: "All Storage Buckets" },
+];
+
+const scopeOptions: Array<{ value: PolicyScope; label: string; description: string }> = [
+  { value: "all", label: "All Records", description: "User can access all rows in the table" },
+  { value: "org_records", label: "Organization Records", description: "Only rows belonging to the user's organization" },
+  { value: "user_records", label: "User's Own Records", description: "Only rows created by or assigned to the user" },
+  { value: "org_and_user", label: "Org + User Records", description: "Rows belonging to the org or created by the user" },
 ];
 
 const defaultCondition: ConditionState = {
@@ -252,6 +262,7 @@ function loadPolicyIntoForm(
     setAllowInternalUsers: (b: boolean) => void;
     setSelectedActions: (a: string[]) => void;
     setSelectedResources: (r: string[]) => void;
+    setSelectedScope: (s: PolicyScope) => void;
     setEditingPolicyId: (id: string | null) => void;
   }
 ) {
@@ -259,6 +270,7 @@ function loadPolicyIntoForm(
     conditions?: Array<{ field: string; operator: string; values: string[] }>;
     connector?: "AND" | "OR";
     allow_internal_users?: boolean;
+    scope?: PolicyScope;
   };
 
   setters.setConditions(
@@ -274,6 +286,7 @@ function loadPolicyIntoForm(
   setters.setAllowInternalUsers(def?.allow_internal_users ?? false);
   setters.setSelectedActions([policy.action === "all" ? "select" : policy.action]);
   setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
+  setters.setSelectedScope(policy.scope ?? def?.scope ?? "all");
   setters.setEditingPolicyId(policy.id);
 }
 
@@ -310,8 +323,16 @@ export default function OrgPolicyBuilder({
     "table:*",
   ]);
 
+  // Scope
+  const [selectedScope, setSelectedScope] = useState<PolicyScope>("all");
+
   // Global override
   const [allowInternalUsers, setAllowInternalUsers] = useState(false);
+
+  // Column filters (for conditional scope selector)
+  const [columnFilters, setColumnFilters] = useState<
+    Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+  >([]);
 
   // Status
   const [error, setError] = useState<string | null>(null);
@@ -368,6 +389,14 @@ export default function OrgPolicyBuilder({
       } catch (err) {
         console.error("Failed to load available resources:", err);
       }
+
+      // Load column filters for conditional scope selector
+      try {
+        const filters = await getColumnFilters();
+        setColumnFilters(filters);
+      } catch (err) {
+        console.error("Failed to load column filters:", err);
+      }
     }
     loadDynamicData();
   }, []);
@@ -415,12 +444,25 @@ export default function OrgPolicyBuilder({
     setConditions((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Determine if scope selector should be enabled based on selected resources
+  const scopeEnabled = (() => {
+    // If "All Tables" or "All Buckets" is selected, scope is meaningful
+    if (selectedResources.some((r) => r.endsWith(":*"))) return true;
+    // For specific tables, check if they have ownership columns
+    return selectedResources.some((r) => {
+      const name = r.split(":")[1];
+      const filter = columnFilters.find((f) => f.table_name === name);
+      return filter && (filter.org_column || filter.user_column);
+    });
+  })();
+
   function resetForm() {
     setEditingPolicyId(null);
     setConditions([{ ...defaultCondition }]);
     setConnector("AND");
     setSelectedActions(["select", "insert", "update", "delete"]);
     setSelectedResources(["table:*"]);
+    setSelectedScope("all");
     setAllowInternalUsers(false);
     setError(null);
     setStatus(null);
@@ -442,6 +484,7 @@ export default function OrgPolicyBuilder({
           allowInternalUsers,
           conditions: conditionInputs,
           connector,
+          scope: selectedScope,
         };
 
         if (editingPolicyId) {
@@ -514,6 +557,7 @@ export default function OrgPolicyBuilder({
       setAllowInternalUsers,
       setSelectedActions,
       setSelectedResources,
+      setSelectedScope,
       setEditingPolicyId,
     });
     setError(null);
@@ -627,6 +671,45 @@ export default function OrgPolicyBuilder({
             </div>
           </div>
 
+          {/* ============================================================ */}
+          {/* SCOPE Section (Row Scope) */}
+          {/* ============================================================ */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">scoped to</span>
+              {!scopeEnabled && (
+                <span className="text-xs text-muted-foreground">
+                  (selected resource has no ownership columns)
+                </span>
+              )}
+            </div>
+            <RadioGroup
+              value={selectedScope}
+              onValueChange={(v) => setSelectedScope(v as PolicyScope)}
+              disabled={!scopeEnabled}
+              className="grid grid-cols-2 gap-3"
+            >
+              {scopeOptions.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                    selectedScope === opt.value
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50",
+                    !scopeEnabled && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <RadioGroupItem value={opt.value} className="mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium leading-none">{opt.label}</p>
+                    <p className="text-xs text-muted-foreground">{opt.description}</p>
+                  </div>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+
           <Separator />
 
           {/* ============================================================ */}
@@ -727,6 +810,13 @@ export default function OrgPolicyBuilder({
                           {policy.action}
                         </Badge>
                         <span className="text-sm font-medium">{resourceScope}</span>
+                        {policy.scope && policy.scope !== "all" && (
+                          <Badge variant="secondary" className="text-xs">
+                            {policy.scope === "org_records" && "Org Records"}
+                            {policy.scope === "user_records" && "User Records"}
+                            {policy.scope === "org_and_user" && "Org + User"}
+                          </Badge>
+                        )}
                         {!policy.is_active && (
                           <Badge variant="secondary" className="text-xs">
                             Inactive
@@ -796,6 +886,126 @@ export default function OrgPolicyBuilder({
               })}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ============================================================ */}
+      {/* Policy Inventory */}
+      {/* ============================================================ */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Policy Inventory</CardTitle>
+          <CardDescription>
+            Overview of all active policies and table coverage
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Active policies by resource */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold">Active Policies</h4>
+            {initialPolicies.filter((p) => p.is_active).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active policies.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="py-2 pr-4 font-medium text-muted-foreground">Resource</th>
+                      <th className="py-2 pr-4 font-medium text-muted-foreground">Action</th>
+                      <th className="py-2 pr-4 font-medium text-muted-foreground">Scope</th>
+                      <th className="py-2 pr-4 font-medium text-muted-foreground">Conditions</th>
+                      <th className="py-2 font-medium text-muted-foreground">Version</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {initialPolicies
+                      .filter((p) => p.is_active)
+                      .sort((a, b) => {
+                        const typeCompare = a.resource_type.localeCompare(b.resource_type);
+                        if (typeCompare !== 0) return typeCompare;
+                        const nameCompare = a.resource_name.localeCompare(b.resource_name);
+                        if (nameCompare !== 0) return nameCompare;
+                        return a.action.localeCompare(b.action);
+                      })
+                      .map((policy) => (
+                        <tr key={policy.id}>
+                          <td className="py-2 pr-4">
+                            <span className="font-mono text-xs">
+                              {policy.resource_type === "storage_bucket" ? "bucket" : "table"}
+                            </span>
+                            <span className="ml-1">{policy.resource_name}</span>
+                          </td>
+                          <td className="py-2 pr-4">
+                            <Badge variant="outline" className="text-xs font-mono uppercase">
+                              {policy.action}
+                            </Badge>
+                          </td>
+                          <td className="py-2 pr-4">
+                            <Badge
+                              variant={policy.scope === "all" ? "secondary" : "default"}
+                              className="text-xs"
+                            >
+                              {policy.scope === "all" && "All"}
+                              {policy.scope === "org_records" && "Org"}
+                              {policy.scope === "user_records" && "User"}
+                              {policy.scope === "org_and_user" && "Org+User"}
+                              {!policy.scope && "All"}
+                            </Badge>
+                          </td>
+                          <td className="py-2 pr-4 text-xs text-muted-foreground max-w-[300px] truncate">
+                            {summarizeConditions(policy)}
+                          </td>
+                          <td className="py-2 text-xs text-muted-foreground">v{policy.version}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Coverage report */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold">Coverage</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Tables with specific policies</p>
+                <p className="text-2xl font-bold">
+                  {new Set(
+                    initialPolicies
+                      .filter((p) => p.is_active && p.resource_type === "table" && p.resource_name !== "*")
+                      .map((p) => p.resource_name)
+                  ).size}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Tables using wildcard policy</p>
+                <p className="text-2xl font-bold">
+                  {columnFilters.filter((f) => !f.org_column && !f.user_column).length > 0
+                    ? `${columnFilters.length - new Set(
+                        initialPolicies
+                          .filter((p) => p.is_active && p.resource_type === "table" && p.resource_name !== "*")
+                          .map((p) => p.resource_name)
+                      ).size}`
+                    : columnFilters.length.toString()}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Total active policies</p>
+                <p className="text-2xl font-bold">
+                  {initialPolicies.filter((p) => p.is_active).length}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Inactive policies</p>
+                <p className="text-2xl font-bold">
+                  {initialPolicies.filter((p) => !p.is_active).length}
+                </p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
