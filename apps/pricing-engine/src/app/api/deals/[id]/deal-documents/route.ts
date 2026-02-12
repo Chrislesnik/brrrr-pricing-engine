@@ -59,13 +59,6 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
 
     const { document_type_id, file_name, file_size, file_type } = body;
-
-    if (!document_type_id) {
-      return NextResponse.json(
-        { error: "document_type_id is required" },
-        { status: 400 }
-      );
-    }
     if (!file_name?.trim()) {
       return NextResponse.json(
         { error: "file_name is required" },
@@ -77,7 +70,7 @@ export async function POST(
       .from("deal_documents")
       .insert({
         deal_id: dealId,
-        document_type_id,
+        document_type_id: document_type_id ?? null,
         file_name: file_name.trim(),
         file_size: file_size ?? null,
         file_type: file_type ?? null,
@@ -94,6 +87,55 @@ export async function POST(
     return NextResponse.json({ document: data });
   } catch (error) {
     console.error("[POST /api/deals/[id]/deal-documents]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  PATCH /api/deals/[id]/deal-documents                                       */
+/*  Updates the document_type_id on an existing deal_document row.             */
+/*  Body: { id: number, document_type_id: number | null }                      */
+/* -------------------------------------------------------------------------- */
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: dealId } = await params;
+    const body = await request.json().catch(() => ({}));
+    const { id: docId, document_type_id } = body;
+
+    if (!docId) {
+      return NextResponse.json(
+        { error: "Document id is required" },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("deal_documents")
+      .update({ document_type_id: document_type_id ?? null })
+      .eq("id", docId)
+      .eq("deal_id", dealId)
+      .select("*")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ document: data });
+  } catch (error) {
+    console.error("[PATCH /api/deals/[id]/deal-documents]", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -24,6 +24,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
+import {
   Upload,
   FileText,
   MoreHorizontal,
@@ -35,6 +41,11 @@ import {
   ShieldCheck,
   ShieldOff,
   File,
+  LayoutList,
+  FolderOpen,
+  Search,
+  GripVertical,
+  ListFilter,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@/components/ui/switch";
@@ -70,7 +81,7 @@ interface DocumentType {
 interface DealDocument {
   id: number;
   deal_id: string;
-  document_type_id: number;
+  document_type_id: number | null;
   file_name: string;
   file_size: number | null;
   file_type: string | null;
@@ -119,6 +130,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const [loading, setLoading] = useState(true);
   const [showRequiredOnly, setShowRequiredOnly] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<"category" | "files">("category");
 
   /* ----- Document logic engine ----- */
   const { hiddenDocTypes, requiredDocTypes, loading: logicLoading } =
@@ -222,9 +234,11 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const docsByType = useMemo(() => {
     const map = new Map<number, DealDocument[]>();
     for (const doc of dealDocuments) {
-      const list = map.get(doc.document_type_id) ?? [];
-      list.push(doc);
-      map.set(doc.document_type_id, list);
+      if (doc.document_type_id != null) {
+        const list = map.get(doc.document_type_id) ?? [];
+        list.push(doc);
+        map.set(doc.document_type_id, list);
+      }
     }
     return map;
   }, [dealDocuments]);
@@ -396,88 +410,130 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
             Required and optional documents for this deal
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            id="required-filter"
-            checked={showRequiredOnly}
-            onCheckedChange={setShowRequiredOnly}
-          />
-          <Label
-            htmlFor="required-filter"
-            className="text-sm font-medium cursor-pointer select-none"
-          >
-            Required only
-          </Label>
+        <div className="flex items-center gap-4">
+          {viewMode === "category" && (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="required-filter"
+                checked={showRequiredOnly}
+                onCheckedChange={setShowRequiredOnly}
+              />
+              <Label
+                htmlFor="required-filter"
+                className="text-sm font-medium cursor-pointer select-none"
+              >
+                Required only
+              </Label>
+            </div>
+          )}
+
+          {/* View mode toggle */}
+          <div className="flex items-center rounded-md border bg-muted/30 p-0.5">
+            <Button
+              variant={viewMode === "category" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode("category")}
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              <span className="text-xs">Categories</span>
+            </Button>
+            <Button
+              variant={viewMode === "files" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => setViewMode("files")}
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+              <span className="text-xs">Files</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Categories */}
-      {categoriesWithTypes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-sm text-muted-foreground">
-            No document categories configured yet.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Set up document categories and types in your organization settings.
-          </p>
-        </div>
+      {/* View content */}
+      {viewMode === "files" ? (
+        <FileManagerView
+          dealId={dealId}
+          dealDocuments={dealDocuments}
+          setDealDocuments={setDealDocuments}
+          documentTypes={documentTypes}
+          categories={categories}
+          categoriesWithTypes={categoriesWithTypes}
+          onDeleteDocument={handleDeleteDocument}
+          isDocTypeRequired={isDocTypeRequired}
+        />
       ) : (
-        <Accordion
-          type="multiple"
-          value={openCategories}
-          onValueChange={setOpenCategories}
-          className="space-y-3"
-        >
-          {categoriesWithTypes.map(({ category, types }) => {
-            const visibleTypes = types.filter((dt) => {
-              if (!isDocTypeVisible(dt.id)) return false;
-              if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
-              return true;
-            });
+        <>
+          {/* Categories (existing view) */}
+          {categoriesWithTypes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-sm text-muted-foreground">
+                No document categories configured yet.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Set up document categories and types in your organization settings.
+              </p>
+            </div>
+          ) : (
+            <Accordion
+              type="multiple"
+              value={openCategories}
+              onValueChange={setOpenCategories}
+              className="space-y-3"
+            >
+              {categoriesWithTypes.map(({ category, types }) => {
+                const visibleTypes = types.filter((dt) => {
+                  if (!isDocTypeVisible(dt.id)) return false;
+                  if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
+                  return true;
+                });
 
-            return (
-              <AccordionItem
-                key={category.id}
-                value={String(category.id)}
-                className="rounded-lg border bg-muted/30 shadow-sm"
-              >
-                <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                  <div className="flex items-center gap-3">
-                    <span>{category.name}</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {visibleTypes.length} document type
-                      {visibleTypes.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4 pt-0">
-                  {visibleTypes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      No documents required in this category
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {visibleTypes.map((docType) => (
-                        <DocumentTypeRow
-                          key={docType.id}
-                          docType={docType}
-                          isRequired={isDocTypeRequired(docType.id)}
-                          hasVisibilityOverride={hasVisibilityOverride(docType.id)}
-                          hasRequiredOverride={hasRequiredOverride(docType.id)}
-                          files={docsByType.get(docType.id) ?? []}
-                          onFileSelect={handleFileSelect}
-                          onDeleteDocument={handleDeleteDocument}
-                          onSetOverride={handleSetOverride}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
+                return (
+                  <AccordionItem
+                    key={category.id}
+                    value={String(category.id)}
+                    className="rounded-lg border bg-muted/30 shadow-sm"
+                  >
+                    <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <span>{category.name}</span>
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {visibleTypes.length} document type
+                          {visibleTypes.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 pt-0">
+                      {visibleTypes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No documents required in this category
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {visibleTypes.map((docType) => (
+                            <DocumentTypeRow
+                              key={docType.id}
+                              docType={docType}
+                              isRequired={isDocTypeRequired(docType.id)}
+                              hasVisibilityOverride={hasVisibilityOverride(docType.id)}
+                              hasRequiredOverride={hasRequiredOverride(docType.id)}
+                              files={docsByType.get(docType.id) ?? []}
+                              onFileSelect={handleFileSelect}
+                              onDeleteDocument={handleDeleteDocument}
+                              onSetOverride={handleSetOverride}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          )}
+        </>
       )}
     </div>
   );
@@ -820,6 +876,660 @@ function DocumentTypeRow({
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  FileManagerView                                                            */
+/* -------------------------------------------------------------------------- */
+
+type FileFilter = "required" | "unclassified" | "classified";
+
+interface FileManagerViewProps {
+  dealId: string;
+  dealDocuments: DealDocument[];
+  setDealDocuments: React.Dispatch<React.SetStateAction<DealDocument[]>>;
+  documentTypes: DocumentType[];
+  categories: DocumentCategory[];
+  categoriesWithTypes: { category: DocumentCategory; types: DocumentType[] }[];
+  onDeleteDocument: (docId: number) => void;
+  isDocTypeRequired: (docTypeId: number) => boolean;
+}
+
+function FileManagerView({
+  dealId,
+  dealDocuments,
+  setDealDocuments,
+  documentTypes,
+  categories,
+  categoriesWithTypes,
+  onDeleteDocument,
+  isDocTypeRequired,
+}: FileManagerViewProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadDragOver, setUploadDragOver] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState("");
+  const [openSidebarCategories, setOpenSidebarCategories] = useState<string[]>(
+    []
+  );
+  const [dragOverDocId, setDragOverDocId] = useState<number | null>(null);
+  const [activeFilters, setActiveFilters] = useState<Set<FileFilter>>(
+    new Set()
+  );
+  const [sidebarTagFilters, setSidebarTagFilters] = useState<
+    Set<"required" | "not_uploaded">
+  >(new Set());
+
+  const toggleSidebarTagFilter = useCallback(
+    (filter: "required" | "not_uploaded") => {
+      setSidebarTagFilters((prev) => {
+        const next = new Set(prev);
+        if (next.has(filter)) {
+          next.delete(filter);
+        } else {
+          next.add(filter);
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  const toggleFilter = useCallback((filter: FileFilter) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  }, []);
+
+  /* ----- Lookup maps ----- */
+  const typeMap = useMemo(() => {
+    const map = new Map<number, DocumentType>();
+    for (const dt of documentTypes) map.set(dt.id, dt);
+    return map;
+  }, [documentTypes]);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<number, DocumentCategory>();
+    for (const c of categories) map.set(c.id, c);
+    return map;
+  }, [categories]);
+
+  /* ----- Sorted & filtered documents A-Z by file_name ----- */
+  const sortedDocs = useMemo(() => {
+    let docs = [...dealDocuments];
+
+    // Apply filters (OR logic: show files matching ANY active filter)
+    if (activeFilters.size > 0) {
+      docs = docs.filter((doc) => {
+        if (
+          activeFilters.has("unclassified") &&
+          doc.document_type_id == null
+        ) {
+          return true;
+        }
+        if (
+          activeFilters.has("classified") &&
+          doc.document_type_id != null
+        ) {
+          return true;
+        }
+        if (
+          activeFilters.has("required") &&
+          doc.document_type_id != null &&
+          isDocTypeRequired(doc.document_type_id)
+        ) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    return docs.sort((a, b) =>
+      a.file_name.localeCompare(b.file_name, undefined, {
+        sensitivity: "base",
+      })
+    );
+  }, [dealDocuments, activeFilters, isDocTypeRequired]);
+
+  /* ----- Count files per document type (for sidebar chips) ----- */
+  const fileCountByType = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const doc of dealDocuments) {
+      if (doc.document_type_id) {
+        map.set(
+          doc.document_type_id,
+          (map.get(doc.document_type_id) ?? 0) + 1
+        );
+      }
+    }
+    return map;
+  }, [dealDocuments]);
+
+  /* ----- Upload handler (unclassified files) ----- */
+  const handleUpload = useCallback(
+    async (files: FileList) => {
+      const uploaded: DealDocument[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              document_type_id: null,
+              file_name: file.name,
+              file_size: file.size,
+              file_type: file.type || null,
+            }),
+          });
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          uploaded.push(data.document);
+        } catch {
+          toast({
+            title: "Error",
+            description: `Failed to upload "${file.name}"`,
+            variant: "destructive",
+          });
+        }
+      }
+      if (uploaded.length > 0) {
+        setDealDocuments((prev) => [...prev, ...uploaded]);
+        toast({
+          title: "Files added",
+          description: `${uploaded.length} file${uploaded.length !== 1 ? "s" : ""} uploaded`,
+        });
+      }
+    },
+    [dealId, setDealDocuments]
+  );
+
+  /* ----- Assign document type via PATCH ----- */
+  const handleAssignType = useCallback(
+    async (docId: number, docTypeId: number) => {
+      try {
+        const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: docId, document_type_id: docTypeId }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setDealDocuments((prev) =>
+          prev.map((d) => (d.id === docId ? data.document : d))
+        );
+        const typeName = typeMap.get(docTypeId)?.document_name ?? "Unknown";
+        toast({
+          title: "Tagged",
+          description: `File tagged as "${typeName}"`,
+        });
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to assign document type",
+          variant: "destructive",
+        });
+      }
+    },
+    [dealId, setDealDocuments, typeMap]
+  );
+
+  /* ----- Remove tag (set document_type_id to null) ----- */
+  const handleRemoveTag = useCallback(
+    async (docId: number) => {
+      try {
+        const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: docId, document_type_id: null }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setDealDocuments((prev) =>
+          prev.map((d) => (d.id === docId ? data.document : d))
+        );
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to remove tag",
+          variant: "destructive",
+        });
+      }
+    },
+    [dealId, setDealDocuments]
+  );
+
+  /* ----- Drag handlers for sidebar chips ----- */
+  const handleChipDragStart = useCallback(
+    (e: React.DragEvent, docTypeId: number) => {
+      e.dataTransfer.setData(
+        "application/x-doc-type-id",
+        String(docTypeId)
+      );
+      e.dataTransfer.effectAllowed = "copy";
+    },
+    []
+  );
+
+  /* ----- Drop handlers for file rows ----- */
+  const handleFileDragOver = useCallback(
+    (e: React.DragEvent, docId: number) => {
+      if (e.dataTransfer.types.includes("application/x-doc-type-id")) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOverDocId(docId);
+      }
+    },
+    []
+  );
+
+  const handleFileDragLeave = useCallback(() => {
+    setDragOverDocId(null);
+  }, []);
+
+  const handleFileDrop = useCallback(
+    (e: React.DragEvent, docId: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOverDocId(null);
+      const typeIdStr = e.dataTransfer.getData("application/x-doc-type-id");
+      if (typeIdStr) {
+        handleAssignType(docId, Number(typeIdStr));
+      }
+    },
+    [handleAssignType]
+  );
+
+  /* ----- Filter sidebar categories by search ----- */
+  const filteredCategories = useMemo(() => {
+    return categoriesWithTypes
+      .map(({ category, types }) => ({
+        category,
+        types: types.filter((t) => {
+          // Text search
+          if (sidebarSearch.trim()) {
+            const q = sidebarSearch.toLowerCase();
+            if (!t.document_name.toLowerCase().includes(q)) return false;
+          }
+          // Tag filters (AND logic — must pass all active filters)
+          if (sidebarTagFilters.has("required") && !isDocTypeRequired(t.id)) {
+            return false;
+          }
+          if (
+            sidebarTagFilters.has("not_uploaded") &&
+            (fileCountByType.get(t.id) ?? 0) > 0
+          ) {
+            return false;
+          }
+          return true;
+        }),
+      }))
+      .filter(({ types }) => types.length > 0);
+  }, [
+    categoriesWithTypes,
+    sidebarSearch,
+    sidebarTagFilters,
+    isDocTypeRequired,
+    fileCountByType,
+  ]);
+
+  /* ----- Auto-open all sidebar categories ----- */
+  useEffect(() => {
+    setOpenSidebarCategories(
+      filteredCategories.map(({ category }) => String(category.id))
+    );
+  }, [filteredCategories]);
+
+  return (
+    <div className="flex gap-4 min-h-[400px] h-full">
+      {/* ---- Left panel: Upload zone + file list ---- */}
+      <div className="flex-1 min-w-0 space-y-4">
+        {/* Upload zone */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.tif,.tiff"
+          onChange={(e) => {
+            if (e.target.files?.length) handleUpload(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <div
+          className={`rounded-lg border-2 border-dashed p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
+            uploadDragOver
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/30"
+          }`}
+          onClick={() => fileInputRef.current?.click()}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUploadDragOver(false);
+            if (e.dataTransfer.files.length > 0) {
+              handleUpload(e.dataTransfer.files);
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUploadDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUploadDragOver(false);
+          }}
+        >
+          <Upload
+            className={`h-6 w-6 ${uploadDragOver ? "text-primary" : "text-muted-foreground"}`}
+          />
+          <p
+            className={`text-sm font-medium ${uploadDragOver ? "text-primary" : ""}`}
+          >
+            {uploadDragOver
+              ? "Drop files here"
+              : "Drop files here or click to browse"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            Upload multiple files — assign document types by dragging tags from
+            the sidebar
+          </p>
+        </div>
+
+        {/* File list header with filter */}
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs font-medium text-muted-foreground">
+            {sortedDocs.length} file{sortedDocs.length !== 1 ? "s" : ""}
+            {activeFilters.size > 0 && ` (filtered)`} — sorted A–Z
+          </p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={activeFilters.size > 0 ? "default" : "outline"}
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+              >
+                <ListFilter className="h-3.5 w-3.5" />
+                Filter
+                {activeFilters.size > 0 && (
+                  <span className="ml-0.5 rounded-full bg-primary-foreground/20 px-1.5 text-[10px] font-bold">
+                    {activeFilters.size}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-52 p-2">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground px-2 py-1">
+                  Filter files by
+                </p>
+                <label className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer">
+                  <Checkbox
+                    checked={activeFilters.has("required")}
+                    onCheckedChange={() => toggleFilter("required")}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-destructive" />
+                    <span className="text-xs font-medium">Required</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer">
+                  <Checkbox
+                    checked={activeFilters.has("classified")}
+                    onCheckedChange={() => toggleFilter("classified")}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-medium">Classified</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer">
+                  <Checkbox
+                    checked={activeFilters.has("unclassified")}
+                    onCheckedChange={() => toggleFilter("unclassified")}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <File className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium">Unclassified</span>
+                  </div>
+                </label>
+                {activeFilters.size > 0 && (
+                  <>
+                    <div className="border-t my-1" />
+                    <button
+                      className="w-full text-xs text-muted-foreground hover:text-foreground px-2 py-1 text-left"
+                      onClick={() => setActiveFilters(new Set())}
+                    >
+                      Clear all filters
+                    </button>
+                  </>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* File list */}
+        {sortedDocs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <File className="h-10 w-10 text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {activeFilters.size > 0
+                ? "No files match the selected filters"
+                : "No files uploaded yet"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {activeFilters.size > 0
+                ? "Try adjusting your filters"
+                : "Upload files above to get started"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {sortedDocs.map((doc) => {
+              const docType = doc.document_type_id
+                ? typeMap.get(doc.document_type_id)
+                : null;
+              const category = docType
+                ? categoryMap.get(docType.document_category_id)
+                : null;
+              const isDropTarget = dragOverDocId === doc.id;
+              const fileIsRequired =
+                doc.document_type_id != null &&
+                isDocTypeRequired(doc.document_type_id);
+
+              return (
+                <div
+                  key={doc.id}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 group/file transition-colors ${
+                    isDropTarget
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "bg-background hover:bg-muted/30"
+                  }`}
+                  onDragOver={(e) => handleFileDragOver(e, doc.id)}
+                  onDragLeave={handleFileDragLeave}
+                  onDrop={(e) => handleFileDrop(e, doc.id)}
+                >
+                  <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {doc.file_name}
+                    </p>
+                    {doc.file_size != null && doc.file_size > 0 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatFileSize(doc.file_size)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {fileIsRequired && (
+                      <Badge
+                        variant="destructive"
+                        className="text-[10px] px-1.5 py-0 h-5 shrink-0"
+                      >
+                        Required
+                      </Badge>
+                    )}
+                    {docType && category ? (
+                      <>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          onClick={() => handleRemoveTag(doc.id)}
+                        >
+                          {category.name}
+                          <X className="ml-1 h-2.5 w-2.5" />
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          onClick={() => handleRemoveTag(doc.id)}
+                        >
+                          {docType.document_name}
+                          <X className="ml-1 h-2.5 w-2.5" />
+                        </Badge>
+                      </>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 h-5 text-muted-foreground border-dashed"
+                      >
+                        Unclassified
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
+                    onClick={() => onDeleteDocument(doc.id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ---- Right sidebar: Draggable document type chips ---- */}
+      <div
+        className="w-[280px] shrink-0 rounded-lg border bg-muted/20 flex flex-col sticky top-0 self-start"
+        style={{ maxHeight: "calc(100vh - 300px)" }}
+      >
+        <div className="p-3 border-b space-y-2">
+          <p className="text-sm font-semibold">Document Types</p>
+          <p className="text-[10px] text-muted-foreground">
+            Drag a type onto a file to tag it
+          </p>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search types..."
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              className="w-full rounded-md border bg-background px-8 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            {sidebarSearch && (
+              <button
+                onClick={() => setSidebarSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+              >
+                <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+              </button>
+            )}
+          </div>
+          {/* Sidebar tag filters */}
+          <div className="flex flex-wrap gap-1">
+            <button
+              onClick={() => toggleSidebarTagFilter("required")}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                sidebarTagFilters.has("required")
+                  ? "bg-destructive/10 border-destructive/40 text-destructive"
+                  : "bg-background border-border text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <ShieldCheck className="h-2.5 w-2.5" />
+              Required
+            </button>
+            <button
+              onClick={() => toggleSidebarTagFilter("not_uploaded")}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                sidebarTagFilters.has("not_uploaded")
+                  ? "bg-primary/10 border-primary/40 text-primary"
+                  : "bg-background border-border text-muted-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Upload className="h-2.5 w-2.5" />
+              Not uploaded
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          <Accordion
+            type="multiple"
+            value={openSidebarCategories}
+            onValueChange={setOpenSidebarCategories}
+          >
+            {filteredCategories.map(({ category, types }) => (
+              <AccordionItem
+                key={category.id}
+                value={String(category.id)}
+                className="border-none"
+              >
+                <AccordionTrigger className="py-1.5 px-1 text-xs font-semibold hover:no-underline">
+                  {category.name}
+                </AccordionTrigger>
+                <AccordionContent className="pb-2 pt-0 px-1">
+                  <div className="flex flex-wrap gap-1.5">
+                    {types.map((dt) => {
+                      const count = fileCountByType.get(dt.id) ?? 0;
+                      const required = isDocTypeRequired(dt.id);
+                      return (
+                        <div
+                          key={dt.id}
+                          draggable
+                          onDragStart={(e) => handleChipDragStart(e, dt.id)}
+                          className={`inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-[11px] font-medium cursor-grab active:cursor-grabbing hover:bg-muted/50 hover:border-primary/50 transition-colors select-none ${
+                            required
+                              ? "border-destructive/40"
+                              : ""
+                          }`}
+                          title={`Drag onto a file to tag it as "${dt.document_name}"${required ? " (Required)" : ""}`}
+                        >
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          {required && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                          )}
+                          <span className="truncate max-w-[140px]">
+                            {dt.document_name}
+                          </span>
+                          {count > 0 && (
+                            <span className="ml-0.5 rounded-full bg-primary/10 text-primary px-1.5 text-[9px] font-bold">
+                              {count}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </div>
     </div>
   );
 }
