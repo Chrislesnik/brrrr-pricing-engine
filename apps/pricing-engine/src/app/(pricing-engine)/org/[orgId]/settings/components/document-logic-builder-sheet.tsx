@@ -26,15 +26,14 @@ import {
   ChevronsUpDown,
   AlertTriangle,
 } from "lucide-react";
-import { useLogicRules } from "@/context/logic-rules-context";
-import { detectInputLogicConflicts } from "@/lib/logic-contradiction-utils";
+import { cn } from "@repo/lib/cn";
+import { detectDocumentLogicConflicts } from "@/lib/logic-contradiction-utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@repo/lib/cn";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
@@ -74,14 +73,11 @@ import { ExpressionInput } from "./expression-input";
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type ValueType =
-  | "visible"
-  | "not_visible"
-  | "required"
-  | "not_required"
-  | "value"
-  | "field"
-  | "expression";
+/** Action value types for documents – only visibility/required toggles */
+type DocActionValueType = "visible" | "not_visible" | "required" | "not_required";
+
+/** Condition value types – same as input logic */
+type ConditionValueType = "value" | "field" | "expression";
 
 interface InputField {
   id: string;
@@ -92,7 +88,12 @@ interface InputField {
   dropdown_options?: string[] | null;
 }
 
-type ConditionValueType = "value" | "field" | "expression";
+interface DocumentTypeItem {
+  id: number;
+  document_name: string;
+  document_description: string | null;
+  document_category_id: number;
+}
 
 interface Condition {
   field: string;
@@ -104,13 +105,10 @@ interface Condition {
 }
 
 interface Action {
-  input_id: string;
-  value_type: ValueType;
-  value_text: string;
+  document_type_id: number;
+  value_type: DocActionValueType;
   value_visible?: boolean;
   value_required?: boolean;
-  value_field?: string;
-  value_expression?: string;
 }
 
 interface LogicRule {
@@ -187,8 +185,8 @@ function getOperatorsForType(inputType?: string) {
   }
 }
 
-const VALUE_TYPE_OPTIONS: {
-  value: ValueType;
+const DOC_ACTION_VALUE_TYPE_OPTIONS: {
+  value: DocActionValueType;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
@@ -196,9 +194,6 @@ const VALUE_TYPE_OPTIONS: {
   { value: "not_visible", label: "Not Visible", icon: EyeOff },
   { value: "required", label: "Required", icon: Asterisk },
   { value: "not_required", label: "Not Required", icon: Ban },
-  { value: "value", label: "Value", icon: Type },
-  { value: "field", label: "Field", icon: Grid2x2 },
-  { value: "expression", label: "Expression", icon: Sigma },
 ];
 
 const CONDITION_VALUE_TYPE_OPTIONS: {
@@ -220,11 +215,11 @@ function defaultCondition(): Condition {
   };
 }
 
-function defaultAction(filterInputId?: string | null): Action {
+function defaultAction(filterDocTypeId?: number | null): Action {
   return {
-    input_id: filterInputId ?? "",
-    value_type: "value",
-    value_text: "",
+    document_type_id: filterDocTypeId ?? 0,
+    value_type: "visible",
+    value_visible: true,
   };
 }
 
@@ -232,23 +227,23 @@ function defaultAction(filterInputId?: string | null): Action {
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function LogicBuilderSheet({
+export function DocumentLogicBuilderSheet({
   open,
   onOpenChange,
-  filterInputId,
+  filterDocumentTypeId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  filterInputId?: string | null;
+  filterDocumentTypeId?: number | null;
 }) {
   const [inputs, setInputs] = useState<InputField[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeItem[]>([]);
   const [rules, setRules] = useState<LogicRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const { refreshRules } = useLogicRules();
 
-  // Fetch inputs metadata when sheet opens
+  // Fetch inputs metadata + document types when sheet opens
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -256,13 +251,21 @@ export function LogicBuilderSheet({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/inputs");
-        const json = await res.json().catch(() => []);
+        const [inputsRes, docTypesRes] = await Promise.all([
+          fetch("/api/inputs"),
+          fetch("/api/document-types"),
+        ]);
+        const inputsJson = await inputsRes.json().catch(() => []);
+        const docTypesJson = await docTypesRes.json().catch(() => []);
         if (!cancelled) {
-          setInputs(Array.isArray(json) ? json : []);
+          setInputs(Array.isArray(inputsJson) ? inputsJson : []);
+          setDocumentTypes(Array.isArray(docTypesJson) ? docTypesJson : []);
         }
       } catch {
-        if (!cancelled) setInputs([]);
+        if (!cancelled) {
+          setInputs([]);
+          setDocumentTypes([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -281,14 +284,13 @@ export function LogicBuilderSheet({
 
     const fetchRules = async () => {
       try {
-        const url = filterInputId
-          ? `/api/input-logic?input_id=${filterInputId}`
-          : "/api/input-logic";
+        const url = filterDocumentTypeId
+          ? `/api/document-logic?document_type_id=${filterDocumentTypeId}`
+          : "/api/document-logic";
         const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
           if (!cancelled && Array.isArray(json.rules)) {
-            // Ensure conditions & actions have value_type defaulted
             const normalized = json.rules.map((r: LogicRule) => ({
               ...r,
               conditions: (r.conditions ?? []).map((c: Condition) => ({
@@ -297,7 +299,7 @@ export function LogicBuilderSheet({
               })),
               actions: (r.actions ?? []).map((a: Action) => ({
                 ...a,
-                value_type: a.value_type || "value",
+                value_type: a.value_type || "visible",
               })),
             }));
             setRules(normalized);
@@ -312,7 +314,7 @@ export function LogicBuilderSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, filterInputId]);
+  }, [open, filterDocumentTypeId]);
 
   // Reset on close
   useEffect(() => {
@@ -330,23 +332,29 @@ export function LogicBuilderSheet({
     return m;
   }, [inputs]);
 
-  const getInputLabel = useCallback(
-    (inputId: string): string => {
-      const inp = inputMap.get(inputId);
-      return inp ? inp.input_label : inputId;
+  const docTypeMap = useMemo(() => {
+    const m = new Map<number, DocumentTypeItem>();
+    for (const dt of documentTypes) m.set(dt.id, dt);
+    return m;
+  }, [documentTypes]);
+
+  const getDocTypeName = useCallback(
+    (id: number): string => {
+      const dt = docTypeMap.get(id);
+      return dt ? dt.document_name : String(id);
     },
-    [inputMap]
+    [docTypeMap]
   );
 
-  const filteredInputLabel = filterInputId
-    ? getInputLabel(filterInputId)
+  const filteredDocTypeName = filterDocumentTypeId
+    ? getDocTypeName(filterDocumentTypeId)
     : null;
 
   /* ---- Contradiction detection ---- */
 
   const conflictWarnings = useMemo(
-    () => detectInputLogicConflicts(rules, getInputLabel),
-    [rules, getInputLabel]
+    () => detectDocumentLogicConflicts(rules, getDocTypeName),
+    [rules, getDocTypeName]
   );
 
   /* ---- Rule manipulation ---- */
@@ -355,10 +363,10 @@ export function LogicBuilderSheet({
     const newRule: LogicRule = {
       type: "AND",
       conditions: [defaultCondition()],
-      actions: [defaultAction(filterInputId)],
+      actions: [defaultAction(filterDocumentTypeId)],
     };
     setRules((prev) => [...prev, newRule]);
-  }, [filterInputId]);
+  }, [filterDocumentTypeId]);
 
   const removeRule = useCallback((ruleIndex: number) => {
     setRules((prev) => prev.filter((_, i) => i !== ruleIndex));
@@ -381,10 +389,7 @@ export function LogicBuilderSheet({
         i === ruleIndex
           ? {
               ...r,
-              conditions: [
-                ...r.conditions,
-                defaultCondition(),
-              ],
+              conditions: [...r.conditions, defaultCondition()],
             }
           : r
       )
@@ -435,7 +440,6 @@ export function LogicBuilderSheet({
           newConds[condIndex] = {
             ...newConds[condIndex],
             value_type: vt,
-            // Clear the other value columns when switching type
             value: vt === "value" ? newConds[condIndex].value : "",
             value_field: vt === "field" ? (newConds[condIndex].value_field ?? "") : undefined,
             value_expression: vt === "expression" ? (newConds[condIndex].value_expression ?? "") : undefined,
@@ -456,13 +460,13 @@ export function LogicBuilderSheet({
           i === ruleIndex
             ? {
                 ...r,
-                actions: [...r.actions, defaultAction(filterInputId)],
+                actions: [...r.actions, defaultAction(filterDocumentTypeId)],
               }
             : r
         )
       );
     },
-    [filterInputId]
+    [filterDocumentTypeId]
   );
 
   const removeAction = useCallback(
@@ -503,13 +507,9 @@ export function LogicBuilderSheet({
   );
 
   const setActionValueType = useCallback(
-    (ruleIndex: number, actionIndex: number, vt: ValueType) => {
-      // When changing value type, reset the value-specific fields
+    (ruleIndex: number, actionIndex: number, vt: DocActionValueType) => {
       const base: Partial<Action> = {
         value_type: vt,
-        value_text: "",
-        value_field: undefined,
-        value_expression: undefined,
         value_visible: undefined,
         value_required: undefined,
       };
@@ -530,7 +530,7 @@ export function LogicBuilderSheet({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch("/api/input-logic", {
+      const res = await fetch("/api/document-logic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rules }),
@@ -539,7 +539,6 @@ export function LogicBuilderSheet({
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || "Failed to save logic rules");
       }
-      refreshRules();
       onOpenChange(false);
     } catch (err) {
       setSubmitError(
@@ -548,7 +547,7 @@ export function LogicBuilderSheet({
     } finally {
       setSubmitting(false);
     }
-  }, [rules, onOpenChange, refreshRules]);
+  }, [rules, onOpenChange]);
 
   /* ---- Render ---- */
 
@@ -557,14 +556,14 @@ export function LogicBuilderSheet({
       <SheetContent side="right" className="w-full sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>
-            {filterInputId
-              ? `Logic Builder — ${filteredInputLabel}`
-              : "Logic Builder"}
+            {filterDocumentTypeId
+              ? `Logic Builder — ${filteredDocTypeName}`
+              : "Document Logic Builder"}
           </SheetTitle>
           <SheetDescription>
-            {filterInputId
-              ? `Create rules that control the behavior of "${filteredInputLabel}".`
-              : "Create logic rules with conditions and actions for your inputs."}
+            {filterDocumentTypeId
+              ? `Create rules that control the behavior of "${filteredDocTypeName}".`
+              : "Create logic rules with conditions on input fields and actions on document types."}
           </SheetDescription>
         </SheetHeader>
 
@@ -584,7 +583,7 @@ export function LogicBuilderSheet({
                     No logic rules yet.
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Add a rule to define conditional behavior.
+                    Add a rule to define conditional document behavior.
                   </p>
                 </div>
               ) : (
@@ -686,15 +685,14 @@ export function LogicBuilderSheet({
                         </Label>
                         <div className="space-y-2">
                           {rule.actions.map((action, actionIndex) => (
-                            <ActionRow
+                            <DocActionRow
                               key={actionIndex}
                               action={action}
                               actionIndex={actionIndex}
                               ruleIndex={ruleIndex}
-                              inputs={inputs}
-                              inputMap={inputMap}
-                              filterInputId={filterInputId}
-                              filteredInputLabel={filteredInputLabel}
+                              documentTypes={documentTypes}
+                              filterDocumentTypeId={filterDocumentTypeId}
+                              filteredDocTypeName={filteredDocTypeName}
                               updateAction={updateAction}
                               setActionValueType={setActionValueType}
                               removeAction={removeAction}
@@ -764,7 +762,7 @@ export function LogicBuilderSheet({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  SearchableInputSelect – combobox with search for input fields             */
+/*  SearchableInputSelect – combobox with search for input fields              */
 /* -------------------------------------------------------------------------- */
 
 function SearchableInputSelect({
@@ -774,7 +772,7 @@ function SearchableInputSelect({
   placeholder = "Select field",
   disabled = false,
 }: {
-  inputs: InputField[];
+  inputs: { id: string; label: string }[];
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -806,7 +804,7 @@ function SearchableInputSelect({
         onTouchMove={(e) => e.stopPropagation()}
       >
         <Command>
-          <CommandInput placeholder={`Search...`} />
+          <CommandInput placeholder="Search..." />
           <CommandList className="max-h-48 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
@@ -831,7 +829,74 @@ function SearchableInputSelect({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  ConditionRow – dynamic value input based on field's input_type            */
+/*  SearchableDocTypeSelect – combobox for document types                      */
+/* -------------------------------------------------------------------------- */
+
+function SearchableDocTypeSelect({
+  documentTypes,
+  value,
+  onValueChange,
+  placeholder = "Select document",
+  disabled = false,
+}: {
+  documentTypes: DocumentTypeItem[];
+  value: number;
+  onValueChange: (value: number) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = documentTypes.find((dt) => dt.id === value)?.document_name;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal h-9 text-sm"
+        >
+          <span className={cn("truncate", !selectedLabel && "text-muted-foreground")}>
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        <Command>
+          <CommandInput placeholder="Search..." />
+          <CommandList className="max-h-48 overflow-y-auto">
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {documentTypes.map((dt) => (
+                <CommandItem
+                  key={dt.id}
+                  value={dt.document_name}
+                  onSelect={() => {
+                    onValueChange(dt.id);
+                    setOpen(false);
+                  }}
+                >
+                  {dt.document_name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  ConditionRow – identical to input logic builder conditions                 */
 /* -------------------------------------------------------------------------- */
 
 function ConditionRow({
@@ -914,7 +979,6 @@ function ConditionRow({
 
   // Render the value input based on the value_type and field's input_type
   const renderConditionValue = () => {
-    // Hide value input for valueless operators (exists, is_empty, is_true, etc.)
     if (isValueless) return null;
 
     /* -- Field mode: dropdown of all inputs (searchable) -- */
@@ -955,7 +1019,7 @@ function ConditionRow({
     const onChangeValue = (val: string) =>
       updateCondition(ruleIndex, condIndex, "value", val);
 
-    // Dropdown field → show its dropdown_options
+    // Dropdown field
     if (fieldType === "dropdown" && fieldInput?.dropdown_options) {
       return (
         <div className="relative flex-1">
@@ -979,7 +1043,7 @@ function ConditionRow({
       );
     }
 
-    // Boolean field → Yes/No dropdown
+    // Boolean field
     if (fieldType === "boolean") {
       return (
         <div className="relative flex-1">
@@ -1000,7 +1064,7 @@ function ConditionRow({
       );
     }
 
-    // Date field → DatePickerField
+    // Date field
     if (fieldType === "date") {
       return (
         <div className="relative flex-1">
@@ -1014,7 +1078,7 @@ function ConditionRow({
       );
     }
 
-    // Number field → NumberField with +/- buttons
+    // Number field
     if (fieldType === "number") {
       return (
         <div className="relative flex-1">
@@ -1048,7 +1112,7 @@ function ConditionRow({
       );
     }
 
-    // Currency field → CalcInput with $ prefix
+    // Currency field
     if (fieldType === "currency") {
       return (
         <div className="relative flex-1">
@@ -1066,7 +1130,7 @@ function ConditionRow({
       );
     }
 
-    // Percentage field → Input with % suffix
+    // Percentage field
     if (fieldType === "percentage") {
       return (
         <div className="relative flex-1">
@@ -1101,7 +1165,7 @@ function ConditionRow({
       );
     }
 
-    // Default: text → plain text input
+    // Default: text
     return (
       <div className="relative flex-1">
         <Input
@@ -1117,14 +1181,13 @@ function ConditionRow({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Field dropdown – searchable */}
+      {/* Field dropdown – searchable (references inputs) */}
       <div className="flex-1">
         <SearchableInputSelect
           inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
           value={cond.field || ""}
           onValueChange={(val) => {
             updateCondition(ruleIndex, condIndex, "field", val);
-            // Clear operator and value when field changes since the available operators differ
             updateCondition(ruleIndex, condIndex, "operator", "");
             updateCondition(ruleIndex, condIndex, "value", "");
           }}
@@ -1132,12 +1195,11 @@ function ConditionRow({
         />
       </div>
 
-      {/* Operator dropdown – dynamic based on field type */}
+      {/* Operator dropdown */}
       <Select
         value={cond.operator || undefined}
         onValueChange={(val) => {
           updateCondition(ruleIndex, condIndex, "operator", val);
-          // Clear value when switching to a valueless operator
           if (VALUELESS_OPERATORS.has(val)) {
             updateCondition(ruleIndex, condIndex, "value", "");
           }
@@ -1155,7 +1217,7 @@ function ConditionRow({
         </SelectContent>
       </Select>
 
-      {/* Dynamic value input with value_type switcher */}
+      {/* Dynamic value input */}
       {renderConditionValue()}
 
       {/* Remove condition */}
@@ -1172,17 +1234,16 @@ function ConditionRow({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  ActionRow – extracted to keep main component cleaner                       */
+/*  DocActionRow – simplified: only 4 value types                              */
 /* -------------------------------------------------------------------------- */
 
-function ActionRow({
+function DocActionRow({
   action,
   actionIndex,
   ruleIndex,
-  inputs,
-  inputMap,
-  filterInputId,
-  filteredInputLabel,
+  documentTypes,
+  filterDocumentTypeId,
+  filteredDocTypeName,
   updateAction,
   setActionValueType,
   removeAction,
@@ -1190,10 +1251,9 @@ function ActionRow({
   action: Action;
   actionIndex: number;
   ruleIndex: number;
-  inputs: InputField[];
-  inputMap: Map<string, InputField>;
-  filterInputId?: string | null;
-  filteredInputLabel: string | null;
+  documentTypes: DocumentTypeItem[];
+  filterDocumentTypeId?: number | null;
+  filteredDocTypeName: string | null;
   updateAction: (
     ruleIndex: number,
     actionIndex: number,
@@ -1202,105 +1262,16 @@ function ActionRow({
   setActionValueType: (
     ruleIndex: number,
     actionIndex: number,
-    vt: ValueType
+    vt: DocActionValueType
   ) => void;
   removeAction: (ruleIndex: number, actionIndex: number) => void;
 }) {
-  const targetInput = action.input_id
-    ? inputMap.get(action.input_id)
-    : undefined;
+  const vt = action.value_type || "visible";
 
   const valueTypeLabel =
-    VALUE_TYPE_OPTIONS.find((o) => o.value === action.value_type)?.label ??
-    "Value";
+    DOC_ACTION_VALUE_TYPE_OPTIONS.find((o) => o.value === vt)?.label ?? "Visible";
 
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground shrink-0">
-        Set
-      </span>
-
-      {/* Input dropdown – searchable */}
-      {filterInputId && action.input_id === filterInputId ? (
-        <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
-          <span className="truncate">{filteredInputLabel}</span>
-        </div>
-      ) : (
-        <div className="flex-1">
-          <SearchableInputSelect
-            inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
-            value={action.input_id || ""}
-            onValueChange={(val) =>
-              updateAction(ruleIndex, actionIndex, { input_id: val })
-            }
-            placeholder="Select input"
-          />
-        </div>
-      )}
-
-      <span className="text-xs font-medium text-muted-foreground shrink-0">
-        to
-      </span>
-
-      {/* Value input with 3-dot value_type popover */}
-      <ActionValueInput
-        action={action}
-        actionIndex={actionIndex}
-        ruleIndex={ruleIndex}
-        targetInput={targetInput}
-        inputs={inputs}
-        updateAction={updateAction}
-        setActionValueType={setActionValueType}
-        valueTypeLabel={valueTypeLabel}
-      />
-
-      {/* Remove action */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => removeAction(ruleIndex, actionIndex)}
-      >
-        <X className="size-3" />
-      </Button>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  ActionValueInput – mode-specific value rendering + 3-dot popover          */
-/* -------------------------------------------------------------------------- */
-
-function ActionValueInput({
-  action,
-  actionIndex,
-  ruleIndex,
-  targetInput,
-  inputs,
-  updateAction,
-  setActionValueType,
-  valueTypeLabel,
-}: {
-  action: Action;
-  actionIndex: number;
-  ruleIndex: number;
-  targetInput?: InputField;
-  inputs: InputField[];
-  updateAction: (
-    ruleIndex: number,
-    actionIndex: number,
-    updates: Partial<Action>
-  ) => void;
-  setActionValueType: (
-    ruleIndex: number,
-    actionIndex: number,
-    vt: ValueType
-  ) => void;
-  valueTypeLabel: string;
-}) {
-  const vt = action.value_type || "value";
-
-  // 3-dot popover button
+  // 3-dot popover for switching action value type (only 4 options)
   const threeDotButton = (
     <Popover>
       <PopoverTrigger asChild>
@@ -1312,13 +1283,9 @@ function ActionValueInput({
           <MoreVertical className="size-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-44 p-1"
-        sideOffset={4}
-      >
+      <PopoverContent align="end" className="w-44 p-1" sideOffset={4}>
         <div className="flex flex-col">
-          {VALUE_TYPE_OPTIONS.map((opt) => {
+          {DOC_ACTION_VALUE_TYPE_OPTIONS.map((opt) => {
             const Icon = opt.icon;
             const isActive = vt === opt.value;
             return (
@@ -1344,220 +1311,51 @@ function ActionValueInput({
     </Popover>
   );
 
-  /* -- Locked modes: visible / not_visible / required / not_required -- */
-  if (
-    vt === "visible" ||
-    vt === "not_visible" ||
-    vt === "required" ||
-    vt === "not_required"
-  ) {
-    const displayText =
-      VALUE_TYPE_OPTIONS.find((o) => o.value === vt)?.label ?? vt;
-    return (
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-muted-foreground shrink-0">
+        Set
+      </span>
+
+      {/* Document type dropdown – searchable */}
+      {filterDocumentTypeId && action.document_type_id === filterDocumentTypeId ? (
+        <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
+          <span className="truncate">{filteredDocTypeName}</span>
+        </div>
+      ) : (
+        <div className="flex-1">
+          <SearchableDocTypeSelect
+            documentTypes={documentTypes}
+            value={action.document_type_id || 0}
+            onValueChange={(val) =>
+              updateAction(ruleIndex, actionIndex, { document_type_id: val })
+            }
+            placeholder="Select document"
+          />
+        </div>
+      )}
+
+      <span className="text-xs font-medium text-muted-foreground shrink-0">
+        to
+      </span>
+
+      {/* Value type display – always locked since only visibility/required */}
       <div className="relative flex-1">
         <div className="h-8 flex items-center px-3 pr-8 rounded-md border bg-muted text-xs cursor-default select-none">
-          {displayText}
+          {valueTypeLabel}
         </div>
         {threeDotButton}
       </div>
-    );
-  }
 
-  /* -- Field mode: dropdown of all inputs (searchable) -- */
-  if (vt === "field") {
-    return (
-      <div className="relative flex-1">
-        <SearchableInputSelect
-          inputs={inputs.map((inp) => ({ ...inp, label: inp.input_label }))}
-          value={action.value_field || ""}
-          onValueChange={(val) =>
-            updateAction(ruleIndex, actionIndex, { value_field: val })
-          }
-          placeholder="Select field"
-        />
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  /* -- Expression mode -- */
-  if (vt === "expression") {
-    return (
-      <div className="relative flex-1">
-        <ExpressionInput
-          value={action.value_expression ?? ""}
-          onChange={(val) =>
-            updateAction(ruleIndex, actionIndex, { value_expression: val })
-          }
-          inputs={inputs}
-          className="pr-6"
-        />
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  /* -- Value mode: mirror the target input's type -- */
-  const inputType = targetInput?.input_type;
-  const onChangeText = (val: string) =>
-    updateAction(ruleIndex, actionIndex, { value_text: val });
-
-  // Dropdown input
-  if (inputType === "dropdown" && targetInput?.dropdown_options) {
-    return (
-      <div className="relative flex-1">
-        <Select
-          value={action.value_text || undefined}
-          onValueChange={onChangeText}
-        >
-          <SelectTrigger className="h-8 text-xs pr-8">
-            <SelectValue placeholder="Select value" />
-          </SelectTrigger>
-          <SelectContent>
-            {targetInput.dropdown_options.map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {opt}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  // Boolean input → Yes/No dropdown
-  if (inputType === "boolean") {
-    return (
-      <div className="relative flex-1">
-        <Select
-          value={action.value_text || undefined}
-          onValueChange={onChangeText}
-        >
-          <SelectTrigger className="h-8 text-xs pr-8">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Yes</SelectItem>
-            <SelectItem value="false">No</SelectItem>
-          </SelectContent>
-        </Select>
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  // Date input → DatePickerField
-  if (inputType === "date") {
-    return (
-      <div className="relative flex-1">
-        <DatePickerField
-          value={action.value_text || ""}
-          onChange={onChangeText}
-          className="h-8 text-xs"
-        />
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  // Number input → NumberField with +/- buttons
-  if (inputType === "number") {
-    return (
-      <div className="relative flex-1">
-        <NumberField
-          value={action.value_text ? Number(action.value_text) : undefined}
-          onChange={(val) => onChangeText(isNaN(val) ? "" : String(val))}
-          minValue={0}
-          className="w-full"
-        >
-          <Group className="border-input data-focus-within:ring-ring relative inline-flex h-8 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-xs transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1">
-            <AriaInput
-              placeholder="0"
-              className="placeholder:text-muted-foreground w-full grow bg-transparent px-3 py-1 text-xs outline-none"
-            />
-            <AriaButton
-              slot="decrement"
-              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-            >
-              <MinusIcon className="size-3" />
-            </AriaButton>
-            <AriaButton
-              slot="increment"
-              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-            >
-              <PlusIcon className="size-3" />
-            </AriaButton>
-          </Group>
-        </NumberField>
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  // Currency input → CalcInput with $ prefix
-  if (inputType === "currency") {
-    return (
-      <div className="relative flex-1">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground z-10">
-          $
-        </span>
-        <CalcInput
-          value={action.value_text}
-          onValueChange={onChangeText}
-          className="h-8 text-xs pl-6 pr-8"
-          placeholder="0.00"
-        />
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  // Percentage input → Input with % suffix
-  if (inputType === "percentage") {
-    return (
-      <div className="relative flex-1">
-        <Input
-          type="number"
-          inputMode="decimal"
-          placeholder="0.00"
-          min={0}
-          max={100}
-          step={0.01}
-          value={action.value_text}
-          onChange={(e) => onChangeText(e.target.value)}
-          onBlur={() => {
-            if (action.value_text === "") return;
-            const num = parseFloat(action.value_text);
-            if (isNaN(num)) {
-              onChangeText("");
-              return;
-            }
-            const clamped = Math.min(100, Math.max(0, num));
-            onChangeText(
-              clamped.toFixed(2).replace(/\.?0+$/, "") || "0"
-            );
-          }}
-          className="h-8 text-xs pr-7"
-        />
-        <span className="pointer-events-none absolute right-7 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-          %
-        </span>
-        {threeDotButton}
-      </div>
-    );
-  }
-
-  // Default: text → plain text input
-  return (
-    <div className="relative flex-1">
-      <Input
-        value={action.value_text}
-        onChange={(e) => onChangeText(e.target.value)}
-        placeholder="Value"
-        className="h-8 text-xs pr-8"
-      />
-      {threeDotButton}
+      {/* Remove action */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={() => removeAction(ruleIndex, actionIndex)}
+      >
+        <X className="size-3" />
+      </Button>
     </div>
   );
 }
