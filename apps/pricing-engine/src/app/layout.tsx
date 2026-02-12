@@ -2,8 +2,6 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Toaster } from "@repo/ui/shadcn/toaster"
 import "./globals.css"
-import "@liveblocks/react-ui/styles.css"
-import "@liveblocks/react-ui/styles/dark/attributes.css"
 import { Providers } from "./providers"
 import { LinkInAppFix } from "./LinkInAppFix"
 
