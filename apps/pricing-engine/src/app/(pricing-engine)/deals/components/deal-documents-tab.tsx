@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Accordion,
   AccordionContent,
@@ -46,10 +47,15 @@ import {
   Search,
   GripVertical,
   ListFilter,
+  Download,
+  CheckCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useDocumentLogicEngine } from "@/hooks/use-document-logic-engine";
 
 /* -------------------------------------------------------------------------- */
@@ -90,6 +96,14 @@ interface DealDocument {
   uploaded_at: string;
   notes: string | null;
   created_at: string;
+  document_file_id: number | null;
+  has_file: boolean;
+  storage_bucket: string | null;
+  document_file_uuid: string | null;
+  document_category_id: number | null;
+  document_status: string | null;
+  uploaded_by_name: string | null;
+  uploaded_by_avatar: string | null;
 }
 
 interface DealDocumentOverride {
@@ -122,6 +136,8 @@ function formatFileSize(bytes: number | null): string {
 /* -------------------------------------------------------------------------- */
 
 export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) {
+  const router = useRouter();
+
   /* ----- State ----- */
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
@@ -255,37 +271,48 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
       }));
   }, [categories, documentTypes]);
 
-  /* ----- File upload handler (no-op storage, captures metadata) ----- */
+  /* ----- Upload progress tracking ----- */
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+
+  /* ----- File upload handler (uploads to Supabase Storage) ----- */
   const handleFileSelect = useCallback(
     async (docTypeId: number, file: File) => {
+      const uploadKey = `${docTypeId}-${file.name}-${Date.now()}`;
+      setUploadingFiles((prev) => new Set(prev).add(uploadKey));
+
       try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("documentTypeId", String(docTypeId));
+
         const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            document_type_id: docTypeId,
-            file_name: file.name,
-            file_size: file.size,
-            file_type: file.type || null,
-          }),
+          body: formData,
         });
 
         if (!res.ok) {
-          throw new Error("Failed to save document");
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to upload document");
         }
 
         const data = await res.json();
         setDealDocuments((prev) => [...prev, data.document]);
 
         toast({
-          title: "File captured",
-          description: `"${file.name}" has been added. Storage upload will be connected later.`,
+          title: "File uploaded",
+          description: `"${file.name}" has been uploaded successfully.`,
         });
-      } catch (error) {
+      } catch (error: any) {
         toast({
-          title: "Error",
-          description: "Failed to save document metadata",
+          title: "Upload failed",
+          description: error.message || "Failed to upload document",
           variant: "destructive",
+        });
+      } finally {
+        setUploadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(uploadKey);
+          return next;
         });
       }
     },
@@ -316,6 +343,77 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
       }
     },
     [dealId]
+  );
+
+  /* ----- Download document handler ----- */
+  const handleDownloadDocument = useCallback(
+    async (docId: number, fileName: string) => {
+      try {
+        const res = await fetch(
+          `/api/deals/${dealId}/deal-documents/${docId}/url`
+        );
+        if (!res.ok) {
+          throw new Error("Failed to get download URL");
+        }
+        const data = await res.json();
+        // Open in new tab or trigger download
+        const link = document.createElement("a");
+        link.href = data.url;
+        link.download = data.fileName || fileName;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to download document",
+          variant: "destructive",
+        });
+      }
+    },
+    [dealId]
+  );
+
+  /* ----- Rename document handler ----- */
+  const handleRenameDocument = useCallback(
+    async (docId: number, newName: string) => {
+      try {
+        const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: docId, file_name: newName }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to rename document");
+        }
+
+        setDealDocuments((prev) =>
+          prev.map((d) => (d.id === docId ? { ...d, file_name: newName } : d))
+        );
+
+        toast({
+          title: "Renamed",
+          description: "Document name updated.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to rename document",
+          variant: "destructive",
+        });
+      }
+    },
+    [dealId]
+  );
+
+  /* ----- View document handler ----- */
+  const handleViewDocument = useCallback(
+    (docId: number) => {
+      router.push(`/deals/${dealId}/documents/${docId}`);
+    },
+    [dealId, router]
   );
 
   /* ----- Override handler ----- */
@@ -461,6 +559,9 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           categories={categories}
           categoriesWithTypes={categoriesWithTypes}
           onDeleteDocument={handleDeleteDocument}
+          onDownloadDocument={handleDownloadDocument}
+          onRenameDocument={handleRenameDocument}
+          onViewDocument={handleViewDocument}
           isDocTypeRequired={isDocTypeRequired}
         />
       ) : (
@@ -522,7 +623,11 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
                               files={docsByType.get(docType.id) ?? []}
                               onFileSelect={handleFileSelect}
                               onDeleteDocument={handleDeleteDocument}
+                              onDownloadDocument={handleDownloadDocument}
+                              onRenameDocument={handleRenameDocument}
+                              onViewDocument={handleViewDocument}
                               onSetOverride={handleSetOverride}
+                              isUploading={uploadingFiles.size > 0 && [...uploadingFiles].some(k => k.startsWith(`${docType.id}-`))}
                             />
                           ))}
                         </div>
@@ -540,6 +645,127 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
 }
 
 /* -------------------------------------------------------------------------- */
+/*  DeleteFileButton                                                           */
+/* -------------------------------------------------------------------------- */
+
+function DeleteFileButton({
+  fileName,
+  onConfirm,
+  className,
+}: {
+  fileName: string;
+  onConfirm: () => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={className ?? "h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"}
+        onClick={() => setOpen(true)}
+        title="Delete"
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete document"
+        desc={
+          <>
+            Are you sure you want to delete{" "}
+            <span className="font-semibold">&quot;{fileName}&quot;</span>? This
+            will permanently remove the file from storage.
+          </>
+        }
+        confirmText="Delete"
+        destructive
+        handleConfirm={() => {
+          onConfirm();
+          setOpen(false);
+        }}
+      />
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  InlineEditFileName                                                         */
+/* -------------------------------------------------------------------------- */
+
+function InlineEditFileName({
+  fileName,
+  onRename,
+}: {
+  fileName: string;
+  onRename: (newName: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(fileName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setValue(fileName);
+  }, [fileName]);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const handleSave = () => {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== fileName) {
+      onRename(trimmed);
+    } else {
+      setValue(fileName);
+    }
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === "Escape") {
+      setValue(fileName);
+      setEditing(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        className="text-xs font-medium flex-1 min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="text-xs truncate flex-1 font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
+      onClick={() => setEditing(true)}
+      title="Click to rename"
+    >
+      <span className="truncate">{fileName}</span>
+      <Pencil className="h-2.5 w-2.5 text-muted-foreground shrink-0 opacity-0 group-hover/name:opacity-100 transition-opacity" />
+    </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  DocumentTypeRow                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -551,6 +777,9 @@ interface DocumentTypeRowProps {
   files: DealDocument[];
   onFileSelect: (docTypeId: number, file: File) => void;
   onDeleteDocument: (docId: number) => void;
+  onDownloadDocument: (docId: number, fileName: string) => void;
+  onRenameDocument: (docId: number, newName: string) => void;
+  onViewDocument: (docId: number) => void;
   onSetOverride: (
     docTypeId: number,
     data: {
@@ -558,6 +787,7 @@ interface DocumentTypeRowProps {
       is_required_override?: boolean | null;
     }
   ) => void;
+  isUploading: boolean;
 }
 
 function DocumentTypeRow({
@@ -568,7 +798,11 @@ function DocumentTypeRow({
   files,
   onFileSelect,
   onDeleteDocument,
+  onDownloadDocument,
+  onRenameDocument,
+  onViewDocument,
   onSetOverride,
+  isUploading,
 }: DocumentTypeRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
@@ -759,6 +993,14 @@ function DocumentTypeRow({
           </p>
         )}
 
+        {/* Upload progress */}
+        {isUploading && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-primary">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Uploading...</span>
+          </div>
+        )}
+
         {/* File list */}
         {files.length > 0 ? (
           <div className="mt-3 space-y-1.5">
@@ -767,23 +1009,46 @@ function DocumentTypeRow({
                 key={doc.id}
                 className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file"
               >
-                <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs truncate flex-1 font-medium">
-                  {doc.file_name}
-                </span>
+                {doc.has_file ? (
+                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                ) : (
+                  <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                )}
+                <InlineEditFileName
+                  fileName={doc.file_name}
+                  onRename={(newName) => onRenameDocument(doc.id, newName)}
+                />
+                {doc.has_file && doc.file_type === "application/pdf" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 transition-opacity"
+                    onClick={() => onViewDocument(doc.id)}
+                    title="View"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                )}
+                {doc.has_file && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 transition-opacity"
+                    onClick={() => onDownloadDocument(doc.id, doc.file_name)}
+                    title="Download"
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                )}
+                <DeleteFileButton
+                  fileName={doc.file_name}
+                  onConfirm={() => onDeleteDocument(doc.id)}
+                />
                 {doc.file_size && (
                   <span className="text-[10px] text-muted-foreground shrink-0">
                     {formatFileSize(doc.file_size)}
                   </span>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 transition-opacity"
-                  onClick={() => onDeleteDocument(doc.id)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
               </div>
             ))}
           </div>
@@ -852,23 +1117,46 @@ function DocumentTypeRow({
                     key={doc.id}
                     className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file"
                   >
-                    <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs truncate flex-1 font-medium">
-                      {doc.file_name}
-                    </span>
+                    {doc.has_file ? (
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    ) : (
+                      <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    )}
+                    <InlineEditFileName
+                      fileName={doc.file_name}
+                      onRename={(newName) => onRenameDocument(doc.id, newName)}
+                    />
+                    {doc.has_file && doc.file_type === "application/pdf" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
+                        onClick={() => onViewDocument(doc.id)}
+                        title="View"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {doc.has_file && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
+                        onClick={() => onDownloadDocument(doc.id, doc.file_name)}
+                        title="Download"
+                      >
+                        <Download className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <DeleteFileButton
+                      fileName={doc.file_name}
+                      onConfirm={() => onDeleteDocument(doc.id)}
+                    />
                     {doc.file_size && (
                       <span className="text-[10px] text-muted-foreground shrink-0">
                         {formatFileSize(doc.file_size)}
                       </span>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
-                      onClick={() => onDeleteDocument(doc.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -894,6 +1182,9 @@ interface FileManagerViewProps {
   categories: DocumentCategory[];
   categoriesWithTypes: { category: DocumentCategory; types: DocumentType[] }[];
   onDeleteDocument: (docId: number) => void;
+  onDownloadDocument: (docId: number, fileName: string) => void;
+  onRenameDocument: (docId: number, newName: string) => void;
+  onViewDocument: (docId: number) => void;
   isDocTypeRequired: (docTypeId: number) => boolean;
 }
 
@@ -905,6 +1196,9 @@ function FileManagerView({
   categories,
   categoriesWithTypes,
   onDeleteDocument,
+  onDownloadDocument,
+  onRenameDocument,
+  onViewDocument,
   isDocTypeRequired,
 }: FileManagerViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1012,22 +1306,24 @@ function FileManagerView({
     return map;
   }, [dealDocuments]);
 
+  /* ----- Upload state ----- */
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+
   /* ----- Upload handler (unclassified files) ----- */
   const handleUpload = useCallback(
     async (files: FileList) => {
+      setIsUploadingFiles(true);
       const uploaded: DealDocument[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
+          const formData = new FormData();
+          formData.append("file", file);
+          // No documentTypeId = unclassified upload
+
           const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              document_type_id: null,
-              file_name: file.name,
-              file_size: file.size,
-              file_type: file.type || null,
-            }),
+            body: formData,
           });
           if (!res.ok) throw new Error();
           const data = await res.json();
@@ -1043,10 +1339,11 @@ function FileManagerView({
       if (uploaded.length > 0) {
         setDealDocuments((prev) => [...prev, ...uploaded]);
         toast({
-          title: "Files added",
-          description: `${uploaded.length} file${uploaded.length !== 1 ? "s" : ""} uploaded`,
+          title: "Files uploaded",
+          description: `${uploaded.length} file${uploaded.length !== 1 ? "s" : ""} uploaded to storage`,
         });
       }
+      setIsUploadingFiles(false);
     },
     [dealId, setDealDocuments]
   );
@@ -1243,6 +1540,12 @@ function FileManagerView({
             Upload multiple files — assign document types by dragging tags from
             the sidebar
           </p>
+          {isUploadingFiles && (
+            <div className="flex items-center gap-2 text-xs text-primary mt-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Uploading files...</span>
+            </div>
+          )}
         </div>
 
         {/* File list header with filter */}
@@ -1359,16 +1662,16 @@ function FileManagerView({
                   onDragLeave={handleFileDragLeave}
                   onDrop={(e) => handleFileDrop(e, doc.id)}
                 >
-                  <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                  {doc.has_file ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                  ) : (
+                    <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {doc.file_name}
-                    </p>
-                    {doc.file_size != null && doc.file_size > 0 && (
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatFileSize(doc.file_size)}
-                      </p>
-                    )}
+                    <InlineEditFileName
+                      fileName={doc.file_name}
+                      onRename={(newName) => onRenameDocument(doc.id, newName)}
+                    />
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {fileIsRequired && (
@@ -1407,14 +1710,38 @@ function FileManagerView({
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
-                    onClick={() => onDeleteDocument(doc.id)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
+                  {doc.has_file && doc.file_type === "application/pdf" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
+                      onClick={() => onViewDocument(doc.id)}
+                      title="View"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {doc.has_file && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
+                      onClick={() => onDownloadDocument(doc.id, doc.file_name)}
+                      title="Download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <DeleteFileButton
+                    fileName={doc.file_name}
+                    onConfirm={() => onDeleteDocument(doc.id)}
+                    className="h-6 w-6 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  />
+                  {doc.file_size != null && doc.file_size > 0 && (
+                    <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                      {formatFileSize(doc.file_size)}
+                    </span>
+                  )}
                 </div>
               );
             })}

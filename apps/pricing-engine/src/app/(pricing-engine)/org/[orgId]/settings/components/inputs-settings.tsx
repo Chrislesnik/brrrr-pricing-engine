@@ -6,6 +6,7 @@ import {
   GripVertical,
   Pencil,
   Plus,
+  Sparkles,
   Star,
   Trash2,
   Loader2,
@@ -48,6 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { LogicBuilderSheet } from "./logic-builder-sheet";
+import { InputAIOrderSheet } from "./input-ai-order-sheet";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -126,6 +128,11 @@ export function InputsSettings() {
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
   const [logicBuilderInputId, setLogicBuilderInputId] = useState<string | null>(null);
+
+  // AI Order sheet state
+  const [aiOrderOpen, setAiOrderOpen] = useState(false);
+  const [aiOrderInputId, setAiOrderInputId] = useState<string | null>(null);
+  const [aiOrderInputLabel, setAiOrderInputLabel] = useState("");
 
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -761,6 +768,19 @@ export function InputsSettings() {
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setAiOrderInputId(input.id);
+                                  setAiOrderInputLabel(input.input_label);
+                                  setAiOrderOpen(true);
+                                }}
+                              >
+                                <Sparkles className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setLogicBuilderInputId(input.id);
                                   setLogicBuilderOpen(true);
                                 }}
@@ -933,6 +953,14 @@ export function InputsSettings() {
         open={logicBuilderOpen}
         onOpenChange={setLogicBuilderOpen}
         filterInputId={logicBuilderInputId}
+      />
+
+      {/* AI Extraction Order Sheet */}
+      <InputAIOrderSheet
+        open={aiOrderOpen}
+        onOpenChange={setAiOrderOpen}
+        inputId={aiOrderInputId}
+        inputLabel={aiOrderInputLabel}
       />
 
       {/* Delete confirmation dialog */}

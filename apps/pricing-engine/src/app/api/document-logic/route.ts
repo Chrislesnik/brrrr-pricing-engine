@@ -129,8 +129,10 @@ export async function GET(request: NextRequest) {
 
 /* -------------------------------------------------------------------------- */
 /*  POST /api/document-logic                                                   */
-/*  Body: { rules: RulePayload[] }                                             */
-/*  Saves rules + conditions + actions.                                        */
+/*  Body: { rules: RulePayload[], document_type_id?: number }                  */
+/*  Replaces all rules in scope: deletes existing, then inserts new.           */
+/*  If document_type_id is provided, only rules targeting that doc type are    */
+/*  replaced. Otherwise ALL rules are replaced.                                */
 /* -------------------------------------------------------------------------- */
 
 export async function POST(request: NextRequest) {
@@ -141,13 +143,55 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const rules: RulePayload[] = body.rules;
+    const rules: RulePayload[] = body.rules ?? [];
+    const documentTypeId: number | undefined = body.document_type_id;
 
-    if (!Array.isArray(rules) || rules.length === 0) {
+    if (!Array.isArray(rules)) {
       return NextResponse.json(
-        { error: "No rules provided" },
+        { error: "rules must be an array" },
         { status: 400 }
       );
+    }
+
+    // ---- Step 1: Delete existing rules in scope ----
+    // CASCADE foreign keys will auto-delete conditions and actions.
+
+    if (documentTypeId) {
+      // Find all rule IDs that have actions targeting this document type
+      const { data: existingActions } = await supabaseAdmin
+        .from("document_logic_actions")
+        .select("document_logic_id")
+        .eq("document_type_id", documentTypeId);
+
+      if (existingActions && existingActions.length > 0) {
+        const existingRuleIds = [
+          ...new Set(existingActions.map((a) => a.document_logic_id as number)),
+        ];
+        const { error: delErr } = await supabaseAdmin
+          .from("document_logic")
+          .delete()
+          .in("id", existingRuleIds);
+
+        if (delErr) {
+          console.error("[POST /api/document-logic] delete error:", delErr);
+        }
+      }
+    } else {
+      // No filter — delete ALL document logic rules
+      const { error: delErr } = await supabaseAdmin
+        .from("document_logic")
+        .delete()
+        .neq("id", 0); // match all rows
+
+      if (delErr) {
+        console.error("[POST /api/document-logic] delete-all error:", delErr);
+      }
+    }
+
+    // ---- Step 2: Insert new rules ----
+
+    if (rules.length === 0) {
+      return NextResponse.json({ ok: true, ruleIds: [] });
     }
 
     const createdRuleIds: number[] = [];

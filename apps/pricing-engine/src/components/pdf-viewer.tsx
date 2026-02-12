@@ -3,7 +3,20 @@
 import * as React from "react"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, Printer, Download, RotateCw, Search, X } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Loader2,
+  Printer,
+  Download,
+  RotateCw,
+  Search,
+  X,
+  FileText,
+  Rows3,
+} from "lucide-react"
 import { cn } from "@repo/lib/cn"
 
 export interface BBox {
@@ -23,11 +36,177 @@ interface PDFViewerProps {
   className?: string
 }
 
+/* -------------------------------------------------------------------------- */
+/*  ScrollPageCanvas — renders a single page in scroll mode                    */
+/* -------------------------------------------------------------------------- */
+
+interface ScrollPageCanvasProps {
+  pdf: any
+  pageNum: number
+  scale: number
+  containerWidth: number
+  rotation: number
+  isVisible: boolean
+  highlightBox: BBox | null
+  highlightPage: number | null
+  onRendered?: (pageNum: number, info: { scale: number; width: number; height: number }) => void
+}
+
+function ScrollPageCanvas({
+  pdf,
+  pageNum,
+  scale,
+  containerWidth,
+  rotation,
+  isVisible,
+  highlightBox,
+  highlightPage,
+  onRendered,
+}: ScrollPageCanvasProps) {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const [dimensions, setDimensions] = React.useState<{
+    width: number
+    height: number
+  } | null>(null)
+  const [rendered, setRendered] = React.useState(false)
+  const [viewScale, setViewScale] = React.useState(1)
+
+  // Get page dimensions on mount
+  React.useEffect(() => {
+    if (!pdf) return
+    let cancelled = false
+    pdf.getPage(pageNum).then((page: any) => {
+      if (cancelled) return
+      const vp = page.getViewport({ scale: 1 })
+      const fitScale = (containerWidth - 48) / vp.width
+      const finalScale = fitScale * scale
+      setDimensions({
+        width: Math.floor(vp.width * finalScale),
+        height: Math.floor(vp.height * finalScale),
+      })
+      setViewScale(finalScale)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [pdf, pageNum, scale, containerWidth])
+
+  // Render when visible
+  React.useEffect(() => {
+    if (!pdf || !isVisible || !canvasRef.current || !dimensions) return
+
+    let cancelled = false
+
+    async function render() {
+      try {
+        const page = await pdf.getPage(pageNum)
+        if (cancelled || !canvasRef.current) return
+
+        const canvas = canvasRef.current
+        const context = canvas.getContext("2d")
+        if (!context) return
+
+        const vp = page.getViewport({ scale: 1 })
+        const fitScale = (containerWidth - 48) / vp.width
+        const finalScale = fitScale * scale
+        const scaledVp = page.getViewport({ scale: finalScale })
+
+        canvas.width = scaledVp.width
+        canvas.height = scaledVp.height
+
+        await page.render({ canvasContext: context, viewport: scaledVp }).promise
+
+        if (!cancelled) {
+          setRendered(true)
+          onRendered?.(pageNum, {
+            scale: finalScale,
+            width: vp.width,
+            height: vp.height,
+          })
+        }
+      } catch (err) {
+        console.error(`Error rendering page ${pageNum}:`, err)
+      }
+    }
+
+    render()
+    return () => {
+      cancelled = true
+    }
+  }, [pdf, pageNum, isVisible, scale, containerWidth, dimensions, onRendered])
+
+  // Re-render when scale changes
+  React.useEffect(() => {
+    setRendered(false)
+  }, [scale])
+
+  const showHighlight =
+    highlightBox && highlightPage === pageNum && rendered
+
+  return (
+    <div
+      data-page={pageNum}
+      className="flex flex-col items-center"
+    >
+      <div
+        className="relative"
+        style={{
+          width: dimensions?.width ?? 0,
+          height: dimensions?.height ?? 0,
+          transform: `rotate(${rotation}deg)`,
+          transition: "transform 0.3s",
+        }}
+      >
+        {dimensions && (
+          <canvas
+            ref={canvasRef}
+            className="shadow-lg rounded-sm bg-white"
+            style={{
+              width: dimensions.width,
+              height: dimensions.height,
+            }}
+          />
+        )}
+        {!rendered && dimensions && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {showHighlight && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${highlightBox!.x * viewScale}px`,
+              top: `${highlightBox!.y * viewScale}px`,
+              width: `${highlightBox!.w * viewScale}px`,
+              height: `${highlightBox!.h * viewScale}px`,
+              backgroundColor: "rgba(255, 235, 59, 0.35)",
+              border: "2px solid rgba(255, 193, 7, 0.8)",
+              borderRadius: "3px",
+              pointerEvents: "none",
+              zIndex: 10,
+            }}
+          />
+        )}
+      </div>
+      <span className="text-[10px] text-muted-foreground mt-1.5 select-none">
+        Page {pageNum}
+      </span>
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  PDFViewer                                                                  */
+/* -------------------------------------------------------------------------- */
+
 export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
   function PDFViewer({ url, className }, ref) {
     const canvasRef = React.useRef<HTMLCanvasElement>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
+    const pageRefsMap = React.useRef<Map<number, HTMLDivElement>>(new Map())
+
     const [pdf, setPdf] = React.useState<any>(null)
     const [currentPage, setCurrentPage] = React.useState(1)
     const [totalPages, setTotalPages] = React.useState(0)
@@ -35,8 +214,19 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
     const [loading, setLoading] = React.useState(true)
     const [error, setError] = React.useState<string | null>(null)
     const [highlightBox, setHighlightBox] = React.useState<BBox | null>(null)
-    const [viewportInfo, setViewportInfo] = React.useState<{ scale: number; width: number; height: number; pdfHeight: number } | null>(null)
-    const viewportInfoRef = React.useRef<{ scale: number; width: number; height: number; pdfHeight: number } | null>(null)
+    const [highlightPage, setHighlightPage] = React.useState<number | null>(null)
+    const [viewportInfo, setViewportInfo] = React.useState<{
+      scale: number
+      width: number
+      height: number
+      pdfHeight: number
+    } | null>(null)
+    const viewportInfoRef = React.useRef<{
+      scale: number
+      width: number
+      height: number
+      pdfHeight: number
+    } | null>(null)
     const [rotation, setRotation] = React.useState(0)
     const [showSearch, setShowSearch] = React.useState(false)
     const [searchQuery, setSearchQuery] = React.useState("")
@@ -46,28 +236,73 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
     const [pageInputValue, setPageInputValue] = React.useState("")
     const [searchMessage, setSearchMessage] = React.useState("")
 
-    // Expose imperative methods via ref
-    React.useImperativeHandle(ref, () => ({
-      goToPage: (page: number, bbox?: BBox) => {
-        if (page >= 1 && page <= totalPages) {
-          setCurrentPage(page)
-          setHighlightBox(bbox ?? null)
-          // Scroll to highlight after page renders
-          setTimeout(() => {
-            const vInfo = viewportInfoRef.current
-            if (bbox && vInfo) {
-              const scrollY = Math.max(0, (bbox.y * vInfo.scale) - 100)
-              scrollContainerRef.current?.scrollTo({ top: scrollY, behavior: "smooth" })
-            } else {
-              scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-            }
-          }, 300)
+    // View mode: single page vs continuous scroll
+    const [viewMode, setViewMode] = React.useState<"single" | "scroll">("scroll")
+
+    // Scroll mode: track which pages are visible for lazy rendering
+    const [visiblePages, setVisiblePages] = React.useState<Set<number>>(new Set())
+    const scrollTrackingRef = React.useRef(true)
+
+    // Container width for scale calculations in scroll mode
+    const [containerWidth, setContainerWidth] = React.useState(800)
+
+    React.useEffect(() => {
+      const el = containerRef.current
+      if (!el) return
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setContainerWidth(entry.contentRect.width)
         }
-      },
-      clearHighlight: () => {
-        setHighlightBox(null)
-      },
-    }), [totalPages])
+      })
+      ro.observe(el)
+      return () => ro.disconnect()
+    }, [])
+
+    // Expose imperative methods via ref
+    React.useImperativeHandle(
+      ref,
+      () => ({
+        goToPage: (page: number, bbox?: BBox) => {
+          if (page < 1 || page > totalPages) return
+
+          setHighlightBox(bbox ?? null)
+          setHighlightPage(bbox ? page : null)
+
+          if (viewMode === "scroll") {
+            // In scroll mode, scroll the page element into view
+            setCurrentPage(page)
+            setTimeout(() => {
+              const el = pageRefsMap.current.get(page)
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            }, 100)
+          } else {
+            setCurrentPage(page)
+            setTimeout(() => {
+              const vInfo = viewportInfoRef.current
+              if (bbox && vInfo) {
+                const scrollY = Math.max(0, bbox.y * vInfo.scale - 100)
+                scrollContainerRef.current?.scrollTo({
+                  top: scrollY,
+                  behavior: "smooth",
+                })
+              } else {
+                scrollContainerRef.current?.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                })
+              }
+            }, 300)
+          }
+        },
+        clearHighlight: () => {
+          setHighlightBox(null)
+          setHighlightPage(null)
+        },
+      }),
+      [totalPages, viewMode]
+    )
 
     // Load PDF document
     React.useEffect(() => {
@@ -78,10 +313,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
           setLoading(true)
           setError(null)
 
-          // Dynamically import pdfjs-dist
           const pdfjs = await import("pdfjs-dist")
-          
-          // Use local worker file copied to public folder
           pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
 
           const loadingTask = pdfjs.getDocument(url)
@@ -94,7 +326,9 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
           }
         } catch (err) {
           if (!cancelled) {
-            setError(err instanceof Error ? err.message : "Failed to load PDF")
+            setError(
+              err instanceof Error ? err.message : "Failed to load PDF"
+            )
           }
         } finally {
           if (!cancelled) {
@@ -104,33 +338,29 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       }
 
       loadPdf()
-
       return () => {
         cancelled = true
       }
     }, [url])
 
-    // Render current page
+    // Single-page mode: render current page to the single canvas
     React.useEffect(() => {
-      if (!pdf || !canvasRef.current) return
+      if (viewMode !== "single" || !pdf || !canvasRef.current) return
 
       let cancelled = false
 
       async function renderPage() {
         try {
           const page = await pdf.getPage(currentPage)
-          
           if (cancelled || !canvasRef.current) return
 
           const canvas = canvasRef.current
           const context = canvas.getContext("2d")
-          
           if (!context) return
 
-          // Calculate scale to fit container width
-          const containerWidth = containerRef.current?.clientWidth ?? 800
+          const cWidth = containerRef.current?.clientWidth ?? 800
           const viewport = page.getViewport({ scale: 1 })
-          const fitScale = (containerWidth - 48) / viewport.width // 48px for padding
+          const fitScale = (cWidth - 48) / viewport.width
           const finalScale = fitScale * scale
 
           const scaledViewport = page.getViewport({ scale: finalScale })
@@ -138,40 +368,139 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
           canvas.height = scaledViewport.height
           canvas.width = scaledViewport.width
 
-          // Store viewport info for highlight scaling
-          // pdfHeight is the original PDF page height (used for Y-axis inversion)
           const newViewportInfo = {
             scale: finalScale,
             width: viewport.width,
             height: viewport.height,
-            pdfHeight: viewport.height, // Original PDF height in points
+            pdfHeight: viewport.height,
           }
           setViewportInfo(newViewportInfo)
           viewportInfoRef.current = newViewportInfo
 
-          const renderContext = {
+          await page.render({
             canvasContext: context,
             viewport: scaledViewport,
-          }
-
-          await page.render(renderContext).promise
+          }).promise
         } catch (err) {
           console.error("Error rendering page:", err)
         }
       }
 
       renderPage()
-
       return () => {
         cancelled = true
       }
-    }, [pdf, currentPage, scale])
+    }, [pdf, currentPage, scale, viewMode])
 
-    // Clear highlight when page changes manually
+    // Scroll mode: IntersectionObserver for visibility + page tracking
+    React.useEffect(() => {
+      if (viewMode !== "scroll" || !pdf || totalPages === 0) return
+
+      const scrollEl = scrollContainerRef.current
+      if (!scrollEl) return
+
+      // Observe all page containers for visibility (lazy render) and tracking
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const newVisible = new Set(visiblePages)
+          let changed = false
+
+          for (const entry of entries) {
+            const pageNum = Number(
+              (entry.target as HTMLElement).dataset.page
+            )
+            if (!pageNum) continue
+
+            if (entry.isIntersecting) {
+              // Also mark pages in buffer range
+              for (
+                let p = Math.max(1, pageNum - 2);
+                p <= Math.min(totalPages, pageNum + 2);
+                p++
+              ) {
+                if (!newVisible.has(p)) {
+                  newVisible.add(p)
+                  changed = true
+                }
+              }
+            }
+          }
+
+          if (changed) {
+            setVisiblePages(new Set(newVisible))
+          }
+
+          // Track which page is most visible for the toolbar indicator
+          if (!scrollTrackingRef.current) return
+          let bestPage = currentPage
+          let bestRatio = 0
+          for (const entry of entries) {
+            const pageNum = Number(
+              (entry.target as HTMLElement).dataset.page
+            )
+            if (pageNum && entry.intersectionRatio > bestRatio) {
+              bestRatio = entry.intersectionRatio
+              bestPage = pageNum
+            }
+          }
+          if (bestRatio > 0) {
+            setCurrentPage(bestPage)
+          }
+        },
+        {
+          root: scrollEl,
+          rootMargin: "200px 0px",
+          threshold: [0, 0.25, 0.5, 0.75, 1],
+        }
+      )
+
+      // Observe page divs
+      const timeout = setTimeout(() => {
+        pageRefsMap.current.forEach((el) => observer.observe(el))
+      }, 100)
+
+      return () => {
+        clearTimeout(timeout)
+        observer.disconnect()
+      }
+    }, [viewMode, pdf, totalPages]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Initialize visible pages when switching to scroll mode
+    React.useEffect(() => {
+      if (viewMode === "scroll" && totalPages > 0) {
+        // Start by making the first few pages visible
+        const initial = new Set<number>()
+        for (let i = 1; i <= Math.min(5, totalPages); i++) {
+          initial.add(i)
+        }
+        // Also include the current page range
+        for (
+          let i = Math.max(1, currentPage - 2);
+          i <= Math.min(totalPages, currentPage + 2);
+          i++
+        ) {
+          initial.add(i)
+        }
+        setVisiblePages(initial)
+
+        // Scroll to current page after a tick
+        if (currentPage > 1) {
+          setTimeout(() => {
+            const el = pageRefsMap.current.get(currentPage)
+            if (el) {
+              el.scrollIntoView({ block: "start" })
+            }
+          }, 50)
+        }
+      }
+    }, [viewMode, totalPages]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Page navigation (single mode)
     const goToPrevPage = () => {
       if (currentPage > 1) {
         setCurrentPage(currentPage - 1)
         setHighlightBox(null)
+        setHighlightPage(null)
       }
     }
 
@@ -179,23 +508,14 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       if (currentPage < totalPages) {
         setCurrentPage(currentPage + 1)
         setHighlightBox(null)
+        setHighlightPage(null)
       }
     }
 
-    const zoomIn = () => {
-      setScale((prev) => Math.min(prev + 0.25, 3))
-    }
+    const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3))
+    const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5))
+    const rotate = () => setRotation((prev) => (prev + 90) % 360)
 
-    const zoomOut = () => {
-      setScale((prev) => Math.max(prev - 0.25, 0.5))
-    }
-
-    // Rotate the PDF
-    const rotate = () => {
-      setRotation((prev) => (prev + 90) % 360)
-    }
-
-    // Print the PDF
     const handlePrint = () => {
       const printWindow = window.open(url, "_blank")
       if (printWindow) {
@@ -205,7 +525,6 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       }
     }
 
-    // Download the PDF
     const handleDownload = () => {
       const link = document.createElement("a")
       link.href = url
@@ -215,17 +534,29 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       document.body.removeChild(link)
     }
 
-    // Jump to page
-    const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePageInputChange = (
+      e: React.ChangeEvent<HTMLInputElement>
+    ) => {
       setPageInputValue(e.target.value)
     }
 
-    const handlePageInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handlePageInputKeyDown = (
+      e: React.KeyboardEvent<HTMLInputElement>
+    ) => {
       if (e.key === "Enter") {
         const pageNum = parseInt(pageInputValue, 10)
         if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
           setCurrentPage(pageNum)
           setHighlightBox(null)
+          setHighlightPage(null)
+          if (viewMode === "scroll") {
+            setTimeout(() => {
+              const el = pageRefsMap.current.get(pageNum)
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            }, 50)
+          }
         }
         setPageInputValue("")
       } else if (e.key === "Escape") {
@@ -233,7 +564,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       }
     }
 
-    // Search functionality
+    // Search
     const handleSearch = async () => {
       if (!pdf || !searchQuery.trim()) return
 
@@ -246,9 +577,11 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
         for (let i = 1; i <= totalPages; i++) {
           const page = await pdf.getPage(i)
           const textContent = await page.getTextContent()
-          const text = textContent.items.map((item: any) => item.str).join(" ")
+          const text = textContent.items
+            .map((item: any) => item.str)
+            .join(" ")
           totalTextLength += text.length
-          
+
           if (text.toLowerCase().includes(searchQuery.toLowerCase())) {
             results.push(i)
           }
@@ -260,9 +593,17 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
         if (results.length > 0) {
           setCurrentPage(results[0])
           setHighlightBox(null)
+          setHighlightPage(null)
           setSearchMessage("")
+          if (viewMode === "scroll") {
+            setTimeout(() => {
+              const el = pageRefsMap.current.get(results[0])
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            }, 50)
+          }
         } else if (totalTextLength < 100) {
-          // PDF likely has no searchable text (scanned image)
           setSearchMessage("PDF has no searchable text")
         } else {
           setSearchMessage("No results found")
@@ -275,7 +616,9 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       }
     }
 
-    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleSearchKeyDown = (
+      e: React.KeyboardEvent<HTMLInputElement>
+    ) => {
       if (e.key === "Enter") {
         handleSearch()
       } else if (e.key === "Escape") {
@@ -285,18 +628,33 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       }
     }
 
+    const navigateSearchResult = (index: number) => {
+      setCurrentSearchIndex(index)
+      const page = searchResults[index]
+      setCurrentPage(page)
+      if (viewMode === "scroll") {
+        setTimeout(() => {
+          const el = pageRefsMap.current.get(page)
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        }, 50)
+      }
+    }
+
     const goToNextSearchResult = () => {
       if (searchResults.length === 0) return
-      const nextIndex = (currentSearchIndex + 1) % searchResults.length
-      setCurrentSearchIndex(nextIndex)
-      setCurrentPage(searchResults[nextIndex])
+      navigateSearchResult(
+        (currentSearchIndex + 1) % searchResults.length
+      )
     }
 
     const goToPrevSearchResult = () => {
       if (searchResults.length === 0) return
-      const prevIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length
-      setCurrentSearchIndex(prevIndex)
-      setCurrentPage(searchResults[prevIndex])
+      navigateSearchResult(
+        (currentSearchIndex - 1 + searchResults.length) %
+          searchResults.length
+      )
     }
 
     const closeSearch = () => {
@@ -307,12 +665,44 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       setSearchMessage("")
     }
 
+    // Toggle view mode
+    const toggleViewMode = () => {
+      setViewMode((prev) => (prev === "single" ? "scroll" : "single"))
+    }
+
+    // Page array for scroll mode
+    const pageNumbers = React.useMemo(
+      () => Array.from({ length: totalPages }, (_, i) => i + 1),
+      [totalPages]
+    )
+
+    // Callback ref for scroll page containers
+    const setPageRef = React.useCallback(
+      (pageNum: number) => (el: HTMLDivElement | null) => {
+        if (el) {
+          pageRefsMap.current.set(pageNum, el)
+        } else {
+          pageRefsMap.current.delete(pageNum)
+        }
+      },
+      []
+    )
+
+    // ---------- Render ----------
+
     if (loading) {
       return (
-        <div className={cn("flex h-full items-center justify-center bg-muted/30", className)}>
+        <div
+          className={cn(
+            "flex h-full items-center justify-center bg-muted/30",
+            className
+          )}
+        >
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Loading PDF...</span>
+            <span className="text-sm text-muted-foreground">
+              Loading PDF...
+            </span>
           </div>
         </div>
       )
@@ -320,11 +710,16 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
 
     if (error) {
       return (
-        <div className={cn("flex h-full items-center justify-center bg-muted/30", className)}>
+        <div
+          className={cn(
+            "flex h-full items-center justify-center bg-muted/30",
+            className
+          )}
+        >
           <div className="flex flex-col items-center gap-3 text-center px-4">
             <span className="text-sm text-destructive">Error: {error}</span>
             <span className="text-xs text-muted-foreground">
-              Make sure to add a PDF file at <code className="bg-muted px-1 rounded">public/test/sample.pdf</code>
+              Could not load the PDF document.
             </span>
           </div>
         </div>
@@ -332,20 +727,27 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
     }
 
     return (
-      <div className={cn("flex h-full flex-col bg-muted/30", className)} ref={containerRef}>
+      <div
+        className={cn("flex h-full flex-col bg-muted/30", className)}
+        ref={containerRef}
+      >
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b bg-background px-4 py-2 gap-2">
           {/* Page Navigation */}
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={goToPrevPage}
-              disabled={currentPage <= 1}
-              className="h-8 w-8"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+            {viewMode === "single" && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={goToPrevPage}
+                  disabled={currentPage <= 1}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Input
                 type="text"
@@ -358,31 +760,66 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
               />
               <span>/ {totalPages}</span>
             </div>
+            {viewMode === "single" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Zoom, View Toggle & Actions */}
+          <div className="flex items-center gap-1">
+            {/* View mode toggle */}
             <Button
               variant="ghost"
               size="icon"
-              onClick={goToNextPage}
-              disabled={currentPage >= totalPages}
+              onClick={toggleViewMode}
+              className="h-8 w-8"
+              title={
+                viewMode === "single"
+                  ? "Switch to scroll view"
+                  : "Switch to single page"
+              }
+            >
+              {viewMode === "single" ? (
+                <Rows3 className="h-4 w-4" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+            </Button>
+
+            <div className="w-px h-5 bg-border mx-1" />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={zoomOut}
+              disabled={scale <= 0.5}
               className="h-8 w-8"
             >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Zoom & Actions */}
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={zoomOut} disabled={scale <= 0.5} className="h-8 w-8">
               <ZoomOut className="h-4 w-4" />
             </Button>
             <span className="text-xs text-muted-foreground min-w-[40px] text-center">
               {Math.round(scale * 100)}%
             </span>
-            <Button variant="ghost" size="icon" onClick={zoomIn} disabled={scale >= 3} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={zoomIn}
+              disabled={scale >= 3}
+              className="h-8 w-8"
+            >
               <ZoomIn className="h-4 w-4" />
             </Button>
-            
+
             <div className="w-px h-5 bg-border mx-1" />
-            
+
             {showSearch ? (
               <div className="flex items-center gap-1">
                 <Input
@@ -397,10 +834,10 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
                   className="h-7 w-28 text-sm"
                   autoFocus
                 />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handleSearch} 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSearch}
                   disabled={isSearching || !searchQuery.trim()}
                   className="h-7 w-7"
                 >
@@ -415,51 +852,89 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
                     <span className="text-xs text-muted-foreground">
                       {currentSearchIndex + 1}/{searchResults.length}
                     </span>
-                    <Button variant="ghost" size="icon" onClick={goToPrevSearchResult} className="h-6 w-6">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={goToPrevSearchResult}
+                      className="h-6 w-6"
+                    >
                       <ChevronLeft className="h-3 w-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={goToNextSearchResult} className="h-6 w-6">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={goToNextSearchResult}
+                      className="h-6 w-6"
+                    >
                       <ChevronRight className="h-3 w-3" />
                     </Button>
                   </div>
                 )}
                 {searchMessage && (
-                  <span className="text-xs text-muted-foreground">{searchMessage}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {searchMessage}
+                  </span>
                 )}
-                <Button variant="ghost" size="icon" onClick={closeSearch} className="h-7 w-7">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeSearch}
+                  className="h-7 w-7"
+                >
                   <X className="h-3 w-3" />
                 </Button>
               </div>
             ) : (
               <>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowSearch(true)} 
-                  className="h-8 w-8" 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowSearch(true)}
+                  className="h-8 w-8"
                   title="Search"
                 >
                   <Search className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={rotate} className="h-8 w-8" title="Rotate">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={rotate}
+                  className="h-8 w-8"
+                  title="Rotate"
+                >
                   <RotateCw className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={handleDownload} className="h-8 w-8" title="Download">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDownload}
+                  className="h-8 w-8"
+                  title="Download"
+                >
                   <Download className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={handlePrint} className="h-8 w-8" title="Print">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handlePrint}
+                  className="h-8 w-8"
+                  title="Print"
+                >
                   <Printer className="h-4 w-4" />
                 </Button>
               </>
             )}
-            
+
             {highlightBox && (
               <>
                 <div className="w-px h-5 bg-border mx-1" />
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setHighlightBox(null)}
+                  onClick={() => {
+                    setHighlightBox(null)
+                    setHighlightPage(null)
+                  }}
                   className="text-xs h-8"
                 >
                   Clear
@@ -469,36 +944,66 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
           </div>
         </div>
 
-        {/* Canvas Container */}
-        <div className="flex-1 overflow-auto p-6" ref={scrollContainerRef}>
-          <div className="flex justify-center">
-            <div 
-              className="relative transition-transform duration-300"
-              style={{ transform: `rotate(${rotation}deg)` }}
-            >
-              <canvas
-                ref={canvasRef}
-                className="shadow-lg rounded-sm bg-white"
-              />
-              {/* Highlight overlay */}
-              {highlightBox && viewportInfo && (
-                <div 
-                  style={{
-                    position: 'absolute',
-                    left: `${highlightBox.x * viewportInfo.scale}px`,
-                    top: `${highlightBox.y * viewportInfo.scale}px`,
-                    width: `${highlightBox.w * viewportInfo.scale}px`,
-                    height: `${highlightBox.h * viewportInfo.scale}px`,
-                    backgroundColor: 'rgba(255, 235, 59, 0.35)', // Subtle yellow
-                    border: '2px solid rgba(255, 193, 7, 0.8)', // Amber border
-                    borderRadius: '3px',
-                    pointerEvents: 'none',
-                    zIndex: 10,
-                  }}
+        {/* Content area */}
+        <div
+          className="flex-1 overflow-auto p-6"
+          ref={scrollContainerRef}
+        >
+          {viewMode === "single" ? (
+            /* ----- Single page mode ----- */
+            <div className="flex justify-center">
+              <div
+                className="relative transition-transform duration-300"
+                style={{ transform: `rotate(${rotation}deg)` }}
+              >
+                <canvas
+                  ref={canvasRef}
+                  className="shadow-lg rounded-sm bg-white"
                 />
-              )}
+                {highlightBox &&
+                  viewportInfo &&
+                  (highlightPage === null ||
+                    highlightPage === currentPage) && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: `${highlightBox.x * viewportInfo.scale}px`,
+                        top: `${highlightBox.y * viewportInfo.scale}px`,
+                        width: `${highlightBox.w * viewportInfo.scale}px`,
+                        height: `${highlightBox.h * viewportInfo.scale}px`,
+                        backgroundColor: "rgba(255, 235, 59, 0.35)",
+                        border: "2px solid rgba(255, 193, 7, 0.8)",
+                        borderRadius: "3px",
+                        pointerEvents: "none",
+                        zIndex: 10,
+                      }}
+                    />
+                  )}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* ----- Continuous scroll mode ----- */
+            <div className="flex flex-col items-center gap-4">
+              {pageNumbers.map((pageNum) => (
+                <div
+                  key={pageNum}
+                  ref={setPageRef(pageNum)}
+                  data-page={pageNum}
+                >
+                  <ScrollPageCanvas
+                    pdf={pdf}
+                    pageNum={pageNum}
+                    scale={scale}
+                    containerWidth={containerWidth}
+                    rotation={rotation}
+                    isVisible={visiblePages.has(pageNum)}
+                    highlightBox={highlightBox}
+                    highlightPage={highlightPage}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )

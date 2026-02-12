@@ -530,10 +530,14 @@ export function DocumentLogicBuilderSheet({
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const payload: Record<string, unknown> = { rules };
+      if (filterDocumentTypeId) {
+        payload.document_type_id = filterDocumentTypeId;
+      }
       const res = await fetch("/api/document-logic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -547,7 +551,7 @@ export function DocumentLogicBuilderSheet({
     } finally {
       setSubmitting(false);
     }
-  }, [rules, onOpenChange]);
+  }, [rules, filterDocumentTypeId, onOpenChange]);
 
   /* ---- Render ---- */
 
@@ -735,6 +739,12 @@ export function DocumentLogicBuilderSheet({
               {submitError}
             </p>
           )}
+          {conflictWarnings.size > 0 && (
+            <p className="text-sm text-warning text-center w-full flex items-center justify-center gap-1.5">
+              <AlertTriangle className="size-3.5 shrink-0" />
+              Resolve all warnings before saving.
+            </p>
+          )}
           <div className="flex gap-2 justify-end w-full">
             <Button
               variant="outline"
@@ -747,7 +757,7 @@ export function DocumentLogicBuilderSheet({
             <Button
               type="button"
               onClick={handleSave}
-              disabled={submitting || rules.length === 0}
+              disabled={submitting || conflictWarnings.size > 0}
             >
               {submitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
