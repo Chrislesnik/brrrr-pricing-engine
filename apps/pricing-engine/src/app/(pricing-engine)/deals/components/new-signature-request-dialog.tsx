@@ -175,7 +175,7 @@ export function NewSignatureRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle>New Signature Request</DialogTitle>
           <DialogDescription>
