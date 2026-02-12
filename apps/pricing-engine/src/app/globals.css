@@ -2,3 +2,114 @@
 @import "@repo/ui/globals.css";
 
 /* App-specific styles can be added below */
+
+/* -----------------------------------------------------------------------
+   Liveblocks Comments — dark-mode overrides
+   Strip blocky backgrounds and make the UI feel native / minimal
+   ----------------------------------------------------------------------- */
+
+/* Map Liveblocks accent to the app's primary color */
+.lb-root {
+  --lb-accent: hsl(var(--primary));
+  --lb-accent-foreground: hsl(var(--primary-foreground));
+  --lb-dynamic-background: hsl(var(--background));
+  --lb-foreground: hsl(var(--foreground));
+}
+
+/* Composer send / submit button — use app primary, not Liveblocks blue */
+.lb-composer-action[type="submit"],
+.lb-button[type="submit"],
+button.lb-composer-action:last-child,
+.lb-composer [data-submit],
+.lb-icon-button[type="submit"] {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+}
+
+.lb-composer-action[type="submit"]:hover,
+.lb-button[type="submit"]:hover,
+button.lb-composer-action:last-child:hover,
+.lb-composer [data-submit]:hover,
+.lb-icon-button[type="submit"]:hover {
+  background: hsl(var(--primary) / 0.8) !important;
+}
+
+/* Any remaining accent-colored elements — links, active states */
+.lb-accent,
+.lb-comment a,
+.lb-thread a {
+  color: hsl(var(--primary)) !important;
+}
+
+.lb-comment,
+.lb-thread {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove card-like background from individual comment containers */
+.lb-comment-content {
+  background: transparent !important;
+}
+
+/* Clean up the composer — no heavy box-shadow or background block */
+.lb-composer {
+  background: hsl(var(--muted) / 0.3) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: none !important;
+  border-radius: 0.75rem !important;
+}
+
+.lb-composer:focus-within {
+  border-color: hsl(var(--ring)) !important;
+  background: hsl(var(--muted) / 0.5) !important;
+}
+
+/* Composer editor placeholder */
+.lb-composer-editor [data-placeholder]::before {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Reaction badges — subtle, not blocky */
+.lb-comment-reaction {
+  background: hsl(var(--muted) / 0.4) !important;
+  border: 1px solid hsl(var(--border) / 0.5) !important;
+  border-radius: 9999px !important;
+}
+
+.lb-comment-reaction:hover {
+  background: hsl(var(--muted) / 0.7) !important;
+}
+
+.lb-comment-reaction[data-active] {
+  background: hsl(var(--primary) / 0.15) !important;
+  border-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Toolbar / action buttons — keep them subtle */
+.lb-comment-actions,
+.lb-toolbar {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.25) !important;
+}
+
+/* Thread component in detail view — no extra card styling */
+.lb-thread-comments {
+  background: transparent !important;
+}
+
+/* Composer formatting toolbar */
+.lb-composer-toolbar {
+  background: transparent !important;
+  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+}
+
+/* Composer submit button area */
+.lb-composer-footer {
+  background: transparent !important;
+}

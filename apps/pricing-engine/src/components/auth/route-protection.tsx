@@ -36,6 +36,7 @@ export function RouteProtection({
   redirectTo,
 }: RouteProtectionProps) {
   const [hasAccess, setHasAccess] = useState(false)
+  const [checked, setChecked] = useState(false)
   const { isLoaded, isSignedIn } = useUser()
   const {
     permissions,
@@ -59,6 +60,7 @@ export function RouteProtection({
 
       if (!permissions && !permissionsLoading && !error) {
         setHasAccess(false)
+        setChecked(true)
         return
       }
 
@@ -75,8 +77,10 @@ export function RouteProtection({
           requiredPermissions.every((perm) => permissions[perm])
 
         setHasAccess(contactTypeMatch && roleMatch && permissionMatch)
+        setChecked(true)
       } else {
         setHasAccess(false)
+        setChecked(true)
       }
     }
 
@@ -94,7 +98,9 @@ export function RouteProtection({
     redirectTo,
   ])
 
-  if (!isLoaded || permissionsLoading) {
+  // Show loading spinner until auth + permissions are fully checked.
+  // This ensures server and client render the same initial HTML (avoids hydration mismatch).
+  if (!isLoaded || permissionsLoading || !checked) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
