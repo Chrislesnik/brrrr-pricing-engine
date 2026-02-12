@@ -73,13 +73,13 @@ export async function POST(req: NextRequest) {
 
     const nextOrder = (maxRow?.display_order ?? -1) + 1
 
-    // Generate a snake_case id from the label
-    const inputId = input_label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+    // Generate a snake_case input_code from the label
+    const inputCode = input_label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
 
     const { data, error } = await supabaseAdmin
       .from("inputs")
       .insert({
-        id: inputId,
+        input_code: inputCode,
         category_id,
         category: catRow.category,
         input_label: input_label.trim(),
@@ -101,8 +101,8 @@ export async function POST(req: NextRequest) {
 /**
  * PATCH /api/inputs
  * Batch update display_order and/or category_id for inputs (drag-and-drop moves).
- * Body: { reorder: [{ id: string, category_id: number, display_order: number }] }
- *   OR: { id: string, ...fields to update }
+ * Body: { reorder: [{ input_code: string, category_id: number, display_order: number }] }
+ *   OR: { input_code: string, ...fields to update }
  */
 export async function PATCH(req: NextRequest) {
   try {
@@ -114,8 +114,8 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
 
     // Single input update (edit label, type, dropdown_options, starred)
-    if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options, starred } = body
+    if (body.input_code && !Array.isArray(body.reorder)) {
+      const { input_code, input_label, input_type, dropdown_options, starred } = body
       const updatePayload: Record<string, unknown> = {}
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
       if (input_type !== undefined) {
@@ -135,7 +135,7 @@ export async function PATCH(req: NextRequest) {
       const { error } = await supabaseAdmin
         .from("inputs")
         .update(updatePayload)
-        .eq("id", id)
+        .eq("input_code", input_code)
         .eq("organization_id", orgUuid)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
@@ -143,7 +143,7 @@ export async function PATCH(req: NextRequest) {
 
     // Batch reorder (used after drag-and-drop)
     if (Array.isArray(body.reorder)) {
-      const updates = body.reorder as { id: string; category_id: number; display_order: number }[]
+      const updates = body.reorder as { input_code: string; category_id: number; display_order: number }[]
 
       // Also look up category names for any cross-column moves
       const categoryIds = [...new Set(updates.map((u) => u.category_id))]
@@ -166,7 +166,7 @@ export async function PATCH(req: NextRequest) {
         await supabaseAdmin
           .from("inputs")
           .update(updatePayload)
-          .eq("id", item.id)
+          .eq("input_code", item.input_code)
           .eq("organization_id", orgUuid)
       }
       return NextResponse.json({ ok: true })
@@ -181,7 +181,7 @@ export async function PATCH(req: NextRequest) {
 /**
  * DELETE /api/inputs
  * Delete an input.
- * Body: { id: string }
+ * Body: { input_code: string }
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -191,13 +191,13 @@ export async function DELETE(req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const id = body.id
-    if (!id) return NextResponse.json({ error: "Input id is required" }, { status: 400 })
+    const input_code = body.input_code
+    if (!input_code) return NextResponse.json({ error: "Input input_code is required" }, { status: 400 })
 
     const { error } = await supabaseAdmin
       .from("inputs")
       .delete()
-      .eq("id", id)
+      .eq("input_code", input_code)
       .eq("organization_id", orgUuid)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

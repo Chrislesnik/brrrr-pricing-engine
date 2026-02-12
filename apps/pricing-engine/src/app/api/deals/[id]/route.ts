@@ -245,17 +245,17 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
-    // Fetch input metadata to know the type for each input_id
+    // Fetch input metadata to know the type for each input_code
     const inputIds = entries.map(([key]) => key);
     const { data: inputMeta } = await supabaseAdmin
       .from("inputs")
-      .select("id, input_type")
-      .in("id", inputIds);
+      .select("input_code, input_type")
+      .in("input_code", inputIds);
 
     const typeMap: Record<string, string> = {};
     if (inputMeta) {
       for (const row of inputMeta) {
-        typeMap[row.id] = row.input_type;
+        typeMap[row.input_code] = row.input_type;
       }
     }
 

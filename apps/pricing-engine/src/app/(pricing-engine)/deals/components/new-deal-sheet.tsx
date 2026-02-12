@@ -49,7 +49,7 @@ interface InputCategory {
 }
 
 interface InputField {
-  id: string
+  input_code: string
   category_id: number
   category: string
   input_label: string
@@ -107,9 +107,9 @@ export function NewDealSheet({
         const defaults: FormValues = {}
         for (const input of inp) {
           if (input.input_type === "boolean") {
-            defaults[input.id] = false
+            defaults[input.input_code] = false
           } else {
-            defaults[input.id] = ""
+            defaults[input.input_code] = ""
           }
         }
         setFormValues(defaults)
@@ -196,7 +196,7 @@ export function NewDealSheet({
         if (hiddenFields.has(inputId)) continue // hidden fields can't be required
         const val = formValues[inputId]
         if (val === undefined || val === null || val === "" || val === false) {
-          const label = inputs.find((i) => i.id === inputId)?.input_label ?? inputId
+          const label = inputs.find((i) => i.input_code === inputId)?.input_label ?? inputId
           setSubmitError(`"${label}" is required.`)
           setSubmitting(false)
           return
@@ -205,7 +205,7 @@ export function NewDealSheet({
 
       // Build deal_inputs array — one entry per input field (including blanks)
       const dealInputs = inputs.map((field) => {
-        const raw = formValues[field.id]
+        const raw = formValues[field.input_code]
         let value: string | number | boolean | null = null
 
         if (raw !== undefined && raw !== "") {
@@ -234,7 +234,7 @@ export function NewDealSheet({
         }
 
         return {
-          input_id: field.id,
+          input_id: field.input_code,
           input_type: field.input_type,
           value,
         }
@@ -323,15 +323,15 @@ export function NewDealSheet({
                       ) : (
                         <div className="grid gap-4 sm:grid-cols-2">
                           {fields
-                            .filter((f) => !hiddenFields.has(f.id))
+                            .filter((f) => !hiddenFields.has(f.input_code))
                             .map((field) => (
                             <DynamicInput
-                              key={field.id}
+                              key={field.input_code}
                               field={field}
-                              value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
-                              onChange={(val) => updateValue(field.id, val)}
-                              isRequired={requiredFields.has(field.id)}
-                              isComputed={computedFieldIds.has(field.id)}
+                              value={formValues[field.input_code] ?? (field.input_type === "boolean" ? false : "")}
+                              onChange={(val) => updateValue(field.input_code, val)}
+                              isRequired={requiredFields.has(field.input_code)}
+                              isComputed={computedFieldIds.has(field.input_code)}
                             />
                           ))}
                         </div>
@@ -399,12 +399,12 @@ function DynamicInput({
     case "text":
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>
+          <Label htmlFor={field.input_code}>
             {field.input_label}
             {isRequired && <span className="ml-1 text-destructive">*</span>}
           </Label>
           <Input
-            id={field.id}
+            id={field.input_code}
             placeholder={field.input_label}
             value={stringVal}
             onChange={(e) => onChange(e.target.value)}
@@ -457,7 +457,7 @@ function DynamicInput({
     case "currency":
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>
+          <Label htmlFor={field.input_code}>
             {field.input_label}
             {isRequired && <span className="ml-1 text-destructive">*</span>}
           </Label>
@@ -466,7 +466,7 @@ function DynamicInput({
               $
             </span>
             <CalcInput
-              id={field.id}
+              id={field.input_code}
               value={stringVal}
               onValueChange={(val) => onChange(val)}
               className={`pl-7 ${computedClass}`}
@@ -516,13 +516,13 @@ function DynamicInput({
     case "percentage":
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>
+          <Label htmlFor={field.input_code}>
             {field.input_label}
             {isRequired && <span className="ml-1 text-destructive">*</span>}
           </Label>
           <div className="relative">
             <Input
-              id={field.id}
+              id={field.input_code}
               type="number"
               inputMode="decimal"
               placeholder="0.00"
@@ -584,12 +584,12 @@ function DynamicInput({
     default:
       return (
         <div className="space-y-2">
-          <Label htmlFor={field.id}>
+          <Label htmlFor={field.input_code}>
             {field.input_label}
             {isRequired && <span className="ml-1 text-destructive">*</span>}
           </Label>
           <Input
-            id={field.id}
+            id={field.input_code}
             placeholder={field.input_label}
             value={stringVal}
             onChange={(e) => onChange(e.target.value)}

@@ -62,7 +62,7 @@ interface InputCategory {
 }
 
 interface InputField {
-  id: string;
+  input_code: string;
   category_id: number;
   category: string;
   input_label: string;
@@ -256,12 +256,12 @@ export function InputsSettings() {
     }
   };
 
-  const handleDeleteInput = async (id: string) => {
+  const handleDeleteInput = async (inputCode: string) => {
     try {
       await fetch("/api/inputs", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ input_code: inputCode }),
       });
       await fetchData();
     } catch (err) {
@@ -277,7 +277,7 @@ export function InputsSettings() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: input.id,
+          input_code: input.input_code,
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
@@ -298,13 +298,13 @@ export function InputsSettings() {
       const res = await fetch("/api/inputs", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: input.id, starred: !input.starred }),
+        body: JSON.stringify({ input_code: input.input_code, starred: !input.starred }),
       });
       if (res.ok) {
         // Optimistically update local state
         setInputs((prev) =>
           prev.map((inp) =>
-            inp.id === input.id ? { ...inp, starred: !inp.starred } : inp
+            inp.input_code === input.input_code ? { ...inp, starred: !inp.starred } : inp
           )
         );
       }
@@ -353,7 +353,7 @@ export function InputsSettings() {
     }
 
     // Always sync inputs for the new column layout
-    const reorderPayload: { id: string; category_id: number; display_order: number }[] = [];
+    const reorderPayload: { input_code: string; category_id: number; display_order: number }[] = [];
     const newInputs: InputField[] = [];
 
     for (const [key, items] of Object.entries(newColumns)) {
@@ -361,7 +361,7 @@ export function InputsSettings() {
       const cat = categoryMap.get(key);
       items.forEach((item, index) => {
         reorderPayload.push({
-          id: item.id,
+          input_code: item.input_code,
           category_id: categoryId,
           display_order: index,
         });
@@ -479,7 +479,7 @@ export function InputsSettings() {
         <Kanban<InputField>
           value={kanbanColumns}
           onValueChange={handleKanbanChange}
-          getItemValue={(item) => item.id}
+          getItemValue={(item) => item.input_code}
         >
           <KanbanBoard>
             {categories.map((cat) => {
@@ -580,8 +580,8 @@ export function InputsSettings() {
                   {/* Input items */}
                   <div className="flex flex-col gap-1.5">
                     {colInputs.map((input) =>
-                      editingInputId === input.id ? (
-                        <div key={input.id} className="space-y-3 rounded-md border bg-card p-3">
+                      editingInputId === input.input_code ? (
+                        <div key={input.input_code} className="space-y-3 rounded-md border bg-card p-3">
                           <div className="space-y-1.5">
                             <Label className="text-xs">Label</Label>
                             <Input
@@ -675,8 +675,8 @@ export function InputsSettings() {
                         </div>
                       ) : (
                         <KanbanItem
-                          key={input.id}
-                          value={input.id}
+                          key={input.input_code}
+                          value={input.input_code}
                           asHandle
                           asChild
                         >
@@ -724,7 +724,7 @@ export function InputsSettings() {
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setLogicBuilderInputId(input.id);
+                                  setLogicBuilderInputId(input.input_code);
                                   setLogicBuilderOpen(true);
                                 }}
                               >
@@ -737,7 +737,7 @@ export function InputsSettings() {
                                 onClick={(e) => {
                                 e.stopPropagation();
                                 resetInputForm();
-                                setEditingInputId(input.id);
+                                setEditingInputId(input.input_code);
                                 setNewInputLabel(input.input_label);
                                 setNewInputType(input.input_type);
                                 setNewDropdownOptions(
@@ -756,7 +756,7 @@ export function InputsSettings() {
                                   setDeleteDialog({
                                     open: true,
                                     type: "input",
-                                    id: input.id,
+                                    id: input.input_code,
                                     name: input.input_label,
                                   });
                                 }}

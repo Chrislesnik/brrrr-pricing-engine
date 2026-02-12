@@ -9,7 +9,7 @@ import { cn } from "@repo/lib/cn";
 /* -------------------------------------------------------------------------- */
 
 interface InputField {
-  id: string;
+  input_code: string;
   input_label: string;
   input_type: string;
   category: string;
@@ -384,7 +384,7 @@ export function ExpressionInput({
   const filteredInputs = mentionQuery
     ? inputs.filter(
         (inp) =>
-          inp.id.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+          inp.input_code.toLowerCase().includes(mentionQuery.toLowerCase()) ||
           inp.input_label.toLowerCase().includes(mentionQuery.toLowerCase())
       )
     : inputs;
@@ -538,7 +538,7 @@ export function ExpressionInput({
       if (segmentIndex >= 0) {
         const insertParts: Segment[] = [];
         if (before) insertParts.push({ type: "text", value: before });
-        insertParts.push({ type: "input", inputId: inp.id });
+        insertParts.push({ type: "input", inputId: inp.input_code });
         insertParts.push({ type: "text", value: after || "" });
         newSegments.splice(segmentIndex, 1, ...insertParts);
 
@@ -548,7 +548,7 @@ export function ExpressionInput({
         pendingFocusRef.current = { cursorPos: 0 };
       } else {
         newSegments.push(
-          { type: "input", inputId: inp.id },
+          { type: "input", inputId: inp.input_code },
           { type: "text", value: after || "" }
         );
         setEditingIndex(newSegments.length - 1);
@@ -755,7 +755,7 @@ export function ExpressionInput({
   };
 
   const getInputLabel = (inputId: string): string => {
-    const inp = inputs.find((i) => i.id === inputId);
+    const inp = inputs.find((i) => i.input_code === inputId);
     return inp ? inp.input_label : inputId;
   };
 
@@ -916,7 +916,7 @@ export function ExpressionInput({
         >
           <ul className="max-h-40 overflow-auto">
             {filteredInputs.map((inp, idx) => (
-              <li key={inp.id}>
+              <li key={inp.input_code}>
                 <button
                   type="button"
                   className={cn(
@@ -930,7 +930,7 @@ export function ExpressionInput({
                 >
                   <span className="font-medium">{inp.input_label}</span>
                   <span className="ml-2 text-muted-foreground">
-                    {inp.id}
+                    {inp.input_code}
                   </span>
                 </button>
               </li>

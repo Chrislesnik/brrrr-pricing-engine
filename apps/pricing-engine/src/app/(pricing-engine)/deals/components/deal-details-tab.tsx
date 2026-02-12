@@ -48,7 +48,7 @@ interface InputCategory {
 }
 
 interface InputField {
-  id: string;
+  input_code: string;
   category_id: number;
   category: string;
   input_label: string;
@@ -212,7 +212,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         if (hiddenFields.has(inputId)) continue;
         const val = editedValues[inputId];
         if (val === undefined || val === null || val === "" || val === false) {
-          const label = inputFields.find((f) => f.id === inputId)?.input_label ?? inputId;
+          const label = inputFields.find((f) => f.input_code === inputId)?.input_label ?? inputId;
           toast({
             title: "Required field",
             description: `"${label}" is required.`,
@@ -338,7 +338,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         return (
           <Input
             value={stringVal}
-            onChange={(e) => updateValue(field.id, e.target.value)}
+            onChange={(e) => updateValue(field.input_code, e.target.value)}
             placeholder={field.input_label}
             className="text-sm"
           />
@@ -348,7 +348,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         return (
           <Select
             value={stringVal || undefined}
-            onValueChange={(val) => updateValue(field.id, val)}
+            onValueChange={(val) => updateValue(field.input_code, val)}
           >
             <SelectTrigger className="text-sm">
               <SelectValue placeholder={`Select...`} />
@@ -367,7 +367,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         return (
           <DatePickerField
             value={stringVal}
-            onChange={(val) => updateValue(field.id, val)}
+            onChange={(val) => updateValue(field.input_code, val)}
           />
         );
 
@@ -378,9 +378,9 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
               $
             </span>
             <CalcInput
-              id={field.id}
+              id={field.input_code}
               value={stringVal}
-              onValueChange={(val) => updateValue(field.id, val)}
+              onValueChange={(val) => updateValue(field.input_code, val)}
               className="pl-7 text-sm"
               placeholder="0.00"
             />
@@ -392,7 +392,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
           <NumberField
             value={stringVal ? Number(stringVal) : undefined}
             onChange={(val) =>
-              updateValue(field.id, isNaN(val) ? null : val)
+              updateValue(field.input_code, isNaN(val) ? null : val)
             }
             minValue={0}
             className="w-full"
@@ -433,18 +433,18 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
               value={stringVal}
               onChange={(e) => {
                 const raw = e.target.value;
-                updateValue(field.id, raw === "" ? null : raw);
+                updateValue(field.input_code, raw === "" ? null : raw);
               }}
               onBlur={() => {
                 if (stringVal === "") return;
                 const num = parseFloat(stringVal);
                 if (isNaN(num)) {
-                  updateValue(field.id, null);
+                  updateValue(field.input_code, null);
                   return;
                 }
                 const clamped = Math.min(100, Math.max(0, num));
                 updateValue(
-                  field.id,
+                  field.input_code,
                   clamped.toFixed(2).replace(/\.?0+$/, "") || "0"
                 );
               }}
@@ -460,7 +460,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         return (
           <Select
             value={boolVal ? "true" : "false"}
-            onValueChange={(val) => updateValue(field.id, val === "true")}
+            onValueChange={(val) => updateValue(field.input_code, val === "true")}
           >
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="Select..." />
@@ -476,7 +476,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         return (
           <Input
             value={stringVal}
-            onChange={(e) => updateValue(field.id, e.target.value)}
+            onChange={(e) => updateValue(field.input_code, e.target.value)}
             placeholder={field.input_label}
             className="text-sm"
           />
@@ -568,7 +568,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
             </div>
 
             {leftCategories.map(({ category, fields }) => {
-              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+              const visibleFields = fields.filter((f) => !hiddenFields.has(f.input_code));
               return (
               <Accordion
                 key={category.id}
@@ -591,13 +591,13 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                     ) : (
                       <div className="space-y-1">
                         {visibleFields.map((field) => {
-                          const rawValue = editedValues[field.id] ?? null;
-                          const reqd = requiredFields.has(field.id);
-                          const comp = computedFieldIds.has(field.id);
+                          const rawValue = editedValues[field.input_code] ?? null;
+                          const reqd = requiredFields.has(field.input_code);
+                          const comp = computedFieldIds.has(field.input_code);
                           if (!isEditing) {
                             return (
                               <DetailRow
-                                key={field.id}
+                                key={field.input_code}
                                 label={field.input_label}
                                 value={renderReadValue(field, rawValue)}
                                 isRequired={reqd}
@@ -607,7 +607,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                           }
                           return (
                             <div
-                              key={field.id}
+                              key={field.input_code}
                               className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
                             >
                               <div className="text-sm font-medium text-muted-foreground">
@@ -632,7 +632,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
           {/* Right column: even-indexed categories */}
           <div className="flex flex-col gap-4">
             {rightCategories.map(({ category, fields }) => {
-              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+              const visibleFields = fields.filter((f) => !hiddenFields.has(f.input_code));
               return (
               <Accordion
                 key={category.id}
@@ -655,13 +655,13 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                     ) : (
                       <div className="space-y-1">
                         {visibleFields.map((field) => {
-                          const rawValue = editedValues[field.id] ?? null;
-                          const reqd = requiredFields.has(field.id);
-                          const comp = computedFieldIds.has(field.id);
+                          const rawValue = editedValues[field.input_code] ?? null;
+                          const reqd = requiredFields.has(field.input_code);
+                          const comp = computedFieldIds.has(field.input_code);
                           if (!isEditing) {
                             return (
                               <DetailRow
-                                key={field.id}
+                                key={field.input_code}
                                 label={field.input_label}
                                 value={renderReadValue(field, rawValue)}
                                 isRequired={reqd}
@@ -671,7 +671,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                           }
                           return (
                             <div
-                              key={field.id}
+                              key={field.input_code}
                               className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
                             >
                               <div className="text-sm font-medium text-muted-foreground">

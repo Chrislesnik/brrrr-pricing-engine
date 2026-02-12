@@ -76,7 +76,7 @@ type ValueType =
   | "expression";
 
 interface InputField {
-  id: string;
+  input_code: string;
   input_label: string;
   input_type: string;
   category: string;
@@ -317,7 +317,7 @@ export function LogicBuilderSheet({
 
   const inputMap = useMemo(() => {
     const m = new Map<string, InputField>();
-    for (const inp of inputs) m.set(inp.id, inp);
+    for (const inp of inputs) m.set(inp.input_code, inp);
     return m;
   }, [inputs]);
 
@@ -744,7 +744,7 @@ function SearchableInputSelect({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedLabel = inputs.find((inp) => inp.id === value)?.label;
+  const selectedLabel = inputs.find((inp) => inp.input_code === value)?.label;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -775,10 +775,10 @@ function SearchableInputSelect({
             <CommandGroup>
               {inputs.map((inp) => (
                 <CommandItem
-                  key={inp.id}
+                  key={inp.input_code}
                   value={inp.label}
                   onSelect={() => {
-                    onValueChange(inp.id);
+                    onValueChange(inp.input_code);
                     setOpen(false);
                   }}
                 >
