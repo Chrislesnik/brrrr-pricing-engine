@@ -121,7 +121,21 @@ function DealRecordContent() {
   return (
     <div className="flex flex-1 flex-row h-full overflow-hidden">
       {/* Main content — shrinks when comments panel is open */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-y-auto relative">
+      <div className="flex-1 min-w-0 flex flex-col relative">
+        {/* Floating Chat button — positioned outside the scroll container so it stays fixed */}
+        {!commentsOpen && (
+          <Button
+            variant="default"
+            size="sm"
+            className="absolute bottom-6 right-6 z-10 gap-2 shadow-lg rounded-full px-4 py-2 h-10"
+            onClick={() => setCommentsOpen(true)}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat
+          </Button>
+        )}
+
+        <div className="flex-1 overflow-y-auto">
         <div className="flex items-center justify-between py-4 px-4 shrink-0">
           <div className="flex items-center gap-4">
             <Button
@@ -142,19 +156,6 @@ function DealRecordContent() {
             </div>
           </div>
         </div>
-
-        {/* Floating Chat button — bottom-right, visible on all tabs */}
-        {!commentsOpen && (
-          <Button
-            variant="default"
-            size="sm"
-            className="absolute bottom-6 right-6 z-10 gap-2 shadow-lg rounded-full px-4 py-2 h-10"
-            onClick={() => setCommentsOpen(true)}
-          >
-            <MessageSquare className="h-4 w-4" />
-            Chat
-          </Button>
-        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto shrink-0">
@@ -206,6 +207,7 @@ function DealRecordContent() {
             </TabsContent>
           </div>
         </Tabs>
+        </div>{/* end scroll wrapper */}
       </div>
 
       {/* Liveblocks Comments — full-height inline side panel */}
