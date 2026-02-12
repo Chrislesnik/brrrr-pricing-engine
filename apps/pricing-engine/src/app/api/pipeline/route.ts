@@ -3,21 +3,91 @@ import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getPipelineLoansForOrg } from "@/app/(pricing-engine)/scenarios/data/fetch-loans"
 
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                      */
+/* -------------------------------------------------------------------------- */
+
 type DealRow = {
   id: string
-  deal_name: string | null
-  deal_stage_2: string | null
-  loan_amount_total: number | null
-  funding_date: string | null
-  project_type: string | null
-  property_id: number | null
-  loan_number: string | null
-  deal_guarantors?: Array<{
-    guarantor_id: number
-    is_primary: boolean | null
-    guarantor?: { id: number; name: string | null } | null
-  }>
+  organization_id: string
+  assigned_to_user_id: unknown
+  created_at: string
+  updated_at: string
+  primary_user_id: string | null
 }
+
+type DealInputRow = {
+  deal_id: string
+  input_id: string
+  input_type: string
+  value_text: string | null
+  value_numeric: number | null
+  value_date: string | null
+  value_bool: boolean | null
+  value_array: unknown | null
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const isMissingTableError = (message?: string) =>
+  Boolean(message && message.toLowerCase().includes("does not exist"))
+
+const isMissingColumnError = (message?: string) =>
+  Boolean(
+    message &&
+      message.toLowerCase().includes("column") &&
+      message.toLowerCase().includes("does not exist")
+  )
+
+/**
+ * Read the correct value from a deal_input row based on its input_type.
+ */
+function readDealInputValue(row: DealInputRow): unknown {
+  switch (row.input_type) {
+    case "text":
+    case "dropdown":
+      return row.value_text
+    case "currency":
+    case "number":
+    case "percentage":
+      return row.value_numeric
+    case "date":
+      return row.value_date
+    case "boolean":
+      return row.value_bool
+    default:
+      // Return whichever typed column has a value
+      return (
+        row.value_text ??
+        row.value_numeric ??
+        row.value_date ??
+        row.value_bool ??
+        row.value_array ??
+        null
+      )
+  }
+}
+
+/**
+ * Given an array of deal_input rows, group them by deal_id and build an
+ * `inputs` Record per deal: { [input_id]: value }
+ */
+function buildInputsMap(
+  rows: DealInputRow[]
+): Record<string, Record<string, unknown>> {
+  const map: Record<string, Record<string, unknown>> = {}
+  for (const row of rows) {
+    if (!map[row.deal_id]) map[row.deal_id] = {}
+    map[row.deal_id][row.input_id] = readDealInputValue(row)
+  }
+  return map
+}
+
+/* -------------------------------------------------------------------------- */
+/*  GET /api/pipeline                                                          */
+/* -------------------------------------------------------------------------- */
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,12 +95,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const view = searchParams.get("view")
 
-    const isMissingTableError = (message?: string) =>
-      Boolean(message && message.toLowerCase().includes("does not exist"))
-    const isMissingColumnError = (message?: string) =>
-      Boolean(message && message.toLowerCase().includes("column") && message.toLowerCase().includes("does not exist"))
-
     if (view === "deals") {
+      console.log("[Pipeline] userId:", userId, "orgId:", orgId)
       if (!userId) {
         return NextResponse.json({ deals: [] }, { status: 401 })
       }
@@ -40,6 +106,8 @@ export async function GET(req: NextRequest) {
         .select("id, is_internal_yn")
         .eq("clerk_user_id", userId)
         .maybeSingle()
+      
+      console.log("[Pipeline] userRow:", userRow, "userErr:", userErr)
 
       if (userErr) {
         const message = userErr.message ?? ""
@@ -56,6 +124,7 @@ export async function GET(req: NextRequest) {
       const isInternal = Boolean(userRow.is_internal_yn)
       const userNumericId = userRow.id as number
 
+      // ── Determine which deal IDs this user can see ──────────────────────
       let dealIds: string[] = []
 
       if (!isInternal) {
@@ -122,16 +191,16 @@ export async function GET(req: NextRequest) {
             .filter(Boolean) as string[]
         }
 
-        const orgIds = (orgRes.data ?? [])
+        const memberOrgIds = (orgRes.data ?? [])
           .map((row) => row.organization_id)
           .filter(Boolean) as string[]
 
         let orgDealIds: string[] = []
-        if (orgIds.length > 0) {
+        if (memberOrgIds.length > 0) {
           const { data: orgDeals, error: orgDealsErr } = await supabaseAdmin
             .from("deal_clerk_orgs")
             .select("deal_id")
-            .in("clerk_org_id", orgIds)
+            .in("clerk_org_id", memberOrgIds)
           if (
             orgDealsErr &&
             !isMissingTableError(orgDealsErr.message) &&
@@ -149,25 +218,10 @@ export async function GET(req: NextRequest) {
         )
       }
 
+      // ── Fetch deals (only columns that exist on the table) ──────────────
       const dealsQuery = supabaseAdmin
         .from("deals")
-        .select(
-          `
-          id,
-          deal_name,
-          deal_stage_2,
-          loan_amount_total,
-          funding_date,
-          project_type,
-          property_id,
-          loan_number,
-          deal_guarantors(
-            guarantor_id,
-            is_primary,
-            guarantor:guarantor_id(id, name)
-          )
-        `
-        )
+        .select("id, organization_id, assigned_to_user_id, created_at, updated_at, primary_user_id")
         .order("created_at", { ascending: false })
 
       const { data: deals, error: dealsErr } = isInternal
@@ -178,161 +232,41 @@ export async function GET(req: NextRequest) {
 
       if (dealsErr) {
         const message = (dealsErr as { message?: string })?.message ?? ""
-        const missingDealTable = isMissingTableError(message)
-        const isRelationError =
-          message.toLowerCase().includes("relationship") ||
-          message.toLowerCase().includes("schema cache") ||
-          message.toLowerCase().includes("deal_guarantors")
-
-        if (!missingDealTable && !isRelationError) {
-          return NextResponse.json({ error: message || "Failed to fetch deals" }, { status: 500 })
+        if (isMissingTableError(message) || isMissingColumnError(message)) {
+          return NextResponse.json({ deals: [] })
         }
-
-        if (missingDealTable) {
-          const fallbackQuery = supabaseAdmin
-            .from("deals")
-            .select(
-              `
-              id,
-              property_address,
-              loan_amount,
-              status,
-              transaction_type,
-              loan_type,
-              borrower_first_name,
-              borrower_last_name,
-              created_at,
-              updated_at
-            `
-            )
-            .order("created_at", { ascending: false })
-
-          const { data: fallbackDeals, error: fallbackErr } = isInternal
-            ? await fallbackQuery
-            : dealIds.length > 0
-              ? await fallbackQuery.in("id", dealIds)
-              : { data: [], error: null }
-
-          if (fallbackErr) {
-            const fallbackMessage = fallbackErr.message ?? ""
-            if (isMissingColumnError(fallbackMessage) || isMissingTableError(fallbackMessage)) {
-              return NextResponse.json({ deals: [] })
-            }
-            return NextResponse.json({ error: fallbackMessage }, { status: 500 })
-          }
-
-          const transformed = (fallbackDeals ?? []).map((deal) => {
-            const borrowerName = [deal.borrower_first_name, deal.borrower_last_name]
-              .filter(Boolean)
-              .join(" ")
-            return {
-              id: deal.id,
-              deal_name: borrowerName || deal.property_address || null,
-              deal_stage_2: deal.status ?? null,
-              loan_amount_total: deal.loan_amount ?? null,
-              funding_date: deal.updated_at ?? deal.created_at ?? null,
-              project_type: deal.transaction_type ?? deal.loan_type ?? null,
-              property_address: deal.property_address ?? "No property",
-              guarantor_name: borrowerName || "No guarantor",
-              loan_number: deal.id ?? null,
-            }
-          })
-
-          return NextResponse.json({ deals: transformed })
-        }
-
-        const simpleDealQuery = supabaseAdmin
-          .from("deal")
-          .select(
-            `
-            id,
-            deal_name,
-            deal_stage_2,
-            loan_amount_total,
-            funding_date,
-            project_type,
-            property_id,
-            loan_number
-          `
-          )
-          .order("created_at", { ascending: false })
-
-        const { data: simpleDeals, error: simpleErr } = isInternal
-          ? await simpleDealQuery
-          : dealIds.length > 0
-            ? await simpleDealQuery.in("id", dealIds)
-            : { data: [], error: null }
-
-        if (simpleErr) {
-          const simpleMessage = simpleErr.message ?? ""
-          if (isMissingColumnError(simpleMessage) || isMissingTableError(simpleMessage)) {
-            return NextResponse.json({ deals: [] })
-          }
-          return NextResponse.json({ error: simpleMessage }, { status: 500 })
-        }
-
-        const dealRows = (simpleDeals ?? []) as DealRow[]
-        const transformed = dealRows.map((deal) => ({
-          id: deal.id,
-          deal_name: deal.deal_name,
-          deal_stage_2: deal.deal_stage_2,
-          loan_amount_total: deal.loan_amount_total,
-          funding_date: deal.funding_date,
-          project_type: deal.project_type,
-          property_address: deal.property_id ? `Property ID: ${deal.property_id}` : "No property",
-          guarantor_name: "No guarantor",
-          loan_number: deal.loan_number,
-        }))
-
-        return NextResponse.json({ deals: transformed })
+        return NextResponse.json({ error: message || "Failed to fetch deals" }, { status: 500 })
       }
 
       const dealRows = (deals ?? []) as DealRow[]
-      const propertyIds = dealRows
-        .map((deal) => deal.property_id)
-        .filter((id): id is number => typeof id === "number")
 
-      let propertyMap: Record<number, string> = {}
-      if (propertyIds.length > 0) {
-        const { data: properties, error: propErr } = await supabaseAdmin
-          .from("property")
-          .select("id, address")
-          .in("id", propertyIds)
-        if (!propErr && properties) {
-          propertyMap = properties.reduce(
-            (acc: Record<number, string>, prop: { id: number; address: string | null }) => {
-              if (prop.address) acc[prop.id] = prop.address
-              return acc
-            },
-            {}
-          )
-        }
+      if (dealRows.length === 0) {
+        return NextResponse.json({ deals: [] })
       }
 
-      const transformed = dealRows.map((deal) => {
-        const primaryGuarantor = deal.deal_guarantors?.find((dg) => dg.is_primary)
-        const firstGuarantor = deal.deal_guarantors?.[0]
-        const guarantorRecord = primaryGuarantor || firstGuarantor
-        const guarantorName = guarantorRecord?.guarantor?.name || "No guarantor"
+      // ── Fetch deal_inputs for all deals and build inputs map ────────────
+      const allDealIds = dealRows.map((d) => d.id)
+      let inputsMap: Record<string, Record<string, unknown>> = {}
 
-        return {
-          id: deal.id,
-          deal_name: deal.deal_name,
-          deal_stage_2: deal.deal_stage_2,
-          loan_amount_total: deal.loan_amount_total,
-          funding_date: deal.funding_date,
-          project_type: deal.project_type,
-          property_address: deal.property_id
-            ? propertyMap[deal.property_id] || `Property ID: ${deal.property_id}`
-            : "No property",
-          guarantor_name: guarantorName,
-          loan_number: deal.loan_number,
-        }
-      })
+      const { data: dealInputRows, error: diErr } = await supabaseAdmin
+        .from("deal_inputs")
+        .select("deal_id, input_id, input_type, value_text, value_numeric, value_date, value_bool, value_array")
+        .in("deal_id", allDealIds)
+
+      if (!diErr && dealInputRows) {
+        inputsMap = buildInputsMap(dealInputRows as DealInputRow[])
+      }
+
+      // ── Transform for the client ───────────────────────────────────────
+      const transformed = dealRows.map((deal) => ({
+        id: deal.id,
+        inputs: inputsMap[deal.id] ?? null,
+      }))
 
       return NextResponse.json({ deals: transformed })
     }
 
+    // ── Non-deals pipeline view ─────────────────────────────────────────
     if (!orgId || !userId) {
       return NextResponse.json({ items: [] })
     }

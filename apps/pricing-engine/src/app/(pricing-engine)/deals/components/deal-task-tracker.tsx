@@ -66,6 +66,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@repo/ui/shadcn/collapsible";
+import { DatePickerField } from "@/components/date-picker-field";
 
 // Task status types matching Linear
 type TaskStatus = "To Do" | "In Progress" | "In Review" | "Done";
@@ -791,11 +792,10 @@ function TaskDetailSheet({
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-sm">Due date</Label>
               </div>
-              <Input
-                type="date"
-                className="w-[180px] h-8"
+              <DatePickerField
+                className="w-[180px]"
                 value={task.dueDate || ""}
-                onChange={(e) => onUpdate({ dueDate: e.target.value })}
+                onChange={(val) => onUpdate({ dueDate: val })}
               />
             </div>
           </div>
@@ -932,11 +932,10 @@ function NewTaskDialog({
             </Button>
 
             {/* Due Date */}
-            <Input
-              type="date"
-              className="w-[140px] h-8"
+            <DatePickerField
+              className="w-[140px]"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={setDueDate}
             />
           </div>
 

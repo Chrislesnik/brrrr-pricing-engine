@@ -15,6 +15,7 @@ import {
   Palette,
   Loader2,
   LayoutGrid,
+  TextCursorInput,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -24,8 +25,9 @@ import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
 import { ProgramsSettings } from "./components/programs-settings";
 import { ThemesSettings } from "./components/themes-settings";
+import { InputsSettings } from "./components/inputs-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "programs" | "themes";
+type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -59,7 +61,7 @@ const settingsNavItems: NavItem[] = [
     label: "Permissions",
     icon: Shield,
     description: "Document access permissions",
-    href: "permissions",
+    href: "documents/permissions",
   },
   {
     id: "policies",
@@ -73,6 +75,12 @@ const settingsNavItems: NavItem[] = [
     label: "Programs",
     icon: LayoutGrid,
     description: "Manage loan programs",
+  },
+  {
+    id: "inputs",
+    label: "Inputs",
+    icon: TextCursorInput,
+    description: "Manage deal input fields",
   },
   {
     id: "themes",
@@ -118,7 +126,7 @@ export default function OrganizationSettingsPage() {
 
   if (!orgLoaded || isValidating) {
     return (
-      <div className="w-full flex justify-center py-8">
+      <div className="w-full flex justify-center px-4 py-8 md:px-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-5 animate-spin" />
           <span>Loading organization...</span>
@@ -129,7 +137,7 @@ export default function OrganizationSettingsPage() {
 
   if (!organization) {
     return (
-      <div className="w-full flex justify-center py-8">
+      <div className="w-full flex justify-center px-4 py-8 md:px-6">
         <div className="text-center">
           <Building2 className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-medium">No organization selected</h2>
@@ -149,7 +157,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="w-full flex justify-center py-8">
+    <div className="w-full flex justify-center px-4 py-8 md:px-6">
       <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -246,6 +254,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "domains" && <DomainsSettings />}
             {activeTab === "programs" && <ProgramsSettings />}
             {activeTab === "themes" && <ThemesSettings />}
+            {activeTab === "inputs" && <InputsSettings />}
           </div>
         </div>
       </div>

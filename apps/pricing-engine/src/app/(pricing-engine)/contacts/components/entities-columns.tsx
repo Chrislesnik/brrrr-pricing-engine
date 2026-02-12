@@ -115,7 +115,9 @@ export const entityColumns: ColumnDef<EntityProfile>[] = [
 			<DataTableColumnHeader column={column} title="Assigned To" />
 		),
 		cell: ({ row }) => {
-			const names = row.original.assigned_to_names ?? []
+			const rawNames = row.original.assigned_to_names ?? []
+			// Deduplicate names
+			const names = [...new Set(rawNames)]
 			return <LongText className="max-w-56">{names.length ? names.join(", ") : "-"}</LongText>
 		},
 		enableSorting: false,

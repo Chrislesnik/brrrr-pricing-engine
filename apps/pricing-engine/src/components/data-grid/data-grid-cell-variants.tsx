@@ -2336,7 +2336,7 @@ export function CurrencyCalcCell<TData>({
       readOnly={readOnly}
       onKeyDown={onWrapperKeyDown}
       className={cn(
-        calcMode && "border-purple-500/70 ring-2 ring-purple-500/60"
+        calcMode && "border-purple-500 ring-2 ring-purple-500"
       )}
     >
       {isEditing ? (

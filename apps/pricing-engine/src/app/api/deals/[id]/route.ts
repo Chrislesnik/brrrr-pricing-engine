@@ -1,150 +1,200 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getOrgUuidFromClerkId } from "@/lib/orgs";
+
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                      */
+/* -------------------------------------------------------------------------- */
+
+type DealInputRow = {
+  deal_id: string;
+  input_id: string;
+  input_type: string;
+  value_text: string | null;
+  value_numeric: number | null;
+  value_date: string | null;
+  value_bool: boolean | null;
+  value_array: unknown | null;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function readDealInputValue(row: DealInputRow): unknown {
+  switch (row.input_type) {
+    case "text":
+    case "dropdown":
+      return row.value_text;
+    case "currency":
+    case "number":
+    case "percentage":
+      return row.value_numeric;
+    case "date":
+      return row.value_date;
+    case "boolean":
+      return row.value_bool;
+    default:
+      return (
+        row.value_text ??
+        row.value_numeric ??
+        row.value_date ??
+        row.value_bool ??
+        row.value_array ??
+        null
+      );
+  }
+}
+
+function buildTypedValueColumns(
+  inputType: string,
+  value: unknown
+): {
+  value_text: string | null;
+  value_numeric: number | null;
+  value_date: string | null;
+  value_bool: boolean | null;
+  value_array: unknown | null;
+} {
+  const cols = {
+    value_text: null as string | null,
+    value_numeric: null as number | null,
+    value_date: null as string | null,
+    value_bool: null as boolean | null,
+    value_array: null as unknown | null,
+  };
+
+  if (value === null || value === undefined || value === "") return cols;
+
+  switch (inputType) {
+    case "text":
+    case "dropdown": {
+      const str = typeof value === "string" ? value.trim() : String(value);
+      cols.value_text = str.length > 0 ? str : null;
+      break;
+    }
+    case "currency":
+    case "number":
+    case "percentage": {
+      const num = typeof value === "number" ? value : Number(value);
+      cols.value_numeric = isNaN(num) ? null : num;
+      break;
+    }
+    case "date": {
+      const str = typeof value === "string" ? value.trim() : String(value);
+      cols.value_date = str.length > 0 ? str : null;
+      break;
+    }
+    case "boolean": {
+      if (typeof value === "boolean") {
+        cols.value_bool = value;
+      } else if (typeof value === "string") {
+        cols.value_bool = value === "true";
+      } else {
+        cols.value_bool = Boolean(value);
+      }
+      break;
+    }
+    default: {
+      const str = typeof value === "string" ? value.trim() : String(value);
+      cols.value_text = str.length > 0 ? str : null;
+      break;
+    }
+  }
+
+  return cols;
+}
+
+/** Check access for the current user to a given deal */
+async function checkDealAccess(
+  deal: { organization_id: string; assigned_to_user_id: unknown; primary_user_id: string | null },
+  userId: string,
+  orgId: string | null | undefined
+): Promise<boolean> {
+  const userOrgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null;
+  const hasOrgAccess = userOrgUuid && deal.organization_id === userOrgUuid;
+
+  const assignedUsers = Array.isArray(deal.assigned_to_user_id)
+    ? deal.assigned_to_user_id
+    : [];
+  const isAssigned = assignedUsers.includes(userId);
+  const isPrimaryUser = deal.primary_user_id === userId;
+
+  let isInternal = false;
+  const { data: userRow } = await supabaseAdmin
+    .from("users")
+    .select("id, is_internal_yn")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  if (userRow) {
+    isInternal = Boolean(userRow.is_internal_yn);
+  }
+
+  return Boolean(hasOrgAccess || isAssigned || isPrimaryUser || isInternal);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  GET /api/deals/[id]                                                        */
+/* -------------------------------------------------------------------------- */
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Await params in Next.js 15+
     const { id: dealId } = await params;
 
-    // Get user info to check permissions
-    const { data: userRow, error: userErr } = await supabaseAdmin
-      .from("users")
-      .select("id, is_internal_yn")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
-
-    if (userErr) {
-      console.error("Error fetching user:", userErr);
-      return NextResponse.json(
-        { error: "Failed to verify user" },
-        { status: 500 }
-      );
-    }
-
-    if (!userRow) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    const isInternal = Boolean(userRow.is_internal_yn);
-    const userNumericId = userRow.id as number;
-
-    // Check if user has access to this deal (unless they're internal)
-    if (!isInternal) {
-      // Check direct deal roles
-      const { data: directAccess } = await supabaseAdmin
-        .from("deal_roles")
-        .select("deal_id")
-        .eq("users_id", userNumericId)
-        .eq("deal_id", dealId)
-        .maybeSingle();
-
-      // Check organization access
-      const { data: orgMemberships } = await supabaseAdmin
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", userId);
-
-      const orgIds = (orgMemberships ?? [])
-        .map((row) => row.organization_id)
-        .filter(Boolean) as string[];
-
-      let orgAccess = false;
-      if (orgIds.length > 0) {
-        const { data: orgDeals } = await supabaseAdmin
-          .from("deal_clerk_orgs")
-          .select("deal_id")
-          .in("clerk_org_id", orgIds)
-          .eq("deal_id", dealId)
-          .maybeSingle();
-        
-        orgAccess = Boolean(orgDeals);
-      }
-
-      // If user doesn't have access, return 403
-      if (!directAccess && !orgAccess) {
-        return NextResponse.json(
-          { error: "Access denied" },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Try fetching from "deals" table first (with relationships)
-    let { data: deal, error } = await supabaseAdmin
+    // Fetch the deal row
+    const { data: deal, error } = await supabaseAdmin
       .from("deals")
-      .select(`
-        *,
-        deal_guarantors(
-          guarantor_id,
-          is_primary,
-          guarantor:guarantor_id(id, name)
-        )
-      `)
+      .select("id, organization_id, assigned_to_user_id, primary_user_id, created_at, updated_at")
       .eq("id", dealId)
       .single();
 
-    // If there's a relationship error, fall back to simpler query without relationships
-    if (error && (error.message?.includes("relationship") || error.message?.includes("deal_guarantors"))) {
-      console.log("Falling back to query without relationships");
-      const result = await supabaseAdmin
-        .from("deals")
-        .select("*")
-        .eq("id", dealId)
-        .single();
-      
-      deal = result.data;
-      error = result.error;
-    }
-
-    if (error) {
-      console.error("Error fetching deal:", error.message, error.details, error.hint);
+    if (error || !deal) {
+      console.error("Error fetching deal:", error?.message);
       return NextResponse.json(
-        { error: error.message || "Failed to fetch deal" },
-        { status: 500 }
+        { error: error?.message || "Deal not found" },
+        { status: error ? 500 : 404 }
       );
     }
 
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    // Check access
+    const hasAccess = await checkDealAccess(deal, userId, orgId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // If property_id exists, fetch property address
-    if (deal.property_id) {
-      const { data: property } = await supabaseAdmin
-        .from("property")
-        .select("id, address")
-        .eq("id", deal.property_id)
-        .single();
-      
-      if (property?.address) {
-        deal.property_address = property.address;
+    // Fetch deal_inputs for this deal
+    const { data: diRows, error: diErr } = await supabaseAdmin
+      .from("deal_inputs")
+      .select("deal_id, input_id, input_type, value_text, value_numeric, value_date, value_bool, value_array")
+      .eq("deal_id", dealId);
+
+    const inputs: Record<string, unknown> = {};
+    if (!diErr && diRows) {
+      for (const row of diRows as DealInputRow[]) {
+        inputs[row.input_id] = readDealInputValue(row);
       }
     }
 
-    // Extract guarantor name if available
-    if (deal.deal_guarantors && Array.isArray(deal.deal_guarantors)) {
-      const primaryGuarantor = deal.deal_guarantors.find((dg: any) => dg.is_primary);
-      const firstGuarantor = deal.deal_guarantors[0];
-      const guarantorRecord = primaryGuarantor || firstGuarantor;
-      if (guarantorRecord?.guarantor?.name) {
-        deal.guarantor_name = guarantorRecord.guarantor.name;
-      }
-    }
-
-    return NextResponse.json({ deal });
+    return NextResponse.json({
+      deal: {
+        id: deal.id,
+        organization_id: deal.organization_id,
+        created_at: deal.created_at,
+        updated_at: deal.updated_at,
+        inputs,
+      },
+    });
   } catch (error) {
     console.error("Unexpected error:", error);
     return NextResponse.json(
@@ -154,207 +204,143 @@ export async function GET(
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/*  PATCH /api/deals/[id]                                                      */
+/* -------------------------------------------------------------------------- */
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Await params in Next.js 15+
     const { id: dealId } = await params;
 
-    // Get user info to check permissions
-    const { data: userRow, error: userErr } = await supabaseAdmin
-      .from("users")
-      .select("id, is_internal_yn")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
-
-    if (userErr || !userRow) {
-      return NextResponse.json(
-        { error: "Failed to verify user" },
-        { status: 500 }
-      );
-    }
-
-    const isInternal = Boolean(userRow.is_internal_yn);
-    const userNumericId = userRow.id as number;
-
-    // Check if user has access to this deal (unless they're internal)
-    if (!isInternal) {
-      const { data: directAccess } = await supabaseAdmin
-        .from("deal_roles")
-        .select("deal_id")
-        .eq("users_id", userNumericId)
-        .eq("deal_id", dealId)
-        .maybeSingle();
-
-      const { data: orgMemberships } = await supabaseAdmin
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", userId);
-
-      const orgIds = (orgMemberships ?? [])
-        .map((row) => row.organization_id)
-        .filter(Boolean) as string[];
-
-      let orgAccess = false;
-      if (orgIds.length > 0) {
-        const { data: orgDeals } = await supabaseAdmin
-          .from("deal_clerk_orgs")
-          .select("deal_id")
-          .in("clerk_org_id", orgIds)
-          .eq("deal_id", dealId)
-          .maybeSingle();
-        
-        orgAccess = Boolean(orgDeals);
-      }
-
-      if (!directAccess && !orgAccess) {
-        return NextResponse.json(
-          { error: "Access denied" },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Get the updated data from request body
-    const body = await request.json();
-
-    // Clean the data - remove null/undefined/empty strings
-    const cleanText = (value: any) =>
-      value && String(value).trim().length > 0 ? String(value).trim() : null;
-
-    const cleanNumber = (value: any) => {
-      const num = Number(value);
-      return !isNaN(num) && value !== "" && value !== null ? num : null;
-    };
-
-    const updateData: Record<string, any> = {};
-
-    // Only include fields that were provided in the request
-    const allowedFields = [
-      "deal_name",
-      "vesting_type",
-      "guarantor_count",
-      "lead_source_type",
-      "property_id",
-      "property_type",
-      "warrantability",
-      "company_id",
-      "note_date",
-      "mid_fico",
-      "pricing_is_locked",
-      "lead_source_name",
-      "loan_number",
-      "title_file_number",
-      "declaration_1_lawsuits",
-      "declaration_2_bankruptcy",
-      "declaration_3_felony",
-      "declaration_5_license",
-      "declaration_1_lawsuits_explanation",
-      "declaration_2_bankruptcy_explanation",
-      "declaration_3_felony_explanation",
-      "recourse_type",
-      "transaction_type",
-      "payoff_mtg1_amount",
-      "loan_structure_dscr",
-      "guarantor_fico_score",
-      "title_company_id",
-      "insurance_carrier_company_id",
-      "cash_out_purpose",
-      "target_closing_date",
-      "date_of_purchase",
-      "loan_amount_total",
-      "construction_holdback",
-      "loan_amount_initial",
-      "loan_term",
-      "deal_type",
-      "project_type",
-      "deal_stage_1",
-      "deal_stage_2",
-      "deal_disposition_1",
-      "loan_type_rtl",
-      "renovation_cost",
-      "renovation_completed",
-      "recently_renovated",
-      "purchase_price",
-      "funding_date",
-      "loan_sale_date",
-      "pricing_file_path",
-      "pricing_file_url",
-      "loan_buyer_company_id",
-      "note_rate",
-      "cost_of_capital",
-      "broker_company_id",
-      "escrow_company_id",
-      "ltv_asis",
-      "ltv_after_repair",
-      "io_period",
-      "ppp_term",
-      "ppp_structure_1",
-    ];
-
-    const numberFields = [
-      "guarantor_count",
-      "property_id",
-      "mid_fico",
-      "payoff_mtg1_amount",
-      "guarantor_fico_score",
-      "loan_amount_total",
-      "construction_holdback",
-      "loan_amount_initial",
-      "renovation_cost",
-      "purchase_price",
-      "note_rate",
-      "cost_of_capital",
-      "ltv_asis",
-      "ltv_after_repair",
-      "io_period",
-    ];
-
-    const booleanFields = [
-      "pricing_is_locked",
-      "declaration_1_lawsuits",
-      "declaration_2_bankruptcy",
-      "declaration_3_felony",
-      "declaration_5_license",
-    ];
-
-    for (const field of allowedFields) {
-      if (field in body) {
-        if (booleanFields.includes(field)) {
-          updateData[field] = Boolean(body[field]);
-        } else if (numberFields.includes(field)) {
-          updateData[field] = cleanNumber(body[field]);
-        } else {
-          updateData[field] = cleanText(body[field]);
-        }
-      }
-    }
-
-    // Update the deal
-    const { data: updatedDeal, error } = await supabaseAdmin
+    // Fetch deal to check access
+    const { data: existingDeal, error: fetchError } = await supabaseAdmin
       .from("deals")
-      .update(updateData)
+      .select("organization_id, assigned_to_user_id, primary_user_id")
       .eq("id", dealId)
-      .select()
       .single();
 
-    if (error) {
-      console.error("Error updating deal:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to update deal" },
-        { status: 500 }
-      );
+    if (fetchError || !existingDeal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ deal: updatedDeal });
+    const hasAccess = await checkDealAccess(existingDeal, userId, orgId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    // Parse the body: { [input_id]: value, ... }
+    const body = (await request.json()) as Record<string, unknown>;
+    const entries = Object.entries(body);
+
+    if (entries.length === 0) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // Fetch input metadata to know the type for each input_id
+    const inputIds = entries.map(([key]) => key);
+    const { data: inputMeta } = await supabaseAdmin
+      .from("inputs")
+      .select("id, input_type")
+      .in("id", inputIds);
+
+    const typeMap: Record<string, string> = {};
+    if (inputMeta) {
+      for (const row of inputMeta) {
+        typeMap[row.id] = row.input_type;
+      }
+    }
+
+    // Fetch existing deal_inputs for this deal to decide insert vs update
+    const { data: existingInputs } = await supabaseAdmin
+      .from("deal_inputs")
+      .select("input_id")
+      .eq("deal_id", dealId)
+      .in("input_id", inputIds);
+
+    const existingSet = new Set(
+      (existingInputs ?? []).map((r) => r.input_id)
+    );
+
+    const toUpdate: Array<{
+      input_id: string;
+      input_type: string;
+      value_text: string | null;
+      value_numeric: number | null;
+      value_date: string | null;
+      value_bool: boolean | null;
+      value_array: unknown | null;
+    }> = [];
+    const toInsert: Array<{
+      deal_id: string;
+      input_id: string;
+      input_type: string;
+      value_text: string | null;
+      value_numeric: number | null;
+      value_date: string | null;
+      value_bool: boolean | null;
+      value_array: unknown | null;
+    }> = [];
+
+    for (const [inputId, value] of entries) {
+      const inputType = typeMap[inputId] || "text";
+      const valueCols = buildTypedValueColumns(inputType, value);
+
+      if (existingSet.has(inputId)) {
+        toUpdate.push({ input_id: inputId, input_type: inputType, ...valueCols });
+      } else {
+        toInsert.push({
+          deal_id: dealId,
+          input_id: inputId,
+          input_type: inputType,
+          ...valueCols,
+        });
+      }
+    }
+
+    // Batch update existing rows
+    const updatePromises = toUpdate.map((row) =>
+      supabaseAdmin
+        .from("deal_inputs")
+        .update({
+          input_type: row.input_type,
+          value_text: row.value_text,
+          value_numeric: row.value_numeric,
+          value_date: row.value_date,
+          value_bool: row.value_bool,
+          value_array: row.value_array,
+        })
+        .eq("deal_id", dealId)
+        .eq("input_id", row.input_id)
+    );
+
+    // Batch insert new rows
+    const insertPromise =
+      toInsert.length > 0
+        ? supabaseAdmin.from("deal_inputs").insert(toInsert)
+        : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise]);
+    const errors = results.filter((r) => r.error);
+    if (errors.length > 0) {
+      console.error("[PATCH /api/deals] Errors:", errors.map((e) => e.error));
+    }
+
+    // Update the deals.updated_at timestamp
+    await supabaseAdmin
+      .from("deals")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", dealId);
+
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Unexpected error:", error);
     return NextResponse.json(

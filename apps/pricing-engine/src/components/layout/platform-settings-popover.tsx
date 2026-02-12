@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import {
   Plug,
@@ -21,6 +21,7 @@ import {
   Mail,
   Wand2,
   LayoutGrid,
+  TextCursorInput,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -38,9 +39,9 @@ interface PlatformSettingsPopoverProps {
 
 // Organization settings navigation items
 const ORG_SETTINGS_ITEMS = [
-  { id: "general", label: "General", icon: Building2, path: "" },
-  { id: "members", label: "Members", icon: Users, path: "" },
-  { id: "domains", label: "Domains", icon: Globe, path: "" },
+  { id: "general", label: "General", icon: Building2, path: "?tab=general" },
+  { id: "members", label: "Members", icon: Users, path: "?tab=members" },
+  { id: "domains", label: "Domains", icon: Globe, path: "?tab=domains" },
   {
     id: "permissions",
     label: "Permissions",
@@ -54,6 +55,7 @@ const ORG_SETTINGS_ITEMS = [
     path: "/policies",
   },
   { id: "programs", label: "Programs", icon: LayoutGrid, path: "?tab=programs" },
+  { id: "inputs", label: "Inputs", icon: TextCursorInput, path: "?tab=inputs" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;
 
@@ -64,6 +66,7 @@ export function PlatformSettingsPopover({
 }: PlatformSettingsPopoverProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { organization } = useOrganization();
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [orgSettingsOpen, setOrgSettingsOpen] = React.useState(true);
@@ -144,9 +147,12 @@ export function PlatformSettingsPopover({
                     <div className="px-1 pb-2">
                       {ORG_SETTINGS_ITEMS.map((item) => {
                         const href = `${orgSettingsBaseUrl}${item.path}`;
-                        const isActive =
-                          pathname === orgSettingsBaseUrl && 
-                          (item.path === "" || item.path.includes(`tab=${item.id}`));
+                        // For external links (like permissions), check pathname
+                        // For tab-based items, check current tab param
+                        const currentTab = searchParams.get("tab") || "general";
+                        const isActive = item.path.startsWith("/")
+                          ? pathname.includes(item.path)
+                          : pathname.includes("/settings") && currentTab === item.id;
 
                         return (
                           <Link

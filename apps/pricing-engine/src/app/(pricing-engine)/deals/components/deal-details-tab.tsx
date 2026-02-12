@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Badge } from "@repo/ui/shadcn/badge";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  Button as AriaButton,
+  Group,
+  Input as AriaInput,
+  NumberField,
+} from "react-aria-components";
+import { Loader2, MinusIcon, PlusIcon, Pencil, Save, X } from "lucide-react";
+import { useLogicEngine } from "@/hooks/use-logic-engine";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
-import { Textarea } from "@repo/ui/shadcn/textarea";
-import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import {
   Select,
   SelectContent,
@@ -19,195 +24,229 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@repo/ui/shadcn/accordion";
-import {
-  BadgeDollarSign,
-  Briefcase,
-  Calendar,
-  FileText,
-  Home,
-  Pencil,
-  ShieldCheck,
-  Users,
-  Save,
-  X,
-} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { DatePickerField } from "@/components/date-picker-field";
+import { CalcInput } from "@/components/calc-input";
+
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                      */
+/* -------------------------------------------------------------------------- */
 
 interface DealData {
   id: string;
-  deal_name: string | null;
-  deal_stage_2: string | null;
-  deal_stage_1?: string | null;
-  deal_disposition_1?: string | null;
-  loan_amount_total: number | null;
-  loan_amount_initial?: number | null;
-  construction_holdback?: number | null;
-  payoff_mtg1_amount?: number | null;
-  cost_of_capital?: number | null;
-  ltv_asis?: number | null;
-  ltv_after_repair?: number | null;
-  note_rate?: number | null;
-  io_period?: number | null;
-  funding_date: string | null;
-  target_closing_date?: string | null;
-  note_date?: string | null;
-  loan_sale_date?: string | null;
-  date_of_purchase?: string | null;
-  renovation_completed?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  project_type: string | null;
-  deal_type?: string | null;
-  transaction_type?: string | null;
-  loan_structure_dscr?: string | null;
-  loan_type_rtl?: string | null;
-  loan_term?: string | null;
-  recourse_type?: string | null;
-  ppp_term?: string | null;
-  ppp_structure_1?: string | null;
-  recently_renovated?: string | null;
-  property_address: string | null;
-  property_id?: number | null;
-  property_type?: string | null;
-  warrantability?: string | null;
-  purchase_price?: number | null;
-  renovation_cost?: number | null;
-  guarantor_name: string | null;
-  loan_number: string | null;
-  title_file_number?: string | null;
-  vesting_type?: string | null;
-  guarantor_count?: number | null;
-  guarantor_fico_score?: number | null;
-  mid_fico?: number | null;
-  lead_source_name?: string | null;
-  lead_source_type?: string | null;
-  company_id?: string | null;
-  broker_company_id?: string | null;
-  escrow_company_id?: string | null;
-  title_company_id?: string | null;
-  insurance_carrier_company_id?: string | null;
-  loan_buyer_company_id?: string | null;
-  pricing_is_locked?: boolean | null;
-  pricing_file_path?: string | null;
-  pricing_file_url?: string | null;
-  cash_out_purpose?: string | null;
-  declaration_1_lawsuits?: boolean | null;
-  declaration_1_lawsuits_explanation?: string | null;
-  declaration_2_bankruptcy?: boolean | null;
-  declaration_2_bankruptcy_explanation?: string | null;
-  declaration_3_felony?: boolean | null;
-  declaration_3_felony_explanation?: string | null;
-  declaration_5_license?: boolean | null;
+  inputs: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface InputCategory {
+  id: number;
+  category: string;
+  organization_id: string;
+  display_order: number;
+  created_at: string;
+}
+
+interface InputField {
+  id: string;
+  category_id: number;
+  category: string;
+  input_label: string;
+  input_type: string;
+  dropdown_options: string[] | null;
+  starred: boolean;
+  organization_id: string;
+  display_order: number;
+  created_at: string;
 }
 
 interface DealDetailsTabProps {
   deal: DealData;
 }
 
-const enumOptions = {
-  deal_stage_1: ["lead", "scenario", "deal"],
-  deal_stage_2: [
-    "loan_setup",
-    "processing_1",
-    "appraisal_review",
-    "processing_2",
-    "qc_1",
-    "underwriting",
-    "conditionally_approved",
-    "qc_2",
-    "clear_to_close",
-    "closed_and_funded",
-  ],
-  deal_disposition_1: ["active", "dead", "on_hold"],
-  project_type: ["rental", "fix_and_flip", "ground_up", "mixed_use"],
-  deal_type: ["dscr", "rtl"],
-  transaction_type: [
-    "purchase",
-    "delayed_purchase",
-    "refinance_rate_term",
-    "refinance_cash_out",
-  ],
-  lead_source_type: ["broker", "referral", "direct", "online", "partner"],
-  loan_type_rtl: ["bridge", "bridge_plus_rehab"],
-  loan_structure_dscr: [
-    "30_yr_fixed",
-    "5/1_arm",
-    "5/1_arm_io",
-    "7/1_arm",
-    "7/1_arm_io",
-    "10/1_arm",
-    "10/1_arm_io",
-    "5/6_arm",
-    "5/6_arm_io",
-    "10/6_arm",
-    "10/6_arm_io",
-  ],
-  vesting_type: ["entity", "individual"],
-  property_type: [
-    "single_family",
-    "condominium",
-    "townhome/pud",
-    "multifamily 2-4",
-    "multifamily 5-10",
-    "multifamily 11+",
-    "mixed_use 2-4",
-    "mixed_use 5-10",
-    "mixed_use 11+",
-    "other",
-  ],
-  warrantability: ["warrantable", "non_warrantable"],
-  recently_renovated: ["yes", "no"],
-  recourse_type: ["full_recourse", "limited_recourse", "non_recourse"],
-  loan_term: ["0", "12", "24", "36", "48", "60", "72", "84", "96", "108", "120", "300", "360"],
-  ppp_term: ["0", "12", "24", "36", "48", "60", "72", "84", "96", "108", "120", "300", "360"],
-  ppp_structure_1: ["declining", "fixed", "minimum_interest"],
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const formatCurrency = (amount: unknown) => {
+  if (amount === null || amount === undefined) return "—";
+  const num = typeof amount === "number" ? amount : Number(amount);
+  if (isNaN(num)) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(num);
 };
+
+const formatDate = (date: unknown) => {
+  if (!date || typeof date !== "string") return "—";
+  return new Date(date).toLocaleDateString();
+};
+
+const formatEnum = (value: unknown) => {
+  if (!value || typeof value !== "string") return "—";
+  return value.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editedDeal, setEditedDeal] = useState<DealData>(deal);
+  const [categories, setCategories] = useState<InputCategory[]>([]);
+  const [inputFields, setInputFields] = useState<InputField[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
 
-  // Update editedDeal when deal prop changes
+  // Editable values: keyed by input_id
+  const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
+
+  // Sync editable values from the deal prop
   useEffect(() => {
-    setEditedDeal(deal);
+    setEditedValues(deal.inputs ?? {});
   }, [deal]);
 
-  const formatCurrency = (amount: number | null | undefined) => {
-    if (!amount) return "—";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
+  // Fetch input-categories + inputs metadata on mount
+  useEffect(() => {
+    let cancelled = false;
+    const fetchMeta = async () => {
+      setMetaLoading(true);
+      try {
+        const [catsRes, inputsRes] = await Promise.all([
+          fetch("/api/input-categories"),
+          fetch("/api/inputs"),
+        ]);
+        const catsJson = await catsRes.json().catch(() => []);
+        const inputsJson = await inputsRes.json().catch(() => []);
+        if (cancelled) return;
 
-  const formatDate = (date: string | null | undefined) => {
-    if (!date) return "—";
-    return new Date(date).toLocaleDateString();
-  };
+        setCategories(
+          (Array.isArray(catsJson) ? catsJson : []).sort(
+            (a: InputCategory, b: InputCategory) => a.display_order - b.display_order
+          )
+        );
+        setInputFields(Array.isArray(inputsJson) ? inputsJson : []);
+      } catch {
+        if (!cancelled) {
+          setCategories([]);
+          setInputFields([]);
+        }
+      } finally {
+        if (!cancelled) setMetaLoading(false);
+      }
+    };
 
-  const formatDateTime = (date: string | null | undefined) => {
-    if (!date) return "—";
-    return new Date(date).toLocaleString();
-  };
+    fetchMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const formatEnum = (value: string | null | undefined) => {
-    if (!value) return "—";
-    return value.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-  };
+  // Group inputs by category_id
+  const inputsByCategory = useMemo(
+    () =>
+      categories.map((cat) => ({
+        category: cat,
+        fields: inputFields
+          .filter((inp) => inp.category_id === cat.id)
+          .sort((a, b) => a.display_order - b.display_order),
+      })),
+    [categories, inputFields]
+  );
 
-  const formatBoolean = (value: boolean | null | undefined) => {
-    if (value === null || value === undefined) return "—";
-    return value ? "Yes" : "No";
-  };
+  // Interleave categories into two columns: odd indices → left, even indices → right
+  // This reads left-to-right (1→left, 2→right, 3→left…) while each column stacks independently
+  const leftCategories = inputsByCategory.filter((_, i) => i % 2 === 0);
+  const rightCategories = inputsByCategory.filter((_, i) => i % 2 === 1);
 
-  const handleSave = async () => {
+  const updateValue = useCallback((inputId: string, value: unknown) => {
+    setEditedValues((prev) => ({ ...prev, [inputId]: value }));
+    userEditedRef.current.add(inputId);
+  }, []);
+
+  // Track user-edited fields to avoid overwriting with computed values
+  const userEditedRef = useRef<Set<string>>(new Set());
+  const [computedFieldIds, setComputedFieldIds] = useState<Set<string>>(new Set());
+
+  // Logic engine — evaluate rules against current values
+  const { hiddenFields, requiredFields, computedValues } = useLogicEngine(
+    editedValues
+  );
+
+  // Apply computed values (unless user manually edited them)
+  useEffect(() => {
+    const updates: Record<string, unknown> = {};
+    const newComputed = new Set<string>();
+
+    for (const [inputId, val] of Object.entries(computedValues)) {
+      if (val === null || val === undefined) continue;
+      if (userEditedRef.current.has(inputId)) continue;
+
+      if (editedValues[inputId] !== val) {
+        updates[inputId] = val;
+      }
+      newComputed.add(inputId);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setEditedValues((prev) => ({ ...prev, ...updates }));
+    }
+    setComputedFieldIds(newComputed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computedValues]);
+
+  // Reset user-edited tracking when editing starts/stops
+  useEffect(() => {
+    if (!isEditing) {
+      userEditedRef.current = new Set();
+    }
+  }, [isEditing]);
+
+  // Build the changed values diff for save
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
+      // Validate required fields
+      for (const inputId of requiredFields) {
+        if (hiddenFields.has(inputId)) continue;
+        const val = editedValues[inputId];
+        if (val === undefined || val === null || val === "" || val === false) {
+          const label = inputFields.find((f) => f.id === inputId)?.input_label ?? inputId;
+          toast({
+            title: "Required field",
+            description: `"${label}" is required.`,
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Build a payload of { [input_id]: value } for changed values
+      const payload: Record<string, unknown> = {};
+      for (const [inputId, value] of Object.entries(editedValues)) {
+        const original = deal.inputs?.[inputId];
+        // Include if changed (simple equality check, or always send all for safety)
+        if (value !== original) {
+          payload[inputId] = value;
+        }
+      }
+
+      if (Object.keys(payload).length === 0) {
+        toast({
+          title: "No changes",
+          description: "No changes were detected.",
+        });
+        setIsEditing(false);
+        setIsSaving(false);
+        return;
+      }
+
       const response = await fetch(`/api/deals/${deal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editedDeal),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -218,185 +257,281 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         title: "Deal updated",
         description: "Your changes have been saved successfully.",
       });
-      
+
       setIsEditing(false);
-      
-      // Trigger a refresh of the deals list
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("app:deals:changed"));
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update deal",
+        description:
+          error instanceof Error ? error.message : "Failed to update deal",
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [deal, editedValues, requiredFields, hiddenFields, inputFields]);
 
   const handleCancel = () => {
-    setEditedDeal(deal);
+    setEditedValues(deal.inputs ?? {});
     setIsEditing(false);
   };
 
-  const updateField = <K extends keyof DealData>(field: K, value: DealData[K]) => {
-    setEditedDeal((prev) => ({ ...prev, [field]: value }));
-  };
+  /* -------------------------------------------------------------------------- */
+  /*  Display helpers                                                            */
+  /* -------------------------------------------------------------------------- */
 
-  const DetailRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b last:border-0">
-      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+  const DetailRow = ({
+    label,
+    value,
+    isRequired: reqd = false,
+    isComputed: comp = false,
+  }: {
+    label: string;
+    value: React.ReactNode;
+    isRequired?: boolean;
+    isComputed?: boolean;
+  }) => (
+    <div className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}>
+      <div className="text-sm font-medium text-muted-foreground">
+        {label}
+        {reqd && <span className="ml-1 text-destructive">*</span>}
+      </div>
       <div className="col-span-2 text-sm">{value}</div>
     </div>
   );
 
-  const EditableField = ({
-    label,
-    field,
-    type = "text",
-    options,
-    showBadge,
-    isCurrency,
-  }: {
-    label: string;
-    field: keyof DealData;
-    type?: "text" | "number" | "date" | "datetime-local" | "select" | "textarea" | "checkbox";
-    options?: string[];
-    showBadge?: boolean;
-    isCurrency?: boolean;
-  }) => {
-    const value = editedDeal[field];
+  /** Render a value for read mode based on input_type */
+  const renderReadValue = (field: InputField, rawValue: unknown): React.ReactNode => {
+    if (rawValue === null || rawValue === undefined || rawValue === "") return "—";
 
-    if (!isEditing) {
-      let displayValue: React.ReactNode = "—";
-
-      if (type === "checkbox") {
-        displayValue = formatBoolean(value as boolean);
-      } else if (type === "select" && options) {
-        const formattedValue = formatEnum(value as string);
-        if (showBadge && value) {
-          // Special styling for deal_stage_2
-          if (field === "deal_stage_2") {
-            displayValue = (
-              <Badge
-                variant={
-                  value === "closed_and_funded"
-                    ? "default"
-                    : value === "clear_to_close"
-                      ? "secondary"
-                      : "outline"
-                }
-              >
-                {formattedValue}
-              </Badge>
-            );
-          } else {
-            displayValue = <Badge variant="outline">{formattedValue}</Badge>;
-          }
-        } else {
-          displayValue = formattedValue;
-        }
-      } else if (type === "date" || type === "datetime-local") {
-        displayValue = type === "datetime-local" ? formatDateTime(value as string) : formatDate(value as string);
-      } else if (type === "number") {
-        if (isCurrency) {
-          displayValue = formatCurrency(value as number);
-        } else if (label.includes("LTV")) {
-          displayValue = value ? `${value}%` : "—";
-        } else if (label.includes("Rate")) {
-          displayValue = value ? `${value}%` : "—";
-        } else if (label.includes("Term") || label.includes("Period")) {
-          displayValue = value ? `${value} months` : "—";
-        } else {
-          displayValue = value ?? "—";
-        }
-      } else if (field === "pricing_file_url" && value) {
-        displayValue = (
-          <a
-            href={value as string}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            View File
-          </a>
-        );
-      } else {
-        displayValue = value ? String(value) : "—";
-      }
-
-      return <DetailRow label={label} value={displayValue} />;
+    switch (field.input_type) {
+      case "currency":
+        return formatCurrency(rawValue);
+      case "percentage":
+        return `${rawValue}%`;
+      case "number":
+        return String(rawValue);
+      case "date":
+        return formatDate(rawValue);
+      case "boolean":
+        return rawValue === true ? "Yes" : rawValue === false ? "No" : "—";
+      case "dropdown":
+        return formatEnum(rawValue);
+      case "text":
+      default:
+        return String(rawValue);
     }
+  };
 
-    return (
-      <div className="grid grid-cols-3 gap-4 py-2 border-b last:border-0">
-        <div className="text-sm font-medium text-muted-foreground">{label}</div>
-        <div className="col-span-2">
-          {type === "textarea" ? (
-            <Textarea
-              value={(value as string) || ""}
-              onChange={(e) => updateField(field, e.target.value as DealData[typeof field])}
-              rows={3}
-              className="text-sm"
+  /** Render an edit control based on input_type */
+  const renderEditControl = (field: InputField, rawValue: unknown) => {
+    const stringVal =
+      rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
+    const boolVal = typeof rawValue === "boolean" ? rawValue : false;
+
+    switch (field.input_type) {
+      case "text":
+        return (
+          <Input
+            value={stringVal}
+            onChange={(e) => updateValue(field.id, e.target.value)}
+            placeholder={field.input_label}
+            className="text-sm"
+          />
+        );
+
+      case "dropdown":
+        return (
+          <Select
+            value={stringVal || undefined}
+            onValueChange={(val) => updateValue(field.id, val)}
+          >
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder={`Select...`} />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.dropdown_options ?? []).map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+
+      case "date":
+        return (
+          <DatePickerField
+            value={stringVal}
+            onChange={(val) => updateValue(field.id, val)}
+          />
+        );
+
+      case "currency":
+        return (
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              $
+            </span>
+            <CalcInput
+              id={field.id}
+              value={stringVal}
+              onValueChange={(val) => updateValue(field.id, val)}
+              className="pl-7 text-sm"
+              placeholder="0.00"
             />
-          ) : type === "checkbox" ? (
-            <div className="flex items-center">
-              <Checkbox
-                checked={(value as boolean) || false}
-                onCheckedChange={(checked) => updateField(field, checked as DealData[typeof field])}
+          </div>
+        );
+
+      case "number":
+        return (
+          <NumberField
+            value={stringVal ? Number(stringVal) : undefined}
+            onChange={(val) =>
+              updateValue(field.id, isNaN(val) ? null : val)
+            }
+            minValue={0}
+            className="w-full"
+          >
+            <Group className="border-input data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1">
+              <AriaInput
+                placeholder="0"
+                className="placeholder:text-muted-foreground w-full grow bg-transparent px-3 py-1 text-base outline-none md:text-sm"
               />
-            </div>
-          ) : type === "select" && options ? (
-            <Select
-              value={(value as string) && (value as string) !== "" ? (value as string) : undefined}
-              onValueChange={(val) => updateField(field, val as DealData[typeof field])}
-            >
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Select..." />
-              </SelectTrigger>
-              <SelectContent>
-                {options.filter((opt) => opt !== "").map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {formatEnum(opt)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
+              <AriaButton
+                slot="decrement"
+                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+              >
+                <MinusIcon className="size-4" />
+                <span className="sr-only">Decrease</span>
+              </AriaButton>
+              <AriaButton
+                slot="increment"
+                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+              >
+                <PlusIcon className="size-4" />
+                <span className="sr-only">Increase</span>
+              </AriaButton>
+            </Group>
+          </NumberField>
+        );
+
+      case "percentage":
+        return (
+          <div className="relative">
             <Input
-              type={type}
-              value={value != null ? String(value) : ""}
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              min={0}
+              max={100}
+              step={0.01}
+              value={stringVal}
               onChange={(e) => {
-                const val = type === "number" ? (e.target.value ? Number(e.target.value) : null) : e.target.value;
-                updateField(field, val as DealData[typeof field]);
+                const raw = e.target.value;
+                updateValue(field.id, raw === "" ? null : raw);
               }}
-              className="text-sm"
+              onBlur={() => {
+                if (stringVal === "") return;
+                const num = parseFloat(stringVal);
+                if (isNaN(num)) {
+                  updateValue(field.id, null);
+                  return;
+                }
+                const clamped = Math.min(100, Math.max(0, num));
+                updateValue(
+                  field.id,
+                  clamped.toFixed(2).replace(/\.?0+$/, "") || "0"
+                );
+              }}
+              className="pr-8 text-sm"
             />
-          )}
-        </div>
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              %
+            </span>
+          </div>
+        );
+
+      case "boolean":
+        return (
+          <Select
+            value={boolVal ? "true" : "false"}
+            onValueChange={(val) => updateValue(field.id, val === "true")}
+          >
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Yes</SelectItem>
+              <SelectItem value="false">No</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+
+      default:
+        return (
+          <Input
+            value={stringVal}
+            onChange={(e) => updateValue(field.id, e.target.value)}
+            placeholder={field.input_label}
+            className="text-sm"
+          />
+        );
+    }
+  };
+
+  /* -------------------------------------------------------------------------- */
+  /*  Render                                                                     */
+  /* -------------------------------------------------------------------------- */
+
+  if (metaLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">
+          Loading deal details...
+        </span>
       </div>
     );
-  };
+  }
+
+  const allCategoryIds = inputsByCategory.map(({ category }) =>
+    String(category.id)
+  );
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Deal Information</h2>
           <p className="text-sm text-muted-foreground">
-            {isEditing ? "Edit deal details" : "Complete deal details across all categories"}
+            {isEditing
+              ? "Edit deal details"
+              : "Complete deal details across all categories"}
           </p>
         </div>
         {isEditing ? (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={handleCancel} disabled={isSaving}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isSaving}
+            >
               <X className="mr-2 h-4 w-4" />
               Cancel
             </Button>
             <Button size="sm" onClick={handleSave} disabled={isSaving}>
-              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
@@ -408,201 +543,157 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Accordion
-          type="multiple"
-          defaultValue={["overview", "borrowers", "loan", "property"]}
-          className="w-full space-y-4"
-        >
-          <AccordionItem
-            value="overview"
-            className="rounded-lg border bg-muted/30 shadow-sm"
-          >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span>Deal Overview</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-1">
-              <DetailRow label="Deal ID" value={deal.id} />
-              <EditableField label="Deal Name" field="deal_name" />
-              <EditableField label="Loan Number" field="loan_number" />
-              <EditableField label="Title File Number" field="title_file_number" />
-              <EditableField label="Deal Stage 1" field="deal_stage_1" type="select" options={enumOptions.deal_stage_1} showBadge />
-              <EditableField label="Deal Stage 2" field="deal_stage_2" type="select" options={enumOptions.deal_stage_2} showBadge />
-              <EditableField label="Deal Disposition" field="deal_disposition_1" type="select" options={enumOptions.deal_disposition_1} showBadge />
-              <EditableField label="Project Type" field="project_type" type="select" options={enumOptions.project_type} showBadge />
-              <EditableField label="Deal Type" field="deal_type" type="select" options={enumOptions.deal_type} showBadge />
-              <EditableField label="Transaction Type" field="transaction_type" type="select" options={enumOptions.transaction_type} />
-              <EditableField label="Lead Source Name" field="lead_source_name" />
-              <EditableField label="Lead Source Type" field="lead_source_type" type="select" options={enumOptions.lead_source_type} />
-              <EditableField label="Loan Type RTL" field="loan_type_rtl" type="select" options={enumOptions.loan_type_rtl} />
-              <EditableField label="Loan Structure DSCR" field="loan_structure_dscr" type="select" options={enumOptions.loan_structure_dscr} />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem
-          value="timeline"
-          className="rounded-lg border bg-muted/30 shadow-sm"
-        >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>Timeline &amp; Documents</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-1">
-              <EditableField label="Note Date" field="note_date" type="date" />
-              <EditableField label="Target Closing Date" field="target_closing_date" type="date" />
-              <EditableField label="Funding Date" field="funding_date" type="date" />
-              <EditableField label="Loan Sale Date" field="loan_sale_date" type="date" />
-              <DetailRow label="Created At" value={formatDateTime(deal.created_at)} />
-              <DetailRow label="Updated At" value={formatDateTime(deal.updated_at)} />
-              <EditableField label="Pricing File Path" field="pricing_file_path" />
-              <EditableField label="Pricing File URL" field="pricing_file_url" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        </Accordion>
-
-        <Accordion
-          type="multiple"
-          defaultValue={["borrowers", "loan", "assignments"]}
-          className="w-full space-y-4"
-        >
-          <AccordionItem
-            value="borrowers"
-            className="rounded-lg border bg-muted/30 shadow-sm"
-          >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span>Borrower &amp; Guarantors</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-1">
-              <EditableField label="Vesting Type" field="vesting_type" type="select" options={enumOptions.vesting_type} />
-              <EditableField label="Guarantor Count" field="guarantor_count" type="number" />
-              <EditableField label="Guarantor FICO" field="guarantor_fico_score" type="number" />
-              <EditableField label="Mid FICO" field="mid_fico" type="number" />
-              <DetailRow label="Guarantor Name" value={deal.guarantor_name || "—"} />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem
-          value="property"
-          className="rounded-lg border bg-muted/30 shadow-sm"
-        >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Home className="h-4 w-4 text-muted-foreground" />
-              <span>Property &amp; Renovation</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-1">
-              <EditableField label="Property ID" field="property_id" type="number" />
-              <DetailRow label="Property Address" value={deal.property_address || "—"} />
-              <EditableField label="Property Type" field="property_type" type="select" options={enumOptions.property_type} />
-              <EditableField label="Warrantability" field="warrantability" type="select" options={enumOptions.warrantability} />
-              <EditableField label="Purchase Price" field="purchase_price" type="number" isCurrency />
-              <EditableField label="Date of Purchase" field="date_of_purchase" type="date" />
-              <EditableField label="Recently Renovated" field="recently_renovated" type="select" options={enumOptions.recently_renovated} />
-              <EditableField label="Renovation Cost" field="renovation_cost" type="number" isCurrency />
-              <EditableField label="Renovation Completed" field="renovation_completed" type="date" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem
-          value="loan"
-          className="rounded-lg border bg-muted/30 shadow-sm"
-        >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <BadgeDollarSign className="h-4 w-4 text-muted-foreground" />
-              <span>Loan Amounts &amp; Terms</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-1">
-              <EditableField label="Loan Amount Total" field="loan_amount_total" type="number" isCurrency />
-              <EditableField label="Loan Amount Initial" field="loan_amount_initial" type="number" isCurrency />
-              <EditableField label="Construction Holdback" field="construction_holdback" type="number" isCurrency />
-              <EditableField label="Payoff MTG1 Amount" field="payoff_mtg1_amount" type="number" isCurrency />
-              <EditableField label="Cost of Capital" field="cost_of_capital" type="number" isCurrency />
-              <EditableField label="LTV As-Is" field="ltv_asis" type="number" />
-              <EditableField label="LTV After Repair" field="ltv_after_repair" type="number" />
-              <EditableField label="Loan Term" field="loan_term" type="select" options={enumOptions.loan_term} />
-              <EditableField label="Recourse Type" field="recourse_type" type="select" options={enumOptions.recourse_type} />
-              <EditableField label="IO Period" field="io_period" type="number" />
-              <EditableField label="PPP Term" field="ppp_term" type="select" options={enumOptions.ppp_term} />
-              <EditableField label="PPP Structure" field="ppp_structure_1" type="select" options={enumOptions.ppp_structure_1} />
-              <EditableField label="Note Rate" field="note_rate" type="number" />
-              <EditableField label="Pricing Locked" field="pricing_is_locked" type="checkbox" />
-              <EditableField label="Cash Out Purpose" field="cash_out_purpose" type="textarea" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem
-          value="assignments"
-          className="rounded-lg border bg-muted/30 shadow-sm"
-        >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-muted-foreground" />
-              <span>Assignments</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-1">
-              <EditableField label="Company" field="company_id" />
-              <EditableField label="Broker Company" field="broker_company_id" />
-              <EditableField label="Escrow Company" field="escrow_company_id" />
-              <EditableField label="Title Company" field="title_company_id" />
-              <EditableField label="Insurance Carrier" field="insurance_carrier_company_id" />
-              <EditableField label="Loan Buyer" field="loan_buyer_company_id" />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem
-          value="declarations"
-          className="rounded-lg border bg-muted/30 shadow-sm"
-        >
-          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              <span>Declarations</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <EditableField label="Lawsuits" field="declaration_1_lawsuits" type="checkbox" />
-                <EditableField label="Lawsuits Explanation" field="declaration_1_lawsuits_explanation" type="textarea" />
+      {/* Two independent columns so items stack tightly without row-height gaps */}
+      {categories.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            No input categories configured yet.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Set up categories and inputs in your organization settings.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Left column: Deal ID + odd-indexed categories */}
+          <div className="flex flex-col gap-4">
+            {/* Deal ID */}
+            <div className="rounded-lg border bg-muted/30 shadow-sm px-4 py-3">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Deal ID
+                </div>
+                <div className="col-span-2 text-sm font-mono">{deal.id}</div>
               </div>
-              <div className="space-y-2">
-                <EditableField label="Bankruptcy" field="declaration_2_bankruptcy" type="checkbox" />
-                <EditableField label="Bankruptcy Explanation" field="declaration_2_bankruptcy_explanation" type="textarea" />
-              </div>
-              <div className="space-y-2">
-                <EditableField label="Felony" field="declaration_3_felony" type="checkbox" />
-                <EditableField label="Felony Explanation" field="declaration_3_felony_explanation" type="textarea" />
-              </div>
-              <EditableField label="License" field="declaration_5_license" type="checkbox" />
             </div>
-          </AccordionContent>
-        </AccordionItem>
-        </Accordion>
-      </div>
+
+            {leftCategories.map(({ category, fields }) => {
+              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+              return (
+              <Accordion
+                key={category.id}
+                type="multiple"
+                defaultValue={allCategoryIds}
+                className="w-full"
+              >
+                <AccordionItem
+                  value={String(category.id)}
+                  className="rounded-lg border bg-muted/30 shadow-sm"
+                >
+                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
+                    <span>{category.category}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4 pt-0">
+                    {visibleFields.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No inputs in this category.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {visibleFields.map((field) => {
+                          const rawValue = editedValues[field.id] ?? null;
+                          const reqd = requiredFields.has(field.id);
+                          const comp = computedFieldIds.has(field.id);
+                          if (!isEditing) {
+                            return (
+                              <DetailRow
+                                key={field.id}
+                                label={field.input_label}
+                                value={renderReadValue(field, rawValue)}
+                                isRequired={reqd}
+                                isComputed={comp}
+                              />
+                            );
+                          }
+                          return (
+                            <div
+                              key={field.id}
+                              className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
+                            >
+                              <div className="text-sm font-medium text-muted-foreground">
+                                {field.input_label}
+                                {reqd && <span className="ml-1 text-destructive">*</span>}
+                              </div>
+                              <div className="col-span-2">
+                                {renderEditControl(field, rawValue)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+              );
+            })}
+          </div>
+
+          {/* Right column: even-indexed categories */}
+          <div className="flex flex-col gap-4">
+            {rightCategories.map(({ category, fields }) => {
+              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+              return (
+              <Accordion
+                key={category.id}
+                type="multiple"
+                defaultValue={allCategoryIds}
+                className="w-full"
+              >
+                <AccordionItem
+                  value={String(category.id)}
+                  className="rounded-lg border bg-muted/30 shadow-sm"
+                >
+                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
+                    <span>{category.category}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4 pt-0">
+                    {visibleFields.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No inputs in this category.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {visibleFields.map((field) => {
+                          const rawValue = editedValues[field.id] ?? null;
+                          const reqd = requiredFields.has(field.id);
+                          const comp = computedFieldIds.has(field.id);
+                          if (!isEditing) {
+                            return (
+                              <DetailRow
+                                key={field.id}
+                                label={field.input_label}
+                                value={renderReadValue(field, rawValue)}
+                                isRequired={reqd}
+                                isComputed={comp}
+                              />
+                            );
+                          }
+                          return (
+                            <div
+                              key={field.id}
+                              className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
+                            >
+                              <div className="text-sm font-medium text-muted-foreground">
+                                {field.input_label}
+                                {reqd && <span className="ml-1 text-destructive">*</span>}
+                              </div>
+                              <div className="col-span-2">
+                                {renderEditControl(field, rawValue)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { MinusIcon, PlusIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui/shadcn/dialog"
 import { Button } from "@repo/ui/shadcn/button"
+import { ShakeButton } from "@/components/ui/shake-button"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/shadcn/select"
@@ -14,29 +16,15 @@ import { AddressAutocomplete } from "@/components/address-autocomplete"
 import { DateInput } from "@/components/date-input"
 import { Calendar } from "@repo/ui/shadcn/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover"
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@repo/ui/shadcn/dropdown-menu"
 import { cn } from "@repo/lib/cn"
 import {
 	IconTrash,
 	IconEye,
 	IconEyeOff,
 	IconShare,
-	IconCopy,
-	IconMail,
-	IconBrandWhatsapp,
-	IconBrandFacebook,
-	IconBrandTwitter,
-	IconBrandLinkedin,
-	IconMessages,
 } from "@tabler/icons-react"
 import { toast } from "@/hooks/use-toast"
+import { ShareModal } from "@/components/share-modal"
 
 const schema = z.object({
 	legal_name: z.string().min(1, "Legal name is required"),
@@ -60,12 +48,38 @@ const schema = z.object({
 	state: z.string().optional().or(z.literal("")),
 	zip: z.string().regex(/^[0-9]{5}$/).optional().or(z.literal("")),
 	county: z.string().optional().or(z.literal("")),
-	bank_name: z.string().optional().or(z.literal("")),
-	account_balances: z.string().optional().or(z.literal("")),
 	owners: z.array(z.object({ name: z.string(), percent: z.coerce.number().int().min(0).max(100) })).optional(),
 })
 
 type FormValues = z.infer<typeof schema>
+
+const TITLE_OPTIONS_BY_ENTITY_TYPE: Record<string, string[]> = {
+	"Limited Liability Company": [
+		"Member", "Managing Member", "Manager", "Member-manager",
+		"Authorized Member", "Authorized Manager", "Authorized Signer", "Authorized Representative"
+	],
+	"Corporation": [
+		"Shareholder", "Director", "Chairman of the Board", "Chairperson of the Board",
+		"President", "Vice President", "Secretary", "Treasurer",
+		"Chief Executive Officer", "Chief Financial Officer", "Chief Operating Officer"
+	],
+	"General Partnership": [
+		"Partner", "General Partner", "Managing Partner", "Senior Partner",
+		"Lead Partner", "Authorized Partner", "Authorized Signer", "Authorized Representative"
+	],
+	"Limited Partnership": [
+		"General Partner", "Limited Partner", "Managing General Partner", "Managing Partner",
+		"Authorized General Partner", "Authorized Partner", "Authorized Signer", "Authorized Representative"
+	],
+	"Sole Proprietorship": [
+		"Owner", "Sole Proprietor", "Authorized Signer", "Authorized Representative"
+	],
+	"Revocable Trust": [
+		"Grantor", "Settlor", "Trustor", "Trustee", "Co-Trustee",
+		"Successor Trustee", "Acting Trustee", "Beneficiary",
+		"Primary Beneficiary", "Contingent Beneficiary", "Authorized Trustee"
+	],
+}
 
 type LinkableKind = "borrower" | "entity"
 
@@ -165,6 +179,7 @@ export function NewEntityModal({
 			showSsn?: boolean
 		}>
 	>([])
+	const [shakeError, setShakeError] = useState(false)
 	const formId = "new-entity-form"
 
 	const {
@@ -181,7 +196,6 @@ export function NewEntityModal({
 
 	const [shareUrl, setShareUrl] = useState<string | null>(null)
 	const [shareLoading, setShareLoading] = useState<boolean>(false)
-	const [copied, setCopied] = useState<boolean>(false)
 	const shareBaseUrl = "http://apply.whitelabellender.com/entity"
 
 	// Preload share URL for new entity (not edit) using current org member id
@@ -191,7 +205,6 @@ export function NewEntityModal({
 		let active = true
 		setShareLoading(true)
 		setShareUrl(null)
-		setCopied(false)
 		;(async () => {
 			try {
 				const res = await fetch("/api/org/members", { cache: "no-store" })
@@ -211,37 +224,26 @@ export function NewEntityModal({
 		}
 	}, [entityId, open, shareBaseUrl])
 
-	useEffect(() => {
-		if (!open) setCopied(false)
-	}, [open])
-
-	const copyShareUrl = async () => {
-		if (!shareUrl) return
-		try {
-			if (navigator?.clipboard?.writeText) {
-				await navigator.clipboard.writeText(shareUrl)
-			} else {
-				const textarea = document.createElement("textarea")
-				textarea.value = shareUrl
-				document.body.appendChild(textarea)
-				textarea.select()
-				document.execCommand("copy")
-				document.body.removeChild(textarea)
-			}
-			setCopied(true)
-			setTimeout(() => setCopied(false), 1500)
-		} catch {
-			setCopied(false)
-		}
-	}
-
-	const openShareLink = (url: string) => {
-		if (!shareUrl || shareLoading) return
-		if (typeof window === "undefined") return
-		window.open(url, "_blank", "noopener,noreferrer")
-	}
-
 	const onSubmit = async (_vals: FormValues) => {
+		// Validate ownership percentages sum to 100
+		if (owners.length > 0) {
+			const totalOwnership = owners.reduce((sum, o) => {
+				const pct = parseFloat(o.percent) || 0
+				return sum + pct
+			}, 0)
+			
+			// Use small epsilon for floating point comparison
+			if (Math.abs(totalOwnership - 100) > 0.001) {
+				setShakeError(true)
+				toast({
+					title: "Invalid Ownership",
+					description: `Ownership percentages must total exactly 100%. Current total: ${totalOwnership.toFixed(2)}%`,
+					variant: "destructive",
+				})
+				return
+			}
+		}
+
 		// Persist to API
 		const ownersPayload = owners.map((o) => ({
 			name: o.name || "",
@@ -277,8 +279,6 @@ export function NewEntityModal({
 			state: _vals.state || "",
 			zip: _vals.zip || "",
 			county: _vals.county || "",
-			bank_name: _vals.bank_name || "",
-			account_balances: _vals.account_balances || "",
 			owners: ownersPayload,
 		}
 		// For updates, avoid sending empty strings which can overwrite existing data.
@@ -347,8 +347,6 @@ export function NewEntityModal({
 					state: (initial as any).state ?? "",
 					zip: (initial as any).zip ?? "",
 					county: (initial as any).county ?? "",
-					bank_name: (initial as any).bank_name ?? "",
-					account_balances: (initial as any).account_balances ?? "",
 				} as any)
 				const einDigits = String((initial as any).ein ?? "").replace(/\D+/g, "").slice(0, 9)
 				setEinRaw(einDigits)
@@ -375,7 +373,6 @@ export function NewEntityModal({
 
 	const membersReg = register("members")
 	const zipReg = register("zip")
-	const balancesReg = register("account_balances")
 	const address2Reg = register("address_line2")
 	const cityReg = register("city")
 	const countyReg = register("county")
@@ -479,8 +476,11 @@ export function NewEntityModal({
 				<DialogHeader className="flex flex-row items-center justify-between gap-3">
 					<DialogTitle>Borrowing Entity</DialogTitle>
 					{!entityId ? (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
+						<ShareModal
+							url={shareUrl || undefined}
+							title="Share Entity Invite"
+							disabled={shareLoading || !shareUrl}
+							trigger={
 								<Button
 									variant="ghost"
 									size="icon"
@@ -490,92 +490,8 @@ export function NewEntityModal({
 								>
 									<IconShare className="h-4 w-4" />
 								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-64">
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										copyShareUrl()
-									}}
-								>
-									<IconCopy className="mr-2 h-4 w-4" />
-									<span>{copied ? "Copied" : "Copy URL"}</span>
-								</DropdownMenuItem>
-								<DropdownMenuSeparator />
-								<DropdownMenuLabel>Share via</DropdownMenuLabel>
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										if (!shareUrl) return
-										openShareLink(
-											`mailto:?subject=${encodeURIComponent("Entity link")}&body=${encodeURIComponent(
-												`Please complete this entity form: ${shareUrl}`
-											)}`
-										)
-									}}
-								>
-									<IconMail className="mr-2 h-4 w-4" />
-									<span>Email</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										if (!shareUrl) return
-										openShareLink(`sms:?&body=${encodeURIComponent(shareUrl)}`)
-									}}
-								>
-									<IconMessages className="mr-2 h-4 w-4" />
-									<span>SMS</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										if (!shareUrl) return
-										openShareLink(`https://wa.me/?text=${encodeURIComponent(shareUrl)}`)
-									}}
-								>
-									<IconBrandWhatsapp className="mr-2 h-4 w-4" />
-									<span>WhatsApp</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										if (!shareUrl) return
-										openShareLink(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`)
-									}}
-								>
-									<IconBrandFacebook className="mr-2 h-4 w-4" />
-									<span>Facebook</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										if (!shareUrl) return
-										openShareLink(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`)
-									}}
-								>
-									<IconBrandTwitter className="mr-2 h-4 w-4" />
-									<span>Twitter</span>
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									disabled={shareLoading || !shareUrl}
-									onSelect={(e) => {
-										e.preventDefault()
-										if (!shareUrl) return
-										openShareLink(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`)
-									}}
-								>
-									<IconBrandLinkedin className="mr-2 h-4 w-4" />
-									<span>LinkedIn</span>
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
+							}
+						/>
 					) : null}
 				</DialogHeader>
 				<div className="max-h-[calc(80vh-4rem)] overflow-y-auto pr-1">
@@ -773,30 +689,6 @@ export function NewEntityModal({
 										onChange={(e) => countyReg.onChange(e)}
 									/>
 								</div>
-							</div>
-						</div>
-					</section>
-
-					<section>
-						<div className="mb-2 text-sm font-semibold">Banking Information</div>
-						<div className="grid gap-3 sm:grid-cols-2">
-							<div className="flex flex-col gap-1">
-								<Label>Bank of Business Account</Label>
-								<Input placeholder="Enter bank name" {...register("bank_name")} />
-							</div>
-							<div className="flex flex-col gap-1">
-								<Label>Account Balance(s)</Label>
-								<Input
-									placeholder="Enter account balance"
-									inputMode="decimal"
-									{...balancesReg}
-									value={watch("account_balances") ?? ""}
-									onChange={(e) => {
-										const formatted = formatCurrencyInput(e.target.value)
-										e.target.value = formatted
-										balancesReg.onChange(e)
-									}}
-								/>
 							</div>
 						</div>
 					</section>
@@ -1018,16 +910,24 @@ export function NewEntityModal({
 											</div>
 											<div className="flex flex-col gap-1">
 												<Label htmlFor={`${idPrefix}-title`}>Title</Label>
-												<Input
-													id={`${idPrefix}-title`}
-													placeholder="Enter title"
-													value={o.title}
-													onChange={(e) => {
+												<Select
+													value={o.title || undefined}
+													onValueChange={(v) => {
 														const next = owners.slice()
-														next[idx] = { ...o, title: e.target.value }
+														next[idx] = { ...o, title: v }
 														setOwners(next)
 													}}
-												/>
+												>
+													<SelectTrigger id={`${idPrefix}-title`}>
+														<SelectValue placeholder="Select title" />
+													</SelectTrigger>
+													<SelectContent>
+														{(TITLE_OPTIONS_BY_ENTITY_TYPE[watch("entity_type") as string] || []).map((title) => (
+															<SelectItem key={title} value={title}>{title}</SelectItem>
+														))}
+														<SelectItem value="Other">Other</SelectItem>
+													</SelectContent>
+												</Select>
 											</div>
 											<div className="flex flex-col gap-1">
 												<Label>Member Type</Label>
@@ -1104,18 +1004,60 @@ export function NewEntityModal({
 											</div>
 											<div className="flex flex-col gap-1">
 												<Label>Ownership %</Label>
-												<Input
-													placeholder="0%"
-													inputMode="numeric"
-													pattern="\\d*"
-													value={o.percent}
-													onChange={(e) => {
-														const digits = e.target.value.replace(/[^0-9]/g, "")
-														const next = owners.slice()
-														next[idx] = { ...o, percent: digits }
-														setOwners(next)
-													}}
-												/>
+												<div className="border-input focus-within:ring-1 focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors">
+													<input
+														placeholder="0.00"
+														inputMode="decimal"
+														value={o.percent}
+														onChange={(e) => {
+															// Allow digits and one decimal point, max 2 decimal places
+															let val = e.target.value.replace(/[^0-9.]/g, "")
+															// Prevent multiple decimal points
+															const parts = val.split(".")
+															if (parts.length > 2) val = parts[0] + "." + parts.slice(1).join("")
+															// Limit to 2 decimal places
+															if (parts[1]?.length > 2) val = parts[0] + "." + parts[1].slice(0, 2)
+															// Clamp to 0-100 range
+															const num = parseFloat(val)
+															if (!isNaN(num) && num > 100) val = "100"
+															
+															const next = owners.slice()
+															next[idx] = { ...o, percent: val }
+															setOwners(next)
+														}}
+														className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+													/>
+													<button
+														type="button"
+														onClick={() => {
+															const current = parseFloat(o.percent) || 0
+															const newVal = Math.max(0, current - 1)
+															const next = owners.slice()
+															// Preserve decimal places
+															next[idx] = { ...o, percent: newVal.toFixed(2).replace(/\.?0+$/, "") || "0" }
+															setOwners(next)
+														}}
+														className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+													>
+														<MinusIcon className="size-4" />
+														<span className="sr-only">Decrease ownership</span>
+													</button>
+													<button
+														type="button"
+														onClick={() => {
+															const current = parseFloat(o.percent) || 0
+															const newVal = Math.min(100, current + 1)
+															const next = owners.slice()
+															// Preserve decimal places
+															next[idx] = { ...o, percent: newVal.toFixed(2).replace(/\.?0+$/, "") || "0" }
+															setOwners(next)
+														}}
+														className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+													>
+														<PlusIcon className="size-4" />
+														<span className="sr-only">Increase ownership</span>
+													</button>
+												</div>
 											</div>
 											<div className="sm:col-span-2 flex flex-col gap-1">
 												<Label htmlFor={`${idPrefix}-addr`}>Home Address</Label>
@@ -1186,7 +1128,15 @@ export function NewEntityModal({
 				</div>
 				<div className="mt-3 flex items-center justify-end gap-2 border-t pt-3">
 					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-					<Button form={formId} type="submit" disabled={isSubmitting}>Save</Button>
+					<ShakeButton
+						form={formId}
+						type="submit"
+						disabled={isSubmitting}
+						shake={shakeError}
+						onShakeEnd={() => setShakeError(false)}
+					>
+						Save
+					</ShakeButton>
 				</div>
 			</DialogContent>
 		</Dialog>

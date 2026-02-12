@@ -127,10 +127,12 @@ export function NavUser({
                 <BadgeCheck />
                 Account
               </DropdownMenuItem>
+              {/* Billing hidden for now
               <DropdownMenuItem>
                 <CreditCard />
                 Billing
               </DropdownMenuItem>
+              */}
               <DropdownMenuItem>
                 <Bell />
                 Notifications

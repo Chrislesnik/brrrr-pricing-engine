@@ -37,9 +37,9 @@ export async function GET(req: Request, context: { params: Promise<{ loanId?: st
   // Pull the applications row for this loan
   const { data: appRow, error: appErr } = await supabaseAdmin
     .from("applications")
-    .select("loan_id, entity_id, borrower_name, guarantor_ids, guarantor_names, guarantor_emails")
+    .select("loan_id, entity_id, borrower_name, guarantor_ids, guarantor_names, guarantor_emails, property_street, property_city, property_state, property_zip")
     .eq("loan_id", loanId)
-    .maybeSingle<AppRow>()
+    .maybeSingle<AppRow & { property_street?: string | null; property_city?: string | null; property_state?: string | null; property_zip?: string | null }>()
 
   if (appErr) return NextResponse.json({ error: appErr.message }, { status: 500 })
   if (!appRow) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -98,9 +98,20 @@ export async function GET(req: Request, context: { params: Promise<{ loanId?: st
     entityName = appRow.borrower_name ?? null
   }
 
+  // Build property address
+  const stateZip = [appRow.property_state, appRow.property_zip]
+    .filter((p) => (p ?? "").toString().trim().length > 0)
+    .join(" ")
+  const addrParts = [appRow.property_street, appRow.property_city, stateZip].filter(
+    (p) => (p ?? "").toString().trim().length > 0
+  )
+  const propertyAddress = addrParts.length ? addrParts.join(", ") : null
+
   return NextResponse.json({
+    id: appRow.loan_id,
     entityId: appRow.entity_id,
     entityName,
+    propertyAddress,
     guarantors: resolved,
   })
 }

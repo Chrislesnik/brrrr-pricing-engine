@@ -6,6 +6,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import { RetroGrid } from "@/components/ui/retro-grid";
+import { PasswordInput } from "@/components/password-input";
 import Link from "next/link";
 
 export function SignUp2() {
@@ -86,13 +87,10 @@ export function SignUp2() {
             {/* Password input */}
             <Field>
               <FieldLabel htmlFor="password">Password</FieldLabel>
-              <InputGroup>
-                <InputGroupInput
+              <PasswordInput
                   id="password"
                   placeholder="Password"
-                  type="password"
                 />
-              </InputGroup>
               <p className="text-muted-foreground text-sm">
                 Minimum 8 characters.
               </p>

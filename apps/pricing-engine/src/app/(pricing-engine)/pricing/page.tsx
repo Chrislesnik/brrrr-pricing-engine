@@ -5135,7 +5135,7 @@ function ResultCard({
   const dscr = isBridgeResp ? undefined : pick<string | number>(d?.dscr, hi)
   const loanAmount = isBridgeResp ? pick<string | number>(d?.total_loan_amount, hi) : d?.loan_amount
   const ltv = d?.ltv
-  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
+  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook/bba9f146-8e5a-4618-bdef-705f39383e33"
   const validationList: string[] = Array.isArray(d.validations)
     ? (d.validations as (string | null | undefined)[])
         .filter((v) => typeof v === "string" && String(v).trim().length > 0)
@@ -5598,14 +5598,14 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+        <DialogContent showCloseButton={false} className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
           <DialogHeader className="mb-1">
             <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
           <button
             type="button"
             aria-label="Share term sheet"
-            className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
@@ -5619,11 +5619,13 @@ function ResultCard({
                   await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                   void logCardTermSheetActivity("shared", file)
                 } else {
+                  // Desktop fallback: download and notify user
                   await saveFileWithPrompt(file)
-                  toast({ title: "Saved", description: "PDF saved to your device." })
+                  toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
                   void logCardTermSheetActivity("downloaded", file)
                 }
               } catch (e) {
+                if ((e as Error).name === "AbortError") return // User cancelled share
                 const message = e instanceof Error ? e.message : "Unable to share"
                 toast({ title: "Share failed", description: message, variant: "destructive" })
               }
@@ -5634,7 +5636,7 @@ function ResultCard({
           <button
             type="button"
             aria-label="Download term sheet"
-            className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
@@ -5648,6 +5650,14 @@ function ResultCard({
             }}
           >
             <IconDownload />
+          </button>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            onClick={() => setMcpOpen(false)}
+          >
+            <IconX />
           </button>
           <div className="space-y-3">
             {Object.keys(sheetProps ?? {}).length ? (
@@ -5843,7 +5853,7 @@ function ResultsPanel({
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
   const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetData>({})
   const previewRefMain = useRef<HTMLDivElement | null>(null)
-  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/a108a42d-e071-4f84-a557-2cd72e440c83"
+  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/bba9f146-8e5a-4618-bdef-705f39383e33"
 
   // Render main preview to a PDF File
   const renderPreviewToPdfMain = async (): Promise<File | null> => {
@@ -6512,14 +6522,14 @@ function ResultsPanel({
             )}
           </div>
           <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
-            <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+            <DialogContent showCloseButton={false} className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
               <DialogHeader className="mb-1">
                 <DialogTitle className="text-base">Term Sheet</DialogTitle>
               </DialogHeader>
               <button
                 type="button"
                 aria-label="Share term sheet"
-                className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
@@ -6529,13 +6539,15 @@ function ResultsPanel({
                       "canShare" in navigator &&
                       (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
                     const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                  if (nav?.share && canShareFiles) {
+                    if (nav?.share && canShareFiles) {
                       await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                     } else {
+                      // Desktop fallback: download and notify user
                       await saveFileWithPrompt(file)
-                      toast({ title: "Saved", description: "PDF saved to your device." })
+                      toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
                     }
                   } catch (e) {
+                    if ((e as Error).name === "AbortError") return // User cancelled share
                     const message = e instanceof Error ? e.message : "Unable to share"
                     toast({ title: "Share failed", description: message, variant: "destructive" })
                   }
@@ -6546,7 +6558,7 @@ function ResultsPanel({
               <button
                 type="button"
                 aria-label="Download term sheet"
-                className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
@@ -6559,6 +6571,14 @@ function ResultsPanel({
                 }}
               >
                 <IconDownload />
+              </button>
+              <button
+                type="button"
+                aria-label="Close"
+                className="absolute right-4 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                onClick={() => setMcpOpenMain(false)}
+              >
+                <IconX />
               </button>
               
               <div className="space-y-3">

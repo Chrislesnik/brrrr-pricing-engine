@@ -577,8 +577,7 @@ export default function OrgPolicyBuilder({
   }
 
   return (
-    <div className="space-y-8">
-      {/* Policy Builder Card */}
+    <div className="space-y-8 pb-12">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
