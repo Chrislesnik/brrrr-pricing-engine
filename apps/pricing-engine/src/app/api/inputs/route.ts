@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 /**
  * GET /api/inputs
- * List all inputs for the current organization, ordered by display_order.
+ * List all inputs, ordered by display_order.
  */
 export async function GET() {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
       .from("inputs")
       .select("*")
-      .eq("organization_id", orgUuid)
       .order("display_order", { ascending: true })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -34,10 +30,8 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
     const { category_id, input_label, input_type, dropdown_options } = body
@@ -56,7 +50,6 @@ export async function POST(req: NextRequest) {
       .from("input_categories")
       .select("category")
       .eq("id", category_id)
-      .eq("organization_id", orgUuid)
       .single()
 
     if (!catRow) return NextResponse.json({ error: "Category not found" }, { status: 404 })
@@ -66,26 +59,24 @@ export async function POST(req: NextRequest) {
       .from("inputs")
       .select("display_order")
       .eq("category_id", category_id)
-      .eq("organization_id", orgUuid)
       .order("display_order", { ascending: false })
       .limit(1)
       .single()
 
     const nextOrder = (maxRow?.display_order ?? -1) + 1
 
-    // Generate a snake_case id from the label
-    const inputId = input_label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+    // Generate a snake_case input_code from the label
+    const inputCode = input_label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
 
     const { data, error } = await supabaseAdmin
       .from("inputs")
       .insert({
-        id: inputId,
+        input_code: inputCode,
         category_id,
         category: catRow.category,
         input_label: input_label.trim(),
         input_type,
         dropdown_options: input_type === "dropdown" ? (dropdown_options ?? []) : null,
-        organization_id: orgUuid,
         display_order: nextOrder,
       })
       .select("*")
@@ -106,10 +97,8 @@ export async function POST(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
 
@@ -136,7 +125,6 @@ export async function PATCH(req: NextRequest) {
         .from("inputs")
         .update(updatePayload)
         .eq("id", id)
-        .eq("organization_id", orgUuid)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
     }
@@ -151,7 +139,6 @@ export async function PATCH(req: NextRequest) {
         .from("input_categories")
         .select("id, category")
         .in("id", categoryIds)
-        .eq("organization_id", orgUuid)
 
       const catMap = new Map((cats ?? []).map((c: { id: number; category: string }) => [c.id, c.category]))
 
@@ -167,7 +154,6 @@ export async function PATCH(req: NextRequest) {
           .from("inputs")
           .update(updatePayload)
           .eq("id", item.id)
-          .eq("organization_id", orgUuid)
       }
       return NextResponse.json({ ok: true })
     }
@@ -185,10 +171,8 @@ export async function PATCH(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
     const id = body.id
@@ -198,7 +182,6 @@ export async function DELETE(req: NextRequest) {
       .from("inputs")
       .delete()
       .eq("id", id)
-      .eq("organization_id", orgUuid)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })

@@ -50,13 +50,13 @@ interface InputCategory {
 
 interface InputField {
   id: string
+  input_code: string
   category_id: number
   category: string
   input_label: string
   input_type: string
   dropdown_options: string[] | null
   starred: boolean
-  organization_id: string
   display_order: number
   created_at: string
 }

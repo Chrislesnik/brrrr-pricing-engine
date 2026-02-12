@@ -144,24 +144,28 @@ function DealRecordContent() {
           <TabsTrigger
             value="details"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+            onClick={() => setActiveTab("details")}
           >
             Details
           </TabsTrigger>
           <TabsTrigger
             value="documents"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+            onClick={() => setActiveTab("documents")}
           >
             Documents
           </TabsTrigger>
           <TabsTrigger
             value="signature-requests"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+            onClick={() => setActiveTab("signature-requests")}
           >
             Signature Requests
           </TabsTrigger>
           <TabsTrigger
             value="calendar"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+            onClick={() => setActiveTab("calendar")}
           >
             Calendar
           </TabsTrigger>
@@ -173,7 +177,7 @@ function DealRecordContent() {
           </TabsContent>
           
           <TabsContent value="documents" className="mt-0">
-            <DealDocumentsTab dealId={dealId} />
+            <DealDocumentsTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
           </TabsContent>
           
           <TabsContent value="signature-requests" className="mt-0">

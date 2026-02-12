@@ -29,19 +29,19 @@ export interface LogicResult {
 /*  Condition evaluation                                                       */
 /* -------------------------------------------------------------------------- */
 
-function toNumber(val: unknown): number {
+export function toNumber(val: unknown): number {
   if (val === null || val === undefined || val === "") return NaN;
   if (typeof val === "boolean") return val ? 1 : 0;
   const n = Number(val);
   return n;
 }
 
-function toString(val: unknown): string {
+export function toString(val: unknown): string {
   if (val === null || val === undefined) return "";
   return String(val);
 }
 
-function evaluateOperator(
+export function evaluateOperator(
   operator: string,
   fieldValue: unknown,
   compareValue: unknown
@@ -118,7 +118,7 @@ function evaluateOperator(
 /**
  * Resolve what the condition is comparing against, based on value_type.
  */
-function resolveConditionValue(
+export function resolveConditionValue(
   cond: LogicCondition,
   currentValues: Record<string, unknown>
 ): unknown {
@@ -140,7 +140,7 @@ function resolveConditionValue(
 /**
  * Evaluate whether a single condition passes.
  */
-function evaluateCondition(
+export function evaluateCondition(
   cond: LogicCondition,
   currentValues: Record<string, unknown>
 ): boolean {
@@ -152,7 +152,7 @@ function evaluateCondition(
 /**
  * Evaluate whether a rule's conditions pass (AND = all, OR = any).
  */
-function evaluateRuleConditions(
+export function evaluateRuleConditions(
   rule: LogicRule,
   currentValues: Record<string, unknown>
 ): boolean {
