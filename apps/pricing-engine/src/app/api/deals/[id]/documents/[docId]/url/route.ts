@@ -17,39 +17,32 @@ export async function GET(
 
     const { id: dealId, docId } = await params;
 
-    // Get document info
-    const { data: docFile, error: docError } = await supabaseAdmin
-      .from("document_files")
-      .select("id, storage_bucket, storage_path, document_name")
+    // Get document info from deal_documents (also verifies deal ownership)
+    const { data: dealDoc, error: docError } = await supabaseAdmin
+      .from("deal_documents")
+      .select("id, storage_path, file_name")
       .eq("id", docId)
+      .eq("deal_id", dealId)
       .single();
 
-    if (docError || !docFile) {
+    if (docError || !dealDoc) {
       return NextResponse.json(
-        { error: "Document not found" },
+        { error: "Document not found for this deal" },
         { status: 404 }
       );
     }
 
-    // Verify document is linked to this deal
-    const { data: linkExists } = await supabaseAdmin
-      .from("document_files_deals")
-      .select("deal_id")
-      .eq("deal_id", dealId)
-      .eq("document_file_id", docId)
-      .single();
-
-    if (!linkExists) {
+    if (!dealDoc.storage_path) {
       return NextResponse.json(
-        { error: "Document not associated with this deal" },
-        { status: 403 }
+        { error: "Document has no associated file" },
+        { status: 404 }
       );
     }
 
     // Generate signed URL (valid for 1 hour)
     const { data, error } = await supabaseAdmin.storage
-      .from(docFile.storage_bucket || "deals")
-      .createSignedUrl(docFile.storage_path || "", 3600);
+      .from("deals")
+      .createSignedUrl(dealDoc.storage_path, 3600);
 
     if (error || !data?.signedUrl) {
       console.error("Error generating signed URL:", error);
@@ -61,7 +54,7 @@ export async function GET(
 
     return NextResponse.json({
       url: data.signedUrl,
-      fileName: docFile.document_name,
+      fileName: dealDoc.file_name,
     });
   } catch (error) {
     console.error("Unexpected error:", error);

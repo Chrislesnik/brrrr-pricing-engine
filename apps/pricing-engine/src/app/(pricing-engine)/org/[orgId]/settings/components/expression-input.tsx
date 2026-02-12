@@ -805,6 +805,7 @@ export function ExpressionInput({
                 {getInputLabel(seg.inputId)}
                 <button
                   type="button"
+                  aria-label={`Remove ${getInputLabel(seg.inputId)}`}
                   className="ml-0.5 rounded-sm opacity-70 hover:opacity-100"
                   onClick={(e) => {
                     e.stopPropagation();

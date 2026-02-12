@@ -108,6 +108,7 @@ interface DealWithRelations {
 
 interface StarredInput {
   id: string;
+  input_code: string;
   input_label: string;
   input_type: string;
   dropdown_options: string[] | null;
@@ -433,9 +434,9 @@ const createColumns = (
   // Dynamic columns from starred inputs
   const dynamicCols: ColumnDef<DealWithRelations>[] = starredInputs.map(
     (input) => ({
-      id: input.id,
+      id: input.input_code,
       accessorFn: (row: DealWithRelations) => {
-        const val = row.inputs?.[input.id];
+        const val = row.inputs?.[input.input_code];
         return val ?? null;
       },
       header: ({ column }: { column: any }) => (
@@ -581,13 +582,13 @@ export function DealsDataTable({
             "select",
             "expand",
             "deal_id",
-            ...starred.map((i) => i.id),
+            ...starred.map((i) => i.input_code),
             "comments",
             "actions",
           ]);
           // Default all dynamic columns to visible
           const vis: VisibilityState = { comments: true };
-          starred.forEach((i) => { vis[i.id] = true; });
+          starred.forEach((i) => { vis[i.input_code] = true; });
           setColumnVisibility(vis);
         }
       } catch (err) {
@@ -848,7 +849,7 @@ export function DealsDataTable({
     };
     // Add starred input labels
     starredInputs.forEach((input) => {
-      columnNameMap[input.id] = input.input_label;
+      columnNameMap[input.input_code] = input.input_label;
     });
 
     return (

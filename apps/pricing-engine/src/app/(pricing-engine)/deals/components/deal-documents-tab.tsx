@@ -57,7 +57,6 @@ import { toast } from "@/hooks/use-toast";
 
 interface Document {
   id: number;
-  uuid: string;
   name: string;
   type: string;
   size: number;

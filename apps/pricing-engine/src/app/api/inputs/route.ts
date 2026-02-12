@@ -20,9 +20,13 @@ export async function GET() {
       .eq("organization_id", orgUuid)
       .order("display_order", { ascending: true })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.error("[GET /api/inputs] Supabase error:", error.message, error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json(data)
   } catch (e) {
+    console.error("[GET /api/inputs] Unexpected error:", e)
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }
 }
