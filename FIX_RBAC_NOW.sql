@@ -10,15 +10,17 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
+SET search_path = public
 AS $$
 BEGIN
   -- Check if user is an admin or owner of the organization
   -- Supports both Clerk role formats: 'admin', 'org:admin', 'owner', 'org:owner'
+  -- Uses auth.jwt()->>sub for Clerk compatibility (auth.uid()::text fails with non-UUID Clerk IDs)
   RETURN EXISTS (
     SELECT 1
     FROM public.organization_members om
     WHERE om.organization_id = p_org_id
-      AND om.user_id = auth.uid()::text
+      AND om.user_id = (auth.jwt() ->> 'sub')
       AND (
         -- Direct role match
         lower(om.clerk_org_role) IN ('admin', 'owner')
