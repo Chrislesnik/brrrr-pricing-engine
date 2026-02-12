@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   RoomProvider,
   ClientSideSuspense,
@@ -10,6 +10,50 @@ import { Thread, Comment, Composer } from "@liveblocks/react-ui";
 import { Button } from "@repo/ui/shadcn/button";
 import { MessageSquare, X, Loader2, ArrowLeft, MessageCircle } from "lucide-react";
 import type { ThreadData } from "@liveblocks/client";
+
+const COMPOSER_OVERRIDES = {
+  COMPOSER_PLACEHOLDER: "Write a message...",
+} as const;
+
+/**
+ * MutationObserver hook that enables the submit button inside Liveblocks
+ * Composer components when attachments are present but no text has been typed.
+ * The default Composer disables submit when the editor is empty, even if files
+ * are attached — this workaround removes the `disabled` attribute so users can
+ * send attachment-only messages.
+ */
+function useEnableSubmitWithAttachments(
+  containerRef: React.RefObject<HTMLElement | null>
+) {
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const check = () => {
+      el.querySelectorAll<HTMLElement>(".lb-composer").forEach((composer) => {
+        // Liveblocks renders attachments with class names containing "attachment"
+        const hasAttachments =
+          composer.querySelector("[class*='attachment']") !== null;
+        const submitBtn = composer.querySelector<HTMLButtonElement>(
+          'button[type="submit"]:disabled'
+        );
+        if (submitBtn && hasAttachments) {
+          submitBtn.disabled = false;
+        }
+      });
+    };
+
+    const observer = new MutationObserver(check);
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled"],
+    });
+
+    return () => observer.disconnect();
+  }, [containerRef]);
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Thread detail view — full thread with replies + composer                  */
@@ -22,8 +66,11 @@ function ThreadDetailView({
   thread: ThreadData;
   onBack: () => void;
 }) {
+  const threadContainerRef = useRef<HTMLDivElement>(null);
+  useEnableSubmitWithAttachments(threadContainerRef);
+
   return (
-    <div className="flex flex-col h-full">
+    <div ref={threadContainerRef} className="flex flex-col h-full">
       {/* Thread header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
         <Button
@@ -44,6 +91,7 @@ function ThreadDetailView({
           showComposer={true}
           showActions="hover"
           showReactions={true}
+          overrides={COMPOSER_OVERRIDES}
         />
       </div>
     </div>
@@ -61,8 +109,11 @@ function ChatListView({
   threads: ThreadData[];
   onOpenThread: (thread: ThreadData) => void;
 }) {
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  useEnableSubmitWithAttachments(chatContainerRef);
+
   return (
-    <div className="flex flex-col h-full">
+    <div ref={chatContainerRef} className="flex flex-col h-full">
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
         {threads.length === 0 ? (
@@ -115,7 +166,7 @@ function ChatListView({
 
       {/* Composer at the bottom — creates new threads */}
       <div className="border-t bg-background px-3 py-3">
-        <Composer />
+        <Composer overrides={COMPOSER_OVERRIDES} />
       </div>
     </div>
   );

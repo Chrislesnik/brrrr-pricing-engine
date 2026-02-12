@@ -107,6 +107,13 @@ button.lb-composer-action:last-child:hover,
   background: transparent !important;
 }
 
+/* Thread reply composer — match the spacing of the main chat composer
+   wrapper (px-3 py-3 = 0.75rem). Adds margin around the form so the
+   composer box has the same distance from the panel walls. */
+.lb-thread-composer {
+  margin: 0.75rem !important;
+}
+
 /* Composer formatting toolbar */
 .lb-composer-toolbar {
   background: transparent !important;
@@ -116,4 +123,13 @@ button.lb-composer-action:last-child:hover,
 /* Composer submit button area */
 .lb-composer-footer {
   background: transparent !important;
+}
+
+/* Keep submit button visually active when the composer has attachments,
+   even if the text editor is empty (our JS hook removes the disabled attr,
+   but this guards against brief flashes of the disabled style). */
+.lb-composer:has([class*="attachment"]) button[type="submit"]:disabled {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }

@@ -122,28 +122,73 @@ const MultiStepForm = ({
             </ol>
           </nav>
 
-          {/* Entity / guarantor carousel -- only show on non-appraisal tabs */}
+          {/* Entity / guarantor card carousel -- only show on non-appraisal tabs */}
           {stepper.current.id !== "confirmation" && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {labels.length > 1 && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 shrink-0"
                   onClick={prev}
                   aria-label="Previous item"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <div className="min-w-[140px] text-center text-sm font-medium">
-                {labels[carouselIndex]}
+
+              {/* Carousel viewport */}
+              <div
+                className="relative overflow-hidden"
+                style={{
+                  width: labels.length > 1 ? 300 : 180,
+                  height: 36,
+                }}
+              >
+                {labels.map((label, index) => {
+                  const count = labels.length
+                  let offset = index - carouselIndex
+                  // Circular wrap: pick the shortest visual path
+                  if (offset > count / 2) offset -= count
+                  else if (offset < -count / 2) offset += count
+                  const abs = Math.abs(offset)
+
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      className={cn(
+                        "absolute left-1/2 top-1/2 max-w-[160px] truncate whitespace-nowrap rounded-lg border px-4 py-1.5 text-sm font-medium transition-all duration-300 ease-in-out",
+                        abs === 0
+                          ? "bg-background text-foreground shadow-sm"
+                          : "cursor-pointer border-transparent bg-muted/50 text-muted-foreground"
+                      )}
+                      style={{
+                        transform: `translate(-50%, -50%) translateX(${offset * 150}px) scale(${abs === 0 ? 1 : 0.85})`,
+                        opacity: abs === 0 ? 1 : abs === 1 ? 0.5 : 0,
+                        zIndex: 10 - abs,
+                        pointerEvents: abs <= 1 ? "auto" : "none",
+                      }}
+                      onClick={
+                        abs === 0
+                          ? undefined
+                          : offset < 0
+                            ? prev
+                            : next
+                      }
+                      tabIndex={abs === 0 ? 0 : -1}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
+
               {labels.length > 1 && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 shrink-0"
                   onClick={next}
                   aria-label="Next item"
                 >
