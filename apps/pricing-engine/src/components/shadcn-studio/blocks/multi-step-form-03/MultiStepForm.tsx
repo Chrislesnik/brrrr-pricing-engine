@@ -42,10 +42,12 @@ type CarouselItem = { name?: string | null; id?: string }
 
 const MultiStepForm = ({
   className,
+  entityId,
   entityName,
   guarantors = [],
 }: {
   className?: string
+  entityId?: string | null
   entityName?: string | null
   guarantors?: CarouselItem[]
 }) => {
@@ -159,6 +161,8 @@ const MultiStepForm = ({
               data={orderItems}
               stepper={stepper}
               isEntity={carouselIndex === 0}
+              currentEntityId={carouselIndex === 0 ? (entityId ?? undefined) : undefined}
+              currentBorrowerId={carouselIndex > 0 ? (guarantors?.[carouselIndex - 1]?.id ?? undefined) : undefined}
             />
           ),
           credit: () => (

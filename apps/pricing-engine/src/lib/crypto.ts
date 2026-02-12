@@ -162,12 +162,15 @@ export function decryptFromAny(input: string): string {
 			}
 		}
 	}
-	// Legacy case: bytea hex of ASCII base64 string (hex -> ascii -> base64 -> bytes)
-	if (payload && payload.length < 12 + 16) {
+	// Handle bytea that stores ASCII base64 text (hex -> ascii -> base64 -> bytes).
+	// Detect by checking if the payload bytes are all valid base64 characters.
+	if (payload) {
 		try {
 			const ascii = payload.toString("utf8")
-			const maybe = Buffer.from(ascii, "base64")
-			if (maybe.length >= 12 + 16) payload = maybe
+			if (/^[A-Za-z0-9+/]+=*$/.test(ascii.trim())) {
+				const maybe = Buffer.from(ascii.trim(), "base64")
+				if (maybe.length >= 12 + 16 && maybe.length < payload.length) payload = maybe
+			}
 		} catch {
 			// ignore
 		}

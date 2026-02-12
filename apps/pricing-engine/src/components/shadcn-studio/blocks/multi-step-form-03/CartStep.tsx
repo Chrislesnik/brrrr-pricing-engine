@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Download, MessageCircle, X } from "lucide-react"
+import { IconEye, IconEyeOff } from "@tabler/icons-react"
 import { motion, AnimatePresence } from "motion/react"
 import { FaFeatherAlt } from "react-icons/fa"
 import { GiStoneBlock } from "react-icons/gi"
@@ -145,14 +146,12 @@ type ReportDoc = {
 }
 
 const ENTITY_TYPE_OPTIONS = [
-  "LLC",
   "Corporation",
-  "S-Corp",
-  "Partnership",
+  "General Partnership",
+  "Limited Liability Company",
   "Limited Partnership",
   "Sole Proprietorship",
-  "Trust",
-  "Other",
+  "Revocable Trust",
 ]
 
 const formatEIN = (input: string) => {
@@ -165,11 +164,13 @@ const CartStep = ({
   data: _data,
   stepper,
   currentBorrowerId,
+  currentEntityId,
   isEntity = false,
 }: {
   data: OrderItemType[]
   stepper: StepperType
   currentBorrowerId?: string
+  currentEntityId?: string
   isEntity?: boolean
 }) => {
   const isCredit = stepper.current.id === "credit"
@@ -360,6 +361,7 @@ const CartStep = ({
         setFirstName("")
         setLastName("")
         setSsn("")
+        setShowSsn(false)
         setDob(undefined)
         setStreet("")
         setCity("")
@@ -371,6 +373,7 @@ const CartStep = ({
       // If we have some id string, attempt fetch; server will 404 when not found
       if (!currentBorrowerId || stepper.current.id !== "credit") return
       // Optimistically clear before fetching to avoid stale values while switching
+      setShowSsn(false)
       setFirstName("")
       setLastName("")
       setSsn("")
@@ -454,6 +457,7 @@ const CartStep = ({
   const [prevState, setPrevState] = useState("")
   const [prevZip, setPrevZip] = useState("")
   const [ssn, setSsn] = useState("")
+  const [showSsn, setShowSsn] = useState(false)
   const [runPhase, setRunPhase] = useState<
     "idle" | "bounce" | "running" | "error"
   >("idle")
@@ -474,8 +478,157 @@ const CartStep = ({
   const [guarantorMiddleInitial, setGuarantorMiddleInitial] = useState("")
   const [guarantorLastName, setGuarantorLastName] = useState("")
   const [guarantorSsn, setGuarantorSsn] = useState("")
+  const [showGuarantorSsn, setShowGuarantorSsn] = useState(false)
   const [guarantorEmail, setGuarantorEmail] = useState("")
   const [guarantorPhone, setGuarantorPhone] = useState("")
+
+  // Prefill entity data on Background step
+  useEffect(() => {
+    let ignore = false
+    async function loadEntity() {
+      if (stepper.current.id !== "background" || !isEntity || !currentEntityId) {
+        return
+      }
+      // Clear before fetching to avoid stale values
+      setEntityName("")
+      setEntityType("")
+      setEin("")
+      setStateOfFormation("")
+      setDateOfFormation(undefined)
+      setStreet("")
+      setCity("")
+      setStateCode("")
+      setZip("")
+      setCounty("")
+      try {
+        const res = await fetch(
+          `/api/applicants/entities/${encodeURIComponent(currentEntityId)}`,
+          { cache: "no-store" }
+        )
+        if (!res.ok) return
+        const j = await res.json().catch(() => ({}))
+        const ent = j?.entity
+        if (!ignore && ent) {
+          setEntityName((ent.entity_name as string) ?? "")
+          setEntityType((ent.entity_type as string) ?? "")
+          setEin(ent.ein ? formatEIN(String(ent.ein)) : "")
+          setStateOfFormation((ent.state_formed as string) ?? "")
+          if (ent.date_formed) {
+            const s = String(ent.date_formed as string)
+            const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(s)
+            if (m) {
+              const y = Number(m[1])
+              const mo = Number(m[2])
+              const d = Number(m[3])
+              const local = new Date(y, mo - 1, d)
+              if (!Number.isNaN(local.getTime())) setDateOfFormation(local)
+            }
+          }
+          setStreet((ent.address_line1 as string) ?? "")
+          setCity((ent.city as string) ?? "")
+          setStateCode((ent.state as string) ?? "")
+          setZip((ent.zip as string) ?? "")
+          setCounty((ent.county as string) ?? "")
+        }
+      } catch {
+        // swallow
+      }
+    }
+    loadEntity()
+    return () => {
+      ignore = true
+    }
+  }, [currentEntityId, isEntity, stepper.current.id])
+
+  // Prefill guarantor/borrower data on Background step
+  useEffect(() => {
+    let ignore = false
+    async function loadGuarantor() {
+      if (stepper.current.id !== "background" || isEntity || !currentBorrowerId) {
+        return
+      }
+      // Clear before fetching
+      setGuarantorFirstName("")
+      setGuarantorMiddleInitial("")
+      setGuarantorLastName("")
+      setGuarantorSsn("")
+      setShowGuarantorSsn(false)
+      setGuarantorEmail("")
+      setGuarantorPhone("")
+      setDob(undefined)
+      setStreet("")
+      setCity("")
+      setStateCode("")
+      setZip("")
+      setCounty("")
+      try {
+        const res = await fetch(
+          `/api/borrowers/${encodeURIComponent(currentBorrowerId)}`,
+          { cache: "no-store" }
+        )
+        if (!res.ok) return
+        const j = await res.json().catch(() => ({}))
+        const b = j?.borrower
+        if (!ignore && b) {
+          setGuarantorFirstName((b.first_name as string) ?? "")
+          setGuarantorLastName((b.last_name as string) ?? "")
+          setGuarantorEmail((b.email as string) ?? "")
+          if (b.primary_phone) {
+            setGuarantorPhone(formatUSPhone(String(b.primary_phone)))
+          }
+          if (b.date_of_birth) {
+            const s = String(b.date_of_birth as string)
+            const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(s)
+            if (m) {
+              const y = Number(m[1])
+              const mo = Number(m[2])
+              const d = Number(m[3])
+              const local = new Date(y, mo - 1, d)
+              if (!Number.isNaN(local.getTime())) setDob(local)
+            }
+          }
+          setStreet((b.address_line1 as string) ?? "")
+          setCity((b.city as string) ?? "")
+          setStateCode((b.state as string) ?? "")
+          setZip((b.zip as string) ?? "")
+          setCounty((b.county as string) ?? "")
+        }
+        // Attempt to load full decrypted SSN
+        try {
+          const sres = await fetch(
+            `/api/applicants/borrowers/${encodeURIComponent(currentBorrowerId)}/ssn`,
+            { cache: "no-store" }
+          )
+          if (sres.ok) {
+            const sj = await sres.json().catch(() => ({}) as any)
+            const digits = String(sj?.ssn ?? "")
+              .replace(/\D+/g, "")
+              .slice(0, 9)
+            if (digits.length === 9 && !ignore) {
+              setGuarantorSsn(formatSSN(digits))
+              return
+            }
+          }
+        } catch {
+          // ignore and fall back to last4
+        }
+        // Fallback: mask with last4 if available
+        if (
+          !ignore &&
+          typeof j?.borrower?.ssn_last4 === "string" &&
+          j.borrower.ssn_last4.length === 4
+        ) {
+          setGuarantorSsn(`***-**-${j.borrower.ssn_last4}`)
+        }
+      } catch {
+        // swallow
+      }
+    }
+    loadGuarantor()
+    return () => {
+      ignore = true
+    }
+  }, [currentBorrowerId, isEntity, stepper.current.id])
 
   async function handleRun() {
     if (!isCredit || runPhase !== "idle") return
@@ -774,16 +927,32 @@ const CartStep = ({
                     <Label className="text-muted-foreground text-xs font-semibold">
                       SSN
                     </Label>
-                    <Input
-                      placeholder="123-45-6789"
-                      inputMode="numeric"
-                      value={ssn}
-                      onChange={(e) => {
-                        const next = formatSSN(e.target.value)
-                        setSsn(next)
-                      }}
-                      maxLength={11}
-                    />
+                    <div className="relative">
+                      <Input
+                        placeholder="123-45-6789"
+                        inputMode="numeric"
+                        type={showSsn ? "text" : "password"}
+                        value={ssn}
+                        onChange={(e) => {
+                          const next = formatSSN(e.target.value)
+                          setSsn(next)
+                        }}
+                        maxLength={11}
+                        className="pr-9"
+                      />
+                      <button
+                        type="button"
+                        aria-label={showSsn ? "Hide SSN" : "Show SSN"}
+                        onClick={() => setShowSsn((v) => !v)}
+                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                      >
+                        {showSsn ? (
+                          <IconEyeOff className="h-4 w-4" />
+                        ) : (
+                          <IconEye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-muted-foreground text-xs font-semibold">
@@ -1773,15 +1942,31 @@ const CartStep = ({
                         <Label className="text-muted-foreground text-xs font-semibold">
                           SSN
                         </Label>
-                        <Input
-                          placeholder="123-45-6789"
-                          inputMode="numeric"
-                          value={guarantorSsn}
-                          onChange={(e) =>
-                            setGuarantorSsn(formatSSN(e.target.value))
-                          }
-                          maxLength={11}
-                        />
+                        <div className="relative">
+                          <Input
+                            placeholder="123-45-6789"
+                            inputMode="numeric"
+                            type={showGuarantorSsn ? "text" : "password"}
+                            value={guarantorSsn}
+                            onChange={(e) =>
+                              setGuarantorSsn(formatSSN(e.target.value))
+                            }
+                            maxLength={11}
+                            className="pr-9"
+                          />
+                          <button
+                            type="button"
+                            aria-label={showGuarantorSsn ? "Hide SSN" : "Show SSN"}
+                            onClick={() => setShowGuarantorSsn((v) => !v)}
+                            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                          >
+                            {showGuarantorSsn ? (
+                              <IconEyeOff className="h-4 w-4" />
+                            ) : (
+                              <IconEye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
