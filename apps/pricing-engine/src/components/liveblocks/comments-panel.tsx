@@ -246,7 +246,7 @@ export function CommentsPanel({
               <div className="flex items-center justify-center h-40 gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  Loading comments...
+                  Loading chat...
                 </span>
               </div>
             }
@@ -278,7 +278,7 @@ export function InlineCommentsPanel({ dealId }: InlineCommentsPanelProps) {
             <div className="flex items-center justify-center h-40 gap-2">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Loading comments...
+                Loading chat...
               </span>
             </div>
           }

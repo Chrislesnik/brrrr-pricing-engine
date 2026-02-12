@@ -114,7 +114,7 @@ export async function addProgramAction(formData: FormData) {
       if (insErr) return { ok: false, error: insErr.message }
       // Always notify the external webhook with the created program_document id
       try {
-        await fetch("https://n8n.axora.info/webhook/19475613-327f-4932-924d-2e313ebce97c", {
+        await fetch("https://n8n.axora.info/webhook/e160666a-941f-4a3f-87d7-27025d01e449", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ program_document_id: documentId }),
@@ -259,7 +259,7 @@ export async function updateProgramAction(formData: FormData) {
       }
       // Always notify the external webhook with the created program_document id
       try {
-        await fetch("https://n8n.axora.info/webhook/19475613-327f-4932-924d-2e313ebce97c", {
+        await fetch("https://n8n.axora.info/webhook/e160666a-941f-4a3f-87d7-27025d01e449", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ program_document_id: documentId }),

@@ -6,6 +6,7 @@ import {
   GripVertical,
   Pencil,
   Plus,
+  Sparkles,
   Trash2,
   Loader2,
   Workflow,
@@ -34,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DocumentLogicBuilderSheet } from "./document-logic-builder-sheet";
+import { DocumentAIPromptsSheet } from "./document-ai-prompts-sheet";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -81,6 +83,11 @@ export function DocumentsSettings() {
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
   const [logicBuilderDocTypeId, setLogicBuilderDocTypeId] = useState<number | null>(null);
+
+  // AI Prompts sheet state
+  const [aiPromptsOpen, setAiPromptsOpen] = useState(false);
+  const [aiPromptsDocTypeId, setAiPromptsDocTypeId] = useState<number | null>(null);
+  const [aiPromptsDocTypeName, setAiPromptsDocTypeName] = useState("");
 
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -490,6 +497,19 @@ export function DocumentsSettings() {
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setAiPromptsDocTypeId(doc.id);
+                                  setAiPromptsDocTypeName(doc.document_name);
+                                  setAiPromptsOpen(true);
+                                }}
+                              >
+                                <Sparkles className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setLogicBuilderDocTypeId(doc.id);
                                   setLogicBuilderOpen(true);
                                 }}
@@ -610,6 +630,14 @@ export function DocumentsSettings() {
         open={logicBuilderOpen}
         onOpenChange={setLogicBuilderOpen}
         filterDocumentTypeId={logicBuilderDocTypeId}
+      />
+
+      {/* AI Prompts Sheet */}
+      <DocumentAIPromptsSheet
+        open={aiPromptsOpen}
+        onOpenChange={setAiPromptsOpen}
+        documentTypeId={aiPromptsDocTypeId}
+        documentTypeName={aiPromptsDocTypeName}
       />
 
       {/* Delete confirmation dialog */}
