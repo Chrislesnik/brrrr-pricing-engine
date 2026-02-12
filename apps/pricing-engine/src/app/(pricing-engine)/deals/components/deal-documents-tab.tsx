@@ -740,7 +740,7 @@ function DocumentTypeRow({
 
       {/* Upload Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Upload — {docType.document_name}</DialogTitle>
             <DialogDescription>
