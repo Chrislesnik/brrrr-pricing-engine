@@ -17,6 +17,13 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Upload,
   FileText,
   MoreHorizontal,
@@ -508,39 +515,96 @@ function DocumentTypeRow({
   onSetOverride,
 }: DocumentTypeRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalFileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalDragOver, setModalDragOver] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onFileSelect(docType.id, file);
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        onFileSelect(docType.id, selectedFiles[i]);
+      }
     }
-    // Reset the input so the same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        onFileSelect(docType.id, selectedFiles[i]);
+      }
+    }
+    if (modalFileInputRef.current) modalFileInputRef.current.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length > 0) {
+      for (let i = 0; i < droppedFiles.length; i++) {
+        onFileSelect(docType.id, droppedFiles[i]);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleModalDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setModalDragOver(false);
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles.length > 0) {
+      for (let i = 0; i < droppedFiles.length; i++) {
+        onFileSelect(docType.id, droppedFiles[i]);
+      }
     }
   };
 
   return (
     <div className="flex rounded-lg border bg-background shadow-sm overflow-hidden">
-      {/* Hidden file input */}
+      {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
         type="file"
         hidden
+        multiple
         onChange={handleFileChange}
         accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.tif,.tiff"
       />
 
-      {/* Left: Upload zone (~22%) */}
+      {/* Left: Upload zone (~22%) - drag & drop + click opens modal */}
       <div
-        className="w-[22%] min-w-[140px] flex-shrink-0 border-r border-dashed bg-muted/20 flex flex-col items-center justify-center gap-2 p-4 cursor-pointer hover:bg-muted/40 transition-colors"
-        onClick={() => fileInputRef.current?.click()}
+        className={`w-[22%] min-w-[140px] flex-shrink-0 border-r border-dashed flex flex-col items-center justify-center gap-2 p-4 cursor-pointer transition-colors ${
+          isDragOver
+            ? "bg-primary/10 border-primary"
+            : "bg-muted/20 hover:bg-muted/40"
+        }`}
+        onClick={() => setModalOpen(true)}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
       >
-        <Upload className="h-5 w-5 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground font-medium">
-          Upload
+        <Upload className={`h-5 w-5 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
+        <span className={`text-xs font-medium ${isDragOver ? "text-primary" : "text-muted-foreground"}`}>
+          {isDragOver ? "Drop here" : "Upload"}
         </span>
-        {files.length > 0 && (
+        {!isDragOver && files.length > 0 && (
           <span className="text-[10px] text-muted-foreground">
             + Add another
           </span>
@@ -585,7 +649,6 @@ function DocumentTypeRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              {/* Required overrides */}
               {isRequired ? (
                 <DropdownMenuItem
                   onClick={() =>
@@ -605,8 +668,6 @@ function DocumentTypeRow({
                   Mark as Required
                 </DropdownMenuItem>
               )}
-
-              {/* Visibility overrides */}
               <DropdownMenuItem
                 onClick={() =>
                   onSetOverride(docType.id, { is_visible_override: false })
@@ -615,8 +676,6 @@ function DocumentTypeRow({
                 <EyeOff className="mr-2 h-4 w-4" />
                 Hide from this deal
               </DropdownMenuItem>
-
-              {/* Reset overrides */}
               {(hasVisibilityOverride || hasRequiredOverride) && (
                 <>
                   <DropdownMenuSeparator />
@@ -678,6 +737,89 @@ function DocumentTypeRow({
           </p>
         )}
       </div>
+
+      {/* Upload Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Upload — {docType.document_name}</DialogTitle>
+            <DialogDescription>
+              {docType.document_description || "Drag and drop files or click to browse"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Hidden file input for modal */}
+          <input
+            ref={modalFileInputRef}
+            type="file"
+            hidden
+            multiple
+            onChange={handleModalFileChange}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.tif,.tiff"
+          />
+
+          {/* Large drag & drop zone */}
+          <div
+            className={`rounded-lg border-2 border-dashed p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors ${
+              modalDragOver
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/30"
+            }`}
+            onClick={() => modalFileInputRef.current?.click()}
+            onDrop={handleModalDrop}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setModalDragOver(true); }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setModalDragOver(false); }}
+          >
+            <Upload className={`h-8 w-8 ${modalDragOver ? "text-primary" : "text-muted-foreground"}`} />
+            <div className="text-center">
+              <p className={`text-sm font-medium ${modalDragOver ? "text-primary" : "text-foreground"}`}>
+                {modalDragOver ? "Drop files here" : "Drag & drop files here"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                or click to browse
+              </p>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              PDF, DOC, XLS, CSV, PNG, JPG, GIF, TIFF
+            </p>
+          </div>
+
+          {/* Files already uploaded for this doc type */}
+          {files.length > 0 && (
+            <div className="space-y-2 mt-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                {files.length} file{files.length !== 1 ? "s" : ""} uploaded
+              </p>
+              <div className="space-y-1.5 max-h-48 overflow-auto">
+                {files.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file"
+                  >
+                    <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs truncate flex-1 font-medium">
+                      {doc.file_name}
+                    </span>
+                    {doc.file_size && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {formatFileSize(doc.file_size)}
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity"
+                      onClick={() => onDeleteDocument(doc.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
