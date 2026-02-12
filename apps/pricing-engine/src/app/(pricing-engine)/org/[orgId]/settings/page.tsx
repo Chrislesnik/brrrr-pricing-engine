@@ -16,6 +16,7 @@ import {
   Loader2,
   LayoutGrid,
   TextCursorInput,
+  FileText,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -26,8 +27,9 @@ import { DomainsSettings } from "./components/domains-settings";
 import { ProgramsSettings } from "./components/programs-settings";
 import { ThemesSettings } from "./components/themes-settings";
 import { InputsSettings } from "./components/inputs-settings";
+import { DocumentsSettings } from "./components/documents-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs";
+type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs" | "documents";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -81,6 +83,12 @@ const settingsNavItems: NavItem[] = [
     label: "Inputs",
     icon: TextCursorInput,
     description: "Manage deal input fields",
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    icon: FileText,
+    description: "Manage document requirements",
   },
   {
     id: "themes",
@@ -255,6 +263,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "programs" && <ProgramsSettings />}
             {activeTab === "themes" && <ThemesSettings />}
             {activeTab === "inputs" && <InputsSettings />}
+            {activeTab === "documents" && <DocumentsSettings />}
           </div>
         </div>
       </div>

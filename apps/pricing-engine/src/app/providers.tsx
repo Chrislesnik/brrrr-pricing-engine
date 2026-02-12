@@ -4,6 +4,7 @@ import { useState } from "react"
 import { ClerkProvider } from "@clerk/nextjs"
 import SearchProvider from "@/components/search-provider"
 import { ThemeProvider } from "@repo/ui/providers/theme-provider"
+import { LiveblocksProviderWrapper } from "@/components/liveblocks/liveblocks-provider"
 
 interface Props {
   children: React.ReactNode
@@ -36,7 +37,9 @@ export function Providers({ children }: Props) {
         enableSystem
         disableTransitionOnChange
       >
-        <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+        <LiveblocksProviderWrapper>
+          <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
+        </LiveblocksProviderWrapper>
       </ThemeProvider>
     </ClerkProvider>
   )

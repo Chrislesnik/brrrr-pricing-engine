@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 /**
  * GET /api/input-categories
- * List all input categories for the current organization, ordered by display_order.
+ * List all input categories, ordered by display_order.
  */
 export async function GET() {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
       .from("input_categories")
       .select("*")
-      .eq("organization_id", orgUuid)
       .order("display_order", { ascending: true })
 
     if (error) {
@@ -38,10 +34,8 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
     const category = (body.category ?? "").trim()
@@ -51,7 +45,6 @@ export async function POST(req: NextRequest) {
     const { data: maxRow } = await supabaseAdmin
       .from("input_categories")
       .select("display_order")
-      .eq("organization_id", orgUuid)
       .order("display_order", { ascending: false })
       .limit(1)
       .single()
@@ -60,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("input_categories")
-      .insert({ category, organization_id: orgUuid, display_order: nextOrder })
+      .insert({ category, display_order: nextOrder })
       .select("*")
       .single()
 
@@ -79,10 +72,8 @@ export async function POST(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
 
@@ -94,7 +85,6 @@ export async function PATCH(req: NextRequest) {
           .from("input_categories")
           .update({ display_order: item.display_order })
           .eq("id", item.id)
-          .eq("organization_id", orgUuid)
       }
       return NextResponse.json({ ok: true })
     }
@@ -105,7 +95,6 @@ export async function PATCH(req: NextRequest) {
         .from("input_categories")
         .update({ category: body.category })
         .eq("id", body.id)
-        .eq("organization_id", orgUuid)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
     }
@@ -123,10 +112,8 @@ export async function PATCH(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const { orgId } = await auth()
-    if (!orgId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
     const id = body.id
@@ -137,13 +124,11 @@ export async function DELETE(req: NextRequest) {
       .from("inputs")
       .delete()
       .eq("category_id", id)
-      .eq("organization_id", orgUuid)
 
     const { error } = await supabaseAdmin
       .from("input_categories")
       .delete()
       .eq("id", id)
-      .eq("organization_id", orgUuid)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })

@@ -1,16 +1,16 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MessageSquare } from "lucide-react";
 import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
 import { DealSignatureRequestsTab } from "../components/deal-signature-requests-tab";
 import { DealCalendarTab } from "../components/deal-calendar-tab";
+import { CommentsPanel } from "@/components/liveblocks/comments-panel";
 
 interface DealData {
   id: string;
@@ -29,28 +29,7 @@ function DealRecordContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("details");
-
-  // Animated underline
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
-
-  const dealTabs = [
-    { name: "Details", value: "details" },
-    { name: "Documents", value: "documents" },
-    { name: "Signature Requests", value: "signature-requests" },
-    { name: "Calendar", value: "calendar" },
-  ];
-
-  useLayoutEffect(() => {
-    const activeIndex = dealTabs.findIndex((tab) => tab.value === activeTab);
-    const activeTabElement = tabRefs.current[activeIndex];
-    if (activeTabElement) {
-      setUnderlineStyle({
-        left: activeTabElement.offsetLeft,
-        width: activeTabElement.offsetWidth,
-      });
-    }
-  }, [activeTab]);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   useEffect(() => {
     async function fetchDeal() {
@@ -140,76 +119,103 @@ function DealRecordContent() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between py-4 px-1">
-        <div className="flex items-center gap-4">
+    <div className="flex flex-1 flex-row h-full overflow-hidden">
+      {/* Main content — shrinks when comments panel is open */}
+      <div className="flex-1 min-w-0 flex flex-col relative">
+        {/* Floating Chat button — positioned outside the scroll container so it stays fixed */}
+        {!commentsOpen && (
           <Button
-            variant="ghost"
+            variant="default"
             size="sm"
-            onClick={() => router.push("/deals")}
+            className="absolute bottom-6 right-6 z-10 gap-2 shadow-lg rounded-full px-4 py-2 h-10"
+            onClick={() => setCommentsOpen(true)}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            <MessageSquare className="h-4 w-4" />
+            Chat
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Deal {deal.id.slice(0, 8)}
-            </h1>
-            <p className="text-sm text-muted-foreground font-mono">
-              {deal.id}
-            </p>
+        )}
+
+        <div className="flex-1 overflow-y-auto">
+        <div className="flex items-center justify-between py-4 px-4 shrink-0">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/deals")}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Deal {deal.id.slice(0, 8)}
+              </h1>
+              <p className="text-sm text-muted-foreground font-mono">
+                {deal.id}
+              </p>
+            </div>
           </div>
         </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto shrink-0">
+            <TabsTrigger
+              value="details"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+              onClick={() => setActiveTab("details")}
+            >
+              Details
+            </TabsTrigger>
+            <TabsTrigger
+              value="documents"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+              onClick={() => setActiveTab("documents")}
+            >
+              Documents
+            </TabsTrigger>
+            <TabsTrigger
+              value="signature-requests"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+              onClick={() => setActiveTab("signature-requests")}
+            >
+              Signature Requests
+            </TabsTrigger>
+            <TabsTrigger
+              value="calendar"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+              onClick={() => setActiveTab("calendar")}
+            >
+              Calendar
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex-1 p-6">
+            <TabsContent value="details" className="mt-0">
+              <DealDetailsTab deal={deal} />
+            </TabsContent>
+            
+            <TabsContent value="documents" className="mt-0">
+              <DealDocumentsTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
+            </TabsContent>
+            
+            <TabsContent value="signature-requests" className="mt-0">
+              <DealSignatureRequestsTab dealId={dealId} />
+            </TabsContent>
+            
+            <TabsContent value="calendar" className="mt-0">
+              <DealCalendarTab dealId={dealId} />
+            </TabsContent>
+          </div>
+        </Tabs>
+        </div>{/* end scroll wrapper */}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 gap-4">
-        <TabsList className="bg-background relative w-full justify-start rounded-none border-b p-0">
-          {dealTabs.map((tab, index) => (
-            <TabsTrigger
-              key={tab.value}
-              value={tab.value}
-              ref={(el) => {
-                tabRefs.current[index] = el;
-              }}
-              className="bg-background dark:data-[state=active]:bg-background relative z-10 rounded-none border-0 px-4 py-3 data-[state=active]:shadow-none"
-            >
-              {tab.name}
-            </TabsTrigger>
-          ))}
-
-          <motion.div
-            className="bg-primary absolute bottom-0 z-20 h-0.5"
-            layoutId="deal-tabs-underline"
-            style={{
-              left: underlineStyle.left,
-              width: underlineStyle.width,
-            }}
-            transition={{
-              type: "spring",
-              stiffness: 400,
-              damping: 40,
-            }}
-          />
-        </TabsList>
-
-        <div className="flex-1">
-          <TabsContent value="details" className="mt-0">
-            <DealDetailsTab deal={deal} />
-          </TabsContent>
-          
-          <TabsContent value="documents" className="mt-0">
-            <DealDocumentsTab dealId={dealId} />
-          </TabsContent>
-          
-          <TabsContent value="signature-requests" className="mt-0">
-            <DealSignatureRequestsTab dealId={dealId} />
-          </TabsContent>
-          
-          <TabsContent value="calendar" className="mt-0">
-            <DealCalendarTab dealId={dealId} />
-          </TabsContent>
-        </div>
-      </Tabs>
+      {/* Liveblocks Comments — full-height inline side panel */}
+      <CommentsPanel
+        dealId={dealId}
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+      />
     </div>
   );
 }

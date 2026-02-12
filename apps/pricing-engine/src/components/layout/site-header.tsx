@@ -162,20 +162,30 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
           <div className="h-4 w-32 bg-muted/50 animate-pulse rounded" />
         )}
         <div className="flex items-center gap-4 ml-auto flex-shrink-0">
-          <SearchForm
-            className="w-full max-w-56 xl:max-w-64"
-            onOpenTeamSwitcher={handleOpenTeamSwitcher}
-          />
-          {isAdmin && <ImpersonationSwitcher />}
-          <PlatformSettingsPopover
-            trigger={
-              <Button variant="outline" size="icon" className="h-8 w-8">
-                <Settings className="h-4 w-4" />
-                <span className="sr-only">Platform Settings</span>
-              </Button>
-            }
-          />
-          <ThemeSwitch />
+          {mounted ? (
+            <>
+              <SearchForm
+                className="w-full max-w-56 xl:max-w-64"
+                onOpenTeamSwitcher={handleOpenTeamSwitcher}
+              />
+              {isAdmin && <ImpersonationSwitcher />}
+              <PlatformSettingsPopover
+                trigger={
+                  <Button variant="outline" size="icon" className="h-8 w-8">
+                    <Settings className="h-4 w-4" />
+                    <span className="sr-only">Platform Settings</span>
+                  </Button>
+                }
+              />
+              <ThemeSwitch />
+            </>
+          ) : (
+            <>
+              <div className="w-full max-w-56 xl:max-w-64 h-8" />
+              <div className="h-8 w-8" />
+              <div className="h-8 w-8" />
+            </>
+          )}
         </div>
       </header>
 

@@ -8,7 +8,7 @@ import { NewDealSheet } from "./components/new-deal-sheet";
 function DealsPageContent() {
   const [newDealOpen, setNewDealOpen] = useState(false);
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col overflow-auto p-4 pr-5">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
           <div className="flex items-center justify-between">

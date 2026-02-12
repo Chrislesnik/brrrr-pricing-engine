@@ -24,8 +24,16 @@ import {
   PlusIcon,
   Check,
   ChevronsUpDown,
+  AlertTriangle,
 } from "lucide-react";
 import { useLogicRules } from "@/context/logic-rules-context";
+import { detectInputLogicConflicts } from "@/lib/logic-contradiction-utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@repo/lib/cn";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -76,6 +84,7 @@ type ValueType =
   | "expression";
 
 interface InputField {
+  id: string;
   input_code: string;
   input_label: string;
   input_type: string;
@@ -333,6 +342,13 @@ export function LogicBuilderSheet({
     ? getInputLabel(filterInputId)
     : null;
 
+  /* ---- Contradiction detection ---- */
+
+  const conflictWarnings = useMemo(
+    () => detectInputLogicConflicts(rules, getInputLabel),
+    [rules, getInputLabel]
+  );
+
   /* ---- Rule manipulation ---- */
 
   const addRule = useCallback(() => {
@@ -572,16 +588,36 @@ export function LogicBuilderSheet({
                   </p>
                 </div>
               ) : (
-                rules.map((rule, ruleIndex) => (
+                rules.map((rule, ruleIndex) => {
+                  const ruleWarnings = conflictWarnings.get(ruleIndex) ?? [];
+                  return (
                   <div
                     key={ruleIndex}
                     className="rounded-lg border bg-muted/30 shadow-sm"
                   >
                     {/* Rule header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b">
-                      <span className="text-sm font-semibold">
-                        Rule #{ruleIndex + 1}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">
+                          Rule #{ruleIndex + 1}
+                        </span>
+                        {ruleWarnings.length > 0 && (
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex cursor-default">
+                                  <AlertTriangle className="size-4 text-warning shrink-0" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs space-y-1">
+                                {ruleWarnings.map((w, i) => (
+                                  <p key={i} className="text-xs">{w}</p>
+                                ))}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <Select
                           value={rule.type}
@@ -677,7 +713,8 @@ export function LogicBuilderSheet({
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
 
               {/* Add rule button */}

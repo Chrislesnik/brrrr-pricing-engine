@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     // allows optional override via env in non-prod/dev)
     const webhookUrl =
       process.env.N8N_AI_CHAT_WEBHOOK_URL ||
-      "https://n8n.axora.info/webhook/176a57ac-a953-436d-aa86-e993fa8adbe8"
+      "https://n8n.axora.info/webhook/f567d7d1-8d33-4ac5-a7d8-ba6cfd6d720e"
     if (!webhookUrl) {
       return NextResponse.json({ ok: false, error: "No webhook URL configured" }, { status: 500 })
     }

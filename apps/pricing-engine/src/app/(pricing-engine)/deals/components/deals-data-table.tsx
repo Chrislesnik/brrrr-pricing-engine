@@ -47,12 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
 import { Input } from "@repo/ui/shadcn/input";
-import { Textarea } from "@repo/ui/shadcn/textarea";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@repo/ui/shadcn/avatar";
+/* Avatar / Textarea removed — Liveblocks handles comment rendering */
 import {
   Table,
   TableBody,
@@ -78,7 +73,6 @@ import {
   TrashIcon,
   FolderOpenIcon,
   MessageCircle,
-  Send,
   ChevronRight as ChevronRightIcon,
 } from "lucide-react";
 import {
@@ -96,8 +90,8 @@ import {
   SheetTitle,
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
-import { MentionTextarea, CommentWithMentions, extractMentions } from "./mention-textarea";
 import { DealTaskTracker } from "./deal-task-tracker";
+import { InlineCommentsPanel } from "@/components/liveblocks/comments-panel";
 
 // Deal row returned from the pipeline API
 interface DealWithRelations {
@@ -116,123 +110,7 @@ interface StarredInput {
   display_order: number;
 }
 
-interface Comment {
-  id: string;
-  author: string;
-  avatar: string;
-  content: string;
-  timestamp: string;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar_url?: string | null;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
-}
-
-function CommentThread({
-  comments,
-  dealId,
-  dealName,
-  onAddComment,
-}: {
-  comments: Comment[];
-  dealId: string;
-  dealName: string;
-  onAddComment: (dealId: string, content: string, mentions: string[]) => void;
-}) {
-  const [newComment, setNewComment] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
-
-  // Fetch users for mention extraction
-  useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const response = await fetch("/api/users");
-        if (response.ok) {
-          const data = await response.json();
-          setUsers(data.users || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-      }
-    }
-    fetchUsers();
-  }, []);
-
-  const handleSubmit = () => {
-    if (!newComment.trim()) return;
-    const mentions = extractMentions(newComment.trim(), users);
-    onAddComment(dealId, newComment.trim(), mentions);
-    setNewComment("");
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {comments.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-            No comments yet. Start the conversation!
-          </div>
-        ) : (
-          comments.map((comment) => (
-            <div className="flex gap-3" key={comment.id}>
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarImage src={comment.avatar} />
-                <AvatarFallback className="text-xs">
-                  {getInitials(comment.author)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {comment.author}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {comment.timestamp}
-                  </span>
-                </div>
-                <CommentWithMentions content={comment.content} />
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="border-t bg-muted/30 flex w-full items-end gap-3 p-3">
-        <MentionTextarea
-          className="min-h-[72px] resize-none text-sm"
-          onChange={setNewComment}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              handleSubmit();
-            }
-          }}
-          placeholder="Add a comment... (Type @ to mention someone)"
-          value={newComment}
-        />
-        <Button
-          className="shrink-0 mb-1"
-          disabled={!newComment.trim()}
-          onClick={handleSubmit}
-          size="icon"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
+/* CommentThread removed — replaced by Liveblocks InlineCommentsPanel */
 
 // Draggable Header Component
 const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
@@ -348,10 +226,6 @@ const createColumns = (
   expandedRows: Set<string>,
   toggleRow: (dealId: string) => void,
   openCommentsSheet: (dealId: string) => void,
-  rowComments: Record<
-    string,
-    { comments: Comment[]; hasUnread: boolean; count: number }
-  >,
   starredInputs: StarredInput[],
 ): ColumnDef<DealWithRelations>[] => {
   const fixedStart: ColumnDef<DealWithRelations>[] = [
@@ -460,20 +334,15 @@ const createColumns = (
       header: () => <span className="text-sm font-medium">Comments</span>,
       cell: ({ row }) => {
         const dealId = String(row.original.id);
-        const commentState = rowComments[dealId];
-        const count = commentState?.count ?? 0;
-        const hasUnread = commentState?.hasUnread ?? false;
         return (
           <Button
-            className={cn("gap-2", hasUnread && "text-primary")}
+            className="gap-2"
             onClick={() => openCommentsSheet(dealId)}
             size="sm"
             variant="ghost"
             data-ignore-row-click
           >
             <MessageCircle className="h-4 w-4" />
-            <span>{count}</span>
-            {hasUnread && <span className="h-2 w-2 rounded-full bg-primary" />}
           </Button>
         );
       },
@@ -556,9 +425,6 @@ export function DealsDataTable({
   const [rowSelection, setRowSelection] = useState({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
-  const [rowComments, setRowComments] = useState<
-    Record<string, { comments: Comment[]; hasUnread: boolean; count: number }>
-  >({});
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const [starredInputs, setStarredInputs] = useState<StarredInput[]>([]);
 
@@ -599,94 +465,7 @@ export function DealsDataTable({
     return () => { active = false; };
   }, []);
 
-  const loadComments = React.useCallback(
-    async (dealId: string, markRead: boolean) => {
-      try {
-        const res = await fetch(
-          `/api/deals/${dealId}/comments?markRead=${markRead ? "1" : "0"}`
-        );
-        if (!res.ok) return;
-        const json = (await res.json()) as {
-          comments?: Array<{
-            id: string;
-            author_name: string;
-            author_avatar_url: string | null;
-            content: string;
-            created_at: string;
-          }>;
-        };
-        const comments = (json.comments ?? []).map((c) => ({
-          id: c.id,
-          author: c.author_name,
-          avatar: c.author_avatar_url ?? "",
-          content: c.content,
-          timestamp: new Date(c.created_at).toLocaleString(),
-        }));
-        setRowComments((prev) => {
-          return {
-            ...prev,
-            [dealId]: {
-              comments,
-              count: comments.length,
-              hasUnread: false,
-            },
-          };
-        });
-      } catch {
-        // ignore
-      }
-    },
-    []
-  );
-
-  const addComment = React.useCallback(
-    async (dealId: string, content: string, mentions: string[] = []) => {
-      try {
-        const res = await fetch(`/api/deals/${dealId}/comments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, mentions }),
-        });
-        if (!res.ok) return;
-        const json = (await res.json()) as {
-          comment?: {
-            id: string;
-            author_name: string;
-            author_avatar_url: string | null;
-            content: string;
-            created_at: string;
-          };
-        };
-        if (!json.comment) return;
-        const newComment = {
-          id: json.comment.id,
-          author: json.comment.author_name,
-          avatar: json.comment.author_avatar_url ?? "",
-          content: json.comment.content,
-          timestamp: "Just now",
-        };
-        setRowComments((prev) => {
-          const existing = prev[dealId] ?? {
-            comments: [],
-            hasUnread: false,
-            count: 0,
-          };
-          const comments = [...existing.comments, newComment];
-          return {
-            ...prev,
-            [dealId]: {
-              comments,
-              count: comments.length,
-              hasUnread: false,
-            },
-          };
-        });
-      } catch {
-        // ignore
-      }
-    },
-    []
-  );
+  /* loadComments / addComment removed — now handled by Liveblocks */
 
   const router = useRouter();
   
@@ -705,9 +484,8 @@ export function DealsDataTable({
   const openCommentsSheet = React.useCallback(
     (dealId: string) => {
       setCommentsSheetDealId(dealId);
-      void loadComments(dealId, true);
     },
-    [loadComments]
+    []
   );
 
   const closeCommentsSheet = React.useCallback(() => {
@@ -715,8 +493,8 @@ export function DealsDataTable({
   }, []);
 
   const columns = React.useMemo(
-    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, rowComments, starredInputs),
-    [router, expandedRows, toggleRow, openCommentsSheet, rowComments, starredInputs]
+    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, starredInputs),
+    [router, expandedRows, toggleRow, openCommentsSheet, starredInputs]
   );
 
   // Set up sensors for drag and drop
@@ -1074,15 +852,10 @@ export function DealsDataTable({
                 table.getRowModel().rows.map((row) => {
                   const dealId = String(row.original.id);
                   const isExpanded = expandedRows.has(dealId);
-                  const commentState = rowComments[dealId] ?? {
-                    comments: [],
-                    hasUnread: false,
-                    count: 0,
-                  };
                   return (
                     <React.Fragment key={row.id}>
                       <TableRow
-                        className={cn(commentState.hasUnread && "bg-primary/5", "cursor-pointer")}
+                        className="cursor-pointer"
                         data-state={row.getIsSelected() && "selected"}
                         onClick={(event) => {
                           if (shouldIgnoreRowClick(event.target)) return;
@@ -1224,7 +997,7 @@ export function DealsDataTable({
           </div>
         </div>
 
-        {/* Comments Sheet */}
+        {/* Comments Sheet — powered by Liveblocks */}
         <Sheet open={commentsSheetDealId !== null} onOpenChange={(open) => {
           if (!open) closeCommentsSheet();
         }}>
@@ -1238,12 +1011,9 @@ export function DealsDataTable({
               </SheetDescription>
             </SheetHeader>
             {commentsSheetDealId && (
-              <CommentThread
-                comments={rowComments[commentsSheetDealId]?.comments ?? []}
-                dealId={commentsSheetDealId}
-                dealName={commentsSheetDealId ?? ""}
-                onAddComment={addComment}
-              />
+              <div className="flex-1 min-h-0">
+                <InlineCommentsPanel dealId={commentsSheetDealId} />
+              </div>
             )}
           </SheetContent>
         </Sheet>

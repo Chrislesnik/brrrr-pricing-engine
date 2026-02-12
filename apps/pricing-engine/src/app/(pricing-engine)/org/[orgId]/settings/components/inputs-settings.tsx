@@ -56,12 +56,12 @@ import { LogicBuilderSheet } from "./logic-builder-sheet";
 interface InputCategory {
   id: number;
   category: string;
-  organization_id: string;
   display_order: number;
   created_at: string;
 }
 
 interface InputField {
+  id: string;
   input_code: string;
   category_id: number;
   category: string;
@@ -69,7 +69,6 @@ interface InputField {
   input_type: string;
   dropdown_options: string[] | null;
   starred: boolean;
-  organization_id: string;
   display_order: number;
   created_at: string;
 }
@@ -102,6 +101,7 @@ export function InputsSettings() {
   const [categories, setCategories] = useState<InputCategory[]>([]);
   const [inputs, setInputs] = useState<InputField[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canAccess, setCanAccess] = useState(false);
 
   // Add category state
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -153,7 +153,34 @@ export function InputsSettings() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    async function checkAccessAndFetch() {
+      // Check permissions via Supabase (admin/owner in internal org)
+      try {
+        const accessResponse = await fetch("/api/org/settings-access");
+        if (accessResponse.ok) {
+          const accessData = await accessResponse.json();
+          setCanAccess(accessData.canAccess);
+
+          if (!accessData.canAccess) {
+            setLoading(false);
+            return;
+          }
+        } else {
+          setCanAccess(false);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to check access:", error);
+        setCanAccess(false);
+        setLoading(false);
+        return;
+      }
+
+      await fetchData();
+    }
+
+    checkAccessAndFetch();
   }, [fetchData]);
 
   /* ---- Build Kanban columns (Record<string, InputField[]>) ---- */
@@ -391,6 +418,16 @@ export function InputsSettings() {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!canAccess) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">
+          You don&apos;t have permission to manage inputs.
+        </p>
       </div>
     );
   }
