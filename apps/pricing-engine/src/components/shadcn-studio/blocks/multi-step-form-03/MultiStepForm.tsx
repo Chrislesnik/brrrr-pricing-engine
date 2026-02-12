@@ -42,11 +42,13 @@ type CarouselItem = { name?: string | null; id?: string }
 
 const MultiStepForm = ({
   className,
+  applicationId,
   entityId,
   entityName,
   guarantors = [],
 }: {
   className?: string
+  applicationId?: string
   entityId?: string | null
   entityName?: string | null
   guarantors?: CarouselItem[]
@@ -160,6 +162,8 @@ const MultiStepForm = ({
             <CartStep
               data={orderItems}
               stepper={stepper}
+              applicationId={applicationId}
+              carouselIndex={carouselIndex}
               isEntity={carouselIndex === 0}
               currentEntityId={carouselIndex === 0 ? (entityId ?? undefined) : undefined}
               currentBorrowerId={carouselIndex > 0 ? (guarantors?.[carouselIndex - 1]?.id ?? undefined) : undefined}
@@ -169,10 +173,19 @@ const MultiStepForm = ({
             <CartStep
               data={orderItems}
               stepper={stepper}
+              applicationId={applicationId}
+              carouselIndex={carouselIndex}
               currentBorrowerId={guarantors?.[carouselIndex]?.id ?? undefined}
             />
           ),
-          confirmation: () => <CartStep data={orderItems} stepper={stepper} />,
+          confirmation: () => (
+            <CartStep
+              data={orderItems}
+              stepper={stepper}
+              applicationId={applicationId}
+              carouselIndex={0}
+            />
+          ),
         })}
       </div>
     </div>

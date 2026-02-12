@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Download, MessageCircle, X } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Download, MessageCircle, RotateCcw, X } from "lucide-react"
 import { IconEye, IconEyeOff } from "@tabler/icons-react"
 import { motion, AnimatePresence } from "motion/react"
 import { FaFeatherAlt } from "react-icons/fa"
@@ -163,12 +163,16 @@ const formatEIN = (input: string) => {
 const CartStep = ({
   data: _data,
   stepper,
+  applicationId,
+  carouselIndex = 0,
   currentBorrowerId,
   currentEntityId,
   isEntity = false,
 }: {
   data: OrderItemType[]
   stepper: StepperType
+  applicationId?: string
+  carouselIndex?: number
   currentBorrowerId?: string
   currentEntityId?: string
   isEntity?: boolean
@@ -352,27 +356,118 @@ const CartStep = ({
     }
   }, [currentBorrowerId, stepper.current.id, supabase])
 
-  // Prefill borrower data on Credit step
+  // ── Helpers for date conversion ──
+  const parseDateStr = useCallback((s: string | null | undefined): Date | undefined => {
+    if (!s) return undefined
+    const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(String(s))
+    if (!m) return undefined
+    const local = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    return Number.isNaN(local.getTime()) ? undefined : local
+  }, [])
+
+  const formatDateStr = useCallback((d: Date | undefined): string | null => {
+    if (!d) return null
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  }, [])
+
+  // ── Helper: fetch SSN for a borrower (always from borrowers table) ──
+  const fetchSsnForBorrower = useCallback(async (borrowerId: string): Promise<string> => {
+    try {
+      const sres = await fetch(`/api/applicants/borrowers/${encodeURIComponent(borrowerId)}/ssn`, { cache: "no-store" })
+      if (sres.ok) {
+        const sj = await sres.json().catch(() => ({}))
+        const digits = String(sj?.ssn ?? "").replace(/\D+/g, "").slice(0, 9)
+        if (digits.length === 9) return formatSSN(digits)
+      }
+    } catch { /* ignore */ }
+    // fallback: try last4
+    try {
+      const bres = await fetch(`/api/borrowers/${encodeURIComponent(borrowerId)}`, { cache: "no-store" })
+      if (bres.ok) {
+        const bj = await bres.json().catch(() => ({}))
+        if (typeof bj?.borrower?.ssn_last4 === "string" && bj.borrower.ssn_last4.length === 4) {
+          return `***-**-${bj.borrower.ssn_last4}`
+        }
+      }
+    } catch { /* ignore */ }
+    return ""
+  }, [])
+
+  // ── Helper: populate credit fields from a borrower record ──
+  const populateCreditFromBorrower = useCallback(async (borrowerId: string) => {
+    try {
+      const res = await fetch(`/api/borrowers/${encodeURIComponent(borrowerId)}`, { cache: "no-store" })
+      if (!res.ok) return
+      const j = await res.json().catch(() => ({}))
+      const b = j?.borrower
+      if (b) {
+        setFirstName((b.first_name as string) ?? "")
+        setLastName((b.last_name as string) ?? "")
+        if (b.date_of_birth) setDob(parseDateStr(b.date_of_birth as string))
+        setStreet((b.address_line1 as string) ?? "")
+        setCity((b.city as string) ?? "")
+        setStateCode((b.state as string) ?? "")
+        setZip((b.zip as string) ?? "")
+        setCounty((b.county as string) ?? "")
+      }
+    } catch { /* swallow */ }
+    const ssnVal = await fetchSsnForBorrower(borrowerId)
+    setSsn(ssnVal)
+  }, [parseDateStr, fetchSsnForBorrower])
+
+  // ── Helper: populate guarantor (background) fields from a borrower record ──
+  const populateGuarantorFromBorrower = useCallback(async (borrowerId: string) => {
+    try {
+      const res = await fetch(`/api/borrowers/${encodeURIComponent(borrowerId)}`, { cache: "no-store" })
+      if (!res.ok) return
+      const j = await res.json().catch(() => ({}))
+      const b = j?.borrower
+      if (b) {
+        setGuarantorFirstName((b.first_name as string) ?? "")
+        setGuarantorLastName((b.last_name as string) ?? "")
+        setGuarantorEmail((b.email as string) ?? "")
+        if (b.primary_phone) setGuarantorPhone(formatUSPhone(String(b.primary_phone)))
+        if (b.date_of_birth) setDob(parseDateStr(b.date_of_birth as string))
+        setStreet((b.address_line1 as string) ?? "")
+        setCity((b.city as string) ?? "")
+        setStateCode((b.state as string) ?? "")
+        setZip((b.zip as string) ?? "")
+        setCounty((b.county as string) ?? "")
+      }
+    } catch { /* swallow */ }
+    const ssnVal = await fetchSsnForBorrower(borrowerId)
+    setGuarantorSsn(ssnVal)
+  }, [parseDateStr, fetchSsnForBorrower])
+
+  // ── Helper: populate entity (background) fields from entities API ──
+  const populateEntityFromSource = useCallback(async (entityId: string) => {
+    try {
+      const res = await fetch(`/api/applicants/entities/${encodeURIComponent(entityId)}`, { cache: "no-store" })
+      if (!res.ok) return
+      const j = await res.json().catch(() => ({}))
+      const ent = j?.entity
+      if (ent) {
+        setEntityName((ent.entity_name as string) ?? "")
+        setEntityType((ent.entity_type as string) ?? "")
+        setEin(ent.ein ? formatEIN(String(ent.ein)) : "")
+        setStateOfFormation((ent.state_formed as string) ?? "")
+        if (ent.date_formed) setDateOfFormation(parseDateStr(ent.date_formed as string))
+        setStreet((ent.address_line1 as string) ?? "")
+        setCity((ent.city as string) ?? "")
+        setStateCode((ent.state as string) ?? "")
+        setZip((ent.zip as string) ?? "")
+        setCounty((ent.county as string) ?? "")
+      }
+    } catch { /* swallow */ }
+  }, [parseDateStr])
+
+  // ── Load Credit step data ──
   useEffect(() => {
     let ignore = false
-    async function loadBorrower() {
-      // When on Credit tab but there is no borrower id, clear fields
-      if (stepper.current.id === "credit" && !currentBorrowerId) {
-        setFirstName("")
-        setLastName("")
-        setSsn("")
-        setShowSsn(false)
-        setDob(undefined)
-        setStreet("")
-        setCity("")
-        setStateCode("")
-        setZip("")
-        setCounty("")
-        return
-      }
-      // If we have some id string, attempt fetch; server will 404 when not found
-      if (!currentBorrowerId || stepper.current.id !== "credit") return
-      // Optimistically clear before fetching to avoid stale values while switching
+    async function loadCredit() {
+      if (stepper.current.id !== "credit") return
+      // Clear
+      skipAutosaveRef.current = true
       setShowSsn(false)
       setFirstName("")
       setLastName("")
@@ -383,74 +478,71 @@ const CartStep = ({
       setStateCode("")
       setZip("")
       setCounty("")
-      try {
-        const res = await fetch(
-          `/api/borrowers/${encodeURIComponent(currentBorrowerId)}`,
-          { cache: "no-store" }
-        )
-        if (!res.ok) {
-          // Nothing to populate (404/401 etc.) — keep cleared values
-          return
-        }
-        const j = await res.json().catch(() => ({}))
-        const b = j?.borrower
-        if (!ignore && b) {
-          setFirstName((b.first_name as string) ?? "")
-          setLastName((b.last_name as string) ?? "")
-          // DOB
-          if (b.date_of_birth) {
-            const s = String(b.date_of_birth as string)
-            const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(s)
-            if (m) {
-              const y = Number(m[1])
-              const mo = Number(m[2])
-              const d = Number(m[3])
-              const local = new Date(y, mo - 1, d)
-              if (!Number.isNaN(local.getTime())) setDob(local)
-            }
-          }
-          setStreet((b.address_line1 as string) ?? "")
-          setCity((b.city as string) ?? "")
-          setStateCode((b.state as string) ?? "")
-          setZip((b.zip as string) ?? "")
-          setCounty((b.county as string) ?? "")
-        }
-        // Attempt to load full decrypted SSN using the same endpoint as the Borrower Settings modal
+      setPrevStreet("")
+      setPrevCity("")
+      setPrevState("")
+      setPrevZip("")
+      setPullType("soft")
+      setIncludeTU(true)
+      setIncludeEX(true)
+      setIncludeEQ(true)
+
+      if (!currentBorrowerId) return
+
+      // 1. Try saved data first
+      let loadedFromSaved = false
+      if (applicationId) {
         try {
-          const sres = await fetch(
-            `/api/applicants/borrowers/${encodeURIComponent(currentBorrowerId)}/ssn`,
-            { cache: "no-store" }
-          )
-          if (sres.ok) {
-            const sj = await sres.json().catch(() => ({}) as any)
-            const digits = String(sj?.ssn ?? "")
-              .replace(/\D+/g, "")
-              .slice(0, 9)
-            if (digits.length === 9 && !ignore) {
-              setSsn(formatSSN(digits))
-              return
+          const res = await fetch(`/api/applications/${encodeURIComponent(applicationId)}/credit`, { cache: "no-store" })
+          if (res.ok) {
+            const j = await res.json().catch(() => ({}))
+            const rows = j?.rows ?? []
+            const saved = rows.find((r: any) => r.guarantor_index === carouselIndex)
+            if (saved && !ignore) {
+              loadedFromSaved = true
+              setFirstName((saved.first_name as string) ?? "")
+              setLastName((saved.last_name as string) ?? "")
+              setDob(parseDateStr(saved.date_of_birth))
+              setStreet((saved.street as string) ?? "")
+              setCity((saved.city as string) ?? "")
+              setStateCode((saved.state as string) ?? "")
+              setZip((saved.zip as string) ?? "")
+              setCounty((saved.county as string) ?? "")
+              setPrevStreet((saved.prev_street as string) ?? "")
+              setPrevCity((saved.prev_city as string) ?? "")
+              setPrevState((saved.prev_state as string) ?? "")
+              setPrevZip((saved.prev_zip as string) ?? "")
+              setPullType((saved.pull_type as "hard" | "soft") ?? "soft")
+              setIncludeTU(saved.include_tu ?? true)
+              setIncludeEX(saved.include_ex ?? true)
+              setIncludeEQ(saved.include_eq ?? true)
             }
           }
-        } catch {
-          // ignore and fall back to last4
-        }
-        // Fallback: mask with last4 if available
-        if (
-          !ignore &&
-          typeof j?.borrower?.ssn_last4 === "string" &&
-          j.borrower.ssn_last4.length === 4
-        ) {
-          setSsn(`***-**-${j.borrower.ssn_last4}`)
-        }
-      } catch {
-        // swallow
+        } catch { /* ignore */ }
+      }
+
+      // 2. If no saved data, pull from borrowers
+      if (!loadedFromSaved && !ignore) {
+        await populateCreditFromBorrower(currentBorrowerId)
+      }
+
+      // 3. Always fetch SSN live from borrowers table
+      if (!ignore && currentBorrowerId) {
+        const ssnVal = await fetchSsnForBorrower(currentBorrowerId)
+        if (!ignore) setSsn(ssnVal)
+      }
+
+      // Allow autosave after a tick; if loaded from source, force autosave
+      if (!ignore) {
+        setTimeout(() => {
+          skipAutosaveRef.current = false
+          if (!loadedFromSaved) setSaveNonce(n => n + 1)
+        }, 200)
       }
     }
-    loadBorrower()
-    return () => {
-      ignore = true
-    }
-  }, [currentBorrowerId, stepper.current.id])
+    loadCredit()
+    return () => { ignore = true }
+  }, [currentBorrowerId, stepper.current.id, applicationId, carouselIndex, parseDateStr, populateCreditFromBorrower, fetchSsnForBorrower])
 
   const [prevStreet, setPrevStreet] = useState("")
   const [prevCity, setPrevCity] = useState("")
@@ -462,6 +554,17 @@ const CartStep = ({
     "idle" | "bounce" | "running" | "error"
   >("idle")
   const [chatOpen, setChatOpen] = useState(false)
+
+  // Permissible Purpose & Compliance (Background step)
+  const [glb, setGlb] = useState("B")
+  const [dppa, setDppa] = useState("3")
+  const [voter, setVoter] = useState("7")
+
+  // Autosave refs
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const skipAutosaveRef = useRef(false)
+  // Nonce to force autosave after initial load from source
+  const [saveNonce, setSaveNonce] = useState(0)
 
   // Entity-specific state
   const [entityName, setEntityName] = useState("")
@@ -482,14 +585,12 @@ const CartStep = ({
   const [guarantorEmail, setGuarantorEmail] = useState("")
   const [guarantorPhone, setGuarantorPhone] = useState("")
 
-  // Prefill entity data on Background step
+  // ── Load Background entity data ──
   useEffect(() => {
     let ignore = false
-    async function loadEntity() {
-      if (stepper.current.id !== "background" || !isEntity || !currentEntityId) {
-        return
-      }
-      // Clear before fetching to avoid stale values
+    async function loadBgEntity() {
+      if (stepper.current.id !== "background" || !isEntity) return
+      skipAutosaveRef.current = true
       setEntityName("")
       setEntityType("")
       setEin("")
@@ -500,54 +601,60 @@ const CartStep = ({
       setStateCode("")
       setZip("")
       setCounty("")
-      try {
-        const res = await fetch(
-          `/api/applicants/entities/${encodeURIComponent(currentEntityId)}`,
-          { cache: "no-store" }
-        )
-        if (!res.ok) return
-        const j = await res.json().catch(() => ({}))
-        const ent = j?.entity
-        if (!ignore && ent) {
-          setEntityName((ent.entity_name as string) ?? "")
-          setEntityType((ent.entity_type as string) ?? "")
-          setEin(ent.ein ? formatEIN(String(ent.ein)) : "")
-          setStateOfFormation((ent.state_formed as string) ?? "")
-          if (ent.date_formed) {
-            const s = String(ent.date_formed as string)
-            const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(s)
-            if (m) {
-              const y = Number(m[1])
-              const mo = Number(m[2])
-              const d = Number(m[3])
-              const local = new Date(y, mo - 1, d)
-              if (!Number.isNaN(local.getTime())) setDateOfFormation(local)
+      setGlb("B")
+      setDppa("3")
+      setVoter("7")
+
+      let loadedFromSaved = false
+      if (applicationId) {
+        try {
+          const res = await fetch(`/api/applications/${encodeURIComponent(applicationId)}/background`, { cache: "no-store" })
+          if (res.ok) {
+            const j = await res.json().catch(() => ({}))
+            const saved = (j?.rows ?? []).find((r: any) => r.party_index === carouselIndex)
+            if (saved && !ignore) {
+              loadedFromSaved = true
+              setEntityName((saved.entity_name as string) ?? "")
+              setEntityType((saved.entity_type as string) ?? "")
+              setEin(saved.ein ? formatEIN(String(saved.ein)) : "")
+              setStateOfFormation((saved.state_of_formation as string) ?? "")
+              setDateOfFormation(parseDateStr(saved.date_of_formation))
+              setStreet((saved.street as string) ?? "")
+              setCity((saved.city as string) ?? "")
+              setStateCode((saved.state as string) ?? "")
+              setZip((saved.zip as string) ?? "")
+              setCounty((saved.county as string) ?? "")
+              setProvince((saved.province as string) ?? "")
+              setCountry((saved.country as string) ?? "")
+              if (saved.glb) setGlb(saved.glb as string)
+              if (saved.dppa) setDppa(saved.dppa as string)
+              if (saved.voter) setVoter(saved.voter as string)
             }
           }
-          setStreet((ent.address_line1 as string) ?? "")
-          setCity((ent.city as string) ?? "")
-          setStateCode((ent.state as string) ?? "")
-          setZip((ent.zip as string) ?? "")
-          setCounty((ent.county as string) ?? "")
-        }
-      } catch {
-        // swallow
+        } catch { /* ignore */ }
+      }
+
+      if (!loadedFromSaved && !ignore && currentEntityId) {
+        await populateEntityFromSource(currentEntityId)
+      }
+
+      if (!ignore) {
+        setTimeout(() => {
+          skipAutosaveRef.current = false
+          if (!loadedFromSaved) setSaveNonce(n => n + 1)
+        }, 200)
       }
     }
-    loadEntity()
-    return () => {
-      ignore = true
-    }
-  }, [currentEntityId, isEntity, stepper.current.id])
+    loadBgEntity()
+    return () => { ignore = true }
+  }, [currentEntityId, isEntity, stepper.current.id, applicationId, carouselIndex, parseDateStr, populateEntityFromSource])
 
-  // Prefill guarantor/borrower data on Background step
+  // ── Load Background guarantor data ──
   useEffect(() => {
     let ignore = false
-    async function loadGuarantor() {
-      if (stepper.current.id !== "background" || isEntity || !currentBorrowerId) {
-        return
-      }
-      // Clear before fetching
+    async function loadBgGuarantor() {
+      if (stepper.current.id !== "background" || isEntity) return
+      skipAutosaveRef.current = true
       setGuarantorFirstName("")
       setGuarantorMiddleInitial("")
       setGuarantorLastName("")
@@ -561,74 +668,273 @@ const CartStep = ({
       setStateCode("")
       setZip("")
       setCounty("")
-      try {
-        const res = await fetch(
-          `/api/borrowers/${encodeURIComponent(currentBorrowerId)}`,
-          { cache: "no-store" }
-        )
-        if (!res.ok) return
-        const j = await res.json().catch(() => ({}))
-        const b = j?.borrower
-        if (!ignore && b) {
-          setGuarantorFirstName((b.first_name as string) ?? "")
-          setGuarantorLastName((b.last_name as string) ?? "")
-          setGuarantorEmail((b.email as string) ?? "")
-          if (b.primary_phone) {
-            setGuarantorPhone(formatUSPhone(String(b.primary_phone)))
-          }
-          if (b.date_of_birth) {
-            const s = String(b.date_of_birth as string)
-            const m = /^([0-9]{4})-(\d{2})-(\d{2})$/.exec(s)
-            if (m) {
-              const y = Number(m[1])
-              const mo = Number(m[2])
-              const d = Number(m[3])
-              const local = new Date(y, mo - 1, d)
-              if (!Number.isNaN(local.getTime())) setDob(local)
-            }
-          }
-          setStreet((b.address_line1 as string) ?? "")
-          setCity((b.city as string) ?? "")
-          setStateCode((b.state as string) ?? "")
-          setZip((b.zip as string) ?? "")
-          setCounty((b.county as string) ?? "")
-        }
-        // Attempt to load full decrypted SSN
+      setGlb("B")
+      setDppa("3")
+      setVoter("7")
+
+      if (!currentBorrowerId) return
+
+      let loadedFromSaved = false
+      if (applicationId) {
         try {
-          const sres = await fetch(
-            `/api/applicants/borrowers/${encodeURIComponent(currentBorrowerId)}/ssn`,
-            { cache: "no-store" }
-          )
-          if (sres.ok) {
-            const sj = await sres.json().catch(() => ({}) as any)
-            const digits = String(sj?.ssn ?? "")
-              .replace(/\D+/g, "")
-              .slice(0, 9)
-            if (digits.length === 9 && !ignore) {
-              setGuarantorSsn(formatSSN(digits))
-              return
+          const res = await fetch(`/api/applications/${encodeURIComponent(applicationId)}/background`, { cache: "no-store" })
+          if (res.ok) {
+            const j = await res.json().catch(() => ({}))
+            const saved = (j?.rows ?? []).find((r: any) => r.party_index === carouselIndex)
+            if (saved && !ignore) {
+              loadedFromSaved = true
+              setGuarantorFirstName((saved.first_name as string) ?? "")
+              setGuarantorMiddleInitial((saved.middle_initial as string) ?? "")
+              setGuarantorLastName((saved.last_name as string) ?? "")
+              setGuarantorEmail((saved.email as string) ?? "")
+              setGuarantorPhone(saved.phone ? formatUSPhone(String(saved.phone)) : "")
+              setDob(parseDateStr(saved.date_of_birth))
+              setStreet((saved.street as string) ?? "")
+              setCity((saved.city as string) ?? "")
+              setStateCode((saved.state as string) ?? "")
+              setZip((saved.zip as string) ?? "")
+              setCounty((saved.county as string) ?? "")
+              setProvince((saved.province as string) ?? "")
+              setCountry((saved.country as string) ?? "")
+              if (saved.glb) setGlb(saved.glb as string)
+              if (saved.dppa) setDppa(saved.dppa as string)
+              if (saved.voter) setVoter(saved.voter as string)
             }
           }
-        } catch {
-          // ignore and fall back to last4
-        }
-        // Fallback: mask with last4 if available
-        if (
-          !ignore &&
-          typeof j?.borrower?.ssn_last4 === "string" &&
-          j.borrower.ssn_last4.length === 4
-        ) {
-          setGuarantorSsn(`***-**-${j.borrower.ssn_last4}`)
-        }
-      } catch {
-        // swallow
+        } catch { /* ignore */ }
+      }
+
+      if (!loadedFromSaved && !ignore) {
+        await populateGuarantorFromBorrower(currentBorrowerId)
+      }
+
+      // Always fetch SSN live
+      if (!ignore && currentBorrowerId) {
+        const ssnVal = await fetchSsnForBorrower(currentBorrowerId)
+        if (!ignore) setGuarantorSsn(ssnVal)
+      }
+
+      if (!ignore) {
+        setTimeout(() => {
+          skipAutosaveRef.current = false
+          if (!loadedFromSaved) setSaveNonce(n => n + 1)
+        }, 200)
       }
     }
-    loadGuarantor()
-    return () => {
-      ignore = true
+    loadBgGuarantor()
+    return () => { ignore = true }
+  }, [currentBorrowerId, isEntity, stepper.current.id, applicationId, carouselIndex, parseDateStr, populateGuarantorFromBorrower, fetchSsnForBorrower])
+
+  // ── Load Appraisal data ──
+  useEffect(() => {
+    let ignore = false
+    async function loadAppraisal() {
+      if (stepper.current.id !== "confirmation" || !applicationId) return
+      skipAutosaveRef.current = true
+      try {
+        const res = await fetch(`/api/applications/${encodeURIComponent(applicationId)}/appraisal`, { cache: "no-store" })
+        if (res.ok) {
+          const j = await res.json().catch(() => ({}))
+          const saved = j?.row
+          if (saved && !ignore) {
+            setAppraisalLender((saved.lender as string) ?? "DSCR Loan Funder LLC")
+            setAppraisalInvestor((saved.investor as string) ?? "DSCR Loan Funder LLC")
+            setAppraisalTransactionType((saved.transaction_type as string) ?? "")
+            setAppraisalLoanType((saved.loan_type as string) ?? "")
+            setAppraisalLoanTypeOther((saved.loan_type_other as string) ?? "")
+            setAppraisalLoanNumber((saved.loan_number as string) ?? "")
+            setAppraisalPriority((saved.priority as string) ?? "")
+            setAppraisalBorrowerName((saved.borrower_name as string) ?? "")
+            setAppraisalBorrowerEmail((saved.borrower_email as string) ?? "")
+            setAppraisalBorrowerPhone(saved.borrower_phone ? formatUSPhone(String(saved.borrower_phone)) : "")
+            setAppraisalBorrowerAltPhone(saved.borrower_alt_phone ? formatUSPhone(String(saved.borrower_alt_phone)) : "")
+            setAppraisalPropertyType((saved.property_type as string) ?? "")
+            setAppraisalOccupancyType((saved.occupancy_type as string) ?? "")
+            setAppraisalPropertyAddress((saved.property_address as string) ?? "")
+            setAppraisalPropertyCity((saved.property_city as string) ?? "")
+            setAppraisalPropertyState((saved.property_state as string) ?? "")
+            setAppraisalPropertyZip((saved.property_zip as string) ?? "")
+            setAppraisalPropertyCounty((saved.property_county as string) ?? "")
+            setAppraisalContactPerson((saved.contact_person as string) ?? "")
+            setAppraisalContactName((saved.contact_name as string) ?? "")
+            setAppraisalContactEmail((saved.contact_email as string) ?? "")
+            setAppraisalContactPhone(saved.contact_phone ? formatUSPhone(String(saved.contact_phone)) : "")
+            setAppraisalOtherAccessInfo((saved.other_access_info as string) ?? "")
+            setAppraisalProduct((saved.product as string) ?? "")
+            setAppraisalLoanAmount((saved.loan_amount as string) ?? "")
+            setAppraisalSalesPrice((saved.sales_price as string) ?? "")
+            setAppraisalDueDate(parseDateStr(saved.due_date))
+          }
+        }
+      } catch { /* ignore */ }
+      if (!ignore) {
+        setTimeout(() => {
+          skipAutosaveRef.current = false
+        }, 200)
+      }
     }
-  }, [currentBorrowerId, isEntity, stepper.current.id])
+    loadAppraisal()
+    return () => { ignore = true }
+  }, [stepper.current.id, applicationId, parseDateStr])
+
+  // ── Autosave: debounced save to application_* tables ──
+  const doAutosave = useCallback(async () => {
+    if (!applicationId || skipAutosaveRef.current) return
+    const stepId = stepper.current.id
+    try {
+      if (stepId === "background") {
+        await fetch(`/api/applications/${encodeURIComponent(applicationId)}/background`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            party_index: carouselIndex,
+            is_entity: isEntity,
+            entity_id: currentEntityId ?? null,
+            borrower_id: currentBorrowerId ?? null,
+            glb, dppa, voter,
+            // Entity fields
+            entity_name: isEntity ? entityName : null,
+            entity_type: isEntity ? entityType : null,
+            ein: isEntity ? ein.replace(/\D+/g, "") : null,
+            state_of_formation: isEntity ? stateOfFormation : null,
+            date_of_formation: isEntity ? formatDateStr(dateOfFormation) : null,
+            // Guarantor fields
+            first_name: !isEntity ? guarantorFirstName : null,
+            middle_initial: !isEntity ? guarantorMiddleInitial : null,
+            last_name: !isEntity ? guarantorLastName : null,
+            date_of_birth: !isEntity ? formatDateStr(dob) : null,
+            email: !isEntity ? guarantorEmail : null,
+            phone: !isEntity ? guarantorPhone : null,
+            // Address
+            street, city, state: stateCode, zip, county, province, country,
+          }),
+        })
+      } else if (stepId === "credit") {
+        await fetch(`/api/applications/${encodeURIComponent(applicationId)}/credit`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            guarantor_index: carouselIndex,
+            borrower_id: currentBorrowerId ?? null,
+            pull_type: pullType,
+            include_tu: includeTU,
+            include_ex: includeEX,
+            include_eq: includeEQ,
+            first_name: firstName,
+            last_name: lastName,
+            date_of_birth: formatDateStr(dob),
+            street, city, state: stateCode, zip, county,
+            prev_street: prevStreet,
+            prev_city: prevCity,
+            prev_state: prevState,
+            prev_zip: prevZip,
+          }),
+        })
+      } else if (stepId === "confirmation") {
+        await fetch(`/api/applications/${encodeURIComponent(applicationId)}/appraisal`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lender: appraisalLender,
+            investor: appraisalInvestor,
+            transaction_type: appraisalTransactionType,
+            loan_type: appraisalLoanType,
+            loan_type_other: appraisalLoanTypeOther,
+            loan_number: appraisalLoanNumber,
+            priority: appraisalPriority,
+            borrower_name: appraisalBorrowerName,
+            borrower_email: appraisalBorrowerEmail,
+            borrower_phone: appraisalBorrowerPhone,
+            borrower_alt_phone: appraisalBorrowerAltPhone,
+            property_type: appraisalPropertyType,
+            occupancy_type: appraisalOccupancyType,
+            property_address: appraisalPropertyAddress,
+            property_city: appraisalPropertyCity,
+            property_state: appraisalPropertyState,
+            property_zip: appraisalPropertyZip,
+            property_county: appraisalPropertyCounty,
+            contact_person: appraisalContactPerson,
+            contact_name: appraisalContactName,
+            contact_email: appraisalContactEmail,
+            contact_phone: appraisalContactPhone,
+            other_access_info: appraisalOtherAccessInfo,
+            product: appraisalProduct,
+            loan_amount: appraisalLoanAmount,
+            sales_price: appraisalSalesPrice,
+            due_date: formatDateStr(appraisalDueDate),
+          }),
+        })
+      }
+    } catch { /* silent */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    applicationId, stepper.current.id, carouselIndex, isEntity,
+    currentEntityId, currentBorrowerId, formatDateStr,
+    // Background fields
+    glb, dppa, voter, entityName, entityType, ein, stateOfFormation, dateOfFormation,
+    guarantorFirstName, guarantorMiddleInitial, guarantorLastName, dob,
+    guarantorEmail, guarantorPhone,
+    street, city, stateCode, zip, county, province, country,
+    // Credit fields
+    pullType, includeTU, includeEX, includeEQ,
+    firstName, lastName, ssn,
+    prevStreet, prevCity, prevState, prevZip,
+    // Appraisal fields
+    appraisalLender, appraisalInvestor, appraisalTransactionType, appraisalLoanType,
+    appraisalLoanTypeOther, appraisalLoanNumber, appraisalPriority,
+    appraisalBorrowerName, appraisalBorrowerEmail, appraisalBorrowerPhone, appraisalBorrowerAltPhone,
+    appraisalPropertyType, appraisalOccupancyType, appraisalPropertyAddress,
+    appraisalPropertyCity, appraisalPropertyState, appraisalPropertyZip, appraisalPropertyCounty,
+    appraisalContactPerson, appraisalContactName, appraisalContactEmail, appraisalContactPhone,
+    appraisalOtherAccessInfo, appraisalProduct, appraisalLoanAmount, appraisalSalesPrice,
+    appraisalDueDate,
+  ])
+
+  // Trigger debounced autosave whenever doAutosave changes (which happens when any field changes)
+  // Also re-triggers when saveNonce changes (initial save after loading from source)
+  useEffect(() => {
+    if (!applicationId || skipAutosaveRef.current) return
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(() => { doAutosave() }, 500)
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doAutosave, applicationId, saveNonce])
+
+  // ── Refresh: re-pull from source entity/borrower tables ──
+  const [refreshing, setRefreshing] = useState(false)
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    skipAutosaveRef.current = true
+    const stepId = stepper.current.id
+    try {
+      if (stepId === "background" && isEntity && currentEntityId) {
+        await populateEntityFromSource(currentEntityId)
+      } else if (stepId === "background" && !isEntity && currentBorrowerId) {
+        await populateGuarantorFromBorrower(currentBorrowerId)
+        const ssnVal = await fetchSsnForBorrower(currentBorrowerId)
+        setGuarantorSsn(ssnVal)
+      } else if (stepId === "credit" && currentBorrowerId) {
+        await populateCreditFromBorrower(currentBorrowerId)
+        const ssnVal = await fetchSsnForBorrower(currentBorrowerId)
+        setSsn(ssnVal)
+      }
+    } finally {
+      setRefreshing(false)
+      // Re-enable autosave after a tick so the refreshed values get saved
+      setTimeout(() => {
+        skipAutosaveRef.current = false
+        setSaveNonce(n => n + 1)
+      }, 200)
+    }
+  }, [
+    refreshing, stepper.current.id, isEntity,
+    currentEntityId, currentBorrowerId,
+    populateEntityFromSource, populateGuarantorFromBorrower,
+    populateCreditFromBorrower, fetchSsnForBorrower,
+  ])
 
   async function handleRun() {
     if (!isCredit || runPhase !== "idle") return
@@ -802,6 +1108,20 @@ const CartStep = ({
               <Download className="h-4 w-4" aria-hidden="true" />
             </Button>
           </>
+        )}
+        {/* Refresh from source entity/borrower data */}
+        {!isAppraisal && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-10 shadow-sm"
+            disabled={refreshing}
+            onClick={handleRefresh}
+            aria-label="Refresh from source data"
+          >
+            <RotateCcw className={cn("h-4 w-4", refreshing && "animate-spin")} aria-hidden="true" />
+          </Button>
         )}
       </div>
 
@@ -1630,7 +1950,7 @@ const CartStep = ({
                   <Label className="text-muted-foreground text-xs font-semibold">
                     GLB
                   </Label>
-                  <Select defaultValue="B">
+                  <Select value={glb} onValueChange={setGlb}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select GLB" />
                     </SelectTrigger>
@@ -1643,7 +1963,7 @@ const CartStep = ({
                   <Label className="text-muted-foreground text-xs font-semibold">
                     DPPA
                   </Label>
-                  <Select defaultValue="3">
+                  <Select value={dppa} onValueChange={setDppa}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select DPPA" />
                     </SelectTrigger>
@@ -1656,7 +1976,7 @@ const CartStep = ({
                   <Label className="text-muted-foreground text-xs font-semibold">
                     VOTER
                   </Label>
-                  <Select defaultValue="7">
+                  <Select value={voter} onValueChange={setVoter}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select VOTER" />
                     </SelectTrigger>

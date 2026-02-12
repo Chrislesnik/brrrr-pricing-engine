@@ -150,6 +150,7 @@ function ApplicationWorkflowContent() {
       <div className="min-h-0 flex-1">
         <MultiStepForm
           className="h-full rounded-lg border"
+          applicationId={applicationId}
           entityId={application.entityId}
           entityName={application.entityName}
           guarantors={application.guarantors ?? undefined}
