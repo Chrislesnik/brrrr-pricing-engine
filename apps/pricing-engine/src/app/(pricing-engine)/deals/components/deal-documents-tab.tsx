@@ -747,7 +747,7 @@ function InlineEditFileName({
         onChange={(e) => setValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className="text-xs font-medium flex-1 min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
+        className="text-xs font-medium w-full min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
       />
     );
   }
@@ -755,7 +755,7 @@ function InlineEditFileName({
   return (
     <button
       type="button"
-      className="text-xs truncate flex-1 font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
+      className="text-xs truncate w-full font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
       onClick={() => setEditing(true)}
       title="Click to rename"
     >
@@ -1672,43 +1672,43 @@ function FileManagerView({
                       fileName={doc.file_name}
                       onRename={(newName) => onRenameDocument(doc.id, newName)}
                     />
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {fileIsRequired && (
-                      <Badge
-                        variant="destructive"
-                        className="text-[10px] px-1.5 py-0 h-5 shrink-0"
-                      >
-                        Required
-                      </Badge>
-                    )}
-                    {docType && category ? (
-                      <>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {fileIsRequired && (
                         <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          onClick={() => handleRemoveTag(doc.id)}
+                          variant="destructive"
+                          className="text-[10px] px-1.5 py-0 h-5 shrink-0"
                         >
-                          {category.name}
-                          <X className="ml-1 h-2.5 w-2.5" />
+                          Required
                         </Badge>
+                      )}
+                      {docType && category ? (
+                        <>
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={() => handleRemoveTag(doc.id)}
+                          >
+                            {category.name}
+                            <X className="ml-1 h-2.5 w-2.5" />
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={() => handleRemoveTag(doc.id)}
+                          >
+                            {docType.document_name}
+                            <X className="ml-1 h-2.5 w-2.5" />
+                          </Badge>
+                        </>
+                      ) : (
                         <Badge
                           variant="outline"
-                          className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          onClick={() => handleRemoveTag(doc.id)}
+                          className="text-[10px] px-1.5 py-0 h-5 text-muted-foreground border-dashed"
                         >
-                          {docType.document_name}
-                          <X className="ml-1 h-2.5 w-2.5" />
+                          Unclassified
                         </Badge>
-                      </>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-5 text-muted-foreground border-dashed"
-                      >
-                        Unclassified
-                      </Badge>
-                    )}
+                      )}
+                    </div>
                   </div>
                   {doc.has_file && doc.file_type === "application/pdf" && (
                     <Button

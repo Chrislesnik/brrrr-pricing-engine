@@ -211,7 +211,6 @@ export function NewSignatureRequestDialog({
               <EmbedCreateDocumentV1
                 presignToken={presignToken}
                 host={process.env.NEXT_PUBLIC_DOCUMENSO_URL || "https://app.documenso.com"}
-                externalId={dealId}
                 onDocumentCreated={handleDocumentCreated}
                 cssVars={documensoTheme}
                 className="h-full w-full border-0"
