@@ -123,6 +123,8 @@ export default function DocumentViewerPage() {
         <div className="w-1/4 h-full min-w-[300px]">
           <TestChatPanel
             title="Document Assistant"
+            dealId={dealId}
+            dealDocumentId={docId}
             onCitationClick={handleCitationClick}
           />
         </div>

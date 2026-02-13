@@ -60,11 +60,11 @@ interface DetailItemData {
 interface TestChatPanelProps {
   className?: string
   title?: string
+  dealId?: string
+  dealDocumentId?: string
   onCitationClick?: (page: number, bbox: BBox) => void
 }
 
-const WEBHOOK_URL =
-  "https://n8n.axora.info/webhook/0d715985-5cc6-40b4-9ddc-864a6c336770"
 const DETAILS_WEBHOOK_URL =
   "https://n8n.axora.info/webhook/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
 
@@ -180,16 +180,53 @@ function DetailItem({
 export function TestChatPanel({
   className,
   title: _title = "AI Assistant",
+  dealId,
+  dealDocumentId,
   onCitationClick,
 }: TestChatPanelProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [input, setInput] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
+  const [historyLoading, setHistoryLoading] = React.useState(false)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
   // Details tab state
   const [detailsData, setDetailsData] = React.useState<DetailItemData[]>([])
   const [detailsLoading, setDetailsLoading] = React.useState(true)
+
+  // Build API base path for the chat route
+  const chatApiPath =
+    dealId && dealDocumentId
+      ? `/api/deals/${dealId}/deal-documents/${dealDocumentId}/chat`
+      : null
+
+  // Load persisted chat history on mount
+  React.useEffect(() => {
+    if (!chatApiPath) return
+    const loadHistory = async () => {
+      setHistoryLoading(true)
+      try {
+        const res = await fetch(chatApiPath)
+        if (res.ok) {
+          const data = await res.json()
+          const history: ChatMessage[] = (data.messages ?? []).map(
+            (m: any) => ({
+              id: String(m.id),
+              role: m.user_type === "agent" ? "assistant" : "user",
+              content: m.message,
+              citations: m.citations?.length ? m.citations : undefined,
+            })
+          )
+          setMessages(history)
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err)
+      } finally {
+        setHistoryLoading(false)
+      }
+    }
+    loadHistory()
+  }, [chatApiPath])
 
   // Fetch details on mount
   React.useEffect(() => {
@@ -239,7 +276,11 @@ export function TestChatPanel({
     setIsLoading(true)
 
     try {
-      const response = await fetch(WEBHOOK_URL, {
+      if (!chatApiPath) {
+        throw new Error("Chat API path not available")
+      }
+
+      const response = await fetch(chatApiPath, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -251,23 +292,13 @@ export function TestChatPanel({
 
       const data = await response.json()
 
-      // Parse the response format: [{ output: { answer, citations, highlights } }]
-      let answerText = "Sorry, I couldn't process that request."
-      let citations: Citation[] = []
-
-      if (Array.isArray(data) && data.length > 0) {
-        const output = data[0]?.output
-        if (output) {
-          answerText = output.answer || answerText
-          citations = output.citations || []
-        }
-      } else if (data?.output) {
-        // Handle non-array response
-        answerText = data.output.answer || answerText
-        citations = data.output.citations || []
-      } else if (typeof data === "string") {
-        answerText = data
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message")
       }
+
+      const answerText =
+        data.answer || "Sorry, I couldn't process that request."
+      const citations: Citation[] = data.citations || []
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -278,7 +309,7 @@ export function TestChatPanel({
 
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
-      console.error("Webhook error:", error)
+      console.error("Chat API error:", error)
       const errorMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -333,7 +364,14 @@ export function TestChatPanel({
           {/* Messages Area with Conversation Component */}
           <Conversation className="min-h-0 flex-1">
             <ConversationContent>
-              {messages.length === 0 ? (
+              {historyLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">Loading messages...</span>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
                 <ConversationEmptyState
                   title="No messages yet"
                   description="Start a conversation by typing a message below"
