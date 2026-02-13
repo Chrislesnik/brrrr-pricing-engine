@@ -19,6 +19,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
+    "@reui": "https://reui.io/r/{name}.json",
     "@lytenyte": "https://www.1771technologies.com/r/{name}.json",
     "@ss-blocks": {
       "url": "https://shadcnstudio.com/r/blocks/{name}.json?email=${SHADCNSTUDIO_EMAIL}&license_key=${SHADCNSTUDIO_LICENSE_KEY}"

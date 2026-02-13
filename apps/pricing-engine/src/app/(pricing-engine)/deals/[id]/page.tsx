@@ -1,11 +1,21 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
-import { ArrowLeft, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Loader2, MessageSquare, Check } from "lucide-react";
+import { cn } from "@repo/lib/cn";
+import {
+  Stepper,
+  StepperItem,
+  StepperTrigger,
+  StepperIndicator,
+  StepperSeparator,
+  StepperTitle,
+  StepperNav,
+} from "@/components/ui/stepper";
 import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
 import { DealSignatureRequestsTab } from "../components/deal-signature-requests-tab";
@@ -30,6 +40,14 @@ function DealRecordContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("details");
   const [commentsOpen, setCommentsOpen] = useState(false);
+
+  // Stepper state
+  const [dealStepper, setDealStepper] = useState<{
+    id: number;
+    current_step: string;
+    step_order: string[];
+  } | null>(null);
+  const [stepperUpdating, setStepperUpdating] = useState(false);
 
   useEffect(() => {
     async function fetchDeal() {
@@ -72,6 +90,48 @@ function DealRecordContent() {
       }
     };
   }, [dealId]);
+
+  // Fetch deal stepper
+  useEffect(() => {
+    if (!dealId) return;
+    const fetchStepper = async () => {
+      try {
+        const res = await fetch(`/api/deals/${dealId}/stepper`);
+        if (res.ok) {
+          const data = await res.json();
+          setDealStepper(data.stepper ?? null);
+        }
+      } catch {
+        // Non-critical
+      }
+    };
+    fetchStepper();
+  }, [dealId]);
+
+  // Handle stepper step click
+  const handleStepClick = useCallback(async (step: string) => {
+    if (!dealStepper || step === dealStepper.current_step) return;
+    setStepperUpdating(true);
+    try {
+      const res = await fetch(`/api/deals/${dealId}/stepper`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_step: step }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDealStepper(data.stepper);
+        // Trigger refresh of deal data to sync stage value
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("app:deals:changed"));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update stepper:", err);
+    } finally {
+      setStepperUpdating(false);
+    }
+  }, [dealId, dealStepper]);
 
   if (loading) {
     return (
@@ -156,6 +216,63 @@ function DealRecordContent() {
             </div>
           </div>
         </div>
+
+        {/* Deal Stepper */}
+        {dealStepper && dealStepper.step_order.length > 0 && (
+          <div className="px-4 pb-2">
+            <Stepper
+              value={dealStepper.step_order.indexOf(dealStepper.current_step) + 1}
+              onValueChange={(val) => {
+                const step = dealStepper.step_order[val - 1];
+                if (step) handleStepClick(step);
+              }}
+              indicators={{
+                completed: <Check className="size-3.5" />,
+              }}
+              className="w-full"
+            >
+              <StepperNav className="gap-3">
+                {dealStepper.step_order.map((step, idx) => {
+                  const stepNum = idx + 1;
+                  const currentIdx = dealStepper.step_order.indexOf(dealStepper.current_step);
+                  const isCompleted = idx < currentIdx;
+                  return (
+                    <StepperItem
+                      key={step}
+                      step={stepNum}
+                      completed={isCompleted}
+                      className={cn(
+                        "relative flex-1 items-start",
+                        stepperUpdating && "pointer-events-none opacity-60"
+                      )}
+                    >
+                      <StepperTrigger
+                        className="flex grow flex-col items-start justify-center gap-1.5"
+                        asChild
+                      >
+                        <StepperIndicator className="size-8 border-2 data-[state=inactive]:border-border data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=completed]:bg-primary data-[state=completed]:text-primary-foreground">
+                          {stepNum}
+                        </StepperIndicator>
+                        <div className="flex flex-col items-start gap-0.5">
+                          <div className="text-muted-foreground text-[10px] font-semibold uppercase">
+                            Step {stepNum}
+                          </div>
+                          <StepperTitle className="group-data-[state=inactive]/step:text-muted-foreground text-start text-xs font-semibold whitespace-nowrap">
+                            {step}
+                          </StepperTitle>
+                        </div>
+                      </StepperTrigger>
+
+                      {idx < dealStepper.step_order.length - 1 && (
+                        <StepperSeparator className="group-data-[state=completed]/step:bg-primary absolute inset-x-0 start-9 top-4 m-0 group-data-[orientation=horizontal]/stepper-nav:w-[calc(100%-2rem)] group-data-[orientation=horizontal]/stepper-nav:flex-none" />
+                      )}
+                    </StepperItem>
+                  );
+                })}
+              </StepperNav>
+            </Stepper>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto shrink-0">

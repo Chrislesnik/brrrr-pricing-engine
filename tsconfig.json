@@ -1,0 +1,9 @@
+{
+  "extends": "./apps/pricing-engine/tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./apps/pricing-engine/src/*"],
+      "@repo/*": ["./packages/*/src/*"]
+    }
+  }
+}

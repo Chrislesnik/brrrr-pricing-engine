@@ -165,6 +165,28 @@ export async function POST(req: Request) {
       }
     }
 
+    // Step 3: Initialize deal_stepper if a stepper config exists
+    try {
+      const { data: stepperConfig } = await supabaseAdmin
+        .from("input_stepper")
+        .select("id, input_id, step_order")
+        .limit(1)
+        .single()
+
+      if (stepperConfig && stepperConfig.step_order && stepperConfig.step_order.length > 0) {
+        await supabaseAdmin
+          .from("deal_stepper")
+          .insert({
+            deal_id: dealId,
+            input_stepper_id: stepperConfig.id,
+            current_step: stepperConfig.step_order[0],
+            step_order: stepperConfig.step_order,
+          })
+      }
+    } catch {
+      // Stepper initialization is non-critical — don't fail deal creation
+    }
+
     return NextResponse.json({ ok: true, deal: { id: dealId } })
   } catch (error) {
     console.error("[POST /api/deals] Error:", error)

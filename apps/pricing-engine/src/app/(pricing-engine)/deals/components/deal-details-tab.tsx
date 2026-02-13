@@ -101,10 +101,12 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   // Editable values: keyed by input_id
   const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
 
+
   // Sync editable values from the deal prop
   useEffect(() => {
     setEditedValues(deal.inputs ?? {});
   }, [deal]);
+
 
   // Fetch input-categories + inputs metadata on mount
   useEffect(() => {
