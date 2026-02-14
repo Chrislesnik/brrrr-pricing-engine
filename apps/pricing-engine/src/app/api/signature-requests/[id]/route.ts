@@ -4,6 +4,42 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { deleteDocument, getDocument } from "@/lib/documenso"
 
+/** Check if the current user can access a deal */
+async function canAccessDeal(
+  dealId: string,
+  userId: string,
+  clerkOrgId: string | null | undefined
+): Promise<boolean> {
+  const { data: deal } = await supabaseAdmin
+    .from("deals")
+    .select("organization_id, assigned_to_user_id, primary_user_id")
+    .eq("id", dealId)
+    .single()
+
+  if (!deal) return false
+
+  const orgUuid = clerkOrgId ? await getOrgUuidFromClerkId(clerkOrgId) : null
+  const hasOrgAccess = orgUuid && deal.organization_id === orgUuid
+
+  const assignedUsers = Array.isArray(deal.assigned_to_user_id)
+    ? deal.assigned_to_user_id
+    : []
+  const isAssigned = assignedUsers.includes(userId)
+  const isPrimaryUser = deal.primary_user_id === userId
+
+  let isInternal = false
+  const { data: userRow } = await supabaseAdmin
+    .from("users")
+    .select("id, is_internal_yn")
+    .eq("clerk_user_id", userId)
+    .maybeSingle()
+  if (userRow) {
+    isInternal = Boolean(userRow.is_internal_yn)
+  }
+
+  return Boolean(hasOrgAccess || isAssigned || isPrimaryUser || isInternal)
+}
+
 /**
  * GET /api/signature-requests/[id]
  * Get a specific signature request
@@ -15,16 +51,11 @@ export async function GET(
   try {
     const { userId, orgId: clerkOrgId } = await auth()
 
-    if (!userId || !clerkOrgId) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
-
-    const orgUuid = await getOrgUuidFromClerkId(clerkOrgId)
-    if (!orgUuid) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    }
 
     // Fetch the signature request
     const { data: request, error } = await supabaseAdmin
@@ -37,8 +68,9 @@ export async function GET(
       return NextResponse.json({ error: "Signature request not found" }, { status: 404 })
     }
 
-    // Verify the request belongs to the user's organization
-    if (request.organization_id !== orgUuid) {
+    // Verify user can access the parent deal
+    const hasAccess = await canAccessDeal(request.deal_id, userId, clerkOrgId)
+    if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
@@ -104,16 +136,11 @@ export async function DELETE(
   try {
     const { userId, orgId: clerkOrgId } = await auth()
 
-    if (!userId || !clerkOrgId) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
-
-    const orgUuid = await getOrgUuidFromClerkId(clerkOrgId)
-    if (!orgUuid) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    }
 
     // Fetch the signature request
     const { data: request, error: fetchError } = await supabaseAdmin
@@ -126,8 +153,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Signature request not found" }, { status: 404 })
     }
 
-    // Verify the request belongs to the user's organization
-    if (request.organization_id !== orgUuid) {
+    // Verify user can access the parent deal
+    const hasAccess = await canAccessDeal(request.deal_id, userId, clerkOrgId)
+    if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
@@ -183,7 +211,7 @@ export async function POST(
   try {
     const { userId, orgId: clerkOrgId } = await auth()
 
-    if (!userId || !clerkOrgId) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -199,25 +227,19 @@ export async function POST(
       )
     }
 
-    const orgUuid = await getOrgUuidFromClerkId(clerkOrgId)
-    if (!orgUuid) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    }
-
-    // Verify the deal belongs to the user's organization
-    const { data: deal, error: dealError } = await supabaseAdmin
-      .from("deals")
-      .select("id, organization_id")
-      .eq("id", dealId)
-      .single()
-
-    if (dealError || !deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 })
-    }
-
-    if (deal.organization_id !== orgUuid) {
+    // Verify deal access via org, assignment, or internal
+    const hasAccess = await canAccessDeal(dealId, userId, clerkOrgId)
+    if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
+
+    // Resolve org UUID for the record (fall back to deal's org)
+    const orgUuid = clerkOrgId ? await getOrgUuidFromClerkId(clerkOrgId) : null
+    const { data: deal } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id")
+      .eq("id", dealId)
+      .single()
 
     // Create the signature request record
     const { data: request, error: insertError } = await supabaseAdmin
@@ -229,7 +251,7 @@ export async function POST(
         status: "pending",
         recipients: recipients || [],
         created_by_user_id: userId,
-        organization_id: orgUuid,
+        organization_id: orgUuid ?? deal?.organization_id,
       })
       .select()
       .single()
