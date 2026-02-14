@@ -103,61 +103,10 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         shortcut: ["D"],
         items: [
           {
-            title: "Loan Setup",
-            icon: IconSquareRoundedNumber1,
-            items: [
-              {
-                title: "Applications",
-                url: ROUTES.applications,
-                icon: IconFolder,
-                shortcut: ["A"],
-              },
-            ],
-          },
-          {
-            title: "Processing 1",
-            icon: IconSquareRoundedNumber2,
-            items: [],
-          },
-          {
-            title: "Appraisal Review",
-            icon: IconSquareRoundedNumber3,
-            items: [],
-          },
-          {
-            title: "Processing 2",
-            icon: IconSquareRoundedNumber4,
-            items: [],
-          },
-          {
-            title: "QC 1",
-            icon: IconSquareRoundedNumber5,
-            items: [],
-          },
-          {
-            title: "Underwriting",
-            icon: IconSquareRoundedNumber6,
-            items: [],
-          },
-          {
-            title: "Conditionally Approved",
-            icon: IconSquareRoundedNumber7,
-            items: [],
-          },
-          {
-            title: "QC 2",
-            icon: IconSquareRoundedNumber8,
-            items: [],
-          },
-          {
-            title: "Clear to Close",
-            icon: IconSquareRoundedNumber9,
-            items: [],
-          },
-          {
-            title: "Closed and Funded",
-            icon: IconSquareRoundedNumber0,
-            items: [],
+            title: "Applications",
+            url: ROUTES.applications,
+            icon: IconFolder,
+            shortcut: ["A"],
           },
         ],
       },
@@ -181,12 +130,6 @@ export const NAVIGATION_CONFIG: NavItem[] = [
             url: ROUTES.contacts.borrowers.entities,
             shortcut: ["E"],
             tooltip: "Companies vesting title in the name of one or more entities.",
-          },
-          {
-            title: "Guarantors",
-            url: ROUTES.contacts.borrowers.guarantors,
-            shortcut: ["G"],
-            tooltip: "Person(s) obligated by a Personal Guarantee",
           },
         ],
       },
