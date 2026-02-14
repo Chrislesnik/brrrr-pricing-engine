@@ -16,6 +16,7 @@ export type IntegrationType =
   | "resend"
   | "slack"
   | "stripe"
+  | "supabase"
   | "superagent"
   | "v0"
   | "webflow";

@@ -25,6 +25,7 @@ import "./perplexity";
 import "./resend";
 import "./slack";
 import "./stripe";
+import "./supabase";
 import "./superagent";
 import "./v0";
 import "./webflow";

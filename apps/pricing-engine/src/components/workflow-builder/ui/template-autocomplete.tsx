@@ -155,6 +155,70 @@ const getCommonFields = (node: WorkflowNode) => {
     return [{ field: "text", description: "Generated text" }];
   }
 
+  // Supabase Get Row: output is { row: { col1, col2, ... }, found }
+  if (isActionType(actionType, "Get Row", "supabase/get-row")) {
+    const fields: Array<{ field: string; description: string }> = [
+      { field: "row", description: "The matched row object" },
+      { field: "found", description: "Whether a row was found (true/false)" },
+    ];
+    // Add column-level fields nested under "row." using outputSchema or _tableColumns
+    const outputSchema = node.data.config?.outputSchema as string | undefined;
+    if (outputSchema) {
+      try {
+        const schema = JSON.parse(outputSchema) as SchemaField[];
+        if (schema.length > 0) {
+          // Prefix each column with "row." to match runtime output structure
+          for (const s of schema) {
+            fields.push({ field: `row.${s.name}`, description: s.description || s.type });
+          }
+          return fields;
+        }
+      } catch { /* fall through */ }
+    }
+    const tableColumns = node.data.config?._tableColumns as
+      | Array<{ name: string; type: string }>
+      | undefined;
+    if (tableColumns?.length) {
+      for (const col of tableColumns) {
+        fields.push({ field: `row.${col.name}`, description: `${col.type} column` });
+      }
+    }
+    return fields;
+  }
+
+  // Supabase Get Many: output is { rows: [...], count }
+  if (
+    isActionType(actionType, "Get Many", "supabase/get-many") ||
+    isActionType(actionType, "Select Rows", "supabase/select")
+  ) {
+    const fields: Array<{ field: string; description: string }> = [
+      { field: "rows", description: "Array of matching rows" },
+      { field: "count", description: "Number of rows returned" },
+    ];
+    // Add column-level fields nested under "rows[0]." for convenience
+    const outputSchema = node.data.config?.outputSchema as string | undefined;
+    if (outputSchema) {
+      try {
+        const schema = JSON.parse(outputSchema) as SchemaField[];
+        if (schema.length > 0) {
+          for (const s of schema) {
+            fields.push({ field: `rows[0].${s.name}`, description: s.description || s.type });
+          }
+          return fields;
+        }
+      } catch { /* fall through */ }
+    }
+    const tableColumns = node.data.config?._tableColumns as
+      | Array<{ name: string; type: string }>
+      | undefined;
+    if (tableColumns?.length) {
+      for (const col of tableColumns) {
+        fields.push({ field: `rows[0].${col.name}`, description: `${col.type} column` });
+      }
+    }
+    return fields;
+  }
+
   // Check if the plugin defines output fields
   if (actionType) {
     const action = findActionById(actionType);

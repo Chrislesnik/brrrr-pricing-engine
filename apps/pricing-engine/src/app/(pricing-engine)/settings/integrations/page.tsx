@@ -13,6 +13,8 @@ import { Tabs, TabsList, TabsTrigger } from "@repo/ui/shadcn/tabs"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { Check, Cog, ExternalLink, Plus, Search, Trash2 } from "lucide-react"
 import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon"
+import { getIntegration } from "@/components/workflow-builder/plugins"
+import type { IntegrationType } from "@/components/workflow-builder/lib/types/integration"
 import {
   Dialog,
   DialogContent,
@@ -170,6 +172,7 @@ const workflowIntegrationMeta: Record<string, { label: string; description: stri
   database: { label: "Database", description: "Query a PostgreSQL database." },
   v0: { label: "v0", description: "Generate UI components with AI.", link: "https://v0.dev/chat/settings/keys" },
   webflow: { label: "Webflow", description: "Manage Webflow CMS content.", link: "https://webflow.com" },
+  supabase: { label: "Supabase", description: "Database, storage, and edge functions.", link: "https://supabase.com" },
   superagent: { label: "Superagent", description: "Run AI agent workflows.", link: "https://superagent.sh" },
 }
 
@@ -188,8 +191,7 @@ export default function SettingsIntegrationsPage() {
   const [workflowIntegrations, setWorkflowIntegrations] = React.useState<WorkflowIntegrationItem[]>([])
   const [wfAddModalOpen, setWfAddModalOpen] = React.useState(false)
   const [wfAddType, setWfAddType] = React.useState("")
-  const [wfAddApiKey, setWfAddApiKey] = React.useState("")
-  const [wfAddApiKey2, setWfAddApiKey2] = React.useState("")
+  const [wfAddFieldValues, setWfAddFieldValues] = React.useState<Record<string, string>>({})
   const [wfAddLoading, setWfAddLoading] = React.useState(false)
   const [wfAddError, setWfAddError] = React.useState<string | null>(null)
 
@@ -512,31 +514,28 @@ export default function SettingsIntegrationsPage() {
     loadWorkflowIntegrations()
   }, [loadWorkflowIntegrations])
 
-  // Get credential field config for a workflow integration type
-  const getWfFields = (type: string): { key: string; label: string; isSecret: boolean }[] => {
+  // Get credential field config dynamically from plugin registry
+  const getWfFields = React.useCallback((type: string): { key: string; label: string; isSecret: boolean }[] => {
+    // Try to get fields from plugin registry first
+    const plugin = getIntegration(type as IntegrationType)
+    if (plugin?.formFields?.length) {
+      return plugin.formFields.map((f) => ({
+        key: f.configKey,
+        label: f.label,
+        isSecret: f.type === "password",
+      }))
+    }
+
+    // Fallback for special types not in plugin registry
     switch (type) {
-      case "resend": return [
-        { key: "apiKey", label: "API Key", isSecret: true },
-        { key: "fromEmail", label: "Default Sender Email", isSecret: false },
-      ]
-      case "linear": return [
-        { key: "apiKey", label: "API Key", isSecret: true },
-        { key: "teamId", label: "Team ID (Optional)", isSecret: false },
-      ]
-      case "github": return [{ key: "token", label: "Personal Access Token", isSecret: true }]
-      case "clerk": return [{ key: "clerkSecretKey", label: "Secret Key", isSecret: true }]
-      case "firecrawl": return [{ key: "firecrawlApiKey", label: "API Key", isSecret: true }]
-      case "blob": return [{ key: "token", label: "Read/Write Token", isSecret: true }]
       case "database": return [{ key: "url", label: "Database URL", isSecret: true }]
-      case "superagent": return [{ key: "superagentApiKey", label: "API Key", isSecret: true }]
       default: return [{ key: "apiKey", label: "API Key", isSecret: true }]
     }
-  }
+  }, [])
 
   const handleWfAdd = async (type: string) => {
     setWfAddType(type)
-    setWfAddApiKey("")
-    setWfAddApiKey2("")
+    setWfAddFieldValues({})
     setWfAddError(null)
     setWfAddModalOpen(true)
 
@@ -550,13 +549,12 @@ export default function SettingsIntegrationsPage() {
           const config = data.integration?.config as Record<string, string> | undefined
           if (config) {
             const fields = getWfFields(type)
-            // Pre-fill fields — for secrets, "configured" will show as dots in PasswordInput
-            const val1 = config[fields[0].key]
-            if (val1) setWfAddApiKey(val1)
-            if (fields.length > 1) {
-              const val2 = config[fields[1].key]
-              if (val2) setWfAddApiKey2(val2)
+            const prefilled: Record<string, string> = {}
+            for (const field of fields) {
+              const val = config[field.key]
+              if (val) prefilled[field.key] = val
             }
+            setWfAddFieldValues(prefilled)
           }
         }
       } catch {
@@ -573,12 +571,11 @@ export default function SettingsIntegrationsPage() {
       const existing = workflowIntegrations.find((w) => w.type === wfAddType)
       const config: Record<string, string> = {}
 
-      // For secret fields on existing integrations: if left empty, send "configured" to preserve existing value
-      const val1 = wfAddApiKey.trim()
-      config[fields[0].key] = (existing && !val1 && fields[0].isSecret) ? "configured" : val1
-      if (fields.length > 1) {
-        const val2 = wfAddApiKey2.trim()
-        config[fields[1].key] = (existing && !val2 && fields[1].isSecret) ? "configured" : val2
+      // Build config from all field values
+      for (const field of fields) {
+        const val = (wfAddFieldValues[field.key] || "").trim()
+        // For secret fields on existing integrations: if left empty, send "configured" to preserve existing value
+        config[field.key] = (existing && !val && field.isSecret) ? "configured" : val
       }
 
       if (existing) {
@@ -1034,15 +1031,15 @@ export default function SettingsIntegrationsPage() {
             <DialogDescription>Enter your API credentials for {workflowIntegrationMeta[wfAddType]?.label || wfAddType}.</DialogDescription>
           </DialogHeader>
           <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
-            {getWfFields(wfAddType).map((field, idx) => (
+            {getWfFields(wfAddType).map((field) => (
               <div key={field.key} className="space-y-1">
                 <Label htmlFor={`wf-field-${field.key}`}>{field.label}</Label>
                 {field.isSecret ? (
                   <PasswordInput
                     id={`wf-field-${field.key}`}
                     autoComplete="new-password"
-                    value={idx === 0 ? wfAddApiKey : wfAddApiKey2}
-                    onChange={(e) => idx === 0 ? setWfAddApiKey(e.target.value) : setWfAddApiKey2(e.target.value)}
+                    value={wfAddFieldValues[field.key] || ""}
+                    onChange={(e) => setWfAddFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={`Enter ${field.label}`}
                     disabled={wfAddLoading}
                   />
@@ -1050,8 +1047,8 @@ export default function SettingsIntegrationsPage() {
                   <Input
                     id={`wf-field-${field.key}`}
                     autoComplete="off"
-                    value={idx === 0 ? wfAddApiKey : wfAddApiKey2}
-                    onChange={(e) => idx === 0 ? setWfAddApiKey(e.target.value) : setWfAddApiKey2(e.target.value)}
+                    value={wfAddFieldValues[field.key] || ""}
+                    onChange={(e) => setWfAddFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={`Enter ${field.label}`}
                     disabled={wfAddLoading}
                   />
@@ -1066,7 +1063,7 @@ export default function SettingsIntegrationsPage() {
             </Button>
             <Button
               onClick={() => handleWfSave()}
-              disabled={wfAddLoading || !wfAddApiKey.trim()}
+              disabled={wfAddLoading || !getWfFields(wfAddType).some((f) => (wfAddFieldValues[f.key] || "").trim())}
             >
               {wfAddLoading ? "Saving..." : "Save"}
             </Button>

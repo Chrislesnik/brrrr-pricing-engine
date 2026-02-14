@@ -19,7 +19,7 @@ import { AnimatedBorder } from "@/components/workflow-builder/ui/animated-border
 export type NodeProps = ComponentProps<typeof Card> & {
   handles: {
     target: boolean;
-    source: boolean;
+    source: boolean | string[];
   };
   status?: "idle" | "running" | "success" | "error";
 };
@@ -36,7 +36,36 @@ export const Node = ({ handles, className, status, ...props }: NodeProps) => (
   >
     {status === "running" && <AnimatedBorder />}
     {handles.target && <Handle position={Position.Left} type="target" />}
-    {handles.source && <Handle position={Position.Right} type="source" />}
+    {/* Single source handle */}
+    {handles.source === true && <Handle position={Position.Right} type="source" />}
+    {/* Multiple named source handles (e.g., for Condition true/false) */}
+    {Array.isArray(handles.source) &&
+      handles.source.map((handleId, idx) => {
+        const total = (handles.source as string[]).length;
+        const topPercent = ((idx + 1) / (total + 1)) * 100;
+        const isTrue = handleId === "true";
+        const isFalse = handleId === "false";
+        return (
+          <div key={handleId} className="absolute right-0" style={{ top: `${topPercent}%`, transform: "translateY(-50%)" }}>
+            <Handle
+              id={handleId}
+              position={Position.Right}
+              type="source"
+              style={{ position: "relative", top: 0, transform: "none" }}
+            />
+            <span
+              className={cn(
+                "absolute right-5 top-1/2 -translate-y-1/2 text-[9px] font-medium whitespace-nowrap pointer-events-none",
+                isTrue && "text-green-600 dark:text-green-400",
+                isFalse && "text-red-500 dark:text-red-400",
+                !isTrue && !isFalse && "text-muted-foreground"
+              )}
+            >
+              {handleId.charAt(0).toUpperCase() + handleId.slice(1)}
+            </span>
+          </div>
+        );
+      })}
     {props.children}
   </Card>
 );

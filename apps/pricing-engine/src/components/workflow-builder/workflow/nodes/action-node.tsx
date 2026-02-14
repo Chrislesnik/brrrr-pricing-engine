@@ -336,6 +336,8 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const aiModel = getAiModel();
   const isDisabled = data.enabled === false;
 
+  const isCondition = actionType === "Condition";
+
   return (
     <Node
       className={cn(
@@ -344,7 +346,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
         isDisabled && "opacity-50"
       )}
       data-testid={`action-node-${id}`}
-      handles={{ target: true, source: true }}
+      handles={{ target: true, source: isCondition ? ["true", "false"] : true }}
       status={status}
     >
       {/* Disabled badge in top left */}

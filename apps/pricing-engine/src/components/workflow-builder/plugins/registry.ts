@@ -28,7 +28,12 @@ export type ActionConfigFieldBase = {
     | "text" // Regular text input
     | "number" // Number input
     | "select" // Dropdown select
-    | "schema-builder"; // Schema builder for structured output
+    | "schema-builder" // Schema builder for structured output
+    | "supabase-table" // Dynamic Supabase table picker dropdown
+    | "supabase-column" // Dynamic Supabase column picker (reads table from config)
+    | "supabase-filter-builder" // Multi-condition filter builder with AND/OR
+    | "supabase-schema-builder" // Schema builder with refresh from Supabase table
+    | "condition-builder"; // Visual IF condition builder with typed operators
 
   // Placeholder text
   placeholder?: string;

@@ -99,7 +99,23 @@ function processTemplates(
           }
 
           for (const field of fields) {
-            if (current && typeof current === "object") {
+            if (current === null || current === undefined) return "";
+
+            // Handle array index notation, e.g. "rows[0]"
+            const arrayMatch = field.match(/^(.+)\[(\d+)\]$/);
+            if (arrayMatch) {
+              const [, arrayField, indexStr] = arrayMatch;
+              if (typeof current === "object") {
+                current = (current as Record<string, unknown>)[arrayField];
+              } else {
+                return "";
+              }
+              if (Array.isArray(current)) {
+                current = current[parseInt(indexStr, 10)];
+              } else {
+                return "";
+              }
+            } else if (typeof current === "object") {
               current = (current as Record<string, unknown>)[field];
             } else {
               return "";
@@ -190,10 +206,11 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
   // Build graph maps
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-  const edgesBySource = new Map<string, string[]>();
+  type EdgeInfo = { target: string; sourceHandle?: string | null };
+  const edgesBySource = new Map<string, EdgeInfo[]>();
   for (const edge of edges) {
     const targets = edgesBySource.get(edge.source) || [];
-    targets.push(edge.target);
+    targets.push({ target: edge.target, sourceHandle: (edge as { sourceHandle?: string | null }).sourceHandle ?? null });
     edgesBySource.set(edge.source, targets);
   }
 
@@ -219,8 +236,8 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
     if (node.data.enabled === false) {
       const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
       outputs[sanitizedNodeId] = { label: node.data.label || nodeId, data: null };
-      const nextNodes = edgesBySource.get(nodeId) || [];
-      await Promise.all(nextNodes.map((nid) => executeNode(nid, visited)));
+      const nextEdges = edgesBySource.get(nodeId) || [];
+      await Promise.all(nextEdges.map((e) => executeNode(e.target, visited)));
       return;
     }
 
@@ -327,13 +344,20 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
         if (isConditionNode) {
           const conditionResult = (result.data as { condition?: boolean })?.condition;
+          const allEdges = edgesBySource.get(nodeId) || [];
+
+          // Route by sourceHandle: "true" handle for true path, "false" handle for false path
+          const trueEdges = allEdges.filter((e) => e.sourceHandle === "true" || (!e.sourceHandle && !allEdges.some((x) => x.sourceHandle)));
+          const falseEdges = allEdges.filter((e) => e.sourceHandle === "false");
+
           if (conditionResult === true) {
-            const nextNodes = edgesBySource.get(nodeId) || [];
-            await Promise.all(nextNodes.map((nid) => executeNode(nid, visited)));
+            await Promise.all(trueEdges.map((e) => executeNode(e.target, visited)));
+          } else {
+            await Promise.all(falseEdges.map((e) => executeNode(e.target, visited)));
           }
         } else {
-          const nextNodes = edgesBySource.get(nodeId) || [];
-          await Promise.all(nextNodes.map((nid) => executeNode(nid, visited)));
+          const nextEdges = edgesBySource.get(nodeId) || [];
+          await Promise.all(nextEdges.map((e) => executeNode(e.target, visited)));
         }
       }
     } catch (error) {

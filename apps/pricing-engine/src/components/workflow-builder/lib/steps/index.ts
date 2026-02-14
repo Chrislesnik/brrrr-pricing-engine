@@ -110,6 +110,26 @@ export const stepRegistry: Record<string, StepFunction> = {
   "Publish Site": async (input) =>
     (await import("../../plugins/webflow/steps/publish-site")).webflowPublishSiteStep(input as never),
 
+  // ── Supabase ──
+  "Get Row": async (input) =>
+    (await import("../../plugins/supabase/steps/get-row")).supabaseGetRowStep(input as never),
+  "Get Many": async (input) =>
+    (await import("../../plugins/supabase/steps/get-many")).supabaseGetManyStep(input as never),
+  "Insert Row": async (input) =>
+    (await import("../../plugins/supabase/steps/insert")).supabaseInsertStep(input as never),
+  "Update Rows": async (input) =>
+    (await import("../../plugins/supabase/steps/update")).supabaseUpdateStep(input as never),
+  "Delete Rows": async (input) =>
+    (await import("../../plugins/supabase/steps/delete")).supabaseDeleteStep(input as never),
+  "Call Function": async (input) =>
+    (await import("../../plugins/supabase/steps/rpc")).supabaseRpcStep(input as never),
+  "Raw SQL": async (input) =>
+    (await import("../../plugins/supabase/steps/raw-sql")).supabaseRawSqlStep(input as never),
+  Storage: async (input) =>
+    (await import("../../plugins/supabase/steps/storage")).supabaseStorageStep(input as never),
+  "Edge Function": async (input) =>
+    (await import("../../plugins/supabase/steps/edge-function")).supabaseEdgeFunctionStep(input as never),
+
   // Note: v0 plugin steps (Create Chat, Send Message) excluded because v0-sdk is not installed
 };
 
