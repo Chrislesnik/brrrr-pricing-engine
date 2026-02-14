@@ -11,6 +11,8 @@ import {
   Check,
   X,
   RefreshCw,
+  AlertTriangle,
+  FileSearch,
 } from "lucide-react"
 import { CheckIcon, PlusCircledIcon } from "@radix-ui/react-icons"
 import { cn } from "@repo/lib/cn"
@@ -95,26 +97,39 @@ interface DetailItemData {
   current_value_source_priority?: number | null
 }
 
+export type ParseStatus =
+  | "COMPLETE"
+  | "PENDING"
+  | "RUNNING"
+  | "FAILED"
+  | null
+  | "LOADING"
+
 interface TestChatPanelProps {
   className?: string
   title?: string
   dealId?: string
   dealDocumentId?: string
   onCitationClick?: (page: number, bbox: BBox) => void
+  parseStatus?: ParseStatus
+  onRetry?: () => void
+  isRetrying?: boolean
 }
 
 const DETAILS_WEBHOOK_URL =
-  "https://n8n.axora.info/webhook-test/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
+  "https://n8n.axora.info/webhook/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
 
 // DetailItem component for the Details tab
 function DetailItem({
   item,
   aiResultsApiPath,
   onCitationClick,
+  onRefreshItem,
 }: {
   item: DetailItemData
   aiResultsApiPath?: string | null
   onCitationClick?: (page: number, bbox: BBox) => void
+  onRefreshItem?: (item: DetailItemData) => Promise<DetailItemData | null>
 }) {
   const isCondition = item.type === "condition"
   const inputType = item.input_type ?? "text"
@@ -122,6 +137,7 @@ function DetailItem({
   const [currentDealValue, setCurrentDealValue] = React.useState(
     item.current_deal_value ?? null
   )
+  const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [status, setStatus] = React.useState<
     "neutral" | "approved" | "rejected"
   >(() => {
@@ -130,6 +146,33 @@ function DetailItem({
       return "approved"
     return "neutral"
   })
+
+  // Sync local state when the parent re-renders with fresh item data
+  React.useEffect(() => {
+    setValue(String(item.output.answer ?? ""))
+    setCurrentDealValue(item.current_deal_value ?? null)
+    if (item.rejected === true) {
+      setStatus("rejected")
+    } else if (item.approved_value !== null && item.approved_value !== undefined) {
+      setStatus("approved")
+    } else {
+      setStatus("neutral")
+    }
+  }, [item.output.answer, item.current_deal_value, item.approved_value, item.rejected])
+
+  const handleRefresh = async () => {
+    if (!onRefreshItem || isRefreshing) return
+    setIsRefreshing(true)
+    try {
+      // The callback upserts the existing row and reloads parent state.
+      // The useEffect above will sync local state when the new item prop arrives.
+      await onRefreshItem(item)
+    } catch (err) {
+      console.error("Failed to refresh item:", err)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const handleCitationClick = (citation: Citation) => {
     if (onCitationClick) {
@@ -194,21 +237,39 @@ function DetailItem({
         status === "neutral" && "bg-card"
       )}
     >
-      {/* Label + type badge */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm leading-none font-semibold">
-          {item.label}
-        </label>
-        <span
-          className={cn(
-            "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
-            isCondition
-              ? "bg-secondary text-secondary-foreground"
-              : "bg-primary/10 text-primary"
-          )}
-        >
-          {item.type}
-        </span>
+      {/* Label + type badge + refresh */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <label className="text-sm leading-none font-semibold">
+            {item.label}
+          </label>
+          <span
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
+              isCondition
+                ? "bg-secondary text-secondary-foreground"
+                : "bg-primary/10 text-primary"
+            )}
+          >
+            {item.type}
+          </span>
+        </div>
+        {onRefreshItem && (
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            title="Refresh this item"
+          >
+            <RefreshCw
+              className={cn(
+                "h-3.5 w-3.5",
+                isRefreshing && "animate-spin"
+              )}
+            />
+          </button>
+        )}
       </div>
 
       {/* Value display + approve/reject */}
@@ -371,14 +432,14 @@ function DetailItem({
                     item.current_value_source_priority != null && (
                       <span
                         className={cn(
-                          "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          "inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium",
                           item.current_value_source_priority <
                             item.this_priority
-                            ? "bg-primary/10 text-primary"
+                            ? "bg-success-muted text-success border-success/30"
                             : item.current_value_source_priority >
                                 item.this_priority
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-muted text-muted-foreground"
+                              ? "bg-danger-muted text-danger border-danger/30"
+                              : "bg-muted text-muted-foreground border-border"
                         )}
                       >
                         {item.current_value_source_priority < item.this_priority
@@ -427,12 +488,101 @@ function DetailItem({
   )
 }
 
+/* -------------------------------------------------------------------------- */
+/*  ParseStatusGate — shown in both tabs when document is not yet COMPLETE     */
+/* -------------------------------------------------------------------------- */
+
+function ParseStatusGate({
+  status,
+  onRetry,
+  isRetrying,
+}: {
+  status: ParseStatus
+  onRetry?: () => void
+  isRetrying: boolean
+}) {
+  // LOADING — initial fetch in progress
+  if (status === "LOADING") {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center px-6">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Checking document status...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // PENDING or RUNNING — document is being processed
+  if (status === "PENDING" || status === "RUNNING") {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center px-6">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div>
+            <p className="text-sm font-medium">Document is being processed</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This may take a minute. The page will update automatically when
+              processing completes.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // FAILED or null (not found) — show retry button
+  const isFailed = status === "FAILED"
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-col items-center gap-4 text-center px-6">
+        {isFailed ? (
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+        ) : (
+          <FileSearch className="h-8 w-8 text-muted-foreground" />
+        )}
+        <div>
+          <p className="text-sm font-medium">
+            {isFailed
+              ? "Document processing failed"
+              : "Document has not been processed"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {isFailed
+              ? "Something went wrong while processing this document."
+              : "This document needs to be processed before the AI assistant can analyze it."}
+          </p>
+        </div>
+        <Button
+          variant={isFailed ? "destructive" : "default"}
+          size="sm"
+          className="gap-2"
+          onClick={onRetry}
+          disabled={isRetrying}
+        >
+          {isRetrying ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          {isRetrying ? "Processing..." : isFailed ? "Retry Processing" : "Process Document"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function TestChatPanel({
   className,
   title: _title = "AI Assistant",
   dealId,
   dealDocumentId,
   onCitationClick,
+  parseStatus = "COMPLETE",
+  onRetry,
+  isRetrying = false,
 }: TestChatPanelProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
   const [input, setInput] = React.useState("")
@@ -489,9 +639,9 @@ export function TestChatPanel({
     loadHistory()
   }, [chatApiPath])
 
-  // Load persisted AI results from DB
-  const loadSavedResults = React.useCallback(async () => {
-    if (!aiResultsApiPath) return
+  // Load persisted AI results from DB — returns the fresh array
+  const loadSavedResults = React.useCallback(async (): Promise<DetailItemData[]> => {
+    if (!aiResultsApiPath) return []
     try {
       const res = await fetch(aiResultsApiPath)
       if (res.ok) {
@@ -517,10 +667,12 @@ export function TestChatPanel({
           })
         )
         setDetailsData(results)
+        return results
       }
     } catch (err) {
       console.error("Failed to load saved AI results:", err)
     }
+    return []
   }, [aiResultsApiPath])
 
   // Load saved results on mount
@@ -570,6 +722,58 @@ export function TestChatPanel({
       setDetailsLoading(false)
     }
   }, [dealId, dealDocumentId, aiResultsApiPath, loadSavedResults])
+
+  // Refresh a single detail item via webhook — upserts the existing row, reloads
+  const handleRefreshItem = React.useCallback(
+    async (item: DetailItemData): Promise<DetailItemData | null> => {
+      if (!dealId || !dealDocumentId || !aiResultsApiPath) return null
+
+      // 1. Fetch the deal_document row
+      const docsRes = await fetch(`/api/deals/${dealId}/deal-documents`)
+      if (!docsRes.ok) throw new Error("Failed to fetch deal documents")
+      const docsData = await docsRes.json()
+      const docs = docsData.documents ?? docsData ?? []
+      const dealDocument = docs.find(
+        (d: any) => String(d.id) === String(dealDocumentId)
+      )
+      if (!dealDocument) throw new Error("Deal document not found")
+
+      // 2. POST item + dealDocument to the single-item refresh webhook
+      const webhookRes = await fetch(
+        "https://n8n.axora.info/webhook/ee4a312e-d700-462b-a222-163df28563f5",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ item, dealDocument }),
+        }
+      )
+      const webhookData = await webhookRes.json()
+
+      // 3. Persist via our API — the POST endpoint upserts on
+      //    (deal_document_id, document_type_ai_input_id) so the existing row
+      //    is updated in place, not duplicated.
+      const resultArray = Array.isArray(webhookData)
+        ? webhookData
+        : [webhookData]
+      if (resultArray.length > 0) {
+        await fetch(aiResultsApiPath, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(resultArray),
+        })
+      }
+
+      // 4. Reload from DB — returns the fresh canonical list with labels
+      const freshResults = await loadSavedResults()
+
+      // 5. Find the updated item and return it so DetailItem syncs local state
+      const updated = freshResults.find(
+        (r) => r.id === item.id || (r.input_id === item.input_id && r.type === item.type)
+      )
+      return updated ?? null
+    },
+    [dealId, dealDocumentId, aiResultsApiPath, loadSavedResults]
+  )
 
   // Auto-resize textarea
   const adjustTextareaHeight = React.useCallback(() => {
@@ -684,6 +888,14 @@ export function TestChatPanel({
           value="ai-agent"
           className="m-0 flex flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
         >
+          {parseStatus !== "COMPLETE" ? (
+            <ParseStatusGate
+              status={parseStatus}
+              onRetry={onRetry}
+              isRetrying={isRetrying}
+            />
+          ) : (
+          <>
           {/* Messages Area with Conversation Component */}
           <Conversation className="min-h-0 flex-1">
             <ConversationContent>
@@ -787,6 +999,8 @@ export function TestChatPanel({
               </Button>
             </form>
           </div>
+          </>
+          )}
         </TabsContent>
 
         {/* Details Tab */}
@@ -794,6 +1008,14 @@ export function TestChatPanel({
           value="details"
           className="m-0 flex flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
         >
+          {parseStatus !== "COMPLETE" ? (
+            <ParseStatusGate
+              status={parseStatus}
+              onRetry={onRetry}
+              isRetrying={isRetrying}
+            />
+          ) : (
+          <>
           {/* Toolbar: filters + refresh */}
           <div className="flex items-center justify-between border-b px-3 py-1.5">
             <div className="flex items-center gap-1.5">
@@ -1058,10 +1280,13 @@ export function TestChatPanel({
                       item={item}
                       aiResultsApiPath={aiResultsApiPath}
                       onCitationClick={onCitationClick}
+                      onRefreshItem={handleRefreshItem}
                     />
                   ))}
               </div>
             </ScrollArea>
+          )}
+          </>
           )}
         </TabsContent>
       </Tabs>

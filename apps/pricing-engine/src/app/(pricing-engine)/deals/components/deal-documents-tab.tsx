@@ -145,6 +145,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const [overrides, setOverrides] = useState<DealDocumentOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequiredOnly, setShowRequiredOnly] = useState(false);
+  const [showNotUploadedOnly, setShowNotUploadedOnly] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"category" | "files">("category");
 
@@ -272,13 +273,17 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   }, [categories, documentTypes]);
 
   /* ----- Upload progress tracking ----- */
-  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [uploadingFiles, setUploadingFiles] = useState<Map<string, { fileName: string; docTypeId: number | null }>>(new Map());
 
   /* ----- File upload handler (uploads to Supabase Storage) ----- */
   const handleFileSelect = useCallback(
     async (docTypeId: number, file: File) => {
       const uploadKey = `${docTypeId}-${file.name}-${Date.now()}`;
-      setUploadingFiles((prev) => new Set(prev).add(uploadKey));
+      setUploadingFiles((prev) => {
+        const next = new Map(prev);
+        next.set(uploadKey, { fileName: file.name, docTypeId });
+        return next;
+      });
 
       try {
         const formData = new FormData();
@@ -310,7 +315,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         });
       } finally {
         setUploadingFiles((prev) => {
-          const next = new Set(prev);
+          const next = new Map(prev);
           next.delete(uploadKey);
           return next;
         });
@@ -477,13 +482,14 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         const visibleCount = types.filter((dt) => {
           if (!isDocTypeVisible(dt.id)) return false;
           if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
+          if (showNotUploadedOnly && (docsByType.get(dt.id)?.length ?? 0) > 0) return false;
           return true;
         }).length;
         return visibleCount > 0;
       })
       .map(({ category }) => String(category.id));
     setOpenCategories(withDocs);
-  }, [categoriesWithTypes, showRequiredOnly, isDocTypeVisible, isDocTypeRequired]);
+  }, [categoriesWithTypes, showRequiredOnly, showNotUploadedOnly, isDocTypeVisible, isDocTypeRequired, docsByType]);
 
   /* ----- Loading ----- */
   if (loading || logicLoading) {
@@ -510,18 +516,33 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         </div>
         <div className="flex items-center gap-4">
           {viewMode === "category" && (
-            <div className="flex items-center gap-2">
-              <Switch
-                id="required-filter"
-                checked={showRequiredOnly}
-                onCheckedChange={setShowRequiredOnly}
-              />
-              <Label
-                htmlFor="required-filter"
-                className="text-sm font-medium cursor-pointer select-none"
-              >
-                Required only
-              </Label>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="not-uploaded-filter"
+                  checked={showNotUploadedOnly}
+                  onCheckedChange={setShowNotUploadedOnly}
+                />
+                <Label
+                  htmlFor="not-uploaded-filter"
+                  className="text-sm font-medium cursor-pointer select-none"
+                >
+                  Not uploaded
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="required-filter"
+                  checked={showRequiredOnly}
+                  onCheckedChange={setShowRequiredOnly}
+                />
+                <Label
+                  htmlFor="required-filter"
+                  className="text-sm font-medium cursor-pointer select-none"
+                >
+                  Required only
+                </Label>
+              </div>
             </div>
           )}
 
@@ -588,6 +609,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
                 const visibleTypes = types.filter((dt) => {
                   if (!isDocTypeVisible(dt.id)) return false;
                   if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
+                  if (showNotUploadedOnly && (docsByType.get(dt.id)?.length ?? 0) > 0) return false;
                   return true;
                 });
 
@@ -627,7 +649,9 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
                               onRenameDocument={handleRenameDocument}
                               onViewDocument={handleViewDocument}
                               onSetOverride={handleSetOverride}
-                              isUploading={uploadingFiles.size > 0 && [...uploadingFiles].some(k => k.startsWith(`${docType.id}-`))}
+                              uploadingFileNames={[...uploadingFiles.values()]
+                                .filter((v) => v.docTypeId === docType.id)
+                                .map((v) => v.fileName)}
                             />
                           ))}
                         </div>
@@ -787,7 +811,7 @@ interface DocumentTypeRowProps {
       is_required_override?: boolean | null;
     }
   ) => void;
-  isUploading: boolean;
+  uploadingFileNames: string[];
 }
 
 function DocumentTypeRow({
@@ -802,7 +826,7 @@ function DocumentTypeRow({
   onRenameDocument,
   onViewDocument,
   onSetOverride,
-  isUploading,
+  uploadingFileNames,
 }: DocumentTypeRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
@@ -993,16 +1017,8 @@ function DocumentTypeRow({
           </p>
         )}
 
-        {/* Upload progress */}
-        {isUploading && (
-          <div className="mt-2 flex items-center gap-2 text-xs text-primary">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Uploading...</span>
-          </div>
-        )}
-
-        {/* File list */}
-        {files.length > 0 ? (
+        {/* File list + uploading placeholders */}
+        {files.length > 0 || uploadingFileNames.length > 0 ? (
           <div className="mt-3 space-y-1.5">
             {files.map((doc) => (
               <div
@@ -1049,6 +1065,18 @@ function DocumentTypeRow({
                     {formatFileSize(doc.file_size)}
                   </span>
                 )}
+              </div>
+            ))}
+            {/* Per-file uploading placeholders */}
+            {uploadingFileNames.map((name, i) => (
+              <div
+                key={`uploading-${i}`}
+                className="flex items-center gap-2 rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 animate-pulse"
+              >
+                <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+                <span className="text-xs font-medium text-primary truncate">
+                  Uploading {name}…
+                </span>
               </div>
             ))}
           </div>
@@ -1105,11 +1133,13 @@ function DocumentTypeRow({
             </p>
           </div>
 
-          {/* Files already uploaded for this doc type */}
-          {files.length > 0 && (
+          {/* Files already uploaded + uploading placeholders for this doc type */}
+          {(files.length > 0 || uploadingFileNames.length > 0) && (
             <div className="space-y-2 mt-2">
               <p className="text-xs font-medium text-muted-foreground">
                 {files.length} file{files.length !== 1 ? "s" : ""} uploaded
+                {uploadingFileNames.length > 0 &&
+                  `, ${uploadingFileNames.length} uploading`}
               </p>
               <div className="space-y-1.5 max-h-48 overflow-auto">
                 {files.map((doc) => (
@@ -1157,6 +1187,18 @@ function DocumentTypeRow({
                         {formatFileSize(doc.file_size)}
                       </span>
                     )}
+                  </div>
+                ))}
+                {/* Per-file uploading placeholders in modal */}
+                {uploadingFileNames.map((name, i) => (
+                  <div
+                    key={`uploading-modal-${i}`}
+                    className="flex items-center gap-2 rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 animate-pulse"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+                    <span className="text-xs font-medium text-primary truncate">
+                      Uploading {name}…
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1306,13 +1348,24 @@ function FileManagerView({
     return map;
   }, [dealDocuments]);
 
-  /* ----- Upload state ----- */
-  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  /* ----- Upload state: track individual files being uploaded ----- */
+  const [uploadingFileNames, setUploadingFileNames] = useState<Map<string, string>>(new Map());
 
   /* ----- Upload handler (unclassified files) ----- */
   const handleUpload = useCallback(
     async (files: FileList) => {
-      setIsUploadingFiles(true);
+      // Register all files as uploading first
+      const keys: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const key = `${files[i].name}-${Date.now()}-${i}`;
+        keys.push(key);
+        setUploadingFileNames((prev) => {
+          const next = new Map(prev);
+          next.set(key, files[i].name);
+          return next;
+        });
+      }
+
       const uploaded: DealDocument[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -1328,22 +1381,29 @@ function FileManagerView({
           if (!res.ok) throw new Error();
           const data = await res.json();
           uploaded.push(data.document);
+
+          // Immediately add to documents & remove from uploading
+          setDealDocuments((prev) => [...prev, data.document]);
         } catch {
           toast({
             title: "Error",
             description: `Failed to upload "${file.name}"`,
             variant: "destructive",
           });
+        } finally {
+          setUploadingFileNames((prev) => {
+            const next = new Map(prev);
+            next.delete(keys[i]);
+            return next;
+          });
         }
       }
       if (uploaded.length > 0) {
-        setDealDocuments((prev) => [...prev, ...uploaded]);
         toast({
           title: "Files uploaded",
           description: `${uploaded.length} file${uploaded.length !== 1 ? "s" : ""} uploaded to storage`,
         });
       }
-      setIsUploadingFiles(false);
     },
     [dealId, setDealDocuments]
   );
@@ -1540,10 +1600,10 @@ function FileManagerView({
             Upload multiple files — assign document types by dragging tags from
             the sidebar
           </p>
-          {isUploadingFiles && (
+          {uploadingFileNames.size > 0 && (
             <div className="flex items-center gap-2 text-xs text-primary mt-1">
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Uploading files...</span>
+              <span>Uploading {uploadingFileNames.size} file{uploadingFileNames.size !== 1 ? "s" : ""}...</span>
             </div>
           )}
         </div>
@@ -1622,7 +1682,7 @@ function FileManagerView({
         </div>
 
         {/* File list */}
-        {sortedDocs.length === 0 ? (
+        {sortedDocs.length === 0 && uploadingFileNames.size === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <File className="h-10 w-10 text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
@@ -1638,6 +1698,20 @@ function FileManagerView({
           </div>
         ) : (
           <div className="space-y-1.5">
+            {/* Per-file uploading placeholders at top */}
+            {[...uploadingFileNames.entries()].map(([key, name]) => (
+              <div
+                key={key}
+                className="flex items-center gap-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2.5 animate-pulse"
+              >
+                <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium text-primary truncate block">
+                    Uploading {name}…
+                  </span>
+                </div>
+              </div>
+            ))}
             {sortedDocs.map((doc) => {
               const docType = doc.document_type_id
                 ? typeMap.get(doc.document_type_id)

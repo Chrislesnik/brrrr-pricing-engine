@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { format } from "date-fns";
 import type { CalendarEvent } from "./";
 import { EndHour, StartHour, getEventsForDay, WeekCellsHeight } from "./";
@@ -30,6 +31,16 @@ export function DayView({
     "day"
   );
 
+  // Auto-scroll to current hour (or 8 AM) on mount
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollRef.current) {
+      const now = new Date();
+      const scrollToHour = Math.max(now.getHours() - 1, 7);
+      scrollRef.current.scrollTop = scrollToHour * WeekCellsHeight;
+    }
+  }, [currentDate]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
@@ -45,7 +56,7 @@ export function DayView({
       </div>
 
       {/* Scrollable time grid */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div 
           className="relative flex"
           style={{ height: hours.length * WeekCellsHeight }}
@@ -102,7 +113,10 @@ export function DayView({
                 >
                   <EventItem
                     event={event}
-                    onClick={() => onEventSelect(event)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEventSelect(event);
+                    }}
                     view="day"
                   />
                 </div>

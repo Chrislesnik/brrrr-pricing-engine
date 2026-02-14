@@ -16,7 +16,7 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
   );
 
   return (
-    <div className="flex flex-col divide-y">
+    <div className="flex flex-col divide-y overflow-y-auto p-4">
       {days.map((day) => {
         const dayEvents = sortEvents(getAgendaEventsForDay(events, day));
         if (dayEvents.length === 0) return null;
@@ -45,13 +45,9 @@ export function AgendaView({ currentDate, events, onEventSelect }: AgendaViewPro
                   <div className="text-sm text-muted-foreground">
                     {event.allDay
                       ? "All day"
-                      : `${format(new Date(event.start), "h:mm a")} - ${format(new Date(event.end), "h:mm a")}`}
+                      : format(new Date(event.start), "h:mm a")}
                   </div>
-                  {event.location && (
-                    <div className="text-sm text-muted-foreground">
-                      {event.location}
-                    </div>
-                  )}
+                  
                 </button>
               ))}
             </div>

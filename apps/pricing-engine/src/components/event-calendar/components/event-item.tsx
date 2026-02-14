@@ -132,14 +132,7 @@ export function EventItem({
 
   const getEventTime = () => {
     if (event.allDay) return "All day";
-
-    // For short events (less than 45 minutes), only show start time
-    if (durationMinutes < 45) {
-      return formatTimeWithOptionalMinutes(displayStart);
-    }
-
-    // For longer events, show both start and end time
-    return `${formatTimeWithOptionalMinutes(displayStart)} - ${formatTimeWithOptionalMinutes(displayEnd)}`;
+    return formatTimeWithOptionalMinutes(displayStart);
   };
 
   if (view === "month") {
@@ -231,15 +224,8 @@ export function EventItem({
           <span>All day</span>
         ) : (
           <span className="uppercase">
-            {formatTimeWithOptionalMinutes(displayStart)} -{" "}
-            {formatTimeWithOptionalMinutes(displayEnd)}
+            {formatTimeWithOptionalMinutes(displayStart)}
           </span>
-        )}
-        {event.location && (
-          <>
-            <span className="px-1 opacity-35"> · </span>
-            <span>{event.location}</span>
-          </>
         )}
       </div>
       {event.description && <div className="my-1 text-xs opacity-90">{event.description}</div>}

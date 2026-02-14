@@ -79,7 +79,10 @@ const formatCurrency = (amount: unknown) => {
 
 const formatDate = (date: unknown) => {
   if (!date || typeof date !== "string") return "—";
-  return new Date(date).toLocaleDateString();
+  // Parse "YYYY-MM-DD" as local date to avoid UTC timezone shift showing previous day
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return "—";
+  return new Date(year, month - 1, day).toLocaleDateString();
 };
 
 const formatEnum = (value: unknown) => {

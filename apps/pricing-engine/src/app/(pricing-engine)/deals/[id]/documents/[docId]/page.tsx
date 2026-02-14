@@ -2,10 +2,15 @@
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { PDFViewer, type PDFViewerHandle, type BBox } from "@/components/pdf-viewer";
-import { TestChatPanel } from "@/components/test-chat-panel";
+import {
+  PDFViewer,
+  type PDFViewerHandle,
+  type BBox,
+} from "@/components/pdf-viewer";
+import { TestChatPanel, type ParseStatus } from "@/components/test-chat-panel";
 import { Button } from "@repo/ui/shadcn/button";
 import { ArrowLeft, Loader2, FileWarning } from "lucide-react";
+import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 export default function DocumentViewerPage() {
   const params = useParams();
@@ -19,6 +24,21 @@ export default function DocumentViewerPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   const pdfViewerRef = React.useRef<PDFViewerHandle>(null);
+
+  /* ----- Parse status state ----- */
+  const [parseStatus, setParseStatus] = React.useState<ParseStatus>("LOADING");
+  const [documentFileId, setDocumentFileId] = React.useState<number | null>(
+    null
+  );
+  const [isRetrying, setIsRetrying] = React.useState(false);
+
+  // Keep a stable ref to the Supabase Realtime channel so we can clean up
+  const channelRef = React.useRef<ReturnType<
+    ReturnType<typeof createSupabaseBrowser>["channel"]
+  > | null>(null);
+  const supabaseRef = React.useRef<ReturnType<
+    typeof createSupabaseBrowser
+  > | null>(null);
 
   // Fetch signed URL on mount
   React.useEffect(() => {
@@ -50,6 +70,123 @@ export default function DocumentViewerPage() {
       fetchUrl();
     }
   }, [dealId, docId]);
+
+  /* ----- Fetch parse status on mount ----- */
+  React.useEffect(() => {
+    async function fetchParseStatus() {
+      try {
+        setParseStatus("LOADING");
+        const res = await fetch(
+          `/api/deals/${dealId}/deal-documents/${docId}/parse-status`
+        );
+        if (!res.ok) {
+          // If we can't check status, default to COMPLETE to not block the UI
+          setParseStatus("COMPLETE");
+          return;
+        }
+        const data = await res.json();
+        setDocumentFileId(data.documentFileId ?? null);
+        setParseStatus(data.status ?? null);
+      } catch {
+        // On error, allow usage
+        setParseStatus("COMPLETE");
+      }
+    }
+
+    if (dealId && docId) {
+      fetchParseStatus();
+    }
+  }, [dealId, docId]);
+
+  /* ----- Subscribe to Supabase Realtime when not COMPLETE ----- */
+  const subscribeToRealtime = React.useCallback(
+    (fileId: number) => {
+      // Clean up any existing channel
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+
+      if (!supabaseRef.current) {
+        supabaseRef.current = createSupabaseBrowser();
+      }
+
+      const channel = supabaseRef.current
+        .channel(`llama-parse-status-${fileId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "llama_document_parsed",
+            filter: `document_id=eq.${fileId}`,
+          },
+          (payload: any) => {
+            const newStatus = payload.new?.status;
+            if (newStatus) {
+              setParseStatus(newStatus);
+              // Auto-unsubscribe when COMPLETE
+              if (newStatus === "COMPLETE") {
+                channel.unsubscribe();
+                channelRef.current = null;
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      channelRef.current = channel;
+    },
+    []
+  );
+
+  // Start Realtime subscription when status is not COMPLETE and we have a fileId
+  React.useEffect(() => {
+    if (
+      documentFileId &&
+      parseStatus !== "COMPLETE" &&
+      parseStatus !== "LOADING"
+    ) {
+      subscribeToRealtime(documentFileId);
+    }
+
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+    };
+  }, [documentFileId, parseStatus, subscribeToRealtime]);
+
+  /* ----- Retry handler ----- */
+  const handleRetry = React.useCallback(async () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+
+    try {
+      const res = await fetch(
+        `/api/deals/${dealId}/deal-documents/${docId}/retry-parse`,
+        { method: "POST" }
+      );
+
+      if (!res.ok) {
+        console.error("Retry failed:", await res.text().catch(() => ""));
+        return;
+      }
+
+      // Transition to PENDING while we wait for processing
+      setParseStatus("PENDING");
+
+      // Ensure Realtime subscription is active
+      if (documentFileId) {
+        subscribeToRealtime(documentFileId);
+      }
+    } catch (err) {
+      console.error("Retry error:", err);
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [dealId, docId, documentFileId, isRetrying, subscribeToRealtime]);
 
   // Handle citation click from chat panel
   const handleCitationClick = (page: number, bbox: BBox) => {
@@ -126,6 +263,9 @@ export default function DocumentViewerPage() {
             dealId={dealId}
             dealDocumentId={docId}
             onCitationClick={handleCitationClick}
+            parseStatus={parseStatus}
+            onRetry={handleRetry}
+            isRetrying={isRetrying}
           />
         </div>
       </div>

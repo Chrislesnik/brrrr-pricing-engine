@@ -198,10 +198,10 @@ export async function POST(
     const fileName = `${uniqueId}.${fileExt}`;
     const storagePath = `${dealId}/${storageFolder}/${fileName}`;
 
-    // ---- Resolve user PK for junction tables ----
+    // ---- Resolve user PK + display info for junction tables + response ----
     const { data: userRow } = await supabaseAdmin
       .from("users")
-      .select("id, clerk_user_id")
+      .select("id, clerk_user_id, first_name, last_name, avatar_url")
       .eq("clerk_user_id", userId)
       .single();
 
@@ -377,19 +377,37 @@ export async function POST(
       }
     }
 
-    // ---- Return success ----
+    // ---- Build complete response matching GET shape ----
+    const uploaderName = userRow
+      ? [userRow.first_name, userRow.last_name].filter(Boolean).join(" ") ||
+        "Unknown User"
+      : "Unknown User";
+    const uploaderAvatar = (userRow as any)?.avatar_url ?? null;
+    const now = new Date().toISOString();
+
     return NextResponse.json({
       document: {
         id: dealDoc.id,
-        document_file_id: docFile.id,
-        document_file_uuid: docFile.uuid,
+        deal_id: dealId,
+        document_type_id: documentTypeId,
         file_name: file.name,
         file_size: file.size,
         file_type: file.type,
         storage_path: storagePath,
-        document_type_id: documentTypeId,
         uploaded_by: userId,
-        uploaded_at: new Date().toISOString(),
+        uploaded_at: now,
+        notes: notes?.trim() || null,
+        created_at: now,
+        document_file_id: docFile.id,
+        // Storage info (mirrors GET enrichment)
+        has_file: true,
+        storage_bucket: "deals",
+        document_file_uuid: docFile.uuid,
+        document_category_id: documentCategoryId,
+        document_status: null,
+        // Uploader info
+        uploaded_by_name: uploaderName,
+        uploaded_by_avatar: uploaderAvatar,
       },
     });
   } catch (error) {

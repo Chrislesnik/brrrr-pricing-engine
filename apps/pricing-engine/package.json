@@ -25,7 +25,7 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@documenso/embed-react": "^0.5.0",
+    "@documenso/embed-react": "^0.5.1",
     "@faker-js/faker": "^9.3.0",
     "@grapesjs/studio-sdk": "^1.0.57",
     "@grapesjs/studio-sdk-plugins": "^1.0.32",

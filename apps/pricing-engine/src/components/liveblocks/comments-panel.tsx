@@ -16,11 +16,19 @@ const COMPOSER_OVERRIDES = {
 } as const;
 
 /**
- * MutationObserver hook that enables the submit button inside Liveblocks
- * Composer components when attachments are present but no text has been typed.
- * The default Composer disables submit when the editor is empty, even if files
- * are attached — this workaround removes the `disabled` attribute so users can
- * send attachment-only messages.
+ * Hook that enables sending attachment-only messages in Liveblocks Composer.
+ *
+ * Liveblocks has TWO guards preventing attachment-only sends:
+ * 1. `canSubmit = !isEmpty && !isUploadingAttachments` — disables the button
+ * 2. `handleSubmit` checks `isEmpty(editor)` and calls `event.preventDefault()`
+ *
+ * Both check the Slate text editor's empty state, ignoring file attachments.
+ *
+ * This hook works around both by:
+ * - Polling to force-enable disabled submit buttons when attachments exist
+ * - Injecting a zero-width space into the Slate editor before submission so
+ *   isEmpty returns false, allowing the form to process attachments
+ * - Using CSS (in globals.css) to ensure pointer-events reach the button
  */
 function useEnableSubmitWithAttachments(
   containerRef: React.RefObject<HTMLElement | null>
@@ -29,29 +37,100 @@ function useEnableSubmitWithAttachments(
     const el = containerRef.current;
     if (!el) return;
 
-    const check = () => {
-      el.querySelectorAll<HTMLElement>(".lb-composer").forEach((composer) => {
-        // Liveblocks renders attachments with class names containing "attachment"
-        const hasAttachments =
-          composer.querySelector("[class*='attachment']") !== null;
-        const submitBtn = composer.querySelector<HTMLButtonElement>(
-          'button[type="submit"]:disabled'
-        );
-        if (submitBtn && hasAttachments) {
-          submitBtn.disabled = false;
+    const hasComposerAttachments = (form: HTMLElement): boolean => {
+      return (
+        form.querySelector(
+          ".lb-composer-attachment, .lb-composer-attachments, .lb-attachments"
+        ) !== null
+      );
+    };
+
+    // Poll to force-enable disabled submit buttons when attachments exist
+    const enableButtons = () => {
+      el.querySelectorAll<HTMLElement>(
+        "form.lb-composer-form, .lb-composer"
+      ).forEach((form) => {
+        if (!hasComposerAttachments(form)) return;
+        form
+          .querySelectorAll<HTMLButtonElement>('button[type="submit"]')
+          .forEach((btn) => {
+            if (btn.disabled) {
+              btn.disabled = false;
+              btn.removeAttribute("disabled");
+            }
+          });
+      });
+    };
+
+    // Click handler: inject a zero-width space into the Slate editor so
+    // isEmpty() returns false, then trigger form submission.
+    const handleClick = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const btn = target.closest<HTMLButtonElement>(
+        'button[type="submit"]'
+      );
+      if (!btn) return;
+
+      const form = btn.closest<HTMLFormElement>("form");
+      if (!form) return;
+      if (!hasComposerAttachments(form)) return;
+
+      // Find the Slate editable element within this composer
+      const editable = form.querySelector<HTMLElement>(
+        '[data-slate-editor="true"], [role="textbox"][contenteditable="true"]'
+      );
+      if (editable && editable.textContent?.trim() === "") {
+        // Inject a zero-width space so Liveblocks' isEmpty check passes
+        const textNode = document.createTextNode("\u200B");
+        // Find or create a text node in the first paragraph
+        const firstChild = editable.querySelector("p, span, [data-slate-node]");
+        if (firstChild) {
+          firstChild.appendChild(textNode);
+        } else {
+          editable.appendChild(textNode);
+        }
+
+        // Dispatch an input event so Slate picks up the change
+        editable.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+        // Force enable and submit after a tick
+        btn.disabled = false;
+        btn.removeAttribute("disabled");
+
+        // Use requestAnimationFrame to let Slate process the input event
+        requestAnimationFrame(() => {
+          btn.disabled = false;
+          try {
+            form.requestSubmit(btn);
+          } catch {
+            // fallback
+            btn.click();
+          }
+        });
+      }
+    };
+
+    // Hide empty comment bodies that only contain a zero-width space
+    // (from our attachment-only workaround)
+    const hideEmptyBodies = () => {
+      el.querySelectorAll<HTMLElement>(".lb-comment-body").forEach((body) => {
+        const text = body.textContent?.replace(/[\u200B\u200C\u200D\uFEFF]/g, "").trim();
+        if (!text) {
+          body.style.display = "none";
         }
       });
     };
 
-    const observer = new MutationObserver(check);
-    observer.observe(el, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["disabled"],
-    });
+    el.addEventListener("click", handleClick, true);
+    const interval = setInterval(() => {
+      enableButtons();
+      hideEmptyBodies();
+    }, 150);
 
-    return () => observer.disconnect();
+    return () => {
+      el.removeEventListener("click", handleClick, true);
+      clearInterval(interval);
+    };
   }, [containerRef]);
 }
 

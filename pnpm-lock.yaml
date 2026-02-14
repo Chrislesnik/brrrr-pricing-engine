@@ -145,8 +145,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.0.0)
       '@documenso/embed-react':
-        specifier: ^0.5.0
-        version: 0.5.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: ^0.5.1
+        version: 0.5.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@faker-js/faker':
         specifier: ^9.3.0
         version: 9.9.0
@@ -1048,8 +1048,8 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
 
-  '@documenso/embed-react@0.5.0':
-    resolution: {integrity: sha512-nxAf2yNduws9kLQR+xa8wZenGrss7tXr0kVubMcox6Cl7tDz+GZLHktjXLa8LlflMGJ8ozC2vssfYq2bKHstyQ==}
+  '@documenso/embed-react@0.5.1':
+    resolution: {integrity: sha512-PlkZ3vrdZVBTc0J3xfG2wtPVGmxCxWgpQ/SsdR2oBMdTwsR+rDbj9k+CeTv+M9Xi5tKbLr5Y78bS9Sb8K+ltTQ==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -6684,7 +6684,7 @@ snapshots:
       react: 19.0.0
       tslib: 2.8.1
 
-  '@documenso/embed-react@0.5.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@documenso/embed-react@0.5.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)

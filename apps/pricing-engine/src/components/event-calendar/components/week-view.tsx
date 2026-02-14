@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   addHours,
   areIntervalsOverlapping,
@@ -201,6 +201,16 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
   const showAllDaySection = allDayEvents.length > 0;
   const { currentTimePosition, currentTimeVisible } = useCurrentTimeIndicator(currentDate, "week");
 
+  // Auto-scroll to current hour (or 8 AM) on mount
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollRef.current) {
+      const now = new Date();
+      const scrollToHour = Math.max(now.getHours() - 1, 7); // 1 hour before current, min 7 AM
+      scrollRef.current.scrollTop = scrollToHour * WeekCellsHeight;
+    }
+  }, [currentDate]);
+
   return (
     <div data-slot="week-view" className="flex h-full flex-col">
       <div className="bg-background/80 border-border/70 sticky top-0 z-30 grid grid-cols-8 border-b backdrop-blur-md">
@@ -278,7 +288,7 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
         </div>
       )}
 
-      <div className="grid flex-1 grid-cols-8 overflow-y-auto overflow-x-hidden">
+      <div ref={scrollRef} className="grid flex-1 grid-cols-8 overflow-y-auto overflow-x-hidden">
         <div className="border-border/70 grid auto-cols-fr border-r">
           {hours.map((hour, index) => (
             <div
@@ -312,13 +322,14 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
                 }}
                 onClick={(e) => e.stopPropagation()}>
                 <div className="size-full">
-                  <DraggableEvent
-                    event={positionedEvent.event}
-                    view="week"
-                    onClick={(e) => handleEventClick(positionedEvent.event, e)}
-                    showTime
-                    height={positionedEvent.height}
-                  />
+                  <DraggableEvent event={positionedEvent.event}>
+                    <EventItem
+                      event={positionedEvent.event}
+                      view="week"
+                      onClick={(e) => handleEventClick(positionedEvent.event, e)}
+                      showTime
+                    />
+                  </DraggableEvent>
                 </div>
               </div>
             ))}

@@ -125,11 +125,29 @@ button.lb-composer-action:last-child:hover,
   background: transparent !important;
 }
 
-/* Keep submit button visually active when the composer has attachments,
-   even if the text editor is empty (our JS hook removes the disabled attr,
-   but this guards against brief flashes of the disabled style). */
-.lb-composer:has([class*="attachment"]) button[type="submit"]:disabled {
+/* Keep submit button visually active and clickable when the composer has
+   attachments, even if the text editor is empty. The JS hook in
+   comments-panel.tsx handles the actual submission logic. */
+.lb-composer:has(.lb-composer-attachment) button[type="submit"]:disabled,
+.lb-composer:has(.lb-composer-attachments) button[type="submit"]:disabled,
+.lb-composer-form:has(.lb-composer-attachment) button[type="submit"]:disabled,
+.lb-composer-form:has(.lb-composer-attachments) button[type="submit"]:disabled {
   opacity: 1 !important;
   pointer-events: auto !important;
   cursor: pointer !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Hide the empty text body area in comments that only have attachments */
+.lb-comment-body:empty,
+.lb-comment-content > .lb-comment-body:has(> p:only-child:empty),
+.lb-comment-content > .lb-comment-body:has(> :only-child:not(.lb-attachments)):empty {
+  display: none !important;
+}
+
+/* Also collapse the body when it only contains a zero-width space (injected
+   by our attachment-only submission workaround) */
+.lb-comment-body > p:only-child:empty {
+  display: none !important;
 }

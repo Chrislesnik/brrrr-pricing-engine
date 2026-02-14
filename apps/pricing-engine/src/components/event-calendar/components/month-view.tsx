@@ -16,6 +16,7 @@ import { EventGap, EventHeight, getAllEventsForDay, sortEvents } from "./";
 import { cn } from "@/lib/utils";
 import { DroppableCell } from "./droppable-cell";
 import { EventItem } from "./event-item";
+import { EventsPopup } from "./events-popup";
 import { useEventVisibility } from "../hooks/use-event-visibility";
 
 interface MonthViewProps {
@@ -133,15 +134,28 @@ function MonthDayCell({
           <EventItem
             key={event.id}
             event={event}
-            onClick={() => onEventSelect(event)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEventSelect(event);
+            }}
             view="month"
             currentDay={day}
           />
         ))}
         {hiddenCount > 0 && (
-          <button className="w-full rounded px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-muted">
-            +{hiddenCount} more
-          </button>
+          <EventsPopup
+            date={day}
+            events={dayEvents.slice(visibleCount)}
+            onEventSelect={onEventSelect}
+            trigger={
+              <button
+                className="w-full rounded px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-muted"
+                onClick={(e) => e.stopPropagation()}
+              >
+                +{hiddenCount} more
+              </button>
+            }
+          />
         )}
       </div>
     </DroppableCell>

@@ -351,7 +351,7 @@ function DealRecordContent() {
             </TabsContent>
             
             <TabsContent value="calendar" className="mt-0">
-              <DealCalendarTab dealId={dealId} />
+              <DealCalendarTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
             </TabsContent>
           </div>
         </Tabs>
