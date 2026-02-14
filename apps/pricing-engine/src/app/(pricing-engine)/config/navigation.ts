@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFile, IconCircleNumber1, IconLayoutSidebarRightFilled, IconBriefcase, IconFolder, IconFilter, IconSquareRoundedNumber0, IconSquareRoundedNumber1, IconSquareRoundedNumber2, IconSquareRoundedNumber3, IconSquareRoundedNumber4, IconSquareRoundedNumber5, IconSquareRoundedNumber6, IconSquareRoundedNumber7, IconSquareRoundedNumber8, IconSquareRoundedNumber9 } from "@tabler/icons-react";
+import { FaUserShield } from "react-icons/fa6";
 
 // ============================================================================
 // TYPES
@@ -113,13 +114,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
           {
             title: "Background",
             url: ROUTES.background,
-            icon: IconFile,
+            icon: FaUserShield,
             shortcut: ["B"],
           },
           {
             title: "Credit",
             url: ROUTES.credit,
-            icon: IconFile,
+            icon: CreditCard,
             shortcut: ["C"],
           },
         ],
