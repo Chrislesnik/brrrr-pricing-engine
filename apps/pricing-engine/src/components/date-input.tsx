@@ -341,7 +341,7 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
           }
         }}
         onBlur={handleBlur("month")}
-        className="w-6 border-none p-0 text-center outline-hidden"
+        className="w-6 border-none bg-transparent p-0 text-center outline-hidden"
         placeholder="1"
       />
       <span className="-mx-px opacity-20">/</span>
@@ -359,7 +359,7 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
           }
         }}
         onBlur={handleBlur("day")}
-        className="w-7 border-none p-0 text-center outline-hidden"
+        className="w-7 border-none bg-transparent p-0 text-center outline-hidden"
         placeholder="1"
       />
       <span className="-mx-px opacity-20">/</span>
@@ -377,7 +377,7 @@ const DateInput = React.forwardRef<HTMLDivElement, Props>(function DateInput(
           }
         }}
         onBlur={handleBlur("year")}
-        className="w-12 border-none p-0 text-center outline-hidden"
+        className="w-12 border-none bg-transparent p-0 text-center outline-hidden"
         placeholder="2000"
       />
     </div>
