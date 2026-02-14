@@ -7,15 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
 import { ArrowLeft, Loader2, MessageSquare, Check } from "lucide-react";
 import { cn } from "@repo/lib/cn";
-import {
-  Stepper,
-  StepperItem,
-  StepperTrigger,
-  StepperIndicator,
-  StepperSeparator,
-  StepperTitle,
-  StepperNav,
-} from "@/components/ui/stepper";
 import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
 import { DealSignatureRequestsTab } from "../components/deal-signature-requests-tab";
@@ -48,6 +39,8 @@ function DealRecordContent() {
     step_order: string[];
   } | null>(null);
   const [stepperUpdating, setStepperUpdating] = useState(false);
+  const [stepperAnimatingTo, setStepperAnimatingTo] = useState<number>(0);
+  const [stepperRefreshKey, setStepperRefreshKey] = useState(0);
 
   useEffect(() => {
     async function fetchDeal() {
@@ -91,7 +84,7 @@ function DealRecordContent() {
     };
   }, [dealId]);
 
-  // Fetch deal stepper
+  // Fetch deal stepper (also re-fetches on app:deals:changed)
   useEffect(() => {
     if (!dealId) return;
     const fetchStepper = async () => {
@@ -99,39 +92,47 @@ function DealRecordContent() {
         const res = await fetch(`/api/deals/${dealId}/stepper`);
         if (res.ok) {
           const data = await res.json();
-          setDealStepper(data.stepper ?? null);
+          const stepper = data.stepper ?? null;
+          setDealStepper(stepper);
+          // Start animation from step 0
+          if (stepper) {
+            setStepperAnimatingTo(0);
+          }
         }
       } catch {
         // Non-critical
       }
     };
     fetchStepper();
+
+    // Re-fetch stepper when deal data changes (e.g., stage edited via Edit Details)
+    const handleStepperRefresh = () => {
+      setStepperRefreshKey((k) => k + 1);
+      fetchStepper();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("app:deals:changed", handleStepperRefresh);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("app:deals:changed", handleStepperRefresh);
+      }
+    };
   }, [dealId]);
 
-  // Handle stepper step click
-  const handleStepClick = useCallback(async (step: string) => {
-    if (!dealStepper || step === dealStepper.current_step) return;
-    setStepperUpdating(true);
-    try {
-      const res = await fetch(`/api/deals/${dealId}/stepper`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_step: step }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDealStepper(data.stepper);
-        // Trigger refresh of deal data to sync stage value
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("app:deals:changed"));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to update stepper:", err);
-    } finally {
-      setStepperUpdating(false);
-    }
-  }, [dealId, dealStepper]);
+  // Animate stepper progression on load
+  useEffect(() => {
+    if (!dealStepper) return;
+    const targetIdx = dealStepper.step_order.indexOf(dealStepper.current_step);
+    if (targetIdx < 0) return;
+    if (stepperAnimatingTo > targetIdx) return;
+
+    const timer = setTimeout(() => {
+      setStepperAnimatingTo((prev) => Math.min(prev + 1, targetIdx));
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [dealStepper, stepperAnimatingTo]);
+
 
   if (loading) {
     return (
@@ -195,8 +196,8 @@ function DealRecordContent() {
           </Button>
         )}
 
-        <div className="flex-1 overflow-y-auto">
-        <div className="flex items-center justify-between py-4 px-4 shrink-0">
+        <div className="flex-1 overflow-y-auto px-6">
+        <div className="flex items-center justify-between py-4 shrink-0">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -218,61 +219,91 @@ function DealRecordContent() {
         </div>
 
         {/* Deal Stepper */}
-        {dealStepper && dealStepper.step_order.length > 0 && (
-          <div className="px-4 pb-2">
-            <Stepper
-              value={dealStepper.step_order.indexOf(dealStepper.current_step) + 1}
-              onValueChange={(val) => {
-                const step = dealStepper.step_order[val - 1];
-                if (step) handleStepClick(step);
-              }}
-              indicators={{
-                completed: <Check className="size-3.5" />,
-              }}
-              className="w-full"
-            >
-              <StepperNav className="gap-3">
+        {dealStepper && dealStepper.step_order.length > 0 && (() => {
+          const activeIdx = stepperAnimatingTo;
+          const totalSteps = dealStepper.step_order.length;
+          // Each step gets equal share; percentage of active step's center
+          const stepPct = 100 / totalSteps;
+          const activeCenterPct = activeIdx * stepPct + stepPct / 2;
+          // Shift so active step is centered: 50% - activeCenterPct%
+          const shift = Math.min(0, Math.max(-(100 - 100), 50 - activeCenterPct));
+          return (
+            <div className="pb-3 overflow-x-auto w-full" style={{ scrollbarWidth: "none" }}>
+              <div
+                className="flex transition-transform duration-500 ease-in-out"
+                style={{
+                  minWidth: `${totalSteps * 120}px`,
+                  transform: `translateX(${shift}%)`,
+                }}
+              >
                 {dealStepper.step_order.map((step, idx) => {
-                  const stepNum = idx + 1;
-                  const currentIdx = dealStepper.step_order.indexOf(dealStepper.current_step);
-                  const isCompleted = idx < currentIdx;
+                  const isCompleted = idx < activeIdx;
+                  const isActive = idx === activeIdx;
+                  const isLast = idx === totalSteps - 1;
                   return (
-                    <StepperItem
+                    <div
                       key={step}
-                      step={stepNum}
-                      completed={isCompleted}
                       className={cn(
-                        "relative flex-1 items-start",
-                        stepperUpdating && "pointer-events-none opacity-60"
+                        "flex flex-col items-center gap-1 py-2 relative flex-1 min-w-0",
+                        stepperUpdating && "opacity-60"
                       )}
                     >
-                      <StepperTrigger
-                        className="flex grow flex-col items-start justify-center gap-1.5"
-                        asChild
-                      >
-                        <StepperIndicator className="size-8 border-2 data-[state=inactive]:border-border data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=completed]:bg-primary data-[state=completed]:text-primary-foreground">
-                          {stepNum}
-                        </StepperIndicator>
-                        <div className="flex flex-col items-start gap-0.5">
-                          <div className="text-muted-foreground text-[10px] font-semibold uppercase">
-                            Step {stepNum}
-                          </div>
-                          <StepperTitle className="group-data-[state=inactive]/step:text-muted-foreground text-start text-xs font-semibold whitespace-nowrap">
-                            {step}
-                          </StepperTitle>
-                        </div>
-                      </StepperTrigger>
-
-                      {idx < dealStepper.step_order.length - 1 && (
-                        <StepperSeparator className="group-data-[state=completed]/step:bg-primary absolute inset-x-0 start-9 top-4 m-0 group-data-[orientation=horizontal]/stepper-nav:w-[calc(100%-2rem)] group-data-[orientation=horizontal]/stepper-nav:flex-none" />
+                      {/* Connector line - before circle */}
+                      {idx > 0 && (
+                        <div
+                          className={cn(
+                            "absolute top-[26px] h-0.5 transition-colors duration-300",
+                            isCompleted || isActive ? "bg-success" : "bg-border"
+                          )}
+                          style={{ left: 0, width: "calc(50% - 22px)" }}
+                        />
                       )}
-                    </StepperItem>
+                      {/* Connector line - after circle */}
+                      {!isLast && (
+                        <div
+                          className={cn(
+                            "absolute top-[26px] h-0.5 transition-colors duration-300",
+                            isCompleted ? "bg-success" : "bg-border"
+                          )}
+                          style={{ right: 0, width: "calc(50% - 22px)" }}
+                        />
+                      )}
+                      <div
+                        className={cn(
+                          "flex items-center justify-center size-9 rounded-full border-2 text-sm font-semibold transition-all duration-300 relative z-10",
+                          isCompleted && "border-success bg-success text-success-foreground",
+                          isActive && "border-primary bg-primary text-primary-foreground",
+                          !isCompleted && !isActive && "border-border bg-background text-muted-foreground"
+                        )}
+                      >
+                        {isCompleted ? <Check className="size-4" /> : idx + 1}
+                      </div>
+                      <div className="text-[10px] font-semibold uppercase text-muted-foreground">
+                        Step {idx + 1}
+                      </div>
+                      <div className={cn(
+                        "text-xs font-semibold whitespace-nowrap",
+                        !isCompleted && !isActive && "text-muted-foreground"
+                      )}>
+                        {step}
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          isCompleted && "bg-success/10 text-success",
+                          isActive && "bg-primary/10 text-primary",
+                          !isCompleted && !isActive && "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {isCompleted ? "Completed" : isActive ? "In Progress" : "Pending"}
+                      </span>
+                    </div>
                   );
                 })}
-              </StepperNav>
-            </Stepper>
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })()}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto shrink-0">
@@ -306,7 +337,7 @@ function DealRecordContent() {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 p-6">
+          <div className="flex-1 py-6">
             <TabsContent value="details" className="mt-0">
               <DealDetailsTab deal={deal} />
             </TabsContent>

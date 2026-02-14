@@ -126,6 +126,33 @@ export async function PATCH(req: NextRequest) {
         .update(updatePayload)
         .eq("id", id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      // If dropdown_options changed, sync input_stepper + deal_stepper step_order
+      // (Postgres trigger handles this too, but this is a safety net)
+      if (updatePayload.dropdown_options !== undefined) {
+        const newOpts = updatePayload.dropdown_options as string[] | null
+        if (newOpts) {
+          // Update input_stepper.step_order
+          await supabaseAdmin
+            .from("input_stepper")
+            .update({ step_order: newOpts })
+            .eq("input_id", id)
+
+          // Cascade to deal_stepper rows
+          const { data: steppers } = await supabaseAdmin
+            .from("input_stepper")
+            .select("id")
+            .eq("input_id", id)
+          if (steppers && steppers.length > 0) {
+            const stepperIds = steppers.map((s: { id: number }) => s.id)
+            await supabaseAdmin
+              .from("deal_stepper")
+              .update({ step_order: newOpts })
+              .in("input_stepper_id", stepperIds)
+          }
+        }
+      }
+
       return NextResponse.json({ ok: true })
     }
 

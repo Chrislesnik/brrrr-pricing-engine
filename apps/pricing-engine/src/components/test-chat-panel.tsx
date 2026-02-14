@@ -10,13 +10,38 @@ import {
   ClipboardList,
   Check,
   X,
+  RefreshCw,
 } from "lucide-react"
+import { CheckIcon, PlusCircledIcon } from "@radix-ui/react-icons"
 import { cn } from "@repo/lib/cn"
+import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@repo/ui/shadcn/command"
 import { Input } from "@repo/ui/shadcn/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover"
 import { ScrollArea } from "@repo/ui/shadcn/scroll-area"
+import { Separator } from "@repo/ui/shadcn/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/shadcn/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui/shadcn/tabs"
 import { Textarea } from "@repo/ui/shadcn/textarea"
+import { DatePickerField } from "@/components/date-picker-field"
+import { CalcInput } from "@/components/calc-input"
 import {
   Conversation,
   ConversationContent,
@@ -47,14 +72,27 @@ interface ChatMessage {
 }
 
 interface DetailItemData {
+  id?: number
+  type: "input" | "condition"
   label: string
   output: {
-    answer: string
+    answer: string | boolean
     notFound?: boolean
     confidence?: number
     citations?: Citation[]
     highlights?: { page: number; bbox: BBox }[]
   }
+  ai_value?: string | boolean
+  approved_value?: string | boolean | null
+  rejected?: boolean | null
+  input_id?: string
+  input_type?: string
+  dropdown_options?: string[] | null
+  current_deal_value?: string | null
+  this_priority?: number | null
+  this_document_name?: string | null
+  current_value_source_document_name?: string | null
+  current_value_source_priority?: number | null
 }
 
 interface TestChatPanelProps {
@@ -66,36 +104,83 @@ interface TestChatPanelProps {
 }
 
 const DETAILS_WEBHOOK_URL =
-  "https://n8n.axora.info/webhook/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
+  "https://n8n.axora.info/webhook-test/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
 
 // DetailItem component for the Details tab
 function DetailItem({
   item,
+  aiResultsApiPath,
   onCitationClick,
 }: {
   item: DetailItemData
+  aiResultsApiPath?: string | null
   onCitationClick?: (page: number, bbox: BBox) => void
 }) {
-  const [value, setValue] = React.useState(item.output.answer)
+  const isCondition = item.type === "condition"
+  const inputType = item.input_type ?? "text"
+  const [value, setValue] = React.useState(String(item.output.answer ?? ""))
+  const [currentDealValue, setCurrentDealValue] = React.useState(
+    item.current_deal_value ?? null
+  )
   const [status, setStatus] = React.useState<
     "neutral" | "approved" | "rejected"
-  >("neutral")
+  >(() => {
+    if (item.rejected === true) return "rejected"
+    if (item.approved_value !== null && item.approved_value !== undefined)
+      return "approved"
+    return "neutral"
+  })
 
   const handleCitationClick = (citation: Citation) => {
-    console.log("[DetailItem] Citation clicked:", { page: citation.page, bbox: citation.bbox, label: item.label })
     if (onCitationClick) {
       onCitationClick(citation.page, citation.bbox)
-    } else {
-      console.warn("[DetailItem] onCitationClick is NOT defined!")
+    }
+  }
+
+  const persistStatus = async (
+    newApproved: string | boolean | null,
+    newRejected: boolean | null
+  ) => {
+    if (!item.id || !aiResultsApiPath) return
+    try {
+      await fetch(aiResultsApiPath, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          type: item.type,
+          approved_value: newApproved,
+          rejected: newRejected,
+        }),
+      })
+    } catch (err) {
+      console.error("Failed to persist approval status:", err)
     }
   }
 
   const handleApprove = () => {
-    setStatus(status === "approved" ? "neutral" : "approved")
+    if (status === "approved") {
+      setStatus("neutral")
+      persistStatus(null, null)
+    } else {
+      setStatus("approved")
+      const approvedVal = isCondition ? Boolean(item.output.answer) : value
+      persistStatus(approvedVal, false)
+      // Optimistically update the displayed current deal value for inputs
+      if (!isCondition) {
+        setCurrentDealValue(value)
+      }
+    }
   }
 
   const handleReject = () => {
-    setStatus(status === "rejected" ? "neutral" : "rejected")
+    if (status === "rejected") {
+      setStatus("neutral")
+      persistStatus(null, null)
+    } else {
+      setStatus("rejected")
+      persistStatus(null, true)
+    }
   }
 
   return (
@@ -103,33 +188,149 @@ function DetailItem({
       className={cn(
         "space-y-3 rounded-lg border p-4 transition-colors",
         status === "approved" &&
-          "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/30",
+          "border-primary/30 bg-primary/5",
         status === "rejected" &&
-          "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30",
+          "border-destructive/30 bg-destructive/5",
         status === "neutral" && "bg-card"
       )}
     >
-      {/* Label */}
-      <label className="text-sm leading-none font-semibold">{item.label}</label>
+      {/* Label + type badge */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm leading-none font-semibold">
+          {item.label}
+        </label>
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
+            isCondition
+              ? "bg-secondary text-secondary-foreground"
+              : "bg-primary/10 text-primary"
+          )}
+        >
+          {item.type}
+        </span>
+      </div>
 
-      {/* Input with check/x buttons */}
-      <div className="border-input bg-background flex h-9 w-full items-center overflow-hidden rounded-md border shadow-xs">
-        <Input
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value)
-            setStatus("neutral")
-          }}
-          className="h-full flex-1 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
-        />
+      {/* Value display + approve/reject */}
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 min-w-0">
+          {isCondition || inputType === "boolean" ? (
+            <Select
+              value={
+                isCondition
+                  ? item.output.answer === true
+                    ? "true"
+                    : "false"
+                  : value === "true"
+                    ? "true"
+                    : "false"
+              }
+              onValueChange={(val) => {
+                setValue(val)
+                setStatus("neutral")
+              }}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">Yes</SelectItem>
+                <SelectItem value="false">No</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : inputType === "dropdown" ? (
+            <Select
+              value={value || undefined}
+              onValueChange={(val) => {
+                setValue(val)
+                setStatus("neutral")
+              }}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(item.dropdown_options ?? []).map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : inputType === "date" ? (
+            <DatePickerField
+              value={value}
+              onChange={(val) => {
+                setValue(val)
+                setStatus("neutral")
+              }}
+            />
+          ) : inputType === "currency" ? (
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                $
+              </span>
+              <CalcInput
+                value={value}
+                onValueChange={(val) => {
+                  setValue(val)
+                  setStatus("neutral")
+                }}
+                className="h-9 pl-7 text-sm"
+                placeholder="0.00"
+              />
+            </div>
+          ) : inputType === "percentage" ? (
+            <div className="relative">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="0.00"
+                min={0}
+                max={100}
+                step={0.01}
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value)
+                  setStatus("neutral")
+                }}
+                className="h-9 pr-8 text-sm"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                %
+              </span>
+            </div>
+          ) : inputType === "number" ? (
+            <Input
+              type="number"
+              inputMode="numeric"
+              placeholder="0"
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value)
+                setStatus("neutral")
+              }}
+              className="h-9 text-sm"
+            />
+          ) : (
+            <Input
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value)
+                setStatus("neutral")
+              }}
+              className="h-9 text-sm"
+            />
+          )}
+        </div>
         <button
           type="button"
           onClick={handleApprove}
           className={cn(
-            "border-input flex aspect-square h-full items-center justify-center border-l transition-colors",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors",
             status === "approved"
-              ? "bg-green-500 text-white"
-              : "bg-background text-muted-foreground hover:bg-accent hover:text-green-600"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground"
           )}
         >
           <Check className="h-4 w-4" />
@@ -139,16 +340,65 @@ function DetailItem({
           type="button"
           onClick={handleReject}
           className={cn(
-            "border-input flex aspect-square h-full items-center justify-center rounded-r-md border-l transition-colors",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors",
             status === "rejected"
-              ? "bg-red-500 text-white"
-              : "bg-background text-muted-foreground hover:bg-accent hover:text-red-600"
+              ? "bg-destructive text-destructive-foreground border-destructive"
+              : "bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground"
           )}
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Reject</span>
         </button>
       </div>
+
+      {/* Current deal value with source tags (inputs only) */}
+      {!isCondition && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            Current value:{" "}
+            <span className="font-medium text-foreground">
+              {currentDealValue || "--"}
+            </span>
+          </p>
+          {currentDealValue && (
+            <div className="flex flex-wrap items-center gap-1">
+              {item.current_value_source_document_name ? (
+                <>
+                  <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+                    {item.current_value_source_document_name}
+                  </span>
+                  {item.this_priority != null &&
+                    item.current_value_source_priority != null && (
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          item.current_value_source_priority <
+                            item.this_priority
+                            ? "bg-primary/10 text-primary"
+                            : item.current_value_source_priority >
+                                item.this_priority
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {item.current_value_source_priority < item.this_priority
+                          ? "Higher Priority"
+                          : item.current_value_source_priority >
+                              item.this_priority
+                            ? "Lower Priority"
+                            : "Same Priority"}
+                      </span>
+                    )}
+                </>
+              ) : (
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+                  Manual Entry
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Citations */}
       {item.output.citations && item.output.citations.length > 0 && (
@@ -192,12 +442,23 @@ export function TestChatPanel({
 
   // Details tab state
   const [detailsData, setDetailsData] = React.useState<DetailItemData[]>([])
-  const [detailsLoading, setDetailsLoading] = React.useState(true)
+  const [detailsLoading, setDetailsLoading] = React.useState(false)
+  const [detailsFilter, setDetailsFilter] = React.useState<Set<string>>(
+    new Set()
+  )
+  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(
+    new Set()
+  )
 
-  // Build API base path for the chat route
+  // Build API paths
   const chatApiPath =
     dealId && dealDocumentId
       ? `/api/deals/${dealId}/deal-documents/${dealDocumentId}/chat`
+      : null
+
+  const aiResultsApiPath =
+    dealId && dealDocumentId
+      ? `/api/deals/${dealId}/deal-documents/${dealDocumentId}/ai-results`
       : null
 
   // Load persisted chat history on mount
@@ -228,25 +489,87 @@ export function TestChatPanel({
     loadHistory()
   }, [chatApiPath])
 
-  // Fetch details on mount
-  React.useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        const response = await fetch(DETAILS_WEBHOOK_URL, {
-          method: "GET",
-        })
-        const data = await response.json()
-        if (Array.isArray(data)) {
-          setDetailsData(data)
-        }
-      } catch (error) {
-        console.error("Failed to fetch details:", error)
-      } finally {
-        setDetailsLoading(false)
+  // Load persisted AI results from DB
+  const loadSavedResults = React.useCallback(async () => {
+    if (!aiResultsApiPath) return
+    try {
+      const res = await fetch(aiResultsApiPath)
+      if (res.ok) {
+        const data = await res.json()
+        const results: DetailItemData[] = (data.results ?? []).map(
+          (r: any) => ({
+            id: r.id,
+            type: r.type,
+            label: r.label,
+            output: r.output ?? {},
+            ai_value: r.ai_value,
+            approved_value: r.approved_value,
+            rejected: r.rejected,
+            input_id: r.input_id,
+            input_type: r.input_type,
+            dropdown_options: r.dropdown_options,
+            current_deal_value: r.current_deal_value,
+            this_priority: r.this_priority,
+            this_document_name: r.this_document_name,
+            current_value_source_document_name:
+              r.current_value_source_document_name,
+            current_value_source_priority: r.current_value_source_priority,
+          })
+        )
+        setDetailsData(results)
       }
+    } catch (err) {
+      console.error("Failed to load saved AI results:", err)
     }
-    fetchDetails()
-  }, [])
+  }, [aiResultsApiPath])
+
+  // Load saved results on mount
+  React.useEffect(() => {
+    if (!aiResultsApiPath) return
+    setDetailsLoading(true)
+    loadSavedResults().finally(() => setDetailsLoading(false))
+  }, [aiResultsApiPath, loadSavedResults])
+
+  // Fetch details: POST deal_document row to webhook, persist, then reload
+  const fetchDetails = React.useCallback(async () => {
+    if (!dealId || !dealDocumentId || !aiResultsApiPath) return
+    setDetailsLoading(true)
+    try {
+      // 1. Fetch the deal_document row
+      const docsRes = await fetch(`/api/deals/${dealId}/deal-documents`)
+      if (!docsRes.ok) throw new Error("Failed to fetch deal documents")
+      const docsData = await docsRes.json()
+      const docs = docsData.documents ?? docsData ?? []
+      const dealDocument = docs.find(
+        (d: any) => String(d.id) === String(dealDocumentId)
+      )
+      if (!dealDocument) throw new Error("Deal document not found")
+
+      // 2. POST the deal_document row to the webhook
+      const webhookRes = await fetch(DETAILS_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dealDocument),
+      })
+      const webhookData = await webhookRes.json()
+
+      // 3. Persist results via our API
+      if (Array.isArray(webhookData) && webhookData.length > 0) {
+        await fetch(aiResultsApiPath, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(webhookData),
+        })
+      }
+
+      // 4. Reload saved results (with labels from DB)
+      await loadSavedResults()
+    } catch (error) {
+      console.error("Failed to fetch details:", error)
+    } finally {
+      setDetailsLoading(false)
+    }
+  }, [dealId, dealDocumentId, aiResultsApiPath, loadSavedResults])
 
   // Auto-resize textarea
   const adjustTextareaHeight = React.useCallback(() => {
@@ -469,32 +792,274 @@ export function TestChatPanel({
         {/* Details Tab */}
         <TabsContent
           value="details"
-          className="m-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
+          className="m-0 flex flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
         >
+          {/* Toolbar: filters + refresh */}
+          <div className="flex items-center justify-between border-b px-3 py-1.5">
+            <div className="flex items-center gap-1.5">
+              {/* Type filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 border-dashed text-xs"
+                  >
+                    <PlusCircledIcon className="h-3.5 w-3.5" />
+                    Type
+                    {detailsFilter.size > 0 && (
+                      <>
+                        <Separator
+                          orientation="vertical"
+                          className="mx-1.5 h-3.5"
+                        />
+                        <div className="flex space-x-1">
+                          {["input", "condition"]
+                            .filter((v) => detailsFilter.has(v))
+                            .map((v) => (
+                              <Badge
+                                key={v}
+                                variant="secondary"
+                                className="rounded-sm px-1 text-[10px] font-normal capitalize"
+                              >
+                                {v === "input" ? "Inputs" : "Conditions"}
+                              </Badge>
+                            ))}
+                        </div>
+                      </>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[180px] p-0" align="start">
+                  <Command>
+                    <CommandList>
+                      <CommandGroup>
+                        {[
+                          { label: "Inputs", value: "input" },
+                          { label: "Conditions", value: "condition" },
+                        ].map((option) => {
+                          const isSelected = detailsFilter.has(option.value)
+                          return (
+                            <CommandItem
+                              key={option.value}
+                              onSelect={() => {
+                                setDetailsFilter((prev) => {
+                                  const next = new Set(prev)
+                                  if (isSelected) {
+                                    next.delete(option.value)
+                                  } else {
+                                    next.add(option.value)
+                                  }
+                                  return next
+                                })
+                              }}
+                            >
+                              <div
+                                className={cn(
+                                  "border-primary flex h-4 w-4 items-center justify-center rounded-sm border",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground"
+                                    : "opacity-50 [&_svg]:invisible"
+                                )}
+                              >
+                                <CheckIcon className="h-4 w-4" />
+                              </div>
+                              <span>{option.label}</span>
+                              <span className="ml-auto font-mono text-xs text-muted-foreground">
+                                {
+                                  detailsData.filter(
+                                    (d) => d.type === option.value
+                                  ).length
+                                }
+                              </span>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                      {detailsFilter.size > 0 && (
+                        <>
+                          <CommandSeparator />
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => setDetailsFilter(new Set())}
+                              className="justify-center text-center"
+                            >
+                              Clear filters
+                            </CommandItem>
+                          </CommandGroup>
+                        </>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              {/* Status filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 border-dashed text-xs"
+                  >
+                    <PlusCircledIcon className="h-3.5 w-3.5" />
+                    Status
+                    {statusFilter.size > 0 && (
+                      <>
+                        <Separator
+                          orientation="vertical"
+                          className="mx-1.5 h-3.5"
+                        />
+                        <div className="flex space-x-1">
+                          {["approved", "rejected", "pending"]
+                            .filter((v) => statusFilter.has(v))
+                            .map((v) => (
+                              <Badge
+                                key={v}
+                                variant="secondary"
+                                className="rounded-sm px-1 text-[10px] font-normal capitalize"
+                              >
+                                {v}
+                              </Badge>
+                            ))}
+                        </div>
+                      </>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[180px] p-0" align="start">
+                  <Command>
+                    <CommandList>
+                      <CommandGroup>
+                        {[
+                          { label: "Approved", value: "approved" },
+                          { label: "Rejected", value: "rejected" },
+                          { label: "Pending", value: "pending" },
+                        ].map((option) => {
+                          const isSelected = statusFilter.has(option.value)
+                          const getItemStatus = (item: DetailItemData) =>
+                            item.rejected === true
+                              ? "rejected"
+                              : item.approved_value != null
+                                ? "approved"
+                                : "pending"
+                          return (
+                            <CommandItem
+                              key={option.value}
+                              onSelect={() => {
+                                setStatusFilter((prev) => {
+                                  const next = new Set(prev)
+                                  if (isSelected) {
+                                    next.delete(option.value)
+                                  } else {
+                                    next.add(option.value)
+                                  }
+                                  return next
+                                })
+                              }}
+                            >
+                              <div
+                                className={cn(
+                                  "border-primary flex h-4 w-4 items-center justify-center rounded-sm border",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground"
+                                    : "opacity-50 [&_svg]:invisible"
+                                )}
+                              >
+                                <CheckIcon className="h-4 w-4" />
+                              </div>
+                              <span>{option.label}</span>
+                              <span className="ml-auto font-mono text-xs text-muted-foreground">
+                                {
+                                  detailsData.filter(
+                                    (d) => getItemStatus(d) === option.value
+                                  ).length
+                                }
+                              </span>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                      {statusFilter.size > 0 && (
+                        <>
+                          <CommandSeparator />
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => setStatusFilter(new Set())}
+                              className="justify-center text-center"
+                            >
+                              Clear filters
+                            </CommandItem>
+                          </CommandGroup>
+                        </>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={fetchDetails}
+              disabled={detailsLoading}
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5",
+                  detailsLoading && "animate-spin"
+                )}
+              />
+              <span className="sr-only">Refresh details</span>
+            </Button>
+          </div>
+
+          {/* Content */}
           {detailsLoading ? (
-            <div className="flex h-full items-center justify-center">
+            <div className="flex flex-1 items-center justify-center">
               <div className="text-muted-foreground flex items-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 <span className="text-sm">Loading details...</span>
               </div>
             </div>
           ) : detailsData.length === 0 ? (
-            <div className="text-muted-foreground flex h-full items-center justify-center">
+            <div className="text-muted-foreground flex flex-1 items-center justify-center">
               <div className="text-center">
                 <ClipboardList className="mx-auto mb-2 h-8 w-8 opacity-50" />
                 <p className="text-sm">No details available</p>
+                <p className="text-xs mt-1">
+                  Click the refresh button to extract details
+                </p>
               </div>
             </div>
           ) : (
-            <ScrollArea className="h-full">
+            <ScrollArea className="flex-1">
               <div className="space-y-4 p-4">
-                {detailsData.map((item, idx) => (
-                  <DetailItem
-                    key={idx}
-                    item={item}
-                    onCitationClick={onCitationClick}
-                  />
-                ))}
+                {detailsData
+                  .filter(
+                    (item) =>
+                      detailsFilter.size === 0 ||
+                      detailsFilter.has(item.type)
+                  )
+                  .filter((item) => {
+                    if (statusFilter.size === 0) return true
+                    const itemStatus =
+                      item.rejected === true
+                        ? "rejected"
+                        : item.approved_value != null
+                          ? "approved"
+                          : "pending"
+                    return statusFilter.has(itemStatus)
+                  })
+                  .map((item, idx) => (
+                    <DetailItem
+                      key={item.id ?? idx}
+                      item={item}
+                      aiResultsApiPath={aiResultsApiPath}
+                      onCitationClick={onCitationClick}
+                    />
+                  ))}
               </div>
             </ScrollArea>
           )}

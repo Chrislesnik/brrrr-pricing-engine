@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Check,
   GripVertical,
@@ -126,6 +126,9 @@ export function InputsSettings() {
 
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
+
+  // Native drag-and-drop for reordering dropdown option tags
+  const dragTagIdx = useRef<number | null>(null);
 
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
@@ -668,7 +671,7 @@ export function InputsSettings() {
                             </Select>
                           </div>
                           {newInputType === "dropdown" && (
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 p-2">
                               <Label className="text-xs">
                                 Dropdown Options
                                 {newDropdownOptions.length > 0 && (
@@ -681,16 +684,53 @@ export function InputsSettings() {
                                 value={newDropdownOptions}
                                 onValueChange={setNewDropdownOptions}
                                 className="w-full"
+                                editable
                               >
                                 <TagsInputList className="min-h-9 px-2 py-1 flex-wrap">
                                   {newDropdownOptions.map((opt, idx) => (
-                                    <TagsInputItem
+                                    <div
                                       key={`${opt}-${idx}`}
-                                      value={opt}
-                                      className="text-xs px-1.5 py-0.5"
+                                      className="inline-flex items-center"
+                                      onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.dataTransfer.dropEffect = "move";
+                                      }}
+                                      onDrop={(e) => {
+                                        e.preventDefault();
+                                        const from = dragTagIdx.current;
+                                        if (from !== null && from !== idx) {
+                                          const updated = [...newDropdownOptions];
+                                          const [moved] = updated.splice(from, 1);
+                                          updated.splice(idx, 0, moved);
+                                          setNewDropdownOptions(updated);
+                                        }
+                                        dragTagIdx.current = null;
+                                      }}
                                     >
-                                      {opt}
-                                    </TagsInputItem>
+                                      <span
+                                        draggable
+                                        onDragStart={(e) => {
+                                          dragTagIdx.current = idx;
+                                          e.dataTransfer.effectAllowed = "move";
+                                          const parent = e.currentTarget.parentElement;
+                                          if (parent) {
+                                            e.dataTransfer.setDragImage(parent, 0, 0);
+                                          }
+                                        }}
+                                        onDragEnd={() => {
+                                          dragTagIdx.current = null;
+                                        }}
+                                        className="flex items-center cursor-grab active:cursor-grabbing pl-0.5 pr-0.5 text-muted-foreground/50 hover:text-muted-foreground"
+                                      >
+                                        <GripVertical className="size-3" />
+                                      </span>
+                                      <TagsInputItem
+                                        value={opt}
+                                        className="text-xs px-1.5 py-0.5"
+                                      >
+                                        {opt}
+                                      </TagsInputItem>
+                                    </div>
                                   ))}
                                   <TagsInputInput
                                     placeholder="Type and press Enter..."
@@ -874,7 +914,7 @@ export function InputsSettings() {
                       </div>
 
                       {newInputType === "dropdown" && (
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 p-2">
                           <Label className="text-xs">
                             Dropdown Options
                             {newDropdownOptions.length > 0 && (
@@ -887,16 +927,53 @@ export function InputsSettings() {
                             value={newDropdownOptions}
                             onValueChange={setNewDropdownOptions}
                             className="w-full"
+                            editable
                           >
                             <TagsInputList className="min-h-9 px-2 py-1 flex-wrap">
                               {newDropdownOptions.map((opt, idx) => (
-                                <TagsInputItem
+                                <div
                                   key={`${opt}-${idx}`}
-                                  value={opt}
-                                  className="text-xs px-1.5 py-0.5"
+                                  className="inline-flex items-center"
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.dataTransfer.dropEffect = "move";
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    const from = dragTagIdx.current;
+                                    if (from !== null && from !== idx) {
+                                      const updated = [...newDropdownOptions];
+                                      const [moved] = updated.splice(from, 1);
+                                      updated.splice(idx, 0, moved);
+                                      setNewDropdownOptions(updated);
+                                    }
+                                    dragTagIdx.current = null;
+                                  }}
                                 >
-                                  {opt}
-                                </TagsInputItem>
+                                  <span
+                                    draggable
+                                    onDragStart={(e) => {
+                                      dragTagIdx.current = idx;
+                                      e.dataTransfer.effectAllowed = "move";
+                                      const parent = e.currentTarget.parentElement;
+                                      if (parent) {
+                                        e.dataTransfer.setDragImage(parent, 0, 0);
+                                      }
+                                    }}
+                                    onDragEnd={() => {
+                                      dragTagIdx.current = null;
+                                    }}
+                                    className="flex items-center cursor-grab active:cursor-grabbing pl-0.5 pr-0.5 text-muted-foreground/50 hover:text-muted-foreground"
+                                  >
+                                    <GripVertical className="size-3" />
+                                  </span>
+                                  <TagsInputItem
+                                    value={opt}
+                                    className="text-xs px-1.5 py-0.5"
+                                  >
+                                    {opt}
+                                  </TagsInputItem>
+                                </div>
                               ))}
                               <TagsInputInput
                                 placeholder="Type and press Enter..."

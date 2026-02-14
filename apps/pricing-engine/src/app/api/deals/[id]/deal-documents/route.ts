@@ -205,7 +205,26 @@ export async function POST(
       .eq("clerk_user_id", userId)
       .single();
 
-    // ---- Step 1: Insert document_files row ----
+    // ---- Step 1: Upload to Supabase Storage FIRST ----
+    // (must happen before the DB insert so the trigger's file_download_url is valid)
+    const fileBuffer = await file.arrayBuffer();
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("deals")
+      .upload(storagePath, fileBuffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      return NextResponse.json(
+        { error: "Failed to upload file to storage" },
+        { status: 500 }
+      );
+    }
+
+    // ---- Step 2: Insert document_files row ----
+    // (trigger fires here to notify n8n — file already exists in storage)
     const { data: docFile, error: docFileError } = await supabaseAdmin
       .from("document_files")
       .insert({
@@ -223,30 +242,10 @@ export async function POST(
 
     if (docFileError || !docFile) {
       console.error("Error creating document_files row:", docFileError);
+      // Rollback: remove the uploaded file from storage
+      await supabaseAdmin.storage.from("deals").remove([storagePath]);
       return NextResponse.json(
         { error: "Failed to create document record" },
-        { status: 500 }
-      );
-    }
-
-    // ---- Step 2: Upload to Supabase Storage ----
-    const fileBuffer = await file.arrayBuffer();
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("deals")
-      .upload(storagePath, fileBuffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      // Rollback: delete document_files row
-      await supabaseAdmin
-        .from("document_files")
-        .delete()
-        .eq("id", docFile.id);
-      return NextResponse.json(
-        { error: "Failed to upload file to storage" },
         { status: 500 }
       );
     }

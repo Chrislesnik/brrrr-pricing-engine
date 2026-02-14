@@ -39,6 +39,40 @@ export async function GET(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ stepper: null });
     }
 
+    // Sync current_step from the deal's actual input value
+    try {
+      // Get the input_id attached to the stepper config
+      const { data: stepperConfig } = await supabaseAdmin
+        .from("input_stepper")
+        .select("input_id")
+        .eq("id", data.input_stepper_id)
+        .single();
+
+      if (stepperConfig) {
+        // Get the deal's actual value for this input
+        const { data: dealInput } = await supabaseAdmin
+          .from("deal_inputs")
+          .select("value_text")
+          .eq("deal_id", dealId)
+          .eq("input_id", stepperConfig.input_id)
+          .maybeSingle();
+
+        const actualValue = dealInput?.value_text;
+
+        // If the deal input has a value and it differs from current_step, sync it
+        if (actualValue && actualValue !== data.current_step && data.step_order.includes(actualValue)) {
+          await supabaseAdmin
+            .from("deal_stepper")
+            .update({ current_step: actualValue })
+            .eq("id", data.id);
+
+          data.current_step = actualValue;
+        }
+      }
+    } catch {
+      // Sync is non-critical — return the existing data
+    }
+
     return NextResponse.json({ stepper: data });
   } catch (err) {
     console.error("[GET /api/deals/[id]/stepper]", err);

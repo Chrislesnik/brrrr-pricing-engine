@@ -133,7 +133,7 @@ function Stepper({
       <div
         data-orientation={orientation}
         data-slot="stepper"
-        className={cn('group/stepper flex w-full gap-2', orientation === 'horizontal' ? 'flex-row items-center' : 'flex-col', className)}
+        className={cn('group/stepper w-full', className)}
         {...props}
       >
         {children}
@@ -333,14 +333,17 @@ function StepperDescription({ children, className }: React.ComponentProps<'div'>
   );
 }
 
-function StepperNav({ children, className }: React.ComponentProps<'nav'>) {
+function StepperNav({ children, className, style, ...props }: React.ComponentProps<'nav'>) {
   const { activeStep, orientation } = useStepper();
 
   return (
     <nav
       aria-label="Steps"
       data-orientation={orientation}
-      className={cn('flex gap-4', orientation === 'horizontal' ? 'flex-row' : 'flex-col', className)}
+      data-group="stepper-nav"
+      className={cn(!style && 'flex gap-4', !style && (orientation === 'horizontal' ? 'flex-row' : 'flex-col'), className)}
+      style={style}
+      {...props}
     >
       {children}
     </nav>
