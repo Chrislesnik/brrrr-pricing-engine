@@ -703,7 +703,8 @@ export function TestChatPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dealDocument),
       })
-      const webhookData = await webhookRes.json()
+      const webhookText = await webhookRes.text()
+      const webhookData = webhookText ? JSON.parse(webhookText) : []
 
       // 3. Persist results via our API
       if (Array.isArray(webhookData) && webhookData.length > 0) {
@@ -722,6 +723,22 @@ export function TestChatPanel({
       setDetailsLoading(false)
     }
   }, [dealId, dealDocumentId, aiResultsApiPath, loadSavedResults])
+
+  // Auto-trigger fetchDetails when parseStatus transitions to COMPLETE
+  const prevParseStatusRef = React.useRef<ParseStatus | undefined>(undefined)
+  React.useEffect(() => {
+    const prev = prevParseStatusRef.current
+    prevParseStatusRef.current = parseStatus
+
+    // Only fire when transitioning FROM a non-COMPLETE state TO COMPLETE
+    if (
+      parseStatus === "COMPLETE" &&
+      prev !== undefined &&
+      prev !== "COMPLETE"
+    ) {
+      fetchDetails()
+    }
+  }, [parseStatus, fetchDetails])
 
   // Refresh a single detail item via webhook — upserts the existing row, reloads
   const handleRefreshItem = React.useCallback(

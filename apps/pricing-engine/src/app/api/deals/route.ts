@@ -9,7 +9,7 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 /* -------------------------------------------------------------------------- */
 
 const dealInputEntry = z.object({
-  input_id: z.string(),
+  input_id: z.coerce.number(),  // DB stores int8; coerce string→number
   input_type: z.string(),
   value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
 })
@@ -24,7 +24,7 @@ const createDealSchema = z.object({
 
 type DealInputRow = {
   deal_id: string
-  input_id: string
+  input_id: number
   input_type: string
   value_text?: string | null
   value_numeric?: number | null
@@ -38,7 +38,7 @@ type DealInputRow = {
  */
 function buildDealInputRow(
   dealId: string,
-  entry: { input_id: string; input_type: string; value: string | number | boolean | null }
+  entry: { input_id: number; input_type: string; value: string | number | boolean | null }
 ): DealInputRow {
   const row: DealInputRow = {
     deal_id: dealId,

@@ -84,7 +84,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     }
 
     // Collect input_ids and document_type_ai_input_ids from results
-    const inputIdSet = new Set<string>();
+    const inputIdSet = new Set<number>();
     const dtaiIdSet = new Set<number>();
     for (const row of inputResults ?? []) {
       const parent = row.document_type_ai_input as any;
@@ -93,7 +93,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     }
 
     // Fetch current deal_inputs values for these input_ids
-    const dealInputMap = new Map<string, any>();
+    const dealInputMap = new Map<number, any>();
     if (inputIdSet.size > 0) {
       const { data: dealInputs } = await supabaseAdmin
         .from("deal_inputs")
@@ -142,7 +142,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
       document_name: string;
     }
     // Map: input_id -> SourceInfo[] (all approved sources)
-    const approvedSourcesMap = new Map<string, SourceInfo[]>();
+    const approvedSourcesMap = new Map<number, SourceInfo[]>();
 
     if (inputIdSet.size > 0) {
       // Get all deal_document_ids for this deal
@@ -173,7 +173,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
         for (const row of allApproved ?? []) {
           const parent = row.document_type_ai_input as any;
-          const iId = parent?.input_id as string | undefined;
+          const iId = parent?.input_id as number | undefined;
           if (!iId) continue;
 
           const dtName = (parent?.document_types as any)?.document_name ?? "Unknown";
@@ -214,7 +214,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
           // Update approvedSourcesMap with correct priorities
           for (const row of allApproved ?? []) {
             const parent = row.document_type_ai_input as any;
-            const iId = parent?.input_id as string | undefined;
+            const iId = parent?.input_id as number | undefined;
             if (!iId) continue;
             const arr = approvedSourcesMap.get(iId);
             if (arr) {
@@ -243,7 +243,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     // Helper: find which source set the current deal value
     function findValueSource(
-      inputId: string,
+      inputId: number,
       currentValue: string | null
     ): { document_name: string; priority: number } | null {
       if (!currentValue) return null;
@@ -265,7 +265,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     for (const row of inputResults ?? []) {
       const parent = row.document_type_ai_input as any;
       const input = parent?.inputs as any;
-      const inputId = parent?.input_id as string | undefined;
+      const inputId = parent?.input_id as number | undefined;
       const dealInput = inputId ? dealInputMap.get(inputId) : undefined;
       const currentValue = resolveDealValue(dealInput);
       const thisPriority = priorityMap.get(row.document_type_ai_input_id) ?? null;
@@ -275,7 +275,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
         id: row.id,
         type: "input",
         label: input?.input_label ?? "Unknown Input",
-        input_id: inputId,
+        input_id: inputId != null ? String(inputId) : undefined,
         input_type: input?.input_type ?? "text",
         dropdown_options: input?.dropdown_options ?? null,
         document_type_ai_input_id: row.document_type_ai_input_id,
@@ -328,7 +328,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { docId } = await params;
+    const { id: dealId, docId } = await params;
     const dealDocumentId = Number(docId);
     const body = await request.json();
     const items: any[] = Array.isArray(body) ? body : body.items ?? [];
@@ -340,13 +340,57 @@ export async function POST(request: Request, { params }: RouteContext) {
       );
     }
 
+    // Look up document_type_id for this deal_document so we can resolve
+    // UUID input_ids to bigint document_type_ai_input.id values
+    const { data: dealDoc } = await supabaseAdmin
+      .from("deal_documents")
+      .select("document_type_id")
+      .eq("id", dealDocumentId)
+      .eq("deal_id", dealId)
+      .single();
+
+    const documentTypeId = dealDoc?.document_type_id ?? null;
+
     const inputUpserts: any[] = [];
     const conditionUpserts: any[] = [];
 
     for (const item of items) {
       if (item.type === "input") {
+        let dtaiId = item.document_type_ai_input;
+
+        // The webhook may return input_id (int8) instead of
+        // document_type_ai_input.id (int8). Verify & resolve.
+        if (dtaiId != null && documentTypeId) {
+          // First check if it's a valid document_type_ai_input.id for this doc type
+          const { data: directMatch } = await supabaseAdmin
+            .from("document_type_ai_input")
+            .select("id")
+            .eq("id", dtaiId)
+            .eq("document_type_id", documentTypeId)
+            .maybeSingle();
+
+          if (!directMatch) {
+            // Not a direct ID match — try resolving as input_id
+            const { data: inputMatch } = await supabaseAdmin
+              .from("document_type_ai_input")
+              .select("id")
+              .eq("input_id", dtaiId)
+              .eq("document_type_id", documentTypeId)
+              .maybeSingle();
+
+            if (inputMatch) {
+              dtaiId = inputMatch.id;
+            } else {
+              console.error(
+                `[POST ai-results] Could not resolve document_type_ai_input for value=${dtaiId}, document_type_id=${documentTypeId}`
+              );
+              continue; // skip this item
+            }
+          }
+        }
+
         inputUpserts.push({
-          document_type_ai_input_id: item.document_type_ai_input,
+          document_type_ai_input_id: dtaiId,
           deal_document_id: dealDocumentId,
           response: item.output,
           ai_value: String(item.output?.answer ?? ""),

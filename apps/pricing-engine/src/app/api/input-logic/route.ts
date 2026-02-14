@@ -103,22 +103,22 @@ export async function GET(request: NextRequest) {
       conditions: (condRows ?? [])
         .filter((c) => c.input_logic_id === rule.id)
         .map((c) => ({
-          field: c.field ?? "",
+          field: c.field != null ? String(c.field) : "",
           operator: c.operator ?? "",
           value: c.value ?? "",
           value_type: c.value_type ?? "value",
-          value_field: c.value_field ?? undefined,
+          value_field: c.value_field != null ? String(c.value_field) : undefined,
           value_expression: c.value_expression ?? undefined,
         })),
       actions: (actionRows ?? [])
         .filter((a) => a.input_logic_id === rule.id)
         .map((a) => ({
-          input_id: a.input_id ?? "",
+          input_id: a.input_id != null ? String(a.input_id) : "",
           value_type: a.value_type ?? "value",
           value_text: a.value_text ?? "",
           value_visible: a.value_visible ?? undefined,
           value_required: a.value_required ?? undefined,
-          value_field: a.value_field ?? undefined,
+          value_field: a.value_field != null ? String(a.value_field) : undefined,
           value_expression: a.value_expression ?? undefined,
         })),
     }));

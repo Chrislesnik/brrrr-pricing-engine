@@ -17,7 +17,10 @@ export async function GET() {
       .order("display_order", { ascending: true })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data)
+
+    // Convert bigint id to string so the frontend can use it as object keys / Set entries
+    const normalized = (data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
+    return NextResponse.json(normalized)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/document-type-ai-inputs
  * Create an AI input prompt for a document type.
- * Body: { document_type_id: number, input_id: string, ai_prompt: string }
+ * Body: { document_type_id: number, input_id: number, ai_prompt: string }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 /**
  * PATCH /api/document-type-ai-inputs
  * Update an AI input prompt.
- * Body: { id: number, input_id?: string, ai_prompt?: string }
+ * Body: { id: number, input_id?: number, ai_prompt?: string }
  */
 export async function PATCH(req: NextRequest) {
   try {

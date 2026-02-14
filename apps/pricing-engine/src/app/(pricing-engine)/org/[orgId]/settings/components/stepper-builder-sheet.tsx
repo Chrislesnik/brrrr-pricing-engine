@@ -122,13 +122,13 @@ export function StepperBuilderSheet({
           const steppers = stepperData.steppers ?? [];
           if (steppers.length > 0) {
             const stepper = steppers[0];
-            setCurrentStepper(stepper);
-            setSelectedInputId(stepper.input_id);
+            setCurrentStepper({ ...stepper, input_id: String(stepper.input_id) });
+            setSelectedInputId(String(stepper.input_id));
             // Use saved step_order if available, otherwise fall back to dropdown options
             if (stepper.step_order && stepper.step_order.length > 0) {
               setStepOrder(stepper.step_order);
             } else {
-              const savedInput = loadedInputs.find((i: InputField) => i.id === stepper.input_id);
+              const savedInput = loadedInputs.find((i: InputField) => i.id === String(stepper.input_id));
               if (savedInput?.dropdown_options) {
                 setStepOrder(savedInput.dropdown_options);
               }

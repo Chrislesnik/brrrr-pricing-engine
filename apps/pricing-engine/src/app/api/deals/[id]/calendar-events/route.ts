@@ -15,7 +15,7 @@ interface CalendarEventRow {
   event_date: string; // "YYYY-MM-DD"
   event_time: string | null; // "HH:MM:SS+TZ" or null
   all_day: boolean | null;
-  deal_input_id: string | null;
+  deal_input_id: number | null;
   etiquette: string | null;
   created_at: string;
 }
@@ -134,7 +134,7 @@ export async function GET(
       event_date: string;
       event_time: null;
       all_day: boolean;
-      deal_input_id: string;
+      deal_input_id: number;
       etiquette: string;
     }> = [];
 
@@ -189,7 +189,7 @@ export async function GET(
         event_date: eventDate,
         event_time: e.event_time,
         all_day: e.all_day ?? true,
-        deal_input_id: e.deal_input_id,
+        deal_input_id: e.deal_input_id != null ? String(e.deal_input_id) : null,
         etiquette: e.etiquette,
         created_at: e.created_at,
       };

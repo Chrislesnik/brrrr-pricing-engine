@@ -40,7 +40,7 @@ export async function GET(_request: NextRequest) {
 /* -------------------------------------------------------------------------- */
 /*  POST /api/input-stepper                                                    */
 /*  Set the stepper input — replaces any existing stepper                      */
-/*  Body: { input_id: string }                                                 */
+/*  Body: { input_id: number }                                                 */
 /* -------------------------------------------------------------------------- */
 
 export async function POST(request: NextRequest) {

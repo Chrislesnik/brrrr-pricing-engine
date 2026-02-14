@@ -9,7 +9,7 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs";
 
 type DealInputRow = {
   deal_id: string;
-  input_id: string;
+  input_id: number;
   input_type: string;
   value_text: string | null;
   value_numeric: number | null;
@@ -255,7 +255,7 @@ export async function PATCH(
     const typeMap: Record<string, string> = {};
     if (inputMeta) {
       for (const row of inputMeta) {
-        typeMap[row.id] = row.input_type;
+        typeMap[String(row.id)] = row.input_type;
       }
     }
 
@@ -267,11 +267,11 @@ export async function PATCH(
       .in("input_id", inputIds);
 
     const existingSet = new Set(
-      (existingInputs ?? []).map((r) => r.input_id)
+      (existingInputs ?? []).map((r) => String(r.input_id))
     );
 
     const toUpdate: Array<{
-      input_id: string;
+      input_id: number;
       input_type: string;
       value_text: string | null;
       value_numeric: number | null;
@@ -281,7 +281,7 @@ export async function PATCH(
     }> = [];
     const toInsert: Array<{
       deal_id: string;
-      input_id: string;
+      input_id: number;
       input_type: string;
       value_text: string | null;
       value_numeric: number | null;
@@ -295,11 +295,11 @@ export async function PATCH(
       const valueCols = buildTypedValueColumns(inputType, value);
 
       if (existingSet.has(inputId)) {
-        toUpdate.push({ input_id: inputId, input_type: inputType, ...valueCols });
+        toUpdate.push({ input_id: Number(inputId), input_type: inputType, ...valueCols });
       } else {
         toInsert.push({
           deal_id: dealId,
-          input_id: inputId,
+          input_id: Number(inputId),
           input_type: inputType,
           ...valueCols,
         });

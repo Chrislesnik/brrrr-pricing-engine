@@ -18,7 +18,7 @@ type DealRow = {
 
 type DealInputRow = {
   deal_id: string
-  input_id: string
+  input_id: number
   input_type: string
   value_text: string | null
   value_numeric: number | null
