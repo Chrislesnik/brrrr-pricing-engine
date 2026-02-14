@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Developer Docs | BRRRR Pricing Engine",
+    default: "Developer Documentation",
     template: "%s | Developer Docs",
   },
   description: "API documentation, webhooks, and technical integration guides",

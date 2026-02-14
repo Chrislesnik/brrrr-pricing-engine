@@ -43,14 +43,12 @@ import { CalcInput } from "@/components/calc-input"
 interface InputCategory {
   id: number
   category: string
-  organization_id: string
   display_order: number
   created_at: string
 }
 
 interface InputField {
   id: string
-  input_code: string
   category_id: number
   category: string
   input_label: string

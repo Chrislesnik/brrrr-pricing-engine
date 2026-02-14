@@ -139,7 +139,6 @@ function MonthDayCell({
               onEventSelect(event);
             }}
             view="month"
-            currentDay={day}
           />
         ))}
         {hiddenCount > 0 && (

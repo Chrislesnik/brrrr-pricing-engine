@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       ai_input_id: ai.id,
       document_type_id: ai.document_type_id,
       document_type_name:
-        (ai.document_types as { id: number; document_name: string } | null)
+        (ai.document_types as unknown as { id: number; document_name: string } | null)
           ?.document_name ?? `Document #${ai.document_type_id}`,
       display_order: orderMap.get(ai.id as number) ?? 999,
       ai_prompt: ai.ai_prompt,

@@ -29,21 +29,22 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Fetch documents for this deal via document_files_deals
+    // Fetch documents for this deal from deal_documents
     const { data: documents, error } = await supabaseAdmin
-      .from("document_files_deals")
+      .from("deal_documents")
       .select(`
-        document_file_id,
-        document_files:document_file_id (
+        id,
+        file_name,
+        file_type,
+        file_size,
+        storage_path,
+        uploaded_by,
+        uploaded_at,
+        notes,
+        document_type_id,
+        document_types:document_type_id (
           id,
-          uuid,
           document_name,
-          file_type,
-          file_size,
-          storage_bucket,
-          storage_path,
-          uploaded_by,
-          uploaded_at,
           document_category_id,
           document_categories:document_category_id (
             id,
@@ -51,7 +52,8 @@ export async function GET(
           )
         )
       `)
-      .eq("deal_id", dealId);
+      .eq("deal_id", dealId)
+      .order("uploaded_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching documents:", error);
@@ -65,52 +67,62 @@ export async function GET(
     const uploaderIds = Array.from(
       new Set(
         (documents ?? [])
-          .filter((d: any) => d.document_files?.uploaded_by)
-          .map((d: any) => d.document_files.uploaded_by)
+          .filter((d: any) => d.uploaded_by)
+          .map((d: any) => d.uploaded_by)
       )
     );
 
     // Fetch user information for uploaders
-    const { data: uploaders } = await supabaseAdmin
-      .from("users")
-      .select("clerk_user_id, first_name, last_name, avatar_url")
-      .in("clerk_user_id", uploaderIds);
+    let uploaderMap = new Map<
+      string,
+      { name: string; avatarUrl: string | null }
+    >();
 
-    // Create a map of clerk_user_id to user info
-    const uploaderMap = new Map(
-      (uploaders ?? []).map((u: any) => [
-        u.clerk_user_id,
-        {
-          name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "Unknown User",
-          avatarUrl: u.avatar_url,
-        },
-      ])
-    );
+    if (uploaderIds.length > 0) {
+      const { data: uploaders } = await supabaseAdmin
+        .from("users")
+        .select("clerk_user_id, first_name, last_name, avatar_url")
+        .in("clerk_user_id", uploaderIds);
+
+      uploaderMap = new Map(
+        (uploaders ?? []).map((u: any) => [
+          u.clerk_user_id,
+          {
+            name:
+              [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+              "Unknown User",
+            avatarUrl: u.avatar_url,
+          },
+        ])
+      );
+    }
 
     // Transform the data
-    const transformedDocs = (documents ?? [])
-      .filter((d: any) => d.document_files)
-      .map((d: any) => {
-        const uploadedBy = d.document_files.uploaded_by;
-        const uploaderInfo = uploaderMap.get(uploadedBy) || {
-          name: "Unknown User",
-          avatarUrl: null,
-        };
+    const transformedDocs = (documents ?? []).map((d: any) => {
+      const uploaderInfo = uploaderMap.get(d.uploaded_by) || {
+        name: "Unknown User",
+        avatarUrl: null,
+      };
 
-        return {
-          id: d.document_files.id,
-          uuid: d.document_files.uuid,
-          name: d.document_files.document_name,
-          type: d.document_files.document_categories?.name || "Other",
-          size: d.document_files.file_size,
-          mimeType: d.document_files.file_type,
-          uploadedBy: uploadedBy,
-          uploadedByName: uploaderInfo.name,
-          uploadedByAvatar: uploaderInfo.avatarUrl,
-          uploadedAt: d.document_files.uploaded_at,
-          storagePath: d.document_files.storage_path,
-        };
-      });
+      // Resolve category name through document_types -> document_categories
+      const categoryName =
+        d.document_types?.document_categories?.name ||
+        d.document_types?.document_name ||
+        "Other";
+
+      return {
+        id: d.id,
+        name: d.file_name,
+        type: categoryName,
+        size: d.file_size || 0,
+        mimeType: d.file_type || "application/octet-stream",
+        uploadedBy: d.uploaded_by,
+        uploadedByName: uploaderInfo.name,
+        uploadedByAvatar: uploaderInfo.avatarUrl,
+        uploadedAt: d.uploaded_at,
+        storagePath: d.storage_path,
+      };
+    });
 
     return NextResponse.json({ documents: transformedDocs });
   } catch (error) {
@@ -151,7 +163,7 @@ export async function POST(
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const documentName = formData.get("documentName") as string;
-    const categoryId = formData.get("categoryId") as string;
+    const documentTypeId = formData.get("documentTypeId") as string;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -180,23 +192,23 @@ export async function POST(
       );
     }
 
-    // Create document_files record
-    const { data: docFile, error: docError } = await supabaseAdmin
-      .from("document_files")
+    // Create deal_documents record directly
+    const { data: dealDoc, error: docError } = await supabaseAdmin
+      .from("deal_documents")
       .insert({
-        document_name: documentName || file.name,
+        deal_id: dealId,
+        file_name: documentName || file.name,
         file_type: file.type,
         file_size: file.size,
-        storage_bucket: "deals",
         storage_path: storagePath,
         uploaded_by: userId,
         uploaded_at: new Date().toISOString(),
-        document_category_id: categoryId ? parseInt(categoryId) : null,
+        document_type_id: documentTypeId ? parseInt(documentTypeId) : null,
       })
       .select()
       .single();
 
-    if (docError || !docFile) {
+    if (docError || !dealDoc) {
       console.error("Error creating document record:", docError);
       // Cleanup uploaded file
       await supabaseAdmin.storage.from("deals").remove([storagePath]);
@@ -206,36 +218,14 @@ export async function POST(
       );
     }
 
-    // Link document to deal via document_files_deals
-    const { error: linkError } = await supabaseAdmin
-      .from("document_files_deals")
-      .insert({
-        deal_id: dealId,
-        document_file_id: docFile.id,
-        source_table: "document_files",
-        source_pk: docFile.id,
-      });
-
-    if (linkError) {
-      console.error("Error linking document to deal:", linkError);
-      // Cleanup
-      await supabaseAdmin.from("document_files").delete().eq("id", docFile.id);
-      await supabaseAdmin.storage.from("deals").remove([storagePath]);
-      return NextResponse.json(
-        { error: "Failed to link document to deal" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       document: {
-        id: docFile.id,
-        uuid: docFile.uuid,
-        name: docFile.document_name,
-        size: docFile.file_size,
-        type: file.type,
+        id: dealDoc.id,
+        name: dealDoc.file_name,
+        size: dealDoc.file_size,
+        type: dealDoc.file_type,
         uploadedBy: userId,
-        uploadedAt: docFile.uploaded_at,
+        uploadedAt: dealDoc.uploaded_at,
       },
     });
   } catch (error) {

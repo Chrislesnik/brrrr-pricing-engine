@@ -99,7 +99,7 @@ export function ImpersonationSwitcher() {
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="gap-2">
             <UserCog className="h-4 w-4" />
-            {isImpersonating ? "Switch User" : "View As User"}
+            {isImpersonating ? "Switch User" : "Impersonate"}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0">

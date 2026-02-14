@@ -16,12 +16,16 @@ export async function GET() {
       .select("*")
       .order("display_order", { ascending: true })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.error("[GET /api/inputs] Supabase error:", error.message, error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
     // Convert bigint id to string so the frontend can use it as object keys / Set entries
     const normalized = (data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
     return NextResponse.json(normalized)
   } catch (e) {
+    console.error("[GET /api/inputs] Unexpected error:", e)
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }
 }
@@ -68,13 +72,9 @@ export async function POST(req: NextRequest) {
 
     const nextOrder = (maxRow?.display_order ?? -1) + 1
 
-    // Generate a snake_case input_code from the label
-    const inputCode = input_label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
-
     const { data, error } = await supabaseAdmin
       .from("inputs")
       .insert({
-        input_code: inputCode,
         category_id,
         category: catRow.category,
         input_label: input_label.trim(),
@@ -205,7 +205,7 @@ export async function DELETE(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const id = body.id
+    const { id } = body
     if (!id) return NextResponse.json({ error: "Input id is required" }, { status: 400 })
 
     const { error } = await supabaseAdmin

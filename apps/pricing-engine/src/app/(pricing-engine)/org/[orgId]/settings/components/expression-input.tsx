@@ -170,7 +170,7 @@ function detectActiveFunction(
   const nameMatch = beforeParen.match(/([a-zA-Z]+)$/);
   if (!nameMatch) return null;
 
-  const fnName = nameMatch[1].toUpperCase();
+  const fnName = nameMatch[1].toUpperCase() as (typeof EXPRESSION_FUNCTIONS)[number]["name"];
   const fn = FUNCTION_MAP.get(fnName);
   if (!fn || fn.params.length === 0) return null;
 
@@ -214,7 +214,7 @@ function validateExpression(expr: string): { valid: boolean; error?: string } {
   const fnCallRegex = /([a-zA-Z]+)\s*\(/g;
   let fnMatch: RegExpExecArray | null;
   while ((fnMatch = fnCallRegex.exec(clean)) !== null) {
-    const name = fnMatch[1].toUpperCase();
+    const name = fnMatch[1].toUpperCase() as (typeof EXPRESSION_FUNCTIONS)[number]["name"];
     if (!FUNCTION_MAP.has(name)) {
       return { valid: false, error: `Unknown function: ${fnMatch[1]}` };
     }
@@ -224,7 +224,7 @@ function validateExpression(expr: string): { valid: boolean; error?: string } {
   const fnArgRegex = /([a-zA-Z]+)\s*\(/g;
   let argMatch: RegExpExecArray | null;
   while ((argMatch = fnArgRegex.exec(clean)) !== null) {
-    const name = argMatch[1].toUpperCase();
+    const name = argMatch[1].toUpperCase() as (typeof EXPRESSION_FUNCTIONS)[number]["name"];
     const fn = FUNCTION_MAP.get(name);
     if (!fn) continue; // already caught by step 2
 
@@ -399,17 +399,19 @@ export function ExpressionInput({
   // Get the "editable" text value — the segment at editingIndex
   const getEditableText = (): { segmentIndex: number; text: string } => {
     // Use editingIndex if it points to a valid text segment
+    const editSeg = segments[editingIndex];
     if (
       editingIndex >= 0 &&
       editingIndex < segments.length &&
-      segments[editingIndex].type === "text"
+      editSeg?.type === "text"
     ) {
-      return { segmentIndex: editingIndex, text: segments[editingIndex].value };
+      return { segmentIndex: editingIndex, text: editSeg.value };
     }
     // Fallback: find the last text segment
     for (let i = segments.length - 1; i >= 0; i--) {
-      if (segments[i].type === "text") {
-        return { segmentIndex: i, text: segments[i].value };
+      const seg = segments[i];
+      if (seg.type === "text") {
+        return { segmentIndex: i, text: seg.value };
       }
     }
     return { segmentIndex: -1, text: "" };
@@ -663,10 +665,11 @@ export function ExpressionInput({
     if (el && e.key === "ArrowLeft" && el.selectionStart === 0 && el.selectionEnd === 0) {
       // Find the previous text segment (skip over chips)
       for (let i = editingIndex - 1; i >= 0; i--) {
-        if (segments[i].type === "text") {
+        const prevSeg = segments[i];
+        if (prevSeg.type === "text") {
           e.preventDefault();
           setEditingIndex(i);
-          pendingFocusRef.current = { cursorPos: segments[i].value.length };
+          pendingFocusRef.current = { cursorPos: prevSeg.value.length };
           return;
         }
       }
@@ -705,8 +708,9 @@ export function ExpressionInput({
             if (merged[i].type === "text") { targetIdx = i; break; }
           }
           setEditingIndex(targetIdx);
-          const prevText = segmentIndex - 2 >= 0 && segments[segmentIndex - 2].type === "text"
-            ? segments[segmentIndex - 2].value.length
+          const prevChipSeg = segmentIndex - 2 >= 0 ? segments[segmentIndex - 2] : undefined;
+          const prevText = prevChipSeg?.type === "text"
+            ? prevChipSeg.value.length
             : 0;
           pendingFocusRef.current = { cursorPos: prevText };
           emitChange(merged);
@@ -723,7 +727,8 @@ export function ExpressionInput({
             const merged = normalizeSegments(newSegments);
             const newIdx = lastTextIndex(merged);
             setEditingIndex(newIdx);
-            pendingFocusRef.current = { cursorPos: merged[newIdx]?.type === "text" ? merged[newIdx].value.length : 0 };
+            const mergedSeg = merged[newIdx];
+            pendingFocusRef.current = { cursorPos: mergedSeg?.type === "text" ? mergedSeg.value.length : 0 };
             emitChange(merged);
             return;
           }
@@ -748,8 +753,9 @@ export function ExpressionInput({
     // Update editingIndex to nearest valid text segment
     const newIdx = lastTextIndex(merged);
     setEditingIndex(newIdx);
+    const lastSeg = merged[newIdx];
     pendingFocusRef.current = {
-      cursorPos: merged[newIdx]?.type === "text" ? merged[newIdx].value.length : 0,
+      cursorPos: lastSeg?.type === "text" ? lastSeg.value.length : 0,
     };
     emitChange(merged);
   };
@@ -782,7 +788,8 @@ export function ExpressionInput({
   /** Switch to editing a specific text segment */
   const switchToSegment = (segIdx: number, cursorPos?: number) => {
     setEditingIndex(segIdx);
-    pendingFocusRef.current = { cursorPos: cursorPos ?? segments[segIdx]?.value?.length ?? 0 };
+    const targetSeg = segments[segIdx];
+    pendingFocusRef.current = { cursorPos: cursorPos ?? (targetSeg?.type === "text" ? targetSeg.value.length : 0) };
   };
 
   return (
@@ -805,6 +812,7 @@ export function ExpressionInput({
                 {getInputLabel(seg.inputId)}
                 <button
                   type="button"
+                  aria-label={`Remove ${getInputLabel(seg.inputId)}`}
                   className="ml-0.5 rounded-sm opacity-70 hover:opacity-100"
                   onClick={(e) => {
                     e.stopPropagation();

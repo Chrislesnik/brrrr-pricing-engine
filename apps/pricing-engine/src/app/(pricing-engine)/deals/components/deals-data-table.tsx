@@ -426,6 +426,9 @@ export function DealsDataTable({
   const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const [starredInputs, setStarredInputs] = useState<StarredInput[]>([]);
+  const [rowComments, setRowComments] = useState<
+    Record<string, { comments: unknown[]; count: number; hasUnread: boolean }>
+  >({});
 
   // Fetch starred inputs on mount
   useEffect(() => {

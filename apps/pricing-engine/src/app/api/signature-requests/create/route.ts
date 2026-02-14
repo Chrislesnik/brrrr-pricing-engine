@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const { userId, orgId: clerkOrgId } = await auth()
 
-    if (!userId || !clerkOrgId) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -27,15 +27,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const orgUuid = await getOrgUuidFromClerkId(clerkOrgId)
-    if (!orgUuid) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
-    }
-
-    // Verify the deal belongs to the user's organization
+    // Fetch the deal with fields needed for access check
     const { data: deal, error: dealError } = await supabaseAdmin
       .from("deals")
-      .select("id, organization_id")
+      .select("id, organization_id, assigned_to_user_id, primary_user_id")
       .eq("id", dealId)
       .single()
 
@@ -43,7 +38,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 })
     }
 
-    if (deal.organization_id !== orgUuid) {
+    // Check access: org membership, assignment, primary user, or internal admin
+    const orgUuid = clerkOrgId ? await getOrgUuidFromClerkId(clerkOrgId) : null
+    const hasOrgAccess = orgUuid && deal.organization_id === orgUuid
+
+    const assignedUsers = Array.isArray(deal.assigned_to_user_id)
+      ? deal.assigned_to_user_id
+      : []
+    const isAssigned = assignedUsers.includes(userId)
+    const isPrimaryUser = deal.primary_user_id === userId
+
+    let isInternal = false
+    const { data: userRow } = await supabaseAdmin
+      .from("users")
+      .select("id, is_internal_yn")
+      .eq("clerk_user_id", userId)
+      .maybeSingle()
+    if (userRow) {
+      isInternal = Boolean(userRow.is_internal_yn)
+    }
+
+    if (!hasOrgAccess && !isAssigned && !isPrimaryUser && !isInternal) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
@@ -54,7 +69,7 @@ export async function POST(req: NextRequest) {
       token: presignData.token,
       expiresAt: presignData.expiresAt,
       dealId,
-      organizationId: orgUuid,
+      organizationId: orgUuid ?? deal.organization_id,
       userId,
     })
   } catch (error) {

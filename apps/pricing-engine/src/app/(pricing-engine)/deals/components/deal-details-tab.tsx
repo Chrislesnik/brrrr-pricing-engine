@@ -48,7 +48,6 @@ interface InputCategory {
 
 interface InputField {
   id: string;
-  input_code: string;
   category_id: number;
   category: string;
   input_label: string;

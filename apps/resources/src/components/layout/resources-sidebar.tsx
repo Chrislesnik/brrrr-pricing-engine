@@ -169,7 +169,7 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
     }
 
     return groups.map((group, groupIndex) => (
-      <SidebarGroup key={groupIndex} className="px-0">
+      <SidebarGroup key={groupIndex}>
         {group.title && (
           <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
             {group.indexUrl ? (
@@ -192,12 +192,12 @@ export function ResourcesSidebar({ tree, ...props }: ResourcesSidebarProps) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="pt-3">
         <TeamSwitcherV2 />
         <WorkspaceSwitcher />
         <NavSearch />
       </SidebarHeader>
-      <SidebarContent className="gap-0">
+      <SidebarContent>
         {renderGroupedContent()}
       </SidebarContent>
       <SidebarFooter>

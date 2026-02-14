@@ -151,3 +151,126 @@ button.lb-composer-action:last-child:hover,
 .lb-comment-body > p:only-child:empty {
   display: none !important;
 }
+
+/* -----------------------------------------------------------------------
+   Liveblocks Mentions — popover, suggestion items, avatars, mention pills.
+   Selectors are doubled (.lb-root .lb-*) to beat built-in specificity.
+   ----------------------------------------------------------------------- */
+
+/* ── Floating suggestions container ─────────────────────────────────── */
+.lb-root .lb-composer-suggestions,
+.lb-root .lb-composer-mention-suggestions,
+.lb-composer-suggestions[class],
+.lb-composer-mention-suggestions[class] {
+  z-index: 9999 !important;
+  min-width: 240px !important;
+  max-width: 300px !important;
+  max-height: 260px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow:
+    0 0 0 1px hsl(var(--border) / 0.5),
+    0 4px 16px hsl(0 0% 0% / 0.35),
+    0 12px 32px hsl(0 0% 0% / 0.2) !important;
+  padding: 4px !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* Inner list — reset so container handles spacing */
+.lb-root .lb-composer-suggestions-list,
+.lb-composer-suggestions-list[class] {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+/* ── Individual suggestion row ──────────────────────────────────────── */
+.lb-root .lb-composer-suggestions-list-item,
+.lb-root .lb-composer-mention-suggestion,
+.lb-composer-suggestions-list-item[class],
+.lb-composer-mention-suggestion[class] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.625rem !important;
+  padding: 8px 10px !important;
+  border-radius: 0.375rem !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.35 !important;
+  color: hsl(var(--foreground)) !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease !important;
+  background: transparent !important;
+}
+
+.lb-root .lb-composer-suggestions-list-item:hover,
+.lb-root .lb-composer-suggestions-list-item[data-selected],
+.lb-root .lb-composer-mention-suggestion:hover,
+.lb-root .lb-composer-mention-suggestion[data-selected],
+.lb-composer-suggestions-list-item[data-selected],
+.lb-composer-mention-suggestion[data-selected] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* ── Avatar inside suggestion rows ──────────────────────────────────── */
+.lb-root .lb-composer-mention-suggestion-avatar,
+.lb-root .lb-composer-suggestions-list-item .lb-avatar,
+.lb-composer-mention-suggestion-avatar[class],
+.lb-composer-suggestions-list-item .lb-avatar[class] {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  border-radius: 50% !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Avatar fallback initials */
+.lb-root .lb-composer-mention-suggestion-avatar .lb-avatar-fallback,
+.lb-root .lb-composer-suggestions-list-item .lb-avatar .lb-avatar-fallback {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Group description ──────────────────────────────────────────────── */
+.lb-root .lb-composer-mention-suggestion-group-description,
+.lb-composer-mention-suggestion-group-description[class] {
+  font-size: 0.6875rem !important;
+  color: hsl(var(--muted-foreground)) !important;
+  padding: 6px 10px 2px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 600 !important;
+}
+
+/* ── Mention pills inside editor & rendered comments ────────────────── */
+.lb-root .lb-mention,
+.lb-root .lb-composer-mention,
+.lb-mention[class],
+.lb-composer-mention[class] {
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+  border-radius: 0.25rem !important;
+  padding: 0.1em 0.3em !important;
+  font-weight: 500 !important;
+  font-size: inherit !important;
+}
+
+.lb-root .lb-mention-symbol,
+.lb-mention-symbol[class] {
+  opacity: 0.7 !important;
+}

@@ -17,58 +17,38 @@ export async function DELETE(
 
     const { id: dealId, docId } = await params;
 
-    // Get document info
-    const { data: docFile, error: docError } = await supabaseAdmin
-      .from("document_files")
-      .select("id, storage_bucket, storage_path")
+    // Get document info from deal_documents
+    const { data: dealDoc, error: docError } = await supabaseAdmin
+      .from("deal_documents")
+      .select("id, storage_path")
       .eq("id", docId)
+      .eq("deal_id", dealId)
       .single();
 
-    if (docError || !docFile) {
+    if (docError || !dealDoc) {
       return NextResponse.json(
-        { error: "Document not found" },
+        { error: "Document not found for this deal" },
         { status: 404 }
       );
     }
 
-    // Verify document is linked to this deal
-    const { data: linkExists } = await supabaseAdmin
-      .from("document_files_deals")
-      .select("deal_id")
-      .eq("deal_id", dealId)
-      .eq("document_file_id", docId)
-      .single();
-
-    if (!linkExists) {
-      return NextResponse.json(
-        { error: "Document not associated with this deal" },
-        { status: 403 }
-      );
-    }
-
     // Delete from storage
-    if (docFile.storage_bucket && docFile.storage_path) {
+    if (dealDoc.storage_path) {
       const { error: storageError } = await supabaseAdmin.storage
-        .from(docFile.storage_bucket)
-        .remove([docFile.storage_path]);
+        .from("deals")
+        .remove([dealDoc.storage_path]);
 
       if (storageError) {
         console.error("Storage delete error:", storageError);
       }
     }
 
-    // Delete the link
-    await supabaseAdmin
-      .from("document_files_deals")
-      .delete()
-      .eq("deal_id", dealId)
-      .eq("document_file_id", docId);
-
-    // Delete document record (this will cascade delete other links if any)
+    // Delete the deal_documents record
     const { error: deleteError } = await supabaseAdmin
-      .from("document_files")
+      .from("deal_documents")
       .delete()
-      .eq("id", docId);
+      .eq("id", docId)
+      .eq("deal_id", dealId);
 
     if (deleteError) {
       console.error("Error deleting document:", deleteError);

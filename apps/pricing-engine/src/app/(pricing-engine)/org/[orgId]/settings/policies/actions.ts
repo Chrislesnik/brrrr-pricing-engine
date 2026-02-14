@@ -3,16 +3,22 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-export type PolicyRuleInput = {
-  orgRole?: string;
-  memberRole?: string;
-  orgType?: string; // "any" | "internal" | "external"
-  operator?: "AND" | "OR"; // How to combine conditions within this rule
+// v2 condition-based input
+export type ConditionInput = {
+  field: string;      // "org_role" | "member_role" | "org_type" | "internal_user"
+  operator: "is" | "is_not";
+  values: string[];
 };
+
+export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
+export type PolicyEffect = "ALLOW" | "DENY";
 
 export type PolicyDefinitionInput = {
   allowInternalUsers: boolean;
-  rules: PolicyRuleInput[];
+  conditions: ConditionInput[];
+  connector: "AND" | "OR";
+  scope?: PolicyScope;
+  effect?: PolicyEffect;
 };
 
 export type OrgPolicyRow = {
@@ -22,6 +28,8 @@ export type OrgPolicyRow = {
   action: "select" | "insert" | "update" | "delete" | "all";
   definition_json: Record<string, unknown>;
   compiled_config: Record<string, unknown>;
+  scope: PolicyScope;
+  effect: PolicyEffect;
   version: number;
   is_active: boolean;
   created_at: string;
@@ -29,6 +37,7 @@ export type OrgPolicyRow = {
 
 type SavePolicyInput = {
   resourceType: "table" | "storage_bucket";
+  resourceName?: string; // specific table/bucket name, defaults to "*" (all)
   actions: Array<"select" | "insert" | "update" | "delete">;
   definition: PolicyDefinitionInput;
 };
@@ -127,32 +136,31 @@ function normalizeRole(value?: string) {
 }
 
 function compilePolicy(definition: PolicyDefinitionInput) {
-  const allowInternalUsers = !!definition.allowInternalUsers;
-  const pairs = new Set<string>();
-
-  for (const rule of definition.rules ?? []) {
-    const orgRole = normalizeRole(rule.orgRole) || "*";
-    const memberRole = normalizeRole(rule.memberRole) || "*";
-    pairs.add(`${orgRole}|${memberRole}`);
-  }
-
-  const allowedRolePairs = Array.from(pairs);
-
   return {
-    allow_internal_users: allowInternalUsers,
-    allowed_role_pairs: allowedRolePairs,
+    version: 2,
+    allow_internal_users: !!definition.allowInternalUsers,
+    conditions: (definition.conditions ?? []).map((c) => ({
+      field: c.field,
+      operator: c.operator,
+      values: c.values.map((v) => v.toLowerCase()),
+    })),
+    connector: definition.connector || "AND",
+    scope: definition.scope || "all",
   };
 }
 
 function buildDefinition(definition: PolicyDefinitionInput) {
   return {
-    version: 1,
+    version: 2,
     effect: "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
-    rules: (definition.rules ?? []).map((rule) => ({
-      org_role: normalizeRole(rule.orgRole) || "*",
-      member_role: normalizeRole(rule.memberRole) || "*",
+    conditions: (definition.conditions ?? []).map((c) => ({
+      field: c.field,
+      operator: c.operator,
+      values: c.values,
     })),
+    connector: definition.connector || "AND",
+    scope: definition.scope || "all",
   };
 }
 
@@ -167,7 +175,7 @@ export async function getOrgPolicies(): Promise<{
   const { data, error } = await supabase
     .from("organization_policies")
     .select(
-      "id,resource_type,resource_name,action,definition_json,compiled_config,version,is_active,created_at"
+      "id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
     )
     .eq("org_id", orgPk)
     .order("created_at", { ascending: false });
@@ -192,33 +200,38 @@ export async function saveOrgPolicy(
 
   if (
     !compiledConfig.allow_internal_users &&
-    (!compiledConfig.allowed_role_pairs ||
-      compiledConfig.allowed_role_pairs.length === 0)
+    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
   ) {
-    throw new Error("At least one rule or internal-user allowance is required.");
+    throw new Error("At least one condition or internal-user allowance is required.");
   }
 
+  // Self-lockout protection: owners and admins can always save policies
+  // (the DB-level is_org_owner/is_org_admin bypass ensures they're never locked out)
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
-  const currentUserAllowed =
-    normalizedOrgRole === "owner" ||
-    compiledConfig.allowed_role_pairs.some((pair) => {
-      const [orgRolePart, memberRolePart] = pair.split("|");
-      return (
-        (orgRolePart === "*" || orgRolePart === normalizedOrgRole) &&
-        memberRolePart === "*"
-      );
-    }) ||
-    compiledConfig.allow_internal_users;
+  const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
 
-  if (!currentUserAllowed && normalizedOrgRole !== "owner") {
-    throw new Error(
-      "This policy would deny your access based on your org role. Update the rules or use an owner account."
-    );
+  if (!isPrivileged) {
+    // For non-admin users, check if the policy would still grant them access
+    const currentUserAllowed =
+      compiledConfig.allow_internal_users ||
+      compiledConfig.conditions.some((c: { field: string; operator: string; values: string[] }) =>
+        c.field === "org_role" &&
+        c.operator === "is" &&
+        (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+      );
+
+    if (!currentUserAllowed) {
+      throw new Error(
+        "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
+      );
+    }
   }
 
   const actions = input.actions.length
     ? input.actions
     : ["select", "insert", "update", "delete"];
+
+  const resourceName = input.resourceName || "*";
 
   const rows = await Promise.all(
     actions.map(async (action) => {
@@ -227,18 +240,20 @@ export async function saveOrgPolicy(
         .select("id,version")
         .eq("org_id", orgPk)
         .eq("resource_type", input.resourceType)
-        .eq("resource_name", "*")
+        .eq("resource_name", resourceName)
         .eq("action", action)
         .maybeSingle();
 
       return {
-        id: existing?.id,
+        id: existing?.id ?? crypto.randomUUID(),
         org_id: orgPk,
         resource_type: input.resourceType,
-        resource_name: "*",
+        resource_name: resourceName,
         action,
         definition_json: definitionJson,
         compiled_config: compiledConfig,
+        scope: input.definition.scope || "all",
+        effect: input.definition.effect || "ALLOW",
         version: (existing?.version ?? 0) + 1,
         is_active: true,
         created_by_clerk_sub: userId,
@@ -267,6 +282,118 @@ export async function setOrgPolicyActive(input: {
   const { error } = await supabase
     .from("organization_policies")
     .update({ is_active: input.isActive })
+    .eq("id", input.id);
+
+  if (error) throw new Error(error.message);
+
+  return { ok: true };
+}
+
+export async function updateOrgPolicy(input: {
+  id: string;
+  definition: PolicyDefinitionInput;
+}): Promise<{ ok: true }> {
+  const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const compiledConfig = compilePolicy(input.definition);
+  const definitionJson = buildDefinition(input.definition);
+
+  if (
+    !compiledConfig.allow_internal_users &&
+    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
+  ) {
+    throw new Error("At least one condition or internal-user allowance is required.");
+  }
+
+  const normalizedOrgRole = normalizeRole(orgRole ?? "");
+  const currentUserAllowed =
+    normalizedOrgRole === "owner" ||
+    compiledConfig.allow_internal_users ||
+    compiledConfig.conditions.some(
+      (c: { field: string; operator: string; values: string[] }) =>
+        c.field === "org_role" &&
+        c.operator === "is" &&
+        (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+    );
+
+  if (!currentUserAllowed && normalizedOrgRole !== "owner") {
+    throw new Error(
+      "This policy would deny your access based on your org role. Update the conditions or use an owner account."
+    );
+  }
+
+  const { error } = await supabase
+    .from("organization_policies")
+    .update({
+      definition_json: definitionJson,
+      compiled_config: compiledConfig,
+      scope: input.definition.scope || "all",
+      effect: input.definition.effect || "ALLOW",
+      created_by_clerk_sub: userId,
+    })
+    .eq("id", input.id);
+
+  if (error) throw new Error(error.message);
+
+  return { ok: true };
+}
+
+export async function getAvailableResources(): Promise<{
+  tables: string[];
+  buckets: string[];
+}> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  // Fetch public table names (excluding system/excluded tables)
+  const excludedTables = [
+    "organization_policies",
+    "organizations",
+    "organization_members",
+    "users",
+    "organization_member_roles",
+    "schema_migrations",
+  ];
+
+  const { data: tables } = await supabase.rpc("get_public_table_names").select();
+
+  // Fetch storage buckets
+  const { data: buckets } = await supabase.storage.listBuckets();
+
+  return {
+    tables: (tables as Array<{ table_name: string }> | null)
+      ?.map((t) => t.table_name)
+      .filter((t) => !excludedTables.includes(t))
+      .sort() ?? [],
+    buckets: buckets?.map((b) => b.name).sort() ?? [],
+  };
+}
+
+export async function getColumnFilters(): Promise<
+  Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { data } = await supabase
+    .from("organization_policies_column_filters")
+    .select("table_name,org_column,user_column")
+    .eq("is_excluded", false)
+    .order("table_name");
+
+  return (data ?? []) as Array<{ table_name: string; org_column: string | null; user_column: string | null }>;
+}
+
+export async function deleteOrgPolicy(input: {
+  id: string;
+}): Promise<{ ok: true }> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { error } = await supabase
+    .from("organization_policies")
+    .delete()
     .eq("id", input.id);
 
   if (error) throw new Error(error.message);

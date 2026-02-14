@@ -18,6 +18,7 @@ import {
 } from "@tanstack/react-table"
 import { ChevronDown, Trash2, Upload } from "lucide-react"
 import { cn } from "@repo/lib/cn"
+import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
 import { Button } from "@repo/ui/shadcn/button"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import {
@@ -709,3 +710,34 @@ function UploadList() {
   )
 }
 
+interface StartModalProps {
+  row: AppRow | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+function StartModal({ row, open, onOpenChange }: StartModalProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (open && scrollRef.current) {
+      scrollRef.current.scrollTop = 0
+    }
+  }, [open])
+
+  if (!row) return null
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="h-[90vh] w-[75vw] max-w-[1100px] border-none p-0 shadow-2xl sm:max-w-[1200px]">
+        <DialogTitle className="sr-only">Application workflow</DialogTitle>
+        <div ref={scrollRef} className="h-full overflow-hidden">
+          <MultiStepForm
+            entityName={row.borrowerEntityName}
+            guarantors={row.guarantors ?? undefined}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

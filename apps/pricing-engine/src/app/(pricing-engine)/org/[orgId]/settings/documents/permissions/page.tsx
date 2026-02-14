@@ -100,7 +100,7 @@ export default async function PermissionsPage({
               {error.includes("RLS") && (
                 <div className="text-sm space-y-2">
                   <p className="font-semibold">Row Level Security (RLS) Issue:</p>
-                  <p>The <code className="bg-muted px-1 rounded">auth_clerk_orgs</code> table may need RLS policies configured.</p>
+                  <p>The <code className="bg-muted px-1 rounded">organizations</code> table may need RLS policies configured.</p>
                   <p>Check your Supabase Dashboard → Authentication → Policies</p>
                 </div>
               )}

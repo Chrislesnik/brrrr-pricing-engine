@@ -9,17 +9,20 @@ import { cn } from "@repo/lib/cn";
 interface SearchFormProps extends React.ComponentProps<"div"> {
   onOpenTeamSwitcher?: () => void;
   variant?: "default" | "sidebar";
+  disableShortcut?: boolean;
 }
 
 export function SearchForm({
   className,
   onOpenTeamSwitcher,
   variant = "default",
+  disableShortcut = false,
   ...props
 }: SearchFormProps) {
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
+    if (disableShortcut) return;
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -29,7 +32,7 @@ export function SearchForm({
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [disableShortcut]);
 
   return (
     <>

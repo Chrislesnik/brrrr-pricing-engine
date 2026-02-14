@@ -12,7 +12,7 @@ interface PageProps {
   }>;
 }
 
-export default async function DocsPage({ params }: PageProps) {
+export default async function DocsSlugPage({ params }: PageProps) {
   const { slug = [] } = await params;
   const { isEnabled } = await draftMode();
 
@@ -49,6 +49,7 @@ export default async function DocsPage({ params }: PageProps) {
               richText: {
                 json: {
                   content: true,
+                  toc: true,
                 },
               },
             },
@@ -114,77 +115,76 @@ function DocsIndexContent({ data }: { data: any }) {
   }, {});
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <div className="prose prose-neutral dark:prose-invert max-w-none">
-      <h1>Documentation</h1>
+    <article className="flex w-full flex-1 flex-col gap-6 px-4 py-8 md:px-8 lg:px-12">
+      <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
       <p className="text-muted-foreground">
         Browse all available documentation for the BRRRR Pricing Engine API.
       </p>
-
-      <div className="not-prose mt-8 space-y-8">
-        {Object.keys(groupedDocs).length > 0 ? (
-          Object.entries(groupedDocs).map(([category, items]: [string, any]) => (
-            <div key={category}>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                {category}
-              </h2>
-              <div className="grid gap-3">
-                {items.map((item: any) => (
-                  <Link
-                    key={item._id}
-                    href={`/docs/${item._slug}`}
-                    className="group block rounded-lg border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-md bg-primary/10 p-2 group-hover:bg-primary/20 transition-colors">
-                        <FileText className="h-5 w-5 text-primary" />
+      <div className="prose prose-neutral dark:prose-invert max-w-none">
+        <div className="not-prose mt-4 space-y-8">
+          {Object.keys(groupedDocs).length > 0 ? (
+            Object.entries(groupedDocs).map(([category, items]: [string, any]) => (
+              <div key={category}>
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  {category}
+                </h2>
+                <div className="grid gap-3">
+                  {items.map((item: any) => (
+                    <Link
+                      key={item._id}
+                      href={`/docs/${item._slug}`}
+                      className="group block rounded-lg border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-md bg-primary/10 p-2 group-hover:bg-primary/20 transition-colors">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium group-hover:text-primary transition-colors">
+                            {item._title}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            View documentation
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium group-hover:text-primary transition-colors">
-                          {item._title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          View documentation
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
+                </div>
               </div>
+            ))
+          ) : (
+            <div className="rounded-lg border bg-card p-8 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No documentation yet</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Add content to your BaseHub repository to see it here. Documentation
+                will automatically sync and appear in this section.
+              </p>
             </div>
-          ))
-        ) : (
-          <div className="rounded-lg border bg-card p-8 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No documentation yet</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Add content to your BaseHub repository to see it here. Documentation
-              will automatically sync and appear in this section.
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-    </div>
+    </article>
   );
 }
 
 function DocsContent({ item }: { item: any }) {
   return (
-    <article className="mx-auto max-w-4xl p-6">
+    <article className="flex w-full flex-1 flex-col gap-6 px-4 py-8 md:px-8 lg:px-12">
+      <h1 className="text-3xl font-bold tracking-tight">{item._title}</h1>
+      {item.category ? (
+        <p className="text-muted-foreground -mt-2">{item.category}</p>
+      ) : null}
       <div className="prose prose-neutral dark:prose-invert max-w-none">
-        <h1>{item._title}</h1>
-        {item.category && (
-          <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80 mb-4">
-            {item.category}
-          </div>
-        )}
-        {item.richText ? (
-          <div className="mt-6">
+        {item.richText?.json?.content ? (
+          <div className="mt-2">
             <RichText>{item.richText.json.content}</RichText>
           </div>
         ) : (
-          <p className="text-muted-foreground mt-6">No content available for this document.</p>
+          <p className="text-muted-foreground mt-6">
+            No content available for this document.
+          </p>
         )}
       </div>
     </article>

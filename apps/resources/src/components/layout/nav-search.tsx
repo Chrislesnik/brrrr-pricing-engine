@@ -1,20 +1,24 @@
 "use client";
 
-import { Search } from "lucide-react";
-import { SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@repo/ui/shadcn/sidebar";
+import { SearchForm } from "@/components/layout/search-form";
+
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+} from "@repo/ui/shadcn/sidebar";
 
 export function NavSearch() {
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          className="text-sidebar-foreground/70"
-          tooltip="Search documentation"
-        >
-          <Search className="h-4 w-4" />
-          <span>Search</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <SidebarGroup>
+      <SidebarGroupContent className="flex flex-col gap-2">
+        <SidebarMenu className="w-full">
+          <SidebarMenuItem className="flex items-center gap-2 w-full">
+            <SearchForm variant="sidebar" disableShortcut className="w-full" />
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }

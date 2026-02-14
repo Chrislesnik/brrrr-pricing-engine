@@ -1,4 +1,4 @@
-import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconPalette, IconFileText } from "@tabler/icons-react"
+import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconPalette, IconFileText, IconSquareRoundedNumber1, IconSquareRoundedNumber2, IconSquareRoundedNumber3, IconSquareRoundedNumber4, IconSquareRoundedNumber5, IconSquareRoundedNumber6, IconSquareRoundedNumber7, IconSquareRoundedNumber8, IconSquareRoundedNumber9, IconSquareRoundedNumber0 } from "@tabler/icons-react"
 import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Logo } from "@/components/logo"
@@ -40,7 +40,7 @@ export const sidebarData: SidebarData = {
         },
         {
           title: "Loan Setup",
-          icon: IconApps,
+          icon: IconSquareRoundedNumber1,
           items: [
             {
               title: "Applications",
@@ -50,18 +50,59 @@ export const sidebarData: SidebarData = {
           ],
         },
         {
-          title: "Applicants",
+          title: "Processing 1",
+          icon: IconSquareRoundedNumber2,
+        },
+        {
+          title: "Appraisal Review",
+          icon: IconSquareRoundedNumber3,
+        },
+        {
+          title: "Processing 2",
+          icon: IconSquareRoundedNumber4,
+        },
+        {
+          title: "QC 1",
+          icon: IconSquareRoundedNumber5,
+        },
+        {
+          title: "Underwriting",
+          icon: IconSquareRoundedNumber6,
+        },
+        {
+          title: "Conditionally Approved",
+          icon: IconSquareRoundedNumber7,
+        },
+        {
+          title: "QC 2",
+          icon: IconSquareRoundedNumber8,
+        },
+        {
+          title: "Clear to Close",
+          icon: IconSquareRoundedNumber9,
+        },
+        {
+          title: "Closed and Funded",
+          icon: IconSquareRoundedNumber0,
+        },
+        {
+          title: "Borrowers",
           icon: IconUsers,
           items: [
             {
-              title: "Borrowers",
-              url: "/applicants/borrowers",
+              title: "Individuals",
+              url: "/contacts/borrowers",
               icon: IconUser,
             },
             {
               title: "Entities",
-              url: "/applicants/entities",
+              url: "/contacts/entities",
               icon: IconBuilding,
+            },
+            {
+              title: "Guarantors",
+              url: "/contacts/guarantors",
+              icon: IconUser,
             },
           ],
         },
@@ -70,6 +111,11 @@ export const sidebarData: SidebarData = {
           url: "/brokers",
           icon: IconUser,
           denyOrgRoles: ["org:broker", "broker"],
+        },
+        {
+          title: "3rd Parties",
+          url: "/contacts/third-parties",
+          icon: IconUser,
         },
         {
           title: "AI Agent",

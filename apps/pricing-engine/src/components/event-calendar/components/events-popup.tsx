@@ -39,7 +39,6 @@ export function EventsPopup({
               event={event}
               onClick={() => onEventSelect(event)}
               view="month"
-              currentDay={date}
             />
           ))}
         </div>

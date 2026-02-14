@@ -66,7 +66,6 @@ interface InputCategory {
 
 interface InputField {
   id: string;
-  input_code: string;
   category_id: number;
   category: string;
   input_label: string;
@@ -298,12 +297,12 @@ export function InputsSettings() {
     }
   };
 
-  const handleDeleteInput = async (id: string) => {
+  const handleDeleteInput = async (inputCode: string) => {
     try {
       await fetch("/api/inputs", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: inputCode }),
       });
       await fetchData();
     } catch (err) {

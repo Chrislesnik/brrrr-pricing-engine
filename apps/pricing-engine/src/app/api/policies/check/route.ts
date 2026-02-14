@@ -38,9 +38,10 @@ export async function POST(req: Request) {
 
   let token: string | null = null;
   try {
-    token = await getToken();
-  } catch {
     token = await getToken({ template: "supabase" });
+  } catch (error) {
+    console.error("Error getting Supabase token:", error);
+    return new Response("Failed to get Supabase authentication token", { status: 500 });
   }
 
   if (!token) {

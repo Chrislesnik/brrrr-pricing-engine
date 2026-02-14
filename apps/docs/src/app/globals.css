@@ -1,4 +1,59 @@
-/* Import shared UI styles */
 @import "@repo/ui/globals.css";
 
-/* App-specific styles can be added below */
+/* Sidebar menu collapse animation */
+.CollapsibleContent {
+  overflow: hidden;
+}
+.CollapsibleContent[data-state="open"] {
+  animation: slideDown 300ms ease-out;
+}
+.CollapsibleContent[data-state="closed"] {
+  animation: slideUp 300ms ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* Clerk components - ensure readable text in dark mode */
+.dark .cl-root,
+.dark .cl-root * {
+  color: #fff !important;
+}
+.dark .cl-userButtonTrigger,
+.dark .cl-userButtonTrigger *,
+.dark .cl-organizationSwitcherTrigger,
+.dark .cl-organizationSwitcherTrigger * {
+  color: #fff !important;
+}
+
+/* Clerk overlays/popovers */
+.cl-modalBackdrop,
+.cl-modal,
+.cl-userButtonPopoverRoot,
+.cl-organizationSwitcherPopoverRoot,
+.cl-organizationSwitcherPopoverCard,
+.cl-userButtonPopoverCard {
+  z-index: 100000 !important;
+}
+
+/* Clerk Pro - hide branding/watermark */
+.cl-footer,
+.cl-organizationSwitcherPopoverFooter,
+.cl-userButtonPopoverFooter {
+  display: none !important;
+}

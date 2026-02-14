@@ -111,7 +111,7 @@ export function ShareModal({
         <div className="mb-2 text-center font-semibold">{title}</div>
         <div className="flex flex-col gap-1">
           {/* Native Share (mobile) */}
-          {typeof navigator !== "undefined" && navigator.share && (
+          {typeof navigator !== "undefined" && !!navigator.share && (
             <button
               onClick={handleNativeShare}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"

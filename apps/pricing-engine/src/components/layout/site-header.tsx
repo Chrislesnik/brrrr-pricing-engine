@@ -19,7 +19,10 @@ const SearchForm = dynamic(
 );
 const ThemeSwitch = dynamic(
   () => import("@/components/theme-switch").then((mod) => mod.ThemeSwitch),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => <div className="h-8 w-8" />,
+  },
 );
 const PlatformSettingsPopover = dynamic(
   () =>

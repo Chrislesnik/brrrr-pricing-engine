@@ -85,7 +85,6 @@ type ValueType =
 
 interface InputField {
   id: string;
-  input_code: string;
   input_label: string;
   input_type: string;
   category: string;
@@ -781,7 +780,7 @@ function SearchableInputSelect({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const selectedLabel = inputs.find((inp) => inp.id === value)?.label;
+  const selectedLabel = inputs.find((inp) => inp.id === value)?.input_label;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -813,13 +812,13 @@ function SearchableInputSelect({
               {inputs.map((inp) => (
                 <CommandItem
                   key={inp.id}
-                  value={inp.label}
+                  value={inp.input_label}
                   onSelect={() => {
                     onValueChange(inp.id);
                     setOpen(false);
                   }}
                 >
-                  {inp.label}
+                  {inp.input_label}
                 </CommandItem>
               ))}
             </CommandGroup>

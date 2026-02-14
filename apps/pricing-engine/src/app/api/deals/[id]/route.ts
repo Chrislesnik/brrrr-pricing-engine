@@ -245,7 +245,7 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
-    // Fetch input metadata to know the type for each input_id
+    // Fetch input metadata to know the type for each input id
     const inputIds = entries.map(([key]) => key);
     const { data: inputMeta } = await supabaseAdmin
       .from("inputs")

@@ -34,11 +34,7 @@ USING (
       FROM document_files df
       WHERE (df.storage_bucket = 'deals'::text)
         AND (df.storage_path = objects.name)
-        AND can_access_deal_document(
-          df.id,
-          df.document_category_id,
-          'view'::text
-        )
+        AND can_access_document(df.id, 'view'::text)
     )
   )
 );
@@ -57,11 +53,7 @@ WITH CHECK (
       FROM document_files df
       WHERE (df.storage_bucket = 'deals'::text)
         AND (df.storage_path = objects.name)
-        AND can_access_deal_document(
-          df.id,
-          df.document_category_id,
-          'upload'::text
-        )
+        AND can_access_document(df.id, 'upload'::text)
     )
   )
 );
@@ -80,11 +72,7 @@ USING (
       FROM document_files df
       WHERE (df.storage_bucket = 'deals'::text)
         AND (df.storage_path = objects.name)
-        AND can_access_deal_document(
-          df.id,
-          df.document_category_id,
-          'upload'::text
-        )
+        AND can_access_document(df.id, 'upload'::text)
     )
   )
 )
@@ -95,11 +83,7 @@ WITH CHECK (
       FROM document_files df
       WHERE (df.storage_bucket = 'deals'::text)
         AND (df.storage_path = objects.name)
-        AND can_access_deal_document(
-          df.id,
-          df.document_category_id,
-          'upload'::text
-        )
+        AND can_access_document(df.id, 'upload'::text)
     )
   )
 );
@@ -118,11 +102,7 @@ USING (
       FROM document_files df
       WHERE (df.storage_bucket = 'deals'::text)
         AND (df.storage_path = objects.name)
-        AND can_access_deal_document(
-          df.id,
-          df.document_category_id,
-          'delete'::text
-        )
+        AND can_access_document(df.id, 'delete'::text)
     )
   )
 );

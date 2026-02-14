@@ -30,6 +30,10 @@ interface BaseNavItem {
    * If provided, this check takes precedence (even for owners).
    */
   allowOrgRoles?: string[]
+  /**
+   * Optional tooltip text shown on hover.
+   */
+  tooltip?: string
 }
 
 export type NavItem = BaseNavItem & {

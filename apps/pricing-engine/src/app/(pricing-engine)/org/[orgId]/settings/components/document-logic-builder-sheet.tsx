@@ -81,7 +81,6 @@ type ConditionValueType = "value" | "field" | "expression";
 
 interface InputField {
   id: string;
-  input_code: string;
   input_label: string;
   input_type: string;
   category: string;

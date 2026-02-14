@@ -1,8 +1,9 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
 import { ArrowLeft, Loader2, MessageSquare, Check } from "lucide-react";
@@ -11,6 +12,7 @@ import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
 import { DealSignatureRequestsTab } from "../components/deal-signature-requests-tab";
 import { DealCalendarTab } from "../components/deal-calendar-tab";
+import { DealTasksTab } from "../components/deal-tasks-tab";
 import { CommentsPanel } from "@/components/liveblocks/comments-panel";
 
 interface DealData {
@@ -41,6 +43,29 @@ function DealRecordContent() {
   const [stepperUpdating, setStepperUpdating] = useState(false);
   const [stepperAnimatingTo, setStepperAnimatingTo] = useState<number>(0);
   const [stepperRefreshKey, setStepperRefreshKey] = useState(0);
+
+  // Animated underline
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
+
+  const dealTabs = [
+    { name: "Details", value: "details" },
+    { name: "Tasks", value: "tasks" },
+    { name: "Documents", value: "documents" },
+    { name: "Signature Requests", value: "signature-requests" },
+    { name: "Calendar", value: "calendar" },
+  ];
+
+  useLayoutEffect(() => {
+    const activeIndex = dealTabs.findIndex((tab) => tab.value === activeTab);
+    const activeTabElement = tabRefs.current[activeIndex];
+    if (activeTabElement) {
+      setUnderlineStyle({
+        left: activeTabElement.offsetLeft,
+        width: activeTabElement.offsetWidth,
+      });
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     async function fetchDeal() {
@@ -196,165 +221,166 @@ function DealRecordContent() {
           </Button>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6">
-        <div className="flex items-center justify-between py-4 shrink-0">
-          <div className="flex items-center gap-4">
+        <div className="flex-1 overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-6 pt-5 pb-3">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
+              className="h-8 w-8 shrink-0"
               onClick={() => router.push("/deals")}
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back to Deals</span>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold leading-tight truncate">
                 Deal {deal.id.slice(0, 8)}
               </h1>
-              <p className="text-sm text-muted-foreground font-mono">
+              <p className="text-xs text-muted-foreground font-mono truncate">
                 {deal.id}
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Deal Stepper */}
-        {dealStepper && dealStepper.step_order.length > 0 && (() => {
-          const activeIdx = stepperAnimatingTo;
-          const totalSteps = dealStepper.step_order.length;
-          // Each step gets equal share; percentage of active step's center
-          const stepPct = 100 / totalSteps;
-          const activeCenterPct = activeIdx * stepPct + stepPct / 2;
-          // Shift so active step is centered: 50% - activeCenterPct%
-          const shift = Math.min(0, Math.max(-(100 - 100), 50 - activeCenterPct));
-          return (
-            <div className="pb-3 overflow-x-auto w-full" style={{ scrollbarWidth: "none" }}>
-              <div
-                className="flex transition-transform duration-500 ease-in-out"
-                style={{
-                  minWidth: `${totalSteps * 120}px`,
-                  transform: `translateX(${shift}%)`,
-                }}
-              >
-                {dealStepper.step_order.map((step, idx) => {
-                  const isCompleted = idx < activeIdx;
-                  const isActive = idx === activeIdx;
-                  const isLast = idx === totalSteps - 1;
-                  return (
-                    <div
-                      key={step}
-                      className={cn(
-                        "flex flex-col items-center gap-1 py-2 relative flex-1 min-w-0",
-                        stepperUpdating && "opacity-60"
-                      )}
-                    >
-                      {/* Connector line - before circle */}
-                      {idx > 0 && (
-                        <div
-                          className={cn(
-                            "absolute top-[26px] h-0.5 transition-colors duration-300",
-                            isCompleted || isActive ? "bg-success" : "bg-border"
-                          )}
-                          style={{ left: 0, width: "calc(50% - 22px)" }}
-                        />
-                      )}
-                      {/* Connector line - after circle */}
-                      {!isLast && (
-                        <div
-                          className={cn(
-                            "absolute top-[26px] h-0.5 transition-colors duration-300",
-                            isCompleted ? "bg-success" : "bg-border"
-                          )}
-                          style={{ right: 0, width: "calc(50% - 22px)" }}
-                        />
-                      )}
+          {/* Deal Stepper */}
+          {dealStepper && dealStepper.step_order.length > 0 && (() => {
+            const activeIdx = stepperAnimatingTo;
+            const totalSteps = dealStepper.step_order.length;
+            const stepPct = 100 / totalSteps;
+            const activeCenterPct = activeIdx * stepPct + stepPct / 2;
+            const shift = Math.min(0, Math.max(-(100 - 100), 50 - activeCenterPct));
+            return (
+              <div className="pb-3 px-6 overflow-x-auto w-full" style={{ scrollbarWidth: "none" }}>
+                <div
+                  className="flex transition-transform duration-500 ease-in-out"
+                  style={{
+                    minWidth: `${totalSteps * 120}px`,
+                    transform: `translateX(${shift}%)`,
+                  }}
+                >
+                  {dealStepper.step_order.map((step, idx) => {
+                    const isCompleted = idx < activeIdx;
+                    const isActive = idx === activeIdx;
+                    const isLast = idx === totalSteps - 1;
+                    return (
                       <div
+                        key={step}
                         className={cn(
-                          "flex items-center justify-center size-9 rounded-full border-2 text-sm font-semibold transition-all duration-300 relative z-10",
-                          isCompleted && "border-success bg-success text-success-foreground",
-                          isActive && "border-primary bg-primary text-primary-foreground",
-                          !isCompleted && !isActive && "border-border bg-background text-muted-foreground"
+                          "flex flex-col items-center gap-1 py-2 relative flex-1 min-w-0",
+                          stepperUpdating && "opacity-60"
                         )}
                       >
-                        {isCompleted ? <Check className="size-4" /> : idx + 1}
-                      </div>
-                      <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-                        Step {idx + 1}
-                      </div>
-                      <div className={cn(
-                        "text-xs font-semibold whitespace-nowrap",
-                        !isCompleted && !isActive && "text-muted-foreground"
-                      )}>
-                        {step}
-                      </div>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                          isCompleted && "bg-success/10 text-success",
-                          isActive && "bg-primary/10 text-primary",
-                          !isCompleted && !isActive && "bg-muted text-muted-foreground"
+                        {idx > 0 && (
+                          <div
+                            className={cn(
+                              "absolute top-[26px] h-0.5 transition-colors duration-300",
+                              isCompleted || isActive ? "bg-success" : "bg-border"
+                            )}
+                            style={{ left: 0, width: "calc(50% - 22px)" }}
+                          />
                         )}
-                      >
-                        {isCompleted ? "Completed" : isActive ? "In Progress" : "Pending"}
-                      </span>
-                    </div>
-                  );
-                })}
+                        {!isLast && (
+                          <div
+                            className={cn(
+                              "absolute top-[26px] h-0.5 transition-colors duration-300",
+                              isCompleted ? "bg-success" : "bg-border"
+                            )}
+                            style={{ right: 0, width: "calc(50% - 22px)" }}
+                          />
+                        )}
+                        <div
+                          className={cn(
+                            "flex items-center justify-center size-9 rounded-full border-2 text-sm font-semibold transition-all duration-300 relative z-10",
+                            isCompleted && "border-success bg-success text-success-foreground",
+                            isActive && "border-primary bg-primary text-primary-foreground",
+                            !isCompleted && !isActive && "border-border bg-background text-muted-foreground"
+                          )}
+                        >
+                          {isCompleted ? <Check className="size-4" /> : idx + 1}
+                        </div>
+                        <div className="text-[10px] font-semibold uppercase text-muted-foreground">
+                          Step {idx + 1}
+                        </div>
+                        <div className={cn(
+                          "text-xs font-semibold whitespace-nowrap",
+                          !isCompleted && !isActive && "text-muted-foreground"
+                        )}>
+                          {step}
+                        </div>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            isCompleted && "bg-success/10 text-success",
+                            isActive && "bg-primary/10 text-primary",
+                            !isCompleted && !isActive && "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {isCompleted ? "Completed" : isActive ? "In Progress" : "Pending"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+            );
+          })()}
+
+          {/* Tabs with animated underline */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+            <TabsList className="bg-background relative w-full justify-start rounded-none border-b p-0 h-auto px-6">
+              {dealTabs.map((tab, index) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  ref={(el) => {
+                    tabRefs.current[index] = el;
+                  }}
+                  className="bg-background dark:data-[state=active]:bg-background relative z-10 rounded-none border-0 px-4 py-2.5 text-sm data-[state=active]:shadow-none data-[state=active]:text-foreground"
+                >
+                  {tab.name}
+                </TabsTrigger>
+              ))}
+
+              <motion.div
+                className="bg-primary absolute bottom-0 z-20 h-0.5"
+                layoutId="deal-tabs-underline"
+                style={{
+                  left: underlineStyle.left,
+                  width: underlineStyle.width,
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 40,
+                }}
+              />
+            </TabsList>
+
+            {/* Tasks tab: full-bleed, no padding (Linear-style) */}
+            <TabsContent value="tasks" className="mt-0 flex-1">
+              <DealTasksTab dealId={dealId} />
+            </TabsContent>
+
+            {/* Other tabs: standard padding */}
+            <div className="flex-1 p-6">
+              <TabsContent value="details" className="mt-0">
+                <DealDetailsTab deal={deal} />
+              </TabsContent>
+
+              <TabsContent value="documents" className="mt-0">
+                <DealDocumentsTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
+              </TabsContent>
+
+              <TabsContent value="signature-requests" className="mt-0">
+                <DealSignatureRequestsTab dealId={dealId} />
+              </TabsContent>
+
+              <TabsContent value="calendar" className="mt-0">
+                <DealCalendarTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
+              </TabsContent>
             </div>
-          );
-        })()}
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto shrink-0">
-            <TabsTrigger
-              value="details"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
-              onClick={() => setActiveTab("details")}
-            >
-              Details
-            </TabsTrigger>
-            <TabsTrigger
-              value="documents"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
-              onClick={() => setActiveTab("documents")}
-            >
-              Documents
-            </TabsTrigger>
-            <TabsTrigger
-              value="signature-requests"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
-              onClick={() => setActiveTab("signature-requests")}
-            >
-              Signature Requests
-            </TabsTrigger>
-            <TabsTrigger
-              value="calendar"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
-              onClick={() => setActiveTab("calendar")}
-            >
-              Calendar
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 py-6">
-            <TabsContent value="details" className="mt-0">
-              <DealDetailsTab deal={deal} />
-            </TabsContent>
-            
-            <TabsContent value="documents" className="mt-0">
-              <DealDocumentsTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
-            </TabsContent>
-            
-            <TabsContent value="signature-requests" className="mt-0">
-              <DealSignatureRequestsTab dealId={dealId} />
-            </TabsContent>
-            
-            <TabsContent value="calendar" className="mt-0">
-              <DealCalendarTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
-            </TabsContent>
-          </div>
-        </Tabs>
+          </Tabs>
         </div>{/* end scroll wrapper */}
       </div>
 
