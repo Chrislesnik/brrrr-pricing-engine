@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconPlug, IconBuilding, IconListTree, IconFile, IconCircleNumber1, IconLayoutSidebarRightFilled, IconBriefcase, IconFolder, IconFilter, IconSquareRoundedNumber0, IconSquareRoundedNumber1, IconSquareRoundedNumber2, IconSquareRoundedNumber3, IconSquareRoundedNumber4, IconSquareRoundedNumber5, IconSquareRoundedNumber6, IconSquareRoundedNumber7, IconSquareRoundedNumber8, IconSquareRoundedNumber9 } from "@tabler/icons-react";
 import { FaUserShield } from "react-icons/fa6";
+import { TbHomeSearch } from "react-icons/tb";
 
 // ============================================================================
 // TYPES
@@ -60,6 +61,7 @@ export const ROUTES = {
   applications: "/applications",
   background: "/background",
   credit: "/credit",
+  appraisals: "/appraisals",
   contacts: {
     borrowers: {
       individuals: "/contacts/borrowers",
@@ -110,6 +112,12 @@ export const NAVIGATION_CONFIG: NavItem[] = [
             url: ROUTES.applications,
             icon: IconFolder,
             shortcut: ["A"],
+          },
+          {
+            title: "Appraisals",
+            url: ROUTES.appraisals,
+            icon: TbHomeSearch,
+            shortcut: ["P"],
           },
           {
             title: "Background",

@@ -112,6 +112,7 @@ button.lb-composer-action:last-child:hover,
    composer box has the same distance from the panel walls. */
 .lb-thread-composer {
   margin: 0.75rem !important;
+  margin-top: 2px !important;
 }
 
 /* Composer formatting toolbar */
