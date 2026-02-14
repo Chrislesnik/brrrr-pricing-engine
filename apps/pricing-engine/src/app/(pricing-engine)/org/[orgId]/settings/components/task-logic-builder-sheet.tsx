@@ -96,6 +96,19 @@ interface TaskTemplateItem {
   deal_stage_id: number | null;
 }
 
+interface LookupItem {
+  id: number;
+  code: string;
+  name: string;
+  color: string | null;
+}
+
+interface DealStage {
+  id: number;
+  name: string;
+  display_order: number;
+}
+
 interface Condition {
   field: string;
   operator: string;
@@ -110,6 +123,8 @@ interface Action {
   action_type: TaskActionValueType;
   value_visible?: boolean;
   value_required?: boolean;
+  required_status_id?: number | null;
+  required_for_stage_id?: number | null;
 }
 
 interface LogicRule {
@@ -283,6 +298,8 @@ export function TaskLogicBuilderSheet({
 }) {
   const [inputs, setInputs] = useState<InputField[]>([]);
   const [taskTemplates, setTaskTemplates] = useState<TaskTemplateItem[]>([]);
+  const [statuses, setStatuses] = useState<LookupItem[]>([]);
+  const [stages, setStages] = useState<DealStage[]>([]);
   const [rules, setRules] = useState<LogicRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -296,12 +313,17 @@ export function TaskLogicBuilderSheet({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [inputsRes, templatesRes] = await Promise.all([
-          fetch("/api/inputs"),
-          fetch("/api/task-templates"),
-        ]);
+        const [inputsRes, templatesRes, statusesRes, stagesRes] =
+          await Promise.all([
+            fetch("/api/inputs"),
+            fetch("/api/task-templates"),
+            fetch("/api/task-statuses"),
+            fetch("/api/deal-stages"),
+          ]);
         const inputsJson = await inputsRes.json().catch(() => []);
         const templatesJson = await templatesRes.json().catch(() => ({}));
+        const statusesJson = await statusesRes.json().catch(() => ({}));
+        const stagesJson = await stagesRes.json().catch(() => ({}));
         if (!cancelled) {
           setInputs(Array.isArray(inputsJson) ? inputsJson : []);
           setTaskTemplates(
@@ -309,11 +331,21 @@ export function TaskLogicBuilderSheet({
               ? templatesJson.templates
               : []
           );
+          setStatuses(
+            Array.isArray(statusesJson.statuses)
+              ? statusesJson.statuses
+              : []
+          );
+          setStages(
+            Array.isArray(stagesJson.stages) ? stagesJson.stages : []
+          );
         }
       } catch {
         if (!cancelled) {
           setInputs([]);
           setTaskTemplates([]);
+          setStatuses([]);
+          setStages([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -349,6 +381,8 @@ export function TaskLogicBuilderSheet({
                   action_type: string;
                   value_visible?: boolean;
                   value_required?: boolean;
+                  required_status_id?: number | null;
+                  required_for_stage_id?: number | null;
                 }[];
               }) => ({
                 type: r.type || "AND",
@@ -363,12 +397,16 @@ export function TaskLogicBuilderSheet({
                     action_type: string;
                     value_visible?: boolean;
                     value_required?: boolean;
+                    required_status_id?: number | null;
+                    required_for_stage_id?: number | null;
                   }) => ({
                     target_task_template_id:
                       a.target_task_template_id ?? 0,
                     action_type: a.action_type || "visible",
                     value_visible: a.value_visible,
                     value_required: a.value_required,
+                    required_status_id: a.required_status_id,
+                    required_for_stage_id: a.required_for_stage_id,
                   })
                 ),
               })
@@ -600,6 +638,8 @@ export function TaskLogicBuilderSheet({
         action_type: vt,
         value_visible: undefined,
         value_required: undefined,
+        required_status_id: undefined,
+        required_for_stage_id: undefined,
       };
 
       if (vt === "visible") base.value_visible = true;
@@ -791,6 +831,8 @@ export function TaskLogicBuilderSheet({
                                 actionIndex={actionIndex}
                                 ruleIndex={ruleIndex}
                                 taskTemplates={taskTemplates}
+                                statuses={statuses}
+                                stages={stages}
                                 filterTaskTemplateId={
                                   filterTaskTemplateId
                                 }
@@ -1390,6 +1432,8 @@ function TaskActionRow({
   actionIndex,
   ruleIndex,
   taskTemplates,
+  statuses,
+  stages,
   filterTaskTemplateId,
   filteredTemplateName,
   updateAction,
@@ -1400,6 +1444,8 @@ function TaskActionRow({
   actionIndex: number;
   ruleIndex: number;
   taskTemplates: TaskTemplateItem[];
+  statuses: LookupItem[];
+  stages: DealStage[];
   filterTaskTemplateId?: number | null;
   filteredTemplateName: string | null;
   updateAction: (
@@ -1468,50 +1514,121 @@ function TaskActionRow({
   );
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground shrink-0">
-        Set
-      </span>
+    <div className="space-y-1.5">
+      {/* Main action row */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground shrink-0">
+          Set
+        </span>
 
-      {filterTaskTemplateId &&
-      action.target_task_template_id === filterTaskTemplateId ? (
-        <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
-          <span className="truncate">{filteredTemplateName}</span>
-        </div>
-      ) : (
-        <div className="flex-1">
-          <SearchableTaskTemplateSelect
-            taskTemplates={taskTemplates}
-            value={action.target_task_template_id || 0}
-            onValueChange={(val) =>
-              updateAction(ruleIndex, actionIndex, {
-                target_task_template_id: val,
-              })
-            }
-            placeholder="Select task"
-          />
-        </div>
-      )}
+        {filterTaskTemplateId &&
+        action.target_task_template_id === filterTaskTemplateId ? (
+          <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
+            <span className="truncate">{filteredTemplateName}</span>
+          </div>
+        ) : (
+          <div className="flex-1">
+            <SearchableTaskTemplateSelect
+              taskTemplates={taskTemplates}
+              value={action.target_task_template_id || 0}
+              onValueChange={(val) =>
+                updateAction(ruleIndex, actionIndex, {
+                  target_task_template_id: val,
+                })
+              }
+              placeholder="Select task"
+            />
+          </div>
+        )}
 
-      <span className="text-xs font-medium text-muted-foreground shrink-0">
-        to
-      </span>
+        <span className="text-xs font-medium text-muted-foreground shrink-0">
+          to
+        </span>
 
-      <div className="relative flex-1">
-        <div className="h-8 flex items-center px-3 pr-8 rounded-md border bg-muted text-xs cursor-default select-none">
-          {valueTypeLabel}
+        <div className="relative flex-1">
+          <div className="h-8 flex items-center px-3 pr-8 rounded-md border bg-muted text-xs cursor-default select-none">
+            {valueTypeLabel}
+          </div>
+          {threeDotButton}
         </div>
-        {threeDotButton}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => removeAction(ruleIndex, actionIndex)}
+        >
+          <X className="size-3" />
+        </Button>
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => removeAction(ruleIndex, actionIndex)}
-      >
-        <X className="size-3" />
-      </Button>
+      {/* Required sub-row: status + for step */}
+      {vt === "required" && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-xs font-medium text-muted-foreground shrink-0">
+            status
+          </span>
+          <Select
+            value={
+              action.required_status_id
+                ? String(action.required_status_id)
+                : undefined
+            }
+            onValueChange={(val) =>
+              updateAction(ruleIndex, actionIndex, {
+                required_status_id: Number(val),
+              })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs w-32">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>
+                  <span className="flex items-center gap-1.5">
+                    {s.color && (
+                      <span
+                        className="inline-block size-2 rounded-full shrink-0"
+                        style={{ backgroundColor: s.color }}
+                      />
+                    )}
+                    {s.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <span className="text-xs font-medium text-muted-foreground shrink-0">
+            for step
+          </span>
+
+          <Select
+            value={
+              action.required_for_stage_id
+                ? String(action.required_for_stage_id)
+                : undefined
+            }
+            onValueChange={(val) =>
+              updateAction(ruleIndex, actionIndex, {
+                required_for_stage_id: Number(val),
+              })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs w-44">
+              <SelectValue placeholder="Select step" />
+            </SelectTrigger>
+            <SelectContent>
+              {stages.map((st) => (
+                <SelectItem key={st.id} value={String(st.id)}>
+                  {st.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   );
 }

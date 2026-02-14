@@ -24,6 +24,8 @@ interface ActionPayload {
   value_required?: boolean;
   value_field?: string;
   value_expression?: string;
+  required_status_id?: number | null;
+  required_for_stage_id?: number | null;
 }
 
 interface RulePayload {
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
     const { data: actionRows } = await supabaseAdmin
       .from("task_logic_actions")
       .select(
-        "id, task_logic_id, action_type, target_task_template_id, value_type, value_text, value_visible, value_required, value_field, value_expression"
+        "id, task_logic_id, action_type, target_task_template_id, value_type, value_text, value_visible, value_required, value_field, value_expression, required_status_id, required_for_stage_id"
       )
       .in("task_logic_id", allRuleIds);
 
@@ -129,6 +131,8 @@ export async function GET(request: NextRequest) {
           value_required: a.value_required ?? undefined,
           value_field: a.value_field ?? undefined,
           value_expression: a.value_expression ?? undefined,
+          required_status_id: a.required_status_id ?? undefined,
+          required_for_stage_id: a.required_for_stage_id ?? undefined,
         })),
     }));
 
@@ -296,6 +300,8 @@ export async function POST(request: NextRequest) {
                     : null,
               value_field: a.value_field || null,
               value_expression: a.value_expression || null,
+              required_status_id: at === "required" ? (a.required_status_id || null) : null,
+              required_for_stage_id: at === "required" ? (a.required_for_stage_id || null) : null,
             };
           });
 
