@@ -9,10 +9,9 @@ import {
 } from "@repo/ui/shadcn/sheet";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
-import { Separator } from "@repo/ui/shadcn/separator";
+
 import { Download, User, FileText } from "lucide-react";
 import { cn } from "@repo/lib/cn";
-import ChatPanel from "@/components/ai/chat-panel";
 import type { CreditReport } from "./credit-table";
 
 /* -------------------------------------------------------------------------- */
@@ -178,18 +177,6 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
             </div>
           )}
 
-          <Separator />
-
-          {/* AI Chat */}
-          <div>
-            <h3 className="text-sm font-semibold mb-2">AI Credit Analysis</h3>
-            <div className="rounded-lg border overflow-hidden" style={{ height: 400 }}>
-              <ChatPanel
-                reportId={report.id}
-                className="h-full"
-              />
-            </div>
-          </div>
         </div>
       </SheetContent>
     </Sheet>
