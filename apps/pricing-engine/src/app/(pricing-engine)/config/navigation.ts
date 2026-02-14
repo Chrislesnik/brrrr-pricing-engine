@@ -58,6 +58,7 @@ export const ROUTES = {
   },
   applications: "/applications",
   background: "/background",
+  credit: "/credit",
   contacts: {
     borrowers: {
       individuals: "/contacts/borrowers",
@@ -114,6 +115,12 @@ export const NAVIGATION_CONFIG: NavItem[] = [
             url: ROUTES.background,
             icon: IconFile,
             shortcut: ["B"],
+          },
+          {
+            title: "Credit",
+            url: ROUTES.credit,
+            icon: IconFile,
+            shortcut: ["C"],
           },
         ],
       },
