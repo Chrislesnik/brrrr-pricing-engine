@@ -15,11 +15,11 @@ import {
   IconCopy,
   IconTrash,
 } from "@tabler/icons-react"
-import { TermSheetTemplate } from "./template-types"
+import { DocumentTemplate } from "./template-types"
 import { TemplatePreview } from "./template-preview"
 
 interface TemplateCardProps {
-  template: TermSheetTemplate
+  template: DocumentTemplate
   onEdit: () => void
   onDuplicate: () => void
   onDelete: () => void

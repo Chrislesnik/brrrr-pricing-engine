@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { IconPlus, IconLoader2 } from "@tabler/icons-react"
-import { TermSheetTemplate } from "./template-types"
+import { DocumentTemplate } from "./template-types"
 import { TemplateCard } from "./template-card"
 import { CreateTemplateDialog } from "./create-template-dialog"
 
 interface TemplateGalleryProps {
-  onSelectTemplate: (template: TermSheetTemplate) => void
+  onSelectTemplate: (template: DocumentTemplate) => void
   onCreateTemplate: (name: string) => void
 }
 
@@ -16,7 +16,7 @@ export function TemplateGallery({
   onSelectTemplate,
   onCreateTemplate,
 }: TemplateGalleryProps) {
-  const [templates, setTemplates] = useState<TermSheetTemplate[]>([])
+  const [templates, setTemplates] = useState<DocumentTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -26,7 +26,7 @@ export function TemplateGallery({
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch("/api/term-sheet-templates")
+      const res = await fetch("/api/document-templates")
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || "Failed to fetch templates")
@@ -48,7 +48,7 @@ export function TemplateGallery({
     if (!confirm("Are you sure you want to delete this template?")) return
     
     try {
-      const res = await fetch(`/api/term-sheet-templates/${id}`, {
+      const res = await fetch(`/api/document-templates/${id}`, {
         method: "DELETE",
       })
       if (!res.ok) {
@@ -62,9 +62,9 @@ export function TemplateGallery({
     }
   }
 
-  const handleDuplicate = async (template: TermSheetTemplate) => {
+  const handleDuplicate = async (template: DocumentTemplate) => {
     try {
-      const res = await fetch("/api/term-sheet-templates", {
+      const res = await fetch("/api/document-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

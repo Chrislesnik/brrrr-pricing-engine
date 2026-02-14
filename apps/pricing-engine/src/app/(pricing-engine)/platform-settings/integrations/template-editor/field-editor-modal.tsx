@@ -249,7 +249,7 @@ export function FieldEditorModal({
       setSaving(true)
       setSaveError(null)
       try {
-        const res = await fetch(`/api/term-sheet-templates/${templateId}/fields`, {
+        const res = await fetch(`/api/document-templates/${templateId}/fields`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fields: fieldsWithRequired }),

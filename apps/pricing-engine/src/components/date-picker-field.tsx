@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState, useEffect } from "react"
 import { CalendarIcon } from "lucide-react"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Popover,
   PopoverContent,
@@ -124,9 +124,11 @@ export function DatePickerField({
             selected={dateValue}
             month={calendarMonth}
             onMonthChange={setCalendarMonth}
-            onSelect={handleCalendarSelect}
+            onSelect={(date) => handleCalendarSelect(date ?? undefined)}
             disabled={disabledMatcher}
-            initialFocus
+            startMonth={new Date(2020, 0)}
+            endMonth={new Date(2035, 11)}
+            autoFocus
           />
         </PopoverContent>
       </Popover>

@@ -4,8 +4,8 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 /**
- * GET /api/term-sheet-templates
- * List all term sheet templates for the current organization
+ * GET /api/document-templates
+ * List all document templates for the current organization
  */
 export async function GET() {
   try {
@@ -17,7 +17,7 @@ export async function GET() {
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
 
     const { data, error } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .select("id, name, html_content, gjs_data, created_at, updated_at, user_id")
       .eq("organization_id", orgUuid)
       .order("updated_at", { ascending: false })
@@ -32,8 +32,8 @@ export async function GET() {
 }
 
 /**
- * POST /api/term-sheet-templates
- * Create a new term sheet template
+ * POST /api/document-templates
+ * Create a new document template
  */
 export async function POST(req: NextRequest) {
   try {
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .insert({
         organization_id: orgUuid,
         user_id: userId,

@@ -50,8 +50,8 @@ function DealRecordContent() {
 
   const dealTabs = [
     { name: "Details", value: "details" },
-    { name: "Tasks", value: "tasks" },
     { name: "Documents", value: "documents" },
+    { name: "Tasks", value: "tasks" },
     { name: "Signature Requests", value: "signature-requests" },
     { name: "Calendar", value: "calendar" },
   ];

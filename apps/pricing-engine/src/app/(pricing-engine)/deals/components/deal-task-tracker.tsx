@@ -61,6 +61,20 @@ import {
 } from "@repo/ui/shadcn/select";
 import { DatePickerField } from "@/components/date-picker-field";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@repo/ui/shadcn/command";
+import {
   RoomProvider,
   ClientSideSuspense,
 } from "@liveblocks/react/suspense";
@@ -1011,7 +1025,7 @@ function BoardColumn({
   return (
     <div
       className={cn(
-        "flex w-[280px] min-w-[280px] flex-col rounded-lg transition-colors",
+        "flex w-[240px] min-w-[200px] shrink flex-col rounded-lg transition-colors",
         isDragOver && "bg-primary/5"
       )}
       onDragOver={handleDragOver}
@@ -2041,7 +2055,6 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
   const [statusOpen, setStatusOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const [labelOpen, setLabelOpen] = useState(false);
 
   return (
     <div className="px-4 py-3 border-b border-border">
@@ -2157,36 +2170,21 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
                 <span className="ml-1 text-muted-foreground/60">&times;</span>
               </span>
             ))}
-            <div className="relative">
-              <button
-                onClick={() => setLabelOpen(!labelOpen)}
-                className="rounded-full bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent transition-colors"
-                title="Add label"
-              >
-                +
-              </button>
-              {labelOpen && (
-                <LabelDropdown
-                  currentLabels={task.labels}
-                  onSelect={(label) => {
-                    onUpdate({ labels: [...task.labels, label] });
-                    setLabelOpen(false);
-                  }}
-                  onClose={() => setLabelOpen(false)}
-                />
-              )}
-            </div>
+            <LabelSearchDropdown
+              currentLabels={task.labels}
+              onAdd={(label) => {
+                onUpdate({ labels: [...task.labels, label] });
+              }}
+            />
           </div>
         </PropertyRow>
 
         {/* Due date */}
         <PropertyRow icon={Calendar} label="Due date">
-          <input
-            type="date"
+          <DatePickerField
+            className="w-[160px]"
             value={task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
-            onChange={(e) => onUpdate({ dueDate: e.target.value || undefined })}
-            className="rounded-md px-2 py-1 text-xs text-foreground bg-transparent outline-none hover:bg-accent transition-colors cursor-pointer"
-            aria-label="Task due date"
+            onChange={(val) => onUpdate({ dueDate: val || undefined })}
           />
         </PropertyRow>
 
@@ -2329,40 +2327,113 @@ function AssigneeDropdown({
   );
 }
 
-function LabelDropdown({
+function LabelSearchDropdown({
   currentLabels,
-  onSelect,
-  onClose,
+  onAdd,
 }: {
   currentLabels: string[];
-  onSelect: (label: string) => void;
-  onClose: () => void;
+  onAdd: (label: string) => void;
 }) {
-  const availableLabels = AVAILABLE_LABELS.filter((l) => !currentLabels.includes(l));
+  const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+
+  const availableLabels = AVAILABLE_LABELS.filter(
+    (l) => !currentLabels.some((cl) => cl.toLowerCase() === l.toLowerCase())
+  );
+
+  const trimmed = search.trim();
+  const isCustom =
+    trimmed.length > 0 &&
+    !AVAILABLE_LABELS.some((l) => l.toLowerCase() === trimmed.toLowerCase()) &&
+    !currentLabels.some((l) => l.toLowerCase() === trimmed.toLowerCase());
+
+  const handleSelect = (label: string) => {
+    onAdd(label);
+    setSearch("");
+    setOpen(false);
+  };
+
+  const handleCreateCustom = () => {
+    if (!trimmed) return;
+    const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    onAdd(capitalized);
+    setSearch("");
+    setOpen(false);
+  };
 
   return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute left-0 top-full z-50 mt-1 w-[140px] rounded-md border border-border bg-card shadow-lg py-1">
-        {availableLabels.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground text-center">No more labels</div>
-        ) : (
-          availableLabels.map((label) => (
-            <button
-              key={label}
-              onClick={() => onSelect(label)}
-              className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors"
-            >
-              {label}
-            </button>
-          ))
-        )}
-      </div>
-    </>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="rounded-full bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent transition-colors"
+          title="Add label"
+        >
+          +
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[200px] p-0"
+        align="start"
+        sideOffset={4}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        <Command>
+          <CommandInput
+            placeholder="Search or create..."
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-48 overflow-y-auto">
+            <CommandEmpty>
+              {trimmed ? (
+                <button
+                  type="button"
+                  className="w-full px-2 py-1.5 text-xs text-left hover:bg-accent transition-colors"
+                  onClick={handleCreateCustom}
+                >
+                  Create &ldquo;{trimmed}&rdquo;
+                </button>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  No labels found
+                </span>
+              )}
+            </CommandEmpty>
+            <CommandGroup>
+              {availableLabels.map((label) => (
+                <CommandItem
+                  key={label}
+                  value={label}
+                  onSelect={() => handleSelect(label)}
+                  className="text-xs"
+                >
+                  {label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            {isCustom && availableLabels.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    value={`create-${trimmed}`}
+                    onSelect={handleCreateCustom}
+                    className="text-xs"
+                  >
+                    Create &ldquo;{trimmed}&rdquo;
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-const AVAILABLE_LABELS = ["underwriting", "compliance", "documentation", "review", "urgent", "closing", "insurance", "appraisal"];
+const AVAILABLE_LABELS = ["Underwriting", "Compliance", "Documentation", "Review", "Urgent", "Closing", "Insurance", "Appraisal"];
 
 /* ========================================================================== */
 /*  TaskFilesSection                                                           */

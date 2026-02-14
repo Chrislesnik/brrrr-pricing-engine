@@ -4,8 +4,8 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 /**
- * GET /api/term-sheet-templates/[id]/fields
- * Get all fields for a specific term sheet template
+ * GET /api/document-templates/[id]/fields
+ * Get all fields for a specific document template
  */
 export async function GET(
   req: NextRequest,
@@ -23,7 +23,7 @@ export async function GET(
 
     // Verify the template belongs to the organization
     const { data: template, error: templateError } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .select("id")
       .eq("id", templateId)
       .eq("organization_id", orgUuid)
@@ -34,7 +34,7 @@ export async function GET(
 
     // Fetch fields ordered by position
     const { data: fields, error } = await supabaseAdmin
-      .from("term_sheet_template_fields")
+      .from("document_template_fields")
       .select("id, name, field_type, required, position, created_at, updated_at")
       .eq("template_id", templateId)
       .order("position", { ascending: true })
@@ -58,7 +58,7 @@ export async function GET(
 }
 
 /**
- * PUT /api/term-sheet-templates/[id]/fields
+ * PUT /api/document-templates/[id]/fields
  * Replace all fields for a template (bulk update)
  */
 export async function PUT(
@@ -83,7 +83,7 @@ export async function PUT(
 
     // Verify the template belongs to the organization
     const { data: template, error: templateError } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .select("id")
       .eq("id", templateId)
       .eq("organization_id", orgUuid)
@@ -94,7 +94,7 @@ export async function PUT(
 
     // Delete existing fields
     const { error: deleteError } = await supabaseAdmin
-      .from("term_sheet_template_fields")
+      .from("document_template_fields")
       .delete()
       .eq("template_id", templateId)
 
@@ -111,7 +111,7 @@ export async function PUT(
       }))
 
       const { error: insertError } = await supabaseAdmin
-        .from("term_sheet_template_fields")
+        .from("document_template_fields")
         .insert(fieldsToInsert)
 
       if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
@@ -119,7 +119,7 @@ export async function PUT(
 
     // Fetch and return updated fields
     const { data: updatedFields, error: fetchError } = await supabaseAdmin
-      .from("term_sheet_template_fields")
+      .from("document_template_fields")
       .select("id, name, field_type, required, position")
       .eq("template_id", templateId)
       .order("position", { ascending: true })
@@ -142,7 +142,7 @@ export async function PUT(
 }
 
 /**
- * POST /api/term-sheet-templates/[id]/fields
+ * POST /api/document-templates/[id]/fields
  * Add a single field to a template
  */
 export async function POST(
@@ -170,7 +170,7 @@ export async function POST(
 
     // Verify the template belongs to the organization
     const { data: template, error: templateError } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .select("id")
       .eq("id", templateId)
       .eq("organization_id", orgUuid)
@@ -181,7 +181,7 @@ export async function POST(
 
     // Get the max position
     const { data: maxPosData } = await supabaseAdmin
-      .from("term_sheet_template_fields")
+      .from("document_template_fields")
       .select("position")
       .eq("template_id", templateId)
       .order("position", { ascending: false })
@@ -192,7 +192,7 @@ export async function POST(
 
     // Insert the new field
     const { data: newField, error: insertError } = await supabaseAdmin
-      .from("term_sheet_template_fields")
+      .from("document_template_fields")
       .insert({
         template_id: templateId,
         name,

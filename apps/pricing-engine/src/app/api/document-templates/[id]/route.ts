@@ -4,8 +4,8 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 /**
- * GET /api/term-sheet-templates/[id]
- * Get a specific term sheet template
+ * GET /api/document-templates/[id]
+ * Get a specific document template
  */
 export async function GET(
   req: NextRequest,
@@ -22,7 +22,7 @@ export async function GET(
     const { id } = await params
 
     const { data, error } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .select("id, name, html_content, gjs_data, created_at, updated_at, user_id")
       .eq("id", id)
       .eq("organization_id", orgUuid)
@@ -39,8 +39,8 @@ export async function GET(
 }
 
 /**
- * PATCH /api/term-sheet-templates/[id]
- * Update a term sheet template
+ * PATCH /api/document-templates/[id]
+ * Update a document template
  */
 export async function PATCH(
   req: NextRequest,
@@ -78,7 +78,7 @@ export async function PATCH(
     }
 
     const { data, error } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .update(updates)
       .eq("id", id)
       .eq("organization_id", orgUuid)
@@ -95,8 +95,8 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/term-sheet-templates/[id]
- * Delete a term sheet template
+ * DELETE /api/document-templates/[id]
+ * Delete a document template
  */
 export async function DELETE(
   req: NextRequest,
@@ -113,7 +113,7 @@ export async function DELETE(
     const { id } = await params
 
     const { error } = await supabaseAdmin
-      .from("term_sheet_templates")
+      .from("document_templates")
       .delete()
       .eq("id", id)
       .eq("organization_id", orgUuid)

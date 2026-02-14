@@ -9,7 +9,7 @@ import { Field, defaultFields, fieldsToGlobalData } from "./field-types"
 import { FieldEditorModal } from "./field-editor-modal"
 import { TemplateGallery } from "./template-gallery"
 import { VariablePreviewPanel } from "./variable-preview-panel"
-import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
+import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
 
 // Dynamic import the wrapper which contains the GrapeJS styles
 // This ensures styles only load when the editor is actually rendered
@@ -29,8 +29,9 @@ const StudioEditorWrapper = dynamic(
 const grapejsThemeStyles = `
   /* ===== Radix Dialog protection from GrapesJS ===== */
   /* Ensure our app's dialogs are not affected by GrapesJS */
-  [data-radix-dialog-content],
-  [role="dialog"][data-state="open"]:not(.gs-cmp-modal-container):not([class*="gs-"]) {
+  /* Exclude Radix Popover content ([data-radix-popper-content-wrapper]) */
+  [data-radix-dialog-content]:not([data-radix-popper-content-wrapper] *),
+  [role="dialog"][data-state="open"]:not(.gs-cmp-modal-container):not([class*="gs-"]):not([data-radix-popper-content-wrapper] *):not([data-side]) {
     position: fixed !important;
     left: 50% !important;
     top: 50% !important;
@@ -297,7 +298,7 @@ export default function TermSheetEditorPage() {
 
   const [fields, setFields] = useState<Field[]>(defaultFields)
   const [fieldEditorOpen, setFieldEditorOpen] = useState(false)
-  const [currentTemplate, setCurrentTemplate] = useState<TermSheetTemplate | null>(null)
+  const [currentTemplate, setCurrentTemplate] = useState<DocumentTemplate | null>(null)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
   const [templateError, setTemplateError] = useState<string | null>(null)
   // Test data panel toggle - when true, show variable inputs panel alongside editor
@@ -354,11 +355,11 @@ export default function TermSheetEditorPage() {
       
       // Fetch template and fields in parallel
       Promise.all([
-        fetch(`/api/term-sheet-templates/${templateId}`).then(res => {
+        fetch(`/api/document-templates/${templateId}`).then(res => {
           if (!res.ok) throw new Error("Template not found")
           return res.json()
         }),
-        fetch(`/api/term-sheet-templates/${templateId}/fields`).then(res => {
+        fetch(`/api/document-templates/${templateId}/fields`).then(res => {
           if (!res.ok) throw new Error("Failed to load fields")
           return res.json()
         })
@@ -377,15 +378,26 @@ export default function TermSheetEditorPage() {
   }, [templateId, currentTemplate])
 
   // Handle selecting a template from gallery
-  const handleSelectTemplate = useCallback((template: TermSheetTemplate) => {
+  const handleSelectTemplate = useCallback(async (template: DocumentTemplate) => {
     setCurrentTemplate(template)
     router.push(`/platform-settings/integrations/template-editor?template=${template.id}`)
+
+    // Fetch fields for the selected template
+    try {
+      const res = await fetch(`/api/document-templates/${template.id}/fields`)
+      if (res.ok) {
+        const data = await res.json()
+        setFields(data.fields || [])
+      }
+    } catch (err) {
+      console.error("Failed to load fields for template:", err)
+    }
   }, [router])
 
   // Handle creating a new template - creates in Supabase first
   const handleCreateTemplate = useCallback(async (name: string) => {
     try {
-      const res = await fetch("/api/term-sheet-templates", {
+      const res = await fetch("/api/document-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -524,7 +536,7 @@ export default function TermSheetEditorPage() {
       {/* Main Content - GrapesJS Editor + Optional Test Data Panel */}
       <div className="flex-1 flex min-h-0 gap-0">
         {/* GrapeJS Editor Container */}
-        <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden">
+        <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden isolate">
           <StudioEditorWrapper
             key={`editor-${templateId}-${fields.length}-${previewApplyCounter}`}
             globalData={globalData}

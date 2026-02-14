@@ -1,8 +1,8 @@
 /**
- * Term Sheet Template Types
+ * Document Template Types
  */
 
-export interface TermSheetTemplate {
+export interface DocumentTemplate {
   id: string
   name: string
   html_content: string // GrapesJS HTML output

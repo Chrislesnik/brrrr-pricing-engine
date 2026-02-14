@@ -12,7 +12,7 @@ import {
   flexComponent,
   dataSourceHandlebars,
 } from "@grapesjs/studio-sdk-plugins"
-import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
+import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
 import { Field, typeColorConfig, FieldType } from "./field-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
@@ -37,7 +37,7 @@ interface StudioEditorWrapperProps {
   variableOptions: { id: string; label: string }[]
   fields: Field[]
   isPreviewMode?: boolean
-  template?: TermSheetTemplate | null
+  template?: DocumentTemplate | null
 }
 
 /**
