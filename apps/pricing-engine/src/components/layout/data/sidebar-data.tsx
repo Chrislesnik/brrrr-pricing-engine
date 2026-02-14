@@ -132,11 +132,6 @@ export const sidebarData: SidebarData = {
               url: "/settings/integrations",
             },
             {
-              title: "Term Sheet Editor",
-              icon: IconFileText,
-              url: "/settings/term-sheet-editor",
-            },
-            {
               title: "Company",
               icon: IconUser,
               url: "/settings/company",

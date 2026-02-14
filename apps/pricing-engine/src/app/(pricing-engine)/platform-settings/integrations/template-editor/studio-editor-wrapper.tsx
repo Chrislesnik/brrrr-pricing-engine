@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTheme } from "next-themes"
 import StudioEditorComponent from "@grapesjs/studio-sdk/react"
 import {
   presetPrintable,
@@ -12,6 +13,7 @@ import {
   dataSourceHandlebars,
 } from "@grapesjs/studio-sdk-plugins"
 import { TermSheetTemplate, defaultTemplateHtml } from "./template-types"
+import { Field, typeColorConfig, FieldType } from "./field-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
 
@@ -33,6 +35,8 @@ if (typeof window !== "undefined") {
 interface StudioEditorWrapperProps {
   globalData: Record<string, { data: string }>
   variableOptions: { id: string; label: string }[]
+  fields: Field[]
+  isPreviewMode?: boolean
   template?: TermSheetTemplate | null
 }
 
@@ -45,10 +49,16 @@ interface StudioEditorWrapperProps {
 export function StudioEditorWrapper({
   globalData,
   variableOptions,
+  fields,
+  isPreviewMode = false,
   template,
 }: StudioEditorWrapperProps) {
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
+  const { resolvedTheme } = useTheme()
+
+  // Map app theme to GrapesJS theme
+  const grapejsTheme = resolvedTheme === "dark" ? "dark" : "light"
 
   // Get the HTML content for the editor
   const templateHtml = template?.html_content || defaultTemplateHtml
@@ -112,11 +122,29 @@ export function StudioEditorWrapper({
     )
   }
 
+  // Build field name -> type map for dropdown coloring
+  const fieldTypeMap = new Map<string, FieldType>()
+  fields.forEach(f => fieldTypeMap.set(f.name, f.type))
+
+  // Create styled variable options with colored pill labels
+  const styledVariableOptions = variableOptions.map(opt => {
+    // Extract field name from {{field_name}}
+    const fieldName = opt.id.replace(/^\{\{|\}\}$/g, "")
+    const fieldType = fieldTypeMap.get(fieldName) || "String"
+    const colors = typeColorConfig[fieldType] || typeColorConfig["String"]
+    return {
+      id: opt.id,
+      label: `<span style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:9999px;font-size:11px;font-weight:500;background:${colors.bgHex};color:${colors.textHex};border:1px solid ${colors.borderHex}">${opt.label}</span>`,
+    }
+  })
+
   return (
     <div className="h-full w-full">
       <StudioEditorComponent
+        key={grapejsTheme}
         options={{
           licenseKey: "",
+          theme: grapejsTheme,
           fonts: {
             enableFontManager: true,
           },
@@ -141,7 +169,7 @@ export function StudioEditorWrapper({
                     id: "variables",
                     type: "selectField",
                     emptyState: "Insert Variable",
-                    options: variableOptions,
+                    options: styledVariableOptions,
                     onChange: ({ value }: { value: string }) =>
                       commands.text.replace(value, { select: true }),
                   },
@@ -191,7 +219,7 @@ export function StudioEditorWrapper({
                         },
                         ...items.filter(
                           (item: { id: string }) =>
-                            !["showImportCode", "fullscreen"].includes(item.id)
+                            !["showImportCode", "fullscreen", "settings", "openSettings"].includes(item.id)
                         ),
                         {
                           id: "zoom-out",
@@ -230,11 +258,8 @@ export function StudioEditorWrapper({
         }}
         onReady={(editor) => {
           // Fix for GrapesJS selection/focus issues after drag operations
-          // This ensures the editor properly handles focus after component moves
           editor.on('component:drag:end', () => {
-            // Small delay to let GrapesJS finish its internal operations
             setTimeout(() => {
-              // Deselect and allow re-selection
               const selected = editor.getSelected()
               if (selected) {
                 editor.select(selected)
@@ -242,12 +267,73 @@ export function StudioEditorWrapper({
             }, 50)
           })
           
-          // Also handle block drops
           editor.on('block:drag:stop', () => {
             setTimeout(() => {
               editor.refresh()
             }, 50)
           })
+
+          // Inject variable tag styling into the canvas iframe (edit mode only)
+          const injectVariableStyles = () => {
+            // Skip pill styling in preview mode -- show actual values as plain text
+            if (isPreviewMode) return
+            try {
+              const canvasDoc = editor.Canvas.getDocument()
+              if (!canvasDoc) return
+
+              // Remove old injection if present
+              const existingStyle = canvasDoc.getElementById("variable-tag-styles")
+              if (existingStyle) existingStyle.remove()
+
+              // Build a map of field name -> type color
+              const fieldMap = new Map<string, FieldType>()
+              fields.forEach(f => fieldMap.set(f.name, f.type))
+
+              // Base pill styles for all handlebars expressions
+              let css = `
+                [data-variable], [data-gjs-type="data-variable"] {
+                  display: inline-flex !important;
+                  align-items: center !important;
+                  padding: 1px 8px !important;
+                  border-radius: 9999px !important;
+                  font-size: 0.75rem !important;
+                  font-weight: 500 !important;
+                  line-height: 1.5 !important;
+                  white-space: nowrap !important;
+                  vertical-align: baseline !important;
+                  /* Default String color */
+                  background-color: ${typeColorConfig["String"].bgHex} !important;
+                  color: ${typeColorConfig["String"].textHex} !important;
+                  border: 1px solid ${typeColorConfig["String"].borderHex} !important;
+                }
+              `
+
+              // Per-field color overrides based on type
+              fields.forEach(field => {
+                const colors = typeColorConfig[field.type] || typeColorConfig["String"]
+                // Target by content - handlebars variables contain the field name
+                css += `
+                  [data-variable*="${field.name}"],
+                  [data-gjs-type="data-variable"][title*="${field.name}"] {
+                    background-color: ${colors.bgHex} !important;
+                    color: ${colors.textHex} !important;
+                    border: 1px solid ${colors.borderHex} !important;
+                  }
+                `
+              })
+
+              const styleEl = canvasDoc.createElement("style")
+              styleEl.id = "variable-tag-styles"
+              styleEl.textContent = css
+              canvasDoc.head.appendChild(styleEl)
+            } catch (e) {
+              console.warn("Failed to inject variable styles into canvas:", e)
+            }
+          }
+
+          // Inject immediately and also after canvas loads
+          setTimeout(injectVariableStyles, 500)
+          editor.on('canvas:frame:load', () => setTimeout(injectVariableStyles, 300))
         }}
       />
     </div>

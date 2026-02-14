@@ -165,6 +165,14 @@ const grapejsThemeStyles = `
     color: #fef3c7;
   }
 
+  /* ===== Hide GrapesJS settings/theme gear button (theme is tied to app) ===== */
+  .gs-studio-root [data-tooltip-content="Settings"],
+  .gs-studio-root button[aria-label="Settings"],
+  .gs-studio-root [data-test-id="settings"],
+  .gs-studio-root .gs-cmp-top-bar-right button:last-child {
+    display: none !important;
+  }
+
   /* ===== Override GrapesJS violet accent colors with org theme primary ===== */
   /* Text colors - light mode */
   .gs-studio-root .gs-utl-text-violet-800,
@@ -305,6 +313,12 @@ export default function TermSheetEditorPage() {
     setPreviewApplyCounter(prev => prev + 1)
   }, [])
 
+  // Check if any preview values are applied (non-empty)
+  const hasPreviewValues = useMemo(() =>
+    Object.values(previewValues).some(v => v.trim() !== ""),
+    [previewValues]
+  )
+
   // Convert fields to globalData for GrapeJS, merging with preview values
   // GrapesJS expects nested structure: { fieldName: { data: "value" } }
   const globalData = useMemo(() => {
@@ -365,7 +379,7 @@ export default function TermSheetEditorPage() {
   // Handle selecting a template from gallery
   const handleSelectTemplate = useCallback((template: TermSheetTemplate) => {
     setCurrentTemplate(template)
-    router.push(`/settings/term-sheet-editor?template=${template.id}`)
+    router.push(`/platform-settings/integrations/template-editor?template=${template.id}`)
   }, [router])
 
   // Handle creating a new template - creates in Supabase first
@@ -388,7 +402,7 @@ export default function TermSheetEditorPage() {
       
       const data = await res.json()
       setCurrentTemplate(data.template)
-      router.push(`/settings/term-sheet-editor?template=${data.template.id}`)
+      router.push(`/platform-settings/integrations/template-editor?template=${data.template.id}`)
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to create template")
     }
@@ -398,7 +412,7 @@ export default function TermSheetEditorPage() {
   const handleBackToGallery = useCallback(() => {
     setCurrentTemplate(null)
     setTemplateError(null)
-    router.push("/settings/term-sheet-editor")
+    router.push("/platform-settings/integrations/template-editor")
   }, [router])
 
   // Get the current template for editor
@@ -421,20 +435,26 @@ export default function TermSheetEditorPage() {
   // Gallery View
   if (!isEditorMode) {
     return (
-      <TemplateGallery
-        onSelectTemplate={handleSelectTemplate}
-        onCreateTemplate={handleCreateTemplate}
-      />
+      <div className="flex flex-1 flex-col overflow-auto p-4 pr-5">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <TemplateGallery
+            onSelectTemplate={handleSelectTemplate}
+            onCreateTemplate={handleCreateTemplate}
+          />
+        </div>
+      </div>
     )
   }
 
   // Loading template state
   if (loadingTemplate) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <IconLoader2 className="h-5 w-5 animate-spin" />
-          <span>Loading template...</span>
+      <div className="flex flex-1 flex-col overflow-auto p-4 pr-5">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <IconLoader2 className="h-5 w-5 animate-spin" />
+            <span>Loading template...</span>
+          </div>
         </div>
       </div>
     )
@@ -443,11 +463,13 @@ export default function TermSheetEditorPage() {
   // Template error state
   if (templateError) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-destructive">{templateError}</p>
-        <Button variant="outline" onClick={handleBackToGallery}>
-          Back to Templates
-        </Button>
+      <div className="flex flex-1 flex-col overflow-auto p-4 pr-5">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-4">
+          <p className="text-destructive">{templateError}</p>
+          <Button variant="outline" onClick={handleBackToGallery}>
+            Back to Templates
+          </Button>
+        </div>
       </div>
     )
   }
@@ -458,7 +480,7 @@ export default function TermSheetEditorPage() {
       <style dangerouslySetInnerHTML={{ __html: grapejsThemeStyles }} />
       
       {/* Header */}
-      <div className="mb-4 flex-none flex items-center justify-between">
+      <div className="px-4 py-3 flex-none flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -507,6 +529,8 @@ export default function TermSheetEditorPage() {
             key={`editor-${templateId}-${fields.length}-${previewApplyCounter}`}
             globalData={globalData}
             variableOptions={variableOptions}
+            fields={fields}
+            isPreviewMode={hasPreviewValues}
             template={editorTemplate}
           />
         </div>

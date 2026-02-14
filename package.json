@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "postinstall": "cp node_modules/@grapesjs/studio-sdk/dist/style.css public/grapesjs-style.css 2>/dev/null || true",
+    "postinstall": "cp node_modules/@grapesjs/studio-sdk/dist/style.css apps/pricing-engine/public/grapesjs-style.css 2>/dev/null || true",
     "dev": "turbo run dev",
     "dev:pricing": "turbo run dev --filter=pricing-engine",
     "dev:resources": "turbo run dev --filter=resources",
