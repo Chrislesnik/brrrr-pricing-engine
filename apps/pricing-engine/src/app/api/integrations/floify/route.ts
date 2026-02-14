@@ -3,55 +3,52 @@ import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-async function ensureFloifyIntegration(orgUuid: string, userId: string) {
-  const type = "floify"
-  const { data, error } = await supabaseAdmin
-    .from("integrations")
-    .upsert(
-      {
-        organization_id: orgUuid,
-        user_id: userId,
-        type,
-        status: true,
-      },
-      { onConflict: "organization_id,user_id,type" }
-    )
+async function ensureFloifyRow(orgUuid: string, userId: string): Promise<string> {
+  const { data } = await supabaseAdmin
+    .from("workflow_integrations")
     .select("id")
+    .eq("organization_id", orgUuid)
+    .eq("user_id", userId)
+    .eq("type", "floify")
+    .is("name", null)
     .maybeSingle()
+
+  if (data?.id) return data.id as string
+
+  const { data: created, error } = await supabaseAdmin
+    .from("workflow_integrations")
+    .insert({ organization_id: orgUuid, user_id: userId, type: "floify", name: null, config: { status: "true" } })
+    .select("id")
+    .single()
   if (error) throw error
-  return data?.id as string
+  return created.id as string
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const { orgId, userId } = await auth()
     if (!orgId || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
-    const { data, error } = await supabaseAdmin
-      .from("integrations")
-      .select("id, status")
+    const { data } = await supabaseAdmin
+      .from("workflow_integrations")
+      .select("id, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
       .eq("type", "floify")
+      .is("name", null)
       .maybeSingle()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
     if (!data) return NextResponse.json({ row: null })
 
-    const { data: floifyRow, error: floifyErr } = await supabaseAdmin
-      .from("integrations_floify")
-      .select("x_api_key, user_api_key")
-      .eq("integration_id", data.id)
-      .maybeSingle()
-    if (floifyErr) return NextResponse.json({ error: floifyErr.message }, { status: 500 })
-
+    const config = (data.config as Record<string, unknown>) || {}
     return NextResponse.json({
       row: {
         integration_id: data.id,
-        status: data.status,
-        x_api_key: floifyRow?.x_api_key ?? null,
-        user_api_key: floifyRow?.user_api_key ?? null,
+        status: config.status === "true",
+        x_api_key: (config.x_api_key as string) || null,
+        user_api_key: (config.user_api_key as string) || null,
       },
     })
   } catch (e) {
@@ -73,14 +70,26 @@ export async function POST(req: NextRequest) {
     if (!xApiKey) return NextResponse.json({ error: "x_api_key required" }, { status: 400 })
     if (!userApiKey) return NextResponse.json({ error: "user_api_key required" }, { status: 400 })
 
-    const integrationId = await ensureFloifyIntegration(orgUuid, userId)
+    const rowId = await ensureFloifyRow(orgUuid, userId)
 
-    const { error: upErr } = await supabaseAdmin
-      .from("integrations_floify")
-      .upsert({ integration_id: integrationId, x_api_key: xApiKey, user_api_key: userApiKey })
-    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
+    // Get existing config to preserve status
+    const { data: existing } = await supabaseAdmin
+      .from("workflow_integrations")
+      .select("config")
+      .eq("id", rowId)
+      .single()
 
-    return NextResponse.json({ ok: true, integration_id: integrationId })
+    const existingConfig = (existing?.config as Record<string, unknown>) || {}
+    const updatedConfig = { ...existingConfig, x_api_key: xApiKey, user_api_key: userApiKey, status: "true" }
+
+    const { error } = await supabaseAdmin
+      .from("workflow_integrations")
+      .update({ config: updatedConfig })
+      .eq("id", rowId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ ok: true, integration_id: rowId })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })

@@ -10,7 +10,9 @@ import { Label } from "@repo/ui/shadcn/label"
 import { Separator } from "@repo/ui/shadcn/separator"
 import { Switch } from "@repo/ui/shadcn/switch"
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/shadcn/tabs"
-import { Cog, ExternalLink, Search } from "lucide-react"
+import { Badge } from "@repo/ui/shadcn/badge"
+import { Check, Cog, ExternalLink, Plus, Search, Trash2 } from "lucide-react"
+import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon"
 import {
   Dialog,
   DialogContent,
@@ -146,6 +148,34 @@ const baseIntegrations: IntegrationType[] = [
   },
 ]
 
+type WorkflowIntegrationItem = {
+  id: string
+  type: string
+  name: string
+  configured: boolean
+}
+
+const workflowIntegrationMeta: Record<string, { label: string; description: string; link?: string }> = {
+  perplexity: { label: "Perplexity", description: "AI-powered web search.", link: "https://perplexity.ai/settings/api" },
+  "ai-gateway": { label: "AI Gateway / OpenAI", description: "Generate text and images with AI models.", link: "https://platform.openai.com/api-keys" },
+  fal: { label: "fal.ai", description: "Generate images and video with Flux models.", link: "https://fal.ai/dashboard/keys" },
+  slack: { label: "Slack", description: "Send messages to Slack channels.", link: "https://api.slack.com/apps" },
+  resend: { label: "Resend", description: "Send transactional emails.", link: "https://resend.com/api-keys" },
+  linear: { label: "Linear", description: "Create and manage issues.", link: "https://linear.app/settings" },
+  github: { label: "GitHub", description: "Interact with repositories and issues.", link: "https://github.com/settings/tokens" },
+  stripe: { label: "Stripe", description: "Process payments and manage billing.", link: "https://dashboard.stripe.com/apikeys" },
+  clerk: { label: "Clerk", description: "Manage users and authentication.", link: "https://dashboard.clerk.com" },
+  firecrawl: { label: "Firecrawl", description: "Scrape and crawl web pages.", link: "https://firecrawl.dev/app/api-keys" },
+  blob: { label: "Vercel Blob", description: "Upload and store files.", link: "https://vercel.com/dashboard/stores" },
+  database: { label: "Database", description: "Query a PostgreSQL database." },
+  v0: { label: "v0", description: "Generate UI components with AI.", link: "https://v0.dev/chat/settings/keys" },
+  webflow: { label: "Webflow", description: "Manage Webflow CMS content.", link: "https://webflow.com" },
+  superagent: { label: "Superagent", description: "Run AI agent workflows.", link: "https://superagent.sh" },
+}
+
+/** Integration types that are NOT platform types (floify, xactus, clear, nadlan) */
+const WORKFLOW_TYPES = Object.keys(workflowIntegrationMeta)
+
 export default function SettingsIntegrationsPage() {
   const [activeIntegrations, setActiveIntegrations] = React.useState<IntegrationType[]>(baseIntegrations)
   const [tab, setTab] = React.useState<"all" | "active" | "inactive">("all")
@@ -153,6 +183,15 @@ export default function SettingsIntegrationsPage() {
   const [_loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const { toast } = useToast()
+
+  // Workflow integrations state
+  const [workflowIntegrations, setWorkflowIntegrations] = React.useState<WorkflowIntegrationItem[]>([])
+  const [wfAddModalOpen, setWfAddModalOpen] = React.useState(false)
+  const [wfAddType, setWfAddType] = React.useState("")
+  const [wfAddApiKey, setWfAddApiKey] = React.useState("")
+  const [wfAddApiKey2, setWfAddApiKey2] = React.useState("")
+  const [wfAddLoading, setWfAddLoading] = React.useState(false)
+  const [wfAddError, setWfAddError] = React.useState<string | null>(null)
 
   const [floifyModalOpen, setFloifyModalOpen] = React.useState(false)
   const [floifyApiKey, setFloifyApiKey] = React.useState("")
@@ -445,6 +484,147 @@ export default function SettingsIntegrationsPage() {
     }
   }, [])
 
+  // Load workflow integrations
+  const loadWorkflowIntegrations = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/workflow-integrations", { cache: "no-store" })
+      if (!res.ok) return
+      const j = await res.json().catch(() => ({}))
+      const items = (j.integrations ?? []) as Array<{
+        id: string; type: string; name: string; config: Record<string, string>
+      }>
+      // Only show workflow types (not platform types which are shown above)
+      const filtered = items.filter((i) => WORKFLOW_TYPES.includes(i.type))
+      setWorkflowIntegrations(
+        filtered.map((i) => ({
+          id: i.id,
+          type: i.type,
+          name: i.name || workflowIntegrationMeta[i.type]?.label || i.type,
+          configured: Object.values(i.config).some((v) => v === "configured" || (v && v !== "")),
+        }))
+      )
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadWorkflowIntegrations()
+  }, [loadWorkflowIntegrations])
+
+  // Get credential field config for a workflow integration type
+  const getWfFields = (type: string): { key: string; label: string; isSecret: boolean }[] => {
+    switch (type) {
+      case "resend": return [
+        { key: "apiKey", label: "API Key", isSecret: true },
+        { key: "fromEmail", label: "Default Sender Email", isSecret: false },
+      ]
+      case "linear": return [
+        { key: "apiKey", label: "API Key", isSecret: true },
+        { key: "teamId", label: "Team ID (Optional)", isSecret: false },
+      ]
+      case "github": return [{ key: "token", label: "Personal Access Token", isSecret: true }]
+      case "clerk": return [{ key: "clerkSecretKey", label: "Secret Key", isSecret: true }]
+      case "firecrawl": return [{ key: "firecrawlApiKey", label: "API Key", isSecret: true }]
+      case "blob": return [{ key: "token", label: "Read/Write Token", isSecret: true }]
+      case "database": return [{ key: "url", label: "Database URL", isSecret: true }]
+      case "superagent": return [{ key: "superagentApiKey", label: "API Key", isSecret: true }]
+      default: return [{ key: "apiKey", label: "API Key", isSecret: true }]
+    }
+  }
+
+  const handleWfAdd = async (type: string) => {
+    setWfAddType(type)
+    setWfAddApiKey("")
+    setWfAddApiKey2("")
+    setWfAddError(null)
+    setWfAddModalOpen(true)
+
+    // If this integration already exists, fetch its current config to pre-fill
+    const existing = workflowIntegrations.find((w) => w.type === type)
+    if (existing) {
+      try {
+        const res = await fetch(`/api/workflow-integrations?id=${encodeURIComponent(existing.id)}`, { cache: "no-store" })
+        if (res.ok) {
+          const data = await res.json()
+          const config = data.integration?.config as Record<string, string> | undefined
+          if (config) {
+            const fields = getWfFields(type)
+            // Pre-fill fields — for secrets, "configured" will show as dots in PasswordInput
+            const val1 = config[fields[0].key]
+            if (val1) setWfAddApiKey(val1)
+            if (fields.length > 1) {
+              const val2 = config[fields[1].key]
+              if (val2) setWfAddApiKey2(val2)
+            }
+          }
+        }
+      } catch {
+        // ignore fetch errors, user can re-enter
+      }
+    }
+  }
+
+  const handleWfSave = async () => {
+    setWfAddLoading(true)
+    setWfAddError(null)
+    try {
+      const fields = getWfFields(wfAddType)
+      const existing = workflowIntegrations.find((w) => w.type === wfAddType)
+      const config: Record<string, string> = {}
+
+      // For secret fields on existing integrations: if left empty, send "configured" to preserve existing value
+      const val1 = wfAddApiKey.trim()
+      config[fields[0].key] = (existing && !val1 && fields[0].isSecret) ? "configured" : val1
+      if (fields.length > 1) {
+        const val2 = wfAddApiKey2.trim()
+        config[fields[1].key] = (existing && !val2 && fields[1].isSecret) ? "configured" : val2
+      }
+
+      if (existing) {
+        // Update existing integration
+        const res = await fetch(`/api/workflow-integrations/${encodeURIComponent(existing.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ config }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Failed to save" }))
+          throw new Error(err.error)
+        }
+      } else {
+        // Create new integration
+        const res = await fetch("/api/workflow-integrations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: wfAddType, name: null, config }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Failed to save" }))
+          throw new Error(err.error)
+        }
+      }
+
+      toast({ title: "Saved", description: `${workflowIntegrationMeta[wfAddType]?.label || wfAddType} credentials saved.` })
+      setWfAddModalOpen(false)
+      loadWorkflowIntegrations()
+    } catch (e) {
+      setWfAddError(e instanceof Error ? e.message : "Failed to save")
+    } finally {
+      setWfAddLoading(false)
+    }
+  }
+
+  const handleWfDelete = async (id: string) => {
+    try {
+      await fetch(`/api/workflow-integrations/${id}`, { method: "DELETE" })
+      toast({ title: "Deleted", description: "Integration removed." })
+      loadWorkflowIntegrations()
+    } catch {
+      // ignore
+    }
+  }
+
   const filtered = activeIntegrations.filter((integration) => {
     const matchesTab =
       tab === "all" ? true : tab === "active" ? integration.enabled : !integration.enabled
@@ -500,11 +680,12 @@ export default function SettingsIntegrationsPage() {
             <DialogTitle>Floify API Keys</DialogTitle>
             <DialogDescription>Enter and save your Floify API credentials.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="floify-api-key">X-API-KEY</Label>
               <Input
                 id="floify-api-key"
+                autoComplete="off"
                 value={floifyApiKey}
                 onChange={(e) => setFloifyApiKey(e.target.value)}
                 placeholder="Enter X-API-KEY"
@@ -515,6 +696,7 @@ export default function SettingsIntegrationsPage() {
               <Label htmlFor="floify-user-api-key">User API Key</Label>
               <Input
                 id="floify-user-api-key"
+                autoComplete="off"
                 value={floifyUserApiKey}
                 onChange={(e) => setFloifyUserApiKey(e.target.value)}
                 placeholder="Enter User API Key"
@@ -522,7 +704,7 @@ export default function SettingsIntegrationsPage() {
               />
             </div>
             {floifyError ? <p className="text-sm text-destructive">{floifyError}</p> : null}
-          </div>
+          </form>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setFloifyModalOpen(false)} disabled={floifyLoading}>
               Cancel
@@ -542,11 +724,12 @@ export default function SettingsIntegrationsPage() {
             <DialogTitle>Xactus Credentials</DialogTitle>
             <DialogDescription>Enter and save your Xactus account credentials.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="xactus-account-user">Account User</Label>
               <Input
                 id="xactus-account-user"
+                autoComplete="off"
                 value={xactusAccountUser}
                 onChange={(e) => setXactusAccountUser(e.target.value)}
                 placeholder="Enter Account User"
@@ -557,6 +740,7 @@ export default function SettingsIntegrationsPage() {
               <Label htmlFor="xactus-account-password">Account Password</Label>
               <PasswordInput
                 id="xactus-account-password"
+                autoComplete="new-password"
                 value={xactusAccountPassword}
                 onChange={(e) => setXactusAccountPassword(e.target.value)}
                 placeholder="Enter Account Password"
@@ -564,7 +748,7 @@ export default function SettingsIntegrationsPage() {
               />
             </div>
             {xactusError ? <p className="text-sm text-destructive">{xactusError}</p> : null}
-          </div>
+          </form>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setXactusModalOpen(false)} disabled={xactusLoading}>
               Cancel
@@ -584,11 +768,12 @@ export default function SettingsIntegrationsPage() {
             <DialogTitle>Clear Credentials</DialogTitle>
             <DialogDescription>Enter and save your Clear (Thomson Reuters) account credentials.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="clear-username">Username</Label>
               <Input
                 id="clear-username"
+                autoComplete="off"
                 value={clearUsername}
                 onChange={(e) => setClearUsername(e.target.value)}
                 placeholder="Enter Username"
@@ -599,6 +784,7 @@ export default function SettingsIntegrationsPage() {
               <Label htmlFor="clear-password">Password</Label>
               <PasswordInput
                 id="clear-password"
+                autoComplete="new-password"
                 value={clearPassword}
                 onChange={(e) => setClearPassword(e.target.value)}
                 placeholder="Enter Password"
@@ -606,7 +792,7 @@ export default function SettingsIntegrationsPage() {
               />
             </div>
             {clearError ? <p className="text-sm text-destructive">{clearError}</p> : null}
-          </div>
+          </form>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setClearModalOpen(false)} disabled={clearLoading}>
               Cancel
@@ -626,11 +812,12 @@ export default function SettingsIntegrationsPage() {
             <DialogTitle>Nadlan Valuation Credentials</DialogTitle>
             <DialogDescription>Enter and save your Nadlan Valuation account credentials.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="nadlan-username">Username</Label>
               <Input
                 id="nadlan-username"
+                autoComplete="off"
                 value={nadlanUsername}
                 onChange={(e) => setNadlanUsername(e.target.value)}
                 placeholder="Enter Username"
@@ -641,6 +828,7 @@ export default function SettingsIntegrationsPage() {
               <Label htmlFor="nadlan-password">Password</Label>
               <PasswordInput
                 id="nadlan-password"
+                autoComplete="new-password"
                 value={nadlanPassword}
                 onChange={(e) => setNadlanPassword(e.target.value)}
                 placeholder="Enter Password"
@@ -648,7 +836,7 @@ export default function SettingsIntegrationsPage() {
               />
             </div>
             {nadlanError ? <p className="text-sm text-destructive">{nadlanError}</p> : null}
-          </div>
+          </form>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setNadlanModalOpen(false)} disabled={nadlanLoading}>
               Cancel
@@ -688,6 +876,8 @@ export default function SettingsIntegrationsPage() {
               id="settings4-search"
               type="search"
               placeholder="Search"
+              autoComplete="off"
+              name="integration-search"
               className="h-10 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -696,6 +886,8 @@ export default function SettingsIntegrationsPage() {
         </div>
       </div>
 
+      {/* Platform Integrations */}
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Platform</h3>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {filtered.map((integration) => (
           <Card key={integration.name} className="border shadow-sm">
@@ -750,6 +942,137 @@ export default function SettingsIntegrationsPage() {
           </Card>
         ))}
       </div>
+
+      {/* Workflow Integrations */}
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mt-4">Workflow &amp; AI</h3>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {WORKFLOW_TYPES
+          .filter((type) => {
+            if (query.trim().length === 0) return true
+            const meta = workflowIntegrationMeta[type]
+            return (
+              meta?.label.toLowerCase().includes(query.toLowerCase()) ||
+              meta?.description.toLowerCase().includes(query.toLowerCase())
+            )
+          })
+          .map((type) => {
+            const meta = workflowIntegrationMeta[type]
+            const existing = workflowIntegrations.find((w) => w.type === type)
+            return (
+              <Card key={type} className="border shadow-sm">
+                <div className="space-y-4 px-6 py-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                      <IntegrationIcon integration={type} className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {existing?.configured && (
+                        <Badge variant="secondary" className="gap-1 text-xs">
+                          <Check className="h-3 w-3" />
+                          Configured
+                        </Badge>
+                      )}
+                      {meta.link && (
+                        <a href={meta.link} target="_blank" rel="noreferrer noopener">
+                          <Button variant="ghost" size="icon" aria-label={`Open ${meta.label}`}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">{meta.label}</h3>
+                    <p className="text-muted-foreground text-sm">{meta.description}</p>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between px-6 py-4">
+                  {existing ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleWfAdd(type)}
+                      >
+                        <Cog className="h-4 w-4" />
+                        Update
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleWfDelete(existing.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleWfAdd(type)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Connection
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )
+          })}
+      </div>
+
+      {/* Add Workflow Integration Modal */}
+      <Dialog open={wfAddModalOpen} onOpenChange={setWfAddModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{workflowIntegrationMeta[wfAddType]?.label || wfAddType} Credentials</DialogTitle>
+            <DialogDescription>Enter your API credentials for {workflowIntegrationMeta[wfAddType]?.label || wfAddType}.</DialogDescription>
+          </DialogHeader>
+          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
+            {getWfFields(wfAddType).map((field, idx) => (
+              <div key={field.key} className="space-y-1">
+                <Label htmlFor={`wf-field-${field.key}`}>{field.label}</Label>
+                {field.isSecret ? (
+                  <PasswordInput
+                    id={`wf-field-${field.key}`}
+                    autoComplete="new-password"
+                    value={idx === 0 ? wfAddApiKey : wfAddApiKey2}
+                    onChange={(e) => idx === 0 ? setWfAddApiKey(e.target.value) : setWfAddApiKey2(e.target.value)}
+                    placeholder={`Enter ${field.label}`}
+                    disabled={wfAddLoading}
+                  />
+                ) : (
+                  <Input
+                    id={`wf-field-${field.key}`}
+                    autoComplete="off"
+                    value={idx === 0 ? wfAddApiKey : wfAddApiKey2}
+                    onChange={(e) => idx === 0 ? setWfAddApiKey(e.target.value) : setWfAddApiKey2(e.target.value)}
+                    placeholder={`Enter ${field.label}`}
+                    disabled={wfAddLoading}
+                  />
+                )}
+              </div>
+            ))}
+            {wfAddError ? <p className="text-sm text-destructive">{wfAddError}</p> : null}
+          </form>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setWfAddModalOpen(false)} disabled={wfAddLoading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleWfSave()}
+              disabled={wfAddLoading || !wfAddApiKey.trim()}
+            >
+              {wfAddLoading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

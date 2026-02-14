@@ -70,28 +70,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check if user has active xactus integration
+    // Check if user has active xactus integration (unified workflow_integrations table)
     let xactusIntegrationId: string | null = null
-    const { data: xactusIntegration } = await supabaseAdmin
-      .from("integrations")
-      .select("id, status")
+    const { data: xactusRow } = await supabaseAdmin
+      .from("workflow_integrations")
+      .select("id, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
       .eq("type", "xactus")
-      .eq("status", true)
+      .is("name", null)
       .maybeSingle()
-    if (xactusIntegration?.id) {
-      // Verify credentials exist before including integration_id
-      const { data: xactusCredentials } = await supabaseAdmin
-        .from("integrations_xactus")
-        .select("account_user, account_password")
-        .eq("integration_id", xactusIntegration.id)
-        .maybeSingle()
+    if (xactusRow?.id) {
+      const xConfig = (xactusRow.config as Record<string, unknown>) || {}
+      const isActive = xConfig.status === "true"
       const hasCredentials =
-        Boolean((xactusCredentials?.account_user as string | null)?.trim()) &&
-        Boolean((xactusCredentials?.account_password as string | null)?.trim())
-      if (hasCredentials) {
-        xactusIntegrationId = xactusIntegration.id as string
+        Boolean((xConfig.account_user as string | null)?.trim()) &&
+        Boolean((xConfig.account_password as string | null)?.trim())
+      if (isActive && hasCredentials) {
+        xactusIntegrationId = xactusRow.id as string
       }
     }
 
