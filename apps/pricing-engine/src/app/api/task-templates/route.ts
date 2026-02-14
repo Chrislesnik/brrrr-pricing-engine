@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { deal_stage_id, name, description } = body;
+    const { deal_stage_id, name, description, default_status_id, default_priority_id, due_offset_days } = body;
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         code,
+        default_status_id: default_status_id || null,
+        default_priority_id: default_priority_id || null,
+        due_offset_days: due_offset_days ?? null,
         display_order: nextOrder,
         is_active: true,
       })
@@ -124,14 +127,22 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
 
-    // Single template update (edit name/description)
+    // Single template update
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, name, description } = body;
+      const { id, name, description, default_status_id, default_priority_id, due_offset_days, is_active } = body;
       const updatePayload: Record<string, unknown> = {};
 
       if (name !== undefined) updatePayload.name = String(name).trim();
       if (description !== undefined)
         updatePayload.description = description?.trim() || null;
+      if (default_status_id !== undefined)
+        updatePayload.default_status_id = default_status_id;
+      if (default_priority_id !== undefined)
+        updatePayload.default_priority_id = default_priority_id;
+      if (due_offset_days !== undefined)
+        updatePayload.due_offset_days = due_offset_days;
+      if (is_active !== undefined)
+        updatePayload.is_active = is_active;
 
       if (Object.keys(updatePayload).length === 0) {
         return NextResponse.json(

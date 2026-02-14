@@ -2,12 +2,21 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
+  Button as AriaButton,
+  Group,
+  Input as AriaInput,
+  NumberField,
+} from "react-aria-components";
+import {
   Check,
   GripVertical,
   ListOrdered,
+  MinusIcon,
   Pencil,
   Plus,
+  PlusIcon,
   Loader2,
+  Settings,
   Workflow,
   X,
 } from "lucide-react";
@@ -15,6 +24,13 @@ import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
 import { Badge } from "@repo/ui/shadcn/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/shadcn/select";
 import {
   Kanban,
   KanbanBoard,
@@ -33,6 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TaskLogicBuilderSheet } from "./task-logic-builder-sheet";
+import { TaskSettingsSheet } from "./task-settings-sheet";
 import { StepperBuilderSheet } from "./stepper-builder-sheet";
 
 /* -------------------------------------------------------------------------- */
@@ -55,9 +72,19 @@ interface TaskTemplate {
   code: string;
   name: string;
   description: string | null;
+  default_status_id: number | null;
+  default_priority_id: number | null;
+  due_offset_days: number | null;
   display_order: number;
   is_active: boolean;
   created_at: string;
+}
+
+interface LookupItem {
+  id: number;
+  code: string;
+  name: string;
+  color: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -73,6 +100,8 @@ const UNASSIGNED_KEY = "col-unassigned";
 export function TasksSettings() {
   const [stages, setStages] = useState<DealStage[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [statuses, setStatuses] = useState<LookupItem[]>([]);
+  const [priorities, setPriorities] = useState<LookupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
 
@@ -82,6 +111,9 @@ export function TasksSettings() {
   >(null);
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskStatusId, setNewTaskStatusId] = useState("");
+  const [newTaskPriorityId, setNewTaskPriorityId] = useState("");
+  const [newTaskDueOffsetDays, setNewTaskDueOffsetDays] = useState("");
   const [savingTask, setSavingTask] = useState(false);
 
   // Edit task state
@@ -96,6 +128,9 @@ export function TasksSettings() {
   // Stepper sheet state
   const [stepperOpen, setStepperOpen] = useState(false);
 
+  // Task settings sheet state
+  const [settingsTask, setSettingsTask] = useState<TaskTemplate | null>(null);
+
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
@@ -107,10 +142,13 @@ export function TasksSettings() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [stagesRes, templatesRes] = await Promise.all([
-        fetch("/api/deal-stages"),
-        fetch("/api/task-templates"),
-      ]);
+      const [stagesRes, templatesRes, statusesRes, prioritiesRes] =
+        await Promise.all([
+          fetch("/api/deal-stages"),
+          fetch("/api/task-templates"),
+          fetch("/api/task-statuses"),
+          fetch("/api/task-priorities"),
+        ]);
       if (stagesRes.ok) {
         const data = await stagesRes.json();
         setStages(data.stages ?? []);
@@ -118,6 +156,14 @@ export function TasksSettings() {
       if (templatesRes.ok) {
         const data = await templatesRes.json();
         setTemplates(data.templates ?? []);
+      }
+      if (statusesRes.ok) {
+        const data = await statusesRes.json();
+        setStatuses(data.statuses ?? []);
+      }
+      if (prioritiesRes.ok) {
+        const data = await prioritiesRes.json();
+        setPriorities(data.priorities ?? []);
       }
     } catch (err) {
       console.error("Failed to fetch tasks data:", err);
@@ -174,6 +220,9 @@ export function TasksSettings() {
           deal_stage_id: stageId,
           name: newTaskName.trim(),
           description: newTaskDescription.trim() || null,
+          default_status_id: newTaskStatusId ? Number(newTaskStatusId) : null,
+          default_priority_id: newTaskPriorityId ? Number(newTaskPriorityId) : null,
+          due_offset_days: newTaskDueOffsetDays !== "" ? Number(newTaskDueOffsetDays) : null,
         }),
       });
       if (res.ok) {
@@ -234,6 +283,9 @@ export function TasksSettings() {
     setEditingTaskId(null);
     setNewTaskName("");
     setNewTaskDescription("");
+    setNewTaskStatusId("");
+    setNewTaskPriorityId("");
+    setNewTaskDueOffsetDays("");
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -453,6 +505,7 @@ export function TasksSettings() {
                                 variant="ghost"
                                 size="icon"
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                                onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setLogicBuilderTaskId(task.id);
@@ -465,6 +518,19 @@ export function TasksSettings() {
                                 variant="ghost"
                                 size="icon"
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSettingsTask(task);
+                                }}
+                              >
+                                <Settings className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground shrink-0"
+                                onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   resetTaskForm();
@@ -481,6 +547,7 @@ export function TasksSettings() {
                                 variant="ghost"
                                 size="icon"
                                 className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                                onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setDeleteDialog({
@@ -524,6 +591,111 @@ export function TasksSettings() {
                           }
                           className="h-8 text-sm"
                         />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Default Status</Label>
+                          <Select
+                            value={newTaskStatusId}
+                            onValueChange={setNewTaskStatusId}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="None" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statuses.map((s) => (
+                                <SelectItem
+                                  key={s.id}
+                                  value={String(s.id)}
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    {s.color && (
+                                      <span
+                                        className="inline-block size-2 rounded-full shrink-0"
+                                        style={{
+                                          backgroundColor: s.color,
+                                        }}
+                                      />
+                                    )}
+                                    {s.name}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Default Priority</Label>
+                          <Select
+                            value={newTaskPriorityId}
+                            onValueChange={setNewTaskPriorityId}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="None" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {priorities.map((p) => (
+                                <SelectItem
+                                  key={p.id}
+                                  value={String(p.id)}
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    {p.color && (
+                                      <span
+                                        className="inline-block size-2 rounded-full shrink-0"
+                                        style={{
+                                          backgroundColor: p.color,
+                                        }}
+                                      />
+                                    )}
+                                    {p.name}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          Due Offset Days
+                        </Label>
+                        <NumberField
+                          value={
+                            newTaskDueOffsetDays !== ""
+                              ? Number(newTaskDueOffsetDays)
+                              : undefined
+                          }
+                          onChange={(val) =>
+                            setNewTaskDueOffsetDays(
+                              isNaN(val) ? "" : String(val)
+                            )
+                          }
+                          minValue={0}
+                          className="w-44"
+                        >
+                          <Group className="border-input data-focus-within:ring-ring relative inline-flex h-8 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-xs transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1">
+                            <AriaInput
+                              placeholder="0"
+                              className="placeholder:text-muted-foreground w-full grow bg-transparent px-3 py-1 text-xs outline-none"
+                            />
+                            <AriaButton
+                              slot="decrement"
+                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                            >
+                              <MinusIcon className="size-3" />
+                            </AriaButton>
+                            <AriaButton
+                              slot="increment"
+                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
+                            >
+                              <PlusIcon className="size-3" />
+                            </AriaButton>
+                          </Group>
+                        </NumberField>
                       </div>
 
                       <div className="flex items-center gap-2 pt-1">
@@ -593,6 +765,16 @@ export function TasksSettings() {
           // Refresh stages after stepper closes (sync may have updated deal_stages)
           if (!open) fetchData();
         }}
+      />
+
+      {/* Task Settings Sheet */}
+      <TaskSettingsSheet
+        open={settingsTask !== null}
+        onOpenChange={(open) => {
+          if (!open) setSettingsTask(null);
+        }}
+        task={settingsTask}
+        onSaved={fetchData}
       />
 
       {/* Delete confirmation dialog */}
