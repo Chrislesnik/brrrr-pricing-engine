@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Check,
   GripVertical,
-  ListOrdered,
   Pencil,
   Plus,
   Sparkles,
@@ -50,7 +49,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { LogicBuilderSheet } from "./logic-builder-sheet";
-import { StepperBuilderSheet } from "./stepper-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 
 /* -------------------------------------------------------------------------- */
@@ -132,9 +130,6 @@ export function InputsSettings() {
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
   const [logicBuilderInputId, setLogicBuilderInputId] = useState<string | null>(null);
-
-  // Stepper sheet state
-  const [stepperOpen, setStepperOpen] = useState(false);
 
   // AI Order sheet state
   const [aiOrderOpen, setAiOrderOpen] = useState(false);
@@ -516,14 +511,6 @@ export function InputsSettings() {
             >
               <Workflow className="size-4 mr-1.5" />
               Logic Builder
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setStepperOpen(true)}
-            >
-              <ListOrdered className="size-4 mr-1.5" />
-              Stepper
             </Button>
           </div>
         )}
@@ -1042,12 +1029,6 @@ export function InputsSettings() {
         open={logicBuilderOpen}
         onOpenChange={setLogicBuilderOpen}
         filterInputId={logicBuilderInputId}
-      />
-
-      {/* Stepper Builder Sheet */}
-      <StepperBuilderSheet
-        open={stepperOpen}
-        onOpenChange={setStepperOpen}
       />
 
       {/* AI Extraction Order Sheet */}

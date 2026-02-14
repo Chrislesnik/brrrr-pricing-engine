@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { syncDealStages } from "@/lib/sync-deal-stages";
 
 /* -------------------------------------------------------------------------- */
 /*  GET /api/input-stepper                                                     */
@@ -85,6 +86,11 @@ export async function POST(request: NextRequest) {
         { error: "Failed to save stepper" },
         { status: 500 }
       );
+    }
+
+    // Sync deal_stages with the new step order
+    if (step_order && Array.isArray(step_order) && step_order.length > 0) {
+      await syncDealStages(step_order);
     }
 
     return NextResponse.json({ stepper: data });

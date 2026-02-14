@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   TextCursorInput,
   FileText,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -28,8 +29,9 @@ import { ProgramsSettings } from "./components/programs-settings";
 import { ThemesSettings } from "./components/themes-settings";
 import { InputsSettings } from "./components/inputs-settings";
 import { DocumentsSettings } from "./components/documents-settings";
+import { TasksSettings } from "./components/tasks-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs" | "documents";
+type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs" | "documents" | "tasks";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -89,6 +91,12 @@ const settingsNavItems: NavItem[] = [
     label: "Documents",
     icon: FileText,
     description: "Manage document requirements",
+  },
+  {
+    id: "tasks",
+    label: "Tasks & Actions",
+    icon: ListChecks,
+    description: "Manage task templates and actions",
   },
   {
     id: "themes",
@@ -264,6 +272,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "themes" && <ThemesSettings />}
             {activeTab === "inputs" && <InputsSettings />}
             {activeTab === "documents" && <DocumentsSettings />}
+            {activeTab === "tasks" && <TasksSettings />}
           </div>
         </div>
       </div>

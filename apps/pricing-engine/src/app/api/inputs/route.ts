@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { syncDealStages } from "@/lib/sync-deal-stages"
 
 /**
  * GET /api/inputs
@@ -153,6 +154,9 @@ export async function PATCH(req: NextRequest) {
               .update({ step_order: newOpts })
               .in("input_stepper_id", stepperIds)
           }
+
+          // Sync deal_stages with updated step order
+          await syncDealStages(newOpts)
         }
       }
 
