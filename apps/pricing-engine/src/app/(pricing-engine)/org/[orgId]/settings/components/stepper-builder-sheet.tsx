@@ -248,12 +248,16 @@ export function StepperBuilderSheet({
                     getItemValue={(item) => item}
                     orientation="vertical"
                   >
-                    <SortableContent className="rounded-lg border divide-y">
+                    <SortableContent className="rounded-lg border divide-y overflow-hidden">
                       {stepOrder.map((option, idx) => (
                         <SortableItem
                           key={option}
                           value={option}
-                          className="flex items-center gap-3 px-3 py-2.5 bg-background data-dragging:bg-muted data-dragging:shadow-md data-dragging:rounded-lg"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 bg-background data-dragging:bg-muted data-dragging:shadow-md data-dragging:rounded-lg",
+                            idx === 0 && "rounded-t-lg",
+                            idx === stepOrder.length - 1 && "rounded-b-lg"
+                          )}
                         >
                           <SortableItemHandle className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
                             <GripVertical className="h-4 w-4" />
