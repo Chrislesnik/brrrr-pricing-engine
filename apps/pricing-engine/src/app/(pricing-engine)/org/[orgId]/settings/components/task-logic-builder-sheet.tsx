@@ -27,6 +27,8 @@ import {
   ChevronsUpDown,
   AlertTriangle,
   Code,
+  Sparkles,
+  SendHorizontal,
 } from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((m) => m.default), {
@@ -1113,6 +1115,54 @@ function TaskConditionRow({
 }) {
   const sourceType = cond.source_type || "input";
   const { resolvedTheme } = useTheme();
+  const [sqlPrompt, setSqlPrompt] = useState("");
+  const [sqlError, setSqlError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [completion, setCompletion] = useState("");
+
+  const handleSqlGenerate = useCallback(async () => {
+    if (!sqlPrompt.trim() || isGenerating) return;
+    setSqlError(null);
+    setIsGenerating(true);
+    setCompletion("");
+
+    try {
+      const res = await fetch("/api/sql-agent/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: sqlPrompt.trim() }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(errBody || `HTTP ${res.status}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        fullText += chunk;
+        setCompletion(fullText);
+      }
+
+      // Commit the final result to the condition
+      updateCondition(ruleIndex, condIndex, "sql_expression", fullText);
+      setSqlPrompt("");
+    } catch (err) {
+      setSqlError(
+        err instanceof Error ? err.message : "Failed to generate SQL"
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [sqlPrompt, isGenerating, ruleIndex, condIndex, updateCondition]);
 
   // For input conditions
   const fieldInput = cond.field ? inputMap.get(cond.field) : undefined;
@@ -1458,15 +1508,17 @@ function TaskConditionRow({
             height="120px"
             language="sql"
             theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
-            value={cond.sql_expression || ""}
-            onChange={(val) =>
-              updateCondition(
-                ruleIndex,
-                condIndex,
-                "sql_expression",
-                val ?? ""
-              )
-            }
+            value={isGenerating ? completion : cond.sql_expression || ""}
+            onChange={(val) => {
+              if (!isGenerating) {
+                updateCondition(
+                  ruleIndex,
+                  condIndex,
+                  "sql_expression",
+                  val ?? ""
+                );
+              }
+            }}
             options={{
               minimap: { enabled: false },
               fontSize: 12,
@@ -1486,12 +1538,61 @@ function TaskConditionRow({
               glyphMargin: false,
               lineDecorationsWidth: 8,
               lineNumbersMinChars: 0,
+              readOnly: isGenerating,
               suggest: {
                 showKeywords: true,
               },
             }}
           />
         </div>
+
+        {/* Inline AI prompt bar */}
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Sparkles className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={sqlPrompt}
+              onChange={(e) => setSqlPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSqlGenerate();
+                }
+              }}
+              placeholder="Describe the SQL you need..."
+              disabled={isGenerating}
+              className={cn(
+                "h-8 w-full rounded-md border border-input bg-background pl-7 pr-3 text-xs shadow-sm transition-colors",
+                "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSqlGenerate}
+            disabled={!sqlPrompt.trim() || isGenerating}
+            className={cn(
+              "flex items-center justify-center size-8 rounded-md border transition-colors shrink-0",
+              sqlPrompt.trim() && !isGenerating
+                ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                : "bg-muted text-muted-foreground border-input cursor-not-allowed"
+            )}
+            title="Generate SQL"
+          >
+            {isGenerating ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <SendHorizontal className="size-3.5" />
+            )}
+          </button>
+        </div>
+
+        {/* Error display */}
+        {sqlError && (
+          <p className="text-[10px] text-destructive px-1">{sqlError}</p>
+        )}
       </div>
     );
   }
