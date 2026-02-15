@@ -771,7 +771,7 @@ function InlineEditFileName({
         onChange={(e) => setValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className="text-xs font-medium w-full min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
+        className="text-xs font-medium flex-1 min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
       />
     );
   }
@@ -779,7 +779,7 @@ function InlineEditFileName({
   return (
     <button
       type="button"
-      className="text-xs truncate w-full font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
+      className="text-xs truncate flex-1 font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
       onClick={() => setEditing(true)}
       title="Click to rename"
     >
@@ -1089,7 +1089,7 @@ function DocumentTypeRow({
 
       {/* Upload Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl p-8 overflow-hidden">
           <DialogHeader>
             <DialogTitle>Upload — {docType.document_name}</DialogTitle>
             <DialogDescription>
@@ -1135,17 +1135,17 @@ function DocumentTypeRow({
 
           {/* Files already uploaded + uploading placeholders for this doc type */}
           {(files.length > 0 || uploadingFileNames.length > 0) && (
-            <div className="space-y-2 mt-2">
+            <div className="space-y-2 mt-4 min-w-0">
               <p className="text-xs font-medium text-muted-foreground">
                 {files.length} file{files.length !== 1 ? "s" : ""} uploaded
                 {uploadingFileNames.length > 0 &&
                   `, ${uploadingFileNames.length} uploading`}
               </p>
-              <div className="space-y-1.5 max-h-48 overflow-auto">
+              <div className="space-y-1.5 max-h-48 overflow-auto min-w-0">
                 {files.map((doc) => (
                   <div
                     key={doc.id}
-                    className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file"
+                    className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file min-w-0 overflow-hidden"
                   >
                     {doc.has_file ? (
                       <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />

@@ -18,10 +18,14 @@ export function LiveblocksProviderWrapper({ children }: Props) {
         const data = await response.json();
         return data.users;
       }}
-      resolveMentionSuggestions={async ({ text }) => {
-        const response = await fetch(
-          `/api/liveblocks-users?search=${encodeURIComponent(text)}`
-        );
+      resolveMentionSuggestions={async ({ text, roomId }) => {
+        const params = new URLSearchParams();
+        params.set("search", text);
+        // Extract deal ID from room ID (format: "deal:<uuid>")
+        if (roomId?.startsWith("deal:")) {
+          params.set("dealId", roomId.slice(5));
+        }
+        const response = await fetch(`/api/liveblocks-users?${params}`);
         const data = await response.json();
         return data.users.map((user: { id: string }) => user.id);
       }}
