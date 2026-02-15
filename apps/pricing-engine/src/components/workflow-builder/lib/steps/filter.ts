@@ -1,11 +1,11 @@
 /**
  * Filter step — removes items that don't match conditions.
- * Uses the same structured condition format as the Condition node.
+ * Evaluates conditions PER ITEM so each item is individually tested.
  */
 import "server-only";
 
 import { type StepInput, withStepLogging } from "./step-handler";
-import { getInputItems, type DataAwareInput } from "./items-helper";
+import { getInputItems, getFieldValue, type DataAwareInput } from "./items-helper";
 import type { WorkflowItem } from "../types/items";
 
 type ConditionRow = {
@@ -23,6 +23,59 @@ type StructuredCondition = {
 export type FilterInput = StepInput & DataAwareInput & {
   condition: string;
 };
+
+/**
+ * Resolve a condition value against the current item.
+ * - If the value looks like a field path (no spaces, contains only word chars and dots),
+ *   try to read it from item.json. If found, use the item value.
+ * - Template-resolved values (from {{@...}}) are already literal strings and pass through.
+ * - Explicit literals (numbers, quoted strings) pass through as-is.
+ */
+function resolveValue(raw: string, item: WorkflowItem): string {
+  if (!raw || raw.trim() === "") return raw;
+
+  const trimmed = raw.trim();
+
+  // If it looks like a number literal, pass through
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return trimmed;
+
+  // If it looks like a boolean literal, pass through
+  if (trimmed === "true" || trimmed === "false") return trimmed;
+
+  // If it contains template syntax (already resolved or leftover), pass through
+  if (trimmed.includes("{{") || trimmed.includes("}}")) return trimmed;
+
+  // If it looks like a field path (word chars, dots, brackets -- no spaces),
+  // try to read from the item's json
+  if (/^[\w.[\]]+$/.test(trimmed)) {
+    const itemValue = getFieldValue(item, trimmed);
+    if (itemValue !== undefined) {
+      if (itemValue === null) return "";
+      if (typeof itemValue === "object") return JSON.stringify(itemValue);
+      return String(itemValue);
+    }
+  }
+
+  // Otherwise pass through as literal
+  return raw;
+}
+
+/**
+ * Resolve a structured condition's values against a specific item.
+ */
+function resolveConditionForItem(
+  condition: StructuredCondition,
+  item: WorkflowItem,
+): StructuredCondition {
+  return {
+    match: condition.match,
+    conditions: condition.conditions.map((cond) => ({
+      ...cond,
+      leftValue: resolveValue(cond.leftValue, item),
+      rightValue: resolveValue(cond.rightValue, item),
+    })),
+  };
+}
 
 function evaluateSingle(cond: ConditionRow): boolean {
   const left = cond.leftValue;
@@ -112,10 +165,12 @@ function executeFilter(input: FilterInput): {
     return { items, rejectedItems: [], keptCount: items.length, removedCount: 0 };
   }
 
+  // Evaluate conditions PER ITEM -- resolve field values from each item's json
   const kept: WorkflowItem[] = [];
   const rejected: WorkflowItem[] = [];
   for (const item of items) {
-    if (evaluateConditions(structured)) {
+    const resolvedCondition = resolveConditionForItem(structured, item);
+    if (evaluateConditions(resolvedCondition)) {
       kept.push(item);
     } else {
       rejected.push(item);
