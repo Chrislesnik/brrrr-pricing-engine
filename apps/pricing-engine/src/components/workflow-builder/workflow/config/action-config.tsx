@@ -455,6 +455,13 @@ function WaitFields({
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
 }) {
+  // Initialize defaults on first render if not set
+  useEffect(() => {
+    if (!config?.waitAmount) onUpdateConfig("waitAmount", "5");
+    if (!config?.waitUnit) onUpdateConfig("waitUnit", "seconds");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
