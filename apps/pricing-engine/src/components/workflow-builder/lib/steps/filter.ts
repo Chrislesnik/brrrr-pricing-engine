@@ -5,6 +5,8 @@
 import "server-only";
 
 import { type StepInput, withStepLogging } from "./step-handler";
+import { getInputItems, type DataAwareInput } from "./items-helper";
+import type { WorkflowItem } from "../types/items";
 
 type ConditionRow = {
   leftValue: string;
@@ -18,9 +20,8 @@ type StructuredCondition = {
   conditions: ConditionRow[];
 };
 
-export type FilterInput = StepInput & {
-  condition: string; // JSON structured condition (same as Condition node)
-  _nodeOutputs?: Record<string, unknown>;
+export type FilterInput = StepInput & DataAwareInput & {
+  condition: string;
 };
 
 function evaluateSingle(cond: ConditionRow): boolean {
@@ -91,13 +92,12 @@ function evaluateConditions(data: StructuredCondition): boolean {
 }
 
 function executeFilter(input: FilterInput): {
-  items: Array<{ json: Record<string, unknown> }>;
+  items: WorkflowItem[];
+  rejectedItems: WorkflowItem[];
   keptCount: number;
   removedCount: number;
 } {
   const conditionValue = input.condition || "";
-
-  // Parse the structured condition
   let structured: StructuredCondition | null = null;
   try {
     const parsed = JSON.parse(conditionValue);
@@ -106,39 +106,14 @@ function executeFilter(input: FilterInput): {
     }
   } catch { /* not structured */ }
 
-  // Get items from upstream (merged from _nodeOutputs)
-  const nodeOutputs = input._nodeOutputs ?? {};
-  const allValues = Object.values(nodeOutputs).filter(Boolean);
-  const items: Array<{ json: Record<string, unknown> }> = [];
+  const items = getInputItems(input);
 
-  for (const val of allValues) {
-    if (Array.isArray(val)) {
-      for (const item of val) {
-        if (item && typeof item === "object" && "json" in item) {
-          items.push(item as { json: Record<string, unknown> });
-        } else if (item && typeof item === "object") {
-          items.push({ json: item as Record<string, unknown> });
-        }
-      }
-    } else if (val && typeof val === "object") {
-      const obj = val as Record<string, unknown>;
-      if ("success" in obj && "data" in obj && typeof obj.data === "object" && obj.data !== null) {
-        items.push({ json: obj.data as Record<string, unknown> });
-      } else {
-        items.push({ json: obj });
-      }
-    }
-  }
-
-  // If no structured condition, pass all items through
   if (!structured) {
     return { items, rejectedItems: [], keptCount: items.length, removedCount: 0 };
   }
 
-  // Filter items — conditions reference resolved template values
-  // Since templates are already resolved by the executor, just evaluate
-  const kept: typeof items = [];
-  const rejected: typeof items = [];
+  const kept: WorkflowItem[] = [];
+  const rejected: WorkflowItem[] = [];
   for (const item of items) {
     if (evaluateConditions(structured)) {
       kept.push(item);
@@ -147,18 +122,13 @@ function executeFilter(input: FilterInput): {
     }
   }
 
-  return {
-    items: kept,
-    rejectedItems: rejected,
-    keptCount: kept.length,
-    removedCount: rejected.length,
-  };
+  return { items: kept, rejectedItems: rejected, keptCount: kept.length, removedCount: rejected.length };
 }
 
 // biome-ignore lint/suspicious/useAwait: workflow "use step" requires async
 export async function filterStep(
   input: FilterInput,
-): Promise<{ items: Array<{ json: Record<string, unknown> }>; rejectedItems: Array<{ json: Record<string, unknown> }>; keptCount: number; removedCount: number }> {
+): Promise<{ items: WorkflowItem[]; rejectedItems: WorkflowItem[]; keptCount: number; removedCount: number }> {
   "use step";
   return withStepLogging(input, () => Promise.resolve(executeFilter(input)));
 }
