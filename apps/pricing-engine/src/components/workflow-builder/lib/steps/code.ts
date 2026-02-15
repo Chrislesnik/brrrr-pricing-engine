@@ -57,15 +57,22 @@ function buildInputHelper(items: Item[]) {
 }
 
 /**
- * Build the $node proxy so user code can do $node['NodeName'].json.field
+ * Build the $node proxy so user code can do $node['NodeName'].json.field.
+ * Returns { json: {} } for any missing node name to prevent "Cannot read
+ * properties of undefined" errors.
  */
 function buildNodeProxy(nodeOutputs: Record<string, unknown>): Record<string, { json: Record<string, unknown> }> {
-  const proxy: Record<string, { json: Record<string, unknown> }> = {};
+  const resolved: Record<string, { json: Record<string, unknown> }> = {};
   for (const [label, data] of Object.entries(nodeOutputs)) {
     const items = toItems(data);
-    proxy[label] = items[0] ?? { json: {} };
+    resolved[label] = items[0] ?? { json: {} };
   }
-  return proxy;
+  // Use a Proxy so accessing any missing node name returns { json: {} }
+  return new Proxy(resolved, {
+    get(target, prop: string) {
+      return target[prop] ?? { json: {} };
+    },
+  });
 }
 
 /**
@@ -147,7 +154,14 @@ async function executeCode(input: CodeInput): Promise<{
   logs: string[];
 }> {
   const nodeOutputs = input._nodeOutputs ?? {};
-  const allItems = toItems(Object.values(nodeOutputs).pop()); // last upstream node
+  // Collect items from ALL upstream nodes (merged), with the most recent last
+  const allValues = Object.values(nodeOutputs).filter(Boolean);
+  const mergedItems: Item[] = [];
+  for (const val of allValues) {
+    mergedItems.push(...toItems(val));
+  }
+  // If no items from upstream, provide a single empty item
+  const allItems = mergedItems.length > 0 ? mergedItems : [{ json: {} }];
   const $input = buildInputHelper(allItems);
   const $node = buildNodeProxy(nodeOutputs);
 
