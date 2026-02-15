@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { IconDots, IconArchive } from "@tabler/icons-react"
+import { IconDots, IconArchive, IconRestore } from "@tabler/icons-react"
 import { useAuth } from "@clerk/nextjs"
 import { ColumnDef } from "@tanstack/react-table"
 import {
@@ -394,6 +394,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
 function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
+  const isArchived = (localStatus ?? "").toLowerCase() === "archived"
   const isActive = (localStatus ?? "").toLowerCase() === "active"
   const oppositeValue = isActive ? "inactive" : "active"
   const oppositeLabel = isActive ? "Inactive" : "Active"
@@ -492,7 +493,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
     }
   }
 
-  async function deleteLoan() {
+  async function archiveLoan() {
     try {
       const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
       if (!res.ok) {
@@ -503,6 +504,24 @@ function RowActions({ id, status }: { id: string; status?: string }) {
       window.location.reload()
     } catch {
       alert(`Failed to archive`)
+    }
+  }
+
+  async function restoreLoan() {
+    try {
+      const res = await fetch(`/api/loans/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore" }),
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Failed to restore: ${t || res.status}`)
+        return
+      }
+      window.location.reload()
+    } catch {
+      alert(`Failed to restore`)
     }
   }
 
@@ -560,27 +579,39 @@ function RowActions({ id, status }: { id: string; status?: string }) {
             Activity Log
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => setStatus(oppositeValue)}
-            className="gap-2"
-          >
-            {oppositeValue === "active" ? (
-              <CircleCheck className="h-4 w-4 text-success" />
-            ) : (
-              <CircleX className="h-4 w-4 text-danger" />
-            )}
-            {`Set to ${oppositeLabel}`}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-red-600 focus:text-red-600 gap-2"
-            onSelect={(e) => {
-              e.preventDefault()
-              setConfirmOpen(true)
-            }}
-          >
-            <IconArchive className="h-4 w-4" />
-            Archive
-          </DropdownMenuItem>
+          {isArchived ? (
+            <DropdownMenuItem
+              onClick={() => void restoreLoan()}
+              className="gap-2"
+            >
+              <IconRestore className="h-4 w-4 text-success" />
+              Restore
+            </DropdownMenuItem>
+          ) : (
+            <>
+              <DropdownMenuItem
+                onClick={() => setStatus(oppositeValue)}
+                className="gap-2"
+              >
+                {oppositeValue === "active" ? (
+                  <CircleCheck className="h-4 w-4 text-success" />
+                ) : (
+                  <CircleX className="h-4 w-4 text-danger" />
+                )}
+                {`Set to ${oppositeLabel}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600 gap-2"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  setConfirmOpen(true)
+                }}
+              >
+                <IconArchive className="h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={appOpen} onOpenChange={setAppOpen}>
@@ -641,7 +672,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
               className="bg-red-600 hover:bg-red-700"
               onClick={() => {
                 setConfirmOpen(false)
-                void deleteLoan()
+                void archiveLoan()
               }}
             >
               Archive
