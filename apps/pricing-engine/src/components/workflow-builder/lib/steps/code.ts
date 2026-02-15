@@ -79,11 +79,12 @@ async function runSandboxed(
   const argNames = Object.keys(sandboxVars);
   const argValues = Object.values(sandboxVars);
 
-  // Block dangerous globals by shadowing them as undefined
+  // Block dangerous globals by shadowing them as undefined.
+  // Note: "import", "eval" are reserved keywords and can't be var-shadowed,
+  // so we only shadow identifiers that are valid variable names.
   const blockedGlobals = [
-    "require", "import", "process", "globalThis",
+    "require", "process", "globalThis",
     "__dirname", "__filename", "module", "exports",
-    "eval", "Function",
   ];
   const blockPrefix = blockedGlobals
     .map((g) => `var ${g} = undefined;`)
