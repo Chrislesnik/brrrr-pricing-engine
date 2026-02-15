@@ -304,11 +304,26 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         // Add step context
         processedConfig._context = stepContext;
 
-        // Inject all upstream node outputs for Code nodes so they can build $input/$node
+        // Inject all upstream node outputs for Code nodes so they can build $input/$node.
+        // We add multiple aliases for each node so $node['Get Row'], $node['supabase/get-row'],
+        // and custom labels all resolve correctly.
         if (actionType === "Code") {
-          processedConfig._nodeOutputs = Object.fromEntries(
-            Object.entries(outputs).map(([k, v]) => [v.label, v.data])
-          );
+          const nodeOutputMap: Record<string, unknown> = {};
+          for (const [_k, v] of Object.entries(outputs)) {
+            // Always add by the stored label
+            nodeOutputMap[v.label] = v.data;
+            // Also add by the human-readable action label (resolves slugs like "supabase/get-row" -> "Get Row")
+            const resolved = resolveActionType(v.label);
+            if (resolved !== v.label) {
+              nodeOutputMap[resolved] = v.data;
+            }
+            // Also try findActionById for plugin actions
+            const pluginAction = findActionById(v.label);
+            if (pluginAction?.label && pluginAction.label !== v.label) {
+              nodeOutputMap[pluginAction.label] = v.data;
+            }
+          }
+          processedConfig._nodeOutputs = nodeOutputMap;
         }
 
         // Execute the step
