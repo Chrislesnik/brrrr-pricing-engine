@@ -12,6 +12,8 @@ export type CodeInput = StepInput & {
   mode: "runOnceAllItems" | "runOnceEachItem";
   /** Injected by executor: { nodeLabel: outputData } */
   _nodeOutputs?: Record<string, unknown>;
+  /** Injected by executor: { nodeLabel: WorkflowItem[] } -- items-based access */
+  _nodeItems?: Record<string, Array<{ json: Record<string, unknown> }>>;
 };
 
 type Item = { json: Record<string, unknown> };
@@ -61,16 +63,25 @@ function buildInputHelper(items: Item[]) {
  * Returns { json: {} } for any missing node name to prevent "Cannot read
  * properties of undefined" errors.
  */
-function buildNodeProxy(nodeOutputs: Record<string, unknown>): Record<string, { json: Record<string, unknown> }> {
-  const resolved: Record<string, { json: Record<string, unknown> }> = {};
+function buildNodeProxy(nodeOutputs: Record<string, unknown>): Record<string, { json: Record<string, unknown>; items: Item[]; first: () => Item; last: () => Item; all: () => Item[] }> {
+  const resolved: Record<string, { json: Record<string, unknown>; items: Item[]; first: () => Item; last: () => Item; all: () => Item[] }> = {};
   for (const [label, data] of Object.entries(nodeOutputs)) {
-    const items = toItems(data);
-    resolved[label] = items[0] ?? { json: {} };
+    const items = Array.isArray(data)
+      ? (data as Item[]).filter((d) => d && typeof d === "object" && "json" in d)
+      : toItems(data);
+    const firstItem = items[0] ?? { json: {} };
+    resolved[label] = {
+      json: firstItem.json,
+      items,
+      first: () => items[0] ?? { json: {} },
+      last: () => items[items.length - 1] ?? { json: {} },
+      all: () => items,
+    };
   }
-  // Use a Proxy so accessing any missing node name returns { json: {} }
+  const emptyNode = { json: {} as Record<string, unknown>, items: [] as Item[], first: () => ({ json: {} as Record<string, unknown> }), last: () => ({ json: {} as Record<string, unknown> }), all: () => [] as Item[] };
   return new Proxy(resolved, {
     get(target, prop: string) {
-      return target[prop] ?? { json: {} };
+      return target[prop] ?? emptyNode;
     },
   });
 }
@@ -154,16 +165,40 @@ async function executeCode(input: CodeInput): Promise<{
   logs: string[];
 }> {
   const nodeOutputs = input._nodeOutputs ?? {};
-  // Collect items from ALL upstream nodes (merged), with the most recent last
-  const allValues = Object.values(nodeOutputs).filter(Boolean);
-  const mergedItems: Item[] = [];
-  for (const val of allValues) {
-    mergedItems.push(...toItems(val));
+  const nodeItems = input._nodeItems ?? {};
+
+  // Prefer items-based access from _nodeItems (properly normalized WorkflowItem[])
+  // Fall back to legacy _nodeOutputs -> toItems conversion
+  const allItemValues = Object.values(nodeItems);
+  let mergedItems: Item[] = [];
+  if (allItemValues.length > 0) {
+    for (const items of allItemValues) {
+      if (Array.isArray(items)) mergedItems.push(...(items as Item[]));
+    }
+  } else {
+    // Legacy fallback
+    const allValues = Object.values(nodeOutputs).filter(Boolean);
+    for (const val of allValues) {
+      mergedItems.push(...toItems(val));
+    }
   }
   // If no items from upstream, provide a single empty item
   const allItems = mergedItems.length > 0 ? mergedItems : [{ json: {} }];
   const $input = buildInputHelper(allItems);
-  const $node = buildNodeProxy(nodeOutputs);
+
+  // Build $node proxy from items-based data (prefer _nodeItems)
+  const nodeProxySource: Record<string, unknown> = {};
+  for (const [label, items] of Object.entries(nodeItems)) {
+    // $node['Name'] returns the first item
+    nodeProxySource[label] = items;
+  }
+  // Also include legacy outputs for labels not in nodeItems
+  for (const [label, data] of Object.entries(nodeOutputs)) {
+    if (!(label in nodeProxySource)) {
+      nodeProxySource[label] = data;
+    }
+  }
+  const $node = buildNodeProxy(nodeProxySource);
 
   // Capture console output
   const logs: string[] = [];
