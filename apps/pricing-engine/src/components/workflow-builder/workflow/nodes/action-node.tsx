@@ -12,6 +12,7 @@ import {
   Calendar,
   Filter,
   GitFork,
+  Globe,
   ListChecks,
   Timer,
   XCircle,
@@ -134,7 +135,7 @@ const getProviderLogo = (actionType: string) => {
   // Check for system actions first (non-plugin)
   switch (actionType) {
     case "HTTP Request":
-      return <Zap className="size-12 text-amber-300" strokeWidth={1.5} />;
+      return <Globe className="size-12 text-amber-300" strokeWidth={1.5} />;
     case "Database Query":
       return <Database className="size-12 text-blue-300" strokeWidth={1.5} />;
     case "Code":

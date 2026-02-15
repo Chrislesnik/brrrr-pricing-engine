@@ -10,6 +10,7 @@ import {
   Filter,
   GitBranch,
   GitFork,
+  Globe,
   Grid3X3,
   List,
   ListChecks,
@@ -152,7 +153,7 @@ function GroupIcon({
 }
 
 const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  "HTTP Request": { icon: Zap, color: "text-amber-500" },
+  "HTTP Request": { icon: Globe, color: "text-amber-500" },
   "Database Query": { icon: Database, color: "text-blue-500" },
   Condition: { icon: GitBranch, color: "text-pink-500" },
   "Set Fields": { icon: ListChecks, color: "text-violet-500" },
