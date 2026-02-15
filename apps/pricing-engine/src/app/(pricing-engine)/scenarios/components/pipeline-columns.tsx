@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { IconDots } from "@tabler/icons-react"
+import { IconDots, IconArchive } from "@tabler/icons-react"
 import { useAuth } from "@clerk/nextjs"
 import { ColumnDef } from "@tanstack/react-table"
 import {
@@ -10,7 +10,6 @@ import {
   ClipboardList,
   FileSignature,
   Users,
-  Trash2,
   History,
   Filter,
   FileText,
@@ -486,12 +485,12 @@ function RowActions({ id, status }: { id: string; status?: string }) {
       const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
       if (!res.ok) {
         const t = await res.text()
-        alert(`Failed to delete: ${t || res.status}`)
+        alert(`Failed to archive: ${t || res.status}`)
         return
       }
       window.location.reload()
     } catch {
-      alert(`Failed to delete`)
+      alert(`Failed to archive`)
     }
   }
 
@@ -567,8 +566,8 @@ function RowActions({ id, status }: { id: string; status?: string }) {
               setConfirmOpen(true)
             }}
           >
-            <Trash2 className="h-4 w-4" />
-            Delete
+            <IconArchive className="h-4 w-4" />
+            Archive
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -619,10 +618,9 @@ function RowActions({ id, status }: { id: string; status?: string }) {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete loan?</AlertDialogTitle>
+            <AlertDialogTitle>Archive loan?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this
-              loan and its primary scenario.
+              This will archive this loan and its primary scenario. It can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -634,7 +632,7 @@ function RowActions({ id, status }: { id: string; status?: string }) {
                 void deleteLoan()
               }}
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

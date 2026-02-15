@@ -11,7 +11,7 @@ import { Separator } from "@repo/ui/shadcn/separator"
 import { Switch } from "@repo/ui/shadcn/switch"
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/shadcn/tabs"
 import { Badge } from "@repo/ui/shadcn/badge"
-import { Check, Cog, ExternalLink, Plus, Search, Trash2 } from "lucide-react"
+import { Check, Cog, ExternalLink, Plus, Search, Archive } from "lucide-react"
 import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon"
 import { getIntegration } from "@/components/workflow-builder/plugins"
 import type { IntegrationType } from "@/components/workflow-builder/lib/types/integration"
@@ -615,7 +615,7 @@ export default function SettingsIntegrationsPage() {
   const handleWfDelete = async (id: string) => {
     try {
       await fetch(`/api/workflow-integrations/${id}`, { method: "DELETE" })
-      toast({ title: "Deleted", description: "Integration removed." })
+      toast({ title: "Archived", description: "Integration archived. It can be restored later." })
       loadWorkflowIntegrations()
     } catch {
       // ignore
@@ -1002,8 +1002,8 @@ export default function SettingsIntegrationsPage() {
                         className="gap-1.5 text-muted-foreground hover:text-destructive"
                         onClick={() => handleWfDelete(existing.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Remove
+                        <Archive className="h-3.5 w-3.5" />
+                        Archive
                       </Button>
                     </>
                   ) : (

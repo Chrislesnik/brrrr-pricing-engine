@@ -123,9 +123,23 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
 
+    // Check for restore action
+    const url = new URL(_req.url)
+    if (url.searchParams.get("action") === "restore") {
+      const { error } = await supabaseAdmin
+        .from("workflow_integrations")
+        .update({ archived_at: null, archived_by: null })
+        .eq("id", id)
+        .eq("organization_id", orgUuid)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ success: true })
+    }
+
+    // Archive instead of delete
+    const now = new Date().toISOString()
     const { error } = await supabaseAdmin
       .from("workflow_integrations")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("id", id)
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)

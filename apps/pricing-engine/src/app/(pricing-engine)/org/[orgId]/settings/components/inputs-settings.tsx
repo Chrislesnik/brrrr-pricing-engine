@@ -8,7 +8,7 @@ import {
   Plus,
   Sparkles,
   Star,
-  Trash2,
+  Archive,
   Loader2,
   Workflow,
   X,
@@ -674,7 +674,7 @@ export function InputsSettings() {
                             })
                           }
                         >
-                          <Trash2 className="size-3.5" />
+                          <Archive className="size-3.5" />
                         </Button>
                       </div>
                     )}
@@ -986,7 +986,7 @@ export function InputsSettings() {
                                   });
                                 }}
                               >
-                                <X className="size-3" />
+                                <Archive className="size-3" />
                               </Button>
                             </div>
                           </div>
@@ -1228,7 +1228,7 @@ export function InputsSettings() {
         inputLabel={aiOrderInputLabel}
       />
 
-      {/* Delete confirmation dialog */}
+      {/* Archive confirmation dialog */}
       <AlertDialog
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
@@ -1236,16 +1236,16 @@ export function InputsSettings() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {deleteDialog.type === "category" ? "Category" : "Input"}
+              Archive {deleteDialog.type === "category" ? "Category" : "Input"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
+              Are you sure you want to archive{" "}
               <span className="font-medium text-foreground">
                 &ldquo;{deleteDialog.name}&rdquo;
               </span>
-              ? This action cannot be undone
+              ? This will be archived and can be restored later
               {deleteDialog.type === "category"
-                ? " and will remove all inputs within this category."
+                ? " along with all inputs within this category."
                 : "."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1255,7 +1255,7 @@ export function InputsSettings() {
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

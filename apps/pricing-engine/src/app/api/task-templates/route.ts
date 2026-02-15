@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { archiveRecord, restoreRecord } from "@/lib/archive-helpers";
 
 /* -------------------------------------------------------------------------- */
 /*  GET /api/task-templates                                                    */
@@ -221,10 +222,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { error } = await supabaseAdmin
-      .from("task_templates")
-      .delete()
-      .eq("id", id);
+    const body2 = await request.clone().json().catch(() => ({}));
+    if (body2.action === "restore") {
+      const { error } = await restoreRecord("task_templates", id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
+    const { error } = await archiveRecord("task_templates", id, userId);
 
     if (error) {
       console.error("[DELETE /api/task-templates]", error);

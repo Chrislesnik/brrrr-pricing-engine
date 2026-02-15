@@ -4,6 +4,7 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { z } from "zod"
 import { buildOwnerRows } from "../owner-helpers"
+import { archiveRecordScoped, restoreRecord } from "@/lib/archive-helpers"
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -109,11 +110,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const { orgId } = await auth()
+    const { orgId, userId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id } = await ctx.params
-    const { error } = await supabaseAdmin.from("entities").delete().eq("id", id).eq("organization_id", orgUuid)
+
+    // Check for restore action via query param
+    const url = new URL(req.url)
+    if (url.searchParams.get("action") === "restore") {
+      const { error } = await restoreRecord("entities", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
+    const { error } = await archiveRecordScoped("entities", id, userId, "organization_id", orgUuid)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e) {

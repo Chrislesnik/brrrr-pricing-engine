@@ -19,6 +19,7 @@ import {
   Settings,
   Workflow,
   X,
+  Archive,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Button } from "@repo/ui/shadcn/button";
@@ -594,7 +595,7 @@ export function TasksSettings() {
                                   });
                                 }}
                               >
-                                <X className="size-3" />
+                                <Archive className="size-3" />
                               </Button>
                             </div>
                           </div>
@@ -814,7 +815,7 @@ export function TasksSettings() {
         onSaved={fetchData}
       />
 
-      {/* Delete confirmation dialog */}
+      {/* Archive confirmation dialog */}
       <AlertDialog
         open={deleteDialog.open}
         onOpenChange={(open) =>
@@ -823,13 +824,13 @@ export function TasksSettings() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Task Template</AlertDialogTitle>
+            <AlertDialogTitle>Archive Task Template</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
+              Are you sure you want to archive{" "}
               <span className="font-medium text-foreground">
                 &ldquo;{deleteDialog.name}&rdquo;
               </span>
-              ? This action cannot be undone.
+              ? This will be archived and can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -838,7 +839,7 @@ export function TasksSettings() {
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

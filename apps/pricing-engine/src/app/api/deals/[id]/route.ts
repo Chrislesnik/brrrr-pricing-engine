@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getOrgUuidFromClerkId } from "@/lib/orgs";
+import { archiveRecord, restoreRecord } from "@/lib/archive-helpers";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -348,6 +349,61 @@ export async function PATCH(
       .update({ updated_at: new Date().toISOString() })
       .eq("id", dealId);
 
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  DELETE /api/deals/[id] — Archive a deal                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId, orgId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: dealId } = await params;
+
+    // Fetch deal to check access
+    const { data: deal, error: fetchError } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id")
+      .eq("id", dealId)
+      .single();
+
+    if (fetchError || !deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    const hasAccess = await checkDealAccess(deal, userId, orgId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    // Check for restore action via query param
+    const url = new URL(request.url);
+    if (url.searchParams.get("action") === "restore") {
+      const { error } = await restoreRecord("deals", dealId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Archive the deal (cascade trigger will archive deal_tasks, deal_documents)
+    const { error } = await archiveRecord("deals", dealId, userId);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Unexpected error:", error);

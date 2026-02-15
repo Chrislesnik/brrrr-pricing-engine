@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 
 export const runtime = "nodejs"
 
@@ -15,7 +16,16 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const body = (await req.json().catch(() => null)) as {
       status?: "active" | "dead"
+      action?: "restore"
     } | null
+
+    // Handle restore from archive
+    if (body?.action === "restore") {
+      const { error } = await restoreRecord("loans", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
     if (!id || !body?.status) {
       return NextResponse.json(
         { error: "Missing id or status" },
@@ -54,7 +64,7 @@ export async function DELETE(
     if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
-    const { error } = await supabaseAdmin.from("loans").delete().eq("id", id)
+    const { error } = await archiveRecord("loans", id, userId)
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }

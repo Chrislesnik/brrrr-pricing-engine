@@ -50,7 +50,7 @@ import {
   Download,
   CheckCircle,
   Pencil,
-  Trash2,
+  Archive,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@/components/ui/switch";
@@ -690,22 +690,22 @@ function DeleteFileButton({
         size="sm"
         className={className ?? "h-5 w-5 p-0 shrink-0 opacity-0 group-hover/file:opacity-100 hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"}
         onClick={() => setOpen(true)}
-        title="Delete"
+        title="Archive"
       >
-        <Trash2 className="h-3 w-3" />
+        <Archive className="h-3 w-3" />
       </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="Delete document"
+        title="Archive document"
         desc={
           <>
-            Are you sure you want to delete{" "}
+            Are you sure you want to archive{" "}
             <span className="font-semibold">&quot;{fileName}&quot;</span>? This
-            will permanently remove the file from storage.
+            will archive the file. It can be restored later.
           </>
         }
-        confirmText="Delete"
+        confirmText="Archive"
         destructive
         handleConfirm={() => {
           onConfirm();

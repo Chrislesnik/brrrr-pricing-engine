@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getSchemaContext } from "@/lib/schema-context";
+import { getSchemaContext, getInputCodesContext } from "@/lib/schema-context";
 
 export const maxDuration = 60;
 
@@ -11,7 +11,10 @@ const MODEL = "claude-opus-4-6";
 /*  System prompt builder                                                      */
 /* -------------------------------------------------------------------------- */
 
-function buildSystemPrompt(schemaContext: string): string {
+function buildSystemPrompt(
+  schemaContext: string,
+  inputCodesContext: string
+): string {
   return `You are an expert PostgreSQL SQL assistant for a lending and mortgage pricing engine application built on Supabase.
 
 ## Your Role
@@ -30,15 +33,43 @@ This is a commercial lending platform. Key concepts:
 - **Documents** (deal_documents, document_files) track required document uploads
 - **Organizations** own deals, users, and settings
 
+## Template Variables
+These SQL queries run as **task logic conditions**, evaluated dynamically per deal. Use template variables instead of hardcoded values:
+
+### {{deal_id}}
+Replaced at runtime with the current deal's UUID.
+Example: \`WHERE di.deal_id = '{{deal_id}}'\`
+
+### {{input:input_code}}
+Replaced at runtime with the deal's value for the specified input. The value is typed correctly based on the input type:
+- Text/dropdown inputs resolve to a quoted string (e.g., \`'some value'\`)
+- Number/currency/percentage inputs resolve to a bare number (e.g., \`750000\`)
+- Boolean inputs resolve to \`true\` or \`false\`
+- Date inputs resolve to a quoted date string (e.g., \`'2025-06-15'\`)
+- Missing/null values resolve to \`NULL\`
+
+Example: \`WHERE amount > {{input:loan_amount_total}}\`
+
+### Available Input Codes
+${inputCodesContext}
+
+### When to use which approach
+- Use \`{{deal_id}}\` whenever you need the current deal's ID in a query
+- Use \`{{input:input_code}}\` as a shorthand when you need a deal's input value in a simple comparison
+- Use a subquery against \`deal_inputs JOIN inputs\` when you need more complex input lookups or when the input code is not in the list above
+- You can mix both approaches in the same query
+
 ## SQL Guidelines
 1. Write valid PostgreSQL syntax only
 2. Queries should be self-contained and ready to execute
-3. For task logic conditions: the query should return rows when the condition is TRUE and no rows when FALSE
+3. For task logic conditions: the query should return rows when the condition is TRUE and no rows when FALSE. Alternatively, return a single row with a boolean column.
 4. Use proper JOINs when referencing related tables
 5. Prefer explicit column names over SELECT *
 6. Use appropriate WHERE clauses for filtering
 7. Handle NULLs appropriately with IS NULL / IS NOT NULL
 8. Use parameterized-safe patterns (no SQL injection vectors)
+9. ALWAYS use \`{{deal_id}}\` instead of hardcoded deal UUIDs
+10. Prefer \`{{input:input_code}}\` over subqueries to deal_inputs when a simple value lookup is needed
 
 ## Output Rules
 - Output ONLY the SQL query
@@ -73,8 +104,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch database schema context
-    const schemaContext = await getSchemaContext();
+    // Fetch database schema and input codes context in parallel
+    const [schemaContext, inputCodesContext] = await Promise.all([
+      getSchemaContext(),
+      getInputCodesContext(),
+    ]);
 
     // Call Anthropic Messages API directly with streaming
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -88,7 +122,7 @@ export async function POST(request: NextRequest) {
         model: MODEL,
         max_tokens: 2048,
         temperature: 0,
-        system: buildSystemPrompt(schemaContext),
+        system: buildSystemPrompt(schemaContext, inputCodesContext),
         messages: [{ role: "user", content: prompt }],
         stream: true,
       }),

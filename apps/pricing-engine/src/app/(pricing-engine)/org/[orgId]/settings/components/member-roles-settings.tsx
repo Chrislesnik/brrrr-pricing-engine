@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Archive, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   getMemberRoles,
@@ -137,14 +137,14 @@ export function MemberRolesSettings() {
     setIsSaving(true);
     try {
       await deleteMemberRole({ id: roleToDelete.id });
-      toast({ title: "Role deleted successfully" });
+      toast({ title: "Role archived successfully" });
       setDeleteDialogOpen(false);
       setRoleToDelete(null);
       await loadRoles();
     } catch (error) {
       toast({
-        title: "Error deleting role",
-        description: error instanceof Error ? error.message : "Failed to delete role",
+        title: "Error archiving role",
+        description: error instanceof Error ? error.message : "Failed to archive role",
         variant: "destructive",
       });
     } finally {
@@ -276,7 +276,7 @@ export function MemberRolesSettings() {
                               setDeleteDialogOpen(true);
                             }}
                           >
-                            <Trash2 className="size-4" />
+                            <Archive className="size-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -376,16 +376,16 @@ export function MemberRolesSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive Confirmation Dialog */}
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         handleConfirm={handleDelete}
         isLoading={isSaving}
         destructive
-        title="Delete member role?"
-        desc={`This will permanently delete the "${roleToDelete?.role_name}" role. Members with this role will need to be reassigned.`}
-        confirmText="Delete"
+        title="Archive member role?"
+        desc={`This will archive the "${roleToDelete?.role_name}" role. It can be restored later. Members with this role will need to be reassigned.`}
+        confirmText="Archive"
       />
     </div>
   );

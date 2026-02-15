@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { encryptToBase64 } from "@/lib/crypto"
+import { archiveRecordScoped, restoreRecord } from "@/lib/archive-helpers"
 
 function toE164(us: string | undefined | null) {
   const digits = (us ?? "").replace(/\D+/g, "")
@@ -94,11 +95,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const { orgId } = await auth()
+    const { orgId, userId } = await auth()
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id } = await ctx.params
-    const { error } = await supabaseAdmin.from("borrowers").delete().eq("id", id).eq("organization_id", orgUuid)
+
+    // Check for restore action via query param
+    const url = new URL(req.url)
+    if (url.searchParams.get("action") === "restore") {
+      const { error } = await restoreRecord("borrowers", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
+    const { error } = await archiveRecordScoped("borrowers", id, userId, "organization_id", orgUuid)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e) {

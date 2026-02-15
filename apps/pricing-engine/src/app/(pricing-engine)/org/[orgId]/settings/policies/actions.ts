@@ -387,13 +387,25 @@ export async function getColumnFilters(): Promise<
 
 export async function deleteOrgPolicy(input: {
   id: string;
+  action?: "restore";
 }): Promise<{ ok: true }> {
-  const { token } = await requireAuthAndOrg();
+  const { token, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
+  if (input.action === "restore") {
+    const { error } = await supabase
+      .from("organization_policies")
+      .update({ archived_at: null, archived_by: null })
+      .eq("id", input.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  }
+
+  // Archive instead of delete
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from("organization_policies")
-    .delete()
+    .update({ archived_at: now, archived_by: userId })
     .eq("id", input.id);
 
   if (error) throw new Error(error.message);

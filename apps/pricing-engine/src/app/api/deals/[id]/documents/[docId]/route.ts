@@ -1,9 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { restoreRecord } from "@/lib/archive-helpers";
 
 // DELETE /api/deals/:id/documents/:docId
-// Delete a document from a deal
+// Archive a document from a deal (soft delete — storage files are kept)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string; docId: string }> }
@@ -17,10 +18,18 @@ export async function DELETE(
 
     const { id: dealId, docId } = await params;
 
+    // Check for restore action
+    const url = new URL(request.url);
+    if (url.searchParams.get("action") === "restore") {
+      const { error } = await restoreRecord("deal_documents", docId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
     // Get document info from deal_documents
     const { data: dealDoc, error: docError } = await supabaseAdmin
       .from("deal_documents")
-      .select("id, storage_path")
+      .select("id")
       .eq("id", docId)
       .eq("deal_id", dealId)
       .single();
@@ -32,28 +41,18 @@ export async function DELETE(
       );
     }
 
-    // Delete from storage
-    if (dealDoc.storage_path) {
-      const { error: storageError } = await supabaseAdmin.storage
-        .from("deals")
-        .remove([dealDoc.storage_path]);
-
-      if (storageError) {
-        console.error("Storage delete error:", storageError);
-      }
-    }
-
-    // Delete the deal_documents record
-    const { error: deleteError } = await supabaseAdmin
+    // Archive instead of delete — storage files are preserved
+    const now = new Date().toISOString();
+    const { error: archiveError } = await supabaseAdmin
       .from("deal_documents")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("id", docId)
       .eq("deal_id", dealId);
 
-    if (deleteError) {
-      console.error("Error deleting document:", deleteError);
+    if (archiveError) {
+      console.error("Error archiving document:", archiveError);
       return NextResponse.json(
-        { error: "Failed to delete document" },
+        { error: "Failed to archive document" },
         { status: 500 }
       );
     }

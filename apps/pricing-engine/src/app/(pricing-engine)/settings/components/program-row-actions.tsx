@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Archive } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import {
   DropdownMenu,
@@ -25,7 +25,7 @@ export function ProgramRowActions({ program, updateAction, deleteAction, orgId }
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  const handleDelete = () => {
+  const handleArchive = () => {
     const fd = new FormData()
     fd.set("id", program.id)
     if (orgId) fd.set("orgId", orgId)
@@ -33,14 +33,14 @@ export function ProgramRowActions({ program, updateAction, deleteAction, orgId }
       const res = await deleteAction(fd)
       if (!res.ok) {
         toast({
-          title: "Delete failed",
-          description: res.error ?? "Unable to delete this program.",
+          title: "Archive failed",
+          description: res.error ?? "Unable to archive this program.",
           variant: "destructive",
         })
         return
       }
       setConfirmOpen(false)
-      toast({ title: "Program deleted" })
+      toast({ title: "Program archived", description: "You can restore it later." })
     })
   }
 
@@ -62,8 +62,8 @@ export function ProgramRowActions({ program, updateAction, deleteAction, orgId }
             onClick={() => setConfirmOpen(true)}
             className="gap-2 text-red-600 focus:text-red-600"
           >
-            <Trash2 className="h-4 w-4" />
-            Delete
+            <Archive className="h-4 w-4" />
+            Archive
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -79,12 +79,12 @@ export function ProgramRowActions({ program, updateAction, deleteAction, orgId }
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        handleConfirm={handleDelete}
+        handleConfirm={handleArchive}
         isLoading={pending}
         destructive
-        title="Delete program?"
-        desc="This action cannot be undone. This will permanently delete the selected program."
-        confirmText="Delete"
+        title="Archive program?"
+        desc="This program will be archived and hidden from view. You can restore it later."
+        confirmText="Archive"
       />
     </>
   )

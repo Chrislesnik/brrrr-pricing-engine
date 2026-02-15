@@ -60,7 +60,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@repo/ui/shadcn/alert-dialog";
-import { ChevronsUpDown, Check, X, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronsUpDown, Check, X, Plus, Pencil, Archive } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
 // ============================================================================
@@ -903,19 +903,18 @@ export default function OrgPolicyBuilder({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                          aria-label="Delete policy"
+                          aria-label="Archive policy"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Archive className="h-3.5 w-3.5" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete policy?</AlertDialogTitle>
+                          <AlertDialogTitle>Archive policy?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently remove the{" "}
+                            This will archive the{" "}
                             <strong>{policy.action}</strong> policy for{" "}
-                            <strong>{resourceScope}</strong>. This action cannot
-                            be undone.
+                            <strong>{resourceScope}</strong>. It can be restored later.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -924,7 +923,7 @@ export default function OrgPolicyBuilder({
                             onClick={() => handleDelete(policy.id)}
                             className="bg-destructive text-white hover:bg-destructive/90"
                           >
-                            Delete
+                            Archive
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

@@ -23,7 +23,7 @@ import {
   User,
   GripVertical,
   Save,
-  Trash2,
+  Archive,
   Tag,
   Clock,
   Paperclip,
@@ -1953,9 +1953,9 @@ function TaskDetailSheetHeader({ task, onClose, onDelete }: { task: Task; onClos
           <button
             onClick={() => onDelete(task.id)}
             className="rounded p-1.5 text-destructive hover:bg-destructive/10 transition-colors"
-            title="Delete task"
+            title="Archive task"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Archive className="h-3.5 w-3.5" />
           </button>
         )}
         <button

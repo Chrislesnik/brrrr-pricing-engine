@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 
 export const runtime = "nodejs"
 
@@ -156,7 +157,16 @@ export async function DELETE(
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
-    const { error } = await supabaseAdmin.from("loan_scenarios").delete().eq("id", id)
+
+    // Check for restore action via query param
+    const url = new URL(req.url)
+    if (url.searchParams.get("action") === "restore") {
+      const { error } = await restoreRecord("loan_scenarios", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
+    const { error } = await archiveRecord("loan_scenarios", id, userId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { archiveRecord, restoreRecord, addArchiveFilter } from "@/lib/archive-helpers"
 
 /**
  * GET /api/input-categories
@@ -107,8 +108,8 @@ export async function PATCH(req: NextRequest) {
 
 /**
  * DELETE /api/input-categories
- * Delete a category and all its inputs.
- * Body: { id: number }
+ * Archive a category and all its inputs (soft delete).
+ * Body: { id: number, action?: "restore" }
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -119,15 +120,34 @@ export async function DELETE(req: NextRequest) {
     const id = body.id
     if (!id) return NextResponse.json({ error: "Category id is required" }, { status: 400 })
 
-    // Delete all inputs in this category first
+    if (body.action === "restore") {
+      // Restore the category and its inputs
+      const { error } = await restoreRecord("input_categories", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      // Also restore inputs in this category that were archived at the same time
+      const { data: cat } = await supabaseAdmin.from("input_categories").select("archived_at").eq("id", id).single()
+      if (!cat?.archived_at) {
+        // Category was already restored; restore inputs that share the same archived_at
+        await supabaseAdmin
+          .from("inputs")
+          .update({ archived_at: null, archived_by: null })
+          .eq("category_id", id)
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    const now = new Date().toISOString()
+    // Archive all inputs in this category first
     await supabaseAdmin
       .from("inputs")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("category_id", id)
+      .is("archived_at", null)
 
+    // Archive the category
     const { error } = await supabaseAdmin
       .from("input_categories")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("id", id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

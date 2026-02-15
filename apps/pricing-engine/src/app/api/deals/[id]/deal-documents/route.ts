@@ -568,43 +568,45 @@ export async function DELETE(
       );
     }
 
-    // If there's a linked document_files row, clean up storage + record
-    if (dealDoc.document_file_id) {
-      // Get storage info from document_files
-      const { data: docFile } = await supabaseAdmin
-        .from("document_files")
-        .select("storage_bucket, storage_path")
-        .eq("id", dealDoc.document_file_id)
-        .single();
-
-      if (docFile?.storage_bucket && docFile?.storage_path) {
-        // Delete from Supabase Storage
-        const { error: storageError } = await supabaseAdmin.storage
-          .from(docFile.storage_bucket)
-          .remove([docFile.storage_path]);
-
-        if (storageError) {
-          console.error("Storage deletion error (non-fatal):", storageError);
-        }
+    // Check for restore action
+    if (body.action === "restore") {
+      const { error: restoreErr } = await supabaseAdmin
+        .from("deal_documents")
+        .update({ archived_at: null, archived_by: null })
+        .eq("id", docId)
+        .eq("deal_id", dealId);
+      if (restoreErr) return NextResponse.json({ error: restoreErr.message }, { status: 500 });
+      // Also restore linked document_files if it was archived at the same time
+      if (dealDoc.document_file_id) {
+        await supabaseAdmin
+          .from("document_files")
+          .update({ archived_at: null, archived_by: null })
+          .eq("id", dealDoc.document_file_id);
       }
+      return NextResponse.json({ ok: true });
+    }
 
-      // Delete document_files row (cascades to junction tables)
+    // Archive instead of delete — storage files are preserved for recovery
+    const now = new Date().toISOString();
+
+    // Archive linked document_files row if present
+    if (dealDoc.document_file_id) {
       await supabaseAdmin
         .from("document_files")
-        .delete()
+        .update({ archived_at: now, archived_by: userId })
         .eq("id", dealDoc.document_file_id);
     }
 
-    // Delete the deal_documents row
-    const { error: deleteError } = await supabaseAdmin
+    // Archive the deal_documents row
+    const { error: archiveError } = await supabaseAdmin
       .from("deal_documents")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("id", docId)
       .eq("deal_id", dealId);
 
-    if (deleteError) {
+    if (archiveError) {
       return NextResponse.json(
-        { error: deleteError.message },
+        { error: archiveError.message },
         { status: 500 }
       );
     }

@@ -112,6 +112,7 @@ export async function updateMemberRole(input: {
 
 export async function deleteMemberRole(input: {
   id: string;
+  action?: "restore";
 }): Promise<{ ok: true }> {
   const { userId, orgId } = await auth();
   if (!userId) throw new Error("Not authenticated");
@@ -119,6 +120,17 @@ export async function deleteMemberRole(input: {
 
   const orgUuid = await getOrgUuidFromClerkId(orgId);
   if (!orgUuid) throw new Error("Organization not found");
+
+  if (input.action === "restore") {
+    const { error } = await supabaseAdmin
+      .from("organization_member_roles")
+      .update({ archived_at: null, archived_by: null })
+      .eq("id", input.id)
+      .eq("organization_id", orgUuid);
+    if (error) throw new Error(error.message);
+    revalidatePath(`/org/${orgId}/settings`);
+    return { ok: true };
+  }
 
   // Check if role is in use
   const { data: inUse } = await supabaseAdmin
@@ -135,13 +147,15 @@ export async function deleteMemberRole(input: {
 
   if (inUse && inUse.length > 0) {
     throw new Error(
-      "Cannot delete role - it is currently assigned to one or more members"
+      "Cannot archive role - it is currently assigned to one or more members"
     );
   }
 
+  // Archive instead of delete
+  const now = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from("organization_member_roles")
-    .delete()
+    .update({ archived_at: now, archived_by: userId })
     .eq("id", input.id)
     .eq("organization_id", orgUuid);
 

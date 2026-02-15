@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getOrgUuidFromClerkId } from "@/lib/orgs";
+import { restoreRecord } from "@/lib/archive-helpers";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -237,14 +238,33 @@ export async function DELETE(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
+    // Check for restore action
+    const url = new URL(_request.url);
+    if (url.searchParams.get("action") === "restore") {
+      // Need to get the deal_task id from uuid first
+      const { data: taskRow } = await supabaseAdmin
+        .from("deal_tasks")
+        .select("id")
+        .eq("deal_id", dealId)
+        .eq("uuid", taskId)
+        .single();
+      if (taskRow) {
+        const { error } = await restoreRecord("deal_tasks", taskRow.id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Archive the task instead of hard deleting
+    const now = new Date().toISOString();
     const { error } = await supabaseAdmin
       .from("deal_tasks")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("deal_id", dealId)
       .eq("uuid", taskId);
 
     if (error) {
-      console.error("Error deleting deal task:", error.message);
+      console.error("Error archiving deal task:", error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

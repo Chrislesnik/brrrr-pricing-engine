@@ -272,3 +272,176 @@ export function evaluateRules(
 
   return { hiddenFields, requiredFields, computedValues };
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Async evaluation (supports SQL conditions)                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Evaluate a single SQL condition by calling the server-side evaluate endpoint.
+ */
+async function evaluateSqlCondition(
+  cond: LogicCondition,
+  dealId: string
+): Promise<boolean> {
+  if (!cond.sql_expression) return false;
+
+  try {
+    const res = await fetch("/api/task-logic-rules/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sql_expression: cond.sql_expression,
+        deal_id: dealId,
+      }),
+    });
+
+    if (!res.ok) return false;
+
+    const json = await res.json();
+    return !!json.result;
+  } catch {
+    console.error("[evaluateSqlCondition] Failed to evaluate SQL condition");
+    return false;
+  }
+}
+
+/**
+ * Evaluate a single condition — sync for input conditions, async for SQL.
+ */
+async function evaluateConditionAsync(
+  cond: LogicCondition,
+  currentValues: Record<string, unknown>,
+  dealId: string
+): Promise<boolean> {
+  const sourceType = cond.source_type || "input";
+
+  if (sourceType === "sql") {
+    return evaluateSqlCondition(cond, dealId);
+  }
+
+  // Default: sync input-based evaluation
+  return evaluateCondition(cond, currentValues);
+}
+
+/**
+ * Evaluate whether a rule's conditions pass (AND/OR), with async SQL support.
+ * SQL conditions within a rule are evaluated in parallel.
+ */
+async function evaluateRuleConditionsAsync(
+  rule: LogicRule,
+  currentValues: Record<string, unknown>,
+  dealId: string
+): Promise<boolean> {
+  if (!rule.conditions || rule.conditions.length === 0) return true;
+
+  // Evaluate all conditions in parallel
+  const results = await Promise.all(
+    rule.conditions.map((c) =>
+      evaluateConditionAsync(c, currentValues, dealId)
+    )
+  );
+
+  if (rule.type === "OR") {
+    return results.some(Boolean);
+  }
+  // AND (default)
+  return results.every(Boolean);
+}
+
+/**
+ * Async version of evaluateRules that supports SQL conditions.
+ *
+ * For rules containing only input conditions, evaluation is synchronous.
+ * For rules with SQL conditions, calls the server evaluate endpoint.
+ * Cascade logic is preserved (max 10 passes).
+ *
+ * @param rules         - All logic rules from the database
+ * @param inputDefs     - Input field definitions (for type info)
+ * @param currentValues - Current form values keyed by input_id
+ * @param dealId        - The deal UUID for SQL condition evaluation
+ * @returns Promise<LogicResult>
+ */
+export async function evaluateRulesAsync(
+  rules: LogicRule[],
+  _inputDefs: InputDef[],
+  currentValues: Record<string, unknown>,
+  dealId: string
+): Promise<LogicResult> {
+  const hiddenFields = new Set<string>();
+  const requiredFields = new Set<string>();
+  const computedValues: Record<string, unknown> = {};
+
+  // Working copy of values for cascading
+  let workingValues = { ...currentValues };
+
+  for (let pass = 0; pass < MAX_CASCADE_PASSES; pass++) {
+    const prevSnapshot = JSON.stringify(computedValues);
+
+    // Clear visibility/required each pass (they rebuild from scratch)
+    hiddenFields.clear();
+    requiredFields.clear();
+
+    // Process rules in order (last rule wins for conflicts)
+    for (const rule of rules) {
+      // Check if this rule has any SQL conditions
+      const hasSql = rule.conditions?.some(
+        (c) => c.source_type === "sql"
+      );
+
+      const conditionsMet = hasSql
+        ? await evaluateRuleConditionsAsync(rule, workingValues, dealId)
+        : evaluateRuleConditions(rule, workingValues);
+
+      if (!conditionsMet) continue;
+
+      // Apply actions (same as sync version)
+      for (const action of rule.actions) {
+        const targetId = action.input_id;
+        if (!targetId) continue;
+
+        switch (action.value_type) {
+          case "visible":
+            hiddenFields.delete(targetId);
+            break;
+          case "not_visible":
+            hiddenFields.add(targetId);
+            break;
+          case "required":
+            requiredFields.add(targetId);
+            break;
+          case "not_required":
+            requiredFields.delete(targetId);
+            break;
+          case "value":
+          case "field":
+          case "expression": {
+            const computed = resolveActionValue(action, workingValues);
+            if (computed !== null && computed !== undefined) {
+              computedValues[targetId] = computed;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Merge computed values into working values for next cascade pass
+    workingValues = { ...currentValues, ...computedValues };
+
+    // Check if anything changed — if not, we've stabilized
+    const newSnapshot = JSON.stringify(computedValues);
+    if (newSnapshot === prevSnapshot) break;
+  }
+
+  return { hiddenFields, requiredFields, computedValues };
+}
+
+/**
+ * Check whether any rules contain SQL conditions.
+ */
+export function hasSqlConditions(rules: LogicRule[]): boolean {
+  return rules.some((r) =>
+    r.conditions?.some((c) => c.source_type === "sql")
+  );
+}

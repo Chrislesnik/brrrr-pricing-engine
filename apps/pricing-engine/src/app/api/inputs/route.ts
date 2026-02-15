@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { syncDealStages } from "@/lib/sync-deal-stages"
+import { archiveRecord, addArchiveFilter, wantsArchived } from "@/lib/archive-helpers"
 
 /** Generate a unique input_code from the label (slug + random suffix). */
 function generateInputCode(label: string): string {
@@ -23,10 +24,13 @@ export async function GET() {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("inputs")
       .select("*")
       .order("display_order", { ascending: true })
+    // Note: GET has no req param, so always filter archived by default
+    query = addArchiveFilter(query, false)
+    const { data, error } = await query
 
     if (error) {
       console.error("[GET /api/inputs] Supabase error:", error.message, error)
@@ -239,8 +243,8 @@ export async function PATCH(req: NextRequest) {
 
 /**
  * DELETE /api/inputs
- * Delete an input.
- * Body: { id: string }
+ * Archive an input (soft delete).
+ * Body: { id: string, action?: "restore" }
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -248,14 +252,17 @@ export async function DELETE(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const { id } = body
+    const { id, action } = body
     if (!id) return NextResponse.json({ error: "Input id is required" }, { status: 400 })
 
-    const { error } = await supabaseAdmin
-      .from("inputs")
-      .delete()
-      .eq("id", id)
+    if (action === "restore") {
+      const { restoreRecord } = await import("@/lib/archive-helpers")
+      const { error } = await restoreRecord("inputs", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
 
+    const { error } = await archiveRecord("inputs", id, userId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e) {

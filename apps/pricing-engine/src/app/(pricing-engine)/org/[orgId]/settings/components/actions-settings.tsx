@@ -6,7 +6,7 @@ import {
   Loader2,
   Plus,
   Pencil,
-  Trash2,
+  Archive,
   Workflow,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
@@ -204,9 +204,6 @@ export function ActionsSettings() {
                   </p>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                {formatDate(action.created_at)}
-              </span>
               <div className="flex items-center gap-1 shrink-0">
                 <Button
                   variant="ghost"
@@ -228,9 +225,12 @@ export function ActionsSettings() {
                     })
                   }
                 >
-                  <Trash2 className="size-3.5" />
+                  <Archive className="size-3.5" />
                 </Button>
               </div>
+              <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
+                {formatDate(action.created_at)}
+              </span>
             </div>
           ))}
         </div>
@@ -289,7 +289,7 @@ export function ActionsSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Archive Confirmation */}
       <AlertDialog
         open={deleteDialog.open}
         onOpenChange={(open) =>
@@ -298,14 +298,13 @@ export function ActionsSettings() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Action</AlertDialogTitle>
+            <AlertDialogTitle>Archive Action</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{" "}
+              Are you sure you want to archive{" "}
               <span className="font-medium text-foreground">
                 &ldquo;{deleteDialog.name}&rdquo;
               </span>
-              ? This will permanently remove the workflow. This action cannot be
-              undone.
+              ? This will archive the workflow. It can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -314,7 +313,7 @@ export function ActionsSettings() {
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 
 /**
  * GET /api/document-types
@@ -133,8 +134,8 @@ export async function PATCH(req: NextRequest) {
 
 /**
  * DELETE /api/document-types
- * Delete a document type.
- * Body: { id: number }
+ * Archive a document type (soft delete).
+ * Body: { id: number, action?: "restore" }
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -145,11 +146,13 @@ export async function DELETE(req: NextRequest) {
     const id = body.id
     if (!id) return NextResponse.json({ error: "Document type id is required" }, { status: 400 })
 
-    const { error } = await supabaseAdmin
-      .from("document_types")
-      .delete()
-      .eq("id", id)
+    if (body.action === "restore") {
+      const { error } = await restoreRecord("document_types", id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
 
+    const { error } = await archiveRecord("document_types", id, userId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e) {

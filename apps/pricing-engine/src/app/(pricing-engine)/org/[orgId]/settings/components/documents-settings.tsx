@@ -7,7 +7,7 @@ import {
   Pencil,
   Plus,
   Sparkles,
-  Trash2,
+  Archive,
   Loader2,
   Workflow,
   X,
@@ -582,7 +582,7 @@ export function DocumentsSettings() {
                                   });
                                 }}
                               >
-                                <X className="size-3" />
+                                <Archive className="size-3" />
                               </Button>
                             </div>
                           </div>

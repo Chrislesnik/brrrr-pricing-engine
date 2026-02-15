@@ -59,8 +59,8 @@ import {
 import { Input } from "@repo/ui/shadcn/input"
 import { CopyButton } from "@repo/ui/custom/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
-import { IconDots } from "@tabler/icons-react"
-import { Trash2, CircleCheck, CircleX } from "lucide-react"
+import { IconDots, IconArchive } from "@tabler/icons-react"
+import { CircleCheck, CircleX } from "lucide-react"
 import { AssignMembersDialog } from "./assign-members-dialog"
 import Link from "next/link"
 
@@ -370,12 +370,12 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
       const res = await fetch(`/api/loans/${id}`, { method: "DELETE" })
       if (!res.ok) {
         const t = await res.text()
-        alert(`Failed to delete: ${t || res.status}`)
+        alert(`Failed to archive: ${t || res.status}`)
         return
       }
       window.location.reload()
     } catch {
-      alert(`Failed to delete`)
+      alert(`Failed to archive`)
     }
   }
 
@@ -427,8 +427,8 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
               setConfirmOpen(true)
             }}
           >
-            <Trash2 className="h-4 w-4" />
-            Delete
+            <IconArchive className="h-4 w-4" />
+            Archive
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -468,9 +468,9 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete loan?</AlertDialogTitle>
+            <AlertDialogTitle>Archive loan?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this loan and its primary scenario.
+              This will archive this loan and its primary scenario. It can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -482,7 +482,7 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
                 void deleteLoan()
               }}
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

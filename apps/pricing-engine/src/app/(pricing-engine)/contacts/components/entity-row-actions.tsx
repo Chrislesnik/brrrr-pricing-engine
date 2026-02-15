@@ -2,22 +2,13 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { IconDots, IconTrash, IconSettings, IconUsers } from "@tabler/icons-react"
+import { IconDots, IconArchive, IconSettings, IconUsers, IconRestore } from "@tabler/icons-react"
 import { EntityProfile } from "../data/types"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@repo/ui/shadcn/dropdown-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@repo/ui/shadcn/alert-dialog"
 import { Button } from "@repo/ui/shadcn/button"
 import { NewEntityModal } from "./new-entity-modal"
 import { EntityAssignMembersDialog } from "./entity-assign-dialog"
+import { ArchiveConfirmDialog } from "@/components/archive"
 
 interface Props {
   entity: EntityProfile
@@ -45,9 +36,40 @@ export function EntityRowActions({ entity }: Props) {
       | undefined
   >(undefined)
   const [openAssign, setOpenAssign] = React.useState(false)
-  const [openDeleteConfirm, setOpenDeleteConfirm] = React.useState(false)
-  const [deleting, setDeleting] = React.useState(false)
+  const [openArchiveConfirm, setOpenArchiveConfirm] = React.useState(false)
+  const [archiving, setArchiving] = React.useState(false)
   const router = useRouter()
+
+  const isArchived = !!(entity as any).archived_at
+
+  async function archiveEntity() {
+    setArchiving(true)
+    try {
+      const res = await fetch(`/api/applicants/entities/${encodeURIComponent(entity.id)}`, { method: "DELETE" })
+      if (!res.ok) throw new Error(await res.text())
+      setOpenArchiveConfirm(false)
+      router.refresh()
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("app:entities:changed"))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setArchiving(false)
+    }
+  }
+
+  async function restoreEntity() {
+    setArchiving(true)
+    try {
+      const res = await fetch(`/api/applicants/entities/${encodeURIComponent(entity.id)}?action=restore`, { method: "DELETE" })
+      if (!res.ok) throw new Error(await res.text())
+      router.refresh()
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("app:entities:changed"))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setArchiving(false)
+    }
+  }
 
   async function openSettings() {
     try {
@@ -192,55 +214,42 @@ export function EntityRowActions({ entity }: Props) {
             <IconUsers className="mr-2 h-4 w-4" />
             Assigned To
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-red-600"
-            onSelect={(e) => {
-              e.preventDefault()
-              setOpenDeleteConfirm(true)
-            }}
-          >
-            <IconTrash className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
+          {isArchived ? (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                restoreEntity()
+              }}
+              disabled={archiving}
+            >
+              <IconRestore className="mr-2 h-4 w-4" />
+              {archiving ? "Restoring..." : "Restore"}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              className="text-red-600"
+              onSelect={(e) => {
+                e.preventDefault()
+                setOpenArchiveConfirm(true)
+              }}
+            >
+              <IconArchive className="mr-2 h-4 w-4" />
+              Archive
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <NewEntityModal open={openEdit} onOpenChange={setOpenEdit} entityId={entity.id} initial={initial} ownersInitial={ownersInitial} />
       <EntityAssignMembersDialog entityId={entity.id} open={openAssign} onOpenChange={setOpenAssign} />
 
-      <AlertDialog open={openDeleteConfirm} onOpenChange={setOpenDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete entity?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this entity record. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                setDeleting(true)
-                try {
-                  const res = await fetch(`/api/applicants/entities/${encodeURIComponent(entity.id)}`, { method: "DELETE" })
-                  if (!res.ok) throw new Error(await res.text())
-                  setOpenDeleteConfirm(false)
-                  router.refresh()
-                  if (typeof window !== "undefined") window.dispatchEvent(new Event("app:entities:changed"))
-                } catch (e) {
-                   
-                  console.error(e)
-                } finally {
-                  setDeleting(false)
-                }
-              }}
-              disabled={deleting}
-            >
-              {deleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ArchiveConfirmDialog
+        open={openArchiveConfirm}
+        onOpenChange={setOpenArchiveConfirm}
+        onConfirm={archiveEntity}
+        recordType="entity"
+        loading={archiving}
+      />
     </>
   )
 }

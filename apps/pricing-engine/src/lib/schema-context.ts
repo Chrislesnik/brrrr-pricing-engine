@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 /* -------------------------------------------------------------------------- */
 
 let cachedSchema: string | null = null;
+let cachedInputCodes: string | null = null;
 let cachedAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -68,4 +69,43 @@ export async function getSchemaContext(): Promise<string> {
   cachedAt = now;
 
   return schema;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  getInputCodesContext                                                        */
+/*  Fetches all input definitions and formats them as a reference table.        */
+/* -------------------------------------------------------------------------- */
+
+export async function getInputCodesContext(): Promise<string> {
+  const now = Date.now();
+  if (cachedInputCodes && now - cachedAt < CACHE_TTL_MS) {
+    return cachedInputCodes;
+  }
+
+  const { data: rows, error } = await supabaseAdmin
+    .from("inputs")
+    .select("id, input_code, input_label, input_type")
+    .order("input_code", { ascending: true });
+
+  if (error || !rows || rows.length === 0) {
+    console.error("[schema-context] inputs fetch error:", error?.message);
+    return cachedInputCodes ?? "No inputs available.";
+  }
+
+  const lines = (
+    rows as {
+      id: number;
+      input_code: string;
+      input_label: string;
+      input_type: string;
+    }[]
+  ).map(
+    (r) =>
+      `  - {{input:${r.input_code}}} → "${r.input_label}" (${r.input_type}, id=${r.id})`
+  );
+
+  const result = lines.join("\n");
+  cachedInputCodes = result;
+
+  return result;
 }

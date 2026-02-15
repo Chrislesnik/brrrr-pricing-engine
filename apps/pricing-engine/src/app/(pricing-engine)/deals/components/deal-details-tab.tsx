@@ -230,9 +230,11 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const userEditedRef = useRef<Set<string>>(new Set());
   const [computedFieldIds, setComputedFieldIds] = useState<Set<string>>(new Set());
 
-  // Logic engine — evaluate rules against current values
-  const { hiddenFields, requiredFields, computedValues } = useLogicEngine(
-    editedValues
+  // Logic engine — evaluate rules against current values (including SQL conditions)
+  const { hiddenFields, requiredFields, computedValues, evaluating } = useLogicEngine(
+    editedValues,
+    undefined,
+    deal.id
   );
 
   // Apply computed values (unless user manually edited them)

@@ -70,7 +70,7 @@ import {
   ChevronsRight,
   BoltIcon,
   FilesIcon,
-  TrashIcon,
+  Archive,
   FolderOpenIcon,
   MessageCircle,
   ChevronRight as ChevronRightIcon,
@@ -397,8 +397,8 @@ const createColumns = (
                     Copy ID
                   </DropdownMenuItem>
                   <DropdownMenuItem className="text-red-600">
-                    <TrashIcon size={16} aria-hidden="true" />
-                    Delete
+                    <Archive size={16} aria-hidden="true" />
+                    Archive
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>

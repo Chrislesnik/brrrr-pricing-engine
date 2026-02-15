@@ -314,7 +314,24 @@ export async function deleteProgramAction(formData: FormData) {
     return { ok: false, error: "Unable to resolve organization. Try reloading and selecting an org." }
   }
 
-  const { error } = await supabaseAdmin.from("programs").delete().eq("id", id)
+  // Check for restore action
+  const action = String(formData.get("action") || "").trim()
+  if (action === "restore") {
+    const { error } = await supabaseAdmin
+      .from("programs")
+      .update({ archived_at: null, archived_by: null })
+      .eq("id", id)
+    if (error) return { ok: false, error: error.message }
+    revalidatePath("/settings")
+    return { ok: true }
+  }
+
+  // Archive instead of delete
+  const now = new Date().toISOString()
+  const { error } = await supabaseAdmin
+    .from("programs")
+    .update({ archived_at: now, archived_by: userId })
+    .eq("id", id)
   if (error) {
     return { ok: false, error: error.message }
   }

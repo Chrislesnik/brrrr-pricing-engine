@@ -3,20 +3,11 @@
 import * as React from "react"
 import {
   IconDots,
-  IconTrash,
+  IconArchive,
   IconSettings,
   IconUsers,
+  IconRestore,
 } from "@tabler/icons-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@repo/ui/shadcn/alert-dialog"
 import { Button } from "@repo/ui/shadcn/button"
 import {
   DropdownMenu,
@@ -27,6 +18,7 @@ import {
 import { Borrower } from "../data/types"
 import { BorrowerAssignMembersDialog } from "./borrower-assign-dialog"
 import { NewBorrowerModal } from "./new-borrower-modal"
+import { ArchiveConfirmDialog } from "@/components/archive"
 
 interface Props {
   borrower: Borrower
@@ -35,14 +27,16 @@ interface Props {
 export function BorrowerRowActions({ borrower }: Props) {
   const [openEdit, setOpenEdit] = React.useState(false)
   const [openAssign, setOpenAssign] = React.useState(false)
-  const [deleting, setDeleting] = React.useState(false)
+  const [archiving, setArchiving] = React.useState(false)
   const [initial, setInitial] = React.useState<Record<string, any> | undefined>(
     undefined
   )
-  const [openDeleteConfirm, setOpenDeleteConfirm] = React.useState(false)
+  const [openArchiveConfirm, setOpenArchiveConfirm] = React.useState(false)
 
-  async function deleteBorrower() {
-    setDeleting(true)
+  const isArchived = !!(borrower as any).archived_at
+
+  async function archiveBorrower() {
+    setArchiving(true)
     try {
       const res = await fetch(
         `/api/applicants/borrowers/${encodeURIComponent(borrower.id)}`,
@@ -51,14 +45,33 @@ export function BorrowerRowActions({ borrower }: Props) {
         }
       )
       if (!res.ok) throw new Error(await res.text())
-      // notify table to refresh
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("app:borrowers:changed"))
       }
     } catch (e) {
       console.error(e)
     } finally {
-      setDeleting(false)
+      setArchiving(false)
+    }
+  }
+
+  async function restoreBorrower() {
+    setArchiving(true)
+    try {
+      const res = await fetch(
+        `/api/applicants/borrowers/${encodeURIComponent(borrower.id)}?action=restore`,
+        {
+          method: "DELETE",
+        }
+      )
+      if (!res.ok) throw new Error(await res.text())
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("app:borrowers:changed"))
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -153,36 +166,39 @@ export function BorrowerRowActions({ borrower }: Props) {
             <IconUsers className="mr-2 h-4 w-4" />
             Assigned To
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-red-600"
-            onSelect={(e) => {
-              e.preventDefault()
-              setOpenDeleteConfirm(true)
-            }}
-          >
-            <IconTrash className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
+          {isArchived ? (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                restoreBorrower()
+              }}
+              disabled={archiving}
+            >
+              <IconRestore className="mr-2 h-4 w-4" />
+              {archiving ? "Restoring..." : "Restore"}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              className="text-red-600"
+              onSelect={(e) => {
+                e.preventDefault()
+                setOpenArchiveConfirm(true)
+              }}
+            >
+              <IconArchive className="mr-2 h-4 w-4" />
+              Archive
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AlertDialog open={openDeleteConfirm} onOpenChange={setOpenDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete borrower?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this borrower record. This action
-              cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={deleteBorrower} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ArchiveConfirmDialog
+        open={openArchiveConfirm}
+        onOpenChange={setOpenArchiveConfirm}
+        onConfirm={archiveBorrower}
+        recordType="borrower"
+        loading={archiving}
+      />
 
       {/* Edit modal reuse NewBorrower with initial values */}
       <NewBorrowerModal

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { restoreRecord } from "@/lib/archive-helpers";
 
 /**
  * GET /api/actions/[id]
@@ -98,7 +99,7 @@ export async function PATCH(
 
 /**
  * DELETE /api/actions/[id]
- * Delete an action by uuid.
+ * Archive an action by uuid (soft delete).
  */
 export async function DELETE(
   _request: NextRequest,
@@ -112,9 +113,23 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // Check for restore action
+    const url = new URL(_request.url);
+    if (url.searchParams.get("action") === "restore") {
+      // Need to find by uuid first
+      const { data: row } = await supabaseAdmin.from("actions").select("id").eq("uuid", id).single();
+      if (row) {
+        const { error } = await restoreRecord("actions", row.id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Archive instead of delete (actions uses uuid as the route param)
+    const now = new Date().toISOString();
     const { error } = await supabaseAdmin
       .from("actions")
-      .delete()
+      .update({ archived_at: now, archived_by: userId })
       .eq("uuid", id);
 
     if (error) {

@@ -302,12 +302,13 @@ const NavBadge = ({ children }: { children: ReactNode }) => (
 )
 
 function checkIsActive(href: string, item: NavItem, mainNav = false) {
+  const cleanHref = href.split("?")[0]
   return (
-    href === item.url || // /endpint?search=param
-    href.split("?")[0] === item.url || // endpoint
+    href === item.url || // /endpoint?search=param
+    cleanHref === item.url || // endpoint
     !!item?.items?.filter((i) => i.url === href).length || // if child nav is active
     (mainNav &&
-      href.split("/")[1] !== "" &&
-      href.split("/")[1] === item?.url?.split("/")[1])
+      !!item?.url &&
+      cleanHref.startsWith(item.url + "/")) // only match if href is a true sub-path of item.url
   )
 }
