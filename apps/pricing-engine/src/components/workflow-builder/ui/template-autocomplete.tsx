@@ -219,6 +219,23 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Set Fields: expose each user-defined field name
+  if (actionType === "Set Fields") {
+    const fieldsJson = node.data.config?.fields as string | undefined;
+    if (fieldsJson) {
+      try {
+        const rows = JSON.parse(fieldsJson) as Array<{ name: string; type: string }>;
+        return rows
+          .filter((r) => r.name && r.name.trim())
+          .map((r) => ({
+            field: r.name.trim(),
+            description: `${r.type} field`,
+          }));
+      } catch { /* fall through */ }
+    }
+    return [{ field: "output", description: "Set Fields output object" }];
+  }
+
   // Check if the plugin defines output fields
   if (actionType) {
     const action = findActionById(actionType);

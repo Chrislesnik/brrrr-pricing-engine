@@ -15,6 +15,8 @@ export const stepRegistry: Record<string, StepFunction> = {
     (await import("./database-query")).databaseQueryStep(input as never),
   Condition: async (input) =>
     (await import("./condition")).conditionStep(input as never),
+  "Set Fields": async (input) =>
+    (await import("./set-fields")).setFieldsStep(input as never),
 
   // ── AI Gateway ──
   "Generate Text": async (input) =>

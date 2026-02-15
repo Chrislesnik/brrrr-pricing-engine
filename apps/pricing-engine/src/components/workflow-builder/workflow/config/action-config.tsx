@@ -416,9 +416,221 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Set Fields":
+      return (
+        <SetFieldsFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
+}
+
+// ── Set Fields config component ──
+
+type SetFieldRow = {
+  name: string;
+  type: "string" | "number" | "boolean" | "date" | "json" | "array";
+  mode: "fixed" | "expression";
+  value: string;
+};
+
+const SET_FIELD_TYPES = [
+  { value: "string", label: "String" },
+  { value: "number", label: "Number" },
+  { value: "boolean", label: "Boolean" },
+  { value: "date", label: "Date" },
+  { value: "json", label: "JSON" },
+  { value: "array", label: "Array" },
+] as const;
+
+function SetFieldsFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  let fields: SetFieldRow[] = [];
+  try {
+    fields = JSON.parse((config?.fields as string) || "[]");
+  } catch {
+    fields = [];
+  }
+
+  // Auto-add first row if empty
+  if (fields.length === 0) {
+    fields = [{ name: "", type: "string", mode: "fixed", value: "" }];
+  }
+
+  const update = (newFields: SetFieldRow[]) => {
+    onUpdateConfig("fields", JSON.stringify(newFields));
+  };
+
+  const updateRow = (index: number, key: keyof SetFieldRow, val: string) => {
+    const updated = [...fields];
+    updated[index] = { ...updated[index], [key]: val };
+    // Reset value when type changes to avoid stale data
+    if (key === "type") {
+      updated[index].value = "";
+    }
+    update(updated);
+  };
+
+  const addRow = () => {
+    update([...fields, { name: "", type: "string", mode: "fixed", value: "" }]);
+  };
+
+  const removeRow = (index: number) => {
+    if (fields.length <= 1) return;
+    update(fields.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      <Label>Fields to Set</Label>
+      <div className="space-y-3">
+        {fields.map((field, idx) => (
+          <div
+            key={idx}
+            className="rounded-md border p-3 space-y-2 bg-muted/30"
+          >
+            {/* Row 1: Name + Type */}
+            <div className="flex items-center gap-2">
+              <Input
+                disabled={disabled}
+                placeholder="field_name"
+                value={field.name}
+                onChange={(e) => updateRow(idx, "name", e.target.value)}
+                className="flex-1 h-8 text-xs font-mono"
+              />
+              <Select
+                disabled={disabled}
+                value={field.type}
+                onValueChange={(v) => updateRow(idx, "type", v)}
+              >
+                <SelectTrigger className="w-24 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SET_FIELD_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      <span className="text-xs">{t.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fields.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                  disabled={disabled}
+                  onClick={() => removeRow(idx)}
+                >
+                  <span className="text-sm">×</span>
+                </Button>
+              )}
+            </div>
+
+            {/* Row 2: Mode toggle + Value */}
+            <div className="flex items-start gap-2">
+              {/* Mode toggle pills */}
+              <div className="flex shrink-0 rounded-md border overflow-hidden h-8">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={`px-2 text-[10px] font-medium transition-colors ${
+                    field.mode === "fixed"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                  onClick={() => updateRow(idx, "mode", "fixed")}
+                >
+                  Fixed
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={`px-2 text-[10px] font-medium transition-colors ${
+                    field.mode === "expression"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                  onClick={() => updateRow(idx, "mode", "expression")}
+                >
+                  Expr
+                </button>
+              </div>
+
+              {/* Value input */}
+              <div className="flex-1">
+                {field.mode === "expression" ? (
+                  <TemplateBadgeInput
+                    disabled={disabled}
+                    placeholder="Use @ to reference previous nodes"
+                    value={field.value}
+                    onChange={(val) => updateRow(idx, "value", val)}
+                  />
+                ) : field.type === "boolean" ? (
+                  <Select
+                    disabled={disabled}
+                    value={field.value || "false"}
+                    onValueChange={(v) => updateRow(idx, "value", v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">
+                        <span className="text-xs">true</span>
+                      </SelectItem>
+                      <SelectItem value="false">
+                        <span className="text-xs">false</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    disabled={disabled}
+                    placeholder={
+                      field.type === "number"
+                        ? "0"
+                        : field.type === "date"
+                          ? "2026-01-15"
+                          : field.type === "json"
+                            ? '{"key": "value"}'
+                            : field.type === "array"
+                              ? '["a", "b"]'
+                              : "value"
+                    }
+                    value={field.value}
+                    onChange={(e) => updateRow(idx, "value", e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        onClick={addRow}
+        className="w-full gap-1.5 text-xs"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add Field
+      </Button>
+    </div>
+  );
 }
 
 // System actions that don't have plugins
@@ -426,6 +638,7 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "HTTP Request", label: "HTTP Request" },
   { id: "Database Query", label: "Database Query" },
   { id: "Condition", label: "Condition" },
+  { id: "Set Fields", label: "Set Fields" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);

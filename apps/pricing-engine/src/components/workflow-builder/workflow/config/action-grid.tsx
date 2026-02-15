@@ -59,6 +59,12 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Branch based on a condition",
     category: "System",
   },
+  {
+    id: "Set Fields",
+    label: "Set Fields",
+    description: "Define output fields with values or expressions",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions

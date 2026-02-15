@@ -9,6 +9,7 @@ import {
   Database,
   EyeOff,
   GitBranch,
+  ListChecks,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -76,6 +77,7 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   "Database Query": "Database",
   Condition: "Condition",
   "Execute Code": "System",
+  "Set Fields": "Data",
 };
 
 // Helper to get integration name from action type
@@ -131,6 +133,8 @@ const getProviderLogo = (actionType: string) => {
       return <Code className="size-12 text-green-300" strokeWidth={1.5} />;
     case "Condition":
       return <GitBranch className="size-12 text-pink-300" strokeWidth={1.5} />;
+    case "Set Fields":
+      return <ListChecks className="size-12 text-violet-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;
