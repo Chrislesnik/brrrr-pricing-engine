@@ -394,14 +394,64 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
             }
           }
         } else if (isLoopNode) {
-          const loopResult = result.data as { done?: boolean } | undefined;
+          // Loop Over Batches: iterate all batches, executing the batch-path
+          // nodes with a fresh visited set per iteration so they can re-run.
+          type LoopItem = { json: Record<string, unknown> };
+          const loopData = result.data as {
+            items?: LoopItem[];
+            batchSize?: number;
+            totalBatches?: number;
+          } | undefined;
+          const loopItems = loopData?.items ?? [];
+          const batchSize = loopData?.batchSize ?? 1;
+          const totalBatches = loopData?.totalBatches ?? 1;
+          const nodeLabel = node.data.label || nodeId;
+
           const allEdges = edgesBySource.get(nodeId) || [];
-          if (loopResult?.done) {
-            const doneEdges = allEdges.filter((e) => e.sourceHandle === "done");
+          const batchEdges = allEdges.filter((e) => e.sourceHandle === "batch");
+          const doneEdges = allEdges.filter((e) => e.sourceHandle === "done");
+
+          // Execute each batch sequentially with fresh visited sets
+          for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+            const start = batchIdx * batchSize;
+            const batch = loopItems.slice(start, start + batchSize);
+
+            // Update this node's output to the current batch
+            outputs[sanitizedNodeId] = {
+              label: nodeLabel,
+              data: {
+                items: batch,
+                batchIndex: batchIdx,
+                totalBatches,
+                batchSize,
+                done: false,
+              },
+            };
+
+            // Execute batch-path nodes with a fresh visited set
+            // (only the Loop node itself is marked visited to prevent re-entry)
+            if (batchEdges.length > 0) {
+              const batchVisited = new Set<string>([nodeId]);
+              for (const edge of batchEdges) {
+                await executeNode(edge.target, batchVisited);
+              }
+            }
+          }
+
+          // After all batches, update output to done state and fire done path
+          outputs[sanitizedNodeId] = {
+            label: nodeLabel,
+            data: {
+              items: loopItems,
+              batchIndex: totalBatches,
+              totalBatches,
+              batchSize,
+              done: true,
+            },
+          };
+
+          if (doneEdges.length > 0) {
             await Promise.all(doneEdges.map((e) => executeNode(e.target, visited)));
-          } else {
-            const batchEdges = allEdges.filter((e) => e.sourceHandle === "batch");
-            await Promise.all(batchEdges.map((e) => executeNode(e.target, visited)));
           }
         } else if (isSwitchNode) {
           const matchedOutput = (result.data as { matchedOutput?: string })?.matchedOutput || "default";

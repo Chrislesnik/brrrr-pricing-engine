@@ -1,6 +1,6 @@
 /**
- * Loop Over Batches step — splits items into batches for sequential processing.
- * Returns one batch at a time. The executor routes to "batch" or "done" handle.
+ * Loop Over Batches step — collects items and returns metadata.
+ * The actual batching and iteration is handled by the executor.
  */
 import "server-only";
 
@@ -9,10 +9,6 @@ import { type StepInput, withStepLogging } from "./step-handler";
 export type LoopBatchesInput = StepInput & {
   batchSize: string;
   _nodeOutputs?: Record<string, unknown>;
-  /** Internal: current batch index (managed by executor on loop-back) */
-  _batchIndex?: number;
-  /** Internal: all items stored from first call */
-  _allItems?: string;
 };
 
 type Item = { json: Record<string, unknown> };
@@ -40,38 +36,19 @@ function collectItems(nodeOutputs: Record<string, unknown>): Item[] {
 
 function executeLoopBatches(input: LoopBatchesInput): {
   items: Item[];
-  batchIndex: number;
+  batchSize: number;
   totalBatches: number;
-  done: boolean;
-  allItems?: Item[];
+  done: false;
 } {
   const batchSize = Math.max(1, parseInt(input.batchSize || "1", 10) || 1);
-
-  // Collect all items from upstream
   const allItems = collectItems(input._nodeOutputs ?? {});
-  const totalBatches = Math.ceil(allItems.length / batchSize);
-  const batchIndex = input._batchIndex ?? 0;
-
-  if (allItems.length === 0 || batchIndex >= totalBatches) {
-    return {
-      items: allItems,
-      batchIndex,
-      totalBatches,
-      done: true,
-      allItems,
-    };
-  }
-
-  const start = batchIndex * batchSize;
-  const batch = allItems.slice(start, start + batchSize);
-  const isLast = batchIndex >= totalBatches - 1;
+  const totalBatches = Math.max(1, Math.ceil(allItems.length / batchSize));
 
   return {
-    items: batch,
-    batchIndex,
+    items: allItems,
+    batchSize,
     totalBatches,
-    done: isLast,
-    allItems: isLast ? allItems : undefined,
+    done: false,
   };
 }
 
@@ -80,10 +57,9 @@ export async function loopBatchesStep(
   input: LoopBatchesInput,
 ): Promise<{
   items: Item[];
-  batchIndex: number;
+  batchSize: number;
   totalBatches: number;
-  done: boolean;
-  allItems?: Item[];
+  done: false;
 }> {
   "use step";
   return withStepLogging(input, () => Promise.resolve(executeLoopBatches(input)));
