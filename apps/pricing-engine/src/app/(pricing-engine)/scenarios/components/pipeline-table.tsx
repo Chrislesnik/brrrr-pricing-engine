@@ -95,7 +95,17 @@ export function PipelineTable({ columns, data }: Props) {
         sorting?: SortingState
       }
       if (parsed?.visibility) setColumnVisibility(parsed.visibility)
-      if (parsed?.filters) setColumnFilters(parsed.filters)
+      if (parsed?.filters) {
+        // Strip "archived" from persisted status filter so archived rows
+        // don't show unexpectedly on page load
+        const cleaned = parsed.filters.map((f) => {
+          if (f.id === "status" && Array.isArray(f.value)) {
+            return { ...f, value: (f.value as string[]).filter((v) => v !== "archived") }
+          }
+          return f
+        }).filter((f) => !(f.id === "status" && Array.isArray(f.value) && (f.value as string[]).length === 0))
+        setColumnFilters(cleaned)
+      }
       if (parsed?.sorting) setSorting(parsed.sorting)
     } catch {
       // ignore
