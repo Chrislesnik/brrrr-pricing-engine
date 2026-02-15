@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  BarChart3,
   Calendar,
   ChevronRight,
+  ChevronsDownUp,
   Code,
   Database,
   Eye,
@@ -18,6 +20,7 @@ import {
   Search,
   Settings,
   Timer,
+  Ungroup,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -104,6 +107,24 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Parse, format, and manipulate dates",
     category: "System",
   },
+  {
+    id: "Split Out",
+    label: "Split Out",
+    description: "Explode an array field into individual items",
+    category: "System",
+  },
+  {
+    id: "Limit",
+    label: "Limit",
+    description: "Take first or last N items",
+    category: "System",
+  },
+  {
+    id: "Aggregate",
+    label: "Aggregate",
+    description: "Sum, count, average, min, max, group by",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions
@@ -162,6 +183,9 @@ const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ classNam
   Switch: { icon: GitFork, color: "text-blue-400" },
   Filter: { icon: Filter, color: "text-cyan-500" },
   DateTime: { icon: Calendar, color: "text-teal-500" },
+  "Split Out": { icon: Ungroup, color: "text-indigo-500" },
+  Limit: { icon: ChevronsDownUp, color: "text-rose-500" },
+  Aggregate: { icon: BarChart3, color: "text-purple-500" },
 };
 
 function ActionIcon({

@@ -304,10 +304,10 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         // Add step context
         processedConfig._context = stepContext;
 
-        // Inject all upstream node outputs for Code nodes so they can build $input/$node.
-        // We add multiple aliases for each node so $node['Get Row'], $node['supabase/get-row'],
-        // and custom labels all resolve correctly.
-        if (actionType === "Code") {
+        // Inject all upstream node outputs for data-aware nodes that need access to
+        // upstream items ($input/$node for Code, or items for Filter/Split Out/Limit/Aggregate).
+        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate"];
+        if (DATA_AWARE_NODES.includes(actionType)) {
           const nodeOutputMap: Record<string, unknown> = {};
           for (const [_k, v] of Object.entries(outputs)) {
             // Always add by the stored label

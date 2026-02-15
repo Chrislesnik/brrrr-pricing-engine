@@ -219,6 +219,35 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Split Out: expose split items
+  if (actionType === "Split Out") {
+    return [
+      { field: "items", description: "Array of individual items from the split" },
+      { field: "count", description: "Number of items produced" },
+    ];
+  }
+
+  // Limit: expose limited items
+  if (actionType === "Limit") {
+    return [
+      { field: "items", description: "Limited array of items" },
+      { field: "count", description: "Number of items returned" },
+      { field: "originalCount", description: "Original item count before limit" },
+    ];
+  }
+
+  // Aggregate: expose result
+  if (actionType === "Aggregate") {
+    return [
+      { field: "result", description: "Aggregation result (number)" },
+      { field: "operation", description: "Operation performed" },
+      { field: "field", description: "Field aggregated on" },
+      { field: "count", description: "Number of values processed" },
+      { field: "groups", description: "Grouped items (for Group By)" },
+      { field: "groupCount", description: "Number of groups (for Group By)" },
+    ];
+  }
+
   // Switch: expose matched output
   if (actionType === "Switch") {
     return [

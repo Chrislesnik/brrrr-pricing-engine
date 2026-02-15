@@ -9,12 +9,15 @@ import {
   Database,
   EyeOff,
   GitBranch,
+  BarChart3,
   Calendar,
+  ChevronsDownUp,
   Filter,
   GitFork,
   Globe,
   ListChecks,
   Timer,
+  Ungroup,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -87,6 +90,9 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   Switch: "Router",
   Filter: "Filter",
   DateTime: "Date",
+  "Split Out": "Transform",
+  Limit: "Transform",
+  Aggregate: "Analytics",
 };
 
 // Helper to get integration name from action type
@@ -152,6 +158,12 @@ const getProviderLogo = (actionType: string) => {
       return <Filter className="size-12 text-cyan-300" strokeWidth={1.5} />;
     case "DateTime":
       return <Calendar className="size-12 text-teal-300" strokeWidth={1.5} />;
+    case "Split Out":
+      return <Ungroup className="size-12 text-indigo-300" strokeWidth={1.5} />;
+    case "Limit":
+      return <ChevronsDownUp className="size-12 text-rose-300" strokeWidth={1.5} />;
+    case "Aggregate":
+      return <BarChart3 className="size-12 text-purple-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;

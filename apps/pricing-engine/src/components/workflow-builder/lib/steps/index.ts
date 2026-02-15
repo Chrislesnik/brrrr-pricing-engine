@@ -27,6 +27,12 @@ export const stepRegistry: Record<string, StepFunction> = {
     (await import("./filter")).filterStep(input as never),
   DateTime: async (input) =>
     (await import("./date-time")).dateTimeStep(input as never),
+  "Split Out": async (input) =>
+    (await import("./split-out")).splitOutStep(input as never),
+  Limit: async (input) =>
+    (await import("./limit")).limitStep(input as never),
+  Aggregate: async (input) =>
+    (await import("./aggregate")).aggregateStep(input as never),
 
   // ── AI Gateway ──
   "Generate Text": async (input) =>

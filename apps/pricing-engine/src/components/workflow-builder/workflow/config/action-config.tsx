@@ -469,6 +469,30 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Split Out":
+      return (
+        <SplitOutFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Limit":
+      return (
+        <LimitFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Aggregate":
+      return (
+        <AggregateFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
@@ -856,6 +880,201 @@ function CodeTestPanel({
             </>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Split Out config component ──
+
+function SplitOutFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  useEffect(() => {
+    if (config?.includeOtherFields === undefined) onUpdateConfig("includeOtherFields", "true");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Field to Split</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          placeholder="e.g. rows, data.items, names"
+          value={(config?.fieldPath as string) || ""}
+          onChange={(val) => onUpdateConfig("fieldPath", val)}
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Path to the array field to explode into individual items.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="includeOtherFields"
+          disabled={disabled}
+          checked={(config?.includeOtherFields as string) !== "false"}
+          onChange={(e) => onUpdateConfig("includeOtherFields", e.target.checked ? "true" : "false")}
+          className="h-4 w-4 rounded border"
+        />
+        <Label htmlFor="includeOtherFields" className="text-xs cursor-pointer">
+          Include other fields from parent item
+        </Label>
+      </div>
+    </div>
+  );
+}
+
+// ── Limit config component ──
+
+function LimitFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  useEffect(() => {
+    if (config?.maxItems === undefined) onUpdateConfig("maxItems", "10");
+    if (!config?.from) onUpdateConfig("from", "beginning");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Max Items</Label>
+        <div className="flex items-center gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled || Number(config?.maxItems ?? 10) <= 0}
+            className="h-8 w-8 rounded-r-none border-r-0 shrink-0"
+            onClick={() => {
+              const cur = Math.max(0, parseInt(String(config?.maxItems ?? "10"), 10) || 10);
+              onUpdateConfig("maxItems", String(Math.max(0, cur - 1)));
+            }}
+          >
+            <span className="text-sm font-medium">−</span>
+          </Button>
+          <Input
+            type="number"
+            min="0"
+            disabled={disabled}
+            value={(config?.maxItems as string) ?? "10"}
+            onChange={(e) => onUpdateConfig("maxItems", e.target.value)}
+            className="h-8 text-xs text-center rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled}
+            className="h-8 w-8 rounded-l-none border-l-0 shrink-0"
+            onClick={() => {
+              const cur = parseInt(String(config?.maxItems ?? "10"), 10) || 10;
+              onUpdateConfig("maxItems", String(cur + 1));
+            }}
+          >
+            <span className="text-sm font-medium">+</span>
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>From</Label>
+        <Select
+          disabled={disabled}
+          value={(config?.from as string) || "beginning"}
+          onValueChange={(v) => onUpdateConfig("from", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="beginning"><span className="text-xs">Beginning</span></SelectItem>
+            <SelectItem value="end"><span className="text-xs">End</span></SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// ── Aggregate config component ──
+
+const AGG_OPERATIONS = [
+  { value: "count", label: "Count" },
+  { value: "sum", label: "Sum" },
+  { value: "average", label: "Average" },
+  { value: "min", label: "Min" },
+  { value: "max", label: "Max" },
+  { value: "groupBy", label: "Group By" },
+] as const;
+
+function AggregateFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  const operation = (config?.operation as string) || "count";
+
+  useEffect(() => {
+    if (!config?.operation) onUpdateConfig("operation", "count");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Operation</Label>
+        <Select
+          disabled={disabled}
+          value={operation}
+          onValueChange={(v) => onUpdateConfig("operation", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {AGG_OPERATIONS.map((op) => (
+              <SelectItem key={op.value} value={op.value}>
+                <span className="text-xs">{op.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {operation !== "count" && (
+        <div className="space-y-1.5">
+          <Label>{operation === "groupBy" ? "Group By Field" : "Field"}</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            placeholder="e.g. amount, price, category"
+            value={(operation === "groupBy" ? (config?.groupByField as string) : (config?.field as string)) || ""}
+            onChange={(val) => onUpdateConfig(operation === "groupBy" ? "groupByField" : "field", val)}
+          />
+        </div>
+      )}
+
+      {operation === "groupBy" && (
+        <p className="text-[10px] text-muted-foreground">
+          Items will be grouped by the specified field value. Output: groups object with arrays of items.
+        </p>
       )}
     </div>
   );
@@ -1491,6 +1710,9 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "Switch", label: "Switch" },
   { id: "Filter", label: "Filter" },
   { id: "DateTime", label: "DateTime" },
+  { id: "Split Out", label: "Split Out" },
+  { id: "Limit", label: "Limit" },
+  { id: "Aggregate", label: "Aggregate" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);
