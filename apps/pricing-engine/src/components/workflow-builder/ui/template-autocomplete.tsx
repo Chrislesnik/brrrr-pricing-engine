@@ -291,10 +291,11 @@ const getCommonFields = (node: WorkflowNode) => {
     ];
   }
 
-  // Filter: expose filtered items
+  // Filter: expose filtered and rejected items
   if (actionType === "Filter") {
     return [
-      { field: "items", description: "Array of items that passed the filter" },
+      { field: "items", description: "Array of items that passed the filter (kept)" },
+      { field: "rejectedItems", description: "Array of items that did not match (rejected)" },
       { field: "keptCount", description: "Number of items kept" },
       { field: "removedCount", description: "Number of items removed" },
     ];

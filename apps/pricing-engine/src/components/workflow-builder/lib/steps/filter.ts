@@ -132,24 +132,33 @@ function executeFilter(input: FilterInput): {
 
   // If no structured condition, pass all items through
   if (!structured) {
-    return { items, keptCount: items.length, removedCount: 0 };
+    return { items, rejectedItems: [], keptCount: items.length, removedCount: 0 };
   }
 
   // Filter items — conditions reference resolved template values
   // Since templates are already resolved by the executor, just evaluate
-  const kept = items.filter(() => evaluateConditions(structured!));
+  const kept: typeof items = [];
+  const rejected: typeof items = [];
+  for (const item of items) {
+    if (evaluateConditions(structured)) {
+      kept.push(item);
+    } else {
+      rejected.push(item);
+    }
+  }
 
   return {
     items: kept,
+    rejectedItems: rejected,
     keptCount: kept.length,
-    removedCount: items.length - kept.length,
+    removedCount: rejected.length,
   };
 }
 
 // biome-ignore lint/suspicious/useAwait: workflow "use step" requires async
 export async function filterStep(
   input: FilterInput,
-): Promise<{ items: Array<{ json: Record<string, unknown> }>; keptCount: number; removedCount: number }> {
+): Promise<{ items: Array<{ json: Record<string, unknown> }>; rejectedItems: Array<{ json: Record<string, unknown> }>; keptCount: number; removedCount: number }> {
   "use step";
   return withStepLogging(input, () => Promise.resolve(executeFilter(input)));
 }

@@ -306,7 +306,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
         // Inject all upstream node outputs for data-aware nodes that need access to
         // upstream items ($input/$node for Code, or items for Filter/Split Out/Limit/Aggregate).
-        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches"];
+        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches", "Set Fields"];
         if (DATA_AWARE_NODES.includes(actionType)) {
           const nodeOutputMap: Record<string, unknown> = {};
           for (const [_k, v] of Object.entries(outputs)) {
@@ -371,7 +371,29 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
           node.data.type === "action" &&
           node.data.config?.actionType === "Loop Over Batches";
 
-        if (isLoopNode) {
+        const isFilterNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Filter";
+
+        if (isFilterNode) {
+          const filterResult = result.data as { rejectedItems?: unknown[] } | undefined;
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const keptEdges = allEdges.filter((e) => e.sourceHandle === "kept");
+          const rejectedEdges = allEdges.filter((e) => e.sourceHandle === "rejected");
+          // If no handles configured (legacy), send everything downstream
+          if (keptEdges.length === 0 && rejectedEdges.length === 0) {
+            await Promise.all(allEdges.map((e) => executeNode(e.target, visited)));
+          } else {
+            // Always execute kept path
+            if (keptEdges.length > 0) {
+              await Promise.all(keptEdges.map((e) => executeNode(e.target, visited)));
+            }
+            // Execute rejected path only if there are rejected items
+            if (rejectedEdges.length > 0 && filterResult?.rejectedItems && (filterResult.rejectedItems as unknown[]).length > 0) {
+              await Promise.all(rejectedEdges.map((e) => executeNode(e.target, visited)));
+            }
+          }
+        } else if (isLoopNode) {
           const loopResult = result.data as { done?: boolean } | undefined;
           const allEdges = edgesBySource.get(nodeId) || [];
           if (loopResult?.done) {

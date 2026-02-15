@@ -16,6 +16,10 @@ export type SetFieldRow = {
 export type SetFieldsInput = StepInput & {
   /** JSON-encoded array of SetFieldRow */
   fields: string;
+  /** Whether to include all fields from upstream input (default: "true") */
+  includeInputFields?: string;
+  /** Upstream node outputs injected by executor */
+  _nodeOutputs?: Record<string, unknown>;
 };
 
 /**
@@ -63,6 +67,28 @@ function coerceValue(raw: string, type: SetFieldRow["type"]): unknown {
   }
 }
 
+function getUpstreamFields(nodeOutputs: Record<string, unknown>): Record<string, unknown> {
+  // Collect fields from the last upstream node's output
+  const values = Object.values(nodeOutputs).filter(Boolean);
+  const last = values[values.length - 1];
+  if (!last || typeof last !== "object") return {};
+
+  const obj = last as Record<string, unknown>;
+  // Unwrap standardised { success, data } format
+  if ("success" in obj && "data" in obj && obj.data && typeof obj.data === "object") {
+    return obj.data as Record<string, unknown>;
+  }
+  // Unwrap items array format
+  if (Array.isArray(last)) {
+    const first = last[0];
+    if (first && typeof first === "object" && "json" in first) {
+      return (first as { json: Record<string, unknown> }).json;
+    }
+    if (first && typeof first === "object") return first as Record<string, unknown>;
+  }
+  return obj;
+}
+
 function executeSetFields(input: SetFieldsInput): Record<string, unknown> {
   let rows: SetFieldRow[] = [];
   try {
@@ -71,16 +97,19 @@ function executeSetFields(input: SetFieldsInput): Record<string, unknown> {
     rows = [];
   }
 
-  const output: Record<string, unknown> = {};
+  // Start with upstream fields if include is enabled (default: true)
+  const includeInput = input.includeInputFields !== "false";
+  const base: Record<string, unknown> = includeInput
+    ? { ...getUpstreamFields(input._nodeOutputs ?? {}) }
+    : {};
 
+  // Overlay explicitly set fields
   for (const row of rows) {
     if (!row.name || !row.name.trim()) continue;
-    // Value has already been template-resolved by the executor for expression mode.
-    // We just coerce to the declared type.
-    output[row.name.trim()] = coerceValue(row.value ?? "", row.type);
+    base[row.name.trim()] = coerceValue(row.value ?? "", row.type);
   }
 
-  return output;
+  return base;
 }
 
 // biome-ignore lint/suspicious/useAwait: workflow "use step" requires async

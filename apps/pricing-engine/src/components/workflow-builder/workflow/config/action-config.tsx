@@ -1980,6 +1980,23 @@ function SetFieldsFields({
         <Plus className="h-3.5 w-3.5" />
         Add Field
       </Button>
+
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          type="checkbox"
+          id="includeInputFields"
+          disabled={disabled}
+          checked={(config?.includeInputFields as string) !== "false"}
+          onChange={(e) => onUpdateConfig("includeInputFields", e.target.checked ? "true" : "false")}
+          className="h-4 w-4 rounded border"
+        />
+        <Label htmlFor="includeInputFields" className="text-xs cursor-pointer">
+          Include other input fields
+        </Label>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        When enabled, all fields from the input item are kept and the fields above are added/overwritten.
+      </p>
     </div>
   );
 }

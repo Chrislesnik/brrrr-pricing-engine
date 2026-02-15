@@ -388,6 +388,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const isCondition = actionType === "Condition";
   const isSwitch = actionType === "Switch";
   const isLoop = actionType === "Loop Over Batches";
+  const isFilter = actionType === "Filter";
 
   // Build dynamic source handles for Switch node from config rules
   const switchHandles = (() => {
@@ -409,7 +410,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
         isDisabled && "opacity-50"
       )}
       data-testid={`action-node-${id}`}
-      handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : isLoop ? ["batch", "done"] : true }}
+      handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : isLoop ? ["batch", "done"] : isFilter ? ["kept", "rejected"] : true }}
       status={status}
     >
       {/* Disabled badge in top left */}

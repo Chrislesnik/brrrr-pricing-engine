@@ -177,6 +177,12 @@ async function executeCode(input: CodeInput): Promise<{
   const sandboxBase: Record<string, unknown> = {
     $input,
     $node,
+    $json: allItems[0]?.json ?? {},
+    $itemIndex: 0,
+    $execution: {
+      id: input._context?.executionId ?? "",
+      mode: "manual",
+    },
     console: capturedConsole,
     JSON,
     Math,
@@ -205,8 +211,15 @@ async function executeCode(input: CodeInput): Promise<{
 
   if (mode === "runOnceEachItem") {
     const results: Item[] = [];
-    for (const item of allItems) {
-      const sandbox = { ...sandboxBase, item, $input: buildInputHelper([item]) };
+    for (let idx = 0; idx < allItems.length; idx++) {
+      const item = allItems[idx];
+      const sandbox = {
+        ...sandboxBase,
+        item,
+        $input: buildInputHelper([item]),
+        $json: item.json,
+        $itemIndex: idx,
+      };
       const raw = await runSandboxed(code, sandbox);
       const normalised = normaliseResult(raw);
       results.push(...normalised);
