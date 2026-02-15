@@ -538,65 +538,35 @@ function SetFieldsFields({
               )}
             </div>
 
-            {/* Row 2: Mode toggle + Value */}
-            <div className="flex items-start gap-2">
-              {/* Mode toggle pills */}
-              <div className="flex shrink-0 rounded-md border overflow-hidden h-8">
-                <button
-                  type="button"
+            {/* Row 2: Value */}
+            <div>
+              {field.mode === "expression" ? (
+                <TemplateBadgeInput
                   disabled={disabled}
-                  className={`px-2 text-[10px] font-medium transition-colors ${
-                    field.mode === "fixed"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                  onClick={() => updateRow(idx, "mode", "fixed")}
-                >
-                  Fixed
-                </button>
-                <button
-                  type="button"
+                  placeholder="Use @ to reference previous nodes"
+                  value={field.value}
+                  onChange={(val) => updateRow(idx, "value", val)}
+                />
+              ) : field.type === "boolean" ? (
+                <Select
                   disabled={disabled}
-                  className={`px-2 text-[10px] font-medium transition-colors ${
-                    field.mode === "expression"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                  onClick={() => updateRow(idx, "mode", "expression")}
+                  value={field.value || "false"}
+                  onValueChange={(v) => updateRow(idx, "value", v)}
                 >
-                  Expr
-                </button>
-              </div>
-
-              {/* Value input */}
-              <div className="flex-1">
-                {field.mode === "expression" ? (
-                  <TemplateBadgeInput
-                    disabled={disabled}
-                    placeholder="Use @ to reference previous nodes"
-                    value={field.value}
-                    onChange={(val) => updateRow(idx, "value", val)}
-                  />
-                ) : field.type === "boolean" ? (
-                  <Select
-                    disabled={disabled}
-                    value={field.value || "false"}
-                    onValueChange={(v) => updateRow(idx, "value", v)}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">
-                        <span className="text-xs">true</span>
-                      </SelectItem>
-                      <SelectItem value="false">
-                        <span className="text-xs">false</span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">
+                      <span className="text-xs">true</span>
+                    </SelectItem>
+                    <SelectItem value="false">
+                      <span className="text-xs">false</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
                     disabled={disabled}
                     placeholder={
                       field.type === "number"
@@ -614,7 +584,34 @@ function SetFieldsFields({
                     className="h-8 text-xs"
                   />
                 )}
-              </div>
+            </div>
+
+            {/* Row 3: Mode toggle */}
+            <div className="flex shrink-0 rounded-md border overflow-hidden h-7 w-fit">
+              <button
+                type="button"
+                disabled={disabled}
+                className={`px-2.5 text-[10px] font-medium transition-colors ${
+                  field.mode === "fixed"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                onClick={() => updateRow(idx, "mode", "fixed")}
+              >
+                Fixed
+              </button>
+              <button
+                type="button"
+                disabled={disabled}
+                className={`px-2.5 text-[10px] font-medium transition-colors ${
+                  field.mode === "expression"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                onClick={() => updateRow(idx, "mode", "expression")}
+              >
+                Expression
+              </button>
             </div>
           </div>
         ))}
