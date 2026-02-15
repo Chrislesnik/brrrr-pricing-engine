@@ -219,6 +219,14 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Wait: expose waited status and duration
+  if (actionType === "Wait") {
+    return [
+      { field: "waited", description: "Whether the wait completed (true)" },
+      { field: "duration", description: "Actual wait duration in ms" },
+    ];
+  }
+
   // Set Fields: expose each user-defined field name
   if (actionType === "Set Fields") {
     const fieldsJson = node.data.config?.fields as string | undefined;

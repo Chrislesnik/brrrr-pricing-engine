@@ -10,6 +10,7 @@ import {
   EyeOff,
   GitBranch,
   ListChecks,
+  Timer,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -78,6 +79,7 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   Condition: "Condition",
   "Execute Code": "System",
   "Set Fields": "Data",
+  Wait: "Timer",
 };
 
 // Helper to get integration name from action type
@@ -135,6 +137,8 @@ const getProviderLogo = (actionType: string) => {
       return <GitBranch className="size-12 text-pink-300" strokeWidth={1.5} />;
     case "Set Fields":
       return <ListChecks className="size-12 text-violet-300" strokeWidth={1.5} />;
+    case "Wait":
+      return <Timer className="size-12 text-orange-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;

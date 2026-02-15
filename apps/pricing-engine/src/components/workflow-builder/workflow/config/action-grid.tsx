@@ -65,6 +65,12 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Define output fields with values or expressions",
     category: "System",
   },
+  {
+    id: "Wait",
+    label: "Wait",
+    description: "Pause execution for a set duration",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions

@@ -424,9 +424,73 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Wait":
+      return (
+        <WaitFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
+}
+
+// ── Wait config component ──
+
+const WAIT_UNITS = [
+  { value: "seconds", label: "Seconds" },
+  { value: "minutes", label: "Minutes" },
+  { value: "hours", label: "Hours" },
+  { value: "days", label: "Days" },
+] as const;
+
+function WaitFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="waitAmount">Wait Amount</Label>
+        <Input
+          id="waitAmount"
+          type="number"
+          min="0"
+          step="1"
+          disabled={disabled}
+          value={(config?.waitAmount as string) || "5"}
+          onChange={(e) => onUpdateConfig("waitAmount", e.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="waitUnit">Wait Unit</Label>
+        <Select
+          disabled={disabled}
+          value={(config?.waitUnit as string) || "seconds"}
+          onValueChange={(v) => onUpdateConfig("waitUnit", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {WAIT_UNITS.map((u) => (
+              <SelectItem key={u.value} value={u.value}>
+                <span className="text-xs">{u.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
 }
 
 // ── Set Fields config component ──
@@ -636,6 +700,7 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "Database Query", label: "Database Query" },
   { id: "Condition", label: "Condition" },
   { id: "Set Fields", label: "Set Fields" },
+  { id: "Wait", label: "Wait" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);
