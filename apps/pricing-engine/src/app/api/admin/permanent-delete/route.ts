@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, getUserRoleInOrg } from "@/lib/orgs"
 import { permanentlyDelete, type ArchivableTable } from "@/lib/archive-helpers"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
@@ -36,7 +36,11 @@ const STORAGE_CLEANUP: Record<string, { bucket: string; pathColumn: string }> = 
 /**
  * POST /api/admin/permanent-delete
  *
- * Permanently delete an already-archived record. Admin / owner only.
+ * Permanently delete an already-archived record.
+ * Requirements:
+ *  1. User must be an internal user (is_internal_yn = true)
+ *  2. User's organization must match the record's organization
+ *  3. User's role in the org must be "admin"
  *
  * Body: { table: ArchivableTable, id: string | number }
  */
@@ -50,15 +54,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No active organization" }, { status: 400 })
     }
 
-    // Verify the user is an admin or owner
+    // 1. Verify the user is an internal user
+    const { data: userRow } = await supabaseAdmin
+      .from("users")
+      .select("id, is_internal_yn")
+      .eq("clerk_user_id", userId)
+      .maybeSingle()
+
+    if (!userRow || !userRow.is_internal_yn) {
+      return NextResponse.json(
+        { error: "Only internal users can permanently delete records" },
+        { status: 403 }
+      )
+    }
+
+    // 2. Resolve the organization and verify membership
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
+
+    // 3. Verify the user's role in this org is "admin"
     const role = await getUserRoleInOrg(orgUuid, userId)
-    if (!isPrivilegedRole(role)) {
+    const normalizedRole = role ? role.replace(/^org:/, "") : ""
+    if (normalizedRole !== "admin") {
       return NextResponse.json(
-        { error: "Only admins and owners can permanently delete records" },
+        { error: "Only internal admin users can permanently delete records" },
         { status: 403 }
       )
     }
