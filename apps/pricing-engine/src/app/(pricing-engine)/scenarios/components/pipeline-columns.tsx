@@ -389,8 +389,10 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
 function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
-  const opposite =
-    (localStatus ?? "").toLowerCase() === "active" ? "inactive" : "active"
+  // DB stores "active" / "dead"; UI displays "Active" / "Inactive"
+  const isActive = (localStatus ?? "").toLowerCase() === "active"
+  const oppositeDb = isActive ? "dead" : "active"
+  const oppositeLabel = isActive ? "Inactive" : "Active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
   const [floifyEnabled, setFloifyEnabled] = React.useState<boolean | null>(null)
@@ -555,15 +557,15 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() => setStatus(opposite)}
+            onClick={() => setStatus(oppositeDb)}
             className="gap-2"
           >
-            {opposite === "active" ? (
+            {oppositeDb === "active" ? (
               <CircleCheck className="h-4 w-4 text-success" />
             ) : (
               <CircleX className="h-4 w-4 text-danger" />
             )}
-            {`Set to ${opposite}`}
+            {`Set to ${oppositeLabel}`}
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-red-600 focus:text-red-600 gap-2"
