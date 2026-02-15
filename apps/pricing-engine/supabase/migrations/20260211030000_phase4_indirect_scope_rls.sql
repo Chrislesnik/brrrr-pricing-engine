@@ -61,10 +61,28 @@ BEGIN
       AND cf.is_excluded = false
     ORDER BY cf.table_name
   LOOP
+    -- Skip tables that don't exist yet (may be created by later migrations)
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_tables
+      WHERE schemaname = target.schema_name AND tablename = target.table_name
+    ) THEN
+      RAISE NOTICE 'Skipping non-existent table: %.%', target.schema_name, target.table_name;
+      CONTINUE;
+    END IF;
+
     -- Parse join_path: "fk_column->parent_table->parent_org_column"
     v_fk_column := split_part(target.join_path, '->', 1);
     v_parent_table := split_part(target.join_path, '->', 2);
     v_parent_org_col := split_part(target.join_path, '->', 3);
+
+    -- Skip if the parent table in join_path doesn't exist
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_tables
+      WHERE schemaname = 'public' AND tablename = v_parent_table
+    ) THEN
+      RAISE NOTICE 'Skipping %: parent table % does not exist', target.table_name, v_parent_table;
+      CONTINUE;
+    END IF;
 
     -- Build the EXISTS subquery for org scope (with type cast if needed)
     IF target.fk_data_type <> target.parent_id_type THEN

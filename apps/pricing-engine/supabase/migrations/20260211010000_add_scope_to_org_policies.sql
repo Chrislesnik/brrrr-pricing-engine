@@ -87,7 +87,7 @@ VALUES
   ('integrations', 'organization_id', 'user_id', 'clerk_id', NULL, false, NULL),
   ('loan_scenarios', 'organization_id', 'user_id', 'clerk_id', NULL, false, NULL),
   ('brokers', 'organization_id', 'clerk_user_id', 'clerk_id', NULL, false, NULL),
-  ('term_sheet_templates', 'organization_id', 'user_id', 'clerk_id', NULL, false, NULL),
+  ('document_templates', 'organization_id', 'user_id', 'clerk_id', NULL, false, NULL),
   ('deal_signature_requests', 'organization_id', 'created_by_user_id', 'clerk_id', NULL, false, NULL),
   ('document_access_permissions', 'clerk_org_id', 'updated_by_clerk_sub', 'clerk_id', NULL, false, 'Uses clerk_org_id not organization_id'),
   ('document_files_clerk_orgs', 'clerk_org_id', 'created_by', 'clerk_id', NULL, false, NULL),
@@ -154,7 +154,7 @@ VALUES
   ('program_documents_chunks_vs', NULL, NULL, 'clerk_id', NULL, false, NULL),
   ('property', NULL, NULL, 'clerk_id', NULL, false, NULL),
   ('rbac_permissions', NULL, NULL, 'clerk_id', NULL, false, NULL),
-  ('term_sheet_template_fields', NULL, NULL, 'clerk_id', NULL, false, 'Indirect org via template->org'),
+  ('document_template_fields', NULL, NULL, 'clerk_id', NULL, false, 'Indirect org via template->org'),
   ('term_sheets', NULL, NULL, 'clerk_id', 'loan_id->loans->organization_id', false, 'Indirect org via loans')
 ON CONFLICT (table_name) DO NOTHING;
 
