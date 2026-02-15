@@ -77,7 +77,7 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   "HTTP Request": "System",
   "Database Query": "Database",
   Condition: "Condition",
-  "Execute Code": "System",
+  Code: "Code",
   "Set Fields": "Data",
   Wait: "Timer",
 };
@@ -131,7 +131,7 @@ const getProviderLogo = (actionType: string) => {
       return <Zap className="size-12 text-amber-300" strokeWidth={1.5} />;
     case "Database Query":
       return <Database className="size-12 text-blue-300" strokeWidth={1.5} />;
-    case "Execute Code":
+    case "Code":
       return <Code className="size-12 text-green-300" strokeWidth={1.5} />;
     case "Condition":
       return <GitBranch className="size-12 text-pink-300" strokeWidth={1.5} />;

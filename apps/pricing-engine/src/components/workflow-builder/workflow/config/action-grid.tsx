@@ -71,6 +71,12 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Pause execution for a set duration",
     category: "System",
   },
+  {
+    id: "Code",
+    label: "Code",
+    description: "Write custom JavaScript code",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions

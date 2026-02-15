@@ -219,6 +219,15 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Code: expose items array output
+  if (actionType === "Code") {
+    return [
+      { field: "items", description: "Array of output items [{json: {...}}]" },
+      { field: "items[0].json", description: "First item's data object" },
+      { field: "logs", description: "Captured console.log output" },
+    ];
+  }
+
   // Wait: expose waited status and duration
   if (actionType === "Wait") {
     return [

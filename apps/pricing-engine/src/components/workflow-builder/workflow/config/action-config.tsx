@@ -432,9 +432,223 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Code":
+      return (
+        <CodeNodeFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
+}
+
+// ── Code node config component ──
+
+const CODE_MODES = [
+  { value: "runOnceAllItems", label: "Run Once for All Items" },
+  { value: "runOnceEachItem", label: "Run Once for Each Item" },
+] as const;
+
+const DEFAULT_CODE_ALL_ITEMS = `// Access input: $input.all(), $input.first(), $input.last()
+// Access nodes: $node['NodeName'].json.fieldName
+
+const items = $input.all();
+
+// Transform and return items
+return items;`;
+
+const DEFAULT_CODE_EACH_ITEM = `// 'item' contains the current item's data: item.json.fieldName
+// Access nodes: $node['NodeName'].json.fieldName
+
+// Transform and return the item
+return item;`;
+
+function CodeNodeFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  const mode = (config?.mode as string) || "runOnceAllItems";
+  const code = config?.code as string | undefined;
+
+  // Initialize defaults
+  useEffect(() => {
+    if (!config?.mode) onUpdateConfig("mode", "runOnceAllItems");
+    if (config?.code === undefined || config?.code === null) {
+      onUpdateConfig("code", DEFAULT_CODE_ALL_ITEMS);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleModeChange = (newMode: string) => {
+    onUpdateConfig("mode", newMode);
+    // If code is still the default template for the old mode, swap it
+    const currentCode = (config?.code as string) || "";
+    const isDefaultAll = currentCode.trim() === DEFAULT_CODE_ALL_ITEMS.trim();
+    const isDefaultEach = currentCode.trim() === DEFAULT_CODE_EACH_ITEM.trim();
+    if (isDefaultAll || isDefaultEach || !currentCode.trim()) {
+      onUpdateConfig(
+        "code",
+        newMode === "runOnceEachItem" ? DEFAULT_CODE_EACH_ITEM : DEFAULT_CODE_ALL_ITEMS
+      );
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="codeMode">Mode</Label>
+        <Select
+          disabled={disabled}
+          value={mode}
+          onValueChange={handleModeChange}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CODE_MODES.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                <span className="text-xs">{m.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label>JavaScript</Label>
+          <span className="text-[10px] text-muted-foreground">
+            {mode === "runOnceEachItem" ? "Runs per item" : "Runs once"}
+          </span>
+        </div>
+        <div className="overflow-hidden rounded-md border">
+          <CodeEditor
+            defaultLanguage="javascript"
+            height="250px"
+            value={code ?? DEFAULT_CODE_ALL_ITEMS}
+            onChange={(value) => onUpdateConfig("code", value || "")}
+            options={{
+              minimap: { enabled: false },
+              lineNumbers: "on",
+              scrollBeyondLastLine: false,
+              fontSize: 12,
+              readOnly: disabled,
+              domReadOnly: disabled,
+              wordWrap: "off",
+              tabSize: 2,
+              automaticLayout: true,
+            }}
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Use <code className="font-mono bg-muted px-1 rounded">$input.all()</code> for input data and{" "}
+          <code className="font-mono bg-muted px-1 rounded">{"$node['Name']"}</code> for specific nodes.
+        </p>
+      </div>
+
+      {/* Test execution */}
+      <CodeTestPanel code={code ?? ""} mode={mode} disabled={disabled} />
+    </div>
+  );
+}
+
+function CodeTestPanel({
+  code,
+  mode,
+  disabled,
+}: {
+  code: string;
+  mode: string;
+  disabled: boolean;
+}) {
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    items?: unknown[];
+    logs?: string[];
+    error?: string;
+  } | null>(null);
+
+  const runTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/workflows/test-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, mode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTestResult({ error: data.error || "Test execution failed" });
+      } else {
+        setTestResult(data);
+      }
+    } catch (err) {
+      setTestResult({ error: err instanceof Error ? err.message : "Test failed" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={disabled || testing || !code.trim()}
+        onClick={runTest}
+        className="w-full gap-1.5 text-xs"
+      >
+        {testing ? (
+          <>
+            <Settings className="h-3.5 w-3.5 animate-spin" />
+            Running...
+          </>
+        ) : (
+          <>
+            <HelpCircle className="h-3.5 w-3.5" />
+            Test Code
+          </>
+        )}
+      </Button>
+
+      {testResult && (
+        <div className="rounded-md border text-xs overflow-hidden">
+          {testResult.error ? (
+            <div className="bg-destructive/10 text-destructive p-2 font-mono whitespace-pre-wrap">
+              {testResult.error}
+            </div>
+          ) : (
+            <>
+              {testResult.logs && testResult.logs.length > 0 && (
+                <div className="border-b bg-muted/50 p-2">
+                  <span className="text-[10px] font-medium text-muted-foreground">Console</span>
+                  <pre className="mt-1 font-mono text-[10px] whitespace-pre-wrap text-muted-foreground">
+                    {testResult.logs.join("\n")}
+                  </pre>
+                </div>
+              )}
+              <div className="p-2">
+                <span className="text-[10px] font-medium text-muted-foreground">Output</span>
+                <pre className="mt-1 font-mono text-[10px] whitespace-pre-wrap max-h-40 overflow-y-auto">
+                  {JSON.stringify(testResult.items, null, 2)}
+                </pre>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Wait config component ──
@@ -736,6 +950,7 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "Condition", label: "Condition" },
   { id: "Set Fields", label: "Set Fields" },
   { id: "Wait", label: "Wait" },
+  { id: "Code", label: "Code" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);

@@ -304,6 +304,13 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         // Add step context
         processedConfig._context = stepContext;
 
+        // Inject all upstream node outputs for Code nodes so they can build $input/$node
+        if (actionType === "Code") {
+          processedConfig._nodeOutputs = Object.fromEntries(
+            Object.entries(outputs).map(([k, v]) => [v.label, v.data])
+          );
+        }
+
         // Execute the step
         const stepResult = await callPluginStep(actionType, processedConfig);
 

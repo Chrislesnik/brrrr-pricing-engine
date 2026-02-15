@@ -19,6 +19,8 @@ export const stepRegistry: Record<string, StepFunction> = {
     (await import("./set-fields")).setFieldsStep(input as never),
   Wait: async (input) =>
     (await import("./wait")).waitStep(input as never),
+  Code: async (input) =>
+    (await import("./code")).codeStep(input as never),
 
   // ── AI Gateway ──
   "Generate Text": async (input) =>
