@@ -23,6 +23,7 @@ export type Database = {
           id: number
           is_active: boolean | null
           name: string
+          trigger_type: string
           updated_at: string
           uuid: string
           workflow_data: Json | null
@@ -35,6 +36,7 @@ export type Database = {
           id?: number
           is_active?: boolean | null
           name: string
+          trigger_type?: string
           updated_at?: string
           uuid?: string
           workflow_data?: Json | null
@@ -47,6 +49,7 @@ export type Database = {
           id?: number
           is_active?: boolean | null
           name?: string
+          trigger_type?: string
           updated_at?: string
           uuid?: string
           workflow_data?: Json | null
