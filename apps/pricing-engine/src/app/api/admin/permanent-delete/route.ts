@@ -74,12 +74,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
 
-    // 3. Verify the user's role in this org is "admin"
+    // 3. Verify the user's role in this org is "admin" or "owner"
     const role = await getUserRoleInOrg(orgUuid, userId)
     const normalizedRole = role ? role.replace(/^org:/, "") : ""
-    if (normalizedRole !== "admin") {
+    if (normalizedRole !== "admin" && normalizedRole !== "owner") {
       return NextResponse.json(
-        { error: "Only internal admin users can permanently delete records" },
+        { error: "Only internal admin/owner users can permanently delete records" },
         { status: 403 }
       )
     }
