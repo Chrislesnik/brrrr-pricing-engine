@@ -1,6 +1,11 @@
 "use client";
 
 import { useAtomValue, useSetAtom } from "jotai";
+import {
+  nodesAtom,
+  edgesAtom,
+  selectedNodeAtom,
+} from "@/components/workflow-builder/lib/workflow-store";
 import { HelpCircle, Plus, Settings } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
@@ -555,8 +560,189 @@ function CodeNodeFields({
         </p>
       </div>
 
+      {/* AI Code Assistant */}
+      <CodeAIAssistant
+        mode={mode}
+        disabled={disabled}
+        onApply={(generatedCode) => onUpdateConfig("code", generatedCode)}
+      />
+
       {/* Test execution */}
       <CodeTestPanel code={code ?? ""} mode={mode} disabled={disabled} />
+    </div>
+  );
+}
+
+function CodeAIAssistant({
+  mode,
+  disabled,
+  onApply,
+}: {
+  mode: string;
+  disabled: boolean;
+  onApply: (code: string) => void;
+}) {
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const nodes = useAtomValue(nodesAtom);
+  const edges = useAtomValue(edgesAtom);
+  const selectedNodeId = useAtomValue(selectedNodeAtom);
+
+  const handleGenerate = async () => {
+    if (!aiPrompt.trim() || generating) return;
+    setGenerating(true);
+    setSuggestion("");
+    setAiError(null);
+
+    try {
+      // Build workflow context client-side
+      const { buildWorkflowContextForAI } = await import(
+        "@/components/workflow-builder/lib/workflow-context-for-ai"
+      );
+      const workflowContext = buildWorkflowContextForAI(
+        nodes,
+        edges,
+        selectedNodeId || "",
+      );
+
+      const res = await fetch("/api/code-agent/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          mode,
+          workflowContext,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" }));
+        setAiError((err as { error?: string }).error || `Error ${res.status}`);
+        setGenerating(false);
+        return;
+      }
+
+      // Stream the response
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setAiError("No response stream");
+        setGenerating(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setSuggestion(accumulated);
+      }
+
+      // Clean up any markdown fences the model might have included
+      let cleaned = accumulated.trim();
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```(?:javascript|js)?\n?/, "").replace(/\n?```$/, "");
+      }
+      setSuggestion(cleaned);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">AI Code Assistant</Label>
+      <div className="flex items-center gap-1.5">
+        <Input
+          disabled={disabled || generating}
+          placeholder="Describe what the code should do..."
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void handleGenerate();
+            }
+          }}
+          className="h-8 text-xs flex-1"
+        />
+        <Button
+          variant="default"
+          size="sm"
+          disabled={disabled || generating || !aiPrompt.trim()}
+          onClick={() => void handleGenerate()}
+          className="h-8 text-xs shrink-0 px-3"
+        >
+          {generating ? "Generating..." : "Generate"}
+        </Button>
+      </div>
+
+      {aiError && (
+        <div className="rounded-md bg-destructive/10 text-destructive text-xs p-2">
+          {aiError}
+        </div>
+      )}
+
+      {suggestion !== null && !aiError && (
+        <div className="rounded-md border overflow-hidden">
+          <div className="bg-muted/50 px-2 py-1 flex items-center justify-between border-b">
+            <span className="text-[10px] font-medium text-muted-foreground">
+              AI Suggestion
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="default"
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                disabled={generating || !suggestion.trim()}
+                onClick={() => {
+                  if (suggestion) {
+                    onApply(suggestion);
+                    setSuggestion(null);
+                    setAiPrompt("");
+                  }
+                }}
+              >
+                Apply
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => {
+                  setSuggestion(null);
+                  setAiError(null);
+                }}
+              >
+                Discard
+              </Button>
+            </div>
+          </div>
+          <div className="overflow-hidden">
+            <CodeEditor
+              defaultLanguage="javascript"
+              height="150px"
+              value={suggestion || ""}
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                lineNumbers: "on",
+                scrollBeyondLastLine: false,
+                fontSize: 11,
+                wordWrap: "off",
+                tabSize: 2,
+                domReadOnly: true,
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
