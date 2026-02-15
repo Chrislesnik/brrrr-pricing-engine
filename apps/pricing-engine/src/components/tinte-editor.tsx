@@ -726,6 +726,9 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
   // Store the theme state before preview so we can revert if needed
   const prePreviewThemeRef = useRef<ShadcnTheme | null>(null);
 
+  // Track the last initialTheme we synced so we can detect external changes
+  const lastInitialThemeRef = useRef(initialTheme);
+
   useEffect(() => {
     themeRef.current = theme;
   }, [theme]);
@@ -761,6 +764,31 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
       styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`;
     }
   }, []);
+
+  // Sync internal state when the parent changes the initialTheme prop
+  // (e.g. after "Reset to Default" sets it to null/undefined, or after save)
+  useEffect(() => {
+    if (!initializedRef.current) return; // skip before first init
+    if (initialTheme === lastInitialThemeRef.current) return; // same reference, no change
+
+    lastInitialThemeRef.current = initialTheme;
+    const newTheme = ensureStatusTokens(mergeWithDefaults(initialTheme));
+    setTheme(newTheme);
+    setOriginalFormats({ light: newTheme.light, dark: newTheme.dark });
+    setHasUnsavedChanges(false);
+    setSelectedThemeId(null);
+    prePreviewThemeRef.current = null;
+
+    // Update DOM — remove dynamic override so base CSS takes effect,
+    // then re-apply only if there's a real custom theme
+    const dynamicStyle = document.getElementById("tinte-dynamic-theme");
+    if (dynamicStyle) {
+      dynamicStyle.remove();
+    }
+    if (initialTheme && Object.keys(initialTheme.light).length > 0) {
+      applyPreviewToDOM(newTheme);
+    }
+  }, [initialTheme, applyPreviewToDOM]);
 
   const [apiKeyError, setApiKeyError] = useState(false);
   
@@ -955,53 +983,69 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     [],
   );
 
-  // Load theme from DOM CSS variables
+  // Reset theme to the last saved state, discarding any unsaved preview
   const loadTheme = useCallback(async () => {
     setLoading(true);
     try {
-      const root = document.documentElement;
-      const computedStyle = getComputedStyle(root);
-
-      // Get all CSS variable names that are theme-related
-      const allTokens = TOKEN_GROUPS.flatMap((group) => group.tokens);
-
-      const lightHex: ShadcnTokens = {};
-      const darkHex: ShadcnTokens = {};
-
-      // Read light mode variables
-      allTokens.forEach((token) => {
-        const value = computedStyle.getPropertyValue(`--${token}`).trim();
-        if (value) {
-          lightHex[token] = convertToHex(value);
+      if (hasUnsavedChanges || prePreviewThemeRef.current) {
+        // Remove dynamic style override so the saved globals.css takes effect
+        const dynamicStyle = document.getElementById("tinte-dynamic-theme");
+        if (dynamicStyle) {
+          dynamicStyle.remove();
         }
-      });
 
-      // Temporarily switch to dark mode to read dark variables
-      const wasDark = root.classList.contains("dark");
-      if (!wasDark) {
-        root.classList.add("dark");
-      }
+        // Revert to the saved theme (initialTheme from the backend)
+        const saved = ensureStatusTokens(mergeWithDefaults(initialTheme));
+        setTheme(saved);
+        setOriginalFormats({ light: saved.light, dark: saved.dark });
+        onChange?.(saved);
+        prePreviewThemeRef.current = null;
+        setHasUnsavedChanges(false);
+        setSelectedThemeId(null);
+      } else {
+        // Nothing unsaved — reload from DOM
+        const root = document.documentElement;
+        const computedStyle = getComputedStyle(root);
 
-      const darkComputedStyle = getComputedStyle(root);
-      allTokens.forEach((token) => {
-        const value = darkComputedStyle.getPropertyValue(`--${token}`).trim();
-        if (value) {
-          darkHex[token] = convertToHex(value);
+        const allTokens = TOKEN_GROUPS.flatMap((group) => group.tokens);
+
+        const lightHex: ShadcnTokens = {};
+        const darkHex: ShadcnTokens = {};
+
+        allTokens.forEach((token) => {
+          const value = computedStyle.getPropertyValue(`--${token}`).trim();
+          if (value) {
+            lightHex[token] = convertToHex(value);
+          }
+        });
+
+        const wasDark = root.classList.contains("dark");
+        if (!wasDark) {
+          root.classList.add("dark");
         }
-      });
 
-      // Restore original theme
-      if (!wasDark) {
-        root.classList.remove("dark");
+        const darkComputedStyle = getComputedStyle(root);
+        allTokens.forEach((token) => {
+          const value = darkComputedStyle.getPropertyValue(`--${token}`).trim();
+          if (value) {
+            darkHex[token] = convertToHex(value);
+          }
+        });
+
+        if (!wasDark) {
+          root.classList.remove("dark");
+        }
+
+        const reloaded = ensureStatusTokens({ light: lightHex, dark: darkHex });
+        setTheme(reloaded);
+        setOriginalFormats({ light: lightHex, dark: darkHex });
+        onChange?.(reloaded);
       }
-
-      setTheme(ensureStatusTokens({ light: lightHex, dark: darkHex }));
-      setOriginalFormats({ light: lightHex, dark: darkHex });
     } catch (error) {
-      console.error("Error loading theme from DOM:", error);
+      console.error("Error loading theme:", error);
     }
     setLoading(false);
-  }, [convertToHex]);
+  }, [convertToHex, hasUnsavedChanges, initialTheme, onChange]);
 
   // Fetch Tinte themes
   const fetchTinteThemes = useCallback(async (page = 1, search?: string) => {
@@ -1371,7 +1415,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
           onClick={loadTheme}
           disabled={loading}
           className="p-1.5 hover:bg-accent rounded-md transition-colors disabled:opacity-50"
-          title="Reload theme"
+          title={hasUnsavedChanges ? "Reset to saved theme" : "Reload theme"}
         >
           <RefreshCw
             size={14}
