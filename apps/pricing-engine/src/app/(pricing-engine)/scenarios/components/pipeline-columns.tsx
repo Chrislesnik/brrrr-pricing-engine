@@ -74,7 +74,13 @@ import { AssignMembersDialog } from "./assign-members-dialog"
 
 const statusStyles: Record<string, string> = {
   active: "bg-success-muted text-success border-success/30",
+  dead: "bg-danger-muted text-danger border-danger/30",
   inactive: "bg-danger-muted text-danger border-danger/30",
+}
+
+const statusLabels: Record<string, string> = {
+  active: "Active",
+  dead: "Inactive",
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [
@@ -1289,7 +1295,7 @@ function StatusCell({
   const badgeColor = statusStyles[status] ?? statusStyles.inactive
   return (
     <Badge variant="outline" className={cn("capitalize", badgeColor)}>
-      {status}
+      {statusLabels[status] ?? status}
     </Badge>
   )
 }
