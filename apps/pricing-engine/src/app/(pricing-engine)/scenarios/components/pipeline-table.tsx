@@ -159,8 +159,16 @@ export function PipelineTable({ columns, data }: Props) {
       window.removeEventListener("loan-assignees-updated", onAssigneesUpdated as EventListener)
   }, [])
 
+  // Hide archived rows unless the user explicitly selects "Archived" in the Status filter
+  const statusFilter = columnFilters.find((f) => f.id === "status")
+  const statusValues = Array.isArray(statusFilter?.value) ? (statusFilter.value as string[]) : []
+  const showArchived = statusValues.includes("archived")
+  const visibleData = showArchived
+    ? tableData
+    : tableData.filter((row) => row.status !== "archived")
+
   const table = useReactTable({
-    data: tableData,
+    data: visibleData,
     columns,
     state: {
       sorting,
