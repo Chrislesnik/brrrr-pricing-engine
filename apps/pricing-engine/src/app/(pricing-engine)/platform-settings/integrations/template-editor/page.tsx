@@ -284,7 +284,7 @@ const grapejsThemeStyles = `
   }
 `
 
-export default function TermSheetEditorPage() {
+export default function TemplateEditorPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -303,7 +303,7 @@ export default function TermSheetEditorPage() {
   const [templateError, setTemplateError] = useState<string | null>(null)
   // Test data panel toggle - when true, show variable inputs panel alongside editor
   const [showTestPanel, setShowTestPanel] = useState(false)
-  // Preview values for testing term sheet with real data
+  // Preview values for testing template with real data
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
   // Counter to force editor remount when user clicks "Apply to Preview"
   const [previewApplyCounter, setPreviewApplyCounter] = useState(0)
@@ -427,6 +427,24 @@ export default function TermSheetEditorPage() {
     router.push("/platform-settings/integrations/template-editor")
   }, [router])
 
+  // Persist editor content to Supabase on every GrapesJS save
+  const handleEditorSave = useCallback(async (html: string, projectData: object) => {
+    const id = currentTemplate?.id ?? templateId
+    if (!id || id.startsWith("new-")) return
+    try {
+      await fetch(`/api/document-templates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html_content: html,
+          gjs_data: projectData,
+        }),
+      })
+    } catch (e) {
+      console.error("Failed to persist template:", e)
+    }
+  }, [currentTemplate?.id, templateId])
+
   // Get the current template for editor
   const editorTemplate = useMemo(() => {
     if (currentTemplate) return currentTemplate
@@ -505,7 +523,7 @@ export default function TermSheetEditorPage() {
           </Button>
           <div>
             <h3 className="text-lg font-medium">
-              {editorTemplate?.name || "Term Sheet Editor"}
+              {editorTemplate?.name || "Template Editor"}
             </h3>
             <p className="text-muted-foreground text-sm">
               Edit template design
@@ -534,7 +552,7 @@ export default function TermSheetEditorPage() {
       </div>
 
       {/* Main Content - GrapesJS Editor + Optional Test Data Panel */}
-      <div className="flex-1 flex min-h-0 gap-0">
+      <div className="flex-1 flex min-h-0 gap-0 px-4 pb-4">
         {/* GrapeJS Editor Container */}
         <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden isolate">
           <StudioEditorWrapper
@@ -544,6 +562,7 @@ export default function TermSheetEditorPage() {
             fields={fields}
             isPreviewMode={hasPreviewValues}
             template={editorTemplate}
+            onSave={handleEditorSave}
           />
         </div>
         

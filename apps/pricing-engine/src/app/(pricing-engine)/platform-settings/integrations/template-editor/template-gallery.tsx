@@ -119,9 +119,9 @@ export function TemplateGallery({
       {/* Header */}
       <div className="mb-6 flex-none flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">Term Sheet Templates</h3>
+          <h3 className="text-lg font-medium">Document Templates</h3>
           <p className="text-muted-foreground text-sm">
-            Create and manage reusable term sheet templates.
+            Create and manage reusable document templates.
           </p>
         </div>
         <Button
@@ -142,7 +142,7 @@ export function TemplateGallery({
             </div>
             <h4 className="text-lg font-medium mb-2">No templates yet</h4>
             <p className="text-muted-foreground text-sm mb-4 max-w-md">
-              Create your first term sheet template to get started. Templates can be reused across multiple deals.
+              Create your first document template to get started. Templates can be reused across multiple deals.
             </p>
             <Button
               onClick={() => setCreateDialogOpen(true)}

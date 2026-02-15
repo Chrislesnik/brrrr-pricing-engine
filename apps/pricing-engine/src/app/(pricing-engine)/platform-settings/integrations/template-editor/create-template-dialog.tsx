@@ -63,7 +63,7 @@ export function CreateTemplateDialog({
               Create New Template
             </DialogTitle>
             <DialogDescription>
-              Enter a name for your new term sheet template. You can customize the design after creation.
+              Enter a name for your new document template. You can customize the design after creation.
             </DialogDescription>
           </DialogHeader>
           
@@ -78,7 +78,7 @@ export function CreateTemplateDialog({
                 setName(e.target.value)
                 setError("")
               }}
-              placeholder="e.g., Standard DSCR Term Sheet"
+              placeholder="e.g., Standard DSCR Template"
               className="mt-2"
               autoFocus
             />

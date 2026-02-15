@@ -38,6 +38,7 @@ interface StudioEditorWrapperProps {
   fields: Field[]
   isPreviewMode?: boolean
   template?: DocumentTemplate | null
+  onSave?: (html: string, projectData: object) => void
 }
 
 /**
@@ -52,6 +53,7 @@ export function StudioEditorWrapper({
   fields,
   isPreviewMode = false,
   template,
+  onSave,
 }: StudioEditorWrapperProps) {
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
@@ -183,7 +185,7 @@ export function StudioEditorWrapper({
             default: {
               pages: [
                 {
-                  name: template?.name || "Term Sheet",
+                  name: template?.name || "Document",
                   component: templateHtml,
                 },
               ],
@@ -257,6 +259,17 @@ export function StudioEditorWrapper({
           },
         }}
         onReady={(editor) => {
+          // Persist HTML + project data on every save (Ctrl+S / autosave)
+          editor.on('storage:store', () => {
+            try {
+              const html = editor.getHtml() ?? ""
+              const projectData = editor.getProjectData() ?? {}
+              onSave?.(html, projectData)
+            } catch (e) {
+              console.error("Failed to extract editor data on save:", e)
+            }
+          })
+
           // Fix for GrapesJS selection/focus issues after drag operations
           editor.on('component:drag:end', () => {
             setTimeout(() => {
