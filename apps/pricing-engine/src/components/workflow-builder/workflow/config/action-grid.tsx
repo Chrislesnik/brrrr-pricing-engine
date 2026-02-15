@@ -151,16 +151,16 @@ function GroupIcon({
   return <Zap className="size-4" />;
 }
 
-const SYSTEM_ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  "HTTP Request": Zap,
-  "Database Query": Database,
-  Condition: GitBranch,
-  "Set Fields": ListChecks,
-  Wait: Timer,
-  Code: Code,
-  Switch: GitFork,
-  Filter: Filter,
-  DateTime: Calendar,
+const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  "HTTP Request": { icon: Zap, color: "text-amber-500" },
+  "Database Query": { icon: Database, color: "text-blue-500" },
+  Condition: { icon: GitBranch, color: "text-pink-500" },
+  "Set Fields": { icon: ListChecks, color: "text-violet-500" },
+  Wait: { icon: Timer, color: "text-orange-500" },
+  Code: { icon: Code, color: "text-green-500" },
+  Switch: { icon: GitFork, color: "text-blue-400" },
+  Filter: { icon: Filter, color: "text-cyan-500" },
+  DateTime: { icon: Calendar, color: "text-teal-500" },
 };
 
 function ActionIcon({
@@ -176,8 +176,12 @@ function ActionIcon({
     );
   }
   if (action.category === "System") {
-    const Icon = SYSTEM_ACTION_ICONS[action.id] ?? Settings;
-    return <Icon className={cn(className, "text-muted-foreground")} />;
+    const entry = SYSTEM_ACTION_ICONS[action.id];
+    if (entry) {
+      const Icon = entry.icon;
+      return <Icon className={cn(className, entry.color)} />;
+    }
+    return <Settings className={cn(className, "text-muted-foreground")} />;
   }
   return <Zap className={cn(className, "text-muted-foreground")} />;
 }
