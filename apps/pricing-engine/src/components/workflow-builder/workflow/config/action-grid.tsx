@@ -1,14 +1,22 @@
 "use client";
 
 import {
+  Calendar,
   ChevronRight,
+  Code,
+  Database,
   Eye,
   EyeOff,
+  Filter,
+  GitBranch,
+  GitFork,
   Grid3X3,
   List,
+  ListChecks,
   MoreHorizontal,
   Search,
   Settings,
+  Timer,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -143,6 +151,18 @@ function GroupIcon({
   return <Zap className="size-4" />;
 }
 
+const SYSTEM_ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  "HTTP Request": Zap,
+  "Database Query": Database,
+  Condition: GitBranch,
+  "Set Fields": ListChecks,
+  Wait: Timer,
+  Code: Code,
+  Switch: GitFork,
+  Filter: Filter,
+  DateTime: Calendar,
+};
+
 function ActionIcon({
   action,
   className,
@@ -156,7 +176,8 @@ function ActionIcon({
     );
   }
   if (action.category === "System") {
-    return <Settings className={cn(className, "text-muted-foreground")} />;
+    const Icon = SYSTEM_ACTION_ICONS[action.id] ?? Settings;
+    return <Icon className={cn(className, "text-muted-foreground")} />;
   }
   return <Zap className={cn(className, "text-muted-foreground")} />;
 }
