@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Popover,
   PopoverContent,
@@ -32,6 +32,7 @@ export default function DatePicker() {
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
+          captionLayout="dropdown"
           selected={date}
           onSelect={setDate}
           initialFocus

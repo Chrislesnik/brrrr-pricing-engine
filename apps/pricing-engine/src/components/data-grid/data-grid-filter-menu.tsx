@@ -14,7 +14,7 @@ import * as React from "react";
 
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
-import { Calendar } from "@repo/ui/shadcn/calendar";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Command,
   CommandEmpty,

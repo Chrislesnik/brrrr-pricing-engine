@@ -14,7 +14,7 @@ import { Label } from "@repo/ui/shadcn/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/shadcn/select"
 import { AddressAutocomplete } from "@/components/address-autocomplete"
 import { DateInput } from "@/components/date-input"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover"
 import { cn } from "@repo/lib/cn"
 import {

@@ -6,6 +6,7 @@ import {
   ColumnDef,
   ColumnFiltersState,
   PaginationState,
+  VisibilityState,
   flexRender,
   getCoreRowModel,
   getFacetedMinMaxValues,
@@ -16,7 +17,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown, Trash2, Upload } from "lucide-react"
+import { ChevronDown, Settings2, Trash2, Upload } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
 import { Button } from "@repo/ui/shadcn/button"
@@ -39,7 +40,10 @@ import {
 } from "@repo/ui/shadcn/dialog"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
 import {
@@ -79,6 +83,9 @@ interface Props {
 export function ApplicationsTable({ data }: Props) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    displayId: false, // Loan ID hidden by default
+  })
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -206,12 +213,22 @@ export function ApplicationsTable({ data }: Props) {
         meta: { className: "hidden" },
       },
       {
-        header: "Loan ID",
-        accessorKey: "id",
-        meta: { className: "w-[18%]" },
+        header: "Application ID",
+        accessorKey: "appDisplayId",
+        meta: { className: "w-[14%]" },
         cell: ({ row }) => (
           <span className="text-sm font-medium">
-            {row.getValue("id") || "-"}
+            {row.getValue("appDisplayId") || "-"}
+          </span>
+        ),
+      },
+      {
+        header: "Loan ID",
+        accessorKey: "displayId",
+        meta: { className: "w-[14%]" },
+        cell: ({ row }) => (
+          <span className="text-sm font-medium">
+            {row.getValue("displayId") || "-"}
           </span>
         ),
       },
@@ -378,9 +395,11 @@ export function ApplicationsTable({ data }: Props) {
     columns,
     state: {
       columnFilters,
+      columnVisibility,
       pagination,
     },
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -403,6 +422,7 @@ export function ApplicationsTable({ data }: Props) {
           <span className="font-medium">Applications</span>
           <div className="flex flex-wrap items-center gap-3">
             <Filter column={table.getColumn("search")!} />
+            <ColumnVisibilityToggle table={table} />
           </div>
         </div>
         <Table>
@@ -632,6 +652,48 @@ function StatusFilterMenu({
             )}
           </CommandList>
         </Command>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+const COLUMN_LABELS: Record<string, string> = {
+  appDisplayId: "Application ID",
+  displayId: "Loan ID",
+  propertyAddress: "Property Address",
+  status: "Status",
+  progress: "Progress",
+}
+
+function ColumnVisibilityToggle<TData>({
+  table,
+}: { table: import("@tanstack/react-table").Table<TData> }) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8">
+          <Settings2 className="mr-2 h-4 w-4" />
+          View
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[150px]">
+        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {table
+          .getAllColumns()
+          .filter(
+            (column) => column.getCanHide() && column.id !== "search" && column.id !== "expand" && column.id !== "actions"
+          )
+          .map((column) => (
+            <DropdownMenuCheckboxItem
+              key={column.id}
+              checked={column.getIsVisible()}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={(value) => column.toggleVisibility(!!value)}
+            >
+              {COLUMN_LABELS[column.id] ?? column.id}
+            </DropdownMenuCheckboxItem>
+          ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

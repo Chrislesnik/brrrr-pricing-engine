@@ -26,7 +26,7 @@ import {
 } from "react-aria-components"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogContent,

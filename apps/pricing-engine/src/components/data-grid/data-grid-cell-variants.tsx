@@ -19,7 +19,7 @@ import { useBadgeOverflow } from "@/hooks/use-badge-overflow"
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import {
   Command,

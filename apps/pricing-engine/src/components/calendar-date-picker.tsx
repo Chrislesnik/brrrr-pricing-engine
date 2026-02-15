@@ -18,7 +18,7 @@ import { CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Popover,
   PopoverContent,

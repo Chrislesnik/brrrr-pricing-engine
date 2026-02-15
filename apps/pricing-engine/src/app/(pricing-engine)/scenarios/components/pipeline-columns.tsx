@@ -131,12 +131,12 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     enableHiding: true,
   },
   {
-    accessorKey: "id",
+    accessorKey: "displayId",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="ID" />
     ),
     cell: ({ row }) => (
-      <LongText className="max-w-28">{row.getValue("id")}</LongText>
+      <span className="text-sm font-medium">{row.getValue("displayId")}</span>
     ),
     meta: { className: "w-28" },
     enableSorting: false,

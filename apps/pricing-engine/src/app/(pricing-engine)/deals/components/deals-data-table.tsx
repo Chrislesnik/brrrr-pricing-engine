@@ -307,7 +307,7 @@ const createColumns = (
           {row.original.id || "—"}
         </div>
       ),
-      enableHiding: false,
+      enableHiding: true,
     },
   ];
 
@@ -422,7 +422,9 @@ export function DealsDataTable({
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    deal_id: false, // Deal ID hidden by default
+  });
   const [rowSelection, setRowSelection] = useState({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
@@ -455,8 +457,8 @@ export function DealsDataTable({
             ...starred.map((i) => i.id),
             "row_actions",
           ]);
-          // Default all dynamic columns to visible
-          const vis: VisibilityState = {};
+          // Default all dynamic columns to visible, keep deal_id hidden
+          const vis: VisibilityState = { deal_id: false };
           starred.forEach((i) => { vis[i.id] = true; });
           setColumnVisibility(vis);
         }
