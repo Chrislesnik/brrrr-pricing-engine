@@ -219,6 +219,41 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Merge: expose merged items
+  if (actionType === "Merge") {
+    return [
+      { field: "items", description: "Array of merged items" },
+      { field: "count", description: "Number of merged items" },
+    ];
+  }
+
+  // Sort: expose sorted items
+  if (actionType === "Sort") {
+    return [
+      { field: "items", description: "Array of sorted items" },
+      { field: "count", description: "Number of items" },
+    ];
+  }
+
+  // Remove Duplicates: expose deduped items
+  if (actionType === "Remove Duplicates") {
+    return [
+      { field: "items", description: "Array of unique items" },
+      { field: "count", description: "Number of unique items" },
+      { field: "removedCount", description: "Number of duplicates removed" },
+    ];
+  }
+
+  // Loop Over Batches: expose batch info
+  if (actionType === "Loop Over Batches") {
+    return [
+      { field: "items", description: "Current batch of items" },
+      { field: "batchIndex", description: "Current batch index (0-based)" },
+      { field: "totalBatches", description: "Total number of batches" },
+      { field: "done", description: "Whether all batches are processed" },
+    ];
+  }
+
   // Split Out: expose split items
   if (actionType === "Split Out") {
     return [

@@ -306,7 +306,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
         // Inject all upstream node outputs for data-aware nodes that need access to
         // upstream items ($input/$node for Code, or items for Filter/Split Out/Limit/Aggregate).
-        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate"];
+        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches"];
         if (DATA_AWARE_NODES.includes(actionType)) {
           const nodeOutputMap: Record<string, unknown> = {};
           for (const [_k, v] of Object.entries(outputs)) {
@@ -367,7 +367,21 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
           node.data.type === "action" &&
           node.data.config?.actionType === "Switch";
 
-        if (isSwitchNode) {
+        const isLoopNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Loop Over Batches";
+
+        if (isLoopNode) {
+          const loopResult = result.data as { done?: boolean } | undefined;
+          const allEdges = edgesBySource.get(nodeId) || [];
+          if (loopResult?.done) {
+            const doneEdges = allEdges.filter((e) => e.sourceHandle === "done");
+            await Promise.all(doneEdges.map((e) => executeNode(e.target, visited)));
+          } else {
+            const batchEdges = allEdges.filter((e) => e.sourceHandle === "batch");
+            await Promise.all(batchEdges.map((e) => executeNode(e.target, visited)));
+          }
+        } else if (isSwitchNode) {
           const matchedOutput = (result.data as { matchedOutput?: string })?.matchedOutput || "default";
           const allEdges = edgesBySource.get(nodeId) || [];
           const matchedEdges = allEdges.filter((e) => e.sourceHandle === matchedOutput);

@@ -33,6 +33,14 @@ export const stepRegistry: Record<string, StepFunction> = {
     (await import("./limit")).limitStep(input as never),
   Aggregate: async (input) =>
     (await import("./aggregate")).aggregateStep(input as never),
+  Merge: async (input) =>
+    (await import("./merge")).mergeStep(input as never),
+  Sort: async (input) =>
+    (await import("./sort")).sortStep(input as never),
+  "Remove Duplicates": async (input) =>
+    (await import("./remove-duplicates")).removeDuplicatesStep(input as never),
+  "Loop Over Batches": async (input) =>
+    (await import("./loop-batches")).loopBatchesStep(input as never),
 
   // ── AI Gateway ──
   "Generate Text": async (input) =>

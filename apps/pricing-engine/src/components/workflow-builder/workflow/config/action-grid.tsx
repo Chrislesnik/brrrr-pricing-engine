@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  ArrowUpDown,
   BarChart3,
   Calendar,
   ChevronRight,
   ChevronsDownUp,
   Code,
+  CopyX,
   Database,
   Eye,
   EyeOff,
@@ -16,7 +18,9 @@ import {
   Grid3X3,
   List,
   ListChecks,
+  Merge,
   MoreHorizontal,
+  Repeat,
   Search,
   Settings,
   Timer,
@@ -125,6 +129,30 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Sum, count, average, min, max, group by",
     category: "System",
   },
+  {
+    id: "Merge",
+    label: "Merge",
+    description: "Combine data from multiple branches",
+    category: "System",
+  },
+  {
+    id: "Sort",
+    label: "Sort",
+    description: "Sort items by a field",
+    category: "System",
+  },
+  {
+    id: "Remove Duplicates",
+    label: "Remove Duplicates",
+    description: "Deduplicate items by a key field",
+    category: "System",
+  },
+  {
+    id: "Loop Over Batches",
+    label: "Loop Over Batches",
+    description: "Process items in configurable batch sizes",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions
@@ -186,6 +214,10 @@ const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ classNam
   "Split Out": { icon: Ungroup, color: "text-indigo-500" },
   Limit: { icon: ChevronsDownUp, color: "text-rose-500" },
   Aggregate: { icon: BarChart3, color: "text-purple-500" },
+  Merge: { icon: Merge, color: "text-emerald-500" },
+  Sort: { icon: ArrowUpDown, color: "text-sky-500" },
+  "Remove Duplicates": { icon: CopyX, color: "text-amber-500" },
+  "Loop Over Batches": { icon: Repeat, color: "text-lime-500" },
 };
 
 function ActionIcon({

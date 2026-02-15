@@ -493,6 +493,38 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Merge":
+      return (
+        <MergeFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Sort":
+      return (
+        <SortFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Remove Duplicates":
+      return (
+        <RemoveDuplicatesFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Loop Over Batches":
+      return (
+        <LoopBatchesFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
@@ -881,6 +913,259 @@ function CodeTestPanel({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Merge config component ──
+
+const MERGE_MODES = [
+  { value: "append", label: "Append" },
+  { value: "byPosition", label: "Combine by Position" },
+  { value: "byField", label: "Combine by Field" },
+] as const;
+
+function MergeFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  useEffect(() => {
+    if (!config?.mode) onUpdateConfig("mode", "append");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const mode = (config?.mode as string) || "append";
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Mode</Label>
+        <Select
+          disabled={disabled}
+          value={mode}
+          onValueChange={(v) => onUpdateConfig("mode", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MERGE_MODES.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                <span className="text-xs">{m.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground">
+          {mode === "append" && "Concatenates all items from all branches into one list."}
+          {mode === "byPosition" && "Zips items by index, merging fields from each branch."}
+          {mode === "byField" && "Joins items from branches using a matching field value."}
+        </p>
+      </div>
+      {mode === "byField" && (
+        <div className="space-y-1.5">
+          <Label>Join Field</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            placeholder="e.g. id, email"
+            value={(config?.joinField as string) || ""}
+            onChange={(val) => onUpdateConfig("joinField", val)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sort config component ──
+
+const SORT_TYPES = [
+  { value: "auto", label: "Auto" },
+  { value: "string", label: "String" },
+  { value: "number", label: "Number" },
+  { value: "date", label: "Date" },
+] as const;
+
+function SortFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  useEffect(() => {
+    if (!config?.direction) onUpdateConfig("direction", "ascending");
+    if (!config?.dataType) onUpdateConfig("dataType", "auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Sort By Field</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          placeholder="e.g. amount, created_at, name"
+          value={(config?.sortField as string) || ""}
+          onChange={(val) => onUpdateConfig("sortField", val)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Direction</Label>
+        <Select
+          disabled={disabled}
+          value={(config?.direction as string) || "ascending"}
+          onValueChange={(v) => onUpdateConfig("direction", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ascending"><span className="text-xs">Ascending</span></SelectItem>
+            <SelectItem value="descending"><span className="text-xs">Descending</span></SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Data Type</Label>
+        <Select
+          disabled={disabled}
+          value={(config?.dataType as string) || "auto"}
+          onValueChange={(v) => onUpdateConfig("dataType", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                <span className="text-xs">{t.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// ── Remove Duplicates config component ──
+
+function RemoveDuplicatesFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  useEffect(() => {
+    if (!config?.keep) onUpdateConfig("keep", "first");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Deduplicate By</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          placeholder="e.g. id, email"
+          value={(config?.dedupField as string) || ""}
+          onChange={(val) => onUpdateConfig("dedupField", val)}
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Field path to use as the unique key for deduplication.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Keep</Label>
+        <Select
+          disabled={disabled}
+          value={(config?.keep as string) || "first"}
+          onValueChange={(v) => onUpdateConfig("keep", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="first"><span className="text-xs">First Occurrence</span></SelectItem>
+            <SelectItem value="last"><span className="text-xs">Last Occurrence</span></SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// ── Loop Over Batches config component ──
+
+function LoopBatchesFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  useEffect(() => {
+    if (config?.batchSize === undefined) onUpdateConfig("batchSize", "1");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Batch Size</Label>
+        <div className="flex items-center gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled || Number(config?.batchSize ?? 1) <= 1}
+            className="h-8 w-8 rounded-r-none border-r-0 shrink-0"
+            onClick={() => {
+              const cur = Math.max(1, parseInt(String(config?.batchSize ?? "1"), 10) || 1);
+              onUpdateConfig("batchSize", String(Math.max(1, cur - 1)));
+            }}
+          >
+            <span className="text-sm font-medium">−</span>
+          </Button>
+          <Input
+            type="number"
+            min="1"
+            disabled={disabled}
+            value={(config?.batchSize as string) ?? "1"}
+            onChange={(e) => onUpdateConfig("batchSize", e.target.value)}
+            className="h-8 text-xs text-center rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled}
+            className="h-8 w-8 rounded-l-none border-l-0 shrink-0"
+            onClick={() => {
+              const cur = parseInt(String(config?.batchSize ?? "1"), 10) || 1;
+              onUpdateConfig("batchSize", String(cur + 1));
+            }}
+          >
+            <span className="text-sm font-medium">+</span>
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Items are split into batches of this size. Connect the &quot;batch&quot; output to processing nodes and &quot;done&quot; to continue.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1713,6 +1998,10 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "Split Out", label: "Split Out" },
   { id: "Limit", label: "Limit" },
   { id: "Aggregate", label: "Aggregate" },
+  { id: "Merge", label: "Merge" },
+  { id: "Sort", label: "Sort" },
+  { id: "Remove Duplicates", label: "Remove Duplicates" },
+  { id: "Loop Over Batches", label: "Loop Over Batches" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);

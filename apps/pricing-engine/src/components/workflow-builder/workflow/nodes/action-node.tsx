@@ -9,13 +9,17 @@ import {
   Database,
   EyeOff,
   GitBranch,
+  ArrowUpDown,
   BarChart3,
   Calendar,
   ChevronsDownUp,
+  CopyX,
   Filter,
   GitFork,
   Globe,
   ListChecks,
+  Merge,
+  Repeat,
   Timer,
   Ungroup,
   XCircle,
@@ -93,6 +97,10 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   "Split Out": "Transform",
   Limit: "Transform",
   Aggregate: "Analytics",
+  Merge: "Combine",
+  Sort: "Transform",
+  "Remove Duplicates": "Transform",
+  "Loop Over Batches": "Loop",
 };
 
 // Helper to get integration name from action type
@@ -164,6 +172,14 @@ const getProviderLogo = (actionType: string) => {
       return <ChevronsDownUp className="size-12 text-rose-300" strokeWidth={1.5} />;
     case "Aggregate":
       return <BarChart3 className="size-12 text-purple-300" strokeWidth={1.5} />;
+    case "Merge":
+      return <Merge className="size-12 text-emerald-300" strokeWidth={1.5} />;
+    case "Sort":
+      return <ArrowUpDown className="size-12 text-sky-300" strokeWidth={1.5} />;
+    case "Remove Duplicates":
+      return <CopyX className="size-12 text-amber-300" strokeWidth={1.5} />;
+    case "Loop Over Batches":
+      return <Repeat className="size-12 text-lime-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;
@@ -371,6 +387,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
 
   const isCondition = actionType === "Condition";
   const isSwitch = actionType === "Switch";
+  const isLoop = actionType === "Loop Over Batches";
 
   // Build dynamic source handles for Switch node from config rules
   const switchHandles = (() => {
@@ -392,7 +409,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
         isDisabled && "opacity-50"
       )}
       data-testid={`action-node-${id}`}
-      handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : true }}
+      handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : isLoop ? ["batch", "done"] : true }}
       status={status}
     >
       {/* Disabled badge in top left */}
