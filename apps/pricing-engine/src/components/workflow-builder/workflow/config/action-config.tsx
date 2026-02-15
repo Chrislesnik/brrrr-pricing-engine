@@ -944,7 +944,7 @@ function LimitFields({
   disabled: boolean;
 }) {
   useEffect(() => {
-    if (config?.maxItems === undefined) onUpdateConfig("maxItems", "10");
+    if (config?.maxItems === undefined) onUpdateConfig("maxItems", "1");
     if (!config?.from) onUpdateConfig("from", "beginning");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -958,10 +958,10 @@ function LimitFields({
             type="button"
             variant="outline"
             size="icon"
-            disabled={disabled || Number(config?.maxItems ?? 10) <= 0}
+            disabled={disabled || Number(config?.maxItems ?? 1) <= 0}
             className="h-8 w-8 rounded-r-none border-r-0 shrink-0"
             onClick={() => {
-              const cur = Math.max(0, parseInt(String(config?.maxItems ?? "10"), 10) || 10);
+              const cur = Math.max(0, parseInt(String(config?.maxItems ?? "1"), 10) || 1);
               onUpdateConfig("maxItems", String(Math.max(0, cur - 1)));
             }}
           >
@@ -971,7 +971,7 @@ function LimitFields({
             type="number"
             min="0"
             disabled={disabled}
-            value={(config?.maxItems as string) ?? "10"}
+            value={(config?.maxItems as string) ?? "1"}
             onChange={(e) => onUpdateConfig("maxItems", e.target.value)}
             className="h-8 text-xs text-center rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
@@ -982,7 +982,7 @@ function LimitFields({
             disabled={disabled}
             className="h-8 w-8 rounded-l-none border-l-0 shrink-0"
             onClick={() => {
-              const cur = parseInt(String(config?.maxItems ?? "10"), 10) || 10;
+              const cur = parseInt(String(config?.maxItems ?? "1"), 10) || 1;
               onUpdateConfig("maxItems", String(cur + 1));
             }}
           >

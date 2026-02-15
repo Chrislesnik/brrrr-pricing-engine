@@ -36,7 +36,7 @@ function collectItems(nodeOutputs: Record<string, unknown>): Item[] {
 
 function executeLimit(input: LimitInput): { items: Item[]; count: number; originalCount: number } {
   const allItems = collectItems(input._nodeOutputs ?? {});
-  const max = Math.max(0, parseInt(input.maxItems || "10", 10) || 10);
+  const max = Math.max(0, parseInt(input.maxItems || "1", 10) || 1);
   const fromEnd = (input.from || "beginning") === "end";
 
   const limited = fromEnd ? allItems.slice(-max) : allItems.slice(0, max);
