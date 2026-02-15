@@ -46,20 +46,21 @@ export const Node = ({ handles, className, status, ...props }: NodeProps) => (
         const isTrue = handleId === "true";
         const isFalse = handleId === "false";
         return (
-          <div key={handleId} className="absolute right-0" style={{ top: `${topPercent}%`, transform: "translateY(-50%)" }}>
+          <div key={handleId}>
             <Handle
               id={handleId}
               position={Position.Right}
               type="source"
-              style={{ position: "relative", top: 0, transform: "none" }}
+              style={{ top: `${topPercent}%` }}
             />
             <span
               className={cn(
-                "absolute right-5 top-1/2 -translate-y-1/2 text-[9px] font-medium whitespace-nowrap pointer-events-none",
+                "absolute right-5 text-[9px] font-medium whitespace-nowrap pointer-events-none",
                 isTrue && "text-green-600 dark:text-green-400",
                 isFalse && "text-red-500 dark:text-red-400",
                 !isTrue && !isFalse && "text-muted-foreground"
               )}
+              style={{ top: `${topPercent}%`, transform: "translateY(-50%)" }}
             >
               {handleId.charAt(0).toUpperCase() + handleId.slice(1)}
             </span>
