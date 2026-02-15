@@ -315,14 +315,17 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
         initialStatus={row.getValue("status") as string}
       />
     ),
-    // OR matching for status — archived rows are hidden by default
+    // OR matching for status — archived rows ONLY show when "Archived" filter is selected
     filterFn: (row, columnId, filterValue) => {
       const selected = Array.isArray(filterValue)
         ? (filterValue as string[])
         : []
       const cell = String(row.getValue(columnId) ?? "").toLowerCase()
-      // When no filter is active, hide archived rows
-      if (selected.length === 0) return cell !== "archived"
+      // Always hide archived unless explicitly requested
+      if (cell === "archived") {
+        return selected.some((s) => String(s).toLowerCase() === "archived")
+      }
+      if (selected.length === 0) return true
       return selected.some((s) => cell === String(s).toLowerCase())
     },
     enableSorting: false,
