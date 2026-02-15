@@ -9,8 +9,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
  * Uses dedicated RPC functions for reliable schema introspection.
  *
  * Query params:
- *   - type: "tables" | "columns" | "functions" | "buckets"
- *   - table: (required when type=columns) the table name
+ *   - type: "tables" | "columns" | "functions" | "buckets" | "primary-key"
+ *   - table: (required when type=columns or type=primary-key) the table name
  */
 export async function GET(req: NextRequest) {
   try {
@@ -72,6 +72,23 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ functions })
       }
 
+      case "primary-key": {
+        if (!table) {
+          return NextResponse.json({ error: "table parameter required" }, { status: 400 })
+        }
+
+        const { data, error } = await supabaseAdmin.rpc("get_primary_key_column", {
+          p_table_name: table,
+        })
+
+        if (error) {
+          console.error("[supabase-schema] get_primary_key_column error:", error.message)
+          return NextResponse.json({ primaryKey: null })
+        }
+
+        return NextResponse.json({ primaryKey: data ?? null })
+      }
+
       case "buckets": {
         const { data, error } = await supabaseAdmin.storage.listBuckets()
 
@@ -89,7 +106,7 @@ export async function GET(req: NextRequest) {
       }
 
       default:
-        return NextResponse.json({ error: "Invalid type. Use: tables, columns, functions, buckets" }, { status: 400 })
+        return NextResponse.json({ error: "Invalid type. Use: tables, columns, functions, buckets, primary-key" }, { status: 400 })
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error"

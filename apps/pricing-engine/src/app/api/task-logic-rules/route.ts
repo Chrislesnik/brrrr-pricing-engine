@@ -7,12 +7,15 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 /* -------------------------------------------------------------------------- */
 
 interface ConditionPayload {
+  source_type?: "input" | "sql";
   field: string;
   operator: string;
   value: string;
   value_type?: string;
   value_field?: string;
   value_expression?: string;
+  // SQL condition fields
+  sql_expression?: string;
 }
 
 interface ActionPayload {
@@ -89,7 +92,7 @@ export async function GET(request: NextRequest) {
     const { data: condRows } = await supabaseAdmin
       .from("task_logic_conditions")
       .select(
-        "id, task_logic_id, field, operator, value, value_type, value_field, value_expression"
+        "id, task_logic_id, field, operator, value, value_type, value_field, value_expression, source_type, sql_expression"
       )
       .in("task_logic_id", allRuleIds);
 
@@ -113,12 +116,14 @@ export async function GET(request: NextRequest) {
       conditions: (condRows ?? [])
         .filter((c) => c.task_logic_id === rule.id)
         .map((c) => ({
+          source_type: c.source_type ?? "input",
           field: c.field ?? "",
           operator: c.operator ?? "",
           value: c.value ?? "",
           value_type: c.value_type ?? "value",
           value_field: c.value_field ?? undefined,
           value_expression: c.value_expression ?? undefined,
+          sql_expression: c.sql_expression ?? undefined,
         })),
       actions: (actionRows ?? [])
         .filter((a) => a.task_logic_id === rule.id)
@@ -245,11 +250,35 @@ export async function POST(request: NextRequest) {
       // Insert conditions
       if (rule.conditions && rule.conditions.length > 0) {
         const condRows = rule.conditions
-          .filter((c) => c.field || c.operator || c.value)
+          .filter((c) => {
+            // SQL conditions need sql_expression
+            if (c.source_type === "sql") {
+              return !!c.sql_expression;
+            }
+            // Input conditions need field/operator/value
+            return c.field || c.operator || c.value;
+          })
           .map((c) => {
+            const sourceType = c.source_type || "input";
             const vt = c.value_type || "value";
+
+            if (sourceType === "sql") {
+              return {
+                task_logic_id: ruleId,
+                source_type: "sql" as const,
+                sql_expression: c.sql_expression || null,
+                operator: null,
+                value: null,
+                value_type: "value",
+                field: null,
+                value_field: null,
+                value_expression: null,
+              };
+            }
+
             return {
               task_logic_id: ruleId,
+              source_type: "input" as const,
               field: c.field || null,
               operator: c.operator || null,
               value_type: vt,
@@ -257,6 +286,7 @@ export async function POST(request: NextRequest) {
               value_field: vt === "field" ? c.value_field || null : null,
               value_expression:
                 vt === "expression" ? c.value_expression || null : null,
+              sql_expression: null,
             };
           });
 

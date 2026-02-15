@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
+import { useTheme } from "next-themes";
 import {
   Button as AriaButton,
   Group,
@@ -24,7 +26,17 @@ import {
   PlusIcon,
   ChevronsUpDown,
   AlertTriangle,
+  Code,
 } from "lucide-react";
+
+const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((m) => m.default), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[120px] items-center justify-center rounded-md border bg-muted/30">
+      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 import { cn } from "@repo/lib/cn";
 import {
   Tooltip,
@@ -109,13 +121,18 @@ interface DealStage {
   display_order: number;
 }
 
+type ConditionSourceType = "input" | "sql";
+
 interface Condition {
+  source_type: ConditionSourceType;
   field: string;
   operator: string;
   value: string;
   value_type: ConditionValueType;
   value_field?: string;
   value_expression?: string;
+  // SQL condition fields
+  sql_expression?: string;
 }
 
 interface Action {
@@ -224,6 +241,7 @@ const CONDITION_VALUE_TYPE_OPTIONS: {
 
 function defaultCondition(): Condition {
   return {
+    source_type: "input",
     field: "",
     operator: "",
     value: "",
@@ -388,8 +406,10 @@ export function TaskLogicBuilderSheet({
                 type: r.type || "AND",
                 conditions: (r.conditions ?? []).map((c: Condition) => ({
                   ...c,
+                  source_type: c.source_type || "input",
                   value_type:
                     (c.value_type as ConditionValueType) || "value",
+                  sql_expression: c.sql_expression ?? undefined,
                 })),
                 actions: (r.actions ?? []).map(
                   (a: {
@@ -1091,6 +1111,10 @@ function TaskConditionRow({
   ) => void;
   removeCondition: (ruleIndex: number, condIndex: number) => void;
 }) {
+  const sourceType = cond.source_type || "input";
+  const { resolvedTheme } = useTheme();
+
+  // For input conditions
   const fieldInput = cond.field ? inputMap.get(cond.field) : undefined;
   const fieldType = fieldInput?.input_type;
   const vt = cond.value_type || "value";
@@ -1360,65 +1384,173 @@ function TaskConditionRow({
     );
   };
 
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1">
-        <SearchableInputSelect
-          inputs={inputs.map((inp) => ({
-            ...inp,
-            label: inp.input_label,
-          }))}
-          value={cond.field || ""}
-          onValueChange={(val) => {
-            updateCondition(ruleIndex, condIndex, "field", val);
-            updateCondition(
-              ruleIndex,
-              condIndex,
-              "operator",
-              ""
-            );
-            updateCondition(ruleIndex, condIndex, "value", "");
-          }}
-          placeholder="Select field"
-        />
+  // 3-dot menu for switching between Input and SQL condition modes
+  const sourceTypeMenu = (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+          title={sourceType === "sql" ? "SQL Condition" : "Input Field"}
+        >
+          <MoreVertical className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-44 p-1" sideOffset={4}>
+        <div className="flex flex-col">
+          <button
+            type="button"
+            className={cn(
+              "flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-muted transition-colors w-full text-left",
+              sourceType === "input"
+                ? "bg-muted font-medium"
+                : "text-muted-foreground"
+            )}
+            onClick={() =>
+              updateCondition(ruleIndex, condIndex, "source_type", "input")
+            }
+          >
+            <Type className="size-3.5" />
+            Input Field
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-muted transition-colors w-full text-left",
+              sourceType === "sql"
+                ? "bg-muted font-medium"
+                : "text-muted-foreground"
+            )}
+            onClick={() =>
+              updateCondition(ruleIndex, condIndex, "source_type", "sql")
+            }
+          >
+            <Code className="size-3.5" />
+            SQL Condition
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
+  // SQL condition rendering
+  if (sourceType === "sql") {
+    return (
+      <div className="space-y-2 rounded-md border border-dashed border-primary/20 bg-primary/5 p-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {sourceTypeMenu}
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              SQL
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => removeCondition(ruleIndex, condIndex)}
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
+        <div className="rounded-md border overflow-hidden">
+          <MonacoEditor
+            height="120px"
+            language="sql"
+            theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+            value={cond.sql_expression || ""}
+            onChange={(val) =>
+              updateCondition(
+                ruleIndex,
+                condIndex,
+                "sql_expression",
+                val ?? ""
+              )
+            }
+            options={{
+              minimap: { enabled: false },
+              fontSize: 12,
+              lineNumbers: "off",
+              scrollBeyondLastLine: false,
+              wordWrap: "on",
+              tabSize: 2,
+              padding: { top: 8, bottom: 8 },
+              overviewRulerLanes: 0,
+              hideCursorInOverviewRuler: true,
+              scrollbar: {
+                vertical: "auto",
+                horizontal: "hidden",
+              },
+              renderLineHighlight: "none",
+              folding: false,
+              glyphMargin: false,
+              lineDecorationsWidth: 8,
+              lineNumbersMinChars: 0,
+              suggest: {
+                showKeywords: true,
+              },
+            }}
+          />
+        </div>
       </div>
+    );
+  }
 
-      <Select
-        value={cond.operator || undefined}
-        onValueChange={(val) => {
-          updateCondition(
-            ruleIndex,
-            condIndex,
-            "operator",
-            val
-          );
-          if (VALUELESS_OPERATORS.has(val)) {
-            updateCondition(ruleIndex, condIndex, "value", "");
-          }
-        }}
-      >
-        <SelectTrigger className="h-8 text-xs w-48">
-          <SelectValue placeholder="Operator" />
-        </SelectTrigger>
-        <SelectContent>
-          {operators.map((op) => (
-            <SelectItem key={op.value} value={op.value}>
-              {op.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  // Input condition rendering
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-1">
+          <div className="flex-1">
+            <SearchableInputSelect
+              inputs={inputs.map((inp) => ({
+                ...inp,
+                label: inp.input_label,
+              }))}
+              value={cond.field || ""}
+              onValueChange={(val) => {
+                updateCondition(ruleIndex, condIndex, "field", val);
+                updateCondition(ruleIndex, condIndex, "operator", "");
+                updateCondition(ruleIndex, condIndex, "value", "");
+              }}
+              placeholder="Select field"
+            />
+          </div>
+          {sourceTypeMenu}
+        </div>
 
-      {renderConditionValue()}
+        <Select
+          value={cond.operator || undefined}
+          onValueChange={(val) => {
+            updateCondition(ruleIndex, condIndex, "operator", val);
+            if (VALUELESS_OPERATORS.has(val)) {
+              updateCondition(ruleIndex, condIndex, "value", "");
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 text-xs w-48">
+            <SelectValue placeholder="Operator" />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op.value} value={op.value}>
+                {op.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => removeCondition(ruleIndex, condIndex)}
-      >
-        <X className="size-3" />
-      </Button>
+        {renderConditionValue()}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => removeCondition(ruleIndex, condIndex)}
+        >
+          <X className="size-3" />
+        </Button>
+      </div>
     </div>
   );
 }

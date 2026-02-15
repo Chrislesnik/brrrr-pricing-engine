@@ -12,6 +12,8 @@ import {
   Loader2,
   Workflow,
   X,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -50,6 +52,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
+import { ColumnExpressionInput } from "@/components/column-expression-input";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -72,7 +75,16 @@ interface InputField {
   starred: boolean;
   display_order: number;
   created_at: string;
+  linked_table?: string | null;
+  linked_column?: string | null;
 }
+
+const LINKABLE_TABLES = [
+  { value: "borrowers", label: "Borrowers" },
+  { value: "entities", label: "Entities" },
+  { value: "entity_owners", label: "Entity Members" },
+  { value: "property", label: "Properties" },
+] as const;
 
 const INPUT_TYPES = [
   { value: "text", label: "Text" },
@@ -116,6 +128,12 @@ export function InputsSettings() {
   const [newDropdownOptions, setNewDropdownOptions] = useState<string[]>([]);
   const [savingInput, setSavingInput] = useState(false);
 
+  // Database link state
+  const [newLinkedTable, setNewLinkedTable] = useState<string>("");
+  const [newLinkedColumn, setNewLinkedColumn] = useState<string>("");
+  const [linkableColumns, setLinkableColumns] = useState<{ name: string; type: string }[]>([]);
+  const [loadingColumns, setLoadingColumns] = useState(false);
+
   // Edit category state
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState("");
@@ -123,6 +141,38 @@ export function InputsSettings() {
 
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
+
+  // Fetch columns when linked table changes
+  useEffect(() => {
+    if (!newLinkedTable) {
+      setLinkableColumns([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchColumns = async () => {
+      setLoadingColumns(true);
+      try {
+        const res = await fetch(`/api/supabase-schema?type=columns&table=${encodeURIComponent(newLinkedTable)}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setLinkableColumns(Array.isArray(data.columns) ? data.columns : []);
+        }
+      } catch {
+        if (!cancelled) setLinkableColumns([]);
+      } finally {
+        if (!cancelled) setLoadingColumns(false);
+      }
+    };
+    fetchColumns();
+    return () => { cancelled = true; };
+  }, [newLinkedTable]);
+
+  // When a linked table is selected, always set input type to "dropdown"
+  useEffect(() => {
+    if (newLinkedTable) {
+      setNewInputType("dropdown");
+    }
+  }, [newLinkedTable]);
 
   // Native drag-and-drop for reordering dropdown option tags
   const dragTagIdx = useRef<number | null>(null);
@@ -278,6 +328,8 @@ export function InputsSettings() {
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
+          linked_table: newLinkedTable || null,
+          linked_column: newLinkedColumn || null,
         }),
       });
       if (res.ok) {
@@ -317,6 +369,8 @@ export function InputsSettings() {
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
+          linked_table: newLinkedTable || null,
+          linked_column: newLinkedColumn || null,
         }),
       });
       if (res.ok) {
@@ -355,6 +409,9 @@ export function InputsSettings() {
     setNewInputLabel("");
     setNewInputType("");
     setNewDropdownOptions([]);
+    setNewLinkedTable("");
+    setNewLinkedColumn("");
+    setLinkableColumns([]);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -643,6 +700,7 @@ export function InputsSettings() {
                             <Select
                               value={newInputType}
                               onValueChange={setNewInputType}
+                              disabled={!!newLinkedTable}
                             >
                               <SelectTrigger className="h-8 text-sm">
                                 <SelectValue placeholder="Select type..." />
@@ -655,8 +713,67 @@ export function InputsSettings() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            {newLinkedTable && (
+                              <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
+                            )}
                           </div>
-                          {newInputType === "dropdown" && (
+
+                          {/* Database Link */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs flex items-center gap-1">
+                                <Link2 className="size-3" />
+                                Database Link
+                              </Label>
+                              {newLinkedTable ? (
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5"
+                                  onClick={() => {
+                                    setNewLinkedTable("");
+                                    setNewLinkedColumn("");
+                                  }}
+                                >
+                                  <Unlink className="size-2.5" />
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+                            <Select
+                              value={newLinkedTable || undefined}
+                              onValueChange={(val) => {
+                                setNewLinkedTable(val);
+                                setNewLinkedColumn("");
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue placeholder="None (standalone input)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {LINKABLE_TABLES.map((t) => (
+                                  <SelectItem key={t.value} value={t.value}>
+                                    {t.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {newLinkedTable && (
+                              <>
+                                <Label className="text-[10px] text-muted-foreground mt-1">
+                                  Display Expression (shown in dropdown)
+                                </Label>
+                                <ColumnExpressionInput
+                                  value={newLinkedColumn}
+                                  onChange={setNewLinkedColumn}
+                                  columns={linkableColumns}
+                                  loading={loadingColumns}
+                                  placeholder="e.g. @first_name @last_name"
+                                />
+                              </>
+                            )}
+                          </div>
+
+                          {newInputType === "dropdown" && !newLinkedTable && (
                             <div className="space-y-1.5 p-2">
                               <Label className="text-xs">
                                 Dropdown Options
@@ -731,20 +848,21 @@ export function InputsSettings() {
                               size="sm"
                               className="h-7 text-xs"
                               onClick={() => handleSaveInputEdit(input)}
-                              disabled={
-                                savingInput ||
-                                !newInputLabel.trim() ||
-                                !newInputType ||
-                                (newInputType === "dropdown" &&
-                                  newDropdownOptions.length === 0)
-                              }
-                            >
-                              {savingInput ? (
-                                <Loader2 className="size-3 animate-spin mr-1" />
-                              ) : (
-                                <Check className="size-3 mr-1" />
-                              )}
-                              Save
+                          disabled={
+                            savingInput ||
+                            !newInputLabel.trim() ||
+                            !newInputType ||
+                            (newInputType === "dropdown" &&
+                              !newLinkedTable &&
+                              newDropdownOptions.length === 0)
+                          }
+                        >
+                          {savingInput ? (
+                            <Loader2 className="size-3 animate-spin mr-1" />
+                          ) : (
+                            <Check className="size-3 mr-1" />
+                          )}
+                          Save
                             </Button>
                             <Button
                               size="sm"
@@ -780,6 +898,15 @@ export function InputsSettings() {
                             >
                               {input.input_type}
                             </Badge>
+                            {input.linked_table && (
+                              <Badge
+                                className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                variant="secondary"
+                              >
+                                <Link2 className="size-2.5 mr-0.5" />
+                                {input.linked_table}
+                              </Badge>
+                            )}
                             <div className="ml-auto flex items-center gap-1 shrink-0">
                               {input.input_type === "dropdown" &&
                                 input.dropdown_options &&
@@ -839,6 +966,8 @@ export function InputsSettings() {
                                 setNewDropdownOptions(
                                   input.dropdown_options ?? [],
                                 );
+                                setNewLinkedTable(input.linked_table ?? "");
+                                setNewLinkedColumn(input.linked_column ?? "");
                                 }}
                               >
                                 <Pencil className="size-3" />
@@ -885,6 +1014,7 @@ export function InputsSettings() {
                         <Select
                           value={newInputType}
                           onValueChange={setNewInputType}
+                          disabled={!!newLinkedTable}
                         >
                           <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Select type..." />
@@ -897,9 +1027,67 @@ export function InputsSettings() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {newLinkedTable && (
+                          <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
+                        )}
                       </div>
 
-                      {newInputType === "dropdown" && (
+                      {/* Database Link */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs flex items-center gap-1">
+                            <Link2 className="size-3" />
+                            Database Link
+                          </Label>
+                          {newLinkedTable ? (
+                            <button
+                              type="button"
+                              className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5"
+                              onClick={() => {
+                                setNewLinkedTable("");
+                                setNewLinkedColumn("");
+                              }}
+                            >
+                              <Unlink className="size-2.5" />
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
+                        <Select
+                          value={newLinkedTable || undefined}
+                          onValueChange={(val) => {
+                            setNewLinkedTable(val);
+                            setNewLinkedColumn("");
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="None (standalone input)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LINKABLE_TABLES.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {newLinkedTable && (
+                          <>
+                            <Label className="text-[10px] text-muted-foreground mt-1">
+                              Display Expression (shown in dropdown)
+                            </Label>
+                            <ColumnExpressionInput
+                              value={newLinkedColumn}
+                              onChange={setNewLinkedColumn}
+                              columns={linkableColumns}
+                              loading={loadingColumns}
+                              placeholder="e.g. @first_name @last_name"
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      {newInputType === "dropdown" && !newLinkedTable && (
                         <div className="space-y-1.5 p-2">
                           <Label className="text-xs">
                             Dropdown Options
@@ -980,6 +1168,7 @@ export function InputsSettings() {
                             !newInputLabel.trim() ||
                             !newInputType ||
                             (newInputType === "dropdown" &&
+                              !newLinkedTable &&
                               newDropdownOptions.length === 0)
                           }
                         >

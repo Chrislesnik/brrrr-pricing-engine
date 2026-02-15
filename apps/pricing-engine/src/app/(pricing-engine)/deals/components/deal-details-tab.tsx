@@ -7,7 +7,7 @@ import {
   Input as AriaInput,
   NumberField,
 } from "react-aria-components";
-import { Loader2, MinusIcon, PlusIcon, Pencil, Save, X } from "lucide-react";
+import { Loader2, MinusIcon, PlusIcon, Pencil, Save, X, Link2 } from "lucide-react";
 import { useLogicEngine } from "@/hooks/use-logic-engine";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -56,6 +56,13 @@ interface InputField {
   starred: boolean;
   display_order: number;
   created_at: string;
+  linked_table?: string | null;
+  linked_column?: string | null;
+}
+
+interface LinkedRecord {
+  id: string;
+  label: string;
 }
 
 interface DealDetailsTabProps {
@@ -78,7 +85,6 @@ const formatCurrency = (amount: unknown) => {
 
 const formatDate = (date: unknown) => {
   if (!date || typeof date !== "string") return "—";
-  // Parse "YYYY-MM-DD" as local date to avoid UTC timezone shift showing previous day
   const [year, month, day] = date.split("-").map(Number);
   if (!year || !month || !day) return "—";
   return new Date(year, month - 1, day).toLocaleDateString();
@@ -103,12 +109,14 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   // Editable values: keyed by input_id
   const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
 
+  // Linked records per table: { table_name: LinkedRecord[] }
+  const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, LinkedRecord[]>>({});
+  const [loadingLinkedRecords, setLoadingLinkedRecords] = useState(false);
 
   // Sync editable values from the deal prop
   useEffect(() => {
     setEditedValues(deal.inputs ?? {});
   }, [deal]);
-
 
   // Fetch input-categories + inputs metadata on mount
   useEffect(() => {
@@ -146,6 +154,57 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     };
   }, []);
 
+  // Fetch linked records for all linked tables used by inputs
+  // This endpoint now applies org + role scoping server-side
+  useEffect(() => {
+    if (!deal.id || inputFields.length === 0) return;
+    let cancelled = false;
+
+    // Collect unique table + column combos needed
+    const linkedInputs = inputFields.filter((f) => f.linked_table);
+    if (linkedInputs.length === 0) return;
+
+    const tableColumnPairs = new Map<string, string | null>();
+    for (const inp of linkedInputs) {
+      if (!tableColumnPairs.has(inp.linked_table!)) {
+        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null);
+      }
+    }
+
+    const fetchLinkedRecords = async () => {
+      setLoadingLinkedRecords(true);
+      const results: Record<string, LinkedRecord[]> = {};
+      await Promise.all(
+        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
+          try {
+            const params = new URLSearchParams({
+              deal_id: deal.id,
+              table,
+            });
+            if (column) params.set("expression", column);
+
+            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`);
+            const data = await res.json();
+            if (!cancelled && Array.isArray(data.records)) {
+              results[table] = data.records;
+            }
+          } catch {
+            // silently fail
+          }
+        })
+      );
+      if (!cancelled) {
+        setLinkedRecordsByTable(results);
+        setLoadingLinkedRecords(false);
+      }
+    };
+
+    fetchLinkedRecords();
+    return () => {
+      cancelled = true;
+    };
+  }, [deal.id, inputFields]);
+
   // Group inputs by category_id
   const inputsByCategory = useMemo(
     () =>
@@ -158,8 +217,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     [categories, inputFields]
   );
 
-  // Interleave categories into two columns: odd indices → left, even indices → right
-  // This reads left-to-right (1→left, 2→right, 3→left…) while each column stacks independently
+  // Interleave categories into two columns
   const leftCategories = inputsByCategory.filter((_, i) => i % 2 === 0);
   const rightCategories = inputsByCategory.filter((_, i) => i % 2 === 1);
 
@@ -230,7 +288,6 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
       const payload: Record<string, unknown> = {};
       for (const [inputId, value] of Object.entries(editedValues)) {
         const original = deal.inputs?.[inputId];
-        // Include if changed (simple equality check, or always send all for safety)
         if (value !== original) {
           payload[inputId] = value;
         }
@@ -311,6 +368,15 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const renderReadValue = (field: InputField, rawValue: unknown): React.ReactNode => {
     if (rawValue === null || rawValue === undefined || rawValue === "") return "—";
 
+    // For linked inputs, show the record label instead of the raw PK
+    if (field.linked_table) {
+      const records = linkedRecordsByTable[field.linked_table] ?? [];
+      const match = records.find((r) => r.id === String(rawValue));
+      if (match) return match.label;
+      // Fall back to PK display if no match
+      return String(rawValue);
+    }
+
     switch (field.input_type) {
       case "currency":
         return formatCurrency(rawValue);
@@ -332,6 +398,52 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
 
   /** Render an edit control based on input_type */
   const renderEditControl = (field: InputField, rawValue: unknown) => {
+    // For linked inputs: render a dropdown of records from the linked table
+    if (field.linked_table) {
+      const records = linkedRecordsByTable[field.linked_table] ?? [];
+      const selectedPk = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
+
+      if (loadingLinkedRecords) {
+        return (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
+            <Loader2 className="size-3 animate-spin" />
+            Loading options...
+          </div>
+        );
+      }
+
+      if (records.length === 0) {
+        return (
+          <div className="text-xs text-muted-foreground py-2 flex items-center gap-1">
+            <Link2 className="size-3" />
+            No {field.linked_table.replace(/_/g, " ")} found
+          </div>
+        );
+      }
+
+      return (
+        <Select
+          value={selectedPk || undefined}
+          onValueChange={(val) => updateValue(field.id, val)}
+        >
+          <SelectTrigger className="text-sm">
+            <div className="flex items-center gap-1.5">
+              <Link2 className="size-3 text-indigo-500 shrink-0" />
+              <SelectValue placeholder={`Select ${field.linked_table.replace(/_/g, " ")}...`} />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            {records.map((rec) => (
+              <SelectItem key={rec.id} value={rec.id}>
+                {rec.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // Standard input types
     const stringVal =
       rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
     const boolVal = typeof rawValue === "boolean" ? rawValue : false;
@@ -506,6 +618,70 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     String(category.id)
   );
 
+  /** Render a category column */
+  const renderCategory = ({ category, fields }: { category: InputCategory; fields: InputField[] }) => {
+    const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+    return (
+      <Accordion
+        key={category.id}
+        type="multiple"
+        defaultValue={allCategoryIds}
+        className="w-full"
+      >
+        <AccordionItem
+          value={String(category.id)}
+          className="rounded-lg border bg-muted/30 shadow-sm"
+        >
+          <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
+            <span>{category.category}</span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 pt-0">
+            {visibleFields.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No inputs in this category.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {visibleFields.map((field) => {
+                  const rawValue = editedValues[field.id] ?? null;
+                  const reqd = requiredFields.has(field.id);
+                  const comp = computedFieldIds.has(field.id);
+                  const isLinked = Boolean(field.linked_table);
+                  if (!isEditing) {
+                    return (
+                      <DetailRow
+                        key={field.id}
+                        label={field.input_label}
+                        value={renderReadValue(field, rawValue)}
+                        isRequired={reqd}
+                        isComputed={comp}
+                      />
+                    );
+                  }
+                  return (
+                    <div
+                      key={field.id}
+                      className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""} ${isLinked ? "bg-indigo-50/50 dark:bg-indigo-950/20 rounded-md px-2 -mx-2" : ""}`}
+                    >
+                      <div className="text-sm font-medium text-muted-foreground">
+                        {field.input_label}
+                        {reqd && <span className="ml-1 text-destructive">*</span>}
+                        {isLinked && <Link2 className="inline size-3 ml-1 text-indigo-500" />}
+                      </div>
+                      <div className="col-span-2">
+                        {renderEditControl(field, rawValue)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -546,7 +722,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         )}
       </div>
 
-      {/* Two independent columns so items stack tightly without row-height gaps */}
+      {/* Two independent columns */}
       {categories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-sm text-muted-foreground">
@@ -570,130 +746,12 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
               </div>
             </div>
 
-            {leftCategories.map(({ category, fields }) => {
-              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
-              return (
-              <Accordion
-                key={category.id}
-                type="multiple"
-                defaultValue={allCategoryIds}
-                className="w-full"
-              >
-                <AccordionItem
-                  value={String(category.id)}
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <span>{category.category}</span>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    {visibleFields.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No inputs in this category.
-                      </p>
-                    ) : (
-                      <div className="space-y-1">
-                        {visibleFields.map((field) => {
-                          const rawValue = editedValues[field.id] ?? null;
-                          const reqd = requiredFields.has(field.id);
-                          const comp = computedFieldIds.has(field.id);
-                          if (!isEditing) {
-                            return (
-                              <DetailRow
-                                key={field.id}
-                                label={field.input_label}
-                                value={renderReadValue(field, rawValue)}
-                                isRequired={reqd}
-                                isComputed={comp}
-                              />
-                            );
-                          }
-                          return (
-                            <div
-                              key={field.id}
-                              className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
-                            >
-                              <div className="text-sm font-medium text-muted-foreground">
-                                {field.input_label}
-                                {reqd && <span className="ml-1 text-destructive">*</span>}
-                              </div>
-                              <div className="col-span-2">
-                                {renderEditControl(field, rawValue)}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-              );
-            })}
+            {leftCategories.map(renderCategory)}
           </div>
 
           {/* Right column: even-indexed categories */}
           <div className="flex flex-col gap-4">
-            {rightCategories.map(({ category, fields }) => {
-              const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
-              return (
-              <Accordion
-                key={category.id}
-                type="multiple"
-                defaultValue={allCategoryIds}
-                className="w-full"
-              >
-                <AccordionItem
-                  value={String(category.id)}
-                  className="rounded-lg border bg-muted/30 shadow-sm"
-                >
-                  <AccordionTrigger className="px-4 py-3 text-base font-semibold hover:no-underline">
-                    <span>{category.category}</span>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    {visibleFields.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No inputs in this category.
-                      </p>
-                    ) : (
-                      <div className="space-y-1">
-                        {visibleFields.map((field) => {
-                          const rawValue = editedValues[field.id] ?? null;
-                          const reqd = requiredFields.has(field.id);
-                          const comp = computedFieldIds.has(field.id);
-                          if (!isEditing) {
-                            return (
-                              <DetailRow
-                                key={field.id}
-                                label={field.input_label}
-                                value={renderReadValue(field, rawValue)}
-                                isRequired={reqd}
-                                isComputed={comp}
-                              />
-                            );
-                          }
-                          return (
-                            <div
-                              key={field.id}
-                              className={`grid grid-cols-3 gap-4 py-2 border-b last:border-0 ${comp ? "bg-blue-50/50 dark:bg-blue-950/20 rounded-md px-2 -mx-2" : ""}`}
-                            >
-                              <div className="text-sm font-medium text-muted-foreground">
-                                {field.input_label}
-                                {reqd && <span className="ml-1 text-destructive">*</span>}
-                              </div>
-                              <div className="col-span-2">
-                                {renderEditControl(field, rawValue)}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-              );
-            })}
+            {rightCategories.map(renderCategory)}
           </div>
         </div>
       )}

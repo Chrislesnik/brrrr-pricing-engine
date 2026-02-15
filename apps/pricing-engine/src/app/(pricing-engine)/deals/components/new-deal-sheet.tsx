@@ -57,6 +57,13 @@ interface InputField {
   starred: boolean
   display_order: number
   created_at: string
+  linked_table?: string | null
+  linked_column?: string | null
+}
+
+interface LinkedRecord {
+  id: string
+  label: string
 }
 
 type FormValues = Record<string, string | boolean>
@@ -78,6 +85,10 @@ export function NewDealSheet({
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Linked records per table: { table_name: LinkedRecord[] }
+  const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, LinkedRecord[]>>({})
+  const [loadingLinkedRecords, setLoadingLinkedRecords] = useState(false)
 
   // Fetch categories + inputs when sheet opens
   useEffect(() => {
@@ -133,8 +144,54 @@ export function NewDealSheet({
     if (!open) {
       setFormValues({})
       setSubmitError(null)
+      setLinkedRecordsByTable({})
     }
   }, [open])
+
+  // Fetch linked records for all inputs that have a linked_table
+  useEffect(() => {
+    if (!open || inputs.length === 0) return
+    let cancelled = false
+
+    const linkedInputs = inputs.filter((f) => f.linked_table)
+    if (linkedInputs.length === 0) return
+
+    // Collect unique table + expression combos
+    const tableExprPairs = new Map<string, string | null>()
+    for (const inp of linkedInputs) {
+      if (!tableExprPairs.has(inp.linked_table!)) {
+        tableExprPairs.set(inp.linked_table!, inp.linked_column ?? null)
+      }
+    }
+
+    const fetchLinkedRecords = async () => {
+      setLoadingLinkedRecords(true)
+      const results: Record<string, LinkedRecord[]> = {}
+      await Promise.all(
+        Array.from(tableExprPairs.entries()).map(async ([table, expression]) => {
+          try {
+            const params = new URLSearchParams({ table })
+            if (expression) params.set("expression", expression)
+
+            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
+            const data = await res.json()
+            if (!cancelled && Array.isArray(data.records)) {
+              results[table] = data.records
+            }
+          } catch {
+            // silently fail
+          }
+        })
+      )
+      if (!cancelled) {
+        setLinkedRecordsByTable(results)
+        setLoadingLinkedRecords(false)
+      }
+    }
+
+    fetchLinkedRecords()
+    return () => { cancelled = true }
+  }, [open, inputs])
 
   const updateValue = useCallback((inputId: string, value: string | boolean) => {
     setFormValues((prev) => ({ ...prev, [inputId]: value }))
@@ -330,6 +387,8 @@ export function NewDealSheet({
                               onChange={(val) => updateValue(field.id, val)}
                               isRequired={requiredFields.has(field.id)}
                               isComputed={computedFieldIds.has(field.id)}
+                              linkedRecords={field.linked_table ? (linkedRecordsByTable[field.linked_table] ?? []) : []}
+                              loadingLinked={field.linked_table ? loadingLinkedRecords : false}
                             />
                           ))}
                         </div>
@@ -382,12 +441,16 @@ function DynamicInput({
   onChange,
   isRequired = false,
   isComputed = false,
+  linkedRecords = [],
+  loadingLinked = false,
 }: {
   field: InputField
   value: string | boolean
   onChange: (value: string | boolean) => void
   isRequired?: boolean
   isComputed?: boolean
+  linkedRecords?: LinkedRecord[]
+  loadingLinked?: boolean
 }) {
   const stringVal = typeof value === "string" ? value : ""
   const boolVal = typeof value === "boolean" ? value : false
@@ -411,7 +474,58 @@ function DynamicInput({
         </div>
       )
 
-    case "dropdown":
+    case "dropdown": {
+      // Linked table dropdown — options come from the database
+      if (field.linked_table) {
+        if (loadingLinked) {
+          return (
+            <div className="space-y-2">
+              <Label>
+                {field.input_label}
+                {isRequired && <span className="ml-1 text-destructive">*</span>}
+              </Label>
+              <Select disabled>
+                <SelectTrigger className={computedClass}>
+                  <SelectValue placeholder="Loading..." />
+                </SelectTrigger>
+                <SelectContent />
+              </Select>
+            </div>
+          )
+        }
+
+        return (
+          <div className="space-y-2">
+            <Label>
+              {field.input_label}
+              {isRequired && <span className="ml-1 text-destructive">*</span>}
+            </Label>
+            <Select
+              value={stringVal || undefined}
+              onValueChange={(val) => onChange(val)}
+            >
+              <SelectTrigger className={computedClass}>
+                <SelectValue placeholder={`Select ${field.linked_table.replace(/_/g, " ")}...`} />
+              </SelectTrigger>
+              <SelectContent>
+                {linkedRecords.length === 0 ? (
+                  <SelectItem value="__empty" disabled>
+                    No records found
+                  </SelectItem>
+                ) : (
+                  linkedRecords.map((rec) => (
+                    <SelectItem key={rec.id} value={rec.id}>
+                      {rec.label}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )
+      }
+
+      // Static dropdown — options come from the input definition
       return (
         <div className="space-y-2">
           <Label>
@@ -435,6 +549,7 @@ function DynamicInput({
           </Select>
         </div>
       )
+    }
 
     case "date":
       return (

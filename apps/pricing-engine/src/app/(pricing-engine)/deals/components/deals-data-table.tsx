@@ -111,25 +111,30 @@ interface StarredInput {
 
 /* CommentThread removed — replaced by Liveblocks InlineCommentsPanel */
 
+// Column pinned to the right edge of the table (single combined column)
+const PINNED_RIGHT_SET = new Set<string>(["row_actions"]);
+
 // Draggable Header Component
 const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   const columnId = header.column.id;
-  const isFixedColumn = columnId === "select" || columnId === "expand" || columnId === "actions";
+  const isFixedColumn = columnId === "select" || columnId === "expand" || columnId === "row_actions";
+  const isPinnedRight = PINNED_RIGHT_SET.has(columnId);
 
   const { attributes, isDragging, listeners, setNodeRef, transform } =
     useSortable({
       id: header.column.id,
-      disabled: isFixedColumn,
+      disabled: isFixedColumn || isPinnedRight,
     });
 
   const style: React.CSSProperties = {
     opacity: isDragging ? 0.5 : 1,
-    position: "relative",
-    transform: isFixedColumn ? "none" : CSS.Translate.toString(transform),
+    position: isPinnedRight ? "sticky" : "relative",
+    transform: isFixedColumn || isPinnedRight ? "none" : CSS.Translate.toString(transform),
     transition: isDragging ? "none" : "transform 0.2s ease",
     whiteSpace: "nowrap",
     width: header.column.getSize(),
-    zIndex: isDragging ? 999 : "auto",
+    zIndex: isDragging ? 999 : isPinnedRight ? 20 : "auto",
+    ...(isPinnedRight ? { right: 0, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" } : {}),
   };
 
   return (
@@ -137,12 +142,14 @@ const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
       key={header.id}
       ref={setNodeRef}
       style={style}
-      className={`h-12 relative text-left ${
-        isDragging ? "shadow-lg border-2 border-primary" : ""
-      }`}
+      className={cn(
+        "h-12 relative text-left",
+        isDragging && "shadow-lg border-2 border-primary",
+        isPinnedRight && "bg-muted !px-1"
+      )}
     >
       <div className="flex items-center">
-        {!isFixedColumn && (
+        {!isFixedColumn && !isPinnedRight && (
           <button
             className="flex items-center cursor-grab active:cursor-grabbing opacity-60 hover:opacity-100 p-0.5 rounded hover:bg-muted transition-colors mr-0.5"
             {...attributes}
@@ -329,79 +336,74 @@ const createColumns = (
 
   const fixedEnd: ColumnDef<DealWithRelations>[] = [
     {
-      id: "comments",
-      header: () => <span className="text-sm font-medium">Comments</span>,
-      cell: ({ row }) => {
-        const dealId = String(row.original.id);
-        return (
-          <Button
-            className="gap-2"
-            onClick={() => openCommentsSheet(dealId)}
-            size="sm"
-            variant="ghost"
-            data-ignore-row-click
-          >
-            <MessageCircle className="h-4 w-4" />
-          </Button>
-        );
-      },
+      id: "row_actions",
+      header: () => null,
       enableSorting: false,
-    },
-    {
-      id: "actions",
       enableHiding: false,
-      size: 60,
+      size: 80,
       cell: ({ row }) => {
         const deal = row.original;
+        const dealId = String(deal.id);
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => router.push(`/deals/${deal.id}`)}
-                >
-                  <FolderOpenIcon
-                    size={16}
-                    className="opacity-60"
-                    aria-hidden="true"
-                  />
-                  Open
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => router.push(`/deals/${deal.id}`)}
-                >
-                  <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
-                  Edit
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    navigator.clipboard.writeText(deal.id.toString());
-                  }}
-                >
-                  <FilesIcon
-                    size={16}
-                    className="opacity-60"
-                    aria-hidden="true"
-                  />
-                  Copy ID
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-red-600">
-                  <TrashIcon size={16} aria-hidden="true" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-0.5">
+            <Button
+              className="h-8 w-8 p-0"
+              onClick={() => openCommentsSheet(dealId)}
+              size="sm"
+              variant="ghost"
+              data-ignore-row-click
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0" data-ignore-row-click>
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/deals/${deal.id}`)}
+                  >
+                    <FolderOpenIcon
+                      size={16}
+                      className="opacity-60"
+                      aria-hidden="true"
+                    />
+                    Open
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/deals/${deal.id}`)}
+                  >
+                    <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
+                    Edit
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      navigator.clipboard.writeText(deal.id.toString());
+                    }}
+                  >
+                    <FilesIcon
+                      size={16}
+                      className="opacity-60"
+                      aria-hidden="true"
+                    />
+                    Copy ID
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-red-600">
+                    <TrashIcon size={16} aria-hidden="true" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         );
       },
     },
@@ -451,11 +453,10 @@ export function DealsDataTable({
             "expand",
             "deal_id",
             ...starred.map((i) => i.id),
-            "comments",
-            "actions",
+            "row_actions",
           ]);
           // Default all dynamic columns to visible
-          const vis: VisibilityState = { comments: true };
+          const vis: VisibilityState = {};
           starred.forEach((i) => { vis[i.id] = true; });
           setColumnVisibility(vis);
         }
@@ -625,7 +626,6 @@ export function DealsDataTable({
   function formatColumnName(columnId: string): string {
     const columnNameMap: Record<string, string> = {
       deal_id: "Deal ID",
-      comments: "Comments",
     };
     // Add starred input labels
     starredInputs.forEach((input) => {
@@ -650,10 +650,10 @@ export function DealsDataTable({
       if (
         activeId === "select" ||
         activeId === "expand" ||
-        activeId === "actions" ||
+        activeId === "row_actions" ||
         overId === "select" ||
         overId === "expand" ||
-        overId === "actions"
+        overId === "row_actions"
       ) {
         return;
       }
@@ -665,11 +665,11 @@ export function DealsDataTable({
         // Create new order but preserve fixed positions
         const newOrder = arrayMove(prev, oldIndex, newIndex);
 
-        // Ensure select and expand are first, actions is last
+        // Ensure select and expand are first, row_actions is last
         const finalOrder = newOrder.filter(
-          (id) => id !== "select" && id !== "expand" && id !== "actions"
+          (id) => id !== "select" && id !== "expand" && id !== "row_actions"
         );
-        const result = ["select", "expand", ...finalOrder, "actions"];
+        const result = ["select", "expand", ...finalOrder, "row_actions"];
 
         return result;
       });
@@ -827,14 +827,14 @@ export function DealsDataTable({
             </Button>
           </div>
         </div>
-        <div className="rounded-md border overflow-hidden">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="bg-muted">
                   <SortableContext
                     items={columnOrder.filter(
-                      (id) => id !== "select" && id !== "expand" && id !== "actions"
+                      (id) => id !== "select" && id !== "expand" && id !== "row_actions"
                     )}
                     strategy={horizontalListSortingStrategy}
                   >
@@ -864,14 +864,33 @@ export function DealsDataTable({
                           router.push(`/deals/${dealId}`);
                         }}
                       >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className="text-left">
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
+                        {row.getVisibleCells().map((cell) => {
+                          const isPinned = PINNED_RIGHT_SET.has(cell.column.id);
+                          return (
+                            <TableCell
+                              key={cell.id}
+                              className={cn(
+                                "text-left",
+                                isPinned && "bg-background !px-1"
+                              )}
+                              style={
+                                isPinned
+                                  ? {
+                                      position: "sticky",
+                                      right: 0,
+                                      zIndex: 10,
+                                      boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                       {isExpanded && (
                         <TableRow className="hover:bg-transparent">

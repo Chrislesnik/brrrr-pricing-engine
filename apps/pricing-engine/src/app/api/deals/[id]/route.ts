@@ -239,14 +239,15 @@ export async function PATCH(
 
     // Parse the body: { [input_id]: value, ... }
     const body = (await request.json()) as Record<string, unknown>;
-    const entries = Object.entries(body);
+    const inputEntries = Object.entries(body);
 
-    if (entries.length === 0) {
+    if (inputEntries.length === 0) {
       return NextResponse.json({ ok: true });
     }
 
     // Fetch input metadata to know the type for each input id
-    const inputIds = entries.map(([key]) => key);
+    const inputIds = inputEntries.map(([key]) => key);
+
     const { data: inputMeta } = await supabaseAdmin
       .from("inputs")
       .select("id, input_type")
@@ -290,12 +291,16 @@ export async function PATCH(
       value_array: unknown | null;
     }> = [];
 
-    for (const [inputId, value] of entries) {
+    for (const [inputId, value] of inputEntries) {
       const inputType = typeMap[inputId] || "text";
       const valueCols = buildTypedValueColumns(inputType, value);
 
       if (existingSet.has(inputId)) {
-        toUpdate.push({ input_id: Number(inputId), input_type: inputType, ...valueCols });
+        toUpdate.push({
+          input_id: Number(inputId),
+          input_type: inputType,
+          ...valueCols,
+        });
       } else {
         toInsert.push({
           deal_id: dealId,
@@ -328,10 +333,13 @@ export async function PATCH(
         ? supabaseAdmin.from("deal_inputs").insert(toInsert)
         : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise]);
-    const errors = results.filter((r) => r.error);
+    const results = await Promise.all([
+      ...updatePromises,
+      insertPromise,
+    ]);
+    const errors = results.filter((r) => r && typeof r === "object" && "error" in r && (r as { error: unknown }).error);
     if (errors.length > 0) {
-      console.error("[PATCH /api/deals] Errors:", errors.map((e) => e.error));
+      console.error("[PATCH /api/deals] Errors:", errors.map((e) => (e as { error: unknown }).error));
     }
 
     // Update the deals.updated_at timestamp
