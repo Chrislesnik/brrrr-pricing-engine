@@ -41,19 +41,19 @@ const Temporary = ({
   );
 };
 
+/**
+ * For multi-handle nodes (e.g., Condition with "true"/"false" handles),
+ * we need to manually compute the handle Y position since React Flow's
+ * default sourceY/targetY only covers the first handle.
+ */
 const getHandleCoordsByPosition = (
   node: InternalNode<Node>,
   handlePosition: Position,
-  handleId?: string | null
+  handleId: string
 ): readonly [number, number] | null => {
-  // Choose the handle type based on position - Left is for target, Right is for source
   const handleType = handlePosition === Position.Left ? "target" : "source";
-
-  // Find handle by ID if provided, otherwise by position
   const handles = node.internals.handleBounds?.[handleType] || [];
-  const handle = handleId
-    ? handles.find((h) => h.id === handleId) || handles.find((h) => h.position === handlePosition)
-    : handles.find((h) => h.position === handlePosition);
+  const handle = handles.find((h) => h.id === handleId);
 
   if (!handle) {
     return null;
@@ -76,7 +76,7 @@ const getHandleCoordsByPosition = (
       offsetY = handle.height;
       break;
     default:
-      throw new Error(`Invalid handle position: ${handlePosition}`);
+      break;
   }
 
   const x = node.internals.positionAbsolute.x + handle.x + offsetX;
@@ -85,67 +85,69 @@ const getHandleCoordsByPosition = (
   return [x, y] as const;
 };
 
-const getEdgeParams = (
-  source: InternalNode<Node>,
-  target: InternalNode<Node>,
-  sourceHandleId?: string | null,
-  targetHandleId?: string | null
-) => {
-  const sourcePos = Position.Right;
-  const sourceCoords = getHandleCoordsByPosition(source, sourcePos, sourceHandleId);
-  const targetPos = Position.Left;
-  const targetCoords = getHandleCoordsByPosition(target, targetPos, targetHandleId);
-
-  // If either handle is missing (not measured yet), signal to skip rendering
-  if (!sourceCoords || !targetCoords) {
-    return null;
-  }
-
-  return {
-    sx: sourceCoords[0],
-    sy: sourceCoords[1],
-    tx: targetCoords[0],
-    ty: targetCoords[1],
-    sourcePos,
-    targetPos,
-  };
-};
-
-const Animated = ({ id, source, target, sourceHandleId, targetHandleId, style, selected }: EdgeProps) => {
+const Animated = ({
+  id,
+  source,
+  target,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  sourceHandleId,
+  targetHandleId,
+  style,
+  selected,
+}: EdgeProps) => {
+  // Only look up internal nodes when we have named handles (multi-handle nodes)
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
 
-  if (!(sourceNode && targetNode)) {
-    return null;
+  // Use React Flow's provided coordinates by default (always in sync during drag).
+  // Only override for named handles (e.g., Condition "true"/"false") where we
+  // need to compute the exact Y position of a specific handle.
+  let sx = sourceX;
+  let sy = sourceY;
+  let sp = sourcePosition;
+  let tx = targetX;
+  let ty = targetY;
+  let tp = targetPosition;
+
+  if (sourceHandleId && sourceNode) {
+    const coords = getHandleCoordsByPosition(sourceNode, Position.Right, sourceHandleId);
+    if (coords) {
+      [sx, sy] = coords;
+      sp = Position.Right;
+    }
   }
 
-  const edgeParams = getEdgeParams(
-    sourceNode,
-    targetNode,
-    sourceHandleId,
-    targetHandleId
-  );
-
-  // Skip rendering if handles aren't measured yet (prevents lines to 0,0)
-  if (!edgeParams) {
-    return null;
+  if (targetHandleId && targetNode) {
+    const coords = getHandleCoordsByPosition(targetNode, Position.Left, targetHandleId);
+    if (coords) {
+      [tx, ty] = coords;
+      tp = Position.Left;
+    }
   }
 
-  const { sx, sy, tx, ty, sourcePos, targetPos } = edgeParams;
+  // Skip if coordinates are at origin (handles not measured yet)
+  if (sx === 0 && sy === 0 && tx === 0 && ty === 0) {
+    return null;
+  }
 
   const [edgePath] = getBezierPath({
     sourceX: sx,
     sourceY: sy,
-    sourcePosition: sourcePos,
+    sourcePosition: sp,
     targetX: tx,
     targetY: ty,
-    targetPosition: targetPos,
+    targetPosition: tp,
   });
 
   return (
-    <BaseEdge 
-      id={id} 
-      path={edgePath} 
+    <BaseEdge
+      id={id}
+      path={edgePath}
       style={{
         ...style,
         stroke: selected ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground) / 0.5)",
