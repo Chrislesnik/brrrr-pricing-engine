@@ -466,16 +466,44 @@ function WaitFields({
     <div className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor="waitAmount">Wait Amount</Label>
-        <Input
-          id="waitAmount"
-          type="number"
-          min="0"
-          step="1"
-          disabled={disabled}
-          value={(config?.waitAmount as string) ?? "0"}
-          onChange={(e) => onUpdateConfig("waitAmount", e.target.value)}
-          className="h-8 text-xs"
-        />
+        <div className="flex items-center gap-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled || Number(config?.waitAmount ?? 0) <= 0}
+            className="h-8 w-8 rounded-r-none border-r-0 shrink-0"
+            onClick={() => {
+              const cur = Math.max(0, parseInt(String(config?.waitAmount ?? "0"), 10) || 0);
+              onUpdateConfig("waitAmount", String(Math.max(0, cur - 1)));
+            }}
+          >
+            <span className="text-sm font-medium">−</span>
+          </Button>
+          <Input
+            id="waitAmount"
+            type="number"
+            min="0"
+            step="1"
+            disabled={disabled}
+            value={(config?.waitAmount as string) ?? "0"}
+            onChange={(e) => onUpdateConfig("waitAmount", e.target.value)}
+            className="h-8 text-xs text-center rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled}
+            className="h-8 w-8 rounded-l-none border-l-0 shrink-0"
+            onClick={() => {
+              const cur = parseInt(String(config?.waitAmount ?? "0"), 10) || 0;
+              onUpdateConfig("waitAmount", String(cur + 1));
+            }}
+          >
+            <span className="text-sm font-medium">+</span>
+          </Button>
+        </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="waitUnit">Wait Unit</Label>
