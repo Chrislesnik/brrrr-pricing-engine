@@ -75,11 +75,13 @@ import { AssignMembersDialog } from "./assign-members-dialog"
 const statusStyles: Record<string, string> = {
   active: "bg-success-muted text-success border-success/30",
   inactive: "bg-danger-muted text-danger border-danger/30",
+  archived: "bg-muted text-muted-foreground border-muted-foreground/30",
 }
 
 const statusLabels: Record<string, string> = {
   active: "Active",
   inactive: "Inactive",
+  archived: "Archived",
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [

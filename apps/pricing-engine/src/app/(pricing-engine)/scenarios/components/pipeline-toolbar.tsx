@@ -80,6 +80,7 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
               options={[
                 { label: "Active", value: "active" },
                 { label: "Inactive", value: "inactive" },
+                { label: "Archived", value: "archived" },
               ]}
             />
           )}

@@ -3,7 +3,7 @@ import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib
 
 export interface LoanRow {
   id: string
-  status: "active" | "inactive"
+  status: "active" | "inactive" | "archived"
   assignedTo: string | null
   createdAt: string
   updatedAt: string
@@ -30,9 +30,8 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   // 1) Fetch loans scoped to organization
   const { data: loansRaw, error: loansError } = await supabaseAdmin
     .from("loans")
-    .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
+    .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at,archived_at")
     .eq("organization_id", orgUuid)
-    .is("archived_at", null)
     .order("updated_at", { ascending: false })
 
 
@@ -64,7 +63,6 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .from("loan_scenarios")
     .select("loan_id, inputs, selected, primary, created_at")
     .in("loan_id", loanIds)
-    .is("archived_at", null)
     .order("primary", { ascending: false })
     .order("created_at", { ascending: false })
 
@@ -130,7 +128,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
 
     return {
       id: l.id as string,
-      status: l.status as "active" | "inactive",
+      status: (l as any).archived_at ? "archived" : (l.status as "active" | "inactive"),
       assignedTo: assignedToDisplay,
       createdAt: l.created_at as string,
       updatedAt: l.updated_at as string,
