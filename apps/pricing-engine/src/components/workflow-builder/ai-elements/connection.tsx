@@ -10,19 +10,19 @@ export const Connection: ConnectionLineComponent = ({
 }) => (
   <g>
     <path
-      className="animated"
       d={`M${fromX},${fromY} C ${fromX + (toX - fromX) * HALF},${fromY} ${fromX + (toX - fromX) * HALF},${toY} ${toX},${toY}`}
       fill="none"
-      stroke="var(--color-ring)"
-      strokeWidth={1}
+      stroke="hsl(var(--muted-foreground))"
+      strokeWidth={2}
+      strokeDasharray="6, 4"
     />
     <circle
       cx={toX}
       cy={toY}
-      fill="#fff"
-      r={3}
-      stroke="var(--color-ring)"
-      strokeWidth={1}
+      fill="hsl(var(--background))"
+      r={4}
+      stroke="hsl(var(--muted-foreground))"
+      strokeWidth={2}
     />
   </g>
 );
