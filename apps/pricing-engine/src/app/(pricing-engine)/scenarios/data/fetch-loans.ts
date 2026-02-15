@@ -32,6 +32,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .from("loans")
     .select("id,status,assigned_to_user_id,organization_id,created_at,updated_at")
     .eq("organization_id", orgUuid)
+    .is("archived_at", null)
     .order("updated_at", { ascending: false })
 
 
@@ -63,6 +64,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     .from("loan_scenarios")
     .select("loan_id, inputs, selected, primary, created_at")
     .in("loan_id", loanIds)
+    .is("archived_at", null)
     .order("primary", { ascending: false })
     .order("created_at", { ascending: false })
 
