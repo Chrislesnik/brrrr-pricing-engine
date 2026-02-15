@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { format } from "date-fns"
-import { IconDots, IconArchive, IconRestore } from "@tabler/icons-react"
+import { IconDots, IconArchive, IconRestore, IconTrash } from "@tabler/icons-react"
+import { PermanentDeleteDialog } from "@/components/archive"
 import { useAuth } from "@clerk/nextjs"
 import { ColumnDef } from "@tanstack/react-table"
 import {
@@ -400,7 +401,23 @@ function RowActions({ id, status }: { id: string; status?: string }) {
   const oppositeLabel = isActive ? "Inactive" : "Active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
+  const [permDeleteOpen, setPermDeleteOpen] = React.useState(false)
+  const [permDeleting, setPermDeleting] = React.useState(false)
+  const [canPermanentlyDelete, setCanPermanentlyDelete] = React.useState(false)
   const [floifyEnabled, setFloifyEnabled] = React.useState<boolean | null>(null)
+
+  // Check if user has permanent delete access (internal + admin/owner)
+  React.useEffect(() => {
+    if (!isArchived) return
+    let active = true
+    fetch("/api/org/settings-access", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { canAccess?: boolean }) => {
+        if (active) setCanPermanentlyDelete(!!j.canAccess)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [isArchived])
   const [guarantors, setGuarantors] = React.useState<
     Array<{ id: string | null; name: string; email: string | null }>
   >([])
@@ -525,6 +542,28 @@ function RowActions({ id, status }: { id: string; status?: string }) {
     }
   }
 
+  async function permanentlyDeleteLoan() {
+    setPermDeleting(true)
+    try {
+      const res = await fetch("/api/admin/permanent-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: "loans", id }),
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Failed to permanently delete: ${t || res.status}`)
+        return
+      }
+      setPermDeleteOpen(false)
+      window.location.reload()
+    } catch {
+      alert(`Failed to permanently delete`)
+    } finally {
+      setPermDeleting(false)
+    }
+  }
+
   return (
     <div className="flex justify-end">
       <DropdownMenu>
@@ -580,13 +619,27 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {isArchived ? (
-            <DropdownMenuItem
-              onClick={() => void restoreLoan()}
-              className="gap-2"
-            >
-              <IconRestore className="h-4 w-4 text-success" />
-              Restore
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem
+                onClick={() => void restoreLoan()}
+                className="gap-2"
+              >
+                <IconRestore className="h-4 w-4 text-success" />
+                Restore
+              </DropdownMenuItem>
+              {canPermanentlyDelete && (
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600 gap-2"
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    setPermDeleteOpen(true)
+                  }}
+                >
+                  <IconTrash className="h-4 w-4" />
+                  Permanently Delete
+                </DropdownMenuItem>
+              )}
+            </>
           ) : (
             <>
               <DropdownMenuItem
@@ -694,6 +747,13 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           <ActivityLogContent loanId={id} />
         </DialogContent>
       </Dialog>
+      <PermanentDeleteDialog
+        open={permDeleteOpen}
+        onOpenChange={setPermDeleteOpen}
+        onConfirm={permanentlyDeleteLoan}
+        recordType="loan"
+        loading={permDeleting}
+      />
     </div>
   )
 }

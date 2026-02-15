@@ -3,7 +3,6 @@
 import * as React from "react"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -11,6 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@repo/ui/shadcn/alert-dialog"
+import { Button } from "@repo/ui/shadcn/button"
+import { Input } from "@repo/ui/shadcn/input"
+
+const CONFIRMATION_PHRASE = "permanently delete"
 
 interface PermanentDeleteDialogProps {
   open: boolean
@@ -27,25 +30,55 @@ export function PermanentDeleteDialog({
   recordType = "record",
   loading = false,
 }: PermanentDeleteDialogProps) {
+  const [typed, setTyped] = React.useState("")
+  const confirmed = typed.trim().toLowerCase() === CONFIRMATION_PHRASE
+
+  // Reset typed text when dialog opens/closes
+  React.useEffect(() => {
+    if (!open) setTyped("")
+  }, [open])
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Permanently delete {recordType}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will permanently delete this {recordType} and all associated
-            data. This action cannot be undone.
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-1.5 mb-2 w-fit">
+            <span className="text-sm font-semibold text-destructive">Danger Zone</span>
+          </div>
+          <AlertDialogTitle>Permanently delete this {recordType}?</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-3">
+            <span className="block">
+              This will permanently delete this {recordType} and all associated
+              data. <strong className="text-foreground">This action cannot be undone.</strong>
+            </span>
+            <span className="block text-sm">
+              To confirm, type{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+                {CONFIRMATION_PHRASE}
+              </code>{" "}
+              below:
+            </span>
           </AlertDialogDescription>
         </AlertDialogHeader>
+
+        <Input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={CONFIRMATION_PHRASE}
+          className="font-mono"
+          autoComplete="off"
+          autoFocus
+        />
+
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <Button
+            variant="destructive"
             onClick={onConfirm}
-            disabled={loading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={!confirmed || loading}
           >
             {loading ? "Deleting..." : "Permanently Delete"}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
