@@ -968,15 +968,69 @@ function MergeFields({
         </p>
       </div>
       {mode === "byField" && (
-        <div className="space-y-1.5">
-          <Label>Join Field</Label>
-          <TemplateBadgeInput
-            disabled={disabled}
-            placeholder="e.g. id, email"
-            value={(config?.joinField as string) || ""}
-            onChange={(val) => onUpdateConfig("joinField", val)}
-          />
-        </div>
+        <>
+          <div className="space-y-1.5">
+            <Label>Join Field(s)</Label>
+            <TemplateBadgeInput
+              disabled={disabled}
+              placeholder="e.g. id, email (comma-separated for multiple)"
+              value={(config?.joinField as string) || ""}
+              onChange={(val) => onUpdateConfig("joinField", val)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Output Type</Label>
+            <Select
+              disabled={disabled}
+              value={(config?.joinMode as string) || "keepMatches"}
+              onValueChange={(v) => onUpdateConfig("joinMode", v)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="keepMatches"><span className="text-xs">Keep Matches (Inner Join)</span></SelectItem>
+                <SelectItem value="keepEverything"><span className="text-xs">Keep Everything (Outer Join)</span></SelectItem>
+                <SelectItem value="keepNonMatches"><span className="text-xs">Keep Non-Matches</span></SelectItem>
+                <SelectItem value="enrichInput1"><span className="text-xs">Enrich Input 1 (Left Join)</span></SelectItem>
+                <SelectItem value="enrichInput2"><span className="text-xs">Enrich Input 2 (Right Join)</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>When Fields Clash</Label>
+            <Select
+              disabled={disabled}
+              value={(config?.clashHandling as string) || "preferInput2"}
+              onValueChange={(v) => onUpdateConfig("clashHandling", v)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="preferInput1"><span className="text-xs">Prefer Input 1</span></SelectItem>
+                <SelectItem value="preferInput2"><span className="text-xs">Prefer Input 2</span></SelectItem>
+                <SelectItem value="addSuffix"><span className="text-xs">Add Suffix (_1, _2)</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Multiple Matches</Label>
+            <Select
+              disabled={disabled}
+              value={(config?.multipleMatches as string) || "all"}
+              onValueChange={(v) => onUpdateConfig("multipleMatches", v)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all"><span className="text-xs">Include All Matches</span></SelectItem>
+                <SelectItem value="first"><span className="text-xs">First Match Only</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1394,6 +1448,8 @@ function SwitchFields({
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
 }) {
+  const switchMode = (config?.switchMode as string) || "rules";
+
   let rules: SwitchRule[] = [];
   try {
     rules = JSON.parse((config?.rules as string) || "[]");
@@ -1405,6 +1461,7 @@ function SwitchFields({
   }
 
   useEffect(() => {
+    if (!config?.switchMode) onUpdateConfig("switchMode", "rules");
     if (!config?.rules) onUpdateConfig("rules", JSON.stringify(rules));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1422,79 +1479,154 @@ function SwitchFields({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label>Value to Match</Label>
-        <TemplateBadgeInput
+        <Label>Mode</Label>
+        <Select
           disabled={disabled}
-          placeholder="Use @ to reference a previous node's output"
-          value={(config?.switchValue as string) || ""}
-          onChange={(val) => onUpdateConfig("switchValue", val)}
-        />
+          value={switchMode}
+          onValueChange={(v) => onUpdateConfig("switchMode", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="rules"><span className="text-xs">Rules</span></SelectItem>
+            <SelectItem value="expression"><span className="text-xs">Expression</span></SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="space-y-1.5">
-        <Label>Rules</Label>
-        <div className="space-y-2">
-          {rules.map((rule, idx) => (
-            <div key={idx} className="rounded-md border p-2 space-y-1.5 bg-muted/30">
-              <div className="flex items-center gap-1.5">
-                <Input
-                  disabled={disabled}
-                  placeholder="output_name"
-                  value={rule.output}
-                  onChange={(e) => updateRule(idx, "output", e.target.value)}
-                  className="flex-1 h-7 text-xs font-mono"
-                />
-                <Select
-                  disabled={disabled}
-                  value={rule.operator}
-                  onValueChange={(v) => updateRule(idx, "operator", v)}
-                >
-                  <SelectTrigger className="w-28 h-7 text-[10px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SWITCH_OPERATORS.map((op) => (
-                      <SelectItem key={op.value} value={op.value}>
-                        <span className="text-xs">{op.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {rules.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                    disabled={disabled}
-                    onClick={() => update(rules.filter((_, i) => i !== idx))}
-                  >
-                    <span className="text-sm">×</span>
-                  </Button>
-                )}
-              </div>
-              <TemplateBadgeInput
+      {switchMode === "expression" ? (
+        <>
+          <div className="space-y-1.5">
+            <Label>Output Expression</Label>
+            <TemplateBadgeInput
+              disabled={disabled}
+              placeholder="Use @ to return output name or index (e.g. 0, 1, 2)"
+              value={(config?.outputExpression as string) || ""}
+              onChange={(val) => onUpdateConfig("outputExpression", val)}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Expression should resolve to an output index (0, 1, 2...) or output name. Use @ to reference previous nodes.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Number of Outputs</Label>
+            <div className="flex items-center gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={disabled || Number(config?.numberOutputs ?? 4) <= 2}
+                className="h-8 w-8 rounded-r-none border-r-0 shrink-0"
+                onClick={() => {
+                  const cur = parseInt(String(config?.numberOutputs ?? "4"), 10) || 4;
+                  onUpdateConfig("numberOutputs", String(Math.max(2, cur - 1)));
+                }}
+              >
+                <span className="text-sm font-medium">−</span>
+              </Button>
+              <Input
+                type="number"
+                min="2"
                 disabled={disabled}
-                placeholder="Match value"
-                value={rule.value}
-                onChange={(val) => updateRule(idx, "value", val)}
+                value={(config?.numberOutputs as string) ?? "4"}
+                onChange={(e) => onUpdateConfig("numberOutputs", e.target.value)}
+                className="h-8 text-xs text-center rounded-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={disabled}
+                className="h-8 w-8 rounded-l-none border-l-0 shrink-0"
+                onClick={() => {
+                  const cur = parseInt(String(config?.numberOutputs ?? "4"), 10) || 4;
+                  onUpdateConfig("numberOutputs", String(cur + 1));
+                }}
+              >
+                <span className="text-sm font-medium">+</span>
+              </Button>
             </div>
-          ))}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => update([...rules, { output: `case_${rules.length + 1}`, operator: "equals", value: "" }])}
-          className="w-full gap-1.5 text-xs"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Rule
-        </Button>
-        <p className="text-[10px] text-muted-foreground">
-          Rules are evaluated in order. First match wins. Unmatched routes to &quot;default&quot;.
-        </p>
-      </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <Label>Value to Match</Label>
+            <TemplateBadgeInput
+              disabled={disabled}
+              placeholder="Use @ to reference a previous node's output"
+              value={(config?.switchValue as string) || ""}
+              onChange={(val) => onUpdateConfig("switchValue", val)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Rules</Label>
+            <div className="space-y-2">
+              {rules.map((rule, idx) => (
+                <div key={idx} className="rounded-md border p-2 space-y-1.5 bg-muted/30">
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      disabled={disabled}
+                      placeholder="output_name"
+                      value={rule.output}
+                      onChange={(e) => updateRule(idx, "output", e.target.value)}
+                      className="flex-1 h-7 text-xs font-mono"
+                    />
+                    <Select
+                      disabled={disabled}
+                      value={rule.operator}
+                      onValueChange={(v) => updateRule(idx, "operator", v)}
+                    >
+                      <SelectTrigger className="w-28 h-7 text-[10px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SWITCH_OPERATORS.map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            <span className="text-xs">{op.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {rules.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={disabled}
+                        onClick={() => update(rules.filter((_, i) => i !== idx))}
+                      >
+                        <span className="text-sm">×</span>
+                      </Button>
+                    )}
+                  </div>
+                  <TemplateBadgeInput
+                    disabled={disabled}
+                    placeholder="Match value"
+                    value={rule.value}
+                    onChange={(val) => updateRule(idx, "value", val)}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              onClick={() => update([...rules, { output: `case_${rules.length + 1}`, operator: "equals", value: "" }])}
+              className="w-full gap-1.5 text-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Rule
+            </Button>
+            <p className="text-[10px] text-muted-foreground">
+              Rules are evaluated in order. First match wins. Unmatched routes to &quot;default&quot;.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

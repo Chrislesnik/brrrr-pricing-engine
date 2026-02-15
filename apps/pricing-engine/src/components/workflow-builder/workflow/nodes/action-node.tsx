@@ -390,9 +390,14 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const isLoop = actionType === "Loop Over Batches";
   const isFilter = actionType === "Filter";
 
-  // Build dynamic source handles for Switch node from config rules
+  // Build dynamic source handles for Switch node from config rules or expression mode
   const switchHandles = (() => {
     if (!isSwitch) return undefined;
+    const switchMode = data.config?.switchMode as string;
+    if (switchMode === "expression") {
+      const numOutputs = parseInt(String(data.config?.numberOutputs ?? "4"), 10) || 4;
+      return [...Array.from({ length: numOutputs }, (_, i) => String(i)), "default"];
+    }
     try {
       const rules = JSON.parse((data.config?.rules as string) || "[]") as Array<{ output: string }>;
       const outputs = rules.map((r) => r.output).filter(Boolean);

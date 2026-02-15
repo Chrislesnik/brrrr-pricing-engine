@@ -13,8 +13,10 @@ export type SwitchRule = {
 };
 
 export type SwitchInput = StepInput & {
+  switchMode?: "rules" | "expression";
   switchValue: string;
   rules: string; // JSON-encoded SwitchRule[]
+  outputExpression?: string; // template-resolved output name/index for expression mode
 };
 
 function evaluateRule(inputValue: string, rule: SwitchRule): boolean {
@@ -50,6 +52,21 @@ function evaluateRule(inputValue: string, rule: SwitchRule): boolean {
 }
 
 function executeSwitch(input: SwitchInput): { matchedOutput: string; value: string } {
+  const mode = input.switchMode || "rules";
+
+  // Expression mode: the outputExpression is already template-resolved by the executor
+  if (mode === "expression") {
+    const expr = (input.outputExpression ?? "").trim();
+    // If it's a number, use it as the output index
+    const asNum = parseInt(expr, 10);
+    if (Number.isFinite(asNum) && asNum >= 0) {
+      return { matchedOutput: String(asNum), value: expr };
+    }
+    // Otherwise use it as the output name directly
+    return { matchedOutput: expr || "default", value: expr };
+  }
+
+  // Rules mode: evaluate value against ordered rules
   const value = input.switchValue ?? "";
   let rules: SwitchRule[] = [];
   try {
