@@ -457,7 +457,7 @@ function WaitFields({
 }) {
   // Initialize defaults on first render if not set
   useEffect(() => {
-    if (!config?.waitAmount) onUpdateConfig("waitAmount", "5");
+    if (config?.waitAmount === undefined || config?.waitAmount === null) onUpdateConfig("waitAmount", "0");
     if (!config?.waitUnit) onUpdateConfig("waitUnit", "seconds");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -472,7 +472,7 @@ function WaitFields({
           min="0"
           step="1"
           disabled={disabled}
-          value={(config?.waitAmount as string) || "5"}
+          value={(config?.waitAmount as string) ?? "0"}
           onChange={(e) => onUpdateConfig("waitAmount", e.target.value)}
           className="h-8 text-xs"
         />

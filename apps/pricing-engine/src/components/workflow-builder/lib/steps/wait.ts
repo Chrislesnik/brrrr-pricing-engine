@@ -25,7 +25,7 @@ function toMs(amount: string, unit: string): number {
 }
 
 async function executeWait(input: WaitInput): Promise<{ waited: boolean; duration: number }> {
-  const ms = toMs(input.waitAmount || "5", input.waitUnit || "seconds");
+  const ms = toMs(input.waitAmount || "0", input.waitUnit || "seconds");
 
   if (ms > 0) {
     await new Promise((resolve) => setTimeout(resolve, ms));
