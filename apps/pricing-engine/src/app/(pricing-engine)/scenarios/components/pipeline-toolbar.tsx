@@ -79,7 +79,7 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
               title="Status"
               options={[
                 { label: "Active", value: "active" },
-                { label: "Inactive", value: "dead" },
+                { label: "Inactive", value: "inactive" },
               ]}
             />
           )}

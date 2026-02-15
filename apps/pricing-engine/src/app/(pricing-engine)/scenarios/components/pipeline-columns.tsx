@@ -74,13 +74,12 @@ import { AssignMembersDialog } from "./assign-members-dialog"
 
 const statusStyles: Record<string, string> = {
   active: "bg-success-muted text-success border-success/30",
-  dead: "bg-danger-muted text-danger border-danger/30",
   inactive: "bg-danger-muted text-danger border-danger/30",
 }
 
 const statusLabels: Record<string, string> = {
   active: "Active",
-  dead: "Inactive",
+  inactive: "Inactive",
 }
 
 export const pipelineColumns: ColumnDef<LoanRow>[] = [
@@ -389,9 +388,8 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
 function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
-  // DB stores "active" / "dead"; UI displays "Active" / "Inactive"
   const isActive = (localStatus ?? "").toLowerCase() === "active"
-  const oppositeDb = isActive ? "dead" : "active"
+  const oppositeValue = isActive ? "inactive" : "active"
   const oppositeLabel = isActive ? "Inactive" : "Active"
   const [assignOpen, setAssignOpen] = React.useState(false)
   const [appOpen, setAppOpen] = React.useState(false)
@@ -557,10 +555,10 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() => setStatus(oppositeDb)}
+            onClick={() => setStatus(oppositeValue)}
             className="gap-2"
           >
-            {oppositeDb === "active" ? (
+            {oppositeValue === "active" ? (
               <CircleCheck className="h-4 w-4 text-success" />
             ) : (
               <CircleX className="h-4 w-4 text-danger" />

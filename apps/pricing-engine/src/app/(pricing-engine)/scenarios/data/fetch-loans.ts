@@ -3,7 +3,7 @@ import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib
 
 export interface LoanRow {
   id: string
-  status: "active" | "dead"
+  status: "active" | "inactive"
   assignedTo: string | null
   createdAt: string
   updatedAt: string
@@ -128,7 +128,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
 
     return {
       id: l.id as string,
-      status: l.status as "active" | "dead",
+      status: l.status as "active" | "inactive",
       assignedTo: assignedToDisplay,
       createdAt: l.created_at as string,
       updatedAt: l.updated_at as string,

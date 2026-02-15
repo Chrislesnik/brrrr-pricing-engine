@@ -15,7 +15,7 @@ export async function PATCH(
     if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const body = (await req.json().catch(() => null)) as {
-      status?: "active" | "dead"
+      status?: "active" | "inactive"
       action?: "restore"
     } | null
 
