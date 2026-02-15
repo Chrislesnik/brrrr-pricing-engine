@@ -45,7 +45,7 @@ const getHandleCoordsByPosition = (
   node: InternalNode<Node>,
   handlePosition: Position,
   handleId?: string | null
-) => {
+): readonly [number, number] | null => {
   // Choose the handle type based on position - Left is for target, Right is for source
   const handleType = handlePosition === Position.Left ? "target" : "source";
 
@@ -56,7 +56,7 @@ const getHandleCoordsByPosition = (
     : handles.find((h) => h.position === handlePosition);
 
   if (!handle) {
-    return [0, 0] as const;
+    return null;
   }
 
   let offsetX = handle.width / 2;
@@ -92,15 +92,20 @@ const getEdgeParams = (
   targetHandleId?: string | null
 ) => {
   const sourcePos = Position.Right;
-  const [sx, sy] = getHandleCoordsByPosition(source, sourcePos, sourceHandleId);
+  const sourceCoords = getHandleCoordsByPosition(source, sourcePos, sourceHandleId);
   const targetPos = Position.Left;
-  const [tx, ty] = getHandleCoordsByPosition(target, targetPos, targetHandleId);
+  const targetCoords = getHandleCoordsByPosition(target, targetPos, targetHandleId);
+
+  // If either handle is missing (not measured yet), signal to skip rendering
+  if (!sourceCoords || !targetCoords) {
+    return null;
+  }
 
   return {
-    sx,
-    sy,
-    tx,
-    ty,
+    sx: sourceCoords[0],
+    sy: sourceCoords[1],
+    tx: targetCoords[0],
+    ty: targetCoords[1],
     sourcePos,
     targetPos,
   };
@@ -114,12 +119,19 @@ const Animated = ({ id, source, target, sourceHandleId, targetHandleId, style, s
     return null;
   }
 
-  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(
+  const edgeParams = getEdgeParams(
     sourceNode,
     targetNode,
     sourceHandleId,
     targetHandleId
   );
+
+  // Skip rendering if handles aren't measured yet (prevents lines to 0,0)
+  if (!edgeParams) {
+    return null;
+  }
+
+  const { sx, sy, tx, ty, sourcePos, targetPos } = edgeParams;
 
   const [edgePath] = getBezierPath({
     sourceX: sx,
