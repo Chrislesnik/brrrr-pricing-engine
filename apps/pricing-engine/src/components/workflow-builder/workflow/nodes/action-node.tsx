@@ -9,6 +9,9 @@ import {
   Database,
   EyeOff,
   GitBranch,
+  Calendar,
+  Filter,
+  GitFork,
   ListChecks,
   Timer,
   XCircle,
@@ -80,6 +83,9 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   Code: "Code",
   "Set Fields": "Data",
   Wait: "Timer",
+  Switch: "Router",
+  Filter: "Filter",
+  DateTime: "Date",
 };
 
 // Helper to get integration name from action type
@@ -139,6 +145,12 @@ const getProviderLogo = (actionType: string) => {
       return <ListChecks className="size-12 text-violet-300" strokeWidth={1.5} />;
     case "Wait":
       return <Timer className="size-12 text-orange-300" strokeWidth={1.5} />;
+    case "Switch":
+      return <GitFork className="size-12 text-blue-300" strokeWidth={1.5} />;
+    case "Filter":
+      return <Filter className="size-12 text-cyan-300" strokeWidth={1.5} />;
+    case "DateTime":
+      return <Calendar className="size-12 text-teal-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;
@@ -345,6 +357,19 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const isDisabled = data.enabled === false;
 
   const isCondition = actionType === "Condition";
+  const isSwitch = actionType === "Switch";
+
+  // Build dynamic source handles for Switch node from config rules
+  const switchHandles = (() => {
+    if (!isSwitch) return undefined;
+    try {
+      const rules = JSON.parse((data.config?.rules as string) || "[]") as Array<{ output: string }>;
+      const outputs = rules.map((r) => r.output).filter(Boolean);
+      return [...outputs, "default"];
+    } catch {
+      return ["default"];
+    }
+  })();
 
   return (
     <Node
@@ -354,7 +379,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
         isDisabled && "opacity-50"
       )}
       data-testid={`action-node-${id}`}
-      handles={{ target: true, source: isCondition ? ["true", "false"] : true }}
+      handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : true }}
       status={status}
     >
       {/* Disabled badge in top left */}

@@ -363,8 +363,17 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         const isConditionNode =
           node.data.type === "action" &&
           node.data.config?.actionType === "Condition";
+        const isSwitchNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Switch";
 
-        if (isConditionNode) {
+        if (isSwitchNode) {
+          const matchedOutput = (result.data as { matchedOutput?: string })?.matchedOutput || "default";
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const matchedEdges = allEdges.filter((e) => e.sourceHandle === matchedOutput);
+          const targetEdges = matchedEdges.length > 0 ? matchedEdges : allEdges.filter((e) => e.sourceHandle === "default");
+          await Promise.all(targetEdges.map((e) => executeNode(e.target, visited)));
+        } else if (isConditionNode) {
           const conditionResult = (result.data as { condition?: boolean })?.condition;
           const allEdges = edgesBySource.get(nodeId) || [];
 

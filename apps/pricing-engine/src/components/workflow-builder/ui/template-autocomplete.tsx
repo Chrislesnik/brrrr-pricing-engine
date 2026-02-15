@@ -219,6 +219,31 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Switch: expose matched output
+  if (actionType === "Switch") {
+    return [
+      { field: "matchedOutput", description: "Name of the matched output branch" },
+      { field: "value", description: "The value that was evaluated" },
+    ];
+  }
+
+  // Filter: expose filtered items
+  if (actionType === "Filter") {
+    return [
+      { field: "items", description: "Array of items that passed the filter" },
+      { field: "keptCount", description: "Number of items kept" },
+      { field: "removedCount", description: "Number of items removed" },
+    ];
+  }
+
+  // DateTime: expose result
+  if (actionType === "DateTime") {
+    return [
+      { field: "result", description: "The date operation result (string, number, or boolean)" },
+      { field: "original", description: "The original date value (ISO string)" },
+    ];
+  }
+
   // Code: expose items array output
   if (actionType === "Code") {
     return [

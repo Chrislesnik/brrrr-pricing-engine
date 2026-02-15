@@ -445,6 +445,30 @@ function SystemActionFields({
           onUpdateConfig={onUpdateConfig}
         />
       );
+    case "Switch":
+      return (
+        <SwitchFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Filter":
+      return (
+        <ConditionFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "DateTime":
+      return (
+        <DateTimeFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
     default:
       return null;
   }
@@ -837,6 +861,333 @@ function CodeTestPanel({
   );
 }
 
+// ── Switch config component ──
+
+const SWITCH_OPERATORS = [
+  { value: "equals", label: "Equals" },
+  { value: "not_equals", label: "Not Equals" },
+  { value: "contains", label: "Contains" },
+  { value: "not_contains", label: "Not Contains" },
+  { value: "gt", label: "Greater Than" },
+  { value: "gte", label: "Greater or Equal" },
+  { value: "lt", label: "Less Than" },
+  { value: "lte", label: "Less or Equal" },
+  { value: "regex", label: "Regex Match" },
+] as const;
+
+type SwitchRule = {
+  output: string;
+  operator: string;
+  value: string;
+};
+
+function SwitchFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  let rules: SwitchRule[] = [];
+  try {
+    rules = JSON.parse((config?.rules as string) || "[]");
+  } catch {
+    rules = [];
+  }
+  if (rules.length === 0) {
+    rules = [{ output: "case_1", operator: "equals", value: "" }];
+  }
+
+  useEffect(() => {
+    if (!config?.rules) onUpdateConfig("rules", JSON.stringify(rules));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const update = (newRules: SwitchRule[]) => {
+    onUpdateConfig("rules", JSON.stringify(newRules));
+  };
+
+  const updateRule = (idx: number, key: keyof SwitchRule, val: string) => {
+    const updated = [...rules];
+    updated[idx] = { ...updated[idx], [key]: val };
+    update(updated);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Value to Match</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          placeholder="Use @ to reference a previous node's output"
+          value={(config?.switchValue as string) || ""}
+          onChange={(val) => onUpdateConfig("switchValue", val)}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Rules</Label>
+        <div className="space-y-2">
+          {rules.map((rule, idx) => (
+            <div key={idx} className="rounded-md border p-2 space-y-1.5 bg-muted/30">
+              <div className="flex items-center gap-1.5">
+                <Input
+                  disabled={disabled}
+                  placeholder="output_name"
+                  value={rule.output}
+                  onChange={(e) => updateRule(idx, "output", e.target.value)}
+                  className="flex-1 h-7 text-xs font-mono"
+                />
+                <Select
+                  disabled={disabled}
+                  value={rule.operator}
+                  onValueChange={(v) => updateRule(idx, "operator", v)}
+                >
+                  <SelectTrigger className="w-28 h-7 text-[10px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SWITCH_OPERATORS.map((op) => (
+                      <SelectItem key={op.value} value={op.value}>
+                        <span className="text-xs">{op.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {rules.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={disabled}
+                    onClick={() => update(rules.filter((_, i) => i !== idx))}
+                  >
+                    <span className="text-sm">×</span>
+                  </Button>
+                )}
+              </div>
+              <TemplateBadgeInput
+                disabled={disabled}
+                placeholder="Match value"
+                value={rule.value}
+                onChange={(val) => updateRule(idx, "value", val)}
+              />
+            </div>
+          ))}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => update([...rules, { output: `case_${rules.length + 1}`, operator: "equals", value: "" }])}
+          className="w-full gap-1.5 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add Rule
+        </Button>
+        <p className="text-[10px] text-muted-foreground">
+          Rules are evaluated in order. First match wins. Unmatched routes to &quot;default&quot;.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── DateTime config component ──
+
+const DT_OPERATIONS = [
+  { value: "getCurrent", label: "Get Current Date" },
+  { value: "format", label: "Format Date" },
+  { value: "addSubtract", label: "Add/Subtract Time" },
+  { value: "compare", label: "Compare Dates" },
+  { value: "parse", label: "Parse Date" },
+] as const;
+
+const DT_FORMATS = [
+  { value: "ISO", label: "ISO 8601" },
+  { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY" },
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
+  { value: "YYYY-MM-DD HH:mm:ss", label: "YYYY-MM-DD HH:mm:ss" },
+  { value: "unix", label: "Unix Timestamp (seconds)" },
+  { value: "ms", label: "Unix Timestamp (ms)" },
+] as const;
+
+const DT_UNITS = [
+  { value: "seconds", label: "Seconds" },
+  { value: "minutes", label: "Minutes" },
+  { value: "hours", label: "Hours" },
+  { value: "days", label: "Days" },
+  { value: "weeks", label: "Weeks" },
+  { value: "months", label: "Months" },
+  { value: "years", label: "Years" },
+] as const;
+
+function DateTimeFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  const operation = (config?.operation as string) || "getCurrent";
+
+  useEffect(() => {
+    if (!config?.operation) onUpdateConfig("operation", "getCurrent");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Operation</Label>
+        <Select
+          disabled={disabled}
+          value={operation}
+          onValueChange={(v) => onUpdateConfig("operation", v)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DT_OPERATIONS.map((op) => (
+              <SelectItem key={op.value} value={op.value}>
+                <span className="text-xs">{op.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Date Value (not needed for getCurrent) */}
+      {operation !== "getCurrent" && (
+        <div className="space-y-1.5">
+          <Label>Date Value</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            placeholder="Use @ or enter a date string"
+            value={(config?.dateValue as string) || ""}
+            onChange={(val) => onUpdateConfig("dateValue", val)}
+          />
+        </div>
+      )}
+
+      {/* Output Format (for format, getCurrent, parse, addSubtract) */}
+      {(operation === "format" || operation === "getCurrent" || operation === "parse" || operation === "addSubtract") && (
+        <div className="space-y-1.5">
+          <Label>Output Format</Label>
+          <Select
+            disabled={disabled}
+            value={(config?.outputFormat as string) || "ISO"}
+            onValueChange={(v) => onUpdateConfig("outputFormat", v)}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DT_FORMATS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>
+                  <span className="text-xs">{f.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Add/Subtract fields */}
+      {operation === "addSubtract" && (
+        <>
+          <div className="flex items-end gap-2">
+            <div className="flex-1 space-y-1.5">
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                disabled={disabled}
+                value={(config?.amount as string) || "0"}
+                onChange={(e) => onUpdateConfig("amount", e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label>Unit</Label>
+              <Select
+                disabled={disabled}
+                value={(config?.unit as string) || "days"}
+                onValueChange={(v) => onUpdateConfig("unit", v)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DT_UNITS.map((u) => (
+                    <SelectItem key={u.value} value={u.value}>
+                      <span className="text-xs">{u.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Direction</Label>
+            <Select
+              disabled={disabled}
+              value={(config?.direction as string) || "add"}
+              onValueChange={(v) => onUpdateConfig("direction", v)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="add"><span className="text-xs">Add</span></SelectItem>
+                <SelectItem value="subtract"><span className="text-xs">Subtract</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      {/* Compare fields */}
+      {operation === "compare" && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Second Date</Label>
+            <TemplateBadgeInput
+              disabled={disabled}
+              placeholder="Use @ or enter a date string"
+              value={(config?.secondDate as string) || ""}
+              onChange={(val) => onUpdateConfig("secondDate", val)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Comparison</Label>
+            <Select
+              disabled={disabled}
+              value={(config?.comparison as string) || "difference"}
+              onValueChange={(v) => onUpdateConfig("comparison", v)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="before"><span className="text-xs">Is Before</span></SelectItem>
+                <SelectItem value="after"><span className="text-xs">Is After</span></SelectItem>
+                <SelectItem value="same"><span className="text-xs">Is Same</span></SelectItem>
+                <SelectItem value="difference"><span className="text-xs">Difference (ms)</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Wait config component ──
 
 const WAIT_UNITS = [
@@ -1137,6 +1488,9 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "Set Fields", label: "Set Fields" },
   { id: "Wait", label: "Wait" },
   { id: "Code", label: "Code" },
+  { id: "Switch", label: "Switch" },
+  { id: "Filter", label: "Filter" },
+  { id: "DateTime", label: "DateTime" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);

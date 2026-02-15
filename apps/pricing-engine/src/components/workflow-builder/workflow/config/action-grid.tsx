@@ -77,6 +77,24 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Write custom JavaScript code",
     category: "System",
   },
+  {
+    id: "Switch",
+    label: "Switch",
+    description: "Route to different branches by value",
+    category: "System",
+  },
+  {
+    id: "Filter",
+    label: "Filter",
+    description: "Remove items that don't match conditions",
+    category: "System",
+  },
+  {
+    id: "DateTime",
+    label: "DateTime",
+    description: "Parse, format, and manipulate dates",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions
