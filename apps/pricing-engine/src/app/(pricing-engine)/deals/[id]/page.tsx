@@ -13,6 +13,7 @@ import { DealDocumentsTab } from "../components/deal-documents-tab";
 import { DealSignatureRequestsTab } from "../components/deal-signature-requests-tab";
 import { DealCalendarTab } from "../components/deal-calendar-tab";
 import { DealTasksTab } from "../components/deal-tasks-tab";
+import { DealAssignedToRoster } from "../components/deal-assigned-to-tab";
 import { CommentsPanel } from "@/components/liveblocks/comments-panel";
 
 interface DealData {
@@ -304,7 +305,7 @@ function DealRecordContent() {
               <ArrowLeft className="h-4 w-4" />
               <span className="sr-only">Back to Deals</span>
             </Button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className="text-lg font-semibold leading-tight truncate">
                 {evaluatedHeading || `Deal ${deal.id.slice(0, 8)}`}
               </h1>
@@ -312,6 +313,7 @@ function DealRecordContent() {
                 {evaluatedSubheading || deal.id}
               </p>
             </div>
+            <DealAssignedToRoster dealId={dealId} />
           </div>
 
           {/* Deal Stepper */}

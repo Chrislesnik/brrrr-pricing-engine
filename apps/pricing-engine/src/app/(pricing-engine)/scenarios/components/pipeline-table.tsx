@@ -61,7 +61,7 @@ import { CopyButton } from "@repo/ui/custom/copy-button"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
 import { IconDots, IconArchive } from "@tabler/icons-react"
 import { CircleCheck, CircleX } from "lucide-react"
-import { AssignMembersDialog } from "./assign-members-dialog"
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 import Link from "next/link"
 
 declare module "@tanstack/react-table" {
@@ -506,11 +506,16 @@ function MobileRowActions({ id, status }: { id: string; status?: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AssignMembersDialog
-        loanId={id}
+      <RoleAssignmentDialog
+        resourceType="loan"
+        resourceId={id}
         open={assignOpen}
         onOpenChange={setAssignOpen}
-        onSaved={() => {}}
+        onSaved={() => {
+          window.dispatchEvent(
+            new CustomEvent("loan-assignees-updated", { detail: { id } })
+          )
+        }}
       />
     </div>
   )
