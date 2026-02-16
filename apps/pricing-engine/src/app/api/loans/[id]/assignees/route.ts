@@ -80,6 +80,29 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       .eq("id", id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // Sync deal_users table (for deal chat @mention filtering)
+    try {
+      // Remove users no longer assigned
+      if (removed.length > 0) {
+        await supabaseAdmin
+          .from("deal_users")
+          .delete()
+          .eq("deal_id", id)
+          .in("user_id", removed)
+      }
+      // Upsert current users
+      if (userIds.length > 0) {
+        await supabaseAdmin
+          .from("deal_users")
+          .upsert(
+            userIds.map((uid) => ({ deal_id: id, user_id: uid })),
+            { onConflict: "deal_id,user_id" }
+          )
+      }
+    } catch {
+      // deal_users sync should not block the main flow (id may not be a deal)
+    }
+
     // Log activity for user assignment changes
     try {
       if (added.length > 0) {

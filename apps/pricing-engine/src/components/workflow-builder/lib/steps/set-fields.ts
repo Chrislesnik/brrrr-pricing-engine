@@ -1,10 +1,12 @@
 /**
  * Set Fields step — defines named output fields with typed values.
- * Supports both fixed values and expression-resolved template strings.
+ * Processes each input item individually: applies field assignments to every item.
  */
 import "server-only";
 
 import { type StepInput, withStepLogging } from "./step-handler";
+import { getInputItems, type DataAwareInput } from "./items-helper";
+import type { WorkflowItem } from "../types/items";
 
 export type SetFieldRow = {
   name: string;
@@ -13,9 +15,11 @@ export type SetFieldRow = {
   value: string;
 };
 
-export type SetFieldsInput = StepInput & {
+export type SetFieldsInput = StepInput & DataAwareInput & {
   /** JSON-encoded array of SetFieldRow */
   fields: string;
+  /** Whether to include all fields from upstream input (default: "true") */
+  includeInputFields?: string;
 };
 
 /**
@@ -63,7 +67,7 @@ function coerceValue(raw: string, type: SetFieldRow["type"]): unknown {
   }
 }
 
-function executeSetFields(input: SetFieldsInput): Record<string, unknown> {
+function executeSetFields(input: SetFieldsInput): { items: WorkflowItem[] } {
   let rows: SetFieldRow[] = [];
   try {
     rows = JSON.parse(input.fields || "[]");
@@ -71,22 +75,33 @@ function executeSetFields(input: SetFieldsInput): Record<string, unknown> {
     rows = [];
   }
 
-  const output: Record<string, unknown> = {};
+  const includeInput = input.includeInputFields !== "false";
+  const inputItems = getInputItems(input);
 
+  // Build the field overrides once (same for every item)
+  const overrides: Record<string, unknown> = {};
   for (const row of rows) {
     if (!row.name || !row.name.trim()) continue;
-    // Value has already been template-resolved by the executor for expression mode.
-    // We just coerce to the declared type.
-    output[row.name.trim()] = coerceValue(row.value ?? "", row.type);
+    overrides[row.name.trim()] = coerceValue(row.value ?? "", row.type);
   }
 
-  return output;
+  // Apply to each input item
+  const outputItems: WorkflowItem[] = inputItems.map((item) => {
+    const base: Record<string, unknown> = includeInput
+      ? { ...item.json }
+      : {};
+    // Overlay explicitly set fields
+    Object.assign(base, overrides);
+    return { json: base };
+  });
+
+  return { items: outputItems };
 }
 
 // biome-ignore lint/suspicious/useAwait: workflow "use step" requires async
 export async function setFieldsStep(
   input: SetFieldsInput
-): Promise<Record<string, unknown>> {
+): Promise<{ items: WorkflowItem[] }> {
   "use step";
   return withStepLogging(input, () =>
     Promise.resolve(executeSetFields(input))

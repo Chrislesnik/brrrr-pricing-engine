@@ -9,7 +9,7 @@ import Link from "next/link"
 import { nofitySubmittedValues } from "@/lib/notify-submitted-values"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Command,
   CommandEmpty,
@@ -192,6 +192,7 @@ export function AccountForm() {
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
+                    captionLayout="dropdown"
                     selected={field.value}
                     onSelect={field.onChange}
                     disabled={(date: Date) =>

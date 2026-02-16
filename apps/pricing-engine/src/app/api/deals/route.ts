@@ -165,7 +165,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // Step 3: Initialize deal_stepper if a stepper config exists
+    // Step 3: Populate deal_users for chat @mention filtering
+    try {
+      await supabaseAdmin
+        .from("deal_users")
+        .insert({ deal_id: dealId, user_id: userId })
+    } catch {
+      // deal_users sync is non-critical
+    }
+
+    // Step 4: Initialize deal_stepper if a stepper config exists
     try {
       const { data: stepperConfig } = await supabaseAdmin
         .from("input_stepper")

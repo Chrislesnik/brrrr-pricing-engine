@@ -128,9 +128,18 @@ export async function POST(req: NextRequest) {
       .single()
     if (loanErr) {
       // Proceed but log
-
       console.error("Failed to create loan for borrower:", loanErr.message)
     } else {
+      // Populate deal_users for chat @mention filtering
+      if (userId) {
+        try {
+          await supabaseAdmin
+            .from("deal_users")
+            .insert({ deal_id: loanRow.id as string, user_id: userId })
+        } catch {
+          // deal_users sync is non-critical
+        }
+      }
       // Seed a minimal primary scenario so the pipeline has data to show immediately.
       // Include address + borrower_name plus defaults for loan_type/transaction_type,
       // and an empty guarantors array so the pipeline columns are populated.

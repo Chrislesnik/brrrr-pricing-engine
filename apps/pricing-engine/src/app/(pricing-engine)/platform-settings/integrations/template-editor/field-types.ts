@@ -1,4 +1,4 @@
-// Field types for Term Sheet Editor
+// Field types for Template Editor
 export type FieldType = "String" | "Number" | "Boolean" | "Array" | "Object" | "Binary Data"
 
 export interface Field {

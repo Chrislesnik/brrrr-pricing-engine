@@ -9,8 +9,19 @@ import {
   Database,
   EyeOff,
   GitBranch,
+  ArrowUpDown,
+  BarChart3,
+  Calendar,
+  ChevronsDownUp,
+  CopyX,
+  Filter,
+  GitFork,
+  Globe,
   ListChecks,
+  Merge,
+  Repeat,
   Timer,
+  Ungroup,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -77,9 +88,19 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   "HTTP Request": "System",
   "Database Query": "Database",
   Condition: "Condition",
-  "Execute Code": "System",
+  Code: "Code",
   "Set Fields": "Data",
   Wait: "Timer",
+  Switch: "Router",
+  Filter: "Filter",
+  DateTime: "Date",
+  "Split Out": "Transform",
+  Limit: "Transform",
+  Aggregate: "Analytics",
+  Merge: "Combine",
+  Sort: "Transform",
+  "Remove Duplicates": "Transform",
+  "Loop Over Batches": "Loop",
 };
 
 // Helper to get integration name from action type
@@ -128,10 +149,10 @@ const getProviderLogo = (actionType: string) => {
   // Check for system actions first (non-plugin)
   switch (actionType) {
     case "HTTP Request":
-      return <Zap className="size-12 text-amber-300" strokeWidth={1.5} />;
+      return <Globe className="size-12 text-amber-300" strokeWidth={1.5} />;
     case "Database Query":
       return <Database className="size-12 text-blue-300" strokeWidth={1.5} />;
-    case "Execute Code":
+    case "Code":
       return <Code className="size-12 text-green-300" strokeWidth={1.5} />;
     case "Condition":
       return <GitBranch className="size-12 text-pink-300" strokeWidth={1.5} />;
@@ -139,6 +160,26 @@ const getProviderLogo = (actionType: string) => {
       return <ListChecks className="size-12 text-violet-300" strokeWidth={1.5} />;
     case "Wait":
       return <Timer className="size-12 text-orange-300" strokeWidth={1.5} />;
+    case "Switch":
+      return <GitFork className="size-12 text-blue-300" strokeWidth={1.5} />;
+    case "Filter":
+      return <Filter className="size-12 text-cyan-300" strokeWidth={1.5} />;
+    case "DateTime":
+      return <Calendar className="size-12 text-teal-300" strokeWidth={1.5} />;
+    case "Split Out":
+      return <Ungroup className="size-12 text-indigo-300" strokeWidth={1.5} />;
+    case "Limit":
+      return <ChevronsDownUp className="size-12 text-rose-300" strokeWidth={1.5} />;
+    case "Aggregate":
+      return <BarChart3 className="size-12 text-purple-300" strokeWidth={1.5} />;
+    case "Merge":
+      return <Merge className="size-12 text-emerald-300" strokeWidth={1.5} />;
+    case "Sort":
+      return <ArrowUpDown className="size-12 text-sky-300" strokeWidth={1.5} />;
+    case "Remove Duplicates":
+      return <CopyX className="size-12 text-amber-300" strokeWidth={1.5} />;
+    case "Loop Over Batches":
+      return <Repeat className="size-12 text-lime-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;
@@ -345,6 +386,26 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const isDisabled = data.enabled === false;
 
   const isCondition = actionType === "Condition";
+  const isSwitch = actionType === "Switch";
+  const isLoop = actionType === "Loop Over Batches";
+  const isFilter = actionType === "Filter";
+
+  // Build dynamic source handles for Switch node from config rules or expression mode
+  const switchHandles = (() => {
+    if (!isSwitch) return undefined;
+    const switchMode = data.config?.switchMode as string;
+    if (switchMode === "expression") {
+      const numOutputs = parseInt(String(data.config?.numberOutputs ?? "4"), 10) || 4;
+      return [...Array.from({ length: numOutputs }, (_, i) => String(i)), "default"];
+    }
+    try {
+      const rules = JSON.parse((data.config?.rules as string) || "[]") as Array<{ output: string }>;
+      const outputs = rules.map((r) => r.output).filter(Boolean);
+      return [...outputs, "default"];
+    } catch {
+      return ["default"];
+    }
+  })();
 
   return (
     <Node
@@ -354,7 +415,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
         isDisabled && "opacity-50"
       )}
       data-testid={`action-node-${id}`}
-      handles={{ target: true, source: isCondition ? ["true", "false"] : true }}
+      handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : isLoop ? ["batch", "done"] : isFilter ? ["kept", "rejected"] : true }}
       status={status}
     >
       {/* Disabled badge in top left */}

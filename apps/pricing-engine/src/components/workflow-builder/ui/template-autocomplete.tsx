@@ -219,6 +219,105 @@ const getCommonFields = (node: WorkflowNode) => {
     return fields;
   }
 
+  // Merge: expose merged items
+  if (actionType === "Merge") {
+    return [
+      { field: "items", description: "Array of merged items" },
+      { field: "count", description: "Number of merged items" },
+    ];
+  }
+
+  // Sort: expose sorted items
+  if (actionType === "Sort") {
+    return [
+      { field: "items", description: "Array of sorted items" },
+      { field: "count", description: "Number of items" },
+    ];
+  }
+
+  // Remove Duplicates: expose deduped items
+  if (actionType === "Remove Duplicates") {
+    return [
+      { field: "items", description: "Array of unique items" },
+      { field: "count", description: "Number of unique items" },
+      { field: "removedCount", description: "Number of duplicates removed" },
+    ];
+  }
+
+  // Loop Over Batches: expose batch info
+  if (actionType === "Loop Over Batches") {
+    return [
+      { field: "items", description: "Current batch of items" },
+      { field: "batchIndex", description: "Current batch index (0-based)" },
+      { field: "totalBatches", description: "Total number of batches" },
+      { field: "done", description: "Whether all batches are processed" },
+    ];
+  }
+
+  // Split Out: expose split items
+  if (actionType === "Split Out") {
+    return [
+      { field: "items", description: "Array of individual items from the split" },
+      { field: "count", description: "Number of items produced" },
+    ];
+  }
+
+  // Limit: expose limited items
+  if (actionType === "Limit") {
+    return [
+      { field: "items", description: "Limited array of items" },
+      { field: "count", description: "Number of items returned" },
+      { field: "originalCount", description: "Original item count before limit" },
+    ];
+  }
+
+  // Aggregate: expose result
+  if (actionType === "Aggregate") {
+    return [
+      { field: "result", description: "Aggregation result (number)" },
+      { field: "operation", description: "Operation performed" },
+      { field: "field", description: "Field aggregated on" },
+      { field: "count", description: "Number of values processed" },
+      { field: "groups", description: "Grouped items (for Group By)" },
+      { field: "groupCount", description: "Number of groups (for Group By)" },
+    ];
+  }
+
+  // Switch: expose matched output
+  if (actionType === "Switch") {
+    return [
+      { field: "matchedOutput", description: "Name of the matched output branch" },
+      { field: "value", description: "The value that was evaluated" },
+    ];
+  }
+
+  // Filter: expose filtered and rejected items
+  if (actionType === "Filter") {
+    return [
+      { field: "items", description: "Array of items that passed the filter (kept)" },
+      { field: "rejectedItems", description: "Array of items that did not match (rejected)" },
+      { field: "keptCount", description: "Number of items kept" },
+      { field: "removedCount", description: "Number of items removed" },
+    ];
+  }
+
+  // DateTime: expose result
+  if (actionType === "DateTime") {
+    return [
+      { field: "result", description: "The date operation result (string, number, or boolean)" },
+      { field: "original", description: "The original date value (ISO string)" },
+    ];
+  }
+
+  // Code: expose items array output
+  if (actionType === "Code") {
+    return [
+      { field: "items", description: "Array of output items [{json: {...}}]" },
+      { field: "items[0].json", description: "First item's data object" },
+      { field: "logs", description: "Captured console.log output" },
+    ];
+  }
+
   // Wait: expose waited status and duration
   if (actionType === "Wait") {
     return [

@@ -10,6 +10,7 @@ import {
 import { triggerStep } from "@/components/workflow-builder/lib/steps/trigger";
 import type { StepContext } from "@/components/workflow-builder/lib/steps/step-handler";
 import { findActionById } from "@/components/workflow-builder/plugins";
+import { type WorkflowItem, normalizeToItems } from "@/components/workflow-builder/lib/types/items";
 
 // Types matching the workflow store
 type WorkflowNode = {
@@ -39,7 +40,7 @@ type ExecutionResult = {
   error?: string;
 };
 
-type NodeOutputs = Record<string, { label: string; data: unknown }>;
+type NodeOutputs = Record<string, { label: string; items: WorkflowItem[]; data: unknown }>;
 
 export type WorkflowExecutionInput = {
   nodes: WorkflowNode[];
@@ -53,6 +54,37 @@ export type WorkflowExecutionInput = {
  * Process template variables in config values
  * Replaces {{@nodeId:Label.field}} with actual values from previous node outputs
  */
+/**
+ * Traverse a nested object/array by a dot-separated field path.
+ * Supports array index notation like "rows[0].name".
+ */
+function traversePath(root: unknown, fields: string[]): unknown {
+  let current: unknown = root;
+  for (const field of fields) {
+    if (current === null || current === undefined) return undefined;
+
+    const arrayMatch = field.match(/^(.+)\[(\d+)\]$/);
+    if (arrayMatch) {
+      const [, arrayField, indexStr] = arrayMatch;
+      if (typeof current === "object") {
+        current = (current as Record<string, unknown>)[arrayField];
+      } else {
+        return undefined;
+      }
+      if (Array.isArray(current)) {
+        current = current[parseInt(indexStr, 10)];
+      } else {
+        return undefined;
+      }
+    } else if (typeof current === "object") {
+      current = (current as Record<string, unknown>)[field];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
 function processTemplates(
   config: Record<string, unknown>,
   outputs: NodeOutputs
@@ -73,17 +105,33 @@ function processTemplates(
 
           const dotIndex = rest.indexOf(".");
           if (dotIndex === -1) {
+            // No field path -- return the full output
             const data = output.data;
             if (data === null || data === undefined) return "";
             if (typeof data === "object") return JSON.stringify(data);
             return String(data);
           }
 
-          if (output.data === null || output.data === undefined) return "";
-
           const fieldPath = rest.substring(dotIndex + 1);
           const fields = fieldPath.split(".");
+
+          // Strategy: try multiple resolution paths for maximum compatibility
+          // 1. Try resolving from first item's json (items-based access)
+          // 2. Try resolving from raw data (legacy access for .success, .data, .rows, etc.)
+
+          // Path 1: Items-based resolution (first item's json)
+          const firstItem = output.items[0];
+          if (firstItem) {
+            const fromItems = traversePath(firstItem.json, fields);
+            if (fromItems !== undefined) {
+              if (typeof fromItems === "object" && fromItems !== null) return JSON.stringify(fromItems);
+              return String(fromItems);
+            }
+          }
+
+          // Path 2: Legacy resolution from raw data
           let current: unknown = output.data;
+          if (current === null || current === undefined) return "";
 
           // For standardized { success, data } outputs, look inside data
           if (
@@ -98,33 +146,10 @@ function processTemplates(
             current = (current as Record<string, unknown>).data;
           }
 
-          for (const field of fields) {
-            if (current === null || current === undefined) return "";
-
-            // Handle array index notation, e.g. "rows[0]"
-            const arrayMatch = field.match(/^(.+)\[(\d+)\]$/);
-            if (arrayMatch) {
-              const [, arrayField, indexStr] = arrayMatch;
-              if (typeof current === "object") {
-                current = (current as Record<string, unknown>)[arrayField];
-              } else {
-                return "";
-              }
-              if (Array.isArray(current)) {
-                current = current[parseInt(indexStr, 10)];
-              } else {
-                return "";
-              }
-            } else if (typeof current === "object") {
-              current = (current as Record<string, unknown>)[field];
-            } else {
-              return "";
-            }
-          }
-
-          if (current === null || current === undefined) return "";
-          if (typeof current === "object") return JSON.stringify(current);
-          return String(current);
+          const resolved = traversePath(current, fields);
+          if (resolved === null || resolved === undefined) return "";
+          if (typeof resolved === "object") return JSON.stringify(resolved);
+          return String(resolved);
         }
       );
 
@@ -235,7 +260,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
     // Skip disabled nodes
     if (node.data.enabled === false) {
       const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
-      outputs[sanitizedNodeId] = { label: node.data.label || nodeId, data: null };
+      outputs[sanitizedNodeId] = { label: node.data.label || nodeId, items: [{ json: {} }], data: null };
       const nextEdges = edgesBySource.get(nodeId) || [];
       await Promise.all(nextEdges.map((e) => executeNode(e.target, visited)));
       return;
@@ -304,6 +329,33 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         // Add step context
         processedConfig._context = stepContext;
 
+        // Inject all upstream node outputs for data-aware nodes that need access to
+        // upstream items ($input/$node for Code, or items for Filter/Split Out/Limit/Aggregate).
+        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches", "Set Fields"];
+        if (DATA_AWARE_NODES.includes(actionType)) {
+          const nodeOutputMap: Record<string, unknown> = {};
+          const nodeItemsMap: Record<string, WorkflowItem[]> = {};
+          for (const [_k, v] of Object.entries(outputs)) {
+            // Always add by the stored label
+            nodeOutputMap[v.label] = v.data;
+            nodeItemsMap[v.label] = v.items;
+            // Also add by the human-readable action label (resolves slugs like "supabase/get-row" -> "Get Row")
+            const resolved = resolveActionType(v.label);
+            if (resolved !== v.label) {
+              nodeOutputMap[resolved] = v.data;
+              nodeItemsMap[resolved] = v.items;
+            }
+            // Also try findActionById for plugin actions
+            const pluginAction = findActionById(v.label);
+            if (pluginAction?.label && pluginAction.label !== v.label) {
+              nodeOutputMap[pluginAction.label] = v.data;
+              nodeItemsMap[pluginAction.label] = v.items;
+            }
+          }
+          processedConfig._nodeOutputs = nodeOutputMap;
+          processedConfig._nodeItems = nodeItemsMap;
+        }
+
         // Execute the step
         const stepResult = await callPluginStep(actionType, processedConfig);
 
@@ -334,15 +386,115 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
       // Store results
       results[nodeId] = result;
       const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
-      outputs[sanitizedNodeId] = { label: node.data.label || nodeId, data: result.data };
+      const normalizedItems = normalizeToItems(result.data);
+      outputs[sanitizedNodeId] = { label: node.data.label || nodeId, items: normalizedItems, data: result.data };
 
       // Execute downstream nodes
       if (result.success) {
         const isConditionNode =
           node.data.type === "action" &&
           node.data.config?.actionType === "Condition";
+        const isSwitchNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Switch";
 
-        if (isConditionNode) {
+        const isLoopNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Loop Over Batches";
+
+        const isFilterNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Filter";
+
+        if (isFilterNode) {
+          const filterResult = result.data as { rejectedItems?: unknown[] } | undefined;
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const keptEdges = allEdges.filter((e) => e.sourceHandle === "kept");
+          const rejectedEdges = allEdges.filter((e) => e.sourceHandle === "rejected");
+          // If no handles configured (legacy), send everything downstream
+          if (keptEdges.length === 0 && rejectedEdges.length === 0) {
+            await Promise.all(allEdges.map((e) => executeNode(e.target, visited)));
+          } else {
+            // Always execute kept path
+            if (keptEdges.length > 0) {
+              await Promise.all(keptEdges.map((e) => executeNode(e.target, visited)));
+            }
+            // Execute rejected path only if there are rejected items
+            if (rejectedEdges.length > 0 && filterResult?.rejectedItems && (filterResult.rejectedItems as unknown[]).length > 0) {
+              await Promise.all(rejectedEdges.map((e) => executeNode(e.target, visited)));
+            }
+          }
+        } else if (isLoopNode) {
+          // Loop Over Batches: iterate all batches, executing the batch-path
+          // nodes with a fresh visited set per iteration so they can re-run.
+          type LoopItem = { json: Record<string, unknown> };
+          const loopData = result.data as {
+            items?: LoopItem[];
+            batchSize?: number;
+            totalBatches?: number;
+          } | undefined;
+          const loopItems = loopData?.items ?? [];
+          const batchSize = loopData?.batchSize ?? 1;
+          const totalBatches = loopData?.totalBatches ?? 1;
+          const nodeLabel = node.data.label || nodeId;
+
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const batchEdges = allEdges.filter((e) => e.sourceHandle === "batch");
+          const doneEdges = allEdges.filter((e) => e.sourceHandle === "done");
+
+          // Execute each batch sequentially with fresh visited sets
+          for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+            const start = batchIdx * batchSize;
+            const batch = loopItems.slice(start, start + batchSize);
+
+            // Update this node's output to the current batch
+            const batchData = {
+              items: batch,
+              batchIndex: batchIdx,
+              totalBatches,
+              batchSize,
+              done: false,
+            };
+            outputs[sanitizedNodeId] = {
+              label: nodeLabel,
+              items: batch as WorkflowItem[],
+              data: batchData,
+            };
+
+            // Execute batch-path nodes with a fresh visited set
+            // (only the Loop node itself is marked visited to prevent re-entry)
+            if (batchEdges.length > 0) {
+              const batchVisited = new Set<string>([nodeId]);
+              for (const edge of batchEdges) {
+                await executeNode(edge.target, batchVisited);
+              }
+            }
+          }
+
+          // After all batches, update output to done state and fire done path
+          const doneData = {
+            items: loopItems,
+            batchIndex: totalBatches,
+            totalBatches,
+            batchSize,
+            done: true,
+          };
+          outputs[sanitizedNodeId] = {
+            label: nodeLabel,
+            items: loopItems as WorkflowItem[],
+            data: doneData,
+          };
+
+          if (doneEdges.length > 0) {
+            await Promise.all(doneEdges.map((e) => executeNode(e.target, visited)));
+          }
+        } else if (isSwitchNode) {
+          const matchedOutput = (result.data as { matchedOutput?: string })?.matchedOutput || "default";
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const matchedEdges = allEdges.filter((e) => e.sourceHandle === matchedOutput);
+          const targetEdges = matchedEdges.length > 0 ? matchedEdges : allEdges.filter((e) => e.sourceHandle === "default");
+          await Promise.all(targetEdges.map((e) => executeNode(e.target, visited)));
+        } else if (isConditionNode) {
           const conditionResult = (result.data as { condition?: boolean })?.condition;
           const allEdges = edgesBySource.get(nodeId) || [];
 

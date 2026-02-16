@@ -10,6 +10,14 @@ import { NewEntityModal } from "./new-entity-modal"
 import { EntityAssignMembersDialog } from "./entity-assign-dialog"
 import { ArchiveConfirmDialog } from "@/components/archive"
 
+/** Parse a YYYY-MM-DD string into a local-timezone Date (avoids UTC offset shift). */
+function parseDateLocal(s: string): Date | undefined {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s))
+  if (!m) return undefined
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return Number.isNaN(d.getTime()) ? undefined : d
+}
+
 interface Props {
   entity: EntityProfile
 }
@@ -82,7 +90,7 @@ export function EntityRowActions({ entity }: Props) {
         entity_type: e.entity_type ?? "",
         members: e.members ?? undefined,
         ein: e.ein ?? "",
-        date_formed: e.date_formed ? new Date(e.date_formed) : undefined,
+        date_formed: e.date_formed ? parseDateLocal(e.date_formed) : undefined,
         state_formed: e.state_formed ?? "",
         address_line1: e.address_line1 ?? "",
         address_line2: e.address_line2 ?? "",
@@ -184,7 +192,7 @@ export function EntityRowActions({ entity }: Props) {
         legal_name: entity.entity_name ?? "",
         entity_type: entity.entity_type ?? "",
         ein: entity.ein ?? "",
-        date_formed: entity.date_formed ? new Date(entity.date_formed) : undefined,
+        date_formed: entity.date_formed ? parseDateLocal(entity.date_formed) : undefined,
       })
       setOwnersInitial(undefined)
       setOpenEdit(true)

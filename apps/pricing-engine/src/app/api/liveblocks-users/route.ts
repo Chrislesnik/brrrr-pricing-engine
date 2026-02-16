@@ -52,10 +52,30 @@ export async function GET(request: NextRequest) {
 
     // Search users for mention suggestions
     if (search !== null) {
+      const dealId = searchParams.get("dealId");
+
+      // If dealId provided, restrict to users assigned to that deal
+      let allowedUserIds: string[] | null = null;
+      if (dealId) {
+        const { data: dealUsers } = await supabaseAdmin
+          .from("deal_users")
+          .select("user_id")
+          .eq("deal_id", dealId);
+        allowedUserIds = (dealUsers ?? []).map((r) => r.user_id as string);
+        // If no users assigned to this deal, return empty
+        if (allowedUserIds.length === 0) {
+          return NextResponse.json({ users: [] });
+        }
+      }
+
       let query = supabaseAdmin
         .from("users")
         .select("clerk_user_id, full_name, first_name, last_name, image_url")
         .limit(20);
+
+      if (allowedUserIds) {
+        query = query.in("clerk_user_id", allowedUserIds);
+      }
 
       if (search.trim()) {
         query = query.or(

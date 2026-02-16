@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { cn } from "@repo/lib/cn"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@repo/ui/shadcn/button"
-import { Calendar } from "@repo/ui/shadcn/calendar"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogClose,
@@ -174,6 +174,7 @@ export function AddNewCard() {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
+                        captionLayout="dropdown"
                         selected={field.value}
                         onSelect={field.onChange}
                         disabled={(date) =>

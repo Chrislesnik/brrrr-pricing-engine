@@ -152,6 +152,15 @@ export async function POST(req: NextRequest) {
       .single()
     if (loanErr) return NextResponse.json({ error: loanErr.message }, { status: 500 })
 
+    // Populate deal_users for chat @mention filtering
+    try {
+      await supabaseAdmin
+        .from("deal_users")
+        .insert({ deal_id: loanRow.id as string, user_id: userId })
+    } catch {
+      // deal_users sync is non-critical
+    }
+
     // Use the borrower name we already fetched
     const borrowerName = (borrowerFirstName || borrowerLastName) 
       ? `${borrowerFirstName ?? ""} ${borrowerLastName ?? ""}`.trim() 

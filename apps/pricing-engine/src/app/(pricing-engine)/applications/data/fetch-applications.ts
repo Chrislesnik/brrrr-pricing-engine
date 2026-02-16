@@ -3,6 +3,8 @@ import { getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 
 export type ApplicationRow = {
   id: string
+  displayId: string | null
+  appDisplayId: string | null
   entityId: string | null
   propertyAddress: string | null
   borrowerEntityName: string | null
@@ -53,7 +55,7 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
     const result = await supabaseAdmin
       .from("applications")
       .select(
-        "loan_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
+        "loan_id, display_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
       )
       .eq("organization_id", orgUuid)
       .order("updated_at", { ascending: false })
@@ -84,7 +86,7 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
     const result = await supabaseAdmin
       .from("applications")
       .select(
-        "loan_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
+        "loan_id, display_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
       )
       .eq("organization_id", orgUuid)
       .in("loan_id", assignedLoanIds)
@@ -100,6 +102,19 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
   }
   const rows = (data ?? []) as any[]
   const loanIds = rows.map((r) => r.loan_id as string)
+
+  // Fetch display_id from loans table for each loan
+  let displayIdMap: Record<string, string> = {}
+  if (loanIds.length) {
+    const { data: loansData } = await supabaseAdmin
+      .from("loans")
+      .select("id, display_id")
+      .in("id", loanIds)
+    displayIdMap = Object.fromEntries(
+      (loansData ?? []).map((l) => [l.id as string, (l as any).display_id as string])
+    )
+  }
+
   const guarantorTotals: Record<string, number> = {}
   rows.forEach((r) => {
     const names = Array.isArray(r.guarantor_names) ? (r.guarantor_names as string[]) : []
@@ -247,6 +262,8 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
 
     return {
       id: String(r.loan_id),
+      displayId: displayIdMap[r.loan_id] ?? null,
+      appDisplayId: (r.display_id as string) ?? null,
       entityId: (r.entity_id as string | null) ?? null,
       propertyAddress: address,
       borrowerEntityName,

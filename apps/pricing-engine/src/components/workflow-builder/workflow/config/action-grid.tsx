@@ -1,14 +1,30 @@
 "use client";
 
 import {
+  ArrowUpDown,
+  BarChart3,
+  Calendar,
   ChevronRight,
+  ChevronsDownUp,
+  Code,
+  CopyX,
+  Database,
   Eye,
   EyeOff,
+  Filter,
+  GitBranch,
+  GitFork,
+  Globe,
   Grid3X3,
   List,
+  ListChecks,
+  Merge,
   MoreHorizontal,
+  Repeat,
   Search,
   Settings,
+  Timer,
+  Ungroup,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -71,6 +87,72 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Pause execution for a set duration",
     category: "System",
   },
+  {
+    id: "Code",
+    label: "Code",
+    description: "Write custom JavaScript code",
+    category: "System",
+  },
+  {
+    id: "Switch",
+    label: "Switch",
+    description: "Route to different branches by value",
+    category: "System",
+  },
+  {
+    id: "Filter",
+    label: "Filter",
+    description: "Remove items that don't match conditions",
+    category: "System",
+  },
+  {
+    id: "DateTime",
+    label: "DateTime",
+    description: "Parse, format, and manipulate dates",
+    category: "System",
+  },
+  {
+    id: "Split Out",
+    label: "Split Out",
+    description: "Explode an array field into individual items",
+    category: "System",
+  },
+  {
+    id: "Limit",
+    label: "Limit",
+    description: "Take first or last N items",
+    category: "System",
+  },
+  {
+    id: "Aggregate",
+    label: "Aggregate",
+    description: "Sum, count, average, min, max, group by",
+    category: "System",
+  },
+  {
+    id: "Merge",
+    label: "Merge",
+    description: "Combine data from multiple branches",
+    category: "System",
+  },
+  {
+    id: "Sort",
+    label: "Sort",
+    description: "Sort items by a field",
+    category: "System",
+  },
+  {
+    id: "Remove Duplicates",
+    label: "Remove Duplicates",
+    description: "Deduplicate items by a key field",
+    category: "System",
+  },
+  {
+    id: "Loop Over Batches",
+    label: "Loop Over Batches",
+    description: "Process items in configurable batch sizes",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions
@@ -119,6 +201,25 @@ function GroupIcon({
   return <Zap className="size-4" />;
 }
 
+const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  "HTTP Request": { icon: Globe, color: "text-amber-500" },
+  "Database Query": { icon: Database, color: "text-blue-500" },
+  Condition: { icon: GitBranch, color: "text-pink-500" },
+  "Set Fields": { icon: ListChecks, color: "text-violet-500" },
+  Wait: { icon: Timer, color: "text-orange-500" },
+  Code: { icon: Code, color: "text-green-500" },
+  Switch: { icon: GitFork, color: "text-blue-400" },
+  Filter: { icon: Filter, color: "text-cyan-500" },
+  DateTime: { icon: Calendar, color: "text-teal-500" },
+  "Split Out": { icon: Ungroup, color: "text-indigo-500" },
+  Limit: { icon: ChevronsDownUp, color: "text-rose-500" },
+  Aggregate: { icon: BarChart3, color: "text-purple-500" },
+  Merge: { icon: Merge, color: "text-emerald-500" },
+  Sort: { icon: ArrowUpDown, color: "text-sky-500" },
+  "Remove Duplicates": { icon: CopyX, color: "text-amber-500" },
+  "Loop Over Batches": { icon: Repeat, color: "text-lime-500" },
+};
+
 function ActionIcon({
   action,
   className,
@@ -132,6 +233,11 @@ function ActionIcon({
     );
   }
   if (action.category === "System") {
+    const entry = SYSTEM_ACTION_ICONS[action.id];
+    if (entry) {
+      const Icon = entry.icon;
+      return <Icon className={cn(className, entry.color)} />;
+    }
     return <Settings className={cn(className, "text-muted-foreground")} />;
   }
   return <Zap className={cn(className, "text-muted-foreground")} />;

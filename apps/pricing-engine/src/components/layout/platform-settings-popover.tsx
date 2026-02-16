@@ -282,32 +282,11 @@ export function PlatformSettingsPopover({
                           <FileCode2 className="h-4 w-4 text-muted-foreground" />
                           <span>Documents (HTML)</span>
                         </Link>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            // TODO: Add email template editor route
-                            console.log("Email templates - coming soon");
-                          }}
-                        >
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span>Emails</span>
-                        </button>
+                        {/* TODO: Emails tab - hidden until ready */}
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
-                  <button
-                    type="button"
-                    onClick={() => console.log("Custom code editor coming soon")}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Code className="h-4 w-4 text-muted-foreground" />
-                      <span>Custom Code</span>
-                    </div>
-                  </button>
+                  {/* TODO: Custom Code tab - hidden until ready */}
                 </div>
               </CollapsibleContent>
             </Collapsible>

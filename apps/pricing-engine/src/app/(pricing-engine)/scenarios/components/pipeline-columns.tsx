@@ -131,12 +131,12 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     enableHiding: true,
   },
   {
-    accessorKey: "id",
+    accessorKey: "displayId",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="ID" />
     ),
     cell: ({ row }) => (
-      <LongText className="max-w-28">{row.getValue("id")}</LongText>
+      <span className="text-sm font-medium">{row.getValue("displayId")}</span>
     ),
     meta: { className: "w-28" },
     enableSorting: false,
@@ -147,7 +147,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       <DataTableColumnHeader column={column} title="Property Address" />
     ),
     cell: ({ row }) => {
-      const id = row.getValue("id") as string | undefined
+      const id = (row.original as Record<string, unknown>).id as string | undefined
       const addr =
         (row.getValue("propertyAddress") as string | undefined) ?? "-"
       if (!id || addr === "-") {
@@ -312,7 +312,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
     ),
     cell: ({ row }) => (
       <StatusCell
-        id={row.getValue("id") as string}
+        id={(row.original as Record<string, unknown>).id as string}
         initialStatus={row.getValue("status") as string}
       />
     ),
@@ -383,7 +383,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
       const status = (
         row.getValue("status") as string | undefined
       )?.toLowerCase()
-      const id = row.getValue("id") as string
+      const id = (row.original as Record<string, unknown>).id as string
       return <RowActions id={id} status={status} />
     },
     meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },

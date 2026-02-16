@@ -163,9 +163,10 @@ export function PipelineTable({ columns, data }: Props) {
   const statusFilter = columnFilters.find((f) => f.id === "status")
   const statusValues = Array.isArray(statusFilter?.value) ? (statusFilter.value as string[]) : []
   const showArchived = statusValues.includes("archived")
-  const visibleData = showArchived
-    ? tableData
-    : tableData.filter((row) => row.status !== "archived")
+  const visibleData = React.useMemo(
+    () => showArchived ? tableData : tableData.filter((row) => row.status !== "archived"),
+    [tableData, showArchived]
+  )
 
   const table = useReactTable({
     data: visibleData,

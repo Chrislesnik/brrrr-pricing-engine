@@ -19,6 +19,28 @@ export const stepRegistry: Record<string, StepFunction> = {
     (await import("./set-fields")).setFieldsStep(input as never),
   Wait: async (input) =>
     (await import("./wait")).waitStep(input as never),
+  Code: async (input) =>
+    (await import("./code")).codeStep(input as never),
+  Switch: async (input) =>
+    (await import("./switch")).switchStep(input as never),
+  Filter: async (input) =>
+    (await import("./filter")).filterStep(input as never),
+  DateTime: async (input) =>
+    (await import("./date-time")).dateTimeStep(input as never),
+  "Split Out": async (input) =>
+    (await import("./split-out")).splitOutStep(input as never),
+  Limit: async (input) =>
+    (await import("./limit")).limitStep(input as never),
+  Aggregate: async (input) =>
+    (await import("./aggregate")).aggregateStep(input as never),
+  Merge: async (input) =>
+    (await import("./merge")).mergeStep(input as never),
+  Sort: async (input) =>
+    (await import("./sort")).sortStep(input as never),
+  "Remove Duplicates": async (input) =>
+    (await import("./remove-duplicates")).removeDuplicatesStep(input as never),
+  "Loop Over Batches": async (input) =>
+    (await import("./loop-batches")).loopBatchesStep(input as never),
 
   // ── AI Gateway ──
   "Generate Text": async (input) =>

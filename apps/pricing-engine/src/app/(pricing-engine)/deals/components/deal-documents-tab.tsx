@@ -51,12 +51,21 @@ import {
   CheckCircle,
   Pencil,
   Archive,
+  Settings,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { toast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useDocumentLogicEngine } from "@/hooks/use-document-logic-engine";
+import { ColumnExpressionInput } from "@/components/column-expression-input";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -148,6 +157,15 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const [showNotUploadedOnly, setShowNotUploadedOnly] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"category" | "files">("category");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  /* ----- Deal Settings sheet state ----- */
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [headingExpr, setHeadingExpr] = useState("");
+  const [subheadingExpr, setSubheadingExpr] = useState("");
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [inputColumns, setInputColumns] = useState<{ name: string; type: string }[]>([]);
+  const [inputColumnsLoading, setInputColumnsLoading] = useState(false);
 
   /* ----- Document logic engine ----- */
   const { hiddenDocTypes, requiredDocTypes, loading: logicLoading } =
@@ -194,6 +212,70 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  /* ----- Deal Settings: fetch app settings + inputs on mount ----- */
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await fetch("/api/app-settings");
+        if (res.ok) {
+          const { settings } = await res.json();
+          setHeadingExpr(settings?.deal_heading_expression ?? "");
+          setSubheadingExpr(settings?.deal_subheading_expression ?? "");
+        }
+      } catch {
+        /* silently ignore */
+      }
+    }
+    async function loadInputColumns() {
+      setInputColumnsLoading(true);
+      try {
+        const res = await fetch("/api/inputs");
+        if (res.ok) {
+          const inputs: { input_code: string; input_label: string; input_type: string }[] = await res.json();
+          setInputColumns(
+            inputs.map((inp) => ({
+              name: inp.input_code,
+              type: inp.input_type ?? "text",
+            }))
+          );
+        }
+      } catch {
+        /* silently ignore */
+      } finally {
+        setInputColumnsLoading(false);
+      }
+    }
+    loadSettings();
+    loadInputColumns();
+  }, []);
+
+  const handleSaveSettings = useCallback(async () => {
+    setSettingsSaving(true);
+    try {
+      await Promise.all([
+        fetch("/api/app-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "deal_heading_expression", value: headingExpr }),
+        }),
+        fetch("/api/app-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "deal_subheading_expression", value: subheadingExpr }),
+        }),
+      ]);
+      toast({ title: "Saved", description: "Deal display settings updated" });
+      setSettingsOpen(false);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("app:settings:changed"));
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
+    } finally {
+      setSettingsSaving(false);
+    }
+  }, [headingExpr, subheadingExpr]);
 
   /* ----- Override helpers ----- */
   const overrideMap = useMemo(() => {
@@ -515,6 +597,26 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-56 rounded-md border bg-background px-8 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+              </button>
+            )}
+          </div>
+
           {viewMode === "category" && (
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -567,8 +669,77 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
               <span className="text-xs">Files</span>
             </Button>
           </div>
+
+          {/* Deal Settings */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 gap-1.5"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            <span className="text-xs">Deal Settings</span>
+          </Button>
         </div>
       </div>
+
+      {/* Deal Settings Sheet */}
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Deal Display Settings</SheetTitle>
+            <SheetDescription>
+              Configure how the deal heading and subheading are displayed.
+              These settings apply globally to all deals.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-6 py-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Heading Expression</Label>
+              <p className="text-xs text-muted-foreground">
+                Type @ to insert input fields. Example: @borrower_name - @property_address
+              </p>
+              <ColumnExpressionInput
+                value={headingExpr}
+                onChange={setHeadingExpr}
+                columns={inputColumns}
+                loading={inputColumnsLoading}
+                placeholder="Type @ to insert inputs..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Subheading Expression</Label>
+              <p className="text-xs text-muted-foreground">
+                Type @ to insert input fields. Example: @loan_amount | @property_type
+              </p>
+              <ColumnExpressionInput
+                value={subheadingExpr}
+                onChange={setSubheadingExpr}
+                columns={inputColumns}
+                loading={inputColumnsLoading}
+                placeholder="Type @ to insert inputs..."
+              />
+            </div>
+
+            <Button
+              onClick={handleSaveSettings}
+              disabled={settingsSaving}
+              className="w-full"
+            >
+              {settingsSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                "Save Settings"
+              )}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* View content */}
       {viewMode === "files" ? (
@@ -610,8 +781,18 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
                   if (!isDocTypeVisible(dt.id)) return false;
                   if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
                   if (showNotUploadedOnly && (docsByType.get(dt.id)?.length ?? 0) > 0) return false;
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const nameMatch = dt.document_name.toLowerCase().includes(q);
+                    const fileMatch = (docsByType.get(dt.id) ?? []).some(
+                      (f) => f.file_name.toLowerCase().includes(q)
+                    );
+                    if (!nameMatch && !fileMatch) return false;
+                  }
                   return true;
                 });
+
+                if (visibleTypes.length === 0 && searchQuery) return null;
 
                 return (
                   <AccordionItem
@@ -771,7 +952,7 @@ function InlineEditFileName({
         onChange={(e) => setValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className="text-xs font-medium w-full min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
+        className="text-xs font-medium flex-1 min-w-0 bg-transparent border-b border-primary outline-none px-0 py-0"
       />
     );
   }
@@ -779,7 +960,7 @@ function InlineEditFileName({
   return (
     <button
       type="button"
-      className="text-xs truncate w-full font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
+      className="text-xs truncate flex-1 font-medium text-left hover:underline cursor-text group/name inline-flex items-center gap-1 min-w-0"
       onClick={() => setEditing(true)}
       title="Click to rename"
     >
@@ -1089,7 +1270,7 @@ function DocumentTypeRow({
 
       {/* Upload Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl p-8 overflow-hidden">
           <DialogHeader>
             <DialogTitle>Upload — {docType.document_name}</DialogTitle>
             <DialogDescription>
@@ -1135,17 +1316,17 @@ function DocumentTypeRow({
 
           {/* Files already uploaded + uploading placeholders for this doc type */}
           {(files.length > 0 || uploadingFileNames.length > 0) && (
-            <div className="space-y-2 mt-2">
+            <div className="space-y-2 mt-4 min-w-0">
               <p className="text-xs font-medium text-muted-foreground">
                 {files.length} file{files.length !== 1 ? "s" : ""} uploaded
                 {uploadingFileNames.length > 0 &&
                   `, ${uploadingFileNames.length} uploading`}
               </p>
-              <div className="space-y-1.5 max-h-48 overflow-auto">
+              <div className="space-y-1.5 max-h-48 overflow-auto min-w-0">
                 {files.map((doc) => (
                   <div
                     key={doc.id}
-                    className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file"
+                    className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 group/file min-w-0 overflow-hidden"
                   >
                     {doc.has_file ? (
                       <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />

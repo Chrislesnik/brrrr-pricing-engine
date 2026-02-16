@@ -171,7 +171,7 @@ export function WorkflowCanvas() {
 
     // Use fitView after a brief delay to ensure React Flow and nodes are ready
     setTimeout(() => {
-      fitView({ maxZoom: 1, minZoom: 0.5, padding: 0.2, duration: 0 });
+      fitView({ maxZoom: 1, minZoom: 0.1, padding: 0.2, duration: 0 });
       fittedViewForWorkflowRef.current = currentWorkflowId;
       viewportInitialized.current = true;
       // Show canvas immediately so width animation can be seen
@@ -196,7 +196,7 @@ export function WorkflowCanvas() {
       hadRealNodesRef.current = true;
       // Fit view to center the new node
       setTimeout(() => {
-        fitView({ maxZoom: 1, minZoom: 0.5, padding: 0.2, duration: 0 });
+        fitView({ maxZoom: 1, minZoom: 0.1, padding: 0.2, duration: 0 });
         viewportInitialized.current = true;
         setIsCanvasReady(true);
       }, 0);
