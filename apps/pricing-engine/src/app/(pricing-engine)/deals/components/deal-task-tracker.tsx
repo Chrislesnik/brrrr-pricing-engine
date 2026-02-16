@@ -89,6 +89,12 @@ type RuleOperator = "is" | "is_not" | "contains" | "not_contains";
 type LogicOperator = "and" | "or";
 type SortColumn = "priority" | "status" | "title" | "assignee" | "created" | "dueDate";
 
+export interface TaskAssignee {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
 export interface Task {
   id: string;
   identifier?: string;
@@ -97,6 +103,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   assignee?: string;
+  assignees?: TaskAssignee[];
   labels: string[];
   dueDate?: string;
   dealId: string;
@@ -1266,13 +1273,11 @@ function StepChecklistGroup({
                         {statusConfig.label}
                       </span>
                     )}
+                    {task.assignees && task.assignees.length > 0 && (
+                      <AssigneeAvatars assignees={task.assignees} max={3} size="sm" />
+                    )}
                   </button>
                   <div className="flex items-center gap-2.5 flex-shrink-0 ml-auto">
-                    {task.assignee && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary" title={task.assignee}>
-                        {task.assignee.split(" ").map((n) => n[0]).join("")}
-                      </div>
-                    )}
                     {task.buttonEnabled && task.buttonLabel && onTriggerAction && (
                       <ActionButton
                         label={task.buttonLabel}
@@ -1284,6 +1289,64 @@ function StepChecklistGroup({
               );
             })
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/*  AssigneeAvatars – stacked user avatar circles                              */
+/* ========================================================================== */
+
+function AssigneeAvatars({
+  assignees,
+  max = 3,
+  size = "sm",
+}: {
+  assignees: TaskAssignee[];
+  max?: number;
+  size?: "sm" | "xs";
+}) {
+  const visible = assignees.slice(0, max);
+  const overflow = assignees.length - max;
+
+  const sizeClasses = size === "xs" ? "h-5 w-5 text-[8px]" : "h-6 w-6 text-[10px]";
+  const marginClass = size === "xs" ? "-ml-1.5" : "-ml-2";
+
+  const getInitials = (a: TaskAssignee) => {
+    const parts = [a.first_name, a.last_name].filter(Boolean);
+    if (parts.length === 0) return "?";
+    return parts.map((p) => p![0]).join("").toUpperCase();
+  };
+
+  const getFullName = (a: TaskAssignee) =>
+    [a.first_name, a.last_name].filter(Boolean).join(" ") || a.user_id;
+
+  return (
+    <div className="flex items-center" title={assignees.map(getFullName).join(", ")}>
+      {visible.map((a, idx) => (
+        <div
+          key={a.user_id}
+          className={cn(
+            "flex items-center justify-center rounded-full bg-primary/10 font-semibold text-primary border-2 border-background",
+            sizeClasses,
+            idx > 0 && marginClass
+          )}
+          title={getFullName(a)}
+        >
+          {getInitials(a)}
+        </div>
+      ))}
+      {overflow > 0 && (
+        <div
+          className={cn(
+            "flex items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground border-2 border-background",
+            sizeClasses,
+            marginClass
+          )}
+        >
+          +{overflow}
         </div>
       )}
     </div>

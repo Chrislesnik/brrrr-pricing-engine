@@ -7,6 +7,12 @@ import { cn } from "@repo/lib/cn";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+interface PipelineTaskAssignee {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
 interface PipelineTask {
   id: string;
   uuid: string;
@@ -18,6 +24,7 @@ interface PipelineTask {
   buttonEnabled: boolean;
   buttonLabel: string | null;
   buttonActionId: number | null;
+  assignees: PipelineTaskAssignee[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -59,6 +66,7 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
             buttonEnabled: tmpl.button_enabled === true,
             buttonLabel: tmpl.button_label ?? null,
             buttonActionId: tmpl.button_action_id ?? null,
+            assignees: (t.assignees ?? []) as PipelineTaskAssignee[],
           };
         });
         setTasks(apiTasks);
@@ -271,6 +279,9 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
                   {task.status === "done" ? "Done" : task.status === "skipped" ? "Skipped" : task.status}
                 </span>
               )}
+              {task.assignees.length > 0 && (
+                <PipelineAssigneeAvatars assignees={task.assignees} max={3} />
+              )}
               <div className="flex items-center gap-2 ml-auto shrink-0">
                 {task.buttonEnabled && task.buttonLabel && task.buttonActionId && (
                   <PipelineActionButton
@@ -281,6 +292,48 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipelineAssigneeAvatars({
+  assignees,
+  max = 3,
+}: {
+  assignees: PipelineTaskAssignee[];
+  max?: number;
+}) {
+  const visible = assignees.slice(0, max);
+  const overflow = assignees.length - max;
+
+  const getInitials = (a: PipelineTaskAssignee) => {
+    const parts = [a.first_name, a.last_name].filter(Boolean);
+    if (parts.length === 0) return "?";
+    return parts.map((p) => p![0]).join("").toUpperCase();
+  };
+
+  const getFullName = (a: PipelineTaskAssignee) =>
+    [a.first_name, a.last_name].filter(Boolean).join(" ") || a.user_id;
+
+  return (
+    <div className="flex items-center" title={assignees.map(getFullName).join(", ")}>
+      {visible.map((a, idx) => (
+        <div
+          key={a.user_id}
+          className={cn(
+            "flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-semibold text-primary border-2 border-background",
+            idx > 0 && "-ml-1.5"
+          )}
+          title={getFullName(a)}
+        >
+          {getInitials(a)}
+        </div>
+      ))}
+      {overflow > 0 && (
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-muted-foreground border-2 border-background -ml-1.5">
+          +{overflow}
         </div>
       )}
     </div>

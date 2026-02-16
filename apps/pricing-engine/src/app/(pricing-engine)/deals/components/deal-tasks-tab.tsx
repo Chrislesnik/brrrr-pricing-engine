@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { DealTaskTracker } from "./deal-task-tracker";
-import type { Task, TaskStatus, TaskPriority } from "./deal-task-tracker";
+import type { Task, TaskAssignee, TaskStatus, TaskPriority } from "./deal-task-tracker";
 
 interface DealTasksTabProps {
   dealId: string;
@@ -62,6 +62,7 @@ interface TaskFromApi {
   task_priorities: TaskPriorityRow | null;
   deal_stages: DealStageRow | null;
   task_templates: TaskTemplateRow | null;
+  assignees?: TaskAssignee[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -122,6 +123,7 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
       task.assigned_to_user_ids && task.assigned_to_user_ids.length > 0
         ? task.assigned_to_user_ids[0]
         : undefined,
+    assignees: task.assignees ?? [],
     dueDate: task.due_date_at ?? undefined,
     labels: [],
     dealId,
