@@ -6,7 +6,7 @@ import {
   edgesAtom,
   selectedNodeAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
-import { HelpCircle, Plus, Settings } from "lucide-react";
+import { HelpCircle, Maximize2, Plus, Settings } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
 import { AiGatewayConsentOverlay } from "@/components/workflow-builder/overlays/ai-gateway-consent-overlay";
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select";
 import { TemplateBadgeInput } from "@/components/workflow-builder/ui/template-badge-input";
+import { ExpressionEditorModal } from "@/components/workflow-builder/ui/expression-editor-modal";
 import {
   Tooltip,
   TooltipContent,
@@ -203,10 +204,12 @@ function DatabaseQueryFields({
   config,
   onUpdateConfig,
   disabled,
+  currentNodeId,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
+  currentNodeId?: string;
 }) {
   return (
     <>
@@ -214,6 +217,7 @@ function DatabaseQueryFields({
         <Label htmlFor="dbQuery">SQL Query</Label>
         <div className="overflow-hidden rounded-md border">
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="sql"
             height="150px"
             onChange={(value) => onUpdateConfig("dbQuery", value || "")}
@@ -393,14 +397,24 @@ function HttpRequestFields({
   onUpdateConfig,
   onBatchUpdateConfig,
   disabled,
+  currentNodeId,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
+  currentNodeId?: string;
 }) {
   const [curlDialogOpen, setCurlDialogOpen] = useState(false);
   const [curlInput, setCurlInput] = useState("");
+  const [headersModalOpen, setHeadersModalOpen] = useState(false);
+  const [bodyModalOpen, setBodyModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!config?.httpMethod) {
+      onUpdateConfig("httpMethod", "POST");
+    }
+  }, []);
 
   const handleCurlImport = () => {
     if (!curlInput.trim()) return;
@@ -504,8 +518,9 @@ function HttpRequestFields({
       </div>
       <div className="space-y-2">
         <Label htmlFor="httpHeaders">Headers (JSON)</Label>
-        <div className="overflow-hidden rounded-md border">
+        <div className="relative overflow-hidden rounded-md border">
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="json"
             height="100px"
             onChange={(value) => onUpdateConfig("httpHeaders", value || "{}")}
@@ -519,14 +534,32 @@ function HttpRequestFields({
             }}
             value={(config?.httpHeaders as string) || "{}"}
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+            onClick={() => setHeadersModalOpen(true)}
+            title="Open expression editor"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
+      <ExpressionEditorModal
+        open={headersModalOpen}
+        onOpenChange={setHeadersModalOpen}
+        title="Headers (JSON)"
+        value={(config?.httpHeaders as string) || "{}"}
+        onChange={(v) => onUpdateConfig("httpHeaders", v || "{}")}
+        readOnly={disabled}
+      />
       <div className="space-y-2">
         <Label htmlFor="httpBody">Body (JSON)</Label>
         <div
-          className={`overflow-hidden rounded-md border ${config?.httpMethod === "GET" ? "opacity-50" : ""}`}
+          className={`relative overflow-hidden rounded-md border ${config?.httpMethod === "GET" ? "opacity-50" : ""}`}
         >
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="json"
             height="120px"
             onChange={(value) => onUpdateConfig("httpBody", value || "{}")}
@@ -541,6 +574,17 @@ function HttpRequestFields({
             }}
             value={(config?.httpBody as string) || "{}"}
           />
+          {config?.httpMethod !== "GET" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+              onClick={() => setBodyModalOpen(true)}
+              title="Open expression editor"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
         {config?.httpMethod === "GET" && (
           <p className="text-muted-foreground text-xs">
@@ -548,6 +592,14 @@ function HttpRequestFields({
           </p>
         )}
       </div>
+      <ExpressionEditorModal
+        open={bodyModalOpen}
+        onOpenChange={setBodyModalOpen}
+        title="Body (JSON)"
+        value={(config?.httpBody as string) || "{}"}
+        onChange={(v) => onUpdateConfig("httpBody", v || "{}")}
+        readOnly={config?.httpMethod === "GET" || disabled}
+      />
     </>
   );
 }
@@ -618,6 +670,8 @@ function SystemActionFields({
   onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
 }) {
+  const currentNodeId = useAtomValue(selectedNodeAtom) ?? undefined;
+
   switch (actionType) {
     case "HTTP Request":
       return (
@@ -626,6 +680,7 @@ function SystemActionFields({
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
           onBatchUpdateConfig={onBatchUpdateConfig}
+          currentNodeId={currentNodeId}
         />
       );
     case "Database Query":
@@ -634,6 +689,7 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          currentNodeId={currentNodeId}
         />
       );
     case "Condition":
