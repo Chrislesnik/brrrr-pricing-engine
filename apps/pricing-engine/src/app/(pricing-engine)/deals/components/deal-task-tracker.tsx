@@ -884,16 +884,16 @@ function ViewToolbar({
                     <Kanban className="h-3.5 w-3.5" />
                     <span>{viewSettings.currentView === "board" ? "Columns" : "Grouping"}</span>
                   </div>
-                  <select
-                    title="Group by"
-                    value={viewSettings.groupBy}
-                    onChange={(e) => onUpdateViewSettings({ groupBy: e.target.value as ViewSettings["groupBy"] })}
-                    className="h-7 rounded-md border bg-muted/60 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring min-w-[100px]"
-                  >
-                    {GROUP_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                  <Select value={viewSettings.groupBy} onValueChange={(v) => onUpdateViewSettings({ groupBy: v as ViewSettings["groupBy"] })}>
+                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GROUP_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Ordering row */}
@@ -903,24 +903,27 @@ function ViewToolbar({
                     <span>Ordering</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <select
-                      title="Sort order"
+                    <Select
                       value={sortRules[0]?.column ?? "priority"}
-                      onChange={(e) => {
+                      onValueChange={(v) => {
                         if (sortRules[0]) {
-                          onUpdateSortRule(sortRules[0].id, { column: e.target.value as SortColumn });
+                          onUpdateSortRule(sortRules[0].id, { column: v as SortColumn });
                         } else {
-                          onAddSortRule(e.target.value as SortColumn);
+                          onAddSortRule(v as SortColumn);
                         }
                       }}
-                      className="h-7 rounded-md border bg-muted/60 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring min-w-[100px]"
                     >
-                      <option value="priority">Priority</option>
-                      <option value="status">Status</option>
-                      <option value="title">Title</option>
-                      <option value="created">Created</option>
-                      <option value="updated">Updated</option>
-                    </select>
+                      <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="priority" className="text-xs">Priority</SelectItem>
+                        <SelectItem value="status" className="text-xs">Status</SelectItem>
+                        <SelectItem value="title" className="text-xs">Title</SelectItem>
+                        <SelectItem value="created" className="text-xs">Created</SelectItem>
+                        <SelectItem value="updated" className="text-xs">Updated</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <button
                       onClick={() => {
                         if (sortRules[0]) {
@@ -942,15 +945,15 @@ function ViewToolbar({
               <div className="px-3 py-3 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Completed tasks</span>
-                  <select
-                    title="Completed tasks visibility"
-                    value={viewSettings.showCompletedTasks ? "all" : "hidden"}
-                    onChange={(e) => onUpdateViewSettings({ showCompletedTasks: e.target.value === "all" })}
-                    className="h-7 rounded-md border bg-muted/60 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring min-w-[100px]"
-                  >
-                    <option value="all">All</option>
-                    <option value="hidden">Hidden</option>
-                  </select>
+                  <Select value={viewSettings.showCompletedTasks ? "all" : "hidden"} onValueChange={(v) => onUpdateViewSettings({ showCompletedTasks: v === "all" })}>
+                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">All</SelectItem>
+                      <SelectItem value="hidden" className="text-xs">Hidden</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
