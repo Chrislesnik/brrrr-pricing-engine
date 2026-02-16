@@ -24,6 +24,7 @@ import {
   GripVertical,
   Save,
   Archive,
+  Trash2,
   Tag,
   Clock,
   Paperclip,
@@ -77,8 +78,8 @@ import {
 import {
   RoomProvider,
   ClientSideSuspense,
+  useThreads,
 } from "@liveblocks/react/suspense";
-import { useThreads } from "@liveblocks/react/suspense";
 import { Thread, Comment, Composer } from "@liveblocks/react-ui";
 import type { ThreadData } from "@liveblocks/client";
 
@@ -152,20 +153,20 @@ export interface DealTaskTrackerProps {
 /*  Constants                                                                  */
 /* ========================================================================== */
 
-const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
-  todo: { label: "To Do", color: "#6B7280" },
-  in_progress: { label: "In Progress", color: "#3B82F6" },
-  in_review: { label: "In Review", color: "#F59E0B" },
-  blocked: { label: "Blocked", color: "#EF4444" },
-  done: { label: "Done", color: "#10B981" },
+const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; colorClass: string; badgeClass: string; bgClass: string }> = {
+  todo: { label: "To Do", color: "#6B7280", colorClass: "text-task-todo", badgeClass: "badge-task-todo", bgClass: "bg-task-todo" },
+  in_progress: { label: "In Progress", color: "#3B82F6", colorClass: "text-task-in-progress", badgeClass: "badge-task-in-progress", bgClass: "bg-task-in-progress" },
+  in_review: { label: "In Review", color: "#F59E0B", colorClass: "text-task-in-review", badgeClass: "badge-task-in-review", bgClass: "bg-task-in-review" },
+  blocked: { label: "Blocked", color: "#EF4444", colorClass: "text-task-blocked", badgeClass: "badge-task-blocked", bgClass: "bg-task-blocked" },
+  done: { label: "Done", color: "#10B981", colorClass: "text-task-done", badgeClass: "badge-task-done", bgClass: "bg-task-done" },
 };
 
-const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; level: number }> = {
-  urgent: { label: "Urgent", color: "#EF4444", level: 4 },
-  high: { label: "High", color: "#F97316", level: 3 },
-  medium: { label: "Medium", color: "#F59E0B", level: 2 },
-  low: { label: "Low", color: "#6B7280", level: 1 },
-  none: { label: "No priority", color: "#D1D5DB", level: 0 },
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; colorClass: string; badgeClass: string; bgClass: string; level: number }> = {
+  urgent: { label: "Urgent", color: "#EF4444", colorClass: "text-priority-urgent", badgeClass: "badge-priority-urgent", bgClass: "bg-priority-urgent", level: 4 },
+  high: { label: "High", color: "#F97316", colorClass: "text-priority-high", badgeClass: "badge-priority-high", bgClass: "bg-priority-high", level: 3 },
+  medium: { label: "Medium", color: "#F59E0B", colorClass: "text-priority-medium", badgeClass: "badge-priority-medium", bgClass: "bg-priority-medium", level: 2 },
+  low: { label: "Low", color: "#6B7280", colorClass: "text-priority-low", badgeClass: "badge-priority-low", bgClass: "bg-priority-low", level: 1 },
+  none: { label: "No priority", color: "#D1D5DB", colorClass: "text-priority-none", badgeClass: "badge-priority-none", bgClass: "bg-priority-none", level: 0 },
 };
 
 const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "in_review", "blocked", "done"];
@@ -190,17 +191,17 @@ const SORT_COLUMN_OPTIONS: { value: SortColumn; label: string }[] = [
 const FILTER_PROPERTIES: {
   key: "status" | "priority" | "assignee" | "label";
   label: string;
-  options: { value: string; label: string; color?: string }[];
+  options: { value: string; label: string; color?: string; colorClass?: string; badgeClass?: string }[];
 }[] = [
   {
     key: "status",
     label: "Status",
-    options: STATUS_ORDER.map((s) => ({ value: s, label: STATUS_CONFIG[s].label, color: STATUS_CONFIG[s].color })),
+    options: STATUS_ORDER.map((s) => ({ value: s, label: STATUS_CONFIG[s].label, color: STATUS_CONFIG[s].color, colorClass: STATUS_CONFIG[s].colorClass, badgeClass: STATUS_CONFIG[s].badgeClass })),
   },
   {
     key: "priority",
     label: "Priority",
-    options: PRIORITY_ORDER.map((p) => ({ value: p, label: PRIORITY_CONFIG[p].label, color: PRIORITY_CONFIG[p].color })),
+    options: PRIORITY_ORDER.map((p) => ({ value: p, label: PRIORITY_CONFIG[p].label, color: PRIORITY_CONFIG[p].color, colorClass: PRIORITY_CONFIG[p].colorClass, badgeClass: PRIORITY_CONFIG[p].badgeClass })),
   },
   {
     key: "assignee",
@@ -311,6 +312,7 @@ interface TaskGroup {
   key: string;
   label: string;
   color: string;
+  colorClass: string;
   tasks: Task[];
 }
 
@@ -320,6 +322,7 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: status,
       label: STATUS_CONFIG[status].label,
       color: STATUS_CONFIG[status].color,
+      colorClass: STATUS_CONFIG[status].colorClass,
       tasks: tasks.filter((t) => t.status === status),
     }));
   }
@@ -328,6 +331,7 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: p,
       label: PRIORITY_CONFIG[p].label,
       color: PRIORITY_CONFIG[p].color,
+      colorClass: PRIORITY_CONFIG[p].colorClass,
       tasks: tasks.filter((t) => t.priority === p),
     }));
   }
@@ -337,16 +341,18 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: a,
       label: a,
       color: "#6B7280",
+      colorClass: "text-task-todo",
       tasks: tasks.filter((t) => (t.assignee ?? "Unassigned") === a),
     }));
   }
   // label
   const labels = [...new Set(tasks.flatMap((t) => t.labels))].sort();
-  if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", tasks }];
+  if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", colorClass: "text-task-todo", tasks }];
   return labels.map((l) => ({
     key: l,
     label: l,
     color: "#6B7280",
+    colorClass: "text-task-todo",
     tasks: tasks.filter((t) => t.labels.includes(l)),
   }));
 }
@@ -389,11 +395,11 @@ function PriorityIcon({ priority }: { priority: TaskPriority }) {
       {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className="w-[3px] rounded-sm transition-colors"
-          style={{
-            height: `${6 + i * 2}px`,
-            backgroundColor: i <= barCount ? config.color : "hsl(var(--border))",
-          }}
+          className={cn(
+            "w-[3px] rounded-sm transition-colors",
+            i === 1 ? "h-[8px]" : i === 2 ? "h-[10px]" : i === 3 ? "h-[12px]" : "h-[14px]",
+            i <= barCount ? config.bgClass : "bg-[hsl(var(--border))]"
+          )}
         />
       ))}
     </div>
@@ -970,7 +976,7 @@ function BoardView({
           key={group.key}
           groupKey={group.key}
           label={group.label}
-          color={group.color}
+          colorClass={group.colorClass}
           tasks={group.tasks}
           groupBy={groupBy}
           onStatusChange={onStatusChange}
@@ -986,7 +992,7 @@ function BoardView({
 function BoardColumn({
   groupKey,
   label,
-  color,
+  colorClass,
   tasks,
   groupBy,
   onStatusChange,
@@ -996,7 +1002,7 @@ function BoardColumn({
 }: {
   groupKey: string;
   label: string;
-  color: string;
+  colorClass: string;
   tasks: Task[];
   groupBy: string;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
@@ -1036,9 +1042,8 @@ function BoardColumn({
       <div className="flex items-center justify-between px-1 py-2">
         <div className="flex items-center gap-2">
           <Circle
-            className="h-3 w-3"
-            style={{ color }}
-            fill={groupKey === "done" ? color : "none"}
+            className={cn("h-3 w-3", colorClass)}
+            fill={groupKey === "done" ? "currentColor" : "none"}
           />
           <span className="text-sm font-medium text-foreground">{label}</span>
           <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
@@ -1103,9 +1108,8 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
       {/* Header row */}
       <div className="flex items-center gap-2 mb-1.5">
         <Circle
-          className="h-3 w-3 flex-shrink-0"
-          style={{ color: statusConfig.color }}
-          fill={task.status === "done" ? statusConfig.color : "none"}
+          className={cn("h-3 w-3 flex-shrink-0", statusConfig.colorClass)}
+          fill={task.status === "done" ? "currentColor" : "none"}
           strokeWidth={2}
         />
         {task.identifier && (
@@ -1177,7 +1181,7 @@ function TableView({
               key={group.key}
               groupKey={group.key}
               label={group.label}
-              color={group.color}
+              colorClass={group.colorClass}
               tasks={group.tasks}
               onTaskClick={onTaskClick}
               selectedTaskId={selectedTaskId}
@@ -1192,14 +1196,14 @@ function TableView({
 function TableGroupRows({
   groupKey,
   label,
-  color,
+  colorClass,
   tasks,
   onTaskClick,
   selectedTaskId,
 }: {
   groupKey: string;
   label: string;
-  color: string;
+  colorClass: string;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   selectedTaskId: string | null;
@@ -1215,7 +1219,7 @@ function TableGroupRows({
         <td colSpan={7} className="px-4 py-2">
           <div className="flex items-center gap-2">
             {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-            <Circle className="h-3 w-3" style={{ color }} fill={groupKey === "done" ? color : "none"} />
+            <Circle className={cn("h-3 w-3", colorClass)} fill={groupKey === "done" ? "currentColor" : "none"} />
             <span className="text-xs font-semibold text-foreground">{label}</span>
             <span className="text-[10px] text-muted-foreground">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
           </div>
@@ -1235,7 +1239,7 @@ function TableGroupRows({
               )}
             >
               <td className="px-4 py-2.5">
-                <Circle className="h-3 w-3" style={{ color: statusConfig.color }} fill={task.status === "done" ? statusConfig.color : "none"} strokeWidth={2} />
+                <Circle className={cn("h-3 w-3", statusConfig.colorClass)} fill={task.status === "done" ? "currentColor" : "none"} strokeWidth={2} />
               </td>
               <td className="px-4 py-2.5">
                 <span className="text-xs font-mono text-muted-foreground">{task.identifier ?? task.id.slice(0, 6)}</span>
@@ -1245,8 +1249,7 @@ function TableGroupRows({
               </td>
               <td className="px-4 py-2.5">
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: `${statusConfig.color}1A`, color: statusConfig.color }}
+                  className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium", statusConfig.badgeClass)}
                 >
                   {statusConfig.label}
                 </span>
@@ -1314,12 +1317,11 @@ function ChecklistView({
           <span className="text-xs font-medium text-foreground">Progress</span>
           <span className="text-xs text-muted-foreground">{checkedTasks} of {totalTasks} tasks completed</span>
         </div>
-        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${progress}%`, backgroundColor: STATUS_CONFIG.done.color }}
-          />
-        </div>
+        <progress
+          className="task-progress-bar"
+          value={checkedTasks}
+          max={totalTasks}
+        />
       </div>
 
       {/* Grouped checklists */}
@@ -1329,7 +1331,7 @@ function ChecklistView({
             key={group.key}
             groupKey={group.key}
             label={group.label}
-            color={group.color}
+            colorClass={group.colorClass}
             tasks={group.tasks}
             onTaskClick={onTaskClick}
             onCheckTask={onCheckTask}
@@ -1344,7 +1346,7 @@ function ChecklistView({
 function ChecklistGroup({
   groupKey,
   label,
-  color,
+  colorClass,
   tasks,
   onTaskClick,
   onCheckTask,
@@ -1352,7 +1354,7 @@ function ChecklistGroup({
 }: {
   groupKey: string;
   label: string;
-  color: string;
+  colorClass: string;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onCheckTask: (taskId: string, checked: boolean) => void;
@@ -1368,7 +1370,7 @@ function ChecklistGroup({
         className="flex w-full items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
       >
         {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-        <Circle className="h-3 w-3" style={{ color }} fill={groupKey === "done" ? color : "none"} />
+        <Circle className={cn("h-3 w-3", colorClass)} fill={groupKey === "done" ? "currentColor" : "none"} />
         <span className="text-xs font-semibold text-foreground">{label}</span>
         <span className="text-[10px] text-muted-foreground ml-auto">{checkedCount}/{tasks.length}</span>
       </button>
@@ -1620,8 +1622,7 @@ function RuleRow({
         {selectedValueOption && rule.value ? (
           <div className="flex items-center gap-1 rounded-md border bg-transparent px-2 py-1.5">
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-              style={selectedValueOption.color ? { backgroundColor: `${selectedValueOption.color}1A`, color: selectedValueOption.color } : {}}
+              className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", selectedValueOption.badgeClass)}
             >
               {selectedValueOption.label}
               <button onClick={() => onUpdate(rule.id, { value: "" })} className="ml-0.5 rounded-full hover:bg-foreground/10 p-0.5 transition-colors" aria-label="Clear value">
@@ -1689,7 +1690,7 @@ function MiniDropdown<T extends string>({
   placeholder,
 }: {
   value: T | "";
-  options: { value: T; label: string; color?: string }[];
+  options: { value: T; label: string; color?: string; colorClass?: string; badgeClass?: string }[];
   onChange: (val: T) => void;
   placeholder?: string;
 }) {
@@ -1724,7 +1725,7 @@ function MiniDropdown<T extends string>({
                   active ? "bg-primary/10 text-foreground font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
               >
-                {opt.color && <Circle className="h-2.5 w-2.5 shrink-0" style={{ color: opt.color, fill: opt.color }} />}
+                {opt.colorClass && <Circle className={cn("h-2.5 w-2.5 shrink-0", opt.colorClass)} fill="currentColor" />}
                 <span className="truncate">{opt.label}</span>
               </button>
             );
@@ -1935,9 +1936,8 @@ function TaskDetailSheetHeader({ task, onClose, onDelete }: { task: Task; onClos
     <div className="flex items-center justify-between border-b border-border px-4 py-3">
       <div className="flex items-center gap-2">
         <Circle
-          className="h-3.5 w-3.5"
-          style={{ color: statusConfig.color }}
-          fill={task.status === "done" ? statusConfig.color : "none"}
+          className={cn("h-3.5 w-3.5", statusConfig.colorClass)}
+          fill={task.status === "done" ? "currentColor" : "none"}
         />
         <span className="text-xs font-mono text-muted-foreground">{task.identifier}</span>
       </div>
@@ -2069,9 +2069,8 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
               className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs hover:bg-accent transition-colors"
             >
               <Circle
-                className="h-2.5 w-2.5"
-                style={{ color: STATUS_CONFIG[task.status].color }}
-                fill={task.status === "done" ? STATUS_CONFIG[task.status].color : "none"}
+                className={cn("h-2.5 w-2.5", STATUS_CONFIG[task.status].colorClass)}
+                fill={task.status === "done" ? "currentColor" : "none"}
               />
               <span className="text-foreground">{STATUS_CONFIG[task.status].label}</span>
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -2081,7 +2080,7 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
                 items={STATUS_ORDER.map((s) => ({
                   key: s,
                   label: STATUS_CONFIG[s].label,
-                  color: STATUS_CONFIG[s].color,
+                  colorClass: STATUS_CONFIG[s].colorClass,
                   active: task.status === s,
                 }))}
                 onSelect={(key) => {
@@ -2110,7 +2109,7 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
                 items={(["urgent", "high", "medium", "low", "none"] as TaskPriority[]).map((p) => ({
                   key: p,
                   label: PRIORITY_CONFIG[p].label,
-                  color: PRIORITY_CONFIG[p].color,
+                  colorClass: PRIORITY_CONFIG[p].colorClass,
                   active: task.priority === p,
                 }))}
                 onSelect={(key) => {
@@ -2231,7 +2230,7 @@ function PriorityDots({ className }: { className?: string }) {
     <div className={cn("h-3.5 w-3.5 flex items-center justify-center", className)}>
       <div className="flex items-end gap-px">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="w-[2px] rounded-sm bg-muted-foreground/40" style={{ height: `${4 + i * 2}px` }} />
+          <div key={i} className={cn("w-[2px] rounded-sm bg-muted-foreground/40", i === 1 ? "h-[6px]" : i === 2 ? "h-[8px]" : "h-[10px]")} />
         ))}
       </div>
     </div>
@@ -2243,7 +2242,7 @@ function InlineDropdownMenu({
   onSelect,
   onClose,
 }: {
-  items: { key: string; label: string; color?: string; active?: boolean }[];
+  items: { key: string; label: string; color?: string; colorClass?: string; active?: boolean }[];
   onSelect: (key: string) => void;
   onClose: () => void;
 }) {
@@ -2260,11 +2259,10 @@ function InlineDropdownMenu({
               item.active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent"
             )}
           >
-            {item.color && (
+            {(item.colorClass || item.color) && (
               <Circle
-                className="h-2.5 w-2.5"
-                style={{ color: item.color }}
-                fill={item.active ? item.color : "none"}
+                className={cn("h-2.5 w-2.5", item.colorClass)}
+                fill={item.active ? "currentColor" : "none"}
               />
             )}
             <span>{item.label}</span>
@@ -2755,7 +2753,7 @@ function NewTaskDialog({
                 {STATUS_ORDER.map((s) => (
                   <SelectItem key={s} value={s}>
                     <div className="flex items-center gap-2">
-                      <Circle className="h-2.5 w-2.5" style={{ color: STATUS_CONFIG[s].color }} fill={s === "done" ? STATUS_CONFIG[s].color : "none"} />
+                      <Circle className={cn("h-2.5 w-2.5", STATUS_CONFIG[s].colorClass)} fill={s === "done" ? "currentColor" : "none"} />
                       {STATUS_CONFIG[s].label}
                     </div>
                   </SelectItem>
