@@ -7,7 +7,7 @@ import {
   selectedNodeAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
 import { HelpCircle, Maximize2, Plus, Settings } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
 import { AiGatewayConsentOverlay } from "@/components/workflow-builder/overlays/ai-gateway-consent-overlay";
 import { useOverlay } from "@/components/workflow-builder/overlays/overlay-provider";
@@ -722,6 +722,7 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          currentNodeId={currentNodeId}
         />
       );
     case "Switch":
@@ -834,13 +835,16 @@ function CodeNodeFields({
   config,
   onUpdateConfig,
   disabled,
+  currentNodeId,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
+  currentNodeId?: string;
 }) {
   const mode = (config?.mode as string) || "runOnceAllItems";
   const code = config?.code as string | undefined;
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
 
   // Initialize defaults
   useEffect(() => {
@@ -894,8 +898,9 @@ function CodeNodeFields({
             {mode === "runOnceEachItem" ? "Runs per item" : "Runs once"}
           </span>
         </div>
-        <div className="overflow-hidden rounded-md border">
+        <div className="relative overflow-hidden rounded-md border">
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="javascript"
             height="250px"
             value={code ?? DEFAULT_CODE_ALL_ITEMS}
@@ -912,12 +917,30 @@ function CodeNodeFields({
               automaticLayout: true,
             }}
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+            onClick={() => setCodeModalOpen(true)}
+            title="Open expression editor"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <p className="text-[10px] text-muted-foreground">
           Use <code className="font-mono bg-muted px-1 rounded">$input.all()</code> for input data and{" "}
           <code className="font-mono bg-muted px-1 rounded">{"$node['Name']"}</code> for specific nodes.
         </p>
       </div>
+      <ExpressionEditorModal
+        open={codeModalOpen}
+        onOpenChange={setCodeModalOpen}
+        title="JavaScript"
+        language="javascript"
+        value={code ?? DEFAULT_CODE_ALL_ITEMS}
+        onChange={(v) => onUpdateConfig("code", v || "")}
+        readOnly={disabled}
+      />
 
       {/* AI Code Assistant */}
       <CodeAIAssistant
@@ -957,6 +980,18 @@ function CodeAIAssistant({
   const nodes = useAtomValue(nodesAtom);
   const edges = useAtomValue(edgesAtom);
   const selectedNodeId = useAtomValue(selectedNodeAtom);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizePrompt = useCallback(() => {
+    const el = promptRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, []);
+
+  useEffect(() => {
+    resizePrompt();
+  }, [aiPrompt, resizePrompt]);
 
   const handleGenerate = async () => {
     if (!aiPrompt.trim() || generating) return;
@@ -1002,12 +1037,17 @@ function CodeAIAssistant({
 
       const decoder = new TextDecoder();
       let accumulated = "";
+      let lastUpdate = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
-        setSuggestion(accumulated);
+        const now = Date.now();
+        if (now - lastUpdate > 250) {
+          setSuggestion(accumulated);
+          lastUpdate = now;
+        }
       }
 
       // Clean up any markdown fences the model might have included
@@ -1026,8 +1066,9 @@ function CodeAIAssistant({
   return (
     <div className="space-y-2">
       <Label className="text-xs">AI Code Assistant</Label>
-      <div className="flex items-center gap-1.5">
-        <Input
+      <div className="flex items-end gap-1.5">
+        <textarea
+          ref={promptRef}
           disabled={disabled || generating}
           placeholder="Describe what the code should do..."
           value={aiPrompt}
@@ -1038,7 +1079,8 @@ function CodeAIAssistant({
               void handleGenerate();
             }
           }}
-          className="h-8 text-xs flex-1"
+          rows={1}
+          className="min-h-[32px] max-h-[160px] w-full resize-none overflow-y-auto rounded-md border border-input bg-background px-3 py-1.5 text-xs leading-5 shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1"
         />
         <Button
           variant="default"
