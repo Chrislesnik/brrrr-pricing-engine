@@ -108,9 +108,20 @@ export const sidebarData: SidebarData = {
         },
         {
           title: "Brokers",
-          url: "/brokers",
           icon: IconUser,
           denyOrgRoles: ["org:broker", "broker"],
+          items: [
+            {
+              title: "Individuals",
+              url: "/contacts/brokers",
+              icon: IconUser,
+            },
+            {
+              title: "Organizations",
+              url: "/contacts/brokers/organizations",
+              icon: IconBuilding,
+            },
+          ],
         },
         {
           title: "3rd Parties",

@@ -18,8 +18,10 @@ export async function GET(req: NextRequest) {
     const includeUserIds = includeUserIdsParam ? includeUserIdsParam.split(",").map((s) => s.trim()).filter(Boolean) : []
     const includeMemberIdsParam = searchParams.get("includeMemberIds")
     const includeMemberIds = includeMemberIdsParam ? includeMemberIdsParam.split(",").map((s) => s.trim()).filter(Boolean) : []
+    const roleTypeIdParam = searchParams.get("roleTypeId")
+    const roleTypeId = roleTypeIdParam ? parseInt(roleTypeIdParam, 10) : null
 
-    // Resolve current member/role
+    // Resolve current member/role and org type
     const { data: me, error: meErr } = await supabaseAdmin
       .from("organization_members")
       .select("id, user_id, clerk_org_role")
@@ -30,10 +32,75 @@ export async function GET(req: NextRequest) {
     const myRole = String((me as any)?.clerk_org_role ?? "").toLowerCase()
     const myMemberId = (me?.id as string) ?? null
 
+    // Check if caller's org is internal
+    const { data: callerOrg } = await supabaseAdmin
+      .from("organizations")
+      .select("id, is_internal_yn")
+      .eq("id", orgUuid)
+      .single()
+    const isInternalOrg = callerOrg?.is_internal_yn === true
+
     let members: Array<{ id: string; user_id: string; first_name?: string | null; last_name?: string | null }> = []
     let editable = true
 
-    if (myRole === "broker") {
+    // Internal org users: see members from ALL internal orgs (+ external for Broker role)
+    if (isInternalOrg && myRole !== "broker") {
+      // Fetch all internal org IDs
+      const { data: allInternalOrgs } = await supabaseAdmin
+        .from("organizations")
+        .select("id")
+        .eq("is_internal_yn", true)
+      const internalOrgIds = (allInternalOrgs ?? []).map((o) => o.id as string)
+
+      // Fetch members from all internal orgs, dedup by user_id
+      if (internalOrgIds.length > 0) {
+        const { data: internalMembers } = await supabaseAdmin
+          .from("organization_members")
+          .select("id, user_id, first_name, last_name")
+          .in("organization_id", internalOrgIds)
+          .order("first_name", { ascending: true })
+        const seenUserIds = new Set<string>()
+        for (const m of internalMembers ?? []) {
+          const uid = m.user_id as string
+          if (seenUserIds.has(uid)) continue
+          seenUserIds.add(uid)
+          members.push({
+            id: m.id as string,
+            user_id: uid,
+            first_name: (m.first_name as string | null) ?? "",
+            last_name: (m.last_name as string | null) ?? "",
+          })
+        }
+      }
+
+      // For Broker role, also include external org members
+      if (roleTypeId === 4) {
+        const { data: externalOrgs } = await supabaseAdmin
+          .from("organizations")
+          .select("id")
+          .eq("is_internal_yn", false)
+        const extOrgIds = (externalOrgs ?? []).map((o) => o.id as string)
+        if (extOrgIds.length > 0) {
+          const { data: brokerMembers } = await supabaseAdmin
+            .from("organization_members")
+            .select("id, user_id, first_name, last_name")
+            .in("organization_id", extOrgIds)
+            .order("first_name", { ascending: true })
+          const existingUserIds = new Set(members.map((m) => m.user_id))
+          for (const m of brokerMembers ?? []) {
+            const uid = m.user_id as string
+            if (existingUserIds.has(uid)) continue
+            existingUserIds.add(uid)
+            members.push({
+              id: m.id as string,
+              user_id: uid,
+              first_name: (m.first_name as string | null) ?? "",
+              last_name: (m.last_name as string | null) ?? "",
+            })
+          }
+        }
+      }
+    } else if (myRole === "broker") {
       editable = false
       if (loanId) {
         const { data: loan, error: loanErr } = await supabaseAdmin

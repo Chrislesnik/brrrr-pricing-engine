@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ColumnDef,
@@ -68,12 +68,12 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  BoltIcon,
   FilesIcon,
   Archive,
   FolderOpenIcon,
   MessageCircle,
   ChevronRight as ChevronRightIcon,
+  Users,
 } from "lucide-react";
 import {
   Select,
@@ -90,8 +90,9 @@ import {
   SheetTitle,
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
-import { DealTasksTab } from "./deal-tasks-tab";
+import { DealPipelineTasks } from "./deal-pipeline-tasks";
 import { InlineCommentsPanel } from "@/components/liveblocks/comments-panel";
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
 
 // Deal row returned from the pipeline API
 interface DealWithRelations {
@@ -232,6 +233,7 @@ const createColumns = (
   expandedRows: Set<string>,
   toggleRow: (dealId: string) => void,
   openCommentsSheet: (dealId: string) => void,
+  openAssignDialog: (dealId: string) => void,
   starredInputs: StarredInput[],
 ): ColumnDef<DealWithRelations>[] => {
   const fixedStart: ColumnDef<DealWithRelations>[] = [
@@ -356,14 +358,14 @@ const createColumns = (
             >
               <MessageCircle className="h-4 w-4" />
             </Button>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-8 w-8 p-0" data-ignore-row-click>
                   <span className="sr-only">Open menu</span>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" data-ignore-row-click>
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     onClick={() => router.push(`/deals/${deal.id}`)}
@@ -376,10 +378,13 @@ const createColumns = (
                     Open
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => router.push(`/deals/${deal.id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAssignDialog(dealId);
+                    }}
                   >
-                    <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
-                    Edit
+                    <Users size={16} className="opacity-60" aria-hidden="true" />
+                    Assigned To
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
@@ -417,6 +422,8 @@ export function DealsDataTable({
 }: {
   onNewDeal?: () => void
 }) {
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const [data, setData] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -428,6 +435,7 @@ export function DealsDataTable({
   const [rowSelection, setRowSelection] = useState({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [commentsSheetDealId, setCommentsSheetDealId] = useState<string | null>(null);
+  const [assignDealId, setAssignDealId] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const [starredInputs, setStarredInputs] = useState<StarredInput[]>([]);
   const [rowComments, setRowComments] = useState<
@@ -476,13 +484,10 @@ export function DealsDataTable({
   
   const toggleRow = React.useCallback((dealId: string) => {
     setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(dealId)) {
-        next.delete(dealId);
-      } else {
-        next.add(dealId);
+      if (prev.has(dealId)) {
+        return new Set();
       }
-      return next;
+      return new Set([dealId]);
     });
   }, []);
 
@@ -497,9 +502,14 @@ export function DealsDataTable({
     setCommentsSheetDealId(null);
   }, []);
 
+  const openAssignDialog = React.useCallback(
+    (dealId: string) => setAssignDealId(dealId),
+    []
+  );
+
   const columns = React.useMemo(
-    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, starredInputs),
-    [router, expandedRows, toggleRow, openCommentsSheet, starredInputs]
+    () => createColumns(router, expandedRows, toggleRow, openCommentsSheet, openAssignDialog, starredInputs),
+    [router, expandedRows, toggleRow, openCommentsSheet, openAssignDialog, starredInputs]
   );
 
   // Set up sensors for drag and drop
@@ -678,6 +688,17 @@ export function DealsDataTable({
     }
   }
 
+  // Track table container width for expanded rows
+  useEffect(() => {
+    const el = tableContainerRef.current;
+    if (!el) return;
+    const update = () => setContainerWidth(el.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const shouldIgnoreRowClick = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return false;
     return !!target.closest(
@@ -829,7 +850,7 @@ export function DealsDataTable({
             </Button>
           </div>
         </div>
-        <div className="rounded-md border overflow-x-auto">
+        <div ref={tableContainerRef} className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -895,18 +916,23 @@ export function DealsDataTable({
                         })}
                       </TableRow>
                       {isExpanded && (
-                        <TableRow className="hover:bg-transparent">
-                          <TableCell className="p-0 relative overflow-visible" colSpan={row.getVisibleCells().length}>
-                            <div
-                              className={cn(
-                                "transition-all duration-300 ease-in-out",
-                                isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
-                              )}
-                            >
-                              <DealTasksTab dealId={dealId} />
+                        <tr>
+                          <td
+                            className="p-0 border-t border-border/50 bg-muted/20"
+                            colSpan={row.getVisibleCells().length}
+                            style={{
+                              position: "sticky",
+                              left: 0,
+                              width: containerWidth > 0 ? containerWidth : "100%",
+                              maxWidth: containerWidth > 0 ? containerWidth : "100%",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
+                              <DealPipelineTasks dealId={dealId} />
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       )}
                     </React.Fragment>
                   );
@@ -1040,6 +1066,18 @@ export function DealsDataTable({
             )}
           </SheetContent>
         </Sheet>
+
+        {/* Role Assignment Dialog */}
+        {assignDealId && (
+          <RoleAssignmentDialog
+            resourceType="deal"
+            resourceId={assignDealId}
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) setAssignDealId(null);
+            }}
+          />
+        )}
       </div>
     </DndContext>
   );

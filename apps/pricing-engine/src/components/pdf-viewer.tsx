@@ -96,6 +96,7 @@ function ScrollPageCanvas({
     if (!pdf || !isVisible || !canvasRef.current || !dimensions) return
 
     let cancelled = false
+    let renderTask: any = null
 
     async function render() {
       try {
@@ -114,7 +115,8 @@ function ScrollPageCanvas({
         canvas.width = scaledVp.width
         canvas.height = scaledVp.height
 
-        await page.render({ canvasContext: context, viewport: scaledVp }).promise
+        renderTask = page.render({ canvasContext: context, viewport: scaledVp })
+        await renderTask.promise
 
         if (!cancelled) {
           setRendered(true)
@@ -124,7 +126,8 @@ function ScrollPageCanvas({
             height: vp.height,
           })
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === "RenderingCancelledException") return
         console.error(`Error rendering page ${pageNum}:`, err)
       }
     }
@@ -132,6 +135,7 @@ function ScrollPageCanvas({
     render()
     return () => {
       cancelled = true
+      renderTask?.cancel()
     }
   }, [pdf, pageNum, isVisible, scale, containerWidth, dimensions, onRendered])
 
@@ -348,6 +352,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       if (viewMode !== "single" || !pdf || !canvasRef.current) return
 
       let cancelled = false
+      let renderTask: any = null
 
       async function renderPage() {
         try {
@@ -377,11 +382,13 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
           setViewportInfo(newViewportInfo)
           viewportInfoRef.current = newViewportInfo
 
-          await page.render({
+          renderTask = page.render({
             canvasContext: context,
             viewport: scaledViewport,
-          }).promise
-        } catch (err) {
+          })
+          await renderTask.promise
+        } catch (err: any) {
+          if (err?.name === "RenderingCancelledException") return
           console.error("Error rendering page:", err)
         }
       }
@@ -389,6 +396,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(
       renderPage()
       return () => {
         cancelled = true
+        renderTask?.cancel()
       }
     }, [pdf, currentPage, scale, viewMode])
 

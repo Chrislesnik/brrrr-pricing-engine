@@ -97,12 +97,41 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     }
   }
 
-  // 3) Fetch organization members to resolve assigned_to_user_id -> user name
+  // 3) Fetch role assignments for these loans to resolve names
+  const { data: roleAssignmentsRaw, error: raError } = await supabaseAdmin
+    .from("role_assignments")
+    .select("resource_id, user_id")
+    .eq("resource_type", "loan")
+    .in("resource_id", loanIds)
+
+  if (raError) {
+    logError("Error fetching role_assignments:", raError.message)
+  }
+
+  // Build a map of loan_id -> set of user_ids from role_assignments
+  const loanToUserIds = new Map<string, Set<string>>()
+  for (const ra of roleAssignmentsRaw ?? []) {
+    const lid = ra.resource_id as string
+    if (!loanToUserIds.has(lid)) loanToUserIds.set(lid, new Set())
+    loanToUserIds.get(lid)!.add(ra.user_id as string)
+  }
+
+  // Also collect all user_ids that need name resolution
+  const allAssignedUserIds = new Set<string>()
+  for (const ra of roleAssignmentsRaw ?? []) {
+    allAssignedUserIds.add(ra.user_id as string)
+  }
+  // Fallback: also include legacy assigned_to_user_id in case role_assignments is empty
+  for (const l of loans) {
+    const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
+    for (const uid of arr) allAssignedUserIds.add(uid)
+  }
+
+  // Fetch organization members to resolve user names
   const { data: members, error: membersError } = await supabaseAdmin
     .from("organization_members")
     .select("user_id, first_name, last_name")
     .eq("organization_id", orgUuid)
-
 
   if (membersError) {
     logError("Error fetching organization members:", membersError.message)
@@ -116,14 +145,31 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     }
   }
 
+  // For cross-org members not found in our org, do an additional lookup
+  const missingUserIds = [...allAssignedUserIds].filter((uid) => !userIdToName.has(uid))
+  if (missingUserIds.length > 0) {
+    const { data: crossOrgMembers } = await supabaseAdmin
+      .from("organization_members")
+      .select("user_id, first_name, last_name")
+      .in("user_id", missingUserIds)
+    for (const m of crossOrgMembers ?? []) {
+      const fullName = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
+      if (m.user_id && !userIdToName.has(m.user_id as string)) {
+        userIdToName.set(m.user_id as string, fullName || (m.user_id as string))
+      }
+    }
+  }
+
   // 4) Merge into final rows
   const rows: LoanRow[] = loans.map((l) => {
     const scenario = loanIdToScenario.get(l.id as string)
     const inputs = (scenario?.inputs as Record<string, unknown>) ?? {}
     const selected = (scenario?.selected as Record<string, unknown>) ?? {}
-    const assignedToUserIds = Array.isArray(l.assigned_to_user_id)
-      ? (l.assigned_to_user_id as string[])
-      : []
+    // Prefer role_assignments, fallback to legacy column
+    const raUserIds = loanToUserIds.get(l.id as string)
+    const assignedToUserIds = raUserIds && raUserIds.size > 0
+      ? [...raUserIds]
+      : (Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : [])
     const assignedToNames = assignedToUserIds.map((id) => userIdToName.get(id) ?? id)
     const assignedToDisplay = assignedToNames.length ? assignedToNames.join(", ") : null
 

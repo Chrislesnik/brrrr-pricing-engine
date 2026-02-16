@@ -103,7 +103,122 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ tasks: tasks ?? [] });
+    const taskList = tasks ?? [];
+
+    // --- Resolve assignees via task_template_roles -> role_assignments -> org members ---
+
+    // 1. Collect all task_template_ids
+    const templateIds = [
+      ...new Set(
+        taskList
+          .map((t: any) => t.task_template_id)
+          .filter((id: unknown): id is number => id != null)
+      ),
+    ];
+
+    // 2. Batch-fetch task_template_roles for those templates
+    type TTR = { task_template_id: number; deal_role_type_id: number };
+    const templateRolesMap = new Map<number, number[]>(); // template_id -> role_type_ids
+    if (templateIds.length > 0) {
+      const { data: ttrRows } = await supabaseAdmin
+        .from("task_template_roles")
+        .select("task_template_id, deal_role_type_id")
+        .in("task_template_id", templateIds);
+
+      for (const row of (ttrRows ?? []) as TTR[]) {
+        const arr = templateRolesMap.get(row.task_template_id) ?? [];
+        arr.push(row.deal_role_type_id);
+        templateRolesMap.set(row.task_template_id, arr);
+      }
+    }
+
+    // 3. Collect all role_type_ids we need to look up
+    const allRoleTypeIds = [...new Set(Array.from(templateRolesMap.values()).flat())];
+
+    // 4. Batch-fetch role_assignments for this deal
+    type RA = { role_type_id: number; user_id: string };
+    const roleUserMap = new Map<number, string[]>(); // role_type_id -> user_ids
+    if (allRoleTypeIds.length > 0) {
+      const { data: raRows } = await supabaseAdmin
+        .from("role_assignments")
+        .select("role_type_id, user_id")
+        .eq("resource_type", "deal")
+        .eq("resource_id", dealId)
+        .in("role_type_id", allRoleTypeIds);
+
+      for (const row of (raRows ?? []) as RA[]) {
+        const arr = roleUserMap.get(row.role_type_id) ?? [];
+        if (!arr.includes(row.user_id)) arr.push(row.user_id);
+        roleUserMap.set(row.role_type_id, arr);
+      }
+    }
+
+    // 5. Also collect user_ids from direct assigned_to_user_ids (fallback)
+    const directUserIds: string[] = [];
+    for (const t of taskList as any[]) {
+      if (Array.isArray(t.assigned_to_user_ids)) {
+        for (const uid of t.assigned_to_user_ids) {
+          if (uid && !directUserIds.includes(uid)) directUserIds.push(uid);
+        }
+      }
+    }
+
+    // 6. Batch-fetch organization_members for all resolved user_ids
+    const allUserIds = [
+      ...new Set([
+        ...Array.from(roleUserMap.values()).flat(),
+        ...directUserIds,
+      ]),
+    ];
+
+    type MemberInfo = { user_id: string; first_name: string | null; last_name: string | null };
+    const memberMap = new Map<string, MemberInfo>();
+    if (allUserIds.length > 0) {
+      const { data: members } = await supabaseAdmin
+        .from("organization_members")
+        .select("user_id, first_name, last_name")
+        .in("user_id", allUserIds);
+
+      for (const m of (members ?? []) as MemberInfo[]) {
+        if (!memberMap.has(m.user_id)) {
+          memberMap.set(m.user_id, m);
+        }
+      }
+    }
+
+    // 7. Attach assignees to each task
+    const enrichedTasks = taskList.map((t: any) => {
+      const assigneeUserIds = new Set<string>();
+
+      // Resolve via template roles
+      if (t.task_template_id && templateRolesMap.has(t.task_template_id)) {
+        const roleIds = templateRolesMap.get(t.task_template_id)!;
+        for (const rid of roleIds) {
+          const users = roleUserMap.get(rid) ?? [];
+          for (const uid of users) assigneeUserIds.add(uid);
+        }
+      }
+
+      // Fallback: use direct assigned_to_user_ids if no role-based assignees
+      if (assigneeUserIds.size === 0 && Array.isArray(t.assigned_to_user_ids)) {
+        for (const uid of t.assigned_to_user_ids) {
+          if (uid) assigneeUserIds.add(uid);
+        }
+      }
+
+      const assignees = Array.from(assigneeUserIds).map((uid) => {
+        const member = memberMap.get(uid);
+        return {
+          user_id: uid,
+          first_name: member?.first_name ?? null,
+          last_name: member?.last_name ?? null,
+        };
+      });
+
+      return { ...t, assignees };
+    });
+
+    return NextResponse.json({ tasks: enrichedTasks });
   } catch (err) {
     console.error("Unexpected error in GET /api/deals/[id]/tasks:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

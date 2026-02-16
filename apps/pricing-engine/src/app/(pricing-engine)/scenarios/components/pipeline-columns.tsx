@@ -71,7 +71,7 @@ import { CopyButton } from "@repo/ui/custom/copy-button"
 import LongText from "@repo/ui/custom/long-text"
 import { DataTableColumnHeader } from "../../users/components/data-table-column-header"
 import { LoanRow } from "../data/fetch-loans"
-import { AssignMembersDialog } from "./assign-members-dialog"
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 
 const statusStyles: Record<string, string> = {
   active: "bg-success-muted text-success border-success/30",
@@ -733,11 +733,16 @@ function RowActions({ id, status }: { id: string; status?: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AssignMembersDialog
-        loanId={id}
+      <RoleAssignmentDialog
+        resourceType="loan"
+        resourceId={id}
         open={assignOpen}
         onOpenChange={setAssignOpen}
-        onSaved={() => {}}
+        onSaved={() => {
+          window.dispatchEvent(
+            new CustomEvent("loan-assignees-updated", { detail: { id } })
+          )
+        }}
       />
       <Dialog open={activityOpen} onOpenChange={setActivityOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">

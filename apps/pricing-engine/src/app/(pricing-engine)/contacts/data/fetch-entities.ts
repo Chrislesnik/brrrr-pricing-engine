@@ -55,15 +55,61 @@ export async function getEntitiesForOrg(organizationId: string, userId?: string)
 		return { entities: [], ownersMap: {} }
 	}
 
+	// Fetch role_assignments for entities to overlay names
+	const allEntityIds = (data ?? []).map((e: any) => e.id as string)
+	const { data: roleAssignmentsRaw } = await supabaseAdmin
+		.from("role_assignments")
+		.select("resource_id, user_id")
+		.eq("resource_type", "entity")
+		.in("resource_id", allEntityIds.length > 0 ? allEntityIds : ["__none__"])
+
+	const entityToUserIds = new Map<string, Set<string>>()
+	for (const ra of roleAssignmentsRaw ?? []) {
+		const rid = ra.resource_id as string
+		if (!entityToUserIds.has(rid)) entityToUserIds.set(rid, new Set())
+		entityToUserIds.get(rid)!.add(ra.user_id as string)
+	}
+
+	// Resolve names for role_assignment user_ids
+	const allRaUserIds = new Set<string>()
+	for (const ra of roleAssignmentsRaw ?? []) allRaUserIds.add(ra.user_id as string)
+	const userIdToName = new Map<string, string>()
+	if (allRaUserIds.size > 0) {
+		const { data: memberRows } = await supabaseAdmin
+			.from("organization_members")
+			.select("user_id, first_name, last_name")
+			.in("user_id", [...allRaUserIds])
+		for (const m of memberRows ?? []) {
+			const full = [m.first_name, m.last_name].filter(Boolean).join(" ").trim()
+			if (m.user_id) userIdToName.set(m.user_id as string, full || (m.user_id as string))
+		}
+	}
+
 	// Filter entities based on role
 	const filteredData = hasFullAccess
 		? (data ?? [])
 		: (data ?? []).filter((e: any) => {
+				// Check role_assignments first
+				const raIds = entityToUserIds.get(e.id as string)
+				if (raIds && raIds.size > 0) {
+					return raIds.has(userId) || (currentUserOrgMemberId != null && raIds.has(currentUserOrgMemberId))
+				}
 				const assigned = Array.isArray(e.assigned_to) ? (e.assigned_to as string[]) : []
 				return assigned.includes(userId) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
 		  })
 
-	const entities = filteredData as EntityProfile[]
+	// Overlay role_assignment names
+	const entities = filteredData.map((e: any) => {
+		const raIds = entityToUserIds.get(e.id as string)
+		if (raIds && raIds.size > 0) {
+			return {
+				...e,
+				assigned_to: [...raIds],
+				assigned_to_names: [...raIds].map((uid) => userIdToName.get(uid) ?? uid),
+			}
+		}
+		return e
+	}) as EntityProfile[]
 	const entityIds = entities.map((e) => e.id)
 
 	// Batch-fetch all owners for all entities

@@ -30,6 +30,21 @@ export async function getBorrowersForOrg(organizationId: string, userId?: string
 		return [] as Borrower[]
 	}
 
+	// Fetch role_assignments for these borrowers
+	const borrowerIds = (rows ?? []).map((r: any) => r.id as string)
+	const { data: roleAssignmentsRaw } = await supabaseAdmin
+		.from("role_assignments")
+		.select("resource_id, user_id")
+		.eq("resource_type", "borrower")
+		.in("resource_id", borrowerIds.length > 0 ? borrowerIds : ["__none__"])
+
+	const borrowerToUserIds = new Map<string, Set<string>>()
+	for (const ra of roleAssignmentsRaw ?? []) {
+		const rid = ra.resource_id as string
+		if (!borrowerToUserIds.has(rid)) borrowerToUserIds.set(rid, new Set())
+		borrowerToUserIds.get(rid)!.add(ra.user_id as string)
+	}
+
 	// Resolve assigned_to user IDs to names from organization_members
 	const { data: members } = await supabaseAdmin
 		.from("organization_members")
@@ -44,7 +59,6 @@ export async function getBorrowersForOrg(organizationId: string, userId?: string
 		const display = full || (m.user_id as string) || (m.id as string)
 		if (m.user_id) idToName.set(m.user_id as string, display)
 		if (m.id) idToName.set(m.id as string, display)
-		// Track the current user's org member UUID for filtering
 		if (m.user_id === userId) {
 			currentUserOrgMemberId = m.id as string
 		}
@@ -54,13 +68,21 @@ export async function getBorrowersForOrg(organizationId: string, userId?: string
 	const filteredRows = hasFullAccess
 		? (rows ?? [])
 		: (rows ?? []).filter((r: any) => {
+				// Check role_assignments first, fallback to legacy
+				const raIds = borrowerToUserIds.get(r.id as string)
+				if (raIds && raIds.size > 0) {
+					return raIds.has(userId) || (currentUserOrgMemberId != null && raIds.has(currentUserOrgMemberId))
+				}
 				const assigned = Array.isArray(r.assigned_to) ? (r.assigned_to as string[]) : []
-				// Check if userId or their org member UUID is in the assigned_to array
 				return assigned.includes(userId) || (currentUserOrgMemberId && assigned.includes(currentUserOrgMemberId))
 		  })
 
 	const mapped: Borrower[] = filteredRows.map((r: any) => {
-		const assignedIds = Array.isArray(r.assigned_to) ? (r.assigned_to as string[]) : []
+		// Prefer role_assignments, fallback to legacy
+		const raIds = borrowerToUserIds.get(r.id as string)
+		const assignedIds = raIds && raIds.size > 0
+			? [...raIds]
+			: (Array.isArray(r.assigned_to) ? (r.assigned_to as string[]) : [])
 		const names = assignedIds.map((id) => idToName.get(id) ?? id)
 		return {
 			id: r.id,

@@ -186,7 +186,7 @@ function DetailItem({
   ) => {
     if (!item.id || !aiResultsApiPath) return
     try {
-      await fetch(aiResultsApiPath, {
+      const res = await fetch(aiResultsApiPath, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -196,6 +196,10 @@ function DetailItem({
           rejected: newRejected,
         }),
       })
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        console.error("Failed to persist approval status:", res.status, errBody)
+      }
     } catch (err) {
       console.error("Failed to persist approval status:", err)
     }
@@ -247,8 +251,8 @@ function DetailItem({
             className={cn(
               "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
               isCondition
-                ? "bg-secondary text-secondary-foreground"
-                : "bg-primary/10 text-primary"
+                ? "bg-[hsl(var(--warning)/0.15)] text-[hsl(var(--warning))]"
+                : "bg-[hsl(var(--info)/0.15)] text-[hsl(var(--info-foreground))]"
             )}
           >
             {item.type}

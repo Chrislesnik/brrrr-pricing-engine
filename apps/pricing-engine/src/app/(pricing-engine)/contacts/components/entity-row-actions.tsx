@@ -7,7 +7,7 @@ import { EntityProfile } from "../data/types"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@repo/ui/shadcn/dropdown-menu"
 import { Button } from "@repo/ui/shadcn/button"
 import { NewEntityModal } from "./new-entity-modal"
-import { EntityAssignMembersDialog } from "./entity-assign-dialog"
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 import { ArchiveConfirmDialog } from "@/components/archive"
 
 /** Parse a YYYY-MM-DD string into a local-timezone Date (avoids UTC offset shift). */
@@ -249,7 +249,13 @@ export function EntityRowActions({ entity }: Props) {
       </DropdownMenu>
 
       <NewEntityModal open={openEdit} onOpenChange={setOpenEdit} entityId={entity.id} initial={initial} ownersInitial={ownersInitial} />
-      <EntityAssignMembersDialog entityId={entity.id} open={openAssign} onOpenChange={setOpenAssign} />
+      <RoleAssignmentDialog
+        resourceType="entity"
+        resourceId={entity.id}
+        open={openAssign}
+        onOpenChange={setOpenAssign}
+        onSaved={() => window.dispatchEvent(new Event("app:entities:changed"))}
+      />
 
       <ArchiveConfirmDialog
         open={openArchiveConfirm}

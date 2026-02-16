@@ -644,7 +644,9 @@ function CodeNodeFields({
       <CodeAIAssistant
         mode={mode}
         disabled={disabled}
-        onApply={(generatedCode) => onUpdateConfig("code", generatedCode)}
+        onApply={(generatedCode) => {
+          onUpdateConfig("code", generatedCode);
+        }}
         prompt={(config?.aiPrompt as string) ?? ""}
         onPromptChange={(value) => onUpdateConfig("aiPrompt", value)}
       />
@@ -792,7 +794,6 @@ function CodeAIAssistant({
                   if (suggestion) {
                     onApply(suggestion);
                     setSuggestion(null);
-                    setAiPrompt("");
                   }
                 }}
               >

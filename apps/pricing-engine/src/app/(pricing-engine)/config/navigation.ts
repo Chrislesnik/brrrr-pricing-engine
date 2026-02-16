@@ -69,7 +69,10 @@ export const ROUTES = {
       guarantors: "/contacts/guarantors",
       thirdParties: "/contacts/third-parties",
     },
-    brokers: "/contacts/brokers",
+    brokers: {
+      individuals: "/contacts/brokers",
+      organizations: "/contacts/brokers/organizations",
+    },
     users: "/users",
   },
   aiAgent: "/ai-agent",
@@ -158,10 +161,20 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
       {
         title: "Brokers",
-        url: ROUTES.contacts.brokers,
         icon: IconUser,
         denyOrgRoles: ["org:broker", "broker"],
-        shortcut: ["K"],
+        items: [
+          {
+            title: "Individuals",
+            url: ROUTES.contacts.brokers.individuals,
+            shortcut: ["K"],
+          },
+          {
+            title: "Organizations",
+            url: ROUTES.contacts.brokers.organizations,
+            shortcut: ["O"],
+          },
+        ],
       },
       {
         title: "3rd Parties",

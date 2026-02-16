@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
 import { Borrower } from "../data/types"
-import { BorrowerAssignMembersDialog } from "./borrower-assign-dialog"
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 import { NewBorrowerModal } from "./new-borrower-modal"
 import { ArchiveConfirmDialog } from "@/components/archive"
 
@@ -208,10 +208,12 @@ export function BorrowerRowActions({ borrower }: Props) {
         initial={initial}
       />
 
-      <BorrowerAssignMembersDialog
-        borrowerId={borrower.id}
+      <RoleAssignmentDialog
+        resourceType="borrower"
+        resourceId={borrower.id}
         open={openAssign}
         onOpenChange={setOpenAssign}
+        onSaved={() => window.dispatchEvent(new Event("app:borrowers:changed"))}
       />
     </>
   )

@@ -389,25 +389,29 @@ export async function POST(request: Request, { params }: RouteContext) {
           }
         }
 
-        inputUpserts.push({
+        const inputRow: Record<string, unknown> = {
           document_type_ai_input_id: dtaiId,
           deal_document_id: dealDocumentId,
           response: item.output,
           ai_value: String(item.output?.answer ?? ""),
-          approved_value: null,
-          rejected: null,
           user_id: userId,
-        });
+        };
+        // Only include approval fields when the webhook explicitly provides them
+        // so we don't overwrite manual user approvals on re-extraction
+        if (item.approved_value !== undefined) inputRow.approved_value = item.approved_value;
+        if (item.rejected !== undefined) inputRow.rejected = item.rejected;
+        inputUpserts.push(inputRow);
       } else if (item.type === "condition") {
-        conditionUpserts.push({
+        const condRow: Record<string, unknown> = {
           document_type_ai_condition: item.document_type_ai_condition,
           deal_document_id: dealDocumentId,
           response: item.output,
           ai_value: Boolean(item.output?.answer),
-          approved_value: null,
-          rejected: null,
           user_id: userId,
-        });
+        };
+        if (item.approved_value !== undefined) condRow.approved_value = item.approved_value;
+        if (item.rejected !== undefined) condRow.rejected = item.rejected;
+        conditionUpserts.push(condRow);
       }
     }
 
@@ -442,6 +446,59 @@ export async function POST(request: Request, { params }: RouteContext) {
           { error: "Failed to save condition results" },
           { status: 500 }
         );
+      }
+    }
+
+    // Sync pre-approved inputs to deal_inputs (same logic as PATCH approve)
+    const approvedInputs = inputUpserts.filter(
+      (u) => u.approved_value != null && u.rejected !== true
+    );
+    for (const u of approvedInputs) {
+      try {
+        const { data: dtaiRow } = await supabaseAdmin
+          .from("document_type_ai_input")
+          .select("input_id")
+          .eq("id", u.document_type_ai_input_id)
+          .single();
+
+        if (dtaiRow?.input_id) {
+          const { data: inputRow } = await supabaseAdmin
+            .from("inputs")
+            .select("input_type")
+            .eq("id", dtaiRow.input_id)
+            .single();
+
+          const inputType = inputRow?.input_type ?? "text";
+          const dealInputPayload: Record<string, unknown> = {
+            deal_id: dealId,
+            input_id: dtaiRow.input_id,
+            input_type: inputType,
+          };
+
+          if (inputType === "text" || inputType === "dropdown") {
+            dealInputPayload.value_text = String(u.approved_value);
+          } else if (
+            inputType === "number" ||
+            inputType === "currency" ||
+            inputType === "percentage"
+          ) {
+            const num = Number(String(u.approved_value).replace(/[^0-9.-]/g, ""));
+            dealInputPayload.value_numeric = isNaN(num) ? null : num;
+          } else if (inputType === "date") {
+            dealInputPayload.value_date = String(u.approved_value);
+          } else if (inputType === "boolean") {
+            dealInputPayload.value_bool =
+              String(u.approved_value).toLowerCase() === "true";
+          } else {
+            dealInputPayload.value_text = String(u.approved_value);
+          }
+
+          await supabaseAdmin
+            .from("deal_inputs")
+            .upsert(dealInputPayload, { onConflict: "deal_id,input_id" });
+        }
+      } catch (syncErr) {
+        console.error("[POST ai-results] deal_inputs sync error:", syncErr);
       }
     }
 

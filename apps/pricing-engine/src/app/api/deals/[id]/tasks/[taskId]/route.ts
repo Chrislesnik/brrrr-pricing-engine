@@ -198,6 +198,41 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Sync role_assignments when assigned_to_user_ids changes
+    if (body.assigned_to_user_ids !== undefined && updatedTask) {
+      try {
+        const taskUuid = (updatedTask as any).uuid as string;
+        const orgId = (updatedTask as any).organization_id as string | null;
+        const newUserIds = Array.isArray(body.assigned_to_user_ids) ? (body.assigned_to_user_ids as string[]) : [];
+
+        // Remove old role_assignments for this task
+        await supabaseAdmin
+          .from("role_assignments")
+          .delete()
+          .eq("resource_type", "deal_task")
+          .eq("resource_id", taskUuid);
+
+        // Insert new role_assignments (using Point of Contact role, id=17)
+        if (newUserIds.length > 0) {
+          await supabaseAdmin
+            .from("role_assignments")
+            .upsert(
+              newUserIds.map((uid) => ({
+                resource_type: "deal_task" as const,
+                resource_id: taskUuid,
+                role_type_id: 17,
+                user_id: uid,
+                organization_id: orgId,
+                created_by: userId,
+              })),
+              { onConflict: "resource_type,resource_id,role_type_id,user_id" }
+            );
+        }
+      } catch (syncErr) {
+        console.error("Error syncing role_assignments for task:", syncErr);
+      }
+    }
+
     return NextResponse.json({ task: updatedTask });
   } catch (err) {
     console.error("Unexpected error in PATCH /api/deals/[id]/tasks/[taskId]:", err);

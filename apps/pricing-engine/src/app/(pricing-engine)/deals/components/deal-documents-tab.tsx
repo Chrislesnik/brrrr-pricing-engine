@@ -51,21 +51,12 @@ import {
   CheckCircle,
   Pencil,
   Archive,
-  Settings,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import { toast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useDocumentLogicEngine } from "@/hooks/use-document-logic-engine";
-import { ColumnExpressionInput } from "@/components/column-expression-input";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -159,14 +150,6 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const [viewMode, setViewMode] = useState<"category" | "files">("category");
   const [searchQuery, setSearchQuery] = useState("");
 
-  /* ----- Deal Settings sheet state ----- */
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [headingExpr, setHeadingExpr] = useState("");
-  const [subheadingExpr, setSubheadingExpr] = useState("");
-  const [settingsSaving, setSettingsSaving] = useState(false);
-  const [inputColumns, setInputColumns] = useState<{ name: string; type: string }[]>([]);
-  const [inputColumnsLoading, setInputColumnsLoading] = useState(false);
-
   /* ----- Document logic engine ----- */
   const { hiddenDocTypes, requiredDocTypes, loading: logicLoading } =
     useDocumentLogicEngine(dealInputs);
@@ -212,70 +195,6 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
-
-  /* ----- Deal Settings: fetch app settings + inputs on mount ----- */
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const res = await fetch("/api/app-settings");
-        if (res.ok) {
-          const { settings } = await res.json();
-          setHeadingExpr(settings?.deal_heading_expression ?? "");
-          setSubheadingExpr(settings?.deal_subheading_expression ?? "");
-        }
-      } catch {
-        /* silently ignore */
-      }
-    }
-    async function loadInputColumns() {
-      setInputColumnsLoading(true);
-      try {
-        const res = await fetch("/api/inputs");
-        if (res.ok) {
-          const inputs: { input_code: string; input_label: string; input_type: string }[] = await res.json();
-          setInputColumns(
-            inputs.map((inp) => ({
-              name: inp.input_code,
-              type: inp.input_type ?? "text",
-            }))
-          );
-        }
-      } catch {
-        /* silently ignore */
-      } finally {
-        setInputColumnsLoading(false);
-      }
-    }
-    loadSettings();
-    loadInputColumns();
-  }, []);
-
-  const handleSaveSettings = useCallback(async () => {
-    setSettingsSaving(true);
-    try {
-      await Promise.all([
-        fetch("/api/app-settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "deal_heading_expression", value: headingExpr }),
-        }),
-        fetch("/api/app-settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "deal_subheading_expression", value: subheadingExpr }),
-        }),
-      ]);
-      toast({ title: "Saved", description: "Deal display settings updated" });
-      setSettingsOpen(false);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("app:settings:changed"));
-      }
-    } catch {
-      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
-    } finally {
-      setSettingsSaving(false);
-    }
-  }, [headingExpr, subheadingExpr]);
 
   /* ----- Override helpers ----- */
   const overrideMap = useMemo(() => {
@@ -670,76 +589,8 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
             </Button>
           </div>
 
-          {/* Deal Settings */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 gap-1.5"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-3.5 w-3.5" />
-            <span className="text-xs">Deal Settings</span>
-          </Button>
         </div>
       </div>
-
-      {/* Deal Settings Sheet */}
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Deal Display Settings</SheetTitle>
-            <SheetDescription>
-              Configure how the deal heading and subheading are displayed.
-              These settings apply globally to all deals.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-6 py-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Heading Expression</Label>
-              <p className="text-xs text-muted-foreground">
-                Type @ to insert input fields. Example: @borrower_name - @property_address
-              </p>
-              <ColumnExpressionInput
-                value={headingExpr}
-                onChange={setHeadingExpr}
-                columns={inputColumns}
-                loading={inputColumnsLoading}
-                placeholder="Type @ to insert inputs..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Subheading Expression</Label>
-              <p className="text-xs text-muted-foreground">
-                Type @ to insert input fields. Example: @loan_amount | @property_type
-              </p>
-              <ColumnExpressionInput
-                value={subheadingExpr}
-                onChange={setSubheadingExpr}
-                columns={inputColumns}
-                loading={inputColumnsLoading}
-                placeholder="Type @ to insert inputs..."
-              />
-            </div>
-
-            <Button
-              onClick={handleSaveSettings}
-              disabled={settingsSaving}
-              className="w-full"
-            >
-              {settingsSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Saving...
-                </>
-              ) : (
-                "Save Settings"
-              )}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* View content */}
       {viewMode === "files" ? (
