@@ -1,18 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@repo/lib/cn";
 import {
-  Kanban,
-  Table2,
-  CheckSquare,
-  SlidersHorizontal,
+  CheckCircle2,
   Plus,
-  Eye,
-  EyeOff,
   Filter,
   ArrowUpDown,
   ChevronDown,
@@ -34,6 +29,7 @@ import {
   Image as ImageIcon,
   File as FileIcon,
   Loader2,
+  Lock,
 } from "lucide-react";
 import {
   Sheet,
@@ -86,9 +82,9 @@ import type { ThreadData } from "@liveblocks/client";
 /*  Types                                                                      */
 /* ========================================================================== */
 
-export type TaskStatus = "todo" | "in_progress" | "in_review" | "blocked" | "done";
+export type TaskStatus = "todo" | "done" | "skipped";
 export type TaskPriority = "none" | "low" | "medium" | "high" | "urgent";
-type ViewType = "board" | "table" | "checklist";
+type ViewType = "checklist";
 type RuleOperator = "is" | "is_not" | "contains" | "not_contains";
 type LogicOperator = "and" | "or";
 type SortColumn = "priority" | "status" | "title" | "assignee" | "created" | "dueDate";
@@ -107,6 +103,10 @@ export interface Task {
   checked: boolean;
   createdAt?: string;
   updatedAt?: string;
+  dealStageName?: string;
+  buttonEnabled?: boolean;
+  buttonLabel?: string;
+  buttonActionId?: number;
 }
 
 interface AdvancedRule {
@@ -146,6 +146,9 @@ export interface DealTaskTrackerProps {
   tasks?: Task[];
   onAddTask?: (dealId: string, task: Partial<Task>) => void;
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
+  onTriggerAction?: (task: Task) => Promise<boolean>;
+  stepOrder?: string[];
+  currentStep?: string;
 }
 
 /* ========================================================================== */
@@ -154,10 +157,8 @@ export interface DealTaskTrackerProps {
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
   todo: { label: "To Do", color: "#6B7280" },
-  in_progress: { label: "In Progress", color: "#3B82F6" },
-  in_review: { label: "In Review", color: "#F59E0B" },
-  blocked: { label: "Blocked", color: "#EF4444" },
   done: { label: "Done", color: "#10B981" },
+  skipped: { label: "Skipped", color: "#9CA3AF" },
 };
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; level: number }> = {
@@ -168,7 +169,7 @@ const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; leve
   none: { label: "No priority", color: "#D1D5DB", level: 0 },
 };
 
-const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "in_review", "blocked", "done"];
+const STATUS_ORDER: TaskStatus[] = ["todo", "done", "skipped"];
 const PRIORITY_ORDER: TaskPriority[] = ["urgent", "high", "medium", "low", "none"];
 
 const OPERATOR_OPTIONS: { value: RuleOperator; label: string }[] = [
@@ -409,6 +410,9 @@ export function DealTaskTracker({
   tasks: propTasks,
   onAddTask,
   onUpdateTask,
+  onTriggerAction,
+  stepOrder = [],
+  currentStep = "",
 }: DealTaskTrackerProps) {
   const [tasks, setTasks] = useState<Task[]>(propTasks ?? []);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -416,7 +420,7 @@ export function DealTaskTracker({
   const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>("todo");
 
   const [viewSettings, setViewSettings] = useState<ViewSettings>({
-    currentView: "board",
+    currentView: "checklist",
     groupBy: "status",
     sortRules: [{ id: "sort-default", column: "priority", ascending: false }],
     showCompletedTasks: true,
@@ -505,6 +509,7 @@ export function DealTaskTracker({
         checked: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        dealStageName: taskData.dealStageName,
       };
       setTasks((prev) => [...prev, newTask]);
       setIsNewTaskDialogOpen(false);
@@ -654,55 +659,21 @@ export function DealTaskTracker({
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <ViewToolbar
-        viewSettings={viewSettings}
-        onSetView={(v) => setViewSettings((p) => ({ ...p, currentView: v }))}
-        onUpdateViewSettings={(s) => setViewSettings((p) => ({ ...p, ...s }))}
         onAddTask={() => handleAddTaskToStatus("todo")}
-        activeFilterCount={activeFilterCount}
-        totalTasks={visibleTasks.length}
-        advancedFilter={viewSettings.advancedFilter}
-        onSetTopLevelLogic={setTopLevelLogic}
-        onAddAdvancedRule={addAdvancedRule}
-        onAddFilterGroup={addFilterGroup}
-        onAddRuleToGroup={addRuleToGroup}
-        onSetGroupLogic={setGroupLogic}
-        onUpdateAdvancedRule={updateAdvancedRule}
-        onRemoveAdvancedRule={removeAdvancedRule}
-        onRemoveFilterGroup={removeFilterGroup}
-        onClearAllFilters={clearAllFilters}
-        filterProperties={dynamicFilterProps}
-        sortRules={viewSettings.sortRules}
-        onAddSortRule={addSortRule}
-        onUpdateSortRule={updateSortRule}
-        onRemoveSortRule={removeSortRule}
       />
 
       {/* View content */}
       <div className="min-h-[400px]">
-        {viewSettings.currentView === "board" && (
-          <BoardView
-            groups={sortedGroups}
-            groupBy={viewSettings.groupBy}
-            onStatusChange={handleStatusChange}
-            onTaskClick={setSelectedTask}
-            onAddTask={handleAddTaskToStatus}
-            selectedTaskId={selectedTask?.id ?? null}
-          />
-        )}
-        {viewSettings.currentView === "table" && (
-          <TableView
-            groups={sortedGroups}
-            onTaskClick={setSelectedTask}
-            selectedTaskId={selectedTask?.id ?? null}
-          />
-        )}
         {viewSettings.currentView === "checklist" && (
           <ChecklistView
             groups={sortedGroups}
             visibleTasks={visibleTasks}
             onTaskClick={setSelectedTask}
             onCheckTask={handleCheckTask}
+            onTriggerAction={onTriggerAction}
             selectedTaskId={selectedTask?.id ?? null}
+            stepOrder={stepOrder}
+            currentStep={currentStep}
           />
         )}
       </div>
@@ -730,6 +701,8 @@ export function DealTaskTracker({
         onOpenChange={setIsNewTaskDialogOpen}
         onCreateTask={handleCreateTask}
         initialStatus={newTaskStatus}
+        stepOrder={stepOrder}
+        currentStep={currentStep}
       />
     </div>
   );
@@ -739,207 +712,22 @@ export function DealTaskTracker({
 /*  ViewToolbar                                                                */
 /* ========================================================================== */
 
-const VIEW_OPTIONS: { value: ViewType; label: string; icon: typeof Kanban }[] = [
-  { value: "board", label: "Board", icon: Kanban },
-  { value: "table", label: "Table", icon: Table2 },
-  { value: "checklist", label: "Checklist", icon: CheckSquare },
-];
-
-const GROUP_OPTIONS: { value: ViewSettings["groupBy"]; label: string }[] = [
-  { value: "status", label: "Status" },
-  { value: "priority", label: "Priority" },
-  { value: "assignee", label: "Assignee" },
-  { value: "label", label: "Label" },
-];
-
 function ViewToolbar({
-  viewSettings,
-  onSetView,
-  onUpdateViewSettings,
   onAddTask,
-  activeFilterCount,
-  totalTasks,
-  advancedFilter,
-  onSetTopLevelLogic,
-  onAddAdvancedRule,
-  onAddFilterGroup,
-  onAddRuleToGroup,
-  onSetGroupLogic,
-  onUpdateAdvancedRule,
-  onRemoveAdvancedRule,
-  onRemoveFilterGroup,
-  onClearAllFilters,
-  filterProperties,
-  sortRules,
-  onAddSortRule,
-  onUpdateSortRule,
-  onRemoveSortRule,
 }: {
-  viewSettings: ViewSettings;
-  onSetView: (v: ViewType) => void;
-  onUpdateViewSettings: (s: Partial<ViewSettings>) => void;
   onAddTask: () => void;
-  activeFilterCount: number;
-  totalTasks: number;
-  advancedFilter: AdvancedFilterState;
-  onSetTopLevelLogic: (l: LogicOperator) => void;
-  onAddAdvancedRule: () => void;
-  onAddFilterGroup: () => void;
-  onAddRuleToGroup: (groupId: string) => void;
-  onSetGroupLogic: (groupId: string, l: LogicOperator) => void;
-  onUpdateAdvancedRule: (ruleId: string, updates: Partial<AdvancedRule>) => void;
-  onRemoveAdvancedRule: (ruleId: string) => void;
-  onRemoveFilterGroup: (groupId: string) => void;
-  onClearAllFilters: () => void;
-  filterProperties: typeof FILTER_PROPERTIES;
-  sortRules: SortRule[];
-  onAddSortRule: (column: SortColumn) => void;
-  onUpdateSortRule: (ruleId: string, updates: Partial<SortRule>) => void;
-  onRemoveSortRule: (ruleId: string) => void;
 }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-
-  useClickOutside(settingsRef, () => setSettingsOpen(false));
 
   return (
-    <div className="flex items-center justify-between border-b px-4 py-2">
-      <div className="flex items-center gap-1">
-        {/* View tabs */}
-        <div className="flex items-center rounded-md bg-muted/60 p-0.5">
-          {VIEW_OPTIONS.map((opt) => {
-            const active = viewSettings.currentView === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => onSetView(opt.value)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all",
-                  active
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <opt.icon className="h-3.5 w-3.5" />
-                <span>{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mx-2 h-4 w-px bg-border" />
-
-        {/* Filter popover */}
-        <FilterPopover
-          advancedFilter={advancedFilter}
-          activeFilterCount={activeFilterCount}
-          totalTasks={totalTasks}
-          filterProperties={filterProperties}
-          onSetTopLevelLogic={onSetTopLevelLogic}
-          onAddAdvancedRule={onAddAdvancedRule}
-          onAddFilterGroup={onAddFilterGroup}
-          onAddRuleToGroup={onAddRuleToGroup}
-          onSetGroupLogic={onSetGroupLogic}
-          onUpdateAdvancedRule={onUpdateAdvancedRule}
-          onRemoveAdvancedRule={onRemoveAdvancedRule}
-          onRemoveFilterGroup={onRemoveFilterGroup}
-          onClearAllFilters={onClearAllFilters}
-        />
-
-        {/* Sort popover */}
-        <SortPopover
-          sortRules={sortRules}
-          onAddSortRule={onAddSortRule}
-          onUpdateSortRule={onUpdateSortRule}
-          onRemoveSortRule={onRemoveSortRule}
-        />
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        {/* View settings */}
-        <div className="relative" ref={settingsRef}>
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-              settingsOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Settings</span>
-            <ChevronDown className={cn("h-3 w-3 transition-transform", settingsOpen && "rotate-180")} />
-          </button>
-
-          {settingsOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-[280px] rounded-lg border bg-card shadow-lg">
-              <div className="px-3 py-2.5 border-b"><span className="text-xs font-semibold">View settings</span></div>
-              {/* Layout */}
-              <div className="px-3 py-2.5 border-b">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Layout</span>
-                <div className="mt-2 flex gap-1.5">
-                  {VIEW_OPTIONS.map((opt) => {
-                    const active = viewSettings.currentView === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => onSetView(opt.value)}
-                        className={cn(
-                          "flex flex-1 flex-col items-center gap-1 rounded-md p-2 transition-colors",
-                          active ? "bg-primary/10 text-primary ring-1 ring-primary/20" : "bg-muted/60 text-muted-foreground hover:bg-accent"
-                        )}
-                      >
-                        <opt.icon className="h-4 w-4" />
-                        <span className="text-[10px] font-medium">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* Group by */}
-              <div className="px-3 py-2.5 border-b">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Group by</span>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {GROUP_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => onUpdateViewSettings({ groupBy: opt.value })}
-                      className={cn(
-                        "rounded-md px-2.5 py-1 text-xs transition-colors",
-                        viewSettings.groupBy === opt.value
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "bg-muted/60 text-muted-foreground hover:bg-accent"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Show/hide completed */}
-              <div className="px-3 py-2.5">
-                <button
-                  onClick={() => onUpdateViewSettings({ showCompletedTasks: !viewSettings.showCompletedTasks })}
-                  className="flex w-full items-center gap-2 rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {viewSettings.showCompletedTasks ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  <span>{viewSettings.showCompletedTasks ? "Showing" : "Hiding"} completed tasks</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mx-1 h-4 w-px bg-border" />
-
-        {/* Add task */}
-        <button
-          onClick={onAddTask}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>New task</span>
-        </button>
-      </div>
+    <div className="flex items-center justify-end border-b px-4 py-2">
+      {/* Add task */}
+      <button
+        onClick={onAddTask}
+        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span>New task</span>
+      </button>
     </div>
   );
 }
@@ -1290,126 +1078,257 @@ function TableGroupRows({
 /* ========================================================================== */
 
 function ChecklistView({
-  groups,
+  groups: _groups,
   visibleTasks,
   onTaskClick,
   onCheckTask,
+  onTriggerAction,
   selectedTaskId,
+  stepOrder = [],
+  currentStep = "",
 }: {
   groups: TaskGroup[];
   visibleTasks: Task[];
   onTaskClick: (task: Task) => void;
   onCheckTask: (taskId: string, checked: boolean) => void;
+  onTriggerAction?: (task: Task) => Promise<boolean>;
   selectedTaskId: string | null;
+  stepOrder?: string[];
+  currentStep?: string;
 }) {
-  const totalTasks = visibleTasks.length;
-  const checkedTasks = visibleTasks.filter((t) => t.checked).length;
-  const progress = totalTasks > 0 ? (checkedTasks / totalTasks) * 100 : 0;
+  const currentStepIdx = stepOrder.indexOf(currentStep);
+
+  // Group tasks by their step name
+  const tasksByStep = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const step of stepOrder) map.set(step, []);
+    for (const task of visibleTasks) {
+      const stepName = task.dealStageName ?? "";
+      const bucket = map.get(stepName);
+      if (bucket) bucket.push(task);
+    }
+    return map;
+  }, [visibleTasks, stepOrder]);
+
+  // Progress scoped to the current step
+  const currentStepTasks = currentStepIdx >= 0 ? (tasksByStep.get(stepOrder[currentStepIdx]) ?? []) : [];
+  const stepTotal = currentStepTasks.length;
+  const stepDone = currentStepTasks.filter((t) => t.checked).length;
+  const stepRemaining = stepTotal - stepDone;
+  const stepProgress = stepTotal > 0 ? (stepDone / stepTotal) * 100 : 0;
+  const nextStepName = currentStepIdx >= 0 && currentStepIdx + 1 < stepOrder.length
+    ? stepOrder[currentStepIdx + 1]
+    : null;
 
   return (
-    <div className="h-full overflow-auto px-4 py-4">
-      {/* Progress bar */}
-      <div className="mb-4 max-w-3xl">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-medium text-foreground">Progress</span>
-          <span className="text-xs text-muted-foreground">{checkedTasks} of {totalTasks} tasks completed</span>
+    <div className="h-full overflow-auto px-6 py-5">
+      {/* Progress bar – scoped to current step */}
+      <div className="mb-5 max-w-5xl">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-foreground">
+            {currentStepIdx >= 0 ? stepOrder[currentStepIdx] : "Progress"}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {nextStepName
+              ? `${stepRemaining} task${stepRemaining !== 1 ? "s" : ""} remaining to reach ${nextStepName}`
+              : `${stepDone} of ${stepTotal} tasks completed`}
+          </span>
         </div>
-        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${progress}%`, backgroundColor: STATUS_CONFIG.done.color }}
+            style={{ width: `${stepProgress}%`, backgroundColor: STATUS_CONFIG.done.color }}
           />
         </div>
       </div>
 
-      {/* Grouped checklists */}
-      <div className="flex flex-col gap-1 max-w-3xl">
-        {groups.map((group) => (
-          <ChecklistGroup
-            key={group.key}
-            groupKey={group.key}
-            label={group.label}
-            color={group.color}
-            tasks={group.tasks}
-            onTaskClick={onTaskClick}
-            onCheckTask={onCheckTask}
-            selectedTaskId={selectedTaskId}
-          />
-        ))}
+      {/* Step-grouped checklists */}
+      <div className="flex flex-col gap-2 max-w-5xl">
+        {stepOrder.map((stepName, idx) => {
+          const isAccessible = idx <= currentStepIdx;
+          const tasks = tasksByStep.get(stepName) ?? [];
+          return (
+            <StepChecklistGroup
+              key={stepName}
+              stepName={stepName}
+              stepIndex={idx}
+              tasks={tasks}
+              isAccessible={isAccessible}
+              isCurrent={idx === currentStepIdx}
+              onTaskClick={onTaskClick}
+              onCheckTask={onCheckTask}
+              onTriggerAction={onTriggerAction}
+              selectedTaskId={selectedTaskId}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function ChecklistGroup({
-  groupKey,
-  label,
-  color,
+function StepChecklistGroup({
+  stepName,
+  stepIndex,
   tasks,
+  isAccessible,
+  isCurrent,
   onTaskClick,
   onCheckTask,
+  onTriggerAction,
   selectedTaskId,
 }: {
-  groupKey: string;
-  label: string;
-  color: string;
+  stepName: string;
+  stepIndex: number;
   tasks: Task[];
+  isAccessible: boolean;
+  isCurrent: boolean;
   onTaskClick: (task: Task) => void;
   onCheckTask: (taskId: string, checked: boolean) => void;
+  onTriggerAction?: (task: Task) => Promise<boolean>;
   selectedTaskId: string | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isCurrent);
   const checkedCount = tasks.filter((t) => t.checked).length;
 
   return (
-    <div className="rounded-lg border overflow-hidden mb-2">
+    <div className={cn("rounded-lg border overflow-hidden", !isAccessible && "opacity-60")}>
       <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+        onClick={() => isAccessible && setCollapsed(!collapsed)}
+        className={cn(
+          "flex w-full items-center gap-3 px-4 py-3 transition-colors",
+          isAccessible
+            ? "bg-muted/30 hover:bg-muted/50 cursor-pointer"
+            : "bg-muted/20 cursor-not-allowed"
+        )}
       >
-        {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-        <Circle className="h-3 w-3" style={{ color }} fill={groupKey === "done" ? color : "none"} />
-        <span className="text-xs font-semibold text-foreground">{label}</span>
-        <span className="text-[10px] text-muted-foreground ml-auto">{checkedCount}/{tasks.length}</span>
+        {isAccessible ? (
+          collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <Lock className="h-4 w-4 text-muted-foreground" />
+        )}
+        <span className={cn(
+          "text-sm font-semibold",
+          isCurrent ? "text-primary" : "text-foreground"
+        )}>
+          Step {stepIndex + 1}: {stepName}
+        </span>
+        {isCurrent && (
+          <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold">
+            Current
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">
+          {checkedCount}/{tasks.length}
+        </span>
       </button>
 
-      {!collapsed && (
+      {isAccessible && !collapsed && (
         <div className="divide-y divide-border">
-          {tasks.map((task) => {
-            const isSelected = selectedTaskId === task.id;
-            return (
-              <div
-                key={task.id}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 transition-colors cursor-pointer group",
-                  isSelected ? "bg-primary/5" : "hover:bg-accent/50"
-                )}
-              >
-                <Checkbox
-                  checked={task.checked}
-                  onCheckedChange={(checked) => onCheckTask(task.id, checked as boolean)}
-                  className="h-4 w-4 rounded border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                />
-                <button onClick={() => onTaskClick(task)} className="flex flex-1 items-center gap-3 min-w-0 text-left">
-                  {task.identifier && <span className="text-[11px] font-mono text-muted-foreground flex-shrink-0">{task.identifier}</span>}
-                  <span className={cn("text-sm flex-1 truncate transition-colors", task.checked ? "text-muted-foreground line-through" : "text-foreground")}>
-                    {task.title}
-                  </span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <PriorityIcon priority={task.priority} />
+          {tasks.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-muted-foreground text-center">
+              No tasks in this step
+            </div>
+          ) : (
+            tasks.map((task) => {
+              const isSelected = selectedTaskId === task.id;
+              const statusConfig = STATUS_CONFIG[task.status];
+              return (
+                <div
+                  key={task.id}
+                  className={cn(
+                    "flex items-center gap-4 px-4 py-3.5 transition-colors cursor-pointer group",
+                    isSelected ? "bg-primary/5" : "hover:bg-accent/50"
+                  )}
+                >
+                  <Checkbox
+                    checked={task.checked}
+                    onCheckedChange={(checked) => onCheckTask(task.id, checked as boolean)}
+                    className="h-5 w-5 rounded border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <button onClick={() => onTaskClick(task)} className="flex flex-1 items-center gap-3 min-w-0 text-left">
+                    {task.identifier && <span className="text-xs font-mono text-muted-foreground flex-shrink-0">{task.identifier}</span>}
+                    <span className={cn("text-sm truncate transition-colors", task.checked ? "text-muted-foreground line-through" : "text-foreground")}>
+                      {task.title}
+                    </span>
+                    {task.status !== "todo" && (
+                      <span
+                        className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium flex-shrink-0"
+                        style={{ backgroundColor: `${statusConfig.color}20`, color: statusConfig.color }}
+                      >
+                        {statusConfig.label}
+                      </span>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-2.5 flex-shrink-0 ml-auto">
                     {task.assignee && (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary" title={task.assignee}>
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary" title={task.assignee}>
                         {task.assignee.split(" ").map((n) => n[0]).join("")}
                       </div>
                     )}
+                    {task.buttonEnabled && task.buttonLabel && onTriggerAction && (
+                      <ActionButton
+                        label={task.buttonLabel}
+                        onRun={() => onTriggerAction(task)}
+                      />
+                    )}
                   </div>
-                </button>
-              </div>
-            );
-          })}
+                </div>
+              );
+            })
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/* ========================================================================== */
+/*  ActionButton – animated task action button                                 */
+/* ========================================================================== */
+
+function ActionButton({
+  label,
+  onRun,
+}: {
+  label: string;
+  onRun: () => Promise<boolean>;
+}) {
+  const [state, setState] = useState<"idle" | "running" | "success" | "error">("idle");
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (state === "running") return;
+    setState("running");
+    try {
+      const ok = await onRun();
+      setState(ok ? "success" : "error");
+    } catch {
+      setState("error");
+    }
+    setTimeout(() => setState("idle"), 2000);
+  };
+
+  return (
+    <Button
+      size="sm"
+      disabled={state === "running"}
+      className={cn(
+        "h-7 px-3 text-xs font-medium transition-all duration-200",
+        state === "idle" && "bg-primary text-primary-foreground hover:bg-primary/90",
+        state === "running" && "bg-primary text-primary-foreground",
+        state === "success" && "bg-emerald-600 text-white",
+        state === "error" && "bg-destructive text-destructive-foreground animate-shake"
+      )}
+      onClick={handleClick}
+    >
+      {state === "running" && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+      {state === "success" && <CheckCircle2 className="mr-1.5 h-3 w-3" />}
+      {state === "idle" && label}
+      {state === "running" && "Running..."}
+      {state === "success" && "Done"}
+      {state === "error" && "Failed"}
+    </Button>
   );
 }
 
@@ -2711,11 +2630,15 @@ function NewTaskDialog({
   onOpenChange,
   onCreateTask,
   initialStatus,
+  stepOrder = [],
+  currentStep = "",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateTask: (task: Partial<Task>) => void;
   initialStatus: TaskStatus;
+  stepOrder?: string[];
+  currentStep?: string;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -2723,14 +2646,23 @@ function NewTaskDialog({
   const [priority, setPriority] = useState<TaskPriority>("none");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [selectedStep, setSelectedStep] = useState(currentStep || (stepOrder[0] ?? ""));
 
   const handleCreate = () => {
     if (!title.trim()) return;
-    onCreateTask({ title, description, status, priority, assignee: assignee || undefined, dueDate: dueDate || undefined });
+    const task: Partial<Task> & { deal_stage_name?: string } = {
+      title, description, status, priority,
+      assignee: assignee || undefined,
+      dueDate: dueDate || undefined,
+      dealStageName: selectedStep || undefined,
+    };
+    onCreateTask(task);
     setTitle(""); setDescription(""); setStatus(initialStatus); setPriority("none"); setAssignee(""); setDueDate("");
+    setSelectedStep(currentStep || (stepOrder[0] ?? ""));
   };
 
   React.useEffect(() => { setStatus(initialStatus); }, [initialStatus]);
+  React.useEffect(() => { setSelectedStep(currentStep || (stepOrder[0] ?? "")); }, [currentStep, stepOrder]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2749,6 +2681,16 @@ function NewTaskDialog({
             <Textarea id="description" placeholder="Enter description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
           <div className="flex flex-wrap gap-2">
+            {stepOrder.length > 0 && (
+              <Select value={selectedStep} onValueChange={setSelectedStep}>
+                <SelectTrigger className="w-[180px] h-8"><SelectValue placeholder="Select step..." /></SelectTrigger>
+                <SelectContent>
+                  {stepOrder.map((step) => (
+                    <SelectItem key={step} value={step}>{step}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
               <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
               <SelectContent>

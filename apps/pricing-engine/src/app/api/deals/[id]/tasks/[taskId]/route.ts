@@ -152,14 +152,11 @@ export async function PATCH(
     if (body.started_at !== undefined) updatePayload.started_at = body.started_at;
     if (body.completed_at !== undefined) updatePayload.completed_at = body.completed_at;
     if (body.display_order !== undefined) updatePayload.display_order = body.display_order;
+    if (body.deal_stage_id !== undefined) updatePayload.deal_stage_id = body.deal_stage_id;
 
     // Auto-set completed_at when status changes to "done" (id=5)
     if (body.task_status_id === 5 && body.completed_at === undefined) {
       updatePayload.completed_at = new Date().toISOString();
-    }
-    // Auto-set started_at when status changes to "in_progress" (id=2)
-    if (body.task_status_id === 2 && body.started_at === undefined) {
-      updatePayload.started_at = new Date().toISOString();
     }
 
     if (Object.keys(updatePayload).length === 0) {
@@ -185,12 +182,14 @@ export async function PATCH(
         due_date_at,
         started_at,
         completed_at,
+        deal_stage_id,
         display_order,
         created_by,
         created_at,
         updated_at,
         task_statuses (id, code, name, color),
-        task_priorities (id, code, name, color)
+        task_priorities (id, code, name, color),
+        deal_stages (id, name, display_order)
       `)
       .single();
 

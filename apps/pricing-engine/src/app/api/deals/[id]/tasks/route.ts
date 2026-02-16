@@ -88,8 +88,11 @@ export async function GET(
         created_by,
         created_at,
         updated_at,
+        deal_stage_id,
         task_statuses (id, code, name, color),
-        task_priorities (id, code, name, color)
+        task_priorities (id, code, name, color),
+        deal_stages (id, name, display_order),
+        task_templates (button_enabled, button_action_id, button_label)
       `)
       .eq("deal_id", dealId)
       .order("display_order", { ascending: true })
@@ -163,6 +166,7 @@ export async function POST(
         task_priority_id: body.task_priority_id || null,
         assigned_to_user_ids: body.assigned_to_user_ids || [],
         due_date_at: body.due_date_at || null,
+        deal_stage_id: body.deal_stage_id || null,
         display_order: nextOrder,
         created_by: userId,
       })
@@ -180,12 +184,14 @@ export async function POST(
         due_date_at,
         started_at,
         completed_at,
+        deal_stage_id,
         display_order,
         created_by,
         created_at,
         updated_at,
         task_statuses (id, code, name, color),
-        task_priorities (id, code, name, color)
+        task_priorities (id, code, name, color),
+        deal_stages (id, name, display_order)
       `)
       .single();
 
