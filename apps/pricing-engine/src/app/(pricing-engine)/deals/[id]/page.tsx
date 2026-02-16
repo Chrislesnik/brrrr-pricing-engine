@@ -327,7 +327,7 @@ function DealRecordContent() {
           })()}
 
           {/* Tabs with animated underline */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col gap-0">
             <TabsList className="bg-background relative w-full justify-start rounded-none border-b p-0 h-auto px-6">
               {dealTabs.map((tab, index) => (
                 <TabsTrigger

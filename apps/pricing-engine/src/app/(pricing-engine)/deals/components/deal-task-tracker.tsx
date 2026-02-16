@@ -134,12 +134,25 @@ interface SortRule {
   ascending: boolean;
 }
 
+interface DisplayProperties {
+  id?: boolean;
+  status?: boolean;
+  assignee?: boolean;
+  priority?: boolean;
+  dueDate?: boolean;
+  labels?: boolean;
+  created?: boolean;
+  updated?: boolean;
+}
+
 interface ViewSettings {
   currentView: ViewType;
   groupBy: "status" | "priority" | "assignee" | "label";
   sortRules: SortRule[];
   showCompletedTasks: boolean;
+  showEmptyGroups: boolean;
   advancedFilter: AdvancedFilterState;
+  displayProperties: DisplayProperties;
 }
 
 export interface DealTaskTrackerProps {
@@ -426,7 +439,9 @@ export function DealTaskTracker({
     groupBy: "status",
     sortRules: [{ id: "sort-default", column: "priority", ascending: false }],
     showCompletedTasks: true,
+    showEmptyGroups: true,
     advancedFilter: { logic: "and", items: [] },
+    displayProperties: { id: true, status: true, assignee: true, priority: true, dueDate: true, labels: true, created: true, updated: false },
   });
 
   // Keep in sync with prop changes
@@ -758,6 +773,17 @@ const GROUP_OPTIONS: { value: ViewSettings["groupBy"]; label: string }[] = [
   { value: "label", label: "Label" },
 ];
 
+const DISPLAY_PROPERTIES: { key: keyof DisplayProperties; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "status", label: "Status" },
+  { key: "assignee", label: "Assignee" },
+  { key: "priority", label: "Priority" },
+  { key: "dueDate", label: "Due date" },
+  { key: "labels", label: "Labels" },
+  { key: "created", label: "Created" },
+  { key: "updated", label: "Updated" },
+];
+
 function ViewToolbar({
   viewSettings,
   onSetView,
@@ -835,6 +861,197 @@ function ViewToolbar({
 
         <div className="mx-2 h-4 w-px bg-border" />
 
+        {/* View settings */}
+        <div className="relative" ref={settingsRef}>
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+              settingsOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Display</span>
+          </button>
+
+          {settingsOpen && (
+            <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border bg-card shadow-lg">
+              {/* Layout switcher */}
+              <div className="p-3 pb-0">
+                <div className="flex rounded-lg bg-muted/60 p-0.5">
+                  {VIEW_OPTIONS.map((opt) => {
+                    const active = viewSettings.currentView === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => onSetView(opt.value)}
+                        className={cn(
+                          "flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs font-medium transition-all",
+                          active
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <opt.icon className="h-4 w-4" />
+                        <span className="text-[10px]">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Grouping / Ordering */}
+              <div className="px-3 py-3 space-y-2.5">
+                {/* Grouping row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Kanban className="h-3.5 w-3.5" />
+                    <span>{viewSettings.currentView === "board" ? "Columns" : "Grouping"}</span>
+                  </div>
+                  <select
+                    title="Group by"
+                    value={viewSettings.groupBy}
+                    onChange={(e) => onUpdateViewSettings({ groupBy: e.target.value as ViewSettings["groupBy"] })}
+                    className="h-7 rounded-md border bg-muted/60 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring min-w-[100px]"
+                  >
+                    {GROUP_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Ordering row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span>Ordering</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <select
+                      title="Sort order"
+                      value={sortRules[0]?.column ?? "priority"}
+                      onChange={(e) => {
+                        if (sortRules[0]) {
+                          onUpdateSortRule(sortRules[0].id, { column: e.target.value as SortColumn });
+                        } else {
+                          onAddSortRule(e.target.value as SortColumn);
+                        }
+                      }}
+                      className="h-7 rounded-md border bg-muted/60 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring min-w-[100px]"
+                    >
+                      <option value="priority">Priority</option>
+                      <option value="status">Status</option>
+                      <option value="title">Title</option>
+                      <option value="created">Created</option>
+                      <option value="updated">Updated</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        if (sortRules[0]) {
+                          onUpdateSortRule(sortRules[0].id, { ascending: !sortRules[0].ascending });
+                        }
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                      title={sortRules[0]?.ascending ? "Ascending" : "Descending"}
+                    >
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t" />
+
+              {/* Completed tasks */}
+              <div className="px-3 py-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Completed tasks</span>
+                  <select
+                    title="Completed tasks visibility"
+                    value={viewSettings.showCompletedTasks ? "all" : "hidden"}
+                    onChange={(e) => onUpdateViewSettings({ showCompletedTasks: e.target.value === "all" })}
+                    className="h-7 rounded-md border bg-muted/60 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring min-w-[100px]"
+                  >
+                    <option value="all">All</option>
+                    <option value="hidden">Hidden</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="border-t" />
+
+              {/* View-specific options */}
+              <div className="px-3 py-3 space-y-2.5">
+                <span className="text-xs font-medium text-foreground">
+                  {viewSettings.currentView === "board" ? "Board options" : viewSettings.currentView === "checklist" ? "Checklist options" : "Table options"}
+                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Show empty groups</span>
+                  <button
+                    title="Toggle show empty groups"
+                    onClick={() => onUpdateViewSettings({ showEmptyGroups: !viewSettings.showEmptyGroups })}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors",
+                      viewSettings.showEmptyGroups ? "bg-primary" : "bg-muted"
+                    )}
+                  >
+                    <span className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-sm ring-0 transition-transform mt-0.5",
+                      viewSettings.showEmptyGroups ? "translate-x-4 ml-0.5" : "translate-x-0.5"
+                    )} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t" />
+
+              {/* Display properties */}
+              <div className="px-3 py-3">
+                <span className="text-xs font-medium text-foreground">Display properties</span>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {DISPLAY_PROPERTIES.map((prop) => {
+                    const active = viewSettings.displayProperties?.[prop.key] !== false;
+                    return (
+                      <button
+                        key={prop.key}
+                        onClick={() => onUpdateViewSettings({
+                          displayProperties: {
+                            ...viewSettings.displayProperties,
+                            [prop.key]: !active,
+                          },
+                        })}
+                        className={cn(
+                          "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          active
+                            ? "border-foreground/20 bg-foreground/5 text-foreground"
+                            : "border-transparent bg-muted/40 text-muted-foreground/60"
+                        )}
+                      >
+                        {prop.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t px-3 py-2.5 flex items-center justify-center gap-4">
+                <button
+                  onClick={() => onUpdateViewSettings({
+                    groupBy: "status",
+                    showCompletedTasks: true,
+                    showEmptyGroups: true,
+                    displayProperties: Object.fromEntries(DISPLAY_PROPERTIES.map((p) => [p.key, true])),
+                  })}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Filter popover */}
         <FilterPopover
           advancedFilter={advancedFilter}
@@ -862,81 +1079,6 @@ function ViewToolbar({
       </div>
 
       <div className="flex items-center gap-1.5">
-        {/* View settings */}
-        <div className="relative" ref={settingsRef}>
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-              settingsOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Settings</span>
-            <ChevronDown className={cn("h-3 w-3 transition-transform", settingsOpen && "rotate-180")} />
-          </button>
-
-          {settingsOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-[280px] rounded-lg border bg-card shadow-lg">
-              <div className="px-3 py-2.5 border-b"><span className="text-xs font-semibold">View settings</span></div>
-              {/* Layout */}
-              <div className="px-3 py-2.5 border-b">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Layout</span>
-                <div className="mt-2 flex gap-1.5">
-                  {VIEW_OPTIONS.map((opt) => {
-                    const active = viewSettings.currentView === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => onSetView(opt.value)}
-                        className={cn(
-                          "flex flex-1 flex-col items-center gap-1 rounded-md p-2 transition-colors",
-                          active ? "bg-primary/10 text-primary ring-1 ring-primary/20" : "bg-muted/60 text-muted-foreground hover:bg-accent"
-                        )}
-                      >
-                        <opt.icon className="h-4 w-4" />
-                        <span className="text-[10px] font-medium">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* Group by */}
-              <div className="px-3 py-2.5 border-b">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Group by</span>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {GROUP_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => onUpdateViewSettings({ groupBy: opt.value })}
-                      className={cn(
-                        "rounded-md px-2.5 py-1 text-xs transition-colors",
-                        viewSettings.groupBy === opt.value
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "bg-muted/60 text-muted-foreground hover:bg-accent"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Show/hide completed */}
-              <div className="px-3 py-2.5">
-                <button
-                  onClick={() => onUpdateViewSettings({ showCompletedTasks: !viewSettings.showCompletedTasks })}
-                  className="flex w-full items-center gap-2 rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {viewSettings.showCompletedTasks ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  <span>{viewSettings.showCompletedTasks ? "Showing" : "Hiding"} completed tasks</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mx-1 h-4 w-px bg-border" />
-
         {/* Add task */}
         <button
           onClick={onAddTask}
@@ -1164,7 +1306,7 @@ function TableView({
   return (
     <div className="h-full overflow-auto">
       <table className="w-full border-collapse">
-        <thead className="sticky top-0 z-10 bg-card">
+        <thead className="sticky top-0 z-10 bg-background">
           <tr className="border-b border-border">
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[40px]" />
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[80px]">ID</th>
