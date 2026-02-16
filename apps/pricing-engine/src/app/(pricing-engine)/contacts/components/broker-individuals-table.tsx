@@ -27,13 +27,13 @@ import {
 } from "@repo/ui/shadcn/table"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import type {
-  BrokerOrgRow,
-  OrgMemberRow,
-} from "../data/fetch-broker-companies"
+  BrokerIndividualRow,
+  MemberOrgRow,
+} from "../data/fetch-broker-individuals"
 
 interface Props {
-  data: BrokerOrgRow[]
-  initialMembersMap?: Record<string, OrgMemberRow[]>
+  data: BrokerIndividualRow[]
+  initialOrgsMap?: Record<string, MemberOrgRow[]>
 }
 
 function formatDate(iso: string | null | undefined) {
@@ -54,7 +54,7 @@ function formatRole(role: string | null | undefined) {
   return role.replace(/^org:/, "").replace(/_/g, " ")
 }
 
-export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
+export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
@@ -62,36 +62,34 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
     pageSize,
   })
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
-  const [membersMap, setMembersMap] = useState<
-    Record<string, OrgMemberRow[] | null | undefined>
-  >(initialMembersMap ?? {})
-  const [membersLoading, setMembersLoading] = useState<
-    Record<string, boolean>
-  >({})
+  const [orgsMap, setOrgsMap] = useState<
+    Record<string, MemberOrgRow[] | null | undefined>
+  >(initialOrgsMap ?? {})
+  const [orgsLoading, setOrgsLoading] = useState<Record<string, boolean>>({})
 
-  const fetchMembers = async (orgId: string) => {
-    if (membersMap[orgId] !== undefined || membersLoading[orgId]) return
-    setMembersLoading((prev) => ({ ...prev, [orgId]: true }))
+  const fetchOrgs = async (memberId: string) => {
+    if (orgsMap[memberId] !== undefined || orgsLoading[memberId]) return
+    setOrgsLoading((prev) => ({ ...prev, [memberId]: true }))
     try {
       const res = await fetch(
-        `/api/brokers/companies/${encodeURIComponent(orgId)}/members`,
+        `/api/brokers/individuals/${encodeURIComponent(memberId)}/organizations`,
         { cache: "no-store" }
       )
       if (!res.ok) {
-        setMembersMap((prev) => ({ ...prev, [orgId]: null }))
+        setOrgsMap((prev) => ({ ...prev, [memberId]: null }))
         return
       }
       const j = (await res.json().catch(() => ({}))) as {
-        members?: OrgMemberRow[]
+        organizations?: MemberOrgRow[]
       }
-      setMembersMap((prev) => ({
+      setOrgsMap((prev) => ({
         ...prev,
-        [orgId]: Array.isArray(j.members) ? j.members : [],
+        [memberId]: Array.isArray(j.organizations) ? j.organizations : [],
       }))
     } catch {
-      setMembersMap((prev) => ({ ...prev, [orgId]: null }))
+      setOrgsMap((prev) => ({ ...prev, [memberId]: null }))
     } finally {
-      setMembersLoading((prev) => ({ ...prev, [orgId]: false }))
+      setOrgsLoading((prev) => ({ ...prev, [memberId]: false }))
     }
   }
 
@@ -99,16 +97,16 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
     typeof document !== "undefined" &&
     document.querySelector("[data-slot='dialog-content'][data-state='open']")
 
-  const toggleRow = (rowId: string, orgId: string) => {
+  const toggleRow = (rowId: string, memberId: string) => {
     if (isAnyDialogOpen()) return
     setExpandedRows((prev) => ({
       ...prev,
       [rowId]: !prev[rowId],
     }))
-    fetchMembers(orgId)
+    fetchOrgs(memberId)
   }
 
-  const columns = useMemo<ColumnDef<BrokerOrgRow>[]>(() => {
+  const columns = useMemo<ColumnDef<BrokerIndividualRow>[]>(() => {
     return [
       {
         id: "expand",
@@ -138,21 +136,27 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
         meta: { className: "w-12 pl-3" },
       },
       {
-        header: "Organization Name",
-        accessorKey: "name",
-        cell: ({ row }) => (
-          <span className="text-foreground text-sm font-semibold">
-            {row.getValue("name") || "-"}
-          </span>
-        ),
+        header: "Name",
+        accessorKey: "last_name",
+        cell: ({ row }) => {
+          const name = [row.original.first_name, row.original.last_name]
+            .filter(Boolean)
+            .join(" ")
+          return (
+            <span className="text-foreground text-sm font-semibold">
+              {name || "-"}
+            </span>
+          )
+        },
         filterFn: (row, _columnId, value) => {
           const term = String(value ?? "")
             .toLowerCase()
             .trim()
           if (!term) return true
           const haystack = [
-            row.original.name,
-            row.original.slug ?? "",
+            row.original.first_name ?? "",
+            row.original.last_name ?? "",
+            row.original.user_id ?? "",
           ]
             .join(" ")
             .toLowerCase()
@@ -160,25 +164,34 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
         },
       },
       {
-        header: "Slug",
-        accessorKey: "slug",
+        header: "Org Role",
+        accessorKey: "clerk_org_role",
         cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.slug || "-"}
+          <span className="text-muted-foreground text-sm capitalize">
+            {formatRole(row.original.clerk_org_role)}
           </span>
         ),
       },
       {
-        header: "Members",
-        accessorKey: "member_count",
+        header: "Member Role",
+        accessorKey: "clerk_member_role",
         cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {row.original.member_count}
+          <span className="text-muted-foreground text-sm capitalize">
+            {formatRole(row.original.clerk_member_role)}
           </span>
         ),
       },
       {
-        header: "Date Added",
+        header: "Organizations",
+        accessorKey: "org_count",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground text-sm">
+            {row.original.org_count}
+          </span>
+        ),
+      },
+      {
+        header: "Joined",
         accessorKey: "created_at",
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
@@ -210,8 +223,8 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
     <div className="w-full rounded-lg border">
       <div className="border-b">
         <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">Organizations</span>
-          <Filter column={table.getColumn("name")!} />
+          <span className="font-medium">Individuals</span>
+          <Filter column={table.getColumn("last_name")!} />
         </div>
         <Table>
           <TableHeader>
@@ -237,7 +250,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const isOpen = !!expandedRows[row.id]
-                const orgId = row.original.id
+                const memberId = row.original.id
                 return (
                   <Fragment key={row.id}>
                     <TableRow
@@ -251,7 +264,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                           "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
                         )
                         if (interactive) return
-                        toggleRow(row.id, orgId)
+                        toggleRow(row.id, memberId)
                       }}
                       aria-expanded={isOpen}
                     >
@@ -268,32 +281,32 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                       ))}
                     </TableRow>
                     {isOpen ? (
-                      membersLoading[orgId] &&
-                      membersMap[orgId] === undefined ? (
+                      orgsLoading[memberId] &&
+                      orgsMap[memberId] === undefined ? (
                         <TableRow className="bg-muted/30">
                           <TableCell
                             colSpan={columns.length}
                             className="text-muted-foreground p-4 text-sm"
                           >
-                            Loading members...
+                            Loading organizations...
                           </TableCell>
                         </TableRow>
-                      ) : membersMap[orgId] == null ? (
+                      ) : orgsMap[memberId] == null ? (
                         <TableRow className="bg-muted/30">
                           <TableCell
                             colSpan={columns.length}
                             className="text-destructive p-4 text-sm"
                           >
-                            Failed to load members.
+                            Failed to load organizations.
                           </TableCell>
                         </TableRow>
-                      ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
+                      ) : (orgsMap[memberId]?.length ?? 0) === 0 ? (
                         <TableRow className="bg-muted/30">
                           <TableCell
                             colSpan={columns.length}
                             className="text-muted-foreground p-4 text-sm"
                           >
-                            No members listed.
+                            No organizations linked.
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -304,17 +317,17 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                               className="p-0"
                             >
                               <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                <span>ID</span>
-                                <span>Name</span>
-                                <span>Org Role</span>
-                                <span>Member Role</span>
-                                <span>Joined</span>
+                                <span>Organization</span>
+                                <span>Slug</span>
+                                <span>Members</span>
+                                <span>Date Added</span>
+                                <span />
                               </div>
                             </TableCell>
                           </TableRow>
-                          {membersMap[orgId]?.map((member) => (
+                          {orgsMap[memberId]?.map((org) => (
                             <TableRow
-                              key={member.id}
+                              key={org.id}
                               className="bg-muted/30"
                             >
                               <TableCell
@@ -326,29 +339,20 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                                     <span className="text-muted-foreground mr-2">
                                       ↳
                                     </span>
-                                    <span className="text-muted-foreground">
-                                      {member.user_id
-                                        ? member.user_id.slice(0, 12) + "…"
-                                        : member.id.slice(0, 12) + "…"}
+                                    <span className="text-foreground font-semibold">
+                                      {org.name}
                                     </span>
                                   </div>
-                                  <div className="text-foreground font-semibold">
-                                    {[
-                                      member.first_name,
-                                      member.last_name,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" ") || "-"}
-                                  </div>
-                                  <div className="text-muted-foreground capitalize">
-                                    {formatRole(member.clerk_org_role)}
-                                  </div>
-                                  <div className="text-muted-foreground capitalize">
-                                    {formatRole(member.clerk_member_role)}
+                                  <div className="text-muted-foreground">
+                                    {org.slug || "-"}
                                   </div>
                                   <div className="text-muted-foreground">
-                                    {formatDate(member.created_at)}
+                                    {org.member_count}
                                   </div>
+                                  <div className="text-muted-foreground">
+                                    {formatDate(org.created_at)}
+                                  </div>
+                                  <div />
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -365,7 +369,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                   colSpan={columns.length}
                   className="text-muted-foreground h-24 text-center"
                 >
-                  No organizations yet.
+                  No individuals yet.
                 </TableCell>
               </TableRow>
             )}
@@ -380,7 +384,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
 
 function Filter({ column }: { column: any }) {
   const columnFilterValue = column.getFilterValue()
-  const inputId = "broker-orgs-filter-search"
+  const inputId = "broker-individuals-filter-search"
 
   return (
     <div>
@@ -391,7 +395,7 @@ function Filter({ column }: { column: any }) {
         id={`${inputId}-input`}
         value={(columnFilterValue ?? "") as string}
         onChange={(e) => column.setFilterValue(e.target.value)}
-        placeholder="Search organizations"
+        placeholder="Search individuals"
         type="text"
       />
     </div>

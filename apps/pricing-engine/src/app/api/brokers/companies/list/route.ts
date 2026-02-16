@@ -1,6 +1,9 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
-import { getExternalOrganizations } from "@/app/(pricing-engine)/contacts/data/fetch-broker-companies"
+import {
+  getExternalOrganizations,
+  syncExternalOrgMembersFromClerk,
+} from "@/app/(pricing-engine)/contacts/data/fetch-broker-companies"
 
 export async function GET() {
   try {
@@ -17,6 +20,9 @@ export async function GET() {
         { status: 403 }
       )
     }
+
+    // JIT bulk sync: pull all external orgs' members from Clerk into Supabase
+    await syncExternalOrgMembersFromClerk()
 
     const { organizations, membersMap } = await getExternalOrganizations()
     return NextResponse.json({ items: organizations, membersMap })

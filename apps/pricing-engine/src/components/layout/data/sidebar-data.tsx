@@ -113,7 +113,7 @@ export const sidebarData: SidebarData = {
           items: [
             {
               title: "Individuals",
-              url: "/contacts/brokers",
+              url: "/contacts/brokers/individual",
               icon: IconUser,
             },
             {

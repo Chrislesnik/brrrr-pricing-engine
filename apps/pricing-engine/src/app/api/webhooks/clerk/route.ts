@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       const memberRole =
         typeof m.public_metadata?.org_member_role === "string"
           ? m.public_metadata?.org_member_role
-          : null
+          : role
       const firstName = (m.public_user_data?.first_name ?? "") || null
       const lastName = (m.public_user_data?.last_name ?? "") || null
       // Resolve Supabase org UUID by Clerk organization id
@@ -106,18 +106,20 @@ export async function POST(req: NextRequest) {
       if (!orgUuid) {
         return new Response("Organization not found for membership", { status: 400 })
       }
+      // Upsert on the composite unique key (organization_id, user_id).
+      // The id column is auto-generated uuid; Clerk membership IDs are NOT
+      // valid UUIDs so we must not provide them as the id value.
       const upsertPayload = {
-        id: m.id as string,
         organization_id: orgUuid,
         user_id: userId,
         clerk_org_role: role,
-        ...(memberRole !== null ? { clerk_member_role: memberRole } : {}),
+        clerk_member_role: memberRole,
         first_name: firstName,
         last_name: lastName,
       }
       const { error } = await supabaseAdmin
         .from("organization_members")
-        .upsert(upsertPayload, { onConflict: "id" })
+        .upsert(upsertPayload, { onConflict: "organization_id,user_id" })
       if (error) return new Response(error.message, { status: 500 })
       break
     }
@@ -137,9 +139,32 @@ export async function POST(req: NextRequest) {
       break
     }
     case "organizationMembership.deleted": {
-      const m = data ?? {}
-      const { error } = await supabaseAdmin.from("organization_members").delete().eq("id", m.id as string)
-      if (error) return new Response(error.message, { status: 500 })
+      type ClerkMembershipDeletePayload = {
+        user_id?: string
+        public_user_data?: { user_id?: string }
+        organization_id?: string
+        organization?: { id?: string }
+      }
+      const m = (data ?? {}) as ClerkMembershipDeletePayload
+      const delUserId = m.user_id ?? m.public_user_data?.user_id ?? ""
+      const delClerkOrgId = m.organization_id ?? m.organization?.id ?? ""
+      if (!delUserId || !delClerkOrgId) {
+        return new Response("Missing user_id or organization_id for membership delete", { status: 400 })
+      }
+      // Resolve Supabase org UUID
+      const { data: delOrgRow } = await supabaseAdmin
+        .from("organizations")
+        .select("id")
+        .eq("clerk_organization_id", delClerkOrgId)
+        .single()
+      if (delOrgRow?.id) {
+        const { error } = await supabaseAdmin
+          .from("organization_members")
+          .delete()
+          .eq("organization_id", delOrgRow.id as string)
+          .eq("user_id", delUserId)
+        if (error) return new Response(error.message, { status: 500 })
+      }
       break
     }
     default:

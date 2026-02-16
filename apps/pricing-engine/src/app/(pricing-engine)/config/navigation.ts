@@ -73,7 +73,7 @@ export const ROUTES = {
       },
     },
     brokers: {
-      individuals: "/contacts/brokers",
+      individuals: "/contacts/brokers/individual",
       organizations: "/contacts/brokers/organizations",
     },
     users: "/users",
