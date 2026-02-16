@@ -202,12 +202,16 @@ function SearchableMemberSelect({
 function AssignmentRow({
   assignment,
   roles,
+  members,
+  brokerMembers,
   onRemove,
   onUpdate,
   isExternal,
 }: {
   assignment: RoleAssignment
   roles: RoleType[]
+  members: Member[]
+  brokerMembers: Member[]
   onRemove: () => void
   onUpdate: (roleTypeId: number, userId: string) => void
   isExternal: boolean
@@ -215,51 +219,13 @@ function AssignmentRow({
   const availableRoles = isExternal ? roles.filter((r) => r.id === 4) : roles
   const assignmentFullName = [assignment.first_name, assignment.last_name].filter(Boolean).join(" ").trim() || assignment.user_id
 
-  // Seed the members list with the currently-assigned user so the label shows immediately
-  const seedMember: Member = {
-    id: assignment.user_id,
-    user_id: assignment.user_id,
-    first_name: assignment.first_name,
-    last_name: assignment.last_name,
-  }
-  const [members, setMembers] = React.useState<Member[]>([seedMember])
-  const [membersLoading, setMembersLoading] = React.useState(false)
-
-  const loadMembers = React.useCallback(async (roleTypeId: number) => {
-    setMembersLoading(true)
-    try {
-      // Only pass roleTypeId for Broker role (cross-org lookup); otherwise use standard pool
-      const params = new URLSearchParams()
-      if (roleTypeId === 4) params.set("roleTypeId", String(roleTypeId))
-      const res = await fetch(`/api/org/members?${params.toString()}`)
-      if (!res.ok) return
-      const json = (await res.json()) as { members: Member[] }
-      const fetched = json.members ?? []
-      // Dedup by user_id and ensure the current assignment user is always in the list
-      const seen = new Set<string>()
-      const deduped: Member[] = []
-      const hasCurrentUser = fetched.some((m) => m.user_id === assignment.user_id)
-      if (!hasCurrentUser) {
-        seen.add(seedMember.user_id)
-        deduped.push(seedMember)
-      }
-      for (const m of fetched) {
-        if (seen.has(m.user_id)) continue
-        seen.add(m.user_id)
-        deduped.push(m)
-      }
-      setMembers(deduped)
-    } catch {
-      // Keep the seed member on error
-    } finally {
-      setMembersLoading(false)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignment.user_id])
-
-  React.useEffect(() => {
-    void loadMembers(assignment.role_type_id)
-  }, [assignment.role_type_id, loadMembers])
+  // Use broker members pool for Broker role, standard pool for everything else
+  const pool = assignment.role_type_id === 4 ? brokerMembers : members
+  // Ensure the current assignment user is always in the list
+  const hasCurrentUser = pool.some((m) => m.user_id === assignment.user_id)
+  const membersWithCurrent = hasCurrentUser
+    ? pool
+    : [{ id: assignment.user_id, user_id: assignment.user_id, first_name: assignment.first_name, last_name: assignment.last_name }, ...pool]
 
   return (
     <div className="flex items-center gap-2">
@@ -272,9 +238,8 @@ function AssignmentRow({
       </div>
       <div className="flex-1">
         <SearchableMemberSelect
-          members={members}
+          members={membersWithCurrent}
           value={assignment.user_id}
-          loading={membersLoading}
           initialLabel={assignmentFullName}
           onValueChange={(val) => onUpdate(assignment.role_type_id, val)}
         />
@@ -292,54 +257,35 @@ function AssignmentRow({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  New Assignment Row (unsaved — pick role + member, then auto-saves)         */
+/*  New Assignment Row (local draft — pick role + member, commits to draft)    */
 /* -------------------------------------------------------------------------- */
 
 function NewAssignmentRow({
   roles,
+  members,
+  brokerMembers,
   isExternal,
-  onSave,
+  onCommit,
   onCancel,
 }: {
   roles: RoleType[]
+  members: Member[]
+  brokerMembers: Member[]
   isExternal: boolean
-  onSave: (roleTypeId: number, userId: string) => Promise<void>
+  onCommit: (roleTypeId: number, userId: string) => void
   onCancel: () => void
 }) {
   const availableRoles = isExternal ? roles.filter((r) => r.id === 4) : roles
   const [selectedRoleId, setSelectedRoleId] = React.useState("")
   const [selectedUserId, setSelectedUserId] = React.useState("")
-  const [members, setMembers] = React.useState<Member[]>([])
-  const [membersLoading, setMembersLoading] = React.useState(false)
 
-  const loadMembers = React.useCallback(async (roleTypeId: string) => {
-    setMembersLoading(true)
-    try {
-      // Only pass roleTypeId for Broker role (id=4) for cross-org lookup
-      const params = new URLSearchParams()
-      if (roleTypeId === "4") params.set("roleTypeId", roleTypeId)
-      const res = await fetch(`/api/org/members?${params.toString()}`)
-      if (!res.ok) return
-      const json = (await res.json()) as { members: Member[] }
-      setMembers(json.members ?? [])
-    } catch {
-      // non-critical
-    } finally {
-      setMembersLoading(false)
-    }
-  }, [])
+  // Use broker pool when Broker role is selected, standard pool otherwise
+  const pool = selectedRoleId === "4" ? brokerMembers : members
 
-  React.useEffect(() => {
-    if (selectedRoleId) {
-      setSelectedUserId("")
-      void loadMembers(selectedRoleId)
-    }
-  }, [selectedRoleId, loadMembers])
-
-  // Auto-save when both are selected
+  // Commit to draft when both are selected
   React.useEffect(() => {
     if (selectedRoleId && selectedUserId) {
-      void onSave(parseInt(selectedRoleId, 10), selectedUserId)
+      onCommit(parseInt(selectedRoleId, 10), selectedUserId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoleId, selectedUserId])
@@ -350,14 +296,16 @@ function NewAssignmentRow({
         <SearchableRoleSelect
           roles={availableRoles}
           value={selectedRoleId}
-          onValueChange={setSelectedRoleId}
+          onValueChange={(val) => {
+            setSelectedRoleId(val)
+            setSelectedUserId("")
+          }}
         />
       </div>
       <div className="flex-1">
         <SearchableMemberSelect
-          members={members}
+          members={pool}
           value={selectedUserId}
-          loading={membersLoading}
           disabled={!selectedRoleId}
           onValueChange={setSelectedUserId}
         />
@@ -378,6 +326,16 @@ function NewAssignmentRow({
 /*  Main Dialog                                                                */
 /* -------------------------------------------------------------------------- */
 
+// A draft assignment can be a server-backed row (positive id) or a local-only
+// row (negative temporary id).
+type DraftAssignment = RoleAssignment & { _isNew?: boolean }
+
+let _tmpId = 0
+function nextTmpId() {
+  _tmpId -= 1
+  return _tmpId
+}
+
 export function RoleAssignmentDialog({
   resourceType,
   resourceId,
@@ -385,12 +343,32 @@ export function RoleAssignmentDialog({
   onOpenChange,
   onSaved,
 }: RoleAssignmentDialogProps) {
-  const [assignments, setAssignments] = React.useState<RoleAssignment[]>([])
+  // Server-truth (loaded on open)
+  const [serverAssignments, setServerAssignments] = React.useState<RoleAssignment[]>([])
+
+  // Local draft the user manipulates
+  const [draft, setDraft] = React.useState<DraftAssignment[]>([])
+
   const [roleTypes, setRoleTypes] = React.useState<RoleType[]>([])
+  const [allMembers, setAllMembers] = React.useState<Member[]>([])
+  const [brokerMembers, setBrokerMembers] = React.useState<Member[]>([])
   const [loading, setLoading] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [isExternal, setIsExternal] = React.useState(false)
   const [addingRow, setAddingRow] = React.useState(false)
+
+  // Detect whether the draft differs from the server state
+  const isDirty = React.useMemo(() => {
+    if (draft.length !== serverAssignments.length) return true
+    const serverMap = new Map(serverAssignments.map((a) => [a.id, a]))
+    return draft.some((d) => {
+      if (d._isNew) return true
+      const s = serverMap.get(d.id)
+      if (!s) return true
+      return s.role_type_id !== d.role_type_id || s.user_id !== d.user_id
+    })
+  }, [draft, serverAssignments])
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -405,12 +383,21 @@ export function RoleAssignmentDialog({
       if (!rRes.ok) throw new Error(await rRes.text())
       const aJson = (await aRes.json()) as { assignments: RoleAssignment[] }
       const rJson = (await rRes.json()) as { roles: RoleType[] }
-      setAssignments(aJson.assignments ?? [])
+      const loaded = aJson.assignments ?? []
+      setServerAssignments(loaded)
+      setDraft(loaded.map((a) => ({ ...a })))
       setRoleTypes(rJson.roles ?? [])
       if (mRes.ok) {
-        const mJson = (await mRes.json()) as { editable?: boolean }
+        const mJson = (await mRes.json()) as { members: Member[]; editable?: boolean }
+        setAllMembers(mJson.members ?? [])
         setIsExternal(mJson.editable === false)
       }
+      fetch("/api/org/members?roleTypeId=4").then(async (bRes) => {
+        if (bRes.ok) {
+          const bJson = (await bRes.json()) as { members: Member[] }
+          setBrokerMembers(bJson.members ?? [])
+        }
+      }).catch(() => {})
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load")
     } finally {
@@ -425,86 +412,107 @@ export function RoleAssignmentDialog({
     }
   }, [open, load])
 
-  const handleAddAssignment = async (roleTypeId: number, userId: string) => {
-    setError(null)
-    try {
-      const res = await fetch("/api/role-assignments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          resource_type: resourceType,
-          resource_id: resourceId,
+  /* ---- Draft manipulation (local only, no API calls) ---- */
+
+  const handleDraftRemove = (id: number) => {
+    setDraft((prev) => prev.filter((a) => a.id !== id))
+  }
+
+  const handleDraftUpdate = (id: number, roleTypeId: number, userId: string) => {
+    setDraft((prev) =>
+      prev.map((a) => {
+        if (a.id !== id) return a
+        const role = roleTypes.find((r) => r.id === roleTypeId)
+        const member = [...allMembers, ...brokerMembers].find((m) => m.user_id === userId)
+        return {
+          ...a,
           role_type_id: roleTypeId,
+          role_name: role?.name ?? a.role_name,
+          role_code: role?.code ?? a.role_code,
           user_id: userId,
-        }),
+          first_name: member?.first_name ?? a.first_name,
+          last_name: member?.last_name ?? a.last_name,
+        }
       })
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: "Failed to assign" }))
-        throw new Error((errJson as { error?: string }).error || "Failed to assign")
-      }
-      const { assignment } = (await res.json()) as { assignment: RoleAssignment }
-      setAssignments((prev) => [...prev, assignment])
-      setAddingRow(false)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to assign")
-    }
+    )
   }
 
-  const handleRemoveAssignment = async (assignmentId: number) => {
-    setError(null)
-    try {
-      const res = await fetch(`/api/role-assignments/${assignmentId}`, { method: "DELETE" })
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: "Failed to remove" }))
-        throw new Error((errJson as { error?: string }).error || "Failed to remove")
-      }
-      setAssignments((prev) => prev.filter((a) => a.id !== assignmentId))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to remove")
+  const handleDraftAdd = (roleTypeId: number, userId: string) => {
+    const role = roleTypes.find((r) => r.id === roleTypeId)
+    const member = [...allMembers, ...brokerMembers].find((m) => m.user_id === userId)
+    const newRow: DraftAssignment = {
+      id: nextTmpId(),
+      role_type_id: roleTypeId,
+      role_name: role?.name ?? "",
+      role_code: role?.code ?? "",
+      user_id: userId,
+      first_name: member?.first_name ?? null,
+      last_name: member?.last_name ?? null,
+      _isNew: true,
     }
+    setDraft((prev) => [...prev, newRow])
+    setAddingRow(false)
   }
 
-  const handleUpdateAssignment = async (
-    assignmentId: number,
-    newRoleTypeId: number,
-    newUserId: string
-  ) => {
-    // Delete old, create new
+  /* ---- Save: reconcile draft with server ---- */
+
+  const handleSave = async () => {
+    setSaving(true)
     setError(null)
     try {
-      await fetch(`/api/role-assignments/${assignmentId}`, { method: "DELETE" })
-      const res = await fetch("/api/role-assignments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          resource_type: resourceType,
-          resource_id: resourceId,
-          role_type_id: newRoleTypeId,
-          user_id: newUserId,
-        }),
+      const serverIds = new Set(serverAssignments.map((a) => a.id))
+      const draftIds = new Set(draft.filter((d) => !d._isNew).map((d) => d.id))
+
+      // Deletions: server rows no longer in draft
+      const toDelete = serverAssignments.filter((a) => !draftIds.has(a.id))
+      // Additions: draft rows marked _isNew
+      const toAdd = draft.filter((d) => d._isNew)
+      // Updates: draft rows that exist on server but changed role/user
+      const toUpdate = draft.filter((d) => {
+        if (d._isNew) return false
+        const s = serverAssignments.find((a) => a.id === d.id)
+        if (!s) return false
+        return s.role_type_id !== d.role_type_id || s.user_id !== d.user_id
       })
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: "Failed to update" }))
-        throw new Error((errJson as { error?: string }).error || "Failed to update")
-      }
-      const { assignment } = (await res.json()) as { assignment: RoleAssignment }
-      setAssignments((prev) =>
-        prev.map((a) => (a.id === assignmentId ? assignment : a))
+
+      // Execute deletions
+      await Promise.all(
+        [...toDelete, ...toUpdate].map((a) =>
+          fetch(`/api/role-assignments/${a.id}`, { method: "DELETE" })
+        )
       )
+
+      // Execute additions + updated rows (re-created)
+      await Promise.all(
+        [...toAdd, ...toUpdate].map((a) =>
+          fetch("/api/role-assignments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource_type: resourceType,
+              resource_id: resourceId,
+              role_type_id: a.role_type_id,
+              user_id: a.user_id,
+            }),
+          })
+        )
+      )
+
+      onOpenChange(false)
+      if (onSaved) onSaved()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update")
-      // Reload to get correct state
-      void load()
+      setError(e instanceof Error ? e.message : "Failed to save")
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleClose = () => {
+  const handleCancel = () => {
     onOpenChange(false)
-    if (onSaved) onSaved()
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleCancel}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Assign Roles</DialogTitle>
@@ -520,15 +528,17 @@ export function RoleAssignmentDialog({
             <p className="text-sm text-muted-foreground py-4">Loading...</p>
           ) : (
             <>
-              {assignments.map((a) => (
+              {draft.map((a) => (
                 <AssignmentRow
                   key={a.id}
                   assignment={a}
                   roles={roleTypes}
+                  members={allMembers}
+                  brokerMembers={brokerMembers}
                   isExternal={isExternal}
-                  onRemove={() => void handleRemoveAssignment(a.id)}
+                  onRemove={() => handleDraftRemove(a.id)}
                   onUpdate={(roleTypeId, userId) =>
-                    void handleUpdateAssignment(a.id, roleTypeId, userId)
+                    handleDraftUpdate(a.id, roleTypeId, userId)
                   }
                 />
               ))}
@@ -536,13 +546,15 @@ export function RoleAssignmentDialog({
               {addingRow && (
                 <NewAssignmentRow
                   roles={roleTypes}
+                  members={allMembers}
+                  brokerMembers={brokerMembers}
                   isExternal={isExternal}
-                  onSave={handleAddAssignment}
+                  onCommit={handleDraftAdd}
                   onCancel={() => setAddingRow(false)}
                 />
               )}
 
-              {assignments.length === 0 && !addingRow && (
+              {draft.length === 0 && !addingRow && (
                 <p className="text-sm text-muted-foreground py-2">No roles assigned yet.</p>
               )}
             </>
@@ -560,8 +572,13 @@ export function RoleAssignmentDialog({
             <Plus className="size-3" />
             Add Role
           </Button>
-          <Button variant="default" size="sm" onClick={handleClose}>
-            Done
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleSave}
+            disabled={loading || saving || !isDirty}
+          >
+            {saving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

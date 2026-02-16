@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ColumnDef,
@@ -90,7 +90,7 @@ import {
   SheetTitle,
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
-import { DealTaskTracker } from "./deal-task-tracker";
+import { DealPipelineTasks } from "./deal-pipeline-tasks";
 import { InlineCommentsPanel } from "@/components/liveblocks/comments-panel";
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
 
@@ -422,6 +422,8 @@ export function DealsDataTable({
 }: {
   onNewDeal?: () => void
 }) {
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
   const [data, setData] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -482,13 +484,10 @@ export function DealsDataTable({
   
   const toggleRow = React.useCallback((dealId: string) => {
     setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(dealId)) {
-        next.delete(dealId);
-      } else {
-        next.add(dealId);
+      if (prev.has(dealId)) {
+        return new Set();
       }
-      return next;
+      return new Set([dealId]);
     });
   }, []);
 
@@ -689,6 +688,17 @@ export function DealsDataTable({
     }
   }
 
+  // Track table container width for expanded rows
+  useEffect(() => {
+    const el = tableContainerRef.current;
+    if (!el) return;
+    const update = () => setContainerWidth(el.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const shouldIgnoreRowClick = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return false;
     return !!target.closest(
@@ -840,7 +850,7 @@ export function DealsDataTable({
             </Button>
           </div>
         </div>
-        <div className="rounded-md border overflow-x-auto">
+        <div ref={tableContainerRef} className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -906,18 +916,23 @@ export function DealsDataTable({
                         })}
                       </TableRow>
                       {isExpanded && (
-                        <TableRow className="hover:bg-transparent">
-                          <TableCell className="p-0" colSpan={row.getVisibleCells().length}>
-                            <div
-                              className={cn(
-                                "overflow-hidden transition-all duration-300 ease-in-out",
-                                isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
-                              )}
-                            >
-                              <DealTaskTracker dealId={dealId} />
+                        <tr>
+                          <td
+                            className="p-0 border-t border-border/50 bg-muted/20"
+                            colSpan={row.getVisibleCells().length}
+                            style={{
+                              position: "sticky",
+                              left: 0,
+                              width: containerWidth > 0 ? containerWidth : "100%",
+                              maxWidth: containerWidth > 0 ? containerWidth : "100%",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
+                              <DealPipelineTasks dealId={dealId} />
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       )}
                     </React.Fragment>
                   );

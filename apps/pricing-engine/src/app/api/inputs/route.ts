@@ -68,10 +68,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `input_type must be one of: ${validTypes.join(", ")}` }, { status: 400 })
     }
 
-    // Validate linked table if provided
-    const LINKABLE_TABLES = ["borrowers", "entities", "entity_owners", "property"]
-    if (linked_table && !LINKABLE_TABLES.includes(linked_table)) {
-      return NextResponse.json({ error: `linked_table must be one of: ${LINKABLE_TABLES.join(", ")}` }, { status: 400 })
+    // Validate linked table if provided — ensure it exists and has a detectable PK
+    if (linked_table) {
+      const { data: pkResult, error: pkErr } = await supabaseAdmin.rpc("get_primary_key_column", { p_table_name: linked_table })
+      if (pkErr || !pkResult) {
+        return NextResponse.json({ error: `Table "${linked_table}" does not exist or has no detectable primary key` }, { status: 400 })
+      }
     }
 
     // Look up the category name
@@ -150,9 +152,9 @@ export async function PATCH(req: NextRequest) {
       // Handle linked table/column updates
       if (linked_table !== undefined) {
         if (linked_table) {
-          const LINKABLE_TABLES = ["borrowers", "entities", "entity_owners", "property"]
-          if (!LINKABLE_TABLES.includes(linked_table)) {
-            return NextResponse.json({ error: `linked_table must be one of: ${LINKABLE_TABLES.join(", ")}` }, { status: 400 })
+          const { data: pkResult, error: pkErr } = await supabaseAdmin.rpc("get_primary_key_column", { p_table_name: linked_table })
+          if (pkErr || !pkResult) {
+            return NextResponse.json({ error: `Table "${linked_table}" does not exist or has no detectable primary key` }, { status: 400 })
           }
           updatePayload.linked_table = linked_table
           updatePayload.linked_column = linked_column || null

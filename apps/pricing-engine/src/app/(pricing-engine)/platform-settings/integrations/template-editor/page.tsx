@@ -349,49 +349,44 @@ export default function TemplateEditorPage() {
 
   // Fetch template and fields by ID when URL has template param
   useEffect(() => {
-    if (templateId && !currentTemplate) {
-      setLoadingTemplate(true)
-      setTemplateError(null)
-      
-      // Fetch template and fields in parallel
-      Promise.all([
-        fetch(`/api/document-templates/${templateId}`).then(res => {
-          if (!res.ok) throw new Error("Template not found")
-          return res.json()
-        }),
-        fetch(`/api/document-templates/${templateId}/fields`).then(res => {
-          if (!res.ok) throw new Error("Failed to load fields")
-          return res.json()
-        })
-      ])
-        .then(([templateData, fieldsData]) => {
-          setCurrentTemplate(templateData.template)
-          setFields(fieldsData.fields || [])
-        })
-        .catch(e => {
-          setTemplateError(e.message)
-        })
-        .finally(() => {
-          setLoadingTemplate(false)
-        })
-    }
-  }, [templateId, currentTemplate])
+    if (!templateId) return
+
+    let cancelled = false
+    setLoadingTemplate(true)
+    setTemplateError(null)
+    setCurrentTemplate(null)
+    setFields(defaultFields)
+
+    // Fetch template and fields in parallel
+    Promise.all([
+      fetch(`/api/document-templates/${templateId}`).then(res => {
+        if (!res.ok) throw new Error("Template not found")
+        return res.json()
+      }),
+      fetch(`/api/document-templates/${templateId}/fields`).then(res => {
+        if (!res.ok) throw new Error("Failed to load fields")
+        return res.json()
+      })
+    ])
+      .then(([templateData, fieldsData]) => {
+        if (cancelled) return
+        setCurrentTemplate(templateData.template)
+        setFields(fieldsData.fields || [])
+      })
+      .catch(e => {
+        if (cancelled) return
+        setTemplateError(e.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTemplate(false)
+      })
+
+    return () => { cancelled = true }
+  }, [templateId])
 
   // Handle selecting a template from gallery
-  const handleSelectTemplate = useCallback(async (template: DocumentTemplate) => {
-    setCurrentTemplate(template)
+  const handleSelectTemplate = useCallback((template: DocumentTemplate) => {
     router.push(`/platform-settings/integrations/template-editor?template=${template.id}`)
-
-    // Fetch fields for the selected template
-    try {
-      const res = await fetch(`/api/document-templates/${template.id}/fields`)
-      if (res.ok) {
-        const data = await res.json()
-        setFields(data.fields || [])
-      }
-    } catch (err) {
-      console.error("Failed to load fields for template:", err)
-    }
   }, [router])
 
   // Handle creating a new template - creates in Supabase first

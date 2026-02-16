@@ -65,9 +65,11 @@ export function StudioEditorWrapper({
   // Get the HTML content for the editor
   const templateHtml = template?.html_content || defaultTemplateHtml
 
-  // Load and scope GrapesJS CSS
+  // Load and scope GrapesJS CSS (persists across remounts since it's static)
   useEffect(() => {
-    // Check if already loaded
+    let cancelled = false
+
+    // If styles are already injected, just mark ready
     if (document.getElementById(GRAPEJS_STYLE_ID)) {
       setStylesReady(true)
       setMounted(true)
@@ -76,43 +78,38 @@ export function StudioEditorWrapper({
 
     const loadAndScopeStyles = async () => {
       try {
-        // Fetch the CSS as raw text (NOT importing, which would bundle it globally)
         const response = await fetch("/grapesjs-style.css")
         if (!response.ok) {
           throw new Error(`Failed to fetch GrapesJS CSS: ${response.status}`)
         }
         
         let css = await response.text()
-        
-        // Scope ALL CSS selectors to .gs-studio-root
-        // This is a simplified but effective CSS scoping approach
         css = scopeCSSToRoot(css, ".gs-studio-root")
         
-        // Inject the scoped CSS
-        const styleEl = document.createElement("style")
-        styleEl.id = GRAPEJS_STYLE_ID
-        styleEl.textContent = css
-        document.head.appendChild(styleEl)
+        // Double-check another instance didn't inject while we fetched
+        if (!document.getElementById(GRAPEJS_STYLE_ID)) {
+          const styleEl = document.createElement("style")
+          styleEl.id = GRAPEJS_STYLE_ID
+          styleEl.textContent = css
+          document.head.appendChild(styleEl)
+        }
         
-        setStylesReady(true)
-        setMounted(true)
+        if (!cancelled) {
+          setStylesReady(true)
+          setMounted(true)
+        }
       } catch (error) {
         console.error("Failed to load GrapesJS styles:", error)
-        // Still try to mount without styles
-        setStylesReady(true)
-        setMounted(true)
+        if (!cancelled) {
+          setStylesReady(true)
+          setMounted(true)
+        }
       }
     }
 
     loadAndScopeStyles()
 
-    // Cleanup on unmount
-    return () => {
-      const styleEl = document.getElementById(GRAPEJS_STYLE_ID)
-      if (styleEl) {
-        styleEl.remove()
-      }
-    }
+    return () => { cancelled = true }
   }, [])
 
   // Show loading state

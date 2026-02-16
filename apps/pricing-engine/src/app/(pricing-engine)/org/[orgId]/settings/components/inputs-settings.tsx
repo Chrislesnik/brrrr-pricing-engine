@@ -88,12 +88,13 @@ interface InputField {
   linked_column?: string | null;
 }
 
-const LINKABLE_TABLES = [
-  { value: "borrowers", label: "Borrowers" },
-  { value: "entities", label: "Entities" },
-  { value: "entity_owners", label: "Entity Members" },
-  { value: "property", label: "Properties" },
-] as const;
+/** Convert a snake_case table name to Title Case for display. */
+function formatTableLabel(name: string): string {
+  return name
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 const INPUT_TYPES = [
   { value: "text", label: "Text" },
@@ -142,6 +143,8 @@ export function InputsSettings() {
   const [newLinkedColumn, setNewLinkedColumn] = useState<string>("");
   const [linkableColumns, setLinkableColumns] = useState<{ name: string; type: string }[]>([]);
   const [loadingColumns, setLoadingColumns] = useState(false);
+  const [linkableTables, setLinkableTables] = useState<{ value: string; label: string }[]>([]);
+  const [loadingTables, setLoadingTables] = useState(false);
 
   // Edit category state
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
@@ -150,6 +153,31 @@ export function InputsSettings() {
 
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
+
+  // Fetch all public tables for the Database Link dropdown
+  useEffect(() => {
+    let cancelled = false;
+    const fetchTables = async () => {
+      setLoadingTables(true);
+      try {
+        const res = await fetch("/api/supabase-schema?type=tables");
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data.tables)) {
+          setLinkableTables(
+            data.tables
+              .sort((a: string, b: string) => a.localeCompare(b))
+              .map((t: string) => ({ value: t, label: formatTableLabel(t) }))
+          );
+        }
+      } catch {
+        if (!cancelled) setLinkableTables([]);
+      } finally {
+        if (!cancelled) setLoadingTables(false);
+      }
+    };
+    fetchTables();
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch columns when linked table changes
   useEffect(() => {
@@ -873,11 +901,17 @@ export function InputsSettings() {
                                 <SelectValue placeholder="None (standalone input)" />
                               </SelectTrigger>
                               <SelectContent>
-                                {LINKABLE_TABLES.map((t) => (
-                                  <SelectItem key={t.value} value={t.value}>
-                                    {t.label}
-                                  </SelectItem>
-                                ))}
+                                {loadingTables ? (
+                                  <div className="px-2 py-1.5 text-xs text-muted-foreground">Loading tables…</div>
+                                ) : linkableTables.length === 0 ? (
+                                  <div className="px-2 py-1.5 text-xs text-muted-foreground">No tables found</div>
+                                ) : (
+                                  linkableTables.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>
+                                      {t.label}
+                                    </SelectItem>
+                                  ))
+                                )}
                               </SelectContent>
                             </Select>
                             {newLinkedTable && (
@@ -1187,11 +1221,17 @@ export function InputsSettings() {
                             <SelectValue placeholder="None (standalone input)" />
                           </SelectTrigger>
                           <SelectContent>
-                            {LINKABLE_TABLES.map((t) => (
-                              <SelectItem key={t.value} value={t.value}>
-                                {t.label}
-                              </SelectItem>
-                            ))}
+                            {loadingTables ? (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">Loading tables…</div>
+                            ) : linkableTables.length === 0 ? (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">No tables found</div>
+                            ) : (
+                              linkableTables.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         {newLinkedTable && (

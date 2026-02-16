@@ -656,14 +656,14 @@ export function DealTaskTracker({
   const activeFilterCount = getActiveFilterCount(viewSettings.advancedFilter);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col overflow-hidden">
       {/* Toolbar */}
       <ViewToolbar
         onAddTask={() => handleAddTaskToStatus("todo")}
       />
 
       {/* View content */}
-      <div className="min-h-[400px]">
+      <div className="min-h-0">
         {viewSettings.currentView === "checklist" && (
           <ChecklistView
             groups={sortedGroups}
@@ -719,15 +719,22 @@ function ViewToolbar({
 }) {
 
   return (
-    <div className="flex items-center justify-end border-b px-4 py-2">
-      {/* Add task */}
-      <button
-        onClick={onAddTask}
-        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        <span>New task</span>
-      </button>
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-lg font-semibold">Tasks</h2>
+        <p className="text-sm text-muted-foreground">
+          Track and manage tasks across deal stages
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onAddTask}
+          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>New task</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -1121,7 +1128,7 @@ function ChecklistView({
     : null;
 
   return (
-    <div className="h-full overflow-auto px-6 py-5">
+    <div className="overflow-auto">
       {/* Progress bar – scoped to current step */}
       <div className="mb-5 max-w-5xl">
         <div className="flex items-center justify-between mb-2">
