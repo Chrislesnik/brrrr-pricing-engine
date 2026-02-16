@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@repo/lib/cn";
@@ -853,16 +854,39 @@ function ViewToolbar({
   onRemoveSortRule: (ruleId: string) => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsPopoverRef = useRef<HTMLDivElement>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  useClickOutside(settingsRef, () => setSettingsOpen(false));
+  useEffect(() => {
+    if (!settingsOpen) return;
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        settingsPopoverRef.current?.contains(target) ||
+        settingsBtnRef.current?.contains(target) ||
+        (target instanceof Element && (target.closest("[data-radix-popper-content-wrapper]") || target.closest("[role='listbox']") || target.closest("[role='option']")))
+      ) return;
+      setSettingsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    if (settingsOpen && settingsBtnRef.current) {
+      const rect = settingsBtnRef.current.getBoundingClientRect();
+      setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [settingsOpen]);
 
   return (
     <div className="flex items-center justify-between border-b px-4 py-2">
       <div className="flex items-center gap-1">
         {/* Display popover */}
-        <div className="relative" ref={settingsRef}>
+        <div className="relative">
           <button
+            ref={settingsBtnRef}
             onClick={() => setSettingsOpen(!settingsOpen)}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
@@ -873,8 +897,12 @@ function ViewToolbar({
             <span className="hidden sm:inline">Display</span>
           </button>
 
-          {settingsOpen && (
-            <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border bg-card shadow-lg">
+          {settingsOpen && createPortal(
+            <div
+              ref={settingsPopoverRef}
+              className="fixed z-[9999] w-[320px] rounded-lg border bg-card shadow-lg"
+              style={{ top: popoverPos.top, left: popoverPos.left }}
+            >
               {/* Layout switcher */}
               <div className="p-3 pb-0">
                 <div className="flex rounded-lg bg-muted/60 p-0.5">
@@ -910,7 +938,7 @@ function ViewToolbar({
                     <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[10000]">
                       {GROUP_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                       ))}
@@ -937,7 +965,7 @@ function ViewToolbar({
                       <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[10000]">
                         <SelectItem value="priority" className="text-xs">Priority</SelectItem>
                         <SelectItem value="status" className="text-xs">Status</SelectItem>
                         <SelectItem value="title" className="text-xs">Title</SelectItem>
@@ -970,7 +998,7 @@ function ViewToolbar({
                     <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[10000]">
                       <SelectItem value="all" className="text-xs">All</SelectItem>
                       <SelectItem value="hidden" className="text-xs">Hidden</SelectItem>
                     </SelectContent>
@@ -1048,7 +1076,8 @@ function ViewToolbar({
                   Reset
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>

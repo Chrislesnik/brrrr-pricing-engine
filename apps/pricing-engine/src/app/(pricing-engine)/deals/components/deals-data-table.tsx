@@ -90,7 +90,7 @@ import {
   SheetTitle,
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
-import { DealTaskTracker } from "./deal-task-tracker";
+import { DealTasksTab } from "./deal-tasks-tab";
 import { InlineCommentsPanel } from "@/components/liveblocks/comments-panel";
 
 // Deal row returned from the pipeline API
@@ -896,14 +896,14 @@ export function DealsDataTable({
                       </TableRow>
                       {isExpanded && (
                         <TableRow className="hover:bg-transparent">
-                          <TableCell className="p-0" colSpan={row.getVisibleCells().length}>
+                          <TableCell className="p-0 relative overflow-visible" colSpan={row.getVisibleCells().length}>
                             <div
                               className={cn(
-                                "overflow-hidden transition-all duration-300 ease-in-out",
-                                isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+                                "transition-all duration-300 ease-in-out",
+                                isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
                               )}
                             >
-                              <DealTaskTracker dealId={dealId} />
+                              <DealTasksTab dealId={dealId} />
                             </div>
                           </TableCell>
                         </TableRow>
