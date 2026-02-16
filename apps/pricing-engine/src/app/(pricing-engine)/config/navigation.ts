@@ -67,9 +67,15 @@ export const ROUTES = {
       individuals: "/contacts/borrowers",
       entities: "/contacts/entities",
       guarantors: "/contacts/guarantors",
-      thirdParties: "/contacts/third-parties",
+      thirdParties: {
+        individuals: "/contacts/third-parties/individuals",
+        companies: "/contacts/third-parties/companies",
+      },
     },
-    brokers: "/contacts/brokers",
+    brokers: {
+      individuals: "/contacts/brokers/individual",
+      organizations: "/contacts/brokers/organizations",
+    },
     users: "/users",
   },
   aiAgent: "/ai-agent",
@@ -158,17 +164,39 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       },
       {
         title: "Brokers",
-        url: ROUTES.contacts.brokers,
         icon: IconUser,
         denyOrgRoles: ["org:broker", "broker"],
-        shortcut: ["K"],
+        items: [
+          {
+            title: "Individuals",
+            url: ROUTES.contacts.brokers.individuals,
+            shortcut: ["K"],
+          },
+          {
+            title: "Organizations",
+            url: ROUTES.contacts.brokers.organizations,
+            shortcut: ["O"],
+          },
+        ],
       },
       {
         title: "3rd Parties",
-        url: ROUTES.contacts.borrowers.thirdParties,
         icon: IconUser,
-        shortcut: ["3"],
         tooltip: "Third party service providers, companies, and company contacts (e.g., title agent, title company)",
+        items: [
+          {
+            title: "Individuals",
+            url: ROUTES.contacts.borrowers.thirdParties.individuals,
+            shortcut: ["3"],
+            tooltip: "Third party individual contacts (e.g., title agent, inspector)",
+          },
+          {
+            title: "Companies",
+            url: ROUTES.contacts.borrowers.thirdParties.companies,
+            shortcut: ["C"],
+            tooltip: "Third party companies (e.g., title company, inspection firm)",
+          },
+        ],
       },
     ],
   },

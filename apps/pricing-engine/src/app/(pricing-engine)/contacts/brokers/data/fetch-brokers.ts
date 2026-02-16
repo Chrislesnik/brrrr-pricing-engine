@@ -21,7 +21,6 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   if (!orgUuid) return []
 
   function logError(...args: unknown[]) {
-     
     console.error(...args)
   }
 
@@ -82,18 +81,15 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   // Collect all member ids we need to resolve names/emails/companies (owner + managers)
   // Keep both original-case ids for DB querying and lowercase for robust map lookups.
   const memberIdsForQuery = new Set<string>()
-  const memberIdsForMap = new Set<string>()
   const clerkUserIdsForQuery = new Set<string>()
   for (const b of brokerRows) {
     const mid = b.organization_member_id as string | null
     if (mid) {
       memberIdsForQuery.add(String(mid))
-      memberIdsForMap.add(String(mid).toLowerCase())
     }
     const mgrs = normalizeIdArray((b as any).account_manager_ids)
     for (const m of mgrs) {
       memberIdsForQuery.add(String(m))
-      memberIdsForMap.add(String(m).toLowerCase())
     }
     const cuid = (b as any).clerk_user_id as string | null
     if (cuid) {
@@ -175,7 +171,6 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   }
   const customByBroker = new Map<string, any>()
   for (const c of custom ?? []) {
-     
     const row: any = c
     customByBroker.set(row.broker_id as string, row)
   }
@@ -218,26 +213,11 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
 
     let managers: string | null = null
     if (managersIds.length > 0) {
-      // Query organization_members directly for these exact IDs
-      const { data: mgrMembers, error: mgrErr } = await supabaseAdmin
-        .from("organization_members")
-        .select("id, first_name, last_name")
-        .in("id", managersIds)
-      if (mgrErr) {
-        logError("fetch managers by ids error:", mgrErr.message, managersIds)
-      }
-      const byId = new Map<string, { first_name: string | null; last_name: string | null }>()
-      for (const m of mgrMembers ?? []) {
-        const key = sanitizeUuid(String(m.id))
-        byId.set(key, { first_name: m.first_name as string | null, last_name: m.last_name as string | null })
-        // cache for future lookups
-        memberById.set(key.toLowerCase(), m as any)
-        memberById.set(key, m as any)
-      }
+      // Resolve manager names from the pre-populated memberById map (batch-loaded above)
       managers =
         managersIds
           .map((id) => {
-            const m = byId.get(id)
+            const m = memberById.get(id.toLowerCase()) ?? memberById.get(id)
             if (!m) return id
             const nm = [m.first_name ?? "", m.last_name ?? ""].join(" ").trim()
             return nm || id

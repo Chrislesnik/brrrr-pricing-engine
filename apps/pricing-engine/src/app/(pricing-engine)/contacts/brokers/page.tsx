@@ -22,16 +22,6 @@ export default async function BrokersPage() {
     return s.length ? s : "-"
   }
   const fmtDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : "-")
-  const _statusBadge = (status: string) => {
-    const s = (status || "").toLowerCase()
-    const color =
-      s === "active"
-        ? "bg-success-muted text-success border-success/30"
-        : s === "inactive"
-        ? "bg-danger-muted text-danger border-danger/30"
-        : "bg-warning-muted text-warning-foreground border-warning/30" // pending
-    return <Badge variant="outline" className={cn("capitalize", color)}>{s || "-"}</Badge>
-  }
   const permissionBadge = (perm: string) => {
     const p = (perm || "").toLowerCase()
     const color =
