@@ -67,7 +67,7 @@ export async function GET(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Fetch tasks with status and priority joins
+    // Fetch tasks with status, priority, and stage joins
     const { data: tasks, error } = await supabaseAdmin
       .from("deal_tasks")
       .select(`
@@ -89,7 +89,8 @@ export async function GET(
         created_at,
         updated_at,
         task_statuses (id, code, name, color),
-        task_priorities (id, code, name, color)
+        task_priorities (id, code, name, color),
+        task_templates (deal_stage_id, deal_stages (id, code, name, color, display_order))
       `)
       .eq("deal_id", dealId)
       .order("display_order", { ascending: true })
@@ -185,7 +186,8 @@ export async function POST(
         created_at,
         updated_at,
         task_statuses (id, code, name, color),
-        task_priorities (id, code, name, color)
+        task_priorities (id, code, name, color),
+        task_templates (deal_stage_id, deal_stages (id, code, name, color, display_order))
       `)
       .single();
 

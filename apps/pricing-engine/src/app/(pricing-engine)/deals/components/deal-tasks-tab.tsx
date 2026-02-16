@@ -26,6 +26,19 @@ interface TaskPriorityRow {
   color: string | null;
 }
 
+interface DealStageRow {
+  id: number;
+  code: string;
+  name: string;
+  color: string | null;
+  display_order: number | null;
+}
+
+interface TaskTemplateRow {
+  deal_stage_id: number | null;
+  deal_stages: DealStageRow | null;
+}
+
 interface TaskFromApi {
   id: number;
   uuid: string;
@@ -46,6 +59,7 @@ interface TaskFromApi {
   updated_at: string;
   task_statuses: TaskStatusRow | null;
   task_priorities: TaskPriorityRow | null;
+  task_templates: TaskTemplateRow | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -99,6 +113,8 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
     priority = PRIORITY_CODE_MAP[task.task_priorities.code] ?? "none";
   }
 
+  const stage = task.task_templates?.deal_stages ?? undefined;
+
   return {
     id: task.uuid,
     identifier: `TSK-${task.id}`,
@@ -116,6 +132,10 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
     checked: status === "done",
     createdAt: task.created_at,
     updatedAt: task.updated_at,
+    stage: stage?.name,
+    stageCode: stage?.code,
+    stageColor: stage?.color ?? undefined,
+    stageOrder: stage?.display_order ?? undefined,
   };
 }
 

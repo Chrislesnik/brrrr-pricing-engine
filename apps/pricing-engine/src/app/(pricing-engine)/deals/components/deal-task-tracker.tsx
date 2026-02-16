@@ -108,6 +108,10 @@ export interface Task {
   checked: boolean;
   createdAt?: string;
   updatedAt?: string;
+  stage?: string;
+  stageCode?: string;
+  stageColor?: string;
+  stageOrder?: number;
 }
 
 interface AdvancedRule {
@@ -141,13 +145,14 @@ interface DisplayProperties {
   priority?: boolean;
   dueDate?: boolean;
   labels?: boolean;
+  stage?: boolean;
   created?: boolean;
   updated?: boolean;
 }
 
 interface ViewSettings {
   currentView: ViewType;
-  groupBy: "status" | "priority" | "assignee" | "label";
+  groupBy: "status" | "priority" | "assignee" | "label" | "stage";
   sortRules: SortRule[];
   showCompletedTasks: boolean;
   showEmptyGroups: boolean;
@@ -358,6 +363,32 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       tasks: tasks.filter((t) => (t.assignee ?? "Unassigned") === a),
     }));
   }
+  if (groupBy === "stage") {
+    const stageMap = new Map<string, { name: string; color: string; order: number }>();
+    for (const t of tasks) {
+      const code = t.stageCode ?? "__unassigned__";
+      if (!stageMap.has(code)) {
+        stageMap.set(code, {
+          name: t.stage ?? "Unassigned",
+          color: t.stageColor ?? "#6B7280",
+          order: t.stageOrder ?? 9999,
+        });
+      }
+    }
+    // Ensure "Unassigned" bucket exists
+    if (!stageMap.has("__unassigned__")) {
+      stageMap.set("__unassigned__", { name: "Unassigned", color: "#6B7280", order: 9999 });
+    }
+    return [...stageMap.entries()]
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([code, info]) => ({
+        key: code,
+        label: info.name,
+        color: info.color,
+        colorClass: "text-task-todo",
+        tasks: tasks.filter((t) => (t.stageCode ?? "__unassigned__") === code),
+      }));
+  }
   // label
   const labels = [...new Set(tasks.flatMap((t) => t.labels))].sort();
   if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", colorClass: "text-task-todo", tasks }];
@@ -389,7 +420,12 @@ function getActiveFilterCount(filter: AdvancedFilterState): number {
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) cb();
+      if (!ref.current) return;
+      const target = e.target as HTMLElement;
+      if (ref.current.contains(target)) return;
+      // Ignore clicks inside Radix portalled content (Select, Popover, etc.)
+      if (target.closest("[data-radix-popper-content-wrapper]") || target.closest("[role='listbox']") || target.closest("[role='option']")) return;
+      cb();
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -441,7 +477,7 @@ export function DealTaskTracker({
     showCompletedTasks: true,
     showEmptyGroups: true,
     advancedFilter: { logic: "and", items: [] },
-    displayProperties: { id: true, status: true, assignee: true, priority: true, dueDate: true, labels: true, created: true, updated: false },
+    displayProperties: { id: true, status: true, assignee: true, priority: true, dueDate: true, labels: true, stage: true, created: true, updated: false },
   });
 
   // Keep in sync with prop changes
@@ -771,6 +807,7 @@ const GROUP_OPTIONS: { value: ViewSettings["groupBy"]; label: string }[] = [
   { value: "priority", label: "Priority" },
   { value: "assignee", label: "Assignee" },
   { value: "label", label: "Label" },
+  { value: "stage", label: "Deal Stage" },
 ];
 
 const DISPLAY_PROPERTIES: { key: keyof DisplayProperties; label: string }[] = [
@@ -780,6 +817,7 @@ const DISPLAY_PROPERTIES: { key: keyof DisplayProperties; label: string }[] = [
   { key: "priority", label: "Priority" },
   { key: "dueDate", label: "Due date" },
   { key: "labels", label: "Labels" },
+  { key: "stage", label: "Deal Stage" },
   { key: "created", label: "Created" },
   { key: "updated", label: "Updated" },
 ];
@@ -1241,6 +1279,18 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
       {/* Title */}
       <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 mb-2">{task.title}</p>
 
+      {/* Stage badge */}
+      {task.stage && (
+        <div className="mb-2">
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+            style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
+          >
+            {task.stage}
+          </span>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -1293,6 +1343,7 @@ function TableView({
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[100px]">Status</th>
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[90px]">Priority</th>
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[130px]">Assignee</th>
+            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[120px]">Stage</th>
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[120px]">Labels</th>
           </tr>
         </thead>
@@ -1337,7 +1388,7 @@ function TableGroupRows({
         className="border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <td colSpan={7} className="px-4 py-2">
+        <td colSpan={8} className="px-4 py-2">
           <div className="flex items-center gap-2">
             {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
             <Circle className={cn("h-3 w-3", colorClass)} fill={groupKey === "done" ? "currentColor" : "none"} />
@@ -1389,6 +1440,18 @@ function TableGroupRows({
                     </div>
                     <span className="text-xs text-muted-foreground">{task.assignee}</span>
                   </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </td>
+              <td className="px-4 py-2.5">
+                {task.stage ? (
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+                    style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
+                  >
+                    {task.stage}
+                  </span>
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
