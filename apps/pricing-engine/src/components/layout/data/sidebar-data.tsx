@@ -125,8 +125,17 @@ export const sidebarData: SidebarData = {
         },
         {
           title: "3rd Parties",
-          url: "/contacts/third-parties",
           icon: IconUser,
+          items: [
+            {
+              title: "Individuals",
+              url: "/contacts/third-parties/individuals",
+            },
+            {
+              title: "Companies",
+              url: "/contacts/third-parties/companies",
+            },
+          ],
         },
         {
           title: "AI Agent",

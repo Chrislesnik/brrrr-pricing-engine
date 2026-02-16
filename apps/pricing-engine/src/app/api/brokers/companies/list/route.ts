@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
-import { getBrokerCompaniesForOrg } from "@/app/(pricing-engine)/contacts/data/fetch-broker-companies"
+import { getExternalOrganizations } from "@/app/(pricing-engine)/contacts/data/fetch-broker-companies"
 
 export async function GET() {
   try {
@@ -19,17 +18,12 @@ export async function GET() {
       )
     }
 
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) {
-      return NextResponse.json({ items: [], membersMap: {} })
-    }
-
-    const { companies, membersMap } = await getBrokerCompaniesForOrg(orgUuid)
-    return NextResponse.json({ items: companies, membersMap })
+    const { organizations, membersMap } = await getExternalOrganizations()
+    return NextResponse.json({ items: organizations, membersMap })
   } catch (error) {
-    console.error("Broker companies list API error:", error)
+    console.error("Broker organizations list API error:", error)
     return NextResponse.json(
-      { items: [], membersMap: {}, error: "Failed to fetch broker companies" },
+      { items: [], membersMap: {}, error: "Failed to fetch broker organizations" },
       { status: 500 }
     )
   }

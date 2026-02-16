@@ -17,7 +17,6 @@ import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
-import { Badge } from "@repo/ui/shadcn/badge"
 import {
   Table,
   TableBody,
@@ -28,12 +27,12 @@ import {
 } from "@repo/ui/shadcn/table"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import type {
-  BrokerCompanyRow,
+  BrokerOrgRow,
   OrgMemberRow,
 } from "../data/fetch-broker-companies"
 
 interface Props {
-  data: BrokerCompanyRow[]
+  data: BrokerOrgRow[]
   initialMembersMap?: Record<string, OrgMemberRow[]>
 }
 
@@ -109,7 +108,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
     fetchMembers(orgId)
   }
 
-  const columns = useMemo<ColumnDef<BrokerCompanyRow>[]>(() => {
+  const columns = useMemo<ColumnDef<BrokerOrgRow>[]>(() => {
     return [
       {
         id: "expand",
@@ -121,9 +120,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() =>
-                toggleRow(row.id, row.original.organization_id)
-              }
+              onClick={() => toggleRow(row.id, row.original.id)}
               aria-label={isOpen ? "Collapse row" : "Expand row"}
             >
               <ChevronDown
@@ -141,11 +138,11 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
         meta: { className: "w-12 pl-3" },
       },
       {
-        header: "Company Name",
-        accessorKey: "company_name",
+        header: "Organization Name",
+        accessorKey: "name",
         cell: ({ row }) => (
           <span className="text-foreground text-sm font-semibold">
-            {row.getValue("company_name") || "-"}
+            {row.getValue("name") || "-"}
           </span>
         ),
         filterFn: (row, _columnId, value) => {
@@ -154,8 +151,8 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
             .trim()
           if (!term) return true
           const haystack = [
-            row.original.company_name,
-            ...(row.original.emails ?? []),
+            row.original.name,
+            row.original.slug ?? "",
           ]
             .join(" ")
             .toLowerCase()
@@ -163,62 +160,22 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
         },
       },
       {
-        header: "Brokers",
-        accessorKey: "broker_count",
+        header: "Slug",
+        accessorKey: "slug",
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
-            {row.original.broker_count}
+            {row.original.slug || "-"}
           </span>
         ),
       },
       {
-        header: "Status Breakdown",
-        id: "status_breakdown",
-        cell: ({ row }) => {
-          const { active_count, pending_count, inactive_count } = row.original
-          return (
-            <div className="flex flex-wrap gap-1.5">
-              {active_count > 0 && (
-                <Badge
-                  variant="outline"
-                  className="bg-success-muted text-success border-success/30 capitalize"
-                >
-                  {active_count} active
-                </Badge>
-              )}
-              {pending_count > 0 && (
-                <Badge
-                  variant="outline"
-                  className="bg-warning-muted text-warning-foreground border-warning/30 capitalize"
-                >
-                  {pending_count} pending
-                </Badge>
-              )}
-              {inactive_count > 0 && (
-                <Badge
-                  variant="outline"
-                  className="bg-danger-muted text-danger border-danger/30 capitalize"
-                >
-                  {inactive_count} inactive
-                </Badge>
-              )}
-            </div>
-          )
-        },
-        enableSorting: false,
-      },
-      {
-        header: "Emails",
-        id: "emails",
-        cell: ({ row }) => {
-          const emails = row.original.emails ?? []
-          return (
-            <span className="text-muted-foreground text-sm">
-              {emails.length ? emails.join(", ") : "-"}
-            </span>
-          )
-        },
-        enableSorting: false,
+        header: "Members",
+        accessorKey: "member_count",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground text-sm">
+            {row.original.member_count}
+          </span>
+        ),
       },
       {
         header: "Date Added",
@@ -253,8 +210,8 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
     <div className="w-full rounded-lg border">
       <div className="border-b">
         <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">Broker Companies</span>
-          <Filter column={table.getColumn("company_name")!} />
+          <span className="font-medium">Organizations</span>
+          <Filter column={table.getColumn("name")!} />
         </div>
         <Table>
           <TableHeader>
@@ -280,7 +237,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const isOpen = !!expandedRows[row.id]
-                const orgId = row.original.organization_id
+                const orgId = row.original.id
                 return (
                   <Fragment key={row.id}>
                     <TableRow
@@ -402,7 +359,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                   colSpan={columns.length}
                   className="text-muted-foreground h-24 text-center"
                 >
-                  No broker companies yet.
+                  No organizations yet.
                 </TableCell>
               </TableRow>
             )}
@@ -417,7 +374,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
 
 function Filter({ column }: { column: any }) {
   const columnFilterValue = column.getFilterValue()
-  const inputId = "broker-companies-filter-search"
+  const inputId = "broker-orgs-filter-search"
 
   return (
     <div>
@@ -428,7 +385,7 @@ function Filter({ column }: { column: any }) {
         id={`${inputId}-input`}
         value={(columnFilterValue ?? "") as string}
         onChange={(e) => column.setFilterValue(e.target.value)}
-        placeholder="Search companies"
+        placeholder="Search organizations"
         type="text"
       />
     </div>

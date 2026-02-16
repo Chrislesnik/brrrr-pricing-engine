@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import useSWR from "swr"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -10,29 +9,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@repo/ui/shadcn/breadcrumb"
-import { BrokerCompaniesTable } from "../../components/broker-companies-table"
-import { PageSkeleton } from "@/components/ui/table-skeleton"
-import type { BrokerOrgRow, OrgMemberRow } from "../../data/fetch-broker-companies"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
-type BrokerOrgsResponse = {
-  items: BrokerOrgRow[]
-  membersMap: Record<string, OrgMemberRow[]>
-}
-
-export default function BrokerOrganizationsPage() {
-  const { data, isLoading } = useSWR<BrokerOrgsResponse>(
-    "/api/brokers/companies/list",
-    fetcher
-  )
-  const organizations = data?.items ?? []
-  const membersMap = data?.membersMap ?? {}
-
-  if (isLoading) {
-    return <PageSkeleton title="Broker Organizations" columns={5} rows={10} />
-  }
-
+export default function ThirdPartyCompaniesPage() {
   return (
     <>
       <div className="mb-4 flex flex-col gap-2">
@@ -46,23 +24,27 @@ export default function BrokerOrganizationsPage() {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/contacts/brokers">Brokers</Link>
+                <Link href="/contacts/third-parties/companies">
+                  3rd Parties
+                </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Organizations</BreadcrumbPage>
+              <BreadcrumbPage>Companies</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex-none text-xl font-bold tracking-tight">
-            Broker Organizations
+            3rd Party Companies
           </h2>
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <BrokerCompaniesTable data={organizations} initialMembersMap={membersMap} />
+        <div className="flex items-center justify-center rounded-lg border border-dashed p-12 text-muted-foreground">
+          Third party companies will be displayed here.
+        </div>
       </div>
     </>
   )

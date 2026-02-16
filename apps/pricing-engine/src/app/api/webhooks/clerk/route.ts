@@ -17,7 +17,14 @@ export async function POST(req: NextRequest) {
   }
 
   const payload = await req.text()
-  const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET as string)
+  const secret =
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET ??
+    process.env.CLERK_WEBHOOK_SECRET
+  if (!secret) {
+    console.error("Missing CLERK_WEBHOOK_SIGNING_SECRET env var")
+    return new Response("Webhook secret not configured", { status: 500 })
+  }
+  const wh = new Webhook(secret)
 
   let evt: unknown
   try {
