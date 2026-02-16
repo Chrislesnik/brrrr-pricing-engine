@@ -837,30 +837,6 @@ function ViewToolbar({
   return (
     <div className="flex items-center justify-between border-b px-4 py-2">
       <div className="flex items-center gap-1">
-        {/* View tabs */}
-        <div className="flex items-center rounded-md bg-muted/60 p-0.5">
-          {VIEW_OPTIONS.map((opt) => {
-            const active = viewSettings.currentView === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => onSetView(opt.value)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all",
-                  active
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <opt.icon className="h-3.5 w-3.5" />
-                <span>{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mx-2 h-4 w-px bg-border" />
-
         {/* View settings */}
         <div className="relative" ref={settingsRef}>
           <button
