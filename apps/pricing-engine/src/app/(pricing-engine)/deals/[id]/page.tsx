@@ -1,12 +1,12 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
-import { ArrowLeft, Loader2, MessageSquare, Check } from "lucide-react";
+import { ArrowLeft, Check, Loader2, MessageSquare } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
@@ -158,6 +158,77 @@ function DealRecordContent() {
     return () => clearTimeout(timer);
   }, [dealStepper, stepperAnimatingTo]);
 
+  // Deal display settings (global heading/subheading expressions)
+  const [appSettings, setAppSettings] = useState<Record<string, string>>({});
+  const [inputsList, setInputsList] = useState<{ id: string; input_code: string; input_type: string }[]>([]);
+
+  useEffect(() => {
+    async function loadDisplaySettings() {
+      try {
+        const [settingsRes, inputsRes] = await Promise.all([
+          fetch("/api/app-settings"),
+          fetch("/api/inputs"),
+        ]);
+        if (settingsRes.ok) {
+          const { settings } = await settingsRes.json();
+          setAppSettings(settings ?? {});
+        }
+        if (inputsRes.ok) {
+          const inputs = await inputsRes.json();
+          setInputsList(
+            (inputs ?? []).map((inp: { id: string | number; input_code: string; input_type?: string }) => ({
+              id: String(inp.id),
+              input_code: inp.input_code,
+              input_type: inp.input_type ?? "text",
+            }))
+          );
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+    loadDisplaySettings();
+
+    const handleSettingsChanged = () => loadDisplaySettings();
+    if (typeof window !== "undefined") {
+      window.addEventListener("app:settings:changed", handleSettingsChanged);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("app:settings:changed", handleSettingsChanged);
+      }
+    };
+  }, []);
+
+  const evaluatedHeading = useMemo(() => {
+    const expr = appSettings.deal_heading_expression;
+    if (!expr || !deal) return "";
+    const codeToId = new Map(inputsList.map((inp) => [inp.input_code, inp.id]));
+    return expr
+      .replace(/@(\w+)/g, (_, code: string) => {
+        const inputId = codeToId.get(code);
+        if (!inputId) return "";
+        const val = deal.inputs[inputId];
+        return val !== null && val !== undefined ? String(val) : "";
+      })
+      .replace(/\s+/g, " ")
+      .trim();
+  }, [appSettings, deal, inputsList]);
+
+  const evaluatedSubheading = useMemo(() => {
+    const expr = appSettings.deal_subheading_expression;
+    if (!expr || !deal) return "";
+    const codeToId = new Map(inputsList.map((inp) => [inp.input_code, inp.id]));
+    return expr
+      .replace(/@(\w+)/g, (_, code: string) => {
+        const inputId = codeToId.get(code);
+        if (!inputId) return "";
+        const val = deal.inputs[inputId];
+        return val !== null && val !== undefined ? String(val) : "";
+      })
+      .replace(/\s+/g, " ")
+      .trim();
+  }, [appSettings, deal, inputsList]);
 
   if (loading) {
     return (
@@ -235,10 +306,10 @@ function DealRecordContent() {
             </Button>
             <div className="min-w-0">
               <h1 className="text-lg font-semibold leading-tight truncate">
-                Deal {deal.id.slice(0, 8)}
+                {evaluatedHeading || `Deal ${deal.id.slice(0, 8)}`}
               </h1>
               <p className="text-xs text-muted-foreground font-mono truncate">
-                {deal.id}
+                {evaluatedSubheading || deal.id}
               </p>
             </div>
           </div>
@@ -390,6 +461,7 @@ function DealRecordContent() {
         open={commentsOpen}
         onClose={() => setCommentsOpen(false)}
       />
+
     </div>
   );
 }

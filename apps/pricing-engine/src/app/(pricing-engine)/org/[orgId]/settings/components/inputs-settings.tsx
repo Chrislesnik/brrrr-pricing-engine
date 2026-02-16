@@ -14,6 +14,7 @@ import {
   X,
   Link2,
   Unlink,
+  Settings,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -50,6 +51,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
@@ -70,6 +78,7 @@ interface InputField {
   category_id: number;
   category: string;
   input_label: string;
+  input_code: string;
   input_type: string;
   dropdown_options: string[] | null;
   starred: boolean;
@@ -186,6 +195,12 @@ export function InputsSettings() {
   const [aiOrderInputId, setAiOrderInputId] = useState<string | null>(null);
   const [aiOrderInputLabel, setAiOrderInputLabel] = useState("");
 
+  // Deal Settings sheet state
+  const [dealSettingsOpen, setDealSettingsOpen] = useState(false);
+  const [headingExpr, setHeadingExpr] = useState("");
+  const [subheadingExpr, setSubheadingExpr] = useState("");
+  const [dealSettingsSaving, setDealSettingsSaving] = useState(false);
+
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
@@ -210,6 +225,55 @@ export function InputsSettings() {
       setLoading(false);
     }
   }, []);
+
+  // Load deal settings when the sheet opens
+  useEffect(() => {
+    if (!dealSettingsOpen) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/app-settings");
+        if (res.ok) {
+          const { settings } = await res.json();
+          setHeadingExpr(settings?.deal_heading_expression ?? "");
+          setSubheadingExpr(settings?.deal_subheading_expression ?? "");
+        }
+      } catch {
+        // non-critical
+      }
+    })();
+  }, [dealSettingsOpen]);
+
+  // Build columns for the expression input from the already-loaded inputs
+  const expressionColumns = inputs.map((inp: InputField) => ({
+    name: inp.input_code,
+    type: inp.input_type,
+  }));
+
+  const handleSaveDealSettings = async () => {
+    setDealSettingsSaving(true);
+    try {
+      await Promise.all([
+        fetch("/api/app-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "deal_heading_expression", value: headingExpr }),
+        }),
+        fetch("/api/app-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "deal_subheading_expression", value: subheadingExpr }),
+        }),
+      ]);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("app:settings:changed"));
+      }
+      setDealSettingsOpen(false);
+    } catch (err) {
+      console.error("Failed to save deal settings:", err);
+    } finally {
+      setDealSettingsSaving(false);
+    }
+  };
 
   useEffect(() => {
     async function checkAccessAndFetch() {
@@ -568,6 +632,14 @@ export function InputsSettings() {
             >
               <Workflow className="size-4 mr-1.5" />
               Logic Builder
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDealSettingsOpen(true)}
+            >
+              <Settings className="size-4 mr-1.5" />
+              Deal Settings
             </Button>
           </div>
         )}
@@ -1212,6 +1284,70 @@ export function InputsSettings() {
           </KanbanOverlay>
         </Kanban>
       )}
+
+      {/* Deal Settings Sheet */}
+      <Sheet open={dealSettingsOpen} onOpenChange={setDealSettingsOpen}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Deal Settings</SheetTitle>
+            <SheetDescription>
+              Configure how deal headings and subheadings are displayed.
+              Use <code className="text-xs bg-muted px-1 py-0.5 rounded">@input_code</code> to reference deal inputs.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-6 py-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Heading Expression</Label>
+              <ColumnExpressionInput
+                value={headingExpr}
+                onChange={setHeadingExpr}
+                columns={expressionColumns}
+                placeholder="e.g. @loan_number — @property_address"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Replaces the default &ldquo;Deal abc123&rdquo; title on deal pages.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Subheading Expression</Label>
+              <ColumnExpressionInput
+                value={subheadingExpr}
+                onChange={setSubheadingExpr}
+                columns={expressionColumns}
+                placeholder="e.g. @borrower_name — @loan_amount_total"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Replaces the default UUID subtitle on deal pages.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <Button
+                size="sm"
+                onClick={handleSaveDealSettings}
+                disabled={dealSettingsSaving}
+                className="gap-1.5"
+              >
+                {dealSettingsSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Save
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDealSettingsOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Logic Builder Sheet */}
       <LogicBuilderSheet
