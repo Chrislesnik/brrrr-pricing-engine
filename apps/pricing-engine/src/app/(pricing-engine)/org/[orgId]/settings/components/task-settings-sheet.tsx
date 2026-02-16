@@ -227,9 +227,10 @@ export function TaskSettingsSheet({
                 </p>
                 <Popover open={rolePopoverOpen} onOpenChange={setRolePopoverOpen} modal>
                   <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex min-h-[36px] w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    <div
+                      role="combobox"
+                      tabIndex={0}
+                      className="flex min-h-[36px] w-full cursor-pointer flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       {selectedRoleIds.length === 0 ? (
                         <span className="text-muted-foreground text-sm">Select roles...</span>
@@ -244,21 +245,28 @@ export function TaskSettingsSheet({
                               className="gap-1 pr-1"
                             >
                               {role.name}
-                              <button
-                                type="button"
+                              <span
+                                role="button"
+                                tabIndex={0}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   removeRole(roleId);
                                 }}
-                                className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.stopPropagation();
+                                    removeRole(roleId);
+                                  }
+                                }}
+                                className="ml-0.5 cursor-pointer rounded-full hover:bg-muted-foreground/20 p-0.5"
                               >
                                 <X className="h-3 w-3" />
-                              </button>
+                              </span>
                             </Badge>
                           );
                         })
                       )}
-                    </button>
+                    </div>
                   </PopoverTrigger>
                   <PopoverContent className="w-[300px] p-0 z-[100]" align="start" side="bottom" sideOffset={4}>
                     <div className="max-h-[300px] overflow-y-auto overscroll-contain p-1">

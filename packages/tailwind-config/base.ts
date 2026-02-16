@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
+import containerQueries from "@tailwindcss/container-queries";
 
 export const baseConfig: Partial<Config> = {
   darkMode: ["class"],
@@ -118,5 +119,5 @@ export const baseConfig: Partial<Config> = {
       },
     },
   },
-  plugins: [animate],
+  plugins: [animate, containerQueries],
 };

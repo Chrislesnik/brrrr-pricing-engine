@@ -51,7 +51,7 @@ export interface NavItem {
 // ============================================================================
 
 export const ROUTES = {
-  dashboard: "/",
+  dashboard: "/dashboard",
   pricingEngine: {
     pipeline: "/scenarios",
     deals: "/deals",
@@ -93,6 +93,17 @@ export const ROUTES = {
 // ============================================================================
 
 export const NAVIGATION_CONFIG: NavItem[] = [
+  {
+    title: "Dashboard",
+    items: [
+      {
+        title: "Dashboard",
+        url: ROUTES.dashboard,
+        icon: Home,
+        shortcut: ["D"],
+      },
+    ],
+  },
   {
     title: "Pricing Engine",
     items: [

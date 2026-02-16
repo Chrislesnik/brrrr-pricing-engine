@@ -1,5 +1,5 @@
 import { IconApps, IconSettings, IconUsers, IconUser, IconSparkles, IconInbox, IconPlug, IconBuilding, IconPalette, IconFileText, IconSquareRoundedNumber1, IconSquareRoundedNumber2, IconSquareRoundedNumber3, IconSquareRoundedNumber4, IconSquareRoundedNumber5, IconSquareRoundedNumber6, IconSquareRoundedNumber7, IconSquareRoundedNumber8, IconSquareRoundedNumber9, IconSquareRoundedNumber0 } from "@tabler/icons-react"
-import { AudioWaveform, GalleryVerticalEnd } from "lucide-react"
+import { AudioWaveform, GalleryVerticalEnd, Home } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Logo } from "@/components/logo"
 import { type SidebarData } from "../types"
@@ -33,6 +33,11 @@ export const sidebarData: SidebarData = {
     {
       title: "Main",
       items: [
+        {
+          title: "Dashboard",
+          url: "/dashboard",
+          icon: Home,
+        },
         {
           title: "Pipeline",
           url: "/pipeline",

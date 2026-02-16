@@ -26,7 +26,7 @@ export default function UserDetailPage({ params }: Props) {
   const user = userList.find((user) => user.id === id)
 
   if (!user) {
-    return redirect(`/scenarios`)
+    return redirect(`/dashboard`)
   }
 
   return (

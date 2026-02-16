@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
   CreditCard,
   LogOut,
+  Hash,
+  Mail,
+  MessageSquare,
+  Monitor,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
 
@@ -23,12 +28,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/shadcn/dialog";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@repo/ui/shadcn/sidebar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@repo/ui/shadcn/table";
 
 export function NavUser({
   user,
@@ -41,7 +61,8 @@ export function NavUser({
 }) {
   const { isMobile, state } = useSidebar();
   const { signOut, openUserProfile } = useClerk();
-  
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
   const isCollapsed = state === "collapsed";
 
   const handleSignOut = async () => {
@@ -133,7 +154,12 @@ export function NavUser({
                 Billing
               </DropdownMenuItem>
               */}
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setNotificationsOpen(true);
+                }}
+              >
                 <Bell />
                 Notifications
               </DropdownMenuItem>
@@ -145,7 +171,139 @@ export function NavUser({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Notifications</DialogTitle>
+              <p className="text-sm font-medium text-muted-foreground">
+                Manage your notification preferences
+              </p>
+            </DialogHeader>
+            <Table>
+              <TableHeader>
+                <TableRow className="[&_div]:flex [&_div]:items-center [&_div]:justify-center [&_div]:gap-1.5 [&_div]:font-semibold [&_div]:text-muted-foreground/80 [&_div_svg]:size-4">
+                  <TableHead>
+                    <div className="!justify-start">
+                      <Bell className="size-4" /> Notify me about
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div>
+                      <Mail className="size-4" /> Email
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div>
+                      <MessageSquare className="size-4" /> SMS
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div>
+                      <Hash className="size-4" /> Slack
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div>
+                      <Monitor className="size-4" /> Teams
+                    </div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {NOTIFICATION_SETTINGS.map((n) => (
+                  <TableRow key={n.id}>
+                    <TableCell>
+                      <p className="font-semibold">{n.title}</p>
+                      <p className="text-xs font-medium text-muted-foreground/70">
+                        {n.description}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox defaultChecked={n.email} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox defaultChecked={n.sms} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox defaultChecked={n.slack} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox defaultChecked={n.teams} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </DialogContent>
+        </Dialog>
       </SidebarMenuItem>
     </SidebarMenu>
   );
 }
+
+const NOTIFICATION_SETTINGS = [
+  {
+    id: "mentions",
+    title: "Direct Mentions",
+    description: "Get notified when a team member tags you with @.",
+    email: true,
+    sms: false,
+    slack: true,
+    teams: false,
+  },
+  {
+    id: "comments",
+    title: "Comments",
+    description: "Receive updates when someone comments on a loan, deal, or task you're involved in.",
+    email: true,
+    sms: false,
+    slack: true,
+    teams: false,
+  },
+  {
+    id: "task-assignment",
+    title: "Task Assignments",
+    description: "Get notified when a task is assigned to you or your team.",
+    email: true,
+    sms: false,
+    slack: true,
+    teams: true,
+  },
+  {
+    id: "loan-assignment",
+    title: "Loan Assignments",
+    description: "Get notified when a loan scenario is assigned to you.",
+    email: true,
+    sms: false,
+    slack: true,
+    teams: true,
+  },
+  {
+    id: "deal-assignment",
+    title: "Deal Assignments",
+    description: "Get notified when you're added to a deal as an assignee.",
+    email: true,
+    sms: false,
+    slack: true,
+    teams: true,
+  },
+  {
+    id: "application-completed",
+    title: "Application Completed",
+    description: "Get notified when a borrower completes and submits their application.",
+    email: true,
+    sms: true,
+    slack: true,
+    teams: false,
+  },
+  {
+    id: "deal-status",
+    title: "Deal Status Changes",
+    description: "Get notified when a deal moves to a new stage in the pipeline.",
+    email: true,
+    sms: false,
+    slack: true,
+    teams: false,
+  },
+];

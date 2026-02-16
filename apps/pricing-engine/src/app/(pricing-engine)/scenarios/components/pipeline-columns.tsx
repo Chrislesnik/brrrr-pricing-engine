@@ -392,7 +392,7 @@ export const pipelineColumns: ColumnDef<LoanRow>[] = [
   },
 ]
 
-function RowActions({ id, status }: { id: string; status?: string }) {
+export function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [localStatus, setLocalStatus] = React.useState(status ?? "active")
   const isArchived = (localStatus ?? "").toLowerCase() === "archived"

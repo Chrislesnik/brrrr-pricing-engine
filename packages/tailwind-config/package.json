@@ -9,5 +9,8 @@
   "devDependencies": {
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7"
+  },
+  "dependencies": {
+    "@tailwindcss/container-queries": "^0.1.1"
   }
 }
