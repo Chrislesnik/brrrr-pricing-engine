@@ -1087,7 +1087,7 @@ function CodeAIAssistant({
           size="sm"
           disabled={disabled || generating || !aiPrompt.trim()}
           onClick={() => void handleGenerate()}
-          className="h-8 text-xs shrink-0 px-3"
+          className="h-8 text-xs shrink-0 px-3 self-end"
         >
           {generating ? "Generating..." : "Generate"}
         </Button>

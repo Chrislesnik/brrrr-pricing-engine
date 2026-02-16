@@ -1593,7 +1593,7 @@ function TaskConditionRow({
             onClick={handleSqlGenerate}
             disabled={!sqlPrompt.trim() || isGenerating}
             className={cn(
-              "flex items-center justify-center size-8 rounded-md border transition-colors shrink-0",
+              "flex items-center justify-center size-8 rounded-md border transition-colors shrink-0 self-end",
               sqlPrompt.trim() && !isGenerating
                 ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
                 : "bg-muted text-muted-foreground border-input cursor-not-allowed"
