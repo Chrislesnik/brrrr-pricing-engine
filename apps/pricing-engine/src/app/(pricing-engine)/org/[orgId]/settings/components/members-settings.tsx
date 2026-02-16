@@ -46,7 +46,11 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
-import { getOrgMemberRoles, setOrgMemberRole } from "./metadata-actions";
+import {
+  getOrgMemberRoles,
+  setOrgMemberRole,
+  getActiveMemberRoleOptions,
+} from "./metadata-actions";
 
 export function MembersSettings() {
   const { organization, isLoaded, memberships } = useOrganization({
@@ -64,6 +68,9 @@ export function MembersSettings() {
   const [memberRoles, setMemberRoles] = useState<Record<string, string | null>>(
     {}
   );
+  const [memberRoleOptions, setMemberRoleOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
   const [memberRoleError, setMemberRoleError] = useState<string | null>(null);
   const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
   const [isSavingMemberRole, startMemberRoleTransition] = useTransition();
@@ -82,8 +89,14 @@ export function MembersSettings() {
       setIsMemberRoleLoading(true);
       setMemberRoleError(null);
       try {
-        const result = await getOrgMemberRoles();
-        if (isMounted) setMemberRoles(result.roles ?? {});
+        const [rolesResult, roleOptionsResult] = await Promise.all([
+          getOrgMemberRoles(),
+          getActiveMemberRoleOptions(),
+        ]);
+        if (isMounted) {
+          setMemberRoles(rolesResult.roles ?? {});
+          setMemberRoleOptions(roleOptionsResult);
+        }
       } catch (error) {
         if (isMounted) {
           setMemberRoleError(
@@ -330,7 +343,7 @@ export function MembersSettings() {
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={memberRoleValue || "member"}
+                        value={memberRoleValue || ""}
                         onValueChange={(value) =>
                           clerkUserId &&
                           handleUpdateMemberRole(clerkUserId, value)
@@ -343,12 +356,20 @@ export function MembersSettings() {
                         }
                       >
                         <SelectTrigger className="w-32">
-                          <SelectValue />
+                          <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
+                          {memberRoleOptions.length === 0 ? (
+                            <SelectItem value="_none" disabled>
+                              No roles configured
+                            </SelectItem>
+                          ) : (
+                            memberRoleOptions.map((role) => (
+                              <SelectItem key={role.value} value={role.value}>
+                                {role.label}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </TableCell>

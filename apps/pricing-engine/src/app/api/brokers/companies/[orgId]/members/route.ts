@@ -60,10 +60,32 @@ export async function GET(
           if (!memUserId) continue
 
           const clerkRole = m.role ?? "member"
-          const memberRole =
+          let memberRole =
             typeof (m.publicMetadata as Record<string, unknown>)?.org_member_role === "string"
               ? ((m.publicMetadata as Record<string, unknown>).org_member_role as string)
               : clerkRole
+
+          // Check for a pending invite role
+          const memberEmail =
+            (m.publicUserData as Record<string, unknown>)
+              ?.identifier as string | undefined
+          if (memberEmail) {
+            const { data: pendingRow } = await supabaseAdmin
+              .from("pending_invite_roles")
+              .select("clerk_member_role")
+              .eq("organization_id", orgId)
+              .ilike("email", memberEmail)
+              .maybeSingle()
+
+            if (pendingRow?.clerk_member_role) {
+              memberRole = pendingRow.clerk_member_role as string
+              await supabaseAdmin
+                .from("pending_invite_roles")
+                .delete()
+                .eq("organization_id", orgId)
+                .ilike("email", memberEmail)
+            }
+          }
 
           await supabaseAdmin
             .from("organization_members")

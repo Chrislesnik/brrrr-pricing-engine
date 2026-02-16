@@ -93,6 +93,37 @@ export async function getOrgMemberRoles(): Promise<{
   return { roles };
 }
 
+/**
+ * Returns the list of active member roles configured in organization_member_roles
+ * for the current org (both global roles and org-specific ones).
+ */
+export async function getActiveMemberRoleOptions(): Promise<
+  { value: string; label: string }[]
+> {
+  const { orgId, orgRole } = await auth();
+  if (!orgId) return [];
+
+  assertOrgAccess(orgRole, "admin");
+  const { orgPk } = await getOrgPk(orgId);
+
+  const { data, error } = await supabaseAdmin
+    .from("organization_member_roles")
+    .select("role_code, role_name")
+    .or(`organization_id.is.null,organization_id.eq.${orgPk}`)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.error("getActiveMemberRoleOptions error:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((r) => ({
+    value: r.role_code as string,
+    label: r.role_name as string,
+  }));
+}
+
 export async function setOrgMemberRole(input: {
   clerkUserId: string;
   memberRole: string | null;

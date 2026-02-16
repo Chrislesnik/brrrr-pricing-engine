@@ -79,7 +79,12 @@ export async function POST(req: NextRequest) {
       type ClerkMembershipPayload = {
         id?: string
         user_id?: string
-        public_user_data?: { user_id?: string; first_name?: string | null; last_name?: string | null }
+        public_user_data?: {
+          user_id?: string
+          first_name?: string | null
+          last_name?: string | null
+          identifier?: string
+        }
         organization_id?: string
         organization?: { id?: string }
         role?: string
@@ -89,12 +94,14 @@ export async function POST(req: NextRequest) {
       const userId = m.user_id ?? m.public_user_data?.user_id ?? ""
       const organizationId = m.organization_id ?? m.organization?.id ?? ""
       const role = m.role ?? "member"
-      const memberRole =
+      let memberRole =
         typeof m.public_metadata?.org_member_role === "string"
           ? m.public_metadata?.org_member_role
           : role
       const firstName = (m.public_user_data?.first_name ?? "") || null
       const lastName = (m.public_user_data?.last_name ?? "") || null
+      const memberEmail = m.public_user_data?.identifier ?? ""
+
       // Resolve Supabase org UUID by Clerk organization id
       const { data: orgRow, error: orgErr } = await supabaseAdmin
         .from("organizations")
@@ -106,9 +113,28 @@ export async function POST(req: NextRequest) {
       if (!orgUuid) {
         return new Response("Organization not found for membership", { status: 400 })
       }
+
+      // Check for a pending invite role (set when the invitation was sent)
+      if (type === "organizationMembership.created" && memberEmail) {
+        const { data: pendingRow } = await supabaseAdmin
+          .from("pending_invite_roles")
+          .select("clerk_member_role")
+          .eq("organization_id", orgUuid)
+          .ilike("email", memberEmail)
+          .single()
+
+        if (pendingRow?.clerk_member_role) {
+          memberRole = pendingRow.clerk_member_role as string
+          // Clean up the pending record
+          await supabaseAdmin
+            .from("pending_invite_roles")
+            .delete()
+            .eq("organization_id", orgUuid)
+            .ilike("email", memberEmail)
+        }
+      }
+
       // Upsert on the composite unique key (organization_id, user_id).
-      // The id column is auto-generated uuid; Clerk membership IDs are NOT
-      // valid UUIDs so we must not provide them as the id value.
       const upsertPayload = {
         organization_id: orgUuid,
         user_id: userId,
