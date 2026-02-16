@@ -323,106 +323,199 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
           <span className="font-medium">Entities</span>
           <Filter column={table.getColumn("display_id")!} />
         </div>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="h-12 border-t">
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="text-muted-foreground first:pl-4 last:pr-4"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
-                const isOpen = !!expandedRows[row.id]
-                return (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() && "selected"}
-                      className="cursor-pointer"
-                      onClick={(e) => {
-                        if (isAnyDialogOpen()) return
-                        const interactive = (e.target as HTMLElement).closest(
-                          "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
-                        )
-                        if (interactive) return
-                        toggleRow(row.id, row.original.id)
-                      }}
-                      aria-expanded={isOpen}
+        {/* Desktop table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="h-12 border-t">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="text-muted-foreground first:pl-4 last:pr-4"
                     >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className="h-14 first:pl-4 last:pr-4"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
                           )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {isOpen ? (
-                      ownersLoading[row.original.id] &&
-                      ownersMap[row.original.id] === undefined ? (
-                        <TableRow className="bg-muted/30">
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => {
+                  const isOpen = !!expandedRows[row.id]
+                  return (
+                    <Fragment key={row.id}>
+                      <TableRow
+                        data-state={row.getIsSelected() && "selected"}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          if (isAnyDialogOpen()) return
+                          const interactive = (e.target as HTMLElement).closest(
+                            "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
+                          )
+                          if (interactive) return
+                          toggleRow(row.id, row.original.id)
+                        }}
+                        aria-expanded={isOpen}
+                      >
+                        {row.getVisibleCells().map((cell) => (
                           <TableCell
-                            colSpan={columns.length}
-                            className="text-muted-foreground p-4 text-sm"
+                            key={cell.id}
+                            className="h-14 first:pl-4 last:pr-4"
                           >
-                            Loading members...
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </TableCell>
-                        </TableRow>
-                      ) : ownersMap[row.original.id] == null ? (
-                        <TableRow className="bg-muted/30">
-                          <TableCell
-                            colSpan={columns.length}
-                            className="text-destructive p-4 text-sm"
-                          >
-                            Failed to load members.
-                          </TableCell>
-                        </TableRow>
-                      ) : (ownersMap[row.original.id]?.length ?? 0) === 0 ? (
-                        <TableRow className="bg-muted/30">
-                          <TableCell
-                            colSpan={columns.length}
-                            className="text-muted-foreground p-4 text-sm"
-                          >
-                            No members listed.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        <>
+                        ))}
+                      </TableRow>
+                      {isOpen ? (
+                        ownersLoading[row.original.id] &&
+                        ownersMap[row.original.id] === undefined ? (
                           <TableRow className="bg-muted/30">
-                            <TableCell colSpan={columns.length} className="p-0">
-                              <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                <span>ID</span>
-                                <span>Name</span>
-                                <span>Type</span>
-                                <span>Title</span>
-                                <span>% Ownership</span>
-                              </div>
+                            <TableCell
+                              colSpan={columns.length}
+                              className="text-muted-foreground p-4 text-sm"
+                            >
+                              Loading members...
                             </TableCell>
                           </TableRow>
-                          {ownersMap[row.original.id]?.map((owner, idx) => (
-                            <MemberRow
-                              key={`${row.original.id}-owner-${idx}`}
+                        ) : ownersMap[row.original.id] == null ? (
+                          <TableRow className="bg-muted/30">
+                            <TableCell
+                              colSpan={columns.length}
+                              className="text-destructive p-4 text-sm"
+                            >
+                              Failed to load members.
+                            </TableCell>
+                          </TableRow>
+                        ) : (ownersMap[row.original.id]?.length ?? 0) === 0 ? (
+                          <TableRow className="bg-muted/30">
+                            <TableCell
+                              colSpan={columns.length}
+                              className="text-muted-foreground p-4 text-sm"
+                            >
+                              No members listed.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          <>
+                            <TableRow className="bg-muted/30">
+                              <TableCell colSpan={columns.length} className="p-0">
+                                <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
+                                  <span>ID</span>
+                                  <span>Name</span>
+                                  <span>Type</span>
+                                  <span>Title</span>
+                                  <span>% Ownership</span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {ownersMap[row.original.id]?.map((owner, idx) => (
+                              <MemberRow
+                                key={`${row.original.id}-owner-${idx}`}
+                                owner={owner}
+                                depth={1}
+                                columns={columns.length}
+                                ancestors={new Set([row.original.id])}
+                                expandedMembers={expandedMembers}
+                                onToggle={toggleMember}
+                                ownersMap={ownersMap}
+                                ownersLoading={ownersLoading}
+                                entityDetailsMap={entityDetailsMap}
+                                entityDetailsLoading={entityDetailsLoading}
+                              />
+                            ))}
+                          </>
+                        )
+                      ) : null}
+                    </Fragment>
+                  )
+                })
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="text-muted-foreground h-24 text-center"
+                  >
+                    No entities yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden">
+          <div className="space-y-3 p-3">
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => {
+                const entity = row.original
+                const entityId = entity.id
+                const isOpen = !!expandedRows[row.id]
+                const names = Array.isArray(entity.assigned_to_names)
+                  ? [...new Set(entity.assigned_to_names)]
+                  : []
+                return (
+                  <div key={row.id}>
+                    <div
+                      className="cursor-pointer rounded-lg border p-3"
+                      onClick={() => toggleRow(row.id, entityId)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[15px] font-semibold">
+                            {entity.entity_name || "-"}
+                          </div>
+                          <div className="mt-0.5 text-sm text-muted-foreground">
+                            {entity.display_id || "-"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <EntityRowActions entity={entity} />
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <span>{entity.entity_type || "-"}</span>
+                        <span>EIN: {formatEIN(entity.ein)}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Formed: {formatDate(entity.date_formed)}</span>
+                        <span>{names.length ? names.join(", ") : "Unassigned"}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                        <ChevronDown
+                          className={cn(
+                            "h-3.5 w-3.5 transition-transform",
+                            isOpen ? "rotate-180" : "-rotate-90"
+                          )}
+                        />
+                        <span>{isOpen ? "Hide" : "Show"} members</span>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div className="ml-3 mt-1 space-y-2 border-l-2 border-muted pl-3">
+                        {ownersLoading[entityId] && ownersMap[entityId] === undefined ? (
+                          <div className="py-2 text-sm text-muted-foreground">Loading members...</div>
+                        ) : ownersMap[entityId] == null ? (
+                          <div className="py-2 text-sm text-destructive">Failed to load members.</div>
+                        ) : (ownersMap[entityId]?.length ?? 0) === 0 ? (
+                          <div className="py-2 text-sm text-muted-foreground">No members listed.</div>
+                        ) : (
+                          ownersMap[entityId]?.map((owner, idx) => (
+                            <MobileMemberCard
+                              key={`${entityId}-m-${idx}`}
                               owner={owner}
-                              depth={1}
-                              columns={columns.length}
-                              ancestors={new Set([row.original.id])}
+                              depth={0}
+                              ancestors={new Set([entityId])}
                               expandedMembers={expandedMembers}
                               onToggle={toggleMember}
                               ownersMap={ownersMap}
@@ -430,25 +523,20 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
                               entityDetailsMap={entityDetailsMap}
                               entityDetailsLoading={entityDetailsLoading}
                             />
-                          ))}
-                        </>
-                      )
-                    ) : null}
-                  </Fragment>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )
               })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground h-24 text-center"
-                >
-                  No entities yet.
-                </TableCell>
-              </TableRow>
+              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                No entities yet.
+              </div>
             )}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
       </div>
 
       <DataTablePagination table={table} />
@@ -664,5 +752,103 @@ function MemberRow({
         )
       ) : null}
     </>
+  )
+}
+
+type MobileMemberCardProps = {
+  owner: EntityOwner
+  depth: number
+  ancestors: Set<string>
+  expandedMembers: Record<string, boolean>
+  onToggle: (entityId: string | undefined | null) => void
+  ownersMap: Record<string, EntityOwner[] | null | undefined>
+  ownersLoading: Record<string, boolean>
+  entityDetailsMap: Record<string, EntityProfile | null | undefined>
+  entityDetailsLoading: Record<string, boolean>
+}
+
+function MobileMemberCard({
+  owner,
+  depth,
+  ancestors,
+  expandedMembers,
+  onToggle,
+  ownersMap,
+  ownersLoading,
+  entityDetailsMap,
+  entityDetailsLoading,
+}: MobileMemberCardProps) {
+  const linkedId = owner.entity_owner_id ?? undefined
+  const isLinked = !!linkedId
+  const hasLoop = linkedId ? ancestors.has(linkedId) : false
+  const canExpand = isLinked && !hasLoop
+  const isExpanded = linkedId ? !!expandedMembers[linkedId] : false
+  const entity = linkedId ? entityDetailsMap[linkedId] : undefined
+
+  const displayName = linkedId
+    ? (entity?.entity_name ?? owner.entity_display_name ?? owner.name ?? "-")
+    : (owner.name ?? "-")
+  const displayType = linkedId
+    ? (entity?.entity_type ?? owner.member_type ?? "-")
+    : (owner.member_type ?? "-")
+  const displayOwnership =
+    owner.ownership_percent != null ? `${owner.ownership_percent}%` : "-"
+
+  const childOwners = linkedId ? ownersMap[linkedId] : undefined
+  const childOwnersLoading = linkedId ? ownersLoading[linkedId] : false
+
+  return (
+    <div>
+      <div
+        className={cn("rounded border p-2 text-sm", canExpand && "cursor-pointer")}
+        onClick={canExpand ? () => onToggle(linkedId) : undefined}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">{displayName}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {displayType} &middot; {displayOwnership} ownership
+            </div>
+            {owner.title && (
+              <div className="text-xs text-muted-foreground">{owner.title}</div>
+            )}
+          </div>
+          {canExpand && (
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                isExpanded ? "rotate-180" : "-rotate-90"
+              )}
+            />
+          )}
+        </div>
+      </div>
+      {canExpand && isExpanded && (
+        <div className="ml-3 mt-1 space-y-2 border-l-2 border-muted pl-3">
+          {childOwnersLoading && childOwners === undefined ? (
+            <div className="py-2 text-sm text-muted-foreground">Loading members...</div>
+          ) : childOwners == null ? (
+            <div className="py-2 text-sm text-destructive">Failed to load members.</div>
+          ) : (childOwners?.length ?? 0) === 0 ? (
+            <div className="py-2 text-sm text-muted-foreground">No members listed.</div>
+          ) : (
+            childOwners?.map((child, idx) => (
+              <MobileMemberCard
+                key={`${linkedId}-mc-${idx}`}
+                owner={child}
+                depth={depth + 1}
+                ancestors={new Set([...ancestors, linkedId!])}
+                expandedMembers={expandedMembers}
+                onToggle={onToggle}
+                ownersMap={ownersMap}
+                ownersLoading={ownersLoading}
+                entityDetailsMap={entityDetailsMap}
+                entityDetailsLoading={entityDetailsLoading}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
   )
 }

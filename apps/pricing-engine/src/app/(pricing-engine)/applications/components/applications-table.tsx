@@ -425,92 +425,189 @@ export function ApplicationsTable({ data }: Props) {
             <ColumnVisibilityToggle table={table} />
           </div>
         </div>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="h-12 border-t">
-                {headerGroup.headers.map((header) => {
+        {/* Desktop table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="h-12 border-t">
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead
+                        key={header.id}
+                        className="text-muted-foreground first:pl-4 last:pr-4"
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => {
+                  const isOpen = !!expandedRows[row.id]
                   return (
-                    <TableHead
-                      key={header.id}
-                      className="text-muted-foreground first:pl-4 last:pr-4"
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
+                    <Fragment key={row.id}>
+                      <TableRow
+                        data-state={row.getIsSelected() && "selected"}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          const interactive = (e.target as HTMLElement).closest(
+                            "button, a, input, select, textarea"
+                          )
+                          if (interactive) return
+                          toggleRow(row.id)
+                        }}
+                        aria-expanded={isOpen}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell
+                            key={cell.id}
+                            className="h-14 first:pl-4 last:pr-4"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                      {isOpen ? (
+                        <TableRow className="bg-muted/30">
+                          <TableCell colSpan={columns.length} className="p-4">
+                            <ApplicationPartyEditor
+                              loanId={row.original.id}
+                              showBorrowerEntity={row.original.showBorrowerEntity}
+                              initialEntityId={row.original.entityId}
+                              initialEntityName={
+                                row.original.borrowerEntityName ?? undefined
+                              }
+                              initialGuarantors={row.original.guarantors ?? []}
+                              initialSignedEmails={
+                                row.original.signedEmails ?? []
+                              }
+                              initialSentEmails={row.original.sentEmails ?? []}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                    </Fragment>
                   )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
+                })
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="text-muted-foreground h-24 text-center"
+                  >
+                    No applications yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden">
+          <div className="space-y-3 p-3">
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
-                const isOpen = !!expandedRows[row.id]
+                const app = row.original
+                const progressVal = app.progress ?? 0
+                const derivedStatus =
+                  progressVal >= 100
+                    ? "received"
+                    : progressVal > 0
+                      ? "pending"
+                      : "draft"
+                const badgeClasses: Record<string, string> = {
+                  draft: "bg-gray-100 text-gray-700 border-transparent",
+                  pending: "bg-amber-100 text-amber-700 border-transparent",
+                  received: "bg-green-100 text-green-700 border-transparent",
+                }
                 return (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() && "selected"}
-                      className="cursor-pointer"
-                      onClick={(e) => {
-                        const interactive = (e.target as HTMLElement).closest(
-                          "button, a, input, select, textarea"
-                        )
-                        if (interactive) return
-                        toggleRow(row.id)
-                      }}
-                      aria-expanded={isOpen}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className="h-14 first:pl-4 last:pr-4"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {isOpen ? (
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={columns.length} className="p-4">
-                          <ApplicationPartyEditor
-                            loanId={row.original.id}
-                            showBorrowerEntity={row.original.showBorrowerEntity}
-                            initialEntityId={row.original.entityId}
-                            initialEntityName={
-                              row.original.borrowerEntityName ?? undefined
-                            }
-                            initialGuarantors={row.original.guarantors ?? []}
-                            initialSignedEmails={
-                              row.original.signedEmails ?? []
-                            }
-                            initialSentEmails={row.original.sentEmails ?? []}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </Fragment>
+                  <div key={row.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-semibold">
+                          {app.appDisplayId || app.id.slice(0, 12)}
+                        </div>
+                        <div className="mt-0.5 truncate text-sm text-muted-foreground">
+                          {app.propertyAddress || "—"}
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-flex shrink-0 items-center rounded-lg px-2.5 py-1 text-xs font-semibold capitalize",
+                          badgeClasses[derivedStatus] ?? badgeClasses.draft
+                        )}
+                      >
+                        {derivedStatus}
+                      </span>
+                    </div>
+                    {app.displayId && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Loan: {app.displayId}
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">
+                        {Math.round(progressVal)}%
+                      </span>
+                      <Progress
+                        value={progressVal}
+                        className="flex-1"
+                        indicatorClassName={
+                          progressVal >= 100
+                            ? "bg-success"
+                            : progressVal > 0
+                              ? "bg-warning"
+                              : undefined
+                        }
+                      />
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-9 w-9"
+                        aria-label="Upload documents"
+                        onClick={() =>
+                          setUploadContext({
+                            id: row.id,
+                            borrower: app.borrowerEntityName,
+                          })
+                        }
+                      >
+                        <Upload className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="flex-1"
+                        onClick={() => router.push(`/applications/${app.id}`)}
+                      >
+                        Start
+                      </Button>
+                    </div>
+                  </div>
                 )
               })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground h-24 text-center"
-                >
-                  No applications yet.
-                </TableCell>
-              </TableRow>
+              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                No applications yet.
+              </div>
             )}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
       </div>
 
       <DataTablePagination table={table} />

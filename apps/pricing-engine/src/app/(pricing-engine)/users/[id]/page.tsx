@@ -55,7 +55,7 @@ export default function UserDetailPage({ params }: Props) {
           <h1 className="text-lg font-bold">
             User Details: {`${user.firstName} ${user.lastName}`}
           </h1>
-          <Badge variant="outline" className="text-muted-foreground">
+          <Badge variant="outline" className="text-muted-foreground max-w-[180px] truncate">
             {user.id}
           </Badge>
         </div>

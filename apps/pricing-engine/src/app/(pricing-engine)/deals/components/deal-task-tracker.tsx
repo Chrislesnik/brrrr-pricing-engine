@@ -1205,25 +1205,38 @@ function StepChecklistGroup({
   const [collapsed, setCollapsed] = useState(!isCurrent);
   const checkedCount = tasks.filter((t) => t.checked).length;
 
+  const isCompleted = isAccessible && !isCurrent && checkedCount === tasks.length && tasks.length > 0;
+
   return (
-    <div className={cn("rounded-lg border overflow-hidden", !isAccessible && "opacity-60")}>
+    <div className={cn(
+      "rounded-lg border overflow-hidden transition-colors",
+      isCurrent && "border-primary/40",
+      isCompleted && "border-success/30",
+      !isAccessible && "opacity-50 border-muted"
+    )}>
       <button
         onClick={() => isAccessible && setCollapsed(!collapsed)}
         className={cn(
           "flex w-full items-center gap-3 px-4 py-3 transition-colors",
-          isAccessible
-            ? "bg-muted/30 hover:bg-muted/50 cursor-pointer"
-            : "bg-muted/20 cursor-not-allowed"
+          isCurrent
+            ? "bg-primary/10 hover:bg-primary/15 cursor-pointer"
+            : isCompleted
+              ? "bg-success/8 hover:bg-success/12 cursor-pointer"
+              : isAccessible
+                ? "bg-muted/30 hover:bg-muted/50 cursor-pointer"
+                : "bg-muted/10 cursor-not-allowed"
         )}
       >
-        {isAccessible ? (
+        {isCompleted ? (
+          <CheckCircle2 className="h-4 w-4 text-success" />
+        ) : isAccessible ? (
           collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <Lock className="h-4 w-4 text-muted-foreground" />
+          <Lock className="h-4 w-4 text-muted-foreground/50" />
         )}
         <span className={cn(
           "text-sm font-semibold",
-          isCurrent ? "text-primary" : "text-foreground"
+          isCurrent ? "text-primary" : isCompleted ? "text-success" : !isAccessible ? "text-muted-foreground" : "text-foreground"
         )}>
           Step {stepIndex + 1}: {stepName}
         </span>
@@ -1232,7 +1245,20 @@ function StepChecklistGroup({
             Current
           </span>
         )}
-        <span className="text-xs text-muted-foreground ml-auto">
+        {isCompleted && (
+          <span className="inline-flex items-center rounded-full bg-success/10 text-success px-2 py-0.5 text-[10px] font-semibold">
+            Completed
+          </span>
+        )}
+        {!isAccessible && (
+          <span className="inline-flex items-center rounded-full bg-muted/30 text-muted-foreground px-2 py-0.5 text-[10px] font-semibold">
+            Locked
+          </span>
+        )}
+        <span className={cn(
+          "text-xs ml-auto",
+          isCurrent ? "text-primary/70" : isCompleted ? "text-success/70" : "text-muted-foreground"
+        )}>
           {checkedCount}/{tasks.length}
         </span>
       </button>

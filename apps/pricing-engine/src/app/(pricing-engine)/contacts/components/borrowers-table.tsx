@@ -205,58 +205,97 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
             />
           </div>
         </div>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="h-12 border-t">
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="text-muted-foreground first:pl-4 last:pr-4"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row: Row<BorrowerRow>) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className="h-14 first:pl-4 last:pr-4"
+        {/* Desktop table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="h-12 border-t">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="text-muted-foreground first:pl-4 last:pr-4"
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row: Row<BorrowerRow>) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className="h-14 first:pl-4 last:pr-4"
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="text-muted-foreground h-24 text-center"
+                  >
+                    No borrowers found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden">
+          <div className="space-y-3 p-3">
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row: Row<BorrowerRow>) => {
+                const b = row.original
+                const fullName = `${b.first_name} ${b.last_name}`.trim()
+                return (
+                  <div key={row.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="text-[15px] font-semibold">{fullName}</div>
+                        <div className="text-sm text-muted-foreground">{b.display_id}</div>
+                      </div>
+                      <BorrowerRowActions borrower={b} />
+                    </div>
+                    <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                      <div>{b.email ?? "—"}</div>
+                      <div>{formatPhone(b.primary_phone)}</div>
+                    </div>
+                    {b.fico_score && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">FICO</span>: {b.fico_score}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground h-24 text-center"
-                >
-                  No borrowers found.
-                </TableCell>
-              </TableRow>
+              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                No borrowers found.
+              </div>
             )}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
       </div>
 
       <DataTablePagination table={table} />

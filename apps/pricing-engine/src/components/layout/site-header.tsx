@@ -94,16 +94,18 @@ function generateBreadcrumbs(pathname: string): React.ReactNode {
     const separatorKey = `sep-${index}`;
 
     const item = (
-      <BreadcrumbItem key={itemKey}>
+      <BreadcrumbItem key={itemKey} className="min-w-0">
         {isLast || !segment.href ? (
           <BreadcrumbPage
-            className={!isLast ? "text-muted-foreground" : undefined}
+            className={`truncate max-w-[160px] sm:max-w-[240px] ${!isLast ? "text-muted-foreground" : ""}`}
           >
             {segment.label}
           </BreadcrumbPage>
         ) : (
           <BreadcrumbLink asChild>
-            <Link href={segment.href}>{segment.label}</Link>
+            <Link href={segment.href} className="truncate max-w-[160px] sm:max-w-[240px] inline-block">
+              {segment.label}
+            </Link>
           </BreadcrumbLink>
         )}
       </BreadcrumbItem>
@@ -122,8 +124,8 @@ function generateBreadcrumbs(pathname: string): React.ReactNode {
   });
 
   return (
-    <Breadcrumb>
-      <BreadcrumbList>{breadcrumbElements}</BreadcrumbList>
+    <Breadcrumb className="min-w-0 overflow-hidden">
+      <BreadcrumbList className="flex-nowrap overflow-hidden">{breadcrumbElements}</BreadcrumbList>
     </Breadcrumb>
   );
 }

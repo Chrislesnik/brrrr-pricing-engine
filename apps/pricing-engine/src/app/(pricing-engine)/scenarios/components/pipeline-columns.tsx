@@ -773,7 +773,8 @@ interface ActivityLog {
     | "selection_changed"
     | "user_assignment"
     | "term_sheet"
-  action: "changed" | "added" | "deleted" | "downloaded" | "shared"
+    | "status_change"
+  action: "changed" | "added" | "deleted" | "downloaded" | "shared" | "archived" | "restored"
   created_at: string
   user_id: string
   user_name: string
@@ -832,6 +833,21 @@ function formatActivityDescription(log: ActivityLog): {
       }
       return { action: `${action} term sheet` }
 
+    case "status_change": {
+      const from = (log.inputs as Record<string, string> | null)?.from ?? ""
+      const to = (log.inputs as Record<string, string> | null)?.to ?? ""
+      if (action === "archived") {
+        return { action: "archived loan" }
+      }
+      if (action === "restored") {
+        return { action: "restored loan from archive" }
+      }
+      if (from && to) {
+        return { action: `changed status from ${from} to ${to}` }
+      }
+      return { action: `changed status to ${to || action}` }
+    }
+
     default:
       return { action: `${action}` }
   }
@@ -862,6 +878,14 @@ function getActivityTypeIcon(log: ActivityLog) {
       ) : (
         <Download className="text-muted-foreground h-4 w-4" />
       )
+    case "status_change":
+      if (action === "archived") {
+        return <IconArchive className="text-muted-foreground h-4 w-4" />
+      }
+      if (action === "restored") {
+        return <IconRestore className="text-muted-foreground h-4 w-4" />
+      }
+      return <CircleCheck className="text-muted-foreground h-4 w-4" />
     default:
       return <FileText className="text-muted-foreground h-4 w-4" />
   }
@@ -1101,6 +1125,7 @@ const ACTIVITY_TYPE_OPTIONS = [
   { value: "selection_changed", label: "Selection Changed" },
   { value: "user_assignment", label: "User Assignment" },
   { value: "term_sheet", label: "Term Sheet" },
+  { value: "status_change", label: "Status Change" },
 ] as const
 
 type ActivityType = (typeof ACTIVITY_TYPE_OPTIONS)[number]["value"]

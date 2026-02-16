@@ -850,7 +850,8 @@ export function DealsDataTable({
             </Button>
           </div>
         </div>
-        <div ref={tableContainerRef} className="rounded-md border overflow-x-auto">
+        {/* Desktop table */}
+        <div ref={tableContainerRef} className="hidden md:block rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -970,6 +971,111 @@ export function DealsDataTable({
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden">
+          <div className="space-y-3 rounded-md border p-3">
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => {
+                const deal = row.original;
+                const dealId = String(deal.id);
+                const inputs = deal.inputs ?? {};
+                const topFields = starredInputs.slice(0, 3);
+                return (
+                  <div
+                    key={row.id}
+                    className="cursor-pointer rounded-lg border p-3"
+                    onClick={() => router.push(`/deals/${dealId}`)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[15px] font-semibold">
+                          {topFields[0]
+                            ? String(inputs[topFields[0].id] ?? dealId)
+                            : dealId}
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-muted-foreground font-mono">
+                          {dealId.slice(0, 12)}...
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          className="h-8 w-8 p-0"
+                          onClick={() => openCommentsSheet(dealId)}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem onClick={() => router.push(`/deals/${dealId}`)}>
+                                <FolderOpenIcon size={16} className="opacity-60" aria-hidden="true" />
+                                Open
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openAssignDialog(dealId)}>
+                                <Users size={16} className="opacity-60" aria-hidden="true" />
+                                Assigned To
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(dealId)}>
+                                <FilesIcon size={16} className="opacity-60" aria-hidden="true" />
+                                Copy ID
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Archive size={16} aria-hidden="true" />
+                                Archive
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                    {topFields.length > 1 && (
+                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        {topFields.slice(1).map((field) => {
+                          const val = inputs[field.id];
+                          if (val == null || val === "") return null;
+                          return (
+                            <div key={field.id} className="truncate">
+                              <span className="font-medium text-foreground">{field.input_label}</span>: {String(val)}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Building className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No deals found</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create your first deal to get started.
+                </p>
+                <Button
+                  onClick={() =>
+                    onNewDeal
+                      ? onNewDeal()
+                      : router.push("/balance-sheet/investor-portfolio/deals/new")
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Deal
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center justify-between py-4">
           <div className="text-sm text-muted-foreground">
