@@ -254,6 +254,10 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
         if (updates.assignee !== undefined)
           payload.assigned_to_user_ids = updates.assignee ? [updates.assignee] : [];
         if (updates.dueDate !== undefined) payload.due_date_at = updates.dueDate || null;
+        // Map checked toggle to status when no explicit status update
+        if (updates.checked !== undefined && updates.status === undefined) {
+          payload.task_status_id = updates.checked ? STATUS_TO_ID.done : STATUS_TO_ID.todo;
+        }
 
         const response = await fetch(`/api/deals/${dealId}/tasks/${taskId}`, {
           method: "PATCH",

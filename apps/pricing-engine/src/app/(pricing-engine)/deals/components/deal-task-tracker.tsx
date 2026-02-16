@@ -748,6 +748,7 @@ export function DealTaskTracker({
             onTaskClick={setSelectedTask}
             onAddTask={handleAddTaskToStatus}
             selectedTaskId={selectedTask?.id ?? null}
+            displayProperties={viewSettings.displayProperties}
           />
         )}
         {viewSettings.currentView === "table" && (
@@ -755,6 +756,7 @@ export function DealTaskTracker({
             groups={sortedGroups}
             onTaskClick={setSelectedTask}
             selectedTaskId={selectedTask?.id ?? null}
+            displayProperties={viewSettings.displayProperties}
           />
         )}
         {viewSettings.currentView === "checklist" && (
@@ -1074,6 +1076,7 @@ function BoardView({
   onTaskClick,
   onAddTask,
   selectedTaskId,
+  displayProperties,
 }: {
   groups: TaskGroup[];
   groupBy: string;
@@ -1081,6 +1084,7 @@ function BoardView({
   onTaskClick: (task: Task) => void;
   onAddTask: (status: TaskStatus) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
 }) {
   return (
     <div className="flex h-full gap-3 overflow-x-auto px-4 py-4">
@@ -1096,6 +1100,7 @@ function BoardView({
           onTaskClick={onTaskClick}
           onAddTask={onAddTask}
           selectedTaskId={selectedTaskId}
+          displayProperties={displayProperties}
         />
       ))}
     </div>
@@ -1112,6 +1117,7 @@ function BoardColumn({
   onTaskClick,
   onAddTask,
   selectedTaskId,
+  displayProperties,
 }: {
   groupKey: string;
   label: string;
@@ -1122,6 +1128,7 @@ function BoardColumn({
   onTaskClick: (task: Task) => void;
   onAddTask: (status: TaskStatus) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -1181,7 +1188,7 @@ function BoardColumn({
           </div>
         ) : (
           tasks.map((task) => (
-            <DraggableCard key={task.id} task={task} onClick={() => onTaskClick(task)} isSelected={selectedTaskId === task.id} />
+            <DraggableCard key={task.id} task={task} onClick={() => onTaskClick(task)} isSelected={selectedTaskId === task.id} displayProperties={displayProperties} />
           ))
         )}
       </div>
@@ -1189,7 +1196,7 @@ function BoardColumn({
   );
 }
 
-function DraggableCard({ task, onClick, isSelected }: { task: Task; onClick: () => void; isSelected: boolean }) {
+function DraggableCard({ task, onClick, isSelected, displayProperties }: { task: Task; onClick: () => void; isSelected: boolean; displayProperties: DisplayProperties }) {
   const [isDragging, setIsDragging] = useState(false);
 
   return (
@@ -1202,13 +1209,14 @@ function DraggableCard({ task, onClick, isSelected }: { task: Task; onClick: () 
       onDragEnd={() => setIsDragging(false)}
       className={cn("transition-opacity", isDragging && "opacity-40")}
     >
-      <TaskCard task={task} onClick={onClick} isSelected={isSelected} />
+      <TaskCard task={task} onClick={onClick} isSelected={isSelected} displayProperties={displayProperties} />
     </div>
   );
 }
 
-function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: () => void; isSelected?: boolean }) {
+function TaskCard({ task, onClick, isSelected = false, displayProperties: dp }: { task: Task; onClick: () => void; isSelected?: boolean; displayProperties?: DisplayProperties }) {
   const statusConfig = STATUS_CONFIG[task.status];
+  const show = (key: keyof DisplayProperties) => !dp || dp[key] !== false;
   return (
     <button
       onClick={onClick}
@@ -1221,13 +1229,15 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
     >
       {/* Header row */}
       <div className="flex items-center gap-2 mb-1.5">
-        <Circle
-          className="h-3 w-3 flex-shrink-0"
-          style={{ color: statusConfig.color }}
-          fill={task.status === "done" ? statusConfig.color : "none"}
-          strokeWidth={2}
-        />
-        {task.identifier && (
+        {show("status") && (
+          <Circle
+            className="h-3 w-3 flex-shrink-0"
+            style={{ color: statusConfig.color }}
+            fill={task.status === "done" ? statusConfig.color : "none"}
+            strokeWidth={2}
+          />
+        )}
+        {show("id") && task.identifier && (
           <span className="text-[11px] font-mono text-muted-foreground">{task.identifier}</span>
         )}
       </div>
@@ -1235,24 +1245,36 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
       {/* Title */}
       <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 mb-2">{task.title}</p>
 
+      {/* Stage badge */}
+      {show("stage") && task.stage && (
+        <div className="mb-2">
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+            style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
+          >
+            {task.stage}
+          </span>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <PriorityIcon priority={task.priority} />
-          {task.labels.slice(0, 2).map((lbl) => (
+          {show("priority") && <PriorityIcon priority={task.priority} />}
+          {show("labels") && task.labels.slice(0, 2).map((lbl) => (
             <span key={lbl} className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
               {lbl}
             </span>
           ))}
         </div>
         <div className="flex items-center gap-2.5">
-          {task.dueDate && (
+          {show("dueDate") && task.dueDate && (
             <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
               <Calendar className="h-3 w-3" />
               {new Date(task.dueDate).toLocaleDateString()}
             </span>
           )}
-          {task.assignee && (
+          {show("assignee") && task.assignee && (
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary" title={task.assignee}>
               {task.assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
             </div>
@@ -1271,23 +1293,32 @@ function TableView({
   groups,
   onTaskClick,
   selectedTaskId,
+  displayProperties: dp,
 }: {
   groups: TaskGroup[];
   onTaskClick: (task: Task) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
 }) {
+  const show = (key: keyof DisplayProperties) => dp[key] !== false;
+  const thCls = "px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
+  const colCount = 1 + (show("id") ? 1 : 0) + 1 + (show("status") ? 1 : 0) + (show("priority") ? 1 : 0) + (show("assignee") ? 1 : 0) + (show("stage") ? 1 : 0) + (show("labels") ? 1 : 0) + (show("dueDate") ? 1 : 0) + (show("created") ? 1 : 0) + (show("updated") ? 1 : 0);
   return (
     <div className="h-full overflow-auto">
       <table className="w-full border-collapse">
         <thead className="sticky top-0 z-10 bg-card">
           <tr className="border-b border-border">
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[40px]" />
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[80px]">ID</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[100px]">Status</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[90px]">Priority</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[130px]">Assignee</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[120px]">Labels</th>
+            <th className={cn(thCls, "w-[40px]")} />
+            {show("id") && <th className={cn(thCls, "w-[80px]")}>ID</th>}
+            <th className={thCls}>Title</th>
+            {show("status") && <th className={cn(thCls, "w-[100px]")}>Status</th>}
+            {show("priority") && <th className={cn(thCls, "w-[90px]")}>Priority</th>}
+            {show("assignee") && <th className={cn(thCls, "w-[130px]")}>Assignee</th>}
+            {show("stage") && <th className={cn(thCls, "w-[120px]")}>Stage</th>}
+            {show("labels") && <th className={cn(thCls, "w-[120px]")}>Labels</th>}
+            {show("dueDate") && <th className={cn(thCls, "w-[110px]")}>Due Date</th>}
+            {show("created") && <th className={cn(thCls, "w-[110px]")}>Created</th>}
+            {show("updated") && <th className={cn(thCls, "w-[110px]")}>Updated</th>}
           </tr>
         </thead>
         <tbody>
@@ -1300,6 +1331,8 @@ function TableView({
               tasks={group.tasks}
               onTaskClick={onTaskClick}
               selectedTaskId={selectedTaskId}
+              displayProperties={dp}
+              colCount={colCount}
             />
           ))}
         </tbody>
@@ -1315,6 +1348,8 @@ function TableGroupRows({
   tasks,
   onTaskClick,
   selectedTaskId,
+  displayProperties: dp,
+  colCount,
 }: {
   groupKey: string;
   label: string;
@@ -1322,8 +1357,11 @@ function TableGroupRows({
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
+  colCount: number;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const show = (key: keyof DisplayProperties) => dp[key] !== false;
 
   return (
     <>
@@ -1331,7 +1369,7 @@ function TableGroupRows({
         className="border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <td colSpan={7} className="px-4 py-2">
+        <td colSpan={colCount} className="px-4 py-2">
           <div className="flex items-center gap-2">
             {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
             <Circle className="h-3 w-3" style={{ color }} fill={groupKey === "done" ? color : "none"} />
@@ -1356,47 +1394,98 @@ function TableGroupRows({
               <td className="px-4 py-2.5">
                 <Circle className="h-3 w-3" style={{ color: statusConfig.color }} fill={task.status === "done" ? statusConfig.color : "none"} strokeWidth={2} />
               </td>
-              <td className="px-4 py-2.5">
-                <span className="text-xs font-mono text-muted-foreground">{task.identifier ?? task.id.slice(0, 6)}</span>
-              </td>
+              {show("id") && (
+                <td className="px-4 py-2.5">
+                  <span className="text-xs font-mono text-muted-foreground">{task.identifier ?? task.id.slice(0, 6)}</span>
+                </td>
+              )}
               <td className="px-4 py-2.5">
                 <span className="text-sm text-foreground">{task.title}</span>
               </td>
-              <td className="px-4 py-2.5">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: `${statusConfig.color}1A`, color: statusConfig.color }}
-                >
-                  {statusConfig.label}
-                </span>
-              </td>
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-1.5">
-                  <PriorityIcon priority={task.priority} />
-                  <span className="text-xs text-muted-foreground">{PRIORITY_CONFIG[task.priority].label}</span>
-                </div>
-              </td>
-              <td className="px-4 py-2.5">
-                {task.assignee ? (
+              {show("status") && (
+                <td className="px-4 py-2.5">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{ backgroundColor: `${statusConfig.color}1A`, color: statusConfig.color }}
+                  >
+                    {statusConfig.label}
+                  </span>
+                </td>
+              )}
+              {show("priority") && (
+                <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1.5">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary">
-                      {task.assignee.split(" ").map((n) => n[0]).join("")}
-                    </div>
-                    <span className="text-xs text-muted-foreground">{task.assignee}</span>
+                    <PriorityIcon priority={task.priority} />
+                    <span className="text-xs text-muted-foreground">{PRIORITY_CONFIG[task.priority].label}</span>
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-1">
-                  {task.labels.slice(0, 2).map((lbl) => (
-                    <span key={lbl} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {lbl}
+                </td>
+              )}
+              {show("assignee") && (
+                <td className="px-4 py-2.5">
+                  {task.assignee ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary">
+                        {task.assignee.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{task.assignee}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("stage") && (
+                <td className="px-4 py-2.5">
+                  {task.stage ? (
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+                      style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
+                    >
+                      {task.stage}
                     </span>
-                  ))}
-                </div>
-              </td>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("labels") && (
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-1">
+                    {task.labels.slice(0, 2).map((lbl) => (
+                      <span key={lbl} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {lbl}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+              )}
+              {show("dueDate") && (
+                <td className="px-4 py-2.5">
+                  {task.dueDate ? (
+                    <span className="text-xs text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("created") && (
+                <td className="px-4 py-2.5">
+                  {task.createdAt ? (
+                    <span className="text-xs text-muted-foreground">{new Date(task.createdAt).toLocaleDateString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("updated") && (
+                <td className="px-4 py-2.5">
+                  {task.updatedAt ? (
+                    <span className="text-xs text-muted-foreground">{new Date(task.updatedAt).toLocaleDateString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
             </tr>
           );
         })}
