@@ -430,12 +430,13 @@ function DealRecordContent() {
               />
             </TabsList>
 
-            {/* All tabs: standard padding */}
-            <div className="flex-1 p-6">
-              <TabsContent value="tasks" className="mt-0">
-                <DealTasksTab dealId={dealId} />
-              </TabsContent>
+            {/* Tasks tab: full-bleed, no padding (Linear-style) */}
+            <TabsContent value="tasks" className="mt-0 flex-1 flex flex-col min-h-0">
+              <DealTasksTab dealId={dealId} />
+            </TabsContent>
 
+            {/* Other tabs: standard padding */}
+            <div className="flex-1 p-6">
               <TabsContent value="details" className="mt-0">
                 <DealDetailsTab deal={deal} />
               </TabsContent>

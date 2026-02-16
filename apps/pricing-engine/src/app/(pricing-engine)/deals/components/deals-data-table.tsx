@@ -90,7 +90,7 @@ import {
   SheetTitle,
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
-import { DealPipelineTasks } from "./deal-pipeline-tasks";
+import { DealTasksTab } from "./deal-tasks-tab";
 import { InlineCommentsPanel } from "@/components/liveblocks/comments-panel";
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
 
@@ -918,18 +918,17 @@ export function DealsDataTable({
                       {isExpanded && (
                         <tr>
                           <td
-                            className="p-0 border-t border-border/50 bg-muted/20"
+                            className="p-0 border-t border-border/50 relative overflow-visible"
                             colSpan={row.getVisibleCells().length}
                             style={{
                               position: "sticky",
                               left: 0,
                               width: containerWidth > 0 ? containerWidth : "100%",
                               maxWidth: containerWidth > 0 ? containerWidth : "100%",
-                              overflow: "hidden",
                             }}
                           >
-                            <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
-                              <DealPipelineTasks dealId={dealId} />
+                            <div style={{ height: 500 }}>
+                              <DealTasksTab dealId={dealId} />
                             </div>
                           </td>
                         </tr>

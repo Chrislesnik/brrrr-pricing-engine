@@ -723,7 +723,7 @@ export function DealTaskTracker({
   const activeFilterCount = getActiveFilterCount(viewSettings.advancedFilter);
 
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <ViewToolbar
         viewSettings={viewSettings}
@@ -1577,9 +1577,9 @@ function ChecklistView({
     : null;
 
   return (
-    <div className="overflow-auto">
+    <div className="overflow-auto px-4 py-4">
       {/* Progress bar – scoped to current step */}
-      <div className="mb-5 max-w-5xl">
+      <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-foreground">
             {currentStepIdx >= 0 ? stepOrder[currentStepIdx] : "Progress"}
@@ -1599,7 +1599,7 @@ function ChecklistView({
       </div>
 
       {/* Step-grouped checklists */}
-      <div className="flex flex-col gap-2 max-w-5xl">
+      <div className="flex flex-col gap-2">
         {stepOrder.map((stepName, idx) => {
           const isAccessible = idx <= currentStepIdx;
           const tasks = tasksByStep.get(stepName) ?? [];
