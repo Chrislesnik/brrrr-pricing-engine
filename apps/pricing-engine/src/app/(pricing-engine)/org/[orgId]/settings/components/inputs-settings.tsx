@@ -201,6 +201,56 @@ export function InputsSettings() {
   const [subheadingExpr, setSubheadingExpr] = useState("");
   const [dealSettingsSaving, setDealSettingsSaving] = useState(false);
 
+  // Deal Role Types state
+  const [dealRoleTypes, setDealRoleTypes] = useState<{ id: number; name: string; is_active: boolean }[]>([]);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [addingRole, setAddingRole] = useState(false);
+
+  const fetchDealRoleTypes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/deal-role-types");
+      if (res.ok) {
+        const data = await res.json();
+        setDealRoleTypes(data.roles ?? []);
+      }
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  const handleAddRole = async () => {
+    if (!newRoleName.trim()) return;
+    setAddingRole(true);
+    try {
+      const res = await fetch("/api/deal-role-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newRoleName.trim() }),
+      });
+      if (res.ok) {
+        setNewRoleName("");
+        fetchDealRoleTypes();
+      }
+    } catch (err) {
+      console.error("Failed to add role:", err);
+    } finally {
+      setAddingRole(false);
+    }
+  };
+
+  const handleArchiveRole = async (roleId: number) => {
+    try {
+      await fetch("/api/deal-role-types", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: roleId, is_active: false }),
+      });
+      fetchDealRoleTypes();
+    } catch (err) {
+      console.error("Failed to archive role:", err);
+    }
+  };
+
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
@@ -301,10 +351,11 @@ export function InputsSettings() {
       }
 
       await fetchData();
+      fetchDealRoleTypes();
     }
 
     checkAccessAndFetch();
-  }, [fetchData]);
+  }, [fetchData, fetchDealRoleTypes]);
 
   /* ---- Build Kanban columns (Record<string, InputField[]>) ---- */
 
@@ -1323,7 +1374,64 @@ export function InputsSettings() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
+            {/* Deal Role Types */}
+            <div className="space-y-3 border-t pt-6">
+              <div>
+                <Label className="text-sm font-medium">Deal Role Types</Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Manage the roles that can be assigned to tasks and deals.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {dealRoleTypes.map((role) => (
+                  <div
+                    key={role.id}
+                    className="inline-flex items-center gap-1 rounded-md border bg-muted/30 px-2 py-1 text-xs font-medium"
+                  >
+                    {role.name}
+                    <button
+                      onClick={() => handleArchiveRole(role.id)}
+                      className="ml-0.5 rounded-full hover:bg-destructive/10 hover:text-destructive p-0.5 transition-colors"
+                      title="Archive role"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+                {dealRoleTypes.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No roles yet.</p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="New role name..."
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddRole();
+                  }}
+                  className="h-8 text-xs"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs shrink-0"
+                  onClick={handleAddRole}
+                  disabled={addingRole || !newRoleName.trim()}
+                >
+                  {addingRole ? (
+                    <Loader2 className="size-3 animate-spin mr-1" />
+                  ) : (
+                    <Plus className="size-3 mr-1" />
+                  )}
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4 border-t">
               <Button
                 size="sm"
                 onClick={handleSaveDealSettings}

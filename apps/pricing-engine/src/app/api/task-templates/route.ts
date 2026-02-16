@@ -130,7 +130,11 @@ export async function PATCH(request: NextRequest) {
 
     // Single template update
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, name, description, default_status_id, default_priority_id, due_offset_days, is_active } = body;
+      const {
+        id, name, description, default_status_id, default_priority_id,
+        due_offset_days, is_active, button_enabled, button_action_id,
+        button_label, assigned_role_ids,
+      } = body;
       const updatePayload: Record<string, unknown> = {};
 
       if (name !== undefined) updatePayload.name = String(name).trim();
@@ -144,22 +148,48 @@ export async function PATCH(request: NextRequest) {
         updatePayload.due_offset_days = due_offset_days;
       if (is_active !== undefined)
         updatePayload.is_active = is_active;
+      if (button_enabled !== undefined)
+        updatePayload.button_enabled = button_enabled;
+      if (button_action_id !== undefined)
+        updatePayload.button_action_id = button_action_id;
+      if (button_label !== undefined)
+        updatePayload.button_label = button_label?.trim() || null;
 
-      if (Object.keys(updatePayload).length === 0) {
-        return NextResponse.json(
-          { error: "No fields to update" },
-          { status: 400 }
-        );
+      // Update the template columns if any changed
+      if (Object.keys(updatePayload).length > 0) {
+        const { error } = await supabaseAdmin
+          .from("task_templates")
+          .update(updatePayload)
+          .eq("id", id);
+
+        if (error) {
+          console.error("[PATCH /api/task-templates]", error);
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
       }
 
-      const { error } = await supabaseAdmin
-        .from("task_templates")
-        .update(updatePayload)
-        .eq("id", id);
+      // Sync role assignments if provided
+      if (Array.isArray(assigned_role_ids)) {
+        // Delete all existing roles for this template
+        await supabaseAdmin
+          .from("task_template_roles")
+          .delete()
+          .eq("task_template_id", id);
 
-      if (error) {
-        console.error("[PATCH /api/task-templates]", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        // Insert new roles
+        if (assigned_role_ids.length > 0) {
+          const rows = assigned_role_ids.map((roleId: number) => ({
+            task_template_id: id,
+            deal_role_type_id: roleId,
+          }));
+          const { error: insertErr } = await supabaseAdmin
+            .from("task_template_roles")
+            .insert(rows);
+          if (insertErr) {
+            console.error("[PATCH /api/task-templates] role insert error:", insertErr);
+            return NextResponse.json({ error: insertErr.message }, { status: 500 });
+          }
+        }
       }
 
       return NextResponse.json({ ok: true });

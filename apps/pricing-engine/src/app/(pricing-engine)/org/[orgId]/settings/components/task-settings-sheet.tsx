@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, Settings } from "lucide-react";
+import { Loader2, Settings, X } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
-import { Switch } from "@repo/ui/shadcn/switch";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@repo/ui/shadcn/badge";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/shadcn/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -34,13 +40,21 @@ interface TaskTemplate {
   default_priority_id: number | null;
   due_offset_days: number | null;
   is_active: boolean;
+  button_enabled?: boolean;
+  button_action_id?: number | null;
+  button_label?: string | null;
 }
 
-interface LookupItem {
+interface RoleType {
   id: number;
   code: string;
   name: string;
-  color: string | null;
+}
+
+interface ActionItem {
+  id: number;
+  name: string;
+  description: string | null;
 }
 
 interface TaskSettingsSheetProps {
@@ -60,78 +74,79 @@ export function TaskSettingsSheet({
   task,
   onSaved,
 }: TaskSettingsSheetProps) {
-  const [statuses, setStatuses] = useState<LookupItem[]>([]);
-  const [priorities, setPriorities] = useState<LookupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Lookup data
+  const [allRoles, setAllRoles] = useState<RoleType[]>([]);
+  const [allActions, setAllActions] = useState<ActionItem[]>([]);
+
   // Form state
-  const [statusId, setStatusId] = useState<string>("");
-  const [priorityId, setPriorityId] = useState<string>("");
-  const [dueOffsetDays, setDueOffsetDays] = useState<string>("");
+  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
+  const [buttonEnabled, setButtonEnabled] = useState(false);
+  const [buttonActionId, setButtonActionId] = useState<string>("");
+  const [buttonLabel, setButtonLabel] = useState("");
   const [isActive, setIsActive] = useState(true);
+
+  // Role selector popover
+  const [rolePopoverOpen, setRolePopoverOpen] = useState(false);
 
   // Populate form when task changes
   useEffect(() => {
     if (task) {
-      setStatusId(task.default_status_id ? String(task.default_status_id) : "");
-      setPriorityId(
-        task.default_priority_id ? String(task.default_priority_id) : ""
-      );
-      setDueOffsetDays(
-        task.due_offset_days != null ? String(task.due_offset_days) : ""
-      );
+      setButtonEnabled(task.button_enabled ?? false);
+      setButtonActionId(task.button_action_id ? String(task.button_action_id) : "");
+      setButtonLabel(task.button_label ?? "");
       setIsActive(task.is_active);
     }
   }, [task]);
 
-  // Fetch lookup data when sheet opens
+  // Fetch lookup data + assigned roles when sheet opens
   useEffect(() => {
-    if (!open) return;
+    if (!open || !task) return;
     let cancelled = false;
 
-    const fetchLookups = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const [statusesRes, prioritiesRes] = await Promise.all([
-          fetch("/api/task-statuses"),
-          fetch("/api/task-priorities"),
+        const [rolesRes, actionsRes, assignedRes] = await Promise.all([
+          fetch("/api/deal-role-types"),
+          fetch("/api/actions"),
+          fetch(`/api/task-templates/${task.id}/roles`),
         ]);
 
-        if (statusesRes.ok) {
-          const data = await statusesRes.json();
-          if (!cancelled) setStatuses(data.statuses ?? []);
+        if (rolesRes.ok) {
+          const data = await rolesRes.json();
+          if (!cancelled) setAllRoles(data.roles ?? []);
         }
-        if (prioritiesRes.ok) {
-          const data = await prioritiesRes.json();
-          if (!cancelled) setPriorities(data.priorities ?? []);
+        if (actionsRes.ok) {
+          const data = await actionsRes.json();
+          if (!cancelled) setAllActions((data.actions ?? []).filter((a: ActionItem & { is_active?: boolean }) => a.is_active !== false));
+        }
+        if (assignedRes.ok) {
+          const data = await assignedRes.json();
+          if (!cancelled) setSelectedRoleIds(data.role_ids ?? []);
         }
       } catch (err) {
-        console.error("Failed to fetch lookups:", err);
+        console.error("Failed to fetch settings data:", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    fetchLookups();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
+    fetchData();
+    return () => { cancelled = true; };
+  }, [open, task]);
 
-  // Check if anything changed
-  const hasChanges =
-    task != null &&
-    (statusId !== (task.default_status_id ? String(task.default_status_id) : "") ||
-      priorityId !==
-        (task.default_priority_id
-          ? String(task.default_priority_id)
-          : "") ||
-      dueOffsetDays !==
-        (task.due_offset_days != null
-          ? String(task.due_offset_days)
-          : "") ||
-      isActive !== task.is_active);
+  const toggleRole = (roleId: number) => {
+    setSelectedRoleIds((prev) =>
+      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
+    );
+  };
+
+  const removeRole = (roleId: number) => {
+    setSelectedRoleIds((prev) => prev.filter((id) => id !== roleId));
+  };
 
   // Save handler
   const handleSave = useCallback(async () => {
@@ -143,10 +158,11 @@ export function TaskSettingsSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: task.id,
-          default_status_id: statusId ? Number(statusId) : null,
-          default_priority_id: priorityId ? Number(priorityId) : null,
-          due_offset_days: dueOffsetDays !== "" ? Number(dueOffsetDays) : null,
           is_active: isActive,
+          button_enabled: buttonEnabled,
+          button_action_id: buttonEnabled && buttonActionId ? Number(buttonActionId) : null,
+          button_label: buttonEnabled ? buttonLabel.trim() || null : null,
+          assigned_role_ids: selectedRoleIds,
         }),
       });
 
@@ -162,7 +178,7 @@ export function TaskSettingsSheet({
     } finally {
       setSaving(false);
     }
-  }, [task, statusId, priorityId, dueOffsetDays, isActive, onSaved, onOpenChange]);
+  }, [task, isActive, buttonEnabled, buttonActionId, buttonLabel, selectedRoleIds, onSaved, onOpenChange]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -203,78 +219,127 @@ export function TaskSettingsSheet({
                 )}
               </div>
 
-              {/* Default Status */}
+              {/* Roles Assignment */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Default Status</Label>
+                <Label className="text-sm font-medium">Assigned Roles</Label>
                 <p className="text-xs text-muted-foreground">
-                  Status assigned when this task is created on a deal.
+                  Roles responsible for this task on a deal.
                 </p>
-                <Select value={statusId} onValueChange={setStatusId}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="No default status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        <span className="flex items-center gap-2">
-                          {s.color && (
-                            <span
-                              className="inline-block size-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: s.color }}
-                            />
-                          )}
-                          {s.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={rolePopoverOpen} onOpenChange={setRolePopoverOpen} modal>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex min-h-[36px] w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      {selectedRoleIds.length === 0 ? (
+                        <span className="text-muted-foreground text-sm">Select roles...</span>
+                      ) : (
+                        selectedRoleIds.map((roleId) => {
+                          const role = allRoles.find((r) => r.id === roleId);
+                          if (!role) return null;
+                          return (
+                            <Badge
+                              key={roleId}
+                              variant="secondary"
+                              className="gap-1 pr-1"
+                            >
+                              {role.name}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeRole(roleId);
+                                }}
+                                className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          );
+                        })
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0 z-[100]" align="start" side="bottom" sideOffset={4}>
+                    <div className="max-h-[300px] overflow-y-auto overscroll-contain p-1">
+                      {allRoles.map((role) => {
+                        const isSelected = selectedRoleIds.includes(role.id);
+                        return (
+                          <button
+                            key={role.id}
+                            type="button"
+                            onClick={() => toggleRole(role.id)}
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                          >
+                            <div className={`flex h-4 w-4 items-center justify-center rounded-sm border ${isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"}`}>
+                              {isSelected && (
+                                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+                                  <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </div>
+                            <span>{role.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              {/* Default Priority */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Default Priority</Label>
-                <p className="text-xs text-muted-foreground">
-                  Priority assigned when this task is created on a deal.
-                </p>
-                <Select value={priorityId} onValueChange={setPriorityId}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="No default priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {priorities.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        <span className="flex items-center gap-2">
-                          {p.color && (
-                            <span
-                              className="inline-block size-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: p.color }}
-                            />
-                          )}
-                          {p.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Button Configuration */}
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Button Configuration</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Show an action button on this task in the deal checklist.
+                    </p>
+                  </div>
+                  <div className="relative inline-grid h-8 grid-cols-[1fr_1fr] items-center text-sm font-medium">
+                    <Switch
+                      checked={buttonEnabled}
+                      onCheckedChange={setButtonEnabled}
+                      className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
+                    />
+                    <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
+                      <span className="text-[10px] font-medium uppercase">Off</span>
+                    </span>
+                    <span className="peer-data-[state=checked]:text-background pointer-events-none relative mr-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:-translate-x-full peer-data-[state=unchecked]:invisible peer-data-[state=checked]:rtl:translate-x-full">
+                      <span className="text-[10px] font-medium uppercase">On</span>
+                    </span>
+                  </div>
+                </div>
 
-              {/* Due Offset Days */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Due Offset Days</Label>
-                <p className="text-xs text-muted-foreground">
-                  Number of days after the deal enters the stage that this task
-                  is due. Leave empty for no due date.
-                </p>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  placeholder="e.g. 14"
-                  value={dueOffsetDays}
-                  onChange={(e) => setDueOffsetDays(e.target.value)}
-                  className="h-9 text-sm w-32"
-                />
+                {buttonEnabled && (
+                  <div className="space-y-4 pt-2 border-t">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Select Action</Label>
+                      <Select value={buttonActionId} onValueChange={setButtonActionId}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Choose an action..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allActions.map((a) => (
+                            <SelectItem key={a.id} value={String(a.id)}>
+                              {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Button Label</Label>
+                      <Input
+                        placeholder='e.g. "Run Appraisal Check"'
+                        value={buttonLabel}
+                        onChange={(e) => setButtonLabel(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Active Toggle */}
@@ -297,7 +362,7 @@ export function TaskSettingsSheet({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!task || saving || !hasChanges}
+            disabled={!task || saving}
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
             Save

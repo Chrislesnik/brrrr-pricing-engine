@@ -645,6 +645,8 @@ function CodeNodeFields({
         mode={mode}
         disabled={disabled}
         onApply={(generatedCode) => onUpdateConfig("code", generatedCode)}
+        prompt={(config?.aiPrompt as string) ?? ""}
+        onPromptChange={(value) => onUpdateConfig("aiPrompt", value)}
       />
 
       {/* Test execution */}
@@ -657,12 +659,17 @@ function CodeAIAssistant({
   mode,
   disabled,
   onApply,
+  prompt,
+  onPromptChange,
 }: {
   mode: string;
   disabled: boolean;
   onApply: (code: string) => void;
+  prompt: string;
+  onPromptChange: (value: string) => void;
 }) {
-  const [aiPrompt, setAiPrompt] = useState("");
+  const aiPrompt = prompt;
+  const setAiPrompt = onPromptChange;
   const [generating, setGenerating] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);

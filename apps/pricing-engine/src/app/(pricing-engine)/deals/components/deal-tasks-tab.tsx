@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { DealTaskTracker } from "./deal-task-tracker";
 import type { Task, TaskStatus, TaskPriority } from "./deal-task-tracker";
 
@@ -35,8 +36,9 @@ interface DealStageRow {
 }
 
 interface TaskTemplateRow {
-  deal_stage_id: number | null;
-  deal_stages: DealStageRow | null;
+  button_enabled: boolean;
+  button_action_id: number | null;
+  button_label: string | null;
 }
 
 interface TaskFromApi {
@@ -53,12 +55,14 @@ interface TaskFromApi {
   due_date_at: string | null;
   started_at: string | null;
   completed_at: string | null;
+  deal_stage_id: number | null;
   display_order: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
   task_statuses: TaskStatusRow | null;
   task_priorities: TaskPriorityRow | null;
+  deal_stages: DealStageRow | null;
   task_templates: TaskTemplateRow | null;
 }
 
@@ -69,10 +73,8 @@ interface TaskFromApi {
 // Map DB status code → tracker TaskStatus
 const STATUS_CODE_MAP: Record<string, TaskStatus> = {
   todo: "todo",
-  in_progress: "in_progress",
-  in_review: "in_review",
-  blocked: "blocked",
   done: "done",
+  skipped: "skipped",
 };
 
 // Map DB priority code → tracker TaskPriority
@@ -86,10 +88,8 @@ const PRIORITY_CODE_MAP: Record<string, TaskPriority> = {
 // Reverse: tracker TaskStatus → DB status id
 const STATUS_TO_ID: Record<TaskStatus, number> = {
   todo: 1,
-  in_progress: 2,
-  in_review: 3,
-  blocked: 4,
   done: 5,
+  skipped: 6,
 };
 
 // Reverse: tracker TaskPriority → DB priority id (0 = none / null)
@@ -113,8 +113,6 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
     priority = PRIORITY_CODE_MAP[task.task_priorities.code] ?? "none";
   }
 
-  const stage = task.task_templates?.deal_stages ?? undefined;
-
   return {
     id: task.uuid,
     identifier: `TSK-${task.id}`,
@@ -132,10 +130,14 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
     checked: status === "done",
     createdAt: task.created_at,
     updatedAt: task.updated_at,
-    stage: stage?.name,
-    stageCode: stage?.code,
-    stageColor: stage?.color ?? undefined,
-    stageOrder: stage?.display_order ?? undefined,
+    stage: task.deal_stages?.name ?? undefined,
+    stageCode: task.deal_stages?.code ?? undefined,
+    stageColor: task.deal_stages?.color ?? undefined,
+    stageOrder: task.deal_stages?.display_order ?? undefined,
+    dealStageName: task.deal_stages?.name ?? undefined,
+    buttonEnabled: task.task_templates?.button_enabled ?? false,
+    buttonLabel: task.task_templates?.button_label ?? undefined,
+    buttonActionId: task.task_templates?.button_action_id ?? undefined,
   };
 }
 
@@ -147,6 +149,39 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stepOrder, setStepOrder] = useState<string[]>([]);
+  const [currentStep, setCurrentStep] = useState<string>("");
+  const [stageNameToId, setStageNameToId] = useState<Map<string, number>>(new Map());
+
+  // Fetch stepper data and deal stages
+  useEffect(() => {
+    (async () => {
+      try {
+        const [stepperRes, stagesRes] = await Promise.all([
+          fetch(`/api/deals/${dealId}/stepper`),
+          fetch("/api/deal-stages"),
+        ]);
+        if (stepperRes.ok) {
+          const data = await stepperRes.json();
+          const stepper = data.stepper;
+          if (stepper) {
+            setStepOrder(stepper.step_order ?? []);
+            setCurrentStep(stepper.current_step ?? "");
+          }
+        }
+        if (stagesRes.ok) {
+          const stages = await stagesRes.json();
+          const map = new Map<string, number>();
+          for (const s of stages) {
+            if (s.name && s.id) map.set(s.name, s.id);
+          }
+          setStageNameToId(map);
+        }
+      } catch {
+        // non-critical
+      }
+    })();
+  }, [dealId]);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -190,6 +225,7 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
             task_priority_id: task.priority ? PRIORITY_TO_ID[task.priority] : null,
             assigned_to_user_ids: task.assignee ? [task.assignee] : [],
             due_date_at: task.dueDate || null,
+            deal_stage_id: task.dealStageName ? (stageNameToId.get(task.dealStageName) ?? null) : null,
           }),
         });
 
@@ -239,6 +275,98 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
     [dealId, fetchTasks]
   );
 
+  const handleTriggerAction = useCallback(
+    async (task: Task): Promise<boolean> => {
+      if (!task.buttonActionId) return false;
+
+      try {
+        // 1. Look up the action by numeric ID to get uuid + workflow_data
+        const actionRes = await fetch(`/api/actions/by-id/${task.buttonActionId}`);
+        if (!actionRes.ok) {
+          toast.error("Failed to load action");
+          return false;
+        }
+        const action = await actionRes.json();
+        const workflowUuid = action.uuid as string;
+        const workflowData = action.workflow_data as {
+          nodes?: { data?: { type?: string; config?: Record<string, unknown> } }[];
+        } | null;
+
+        // 2. Parse the trigger node's webhookSchema to find input mappings
+        const triggerNode = workflowData?.nodes?.find(
+          (n) => n.data?.type === "trigger"
+        );
+        const webhookSchemaRaw = triggerNode?.data?.config?.webhookSchema as string | undefined;
+        type SchemaField = {
+          name: string;
+          type: string;
+          inputId?: string;
+        };
+        const schemaFields: SchemaField[] = webhookSchemaRaw
+          ? JSON.parse(webhookSchemaRaw)
+          : [];
+
+        // 3. For each field with an inputId, resolve the deal's input value
+        const inputPayload: Record<string, unknown> = {};
+        const fieldsWithInputs = schemaFields.filter((f) => f.inputId);
+
+        // Resolve system inputs (e.g. __deal_id__) first
+        for (const field of fieldsWithInputs) {
+          if (field.inputId === "__deal_id__") {
+            inputPayload[field.name] = dealId;
+          }
+        }
+
+        // Resolve real deal inputs by fetching the deal (which includes inputs keyed by input_id)
+        const realInputFields = fieldsWithInputs.filter(
+          (f) => f.inputId !== "__deal_id__"
+        );
+        if (realInputFields.length > 0) {
+          const dealRes = await fetch(`/api/deals/${dealId}`);
+          if (dealRes.ok) {
+            const dealData = await dealRes.json();
+            const dealInputs = (dealData.deal?.inputs ?? {}) as Record<string, unknown>;
+
+            for (const field of realInputFields) {
+              // inputId is a string, deal inputs are keyed by numeric input_id
+              const value = dealInputs[field.inputId!];
+              if (value !== undefined) {
+                inputPayload[field.name] = value;
+              }
+            }
+          }
+        }
+
+        // Always include deal_id as a fallback if not explicitly mapped
+        if (!("deal_id" in inputPayload)) {
+          inputPayload.deal_id = dealId;
+        }
+
+        // 4. Execute the workflow
+        const execRes = await fetch(`/api/workflow/${workflowUuid}/execute`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: inputPayload }),
+        });
+
+        if (!execRes.ok) {
+          const errData = await execRes.json().catch(() => ({}));
+          toast.error(errData.error || "Failed to execute action");
+          return false;
+        }
+
+        const result = await execRes.json();
+        toast.success(`Action started (ID: ${result.executionId})`);
+        return true;
+      } catch (err) {
+        console.error("Error triggering action:", err);
+        toast.error("Failed to trigger action");
+        return false;
+      }
+    },
+    [dealId]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -269,6 +397,9 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
       tasks={tasks}
       onAddTask={handleAddTask}
       onUpdateTask={handleUpdateTask}
+      onTriggerAction={handleTriggerAction}
+      stepOrder={stepOrder}
+      currentStep={currentStep}
     />
   );
 }

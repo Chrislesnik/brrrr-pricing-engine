@@ -1,18 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@repo/lib/cn";
 import {
-  Kanban,
-  Table2,
-  CheckSquare,
-  SlidersHorizontal,
+  CheckCircle2,
   Plus,
-  Eye,
-  EyeOff,
   Filter,
   ArrowUpDown,
   ChevronDown,
@@ -24,7 +19,6 @@ import {
   GripVertical,
   Save,
   Archive,
-  Trash2,
   Tag,
   Clock,
   Paperclip,
@@ -35,6 +29,8 @@ import {
   Image as ImageIcon,
   File as FileIcon,
   Loader2,
+  Lock,
+  Trash2,
 } from "lucide-react";
 import {
   Sheet,
@@ -78,8 +74,8 @@ import {
 import {
   RoomProvider,
   ClientSideSuspense,
-  useThreads,
 } from "@liveblocks/react/suspense";
+import { useThreads } from "@liveblocks/react/suspense";
 import { Thread, Comment, Composer } from "@liveblocks/react-ui";
 import type { ThreadData } from "@liveblocks/client";
 
@@ -87,9 +83,9 @@ import type { ThreadData } from "@liveblocks/client";
 /*  Types                                                                      */
 /* ========================================================================== */
 
-export type TaskStatus = "todo" | "in_progress" | "in_review" | "blocked" | "done";
+export type TaskStatus = "todo" | "done" | "skipped";
 export type TaskPriority = "none" | "low" | "medium" | "high" | "urgent";
-type ViewType = "board" | "table" | "checklist";
+type ViewType = "checklist";
 type RuleOperator = "is" | "is_not" | "contains" | "not_contains";
 type LogicOperator = "and" | "or";
 type SortColumn = "priority" | "status" | "title" | "assignee" | "created" | "dueDate";
@@ -108,10 +104,14 @@ export interface Task {
   checked: boolean;
   createdAt?: string;
   updatedAt?: string;
+  dealStageName?: string;
   stage?: string;
   stageCode?: string;
   stageColor?: string;
   stageOrder?: number;
+  buttonEnabled?: boolean;
+  buttonLabel?: string;
+  buttonActionId?: number;
 }
 
 interface AdvancedRule {
@@ -138,26 +138,12 @@ interface SortRule {
   ascending: boolean;
 }
 
-interface DisplayProperties {
-  id?: boolean;
-  status?: boolean;
-  assignee?: boolean;
-  priority?: boolean;
-  dueDate?: boolean;
-  labels?: boolean;
-  stage?: boolean;
-  created?: boolean;
-  updated?: boolean;
-}
-
 interface ViewSettings {
   currentView: ViewType;
   groupBy: "status" | "priority" | "assignee" | "label" | "stage";
   sortRules: SortRule[];
   showCompletedTasks: boolean;
-  showEmptyGroups: boolean;
   advancedFilter: AdvancedFilterState;
-  displayProperties: DisplayProperties;
 }
 
 export interface DealTaskTrackerProps {
@@ -165,29 +151,30 @@ export interface DealTaskTrackerProps {
   tasks?: Task[];
   onAddTask?: (dealId: string, task: Partial<Task>) => void;
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
+  onTriggerAction?: (task: Task) => Promise<boolean>;
+  stepOrder?: string[];
+  currentStep?: string;
 }
 
 /* ========================================================================== */
 /*  Constants                                                                  */
 /* ========================================================================== */
 
-const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; colorClass: string; badgeClass: string; bgClass: string }> = {
-  todo: { label: "To Do", color: "#6B7280", colorClass: "text-task-todo", badgeClass: "badge-task-todo", bgClass: "bg-task-todo" },
-  in_progress: { label: "In Progress", color: "#3B82F6", colorClass: "text-task-in-progress", badgeClass: "badge-task-in-progress", bgClass: "bg-task-in-progress" },
-  in_review: { label: "In Review", color: "#F59E0B", colorClass: "text-task-in-review", badgeClass: "badge-task-in-review", bgClass: "bg-task-in-review" },
-  blocked: { label: "Blocked", color: "#EF4444", colorClass: "text-task-blocked", badgeClass: "badge-task-blocked", bgClass: "bg-task-blocked" },
-  done: { label: "Done", color: "#10B981", colorClass: "text-task-done", badgeClass: "badge-task-done", bgClass: "bg-task-done" },
+const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
+  todo: { label: "To Do", color: "#6B7280" },
+  done: { label: "Done", color: "#10B981" },
+  skipped: { label: "Skipped", color: "#9CA3AF" },
 };
 
-const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; colorClass: string; badgeClass: string; bgClass: string; level: number }> = {
-  urgent: { label: "Urgent", color: "#EF4444", colorClass: "text-priority-urgent", badgeClass: "badge-priority-urgent", bgClass: "bg-priority-urgent", level: 4 },
-  high: { label: "High", color: "#F97316", colorClass: "text-priority-high", badgeClass: "badge-priority-high", bgClass: "bg-priority-high", level: 3 },
-  medium: { label: "Medium", color: "#F59E0B", colorClass: "text-priority-medium", badgeClass: "badge-priority-medium", bgClass: "bg-priority-medium", level: 2 },
-  low: { label: "Low", color: "#6B7280", colorClass: "text-priority-low", badgeClass: "badge-priority-low", bgClass: "bg-priority-low", level: 1 },
-  none: { label: "No priority", color: "#D1D5DB", colorClass: "text-priority-none", badgeClass: "badge-priority-none", bgClass: "bg-priority-none", level: 0 },
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; level: number }> = {
+  urgent: { label: "Urgent", color: "#EF4444", level: 4 },
+  high: { label: "High", color: "#F97316", level: 3 },
+  medium: { label: "Medium", color: "#F59E0B", level: 2 },
+  low: { label: "Low", color: "#6B7280", level: 1 },
+  none: { label: "No priority", color: "#D1D5DB", level: 0 },
 };
 
-const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "in_review", "blocked", "done"];
+const STATUS_ORDER: TaskStatus[] = ["todo", "done", "skipped"];
 const PRIORITY_ORDER: TaskPriority[] = ["urgent", "high", "medium", "low", "none"];
 
 const OPERATOR_OPTIONS: { value: RuleOperator; label: string }[] = [
@@ -209,17 +196,17 @@ const SORT_COLUMN_OPTIONS: { value: SortColumn; label: string }[] = [
 const FILTER_PROPERTIES: {
   key: "status" | "priority" | "assignee" | "label";
   label: string;
-  options: { value: string; label: string; color?: string; colorClass?: string; badgeClass?: string }[];
+  options: { value: string; label: string; color?: string }[];
 }[] = [
   {
     key: "status",
     label: "Status",
-    options: STATUS_ORDER.map((s) => ({ value: s, label: STATUS_CONFIG[s].label, color: STATUS_CONFIG[s].color, colorClass: STATUS_CONFIG[s].colorClass, badgeClass: STATUS_CONFIG[s].badgeClass })),
+    options: STATUS_ORDER.map((s) => ({ value: s, label: STATUS_CONFIG[s].label, color: STATUS_CONFIG[s].color })),
   },
   {
     key: "priority",
     label: "Priority",
-    options: PRIORITY_ORDER.map((p) => ({ value: p, label: PRIORITY_CONFIG[p].label, color: PRIORITY_CONFIG[p].color, colorClass: PRIORITY_CONFIG[p].colorClass, badgeClass: PRIORITY_CONFIG[p].badgeClass })),
+    options: PRIORITY_ORDER.map((p) => ({ value: p, label: PRIORITY_CONFIG[p].label, color: PRIORITY_CONFIG[p].color })),
   },
   {
     key: "assignee",
@@ -330,7 +317,6 @@ interface TaskGroup {
   key: string;
   label: string;
   color: string;
-  colorClass: string;
   tasks: Task[];
 }
 
@@ -340,7 +326,6 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: status,
       label: STATUS_CONFIG[status].label,
       color: STATUS_CONFIG[status].color,
-      colorClass: STATUS_CONFIG[status].colorClass,
       tasks: tasks.filter((t) => t.status === status),
     }));
   }
@@ -349,7 +334,6 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: p,
       label: PRIORITY_CONFIG[p].label,
       color: PRIORITY_CONFIG[p].color,
-      colorClass: PRIORITY_CONFIG[p].colorClass,
       tasks: tasks.filter((t) => t.priority === p),
     }));
   }
@@ -359,7 +343,6 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: a,
       label: a,
       color: "#6B7280",
-      colorClass: "text-task-todo",
       tasks: tasks.filter((t) => (t.assignee ?? "Unassigned") === a),
     }));
   }
@@ -375,7 +358,6 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
         });
       }
     }
-    // Ensure "Unassigned" bucket exists
     if (!stageMap.has("__unassigned__")) {
       stageMap.set("__unassigned__", { name: "Unassigned", color: "#6B7280", order: 9999 });
     }
@@ -385,18 +367,16 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
         key: code,
         label: info.name,
         color: info.color,
-        colorClass: "text-task-todo",
         tasks: tasks.filter((t) => (t.stageCode ?? "__unassigned__") === code),
       }));
   }
   // label
   const labels = [...new Set(tasks.flatMap((t) => t.labels))].sort();
-  if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", colorClass: "text-task-todo", tasks }];
+  if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", tasks }];
   return labels.map((l) => ({
     key: l,
     label: l,
     color: "#6B7280",
-    colorClass: "text-task-todo",
     tasks: tasks.filter((t) => t.labels.includes(l)),
   }));
 }
@@ -423,7 +403,6 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => voi
       if (!ref.current) return;
       const target = e.target as HTMLElement;
       if (ref.current.contains(target)) return;
-      // Ignore clicks inside Radix portalled content (Select, Popover, etc.)
       if (target.closest("[data-radix-popper-content-wrapper]") || target.closest("[role='listbox']") || target.closest("[role='option']")) return;
       cb();
     }
@@ -444,11 +423,11 @@ function PriorityIcon({ priority }: { priority: TaskPriority }) {
       {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className={cn(
-            "w-[3px] rounded-sm transition-colors",
-            i === 1 ? "h-[8px]" : i === 2 ? "h-[10px]" : i === 3 ? "h-[12px]" : "h-[14px]",
-            i <= barCount ? config.bgClass : "bg-[hsl(var(--border))]"
-          )}
+          className="w-[3px] rounded-sm transition-colors"
+          style={{
+            height: `${6 + i * 2}px`,
+            backgroundColor: i <= barCount ? config.color : "hsl(var(--border))",
+          }}
         />
       ))}
     </div>
@@ -464,6 +443,9 @@ export function DealTaskTracker({
   tasks: propTasks,
   onAddTask,
   onUpdateTask,
+  onTriggerAction,
+  stepOrder = [],
+  currentStep = "",
 }: DealTaskTrackerProps) {
   const [tasks, setTasks] = useState<Task[]>(propTasks ?? []);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -471,13 +453,11 @@ export function DealTaskTracker({
   const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>("todo");
 
   const [viewSettings, setViewSettings] = useState<ViewSettings>({
-    currentView: "board",
+    currentView: "checklist",
     groupBy: "status",
     sortRules: [{ id: "sort-default", column: "priority", ascending: false }],
     showCompletedTasks: true,
-    showEmptyGroups: true,
     advancedFilter: { logic: "and", items: [] },
-    displayProperties: { id: true, status: true, assignee: true, priority: true, dueDate: true, labels: true, stage: true, created: true, updated: false },
   });
 
   // Keep in sync with prop changes
@@ -562,6 +542,7 @@ export function DealTaskTracker({
         checked: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        dealStageName: taskData.dealStageName,
       };
       setTasks((prev) => [...prev, newTask]);
       setIsNewTaskDialogOpen(false);
@@ -711,55 +692,23 @@ export function DealTaskTracker({
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <ViewToolbar
-        viewSettings={viewSettings}
-        onSetView={(v) => setViewSettings((p) => ({ ...p, currentView: v }))}
-        onUpdateViewSettings={(s) => setViewSettings((p) => ({ ...p, ...s }))}
+        groupBy={viewSettings.groupBy}
+        onGroupByChange={(v) => setViewSettings((p) => ({ ...p, groupBy: v as ViewSettings["groupBy"] }))}
         onAddTask={() => handleAddTaskToStatus("todo")}
-        activeFilterCount={activeFilterCount}
-        totalTasks={visibleTasks.length}
-        advancedFilter={viewSettings.advancedFilter}
-        onSetTopLevelLogic={setTopLevelLogic}
-        onAddAdvancedRule={addAdvancedRule}
-        onAddFilterGroup={addFilterGroup}
-        onAddRuleToGroup={addRuleToGroup}
-        onSetGroupLogic={setGroupLogic}
-        onUpdateAdvancedRule={updateAdvancedRule}
-        onRemoveAdvancedRule={removeAdvancedRule}
-        onRemoveFilterGroup={removeFilterGroup}
-        onClearAllFilters={clearAllFilters}
-        filterProperties={dynamicFilterProps}
-        sortRules={viewSettings.sortRules}
-        onAddSortRule={addSortRule}
-        onUpdateSortRule={updateSortRule}
-        onRemoveSortRule={removeSortRule}
       />
 
       {/* View content */}
       <div className="min-h-[400px]">
-        {viewSettings.currentView === "board" && (
-          <BoardView
-            groups={sortedGroups}
-            groupBy={viewSettings.groupBy}
-            onStatusChange={handleStatusChange}
-            onTaskClick={setSelectedTask}
-            onAddTask={handleAddTaskToStatus}
-            selectedTaskId={selectedTask?.id ?? null}
-          />
-        )}
-        {viewSettings.currentView === "table" && (
-          <TableView
-            groups={sortedGroups}
-            onTaskClick={setSelectedTask}
-            selectedTaskId={selectedTask?.id ?? null}
-          />
-        )}
         {viewSettings.currentView === "checklist" && (
           <ChecklistView
             groups={sortedGroups}
             visibleTasks={visibleTasks}
             onTaskClick={setSelectedTask}
             onCheckTask={handleCheckTask}
+            onTriggerAction={onTriggerAction}
             selectedTaskId={selectedTask?.id ?? null}
+            stepOrder={stepOrder}
+            currentStep={currentStep}
           />
         )}
       </div>
@@ -787,6 +736,8 @@ export function DealTaskTracker({
         onOpenChange={setIsNewTaskDialogOpen}
         onCreateTask={handleCreateTask}
         initialStatus={newTaskStatus}
+        stepOrder={stepOrder}
+        currentStep={currentStep}
       />
     </div>
   );
@@ -796,12 +747,6 @@ export function DealTaskTracker({
 /*  ViewToolbar                                                                */
 /* ========================================================================== */
 
-const VIEW_OPTIONS: { value: ViewType; label: string; icon: typeof Kanban }[] = [
-  { value: "board", label: "Board", icon: Kanban },
-  { value: "table", label: "Table", icon: Table2 },
-  { value: "checklist", label: "Checklist", icon: CheckSquare },
-];
-
 const GROUP_OPTIONS: { value: ViewSettings["groupBy"]; label: string }[] = [
   { value: "status", label: "Status" },
   { value: "priority", label: "Priority" },
@@ -810,301 +755,39 @@ const GROUP_OPTIONS: { value: ViewSettings["groupBy"]; label: string }[] = [
   { value: "stage", label: "Deal Stage" },
 ];
 
-const DISPLAY_PROPERTIES: { key: keyof DisplayProperties; label: string }[] = [
-  { key: "id", label: "ID" },
-  { key: "status", label: "Status" },
-  { key: "assignee", label: "Assignee" },
-  { key: "priority", label: "Priority" },
-  { key: "dueDate", label: "Due date" },
-  { key: "labels", label: "Labels" },
-  { key: "stage", label: "Deal Stage" },
-  { key: "created", label: "Created" },
-  { key: "updated", label: "Updated" },
-];
-
 function ViewToolbar({
-  viewSettings,
-  onSetView,
-  onUpdateViewSettings,
+  groupBy,
+  onGroupByChange,
   onAddTask,
-  activeFilterCount,
-  totalTasks,
-  advancedFilter,
-  onSetTopLevelLogic,
-  onAddAdvancedRule,
-  onAddFilterGroup,
-  onAddRuleToGroup,
-  onSetGroupLogic,
-  onUpdateAdvancedRule,
-  onRemoveAdvancedRule,
-  onRemoveFilterGroup,
-  onClearAllFilters,
-  filterProperties,
-  sortRules,
-  onAddSortRule,
-  onUpdateSortRule,
-  onRemoveSortRule,
 }: {
-  viewSettings: ViewSettings;
-  onSetView: (v: ViewType) => void;
-  onUpdateViewSettings: (s: Partial<ViewSettings>) => void;
+  groupBy: ViewSettings["groupBy"];
+  onGroupByChange: (value: string) => void;
   onAddTask: () => void;
-  activeFilterCount: number;
-  totalTasks: number;
-  advancedFilter: AdvancedFilterState;
-  onSetTopLevelLogic: (l: LogicOperator) => void;
-  onAddAdvancedRule: () => void;
-  onAddFilterGroup: () => void;
-  onAddRuleToGroup: (groupId: string) => void;
-  onSetGroupLogic: (groupId: string, l: LogicOperator) => void;
-  onUpdateAdvancedRule: (ruleId: string, updates: Partial<AdvancedRule>) => void;
-  onRemoveAdvancedRule: (ruleId: string) => void;
-  onRemoveFilterGroup: (groupId: string) => void;
-  onClearAllFilters: () => void;
-  filterProperties: typeof FILTER_PROPERTIES;
-  sortRules: SortRule[];
-  onAddSortRule: (column: SortColumn) => void;
-  onUpdateSortRule: (ruleId: string, updates: Partial<SortRule>) => void;
-  onRemoveSortRule: (ruleId: string) => void;
 }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-
-  useClickOutside(settingsRef, () => setSettingsOpen(false));
 
   return (
     <div className="flex items-center justify-between border-b px-4 py-2">
-      <div className="flex items-center gap-1">
-        {/* View settings */}
-        <div className="relative" ref={settingsRef}>
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-              settingsOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Display</span>
-          </button>
-
-          {settingsOpen && (
-            <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border bg-card shadow-lg">
-              {/* Layout switcher */}
-              <div className="p-3 pb-0">
-                <div className="flex rounded-lg bg-muted/60 p-0.5">
-                  {VIEW_OPTIONS.map((opt) => {
-                    const active = viewSettings.currentView === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => onSetView(opt.value)}
-                        className={cn(
-                          "flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs font-medium transition-all",
-                          active
-                            ? "bg-background text-foreground shadow-sm"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        <opt.icon className="h-4 w-4" />
-                        <span className="text-[10px]">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Grouping / Ordering */}
-              <div className="px-3 py-3 space-y-2.5">
-                {/* Grouping row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Kanban className="h-3.5 w-3.5" />
-                    <span>{viewSettings.currentView === "board" ? "Columns" : "Grouping"}</span>
-                  </div>
-                  <Select value={viewSettings.groupBy} onValueChange={(v) => onUpdateViewSettings({ groupBy: v as ViewSettings["groupBy"] })}>
-                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GROUP_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Ordering row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <ArrowUpDown className="h-3.5 w-3.5" />
-                    <span>Ordering</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Select
-                      value={sortRules[0]?.column ?? "priority"}
-                      onValueChange={(v) => {
-                        if (sortRules[0]) {
-                          onUpdateSortRule(sortRules[0].id, { column: v as SortColumn });
-                        } else {
-                          onAddSortRule(v as SortColumn);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="priority" className="text-xs">Priority</SelectItem>
-                        <SelectItem value="status" className="text-xs">Status</SelectItem>
-                        <SelectItem value="title" className="text-xs">Title</SelectItem>
-                        <SelectItem value="created" className="text-xs">Created</SelectItem>
-                        <SelectItem value="updated" className="text-xs">Updated</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <button
-                      onClick={() => {
-                        if (sortRules[0]) {
-                          onUpdateSortRule(sortRules[0].id, { ascending: !sortRules[0].ascending });
-                        }
-                      }}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-                      title={sortRules[0]?.ascending ? "Ascending" : "Descending"}
-                    >
-                      <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t" />
-
-              {/* Completed tasks */}
-              <div className="px-3 py-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Completed tasks</span>
-                  <Select value={viewSettings.showCompletedTasks ? "all" : "hidden"} onValueChange={(v) => onUpdateViewSettings({ showCompletedTasks: v === "all" })}>
-                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">All</SelectItem>
-                      <SelectItem value="hidden" className="text-xs">Hidden</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="border-t" />
-
-              {/* View-specific options */}
-              <div className="px-3 py-3 space-y-2.5">
-                <span className="text-xs font-medium text-foreground">
-                  {viewSettings.currentView === "board" ? "Board options" : viewSettings.currentView === "checklist" ? "Checklist options" : "Table options"}
-                </span>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Show empty groups</span>
-                  <button
-                    title="Toggle show empty groups"
-                    onClick={() => onUpdateViewSettings({ showEmptyGroups: !viewSettings.showEmptyGroups })}
-                    className={cn(
-                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors",
-                      viewSettings.showEmptyGroups ? "bg-primary" : "bg-muted"
-                    )}
-                  >
-                    <span className={cn(
-                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-sm ring-0 transition-transform mt-0.5",
-                      viewSettings.showEmptyGroups ? "translate-x-4 ml-0.5" : "translate-x-0.5"
-                    )} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="border-t" />
-
-              {/* Display properties */}
-              <div className="px-3 py-3">
-                <span className="text-xs font-medium text-foreground">Display properties</span>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {DISPLAY_PROPERTIES.map((prop) => {
-                    const active = viewSettings.displayProperties?.[prop.key] !== false;
-                    return (
-                      <button
-                        key={prop.key}
-                        onClick={() => onUpdateViewSettings({
-                          displayProperties: {
-                            ...viewSettings.displayProperties,
-                            [prop.key]: !active,
-                          },
-                        })}
-                        className={cn(
-                          "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                          active
-                            ? "border-foreground/20 bg-foreground/5 text-foreground"
-                            : "border-transparent bg-muted/40 text-muted-foreground/60"
-                        )}
-                      >
-                        {prop.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="border-t px-3 py-2.5 flex items-center justify-center gap-4">
-                <button
-                  onClick={() => onUpdateViewSettings({
-                    groupBy: "status",
-                    showCompletedTasks: true,
-                    showEmptyGroups: true,
-                    displayProperties: Object.fromEntries(DISPLAY_PROPERTIES.map((p) => [p.key, true])),
-                  })}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Filter popover */}
-        <FilterPopover
-          advancedFilter={advancedFilter}
-          activeFilterCount={activeFilterCount}
-          totalTasks={totalTasks}
-          filterProperties={filterProperties}
-          onSetTopLevelLogic={onSetTopLevelLogic}
-          onAddAdvancedRule={onAddAdvancedRule}
-          onAddFilterGroup={onAddFilterGroup}
-          onAddRuleToGroup={onAddRuleToGroup}
-          onSetGroupLogic={onSetGroupLogic}
-          onUpdateAdvancedRule={onUpdateAdvancedRule}
-          onRemoveAdvancedRule={onRemoveAdvancedRule}
-          onRemoveFilterGroup={onRemoveFilterGroup}
-          onClearAllFilters={onClearAllFilters}
-        />
-
-        {/* Sort popover */}
-        <SortPopover
-          sortRules={sortRules}
-          onAddSortRule={onAddSortRule}
-          onUpdateSortRule={onUpdateSortRule}
-          onRemoveSortRule={onRemoveSortRule}
-        />
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Group by</span>
+        <Select value={groupBy} onValueChange={onGroupByChange}>
+          <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {GROUP_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-
-      <div className="flex items-center gap-1.5">
-        {/* Add task */}
-        <button
-          onClick={onAddTask}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>New task</span>
-        </button>
-      </div>
+      {/* Add task */}
+      <button
+        onClick={onAddTask}
+        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span>New task</span>
+      </button>
     </div>
   );
 }
@@ -1135,7 +818,7 @@ function BoardView({
           key={group.key}
           groupKey={group.key}
           label={group.label}
-          colorClass={group.colorClass}
+          color={group.color}
           tasks={group.tasks}
           groupBy={groupBy}
           onStatusChange={onStatusChange}
@@ -1151,7 +834,7 @@ function BoardView({
 function BoardColumn({
   groupKey,
   label,
-  colorClass,
+  color,
   tasks,
   groupBy,
   onStatusChange,
@@ -1161,7 +844,7 @@ function BoardColumn({
 }: {
   groupKey: string;
   label: string;
-  colorClass: string;
+  color: string;
   tasks: Task[];
   groupBy: string;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
@@ -1201,8 +884,9 @@ function BoardColumn({
       <div className="flex items-center justify-between px-1 py-2">
         <div className="flex items-center gap-2">
           <Circle
-            className={cn("h-3 w-3", colorClass)}
-            fill={groupKey === "done" ? "currentColor" : "none"}
+            className="h-3 w-3"
+            style={{ color }}
+            fill={groupKey === "done" ? color : "none"}
           />
           <span className="text-sm font-medium text-foreground">{label}</span>
           <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
@@ -1267,8 +951,9 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
       {/* Header row */}
       <div className="flex items-center gap-2 mb-1.5">
         <Circle
-          className={cn("h-3 w-3 flex-shrink-0", statusConfig.colorClass)}
-          fill={task.status === "done" ? "currentColor" : "none"}
+          className="h-3 w-3 flex-shrink-0"
+          style={{ color: statusConfig.color }}
+          fill={task.status === "done" ? statusConfig.color : "none"}
           strokeWidth={2}
         />
         {task.identifier && (
@@ -1278,18 +963,6 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
 
       {/* Title */}
       <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 mb-2">{task.title}</p>
-
-      {/* Stage badge */}
-      {task.stage && (
-        <div className="mb-2">
-          <span
-            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
-            style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
-          >
-            {task.stage}
-          </span>
-        </div>
-      )}
 
       {/* Footer */}
       <div className="flex items-center justify-between">
@@ -1335,7 +1008,7 @@ function TableView({
   return (
     <div className="h-full overflow-auto">
       <table className="w-full border-collapse">
-        <thead className="sticky top-0 z-10 bg-background">
+        <thead className="sticky top-0 z-10 bg-card">
           <tr className="border-b border-border">
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[40px]" />
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[80px]">ID</th>
@@ -1343,7 +1016,6 @@ function TableView({
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[100px]">Status</th>
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[90px]">Priority</th>
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[130px]">Assignee</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[120px]">Stage</th>
             <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[120px]">Labels</th>
           </tr>
         </thead>
@@ -1353,7 +1025,7 @@ function TableView({
               key={group.key}
               groupKey={group.key}
               label={group.label}
-              colorClass={group.colorClass}
+              color={group.color}
               tasks={group.tasks}
               onTaskClick={onTaskClick}
               selectedTaskId={selectedTaskId}
@@ -1368,14 +1040,14 @@ function TableView({
 function TableGroupRows({
   groupKey,
   label,
-  colorClass,
+  color,
   tasks,
   onTaskClick,
   selectedTaskId,
 }: {
   groupKey: string;
   label: string;
-  colorClass: string;
+  color: string;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   selectedTaskId: string | null;
@@ -1388,10 +1060,10 @@ function TableGroupRows({
         className="border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <td colSpan={8} className="px-4 py-2">
+        <td colSpan={7} className="px-4 py-2">
           <div className="flex items-center gap-2">
             {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-            <Circle className={cn("h-3 w-3", colorClass)} fill={groupKey === "done" ? "currentColor" : "none"} />
+            <Circle className="h-3 w-3" style={{ color }} fill={groupKey === "done" ? color : "none"} />
             <span className="text-xs font-semibold text-foreground">{label}</span>
             <span className="text-[10px] text-muted-foreground">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>
           </div>
@@ -1411,7 +1083,7 @@ function TableGroupRows({
               )}
             >
               <td className="px-4 py-2.5">
-                <Circle className={cn("h-3 w-3", statusConfig.colorClass)} fill={task.status === "done" ? "currentColor" : "none"} strokeWidth={2} />
+                <Circle className="h-3 w-3" style={{ color: statusConfig.color }} fill={task.status === "done" ? statusConfig.color : "none"} strokeWidth={2} />
               </td>
               <td className="px-4 py-2.5">
                 <span className="text-xs font-mono text-muted-foreground">{task.identifier ?? task.id.slice(0, 6)}</span>
@@ -1421,7 +1093,8 @@ function TableGroupRows({
               </td>
               <td className="px-4 py-2.5">
                 <span
-                  className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium", statusConfig.badgeClass)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  style={{ backgroundColor: `${statusConfig.color}1A`, color: statusConfig.color }}
                 >
                   {statusConfig.label}
                 </span>
@@ -1440,18 +1113,6 @@ function TableGroupRows({
                     </div>
                     <span className="text-xs text-muted-foreground">{task.assignee}</span>
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5">
-                {task.stage ? (
-                  <span
-                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
-                    style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
-                  >
-                    {task.stage}
-                  </span>
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
@@ -1477,125 +1138,257 @@ function TableGroupRows({
 /* ========================================================================== */
 
 function ChecklistView({
-  groups,
+  groups: _groups,
   visibleTasks,
   onTaskClick,
   onCheckTask,
+  onTriggerAction,
   selectedTaskId,
+  stepOrder = [],
+  currentStep = "",
 }: {
   groups: TaskGroup[];
   visibleTasks: Task[];
   onTaskClick: (task: Task) => void;
   onCheckTask: (taskId: string, checked: boolean) => void;
+  onTriggerAction?: (task: Task) => Promise<boolean>;
   selectedTaskId: string | null;
+  stepOrder?: string[];
+  currentStep?: string;
 }) {
-  const totalTasks = visibleTasks.length;
-  const checkedTasks = visibleTasks.filter((t) => t.checked).length;
-  const progress = totalTasks > 0 ? (checkedTasks / totalTasks) * 100 : 0;
+  const currentStepIdx = stepOrder.indexOf(currentStep);
+
+  // Group tasks by their step name
+  const tasksByStep = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const step of stepOrder) map.set(step, []);
+    for (const task of visibleTasks) {
+      const stepName = task.dealStageName ?? "";
+      const bucket = map.get(stepName);
+      if (bucket) bucket.push(task);
+    }
+    return map;
+  }, [visibleTasks, stepOrder]);
+
+  // Progress scoped to the current step
+  const currentStepTasks = currentStepIdx >= 0 ? (tasksByStep.get(stepOrder[currentStepIdx]) ?? []) : [];
+  const stepTotal = currentStepTasks.length;
+  const stepDone = currentStepTasks.filter((t) => t.checked).length;
+  const stepRemaining = stepTotal - stepDone;
+  const stepProgress = stepTotal > 0 ? (stepDone / stepTotal) * 100 : 0;
+  const nextStepName = currentStepIdx >= 0 && currentStepIdx + 1 < stepOrder.length
+    ? stepOrder[currentStepIdx + 1]
+    : null;
 
   return (
-    <div className="h-full overflow-auto px-4 py-4">
-      {/* Progress bar */}
-      <div className="mb-4 max-w-3xl">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-medium text-foreground">Progress</span>
-          <span className="text-xs text-muted-foreground">{checkedTasks} of {totalTasks} tasks completed</span>
+    <div className="h-full overflow-auto px-6 py-5">
+      {/* Progress bar – scoped to current step */}
+      <div className="mb-5 max-w-5xl">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-foreground">
+            {currentStepIdx >= 0 ? stepOrder[currentStepIdx] : "Progress"}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {nextStepName
+              ? `${stepRemaining} task${stepRemaining !== 1 ? "s" : ""} remaining to reach ${nextStepName}`
+              : `${stepDone} of ${stepTotal} tasks completed`}
+          </span>
         </div>
-        <progress
-          className="task-progress-bar"
-          value={checkedTasks}
-          max={totalTasks}
-        />
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${stepProgress}%`, backgroundColor: STATUS_CONFIG.done.color }}
+          />
+        </div>
       </div>
 
-      {/* Grouped checklists */}
-      <div className="flex flex-col gap-1 max-w-3xl">
-        {groups.map((group) => (
-          <ChecklistGroup
-            key={group.key}
-            groupKey={group.key}
-            label={group.label}
-            colorClass={group.colorClass}
-            tasks={group.tasks}
-            onTaskClick={onTaskClick}
-            onCheckTask={onCheckTask}
-            selectedTaskId={selectedTaskId}
-          />
-        ))}
+      {/* Step-grouped checklists */}
+      <div className="flex flex-col gap-2 max-w-5xl">
+        {stepOrder.map((stepName, idx) => {
+          const isAccessible = idx <= currentStepIdx;
+          const tasks = tasksByStep.get(stepName) ?? [];
+          return (
+            <StepChecklistGroup
+              key={stepName}
+              stepName={stepName}
+              stepIndex={idx}
+              tasks={tasks}
+              isAccessible={isAccessible}
+              isCurrent={idx === currentStepIdx}
+              onTaskClick={onTaskClick}
+              onCheckTask={onCheckTask}
+              onTriggerAction={onTriggerAction}
+              selectedTaskId={selectedTaskId}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function ChecklistGroup({
-  groupKey,
-  label,
-  colorClass,
+function StepChecklistGroup({
+  stepName,
+  stepIndex,
   tasks,
+  isAccessible,
+  isCurrent,
   onTaskClick,
   onCheckTask,
+  onTriggerAction,
   selectedTaskId,
 }: {
-  groupKey: string;
-  label: string;
-  colorClass: string;
+  stepName: string;
+  stepIndex: number;
   tasks: Task[];
+  isAccessible: boolean;
+  isCurrent: boolean;
   onTaskClick: (task: Task) => void;
   onCheckTask: (taskId: string, checked: boolean) => void;
+  onTriggerAction?: (task: Task) => Promise<boolean>;
   selectedTaskId: string | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isCurrent);
   const checkedCount = tasks.filter((t) => t.checked).length;
 
   return (
-    <div className="rounded-lg border overflow-hidden mb-2">
+    <div className={cn("rounded-lg border overflow-hidden", !isAccessible && "opacity-60")}>
       <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+        onClick={() => isAccessible && setCollapsed(!collapsed)}
+        className={cn(
+          "flex w-full items-center gap-3 px-4 py-3 transition-colors",
+          isAccessible
+            ? "bg-muted/30 hover:bg-muted/50 cursor-pointer"
+            : "bg-muted/20 cursor-not-allowed"
+        )}
       >
-        {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-        <Circle className={cn("h-3 w-3", colorClass)} fill={groupKey === "done" ? "currentColor" : "none"} />
-        <span className="text-xs font-semibold text-foreground">{label}</span>
-        <span className="text-[10px] text-muted-foreground ml-auto">{checkedCount}/{tasks.length}</span>
+        {isAccessible ? (
+          collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <Lock className="h-4 w-4 text-muted-foreground" />
+        )}
+        <span className={cn(
+          "text-sm font-semibold",
+          isCurrent ? "text-primary" : "text-foreground"
+        )}>
+          Step {stepIndex + 1}: {stepName}
+        </span>
+        {isCurrent && (
+          <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold">
+            Current
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">
+          {checkedCount}/{tasks.length}
+        </span>
       </button>
 
-      {!collapsed && (
+      {isAccessible && !collapsed && (
         <div className="divide-y divide-border">
-          {tasks.map((task) => {
-            const isSelected = selectedTaskId === task.id;
-            return (
-              <div
-                key={task.id}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 transition-colors cursor-pointer group",
-                  isSelected ? "bg-primary/5" : "hover:bg-accent/50"
-                )}
-              >
-                <Checkbox
-                  checked={task.checked}
-                  onCheckedChange={(checked) => onCheckTask(task.id, checked as boolean)}
-                  className="h-4 w-4 rounded border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                />
-                <button onClick={() => onTaskClick(task)} className="flex flex-1 items-center gap-3 min-w-0 text-left">
-                  {task.identifier && <span className="text-[11px] font-mono text-muted-foreground flex-shrink-0">{task.identifier}</span>}
-                  <span className={cn("text-sm flex-1 truncate transition-colors", task.checked ? "text-muted-foreground line-through" : "text-foreground")}>
-                    {task.title}
-                  </span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <PriorityIcon priority={task.priority} />
+          {tasks.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-muted-foreground text-center">
+              No tasks in this step
+            </div>
+          ) : (
+            tasks.map((task) => {
+              const isSelected = selectedTaskId === task.id;
+              const statusConfig = STATUS_CONFIG[task.status];
+              return (
+                <div
+                  key={task.id}
+                  className={cn(
+                    "flex items-center gap-4 px-4 py-3.5 transition-colors cursor-pointer group",
+                    isSelected ? "bg-primary/5" : "hover:bg-accent/50"
+                  )}
+                >
+                  <Checkbox
+                    checked={task.checked}
+                    onCheckedChange={(checked) => onCheckTask(task.id, checked as boolean)}
+                    className="h-5 w-5 rounded border-muted-foreground/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <button onClick={() => onTaskClick(task)} className="flex flex-1 items-center gap-3 min-w-0 text-left">
+                    {task.identifier && <span className="text-xs font-mono text-muted-foreground flex-shrink-0">{task.identifier}</span>}
+                    <span className={cn("text-sm truncate transition-colors", task.checked ? "text-muted-foreground line-through" : "text-foreground")}>
+                      {task.title}
+                    </span>
+                    {task.status !== "todo" && (
+                      <span
+                        className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium flex-shrink-0"
+                        style={{ backgroundColor: `${statusConfig.color}20`, color: statusConfig.color }}
+                      >
+                        {statusConfig.label}
+                      </span>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-2.5 flex-shrink-0 ml-auto">
                     {task.assignee && (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary" title={task.assignee}>
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary" title={task.assignee}>
                         {task.assignee.split(" ").map((n) => n[0]).join("")}
                       </div>
                     )}
+                    {task.buttonEnabled && task.buttonLabel && onTriggerAction && (
+                      <ActionButton
+                        label={task.buttonLabel}
+                        onRun={() => onTriggerAction(task)}
+                      />
+                    )}
                   </div>
-                </button>
-              </div>
-            );
-          })}
+                </div>
+              );
+            })
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/* ========================================================================== */
+/*  ActionButton – animated task action button                                 */
+/* ========================================================================== */
+
+function ActionButton({
+  label,
+  onRun,
+}: {
+  label: string;
+  onRun: () => Promise<boolean>;
+}) {
+  const [state, setState] = useState<"idle" | "running" | "success" | "error">("idle");
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (state === "running") return;
+    setState("running");
+    try {
+      const ok = await onRun();
+      setState(ok ? "success" : "error");
+    } catch {
+      setState("error");
+    }
+    setTimeout(() => setState("idle"), 2000);
+  };
+
+  return (
+    <Button
+      size="sm"
+      disabled={state === "running"}
+      className={cn(
+        "h-7 px-3 text-xs font-medium transition-all duration-200",
+        state === "idle" && "bg-primary text-primary-foreground hover:bg-primary/90",
+        state === "running" && "bg-primary text-primary-foreground",
+        state === "success" && "bg-emerald-600 text-white",
+        state === "error" && "bg-destructive text-destructive-foreground animate-shake"
+      )}
+      onClick={handleClick}
+    >
+      {state === "running" && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+      {state === "success" && <CheckCircle2 className="mr-1.5 h-3 w-3" />}
+      {state === "idle" && label}
+      {state === "running" && "Running..."}
+      {state === "success" && "Done"}
+      {state === "error" && "Failed"}
+    </Button>
   );
 }
 
@@ -1806,7 +1599,8 @@ function RuleRow({
         {selectedValueOption && rule.value ? (
           <div className="flex items-center gap-1 rounded-md border bg-transparent px-2 py-1.5">
             <span
-              className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", selectedValueOption.badgeClass)}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+              style={selectedValueOption.color ? { backgroundColor: `${selectedValueOption.color}1A`, color: selectedValueOption.color } : {}}
             >
               {selectedValueOption.label}
               <button onClick={() => onUpdate(rule.id, { value: "" })} className="ml-0.5 rounded-full hover:bg-foreground/10 p-0.5 transition-colors" aria-label="Clear value">
@@ -1874,7 +1668,7 @@ function MiniDropdown<T extends string>({
   placeholder,
 }: {
   value: T | "";
-  options: { value: T; label: string; color?: string; colorClass?: string; badgeClass?: string }[];
+  options: { value: T; label: string; color?: string }[];
   onChange: (val: T) => void;
   placeholder?: string;
 }) {
@@ -1909,7 +1703,7 @@ function MiniDropdown<T extends string>({
                   active ? "bg-primary/10 text-foreground font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
               >
-                {opt.colorClass && <Circle className={cn("h-2.5 w-2.5 shrink-0", opt.colorClass)} fill="currentColor" />}
+                {opt.color && <Circle className="h-2.5 w-2.5 shrink-0" style={{ color: opt.color, fill: opt.color }} />}
                 <span className="truncate">{opt.label}</span>
               </button>
             );
@@ -2120,8 +1914,9 @@ function TaskDetailSheetHeader({ task, onClose, onDelete }: { task: Task; onClos
     <div className="flex items-center justify-between border-b border-border px-4 py-3">
       <div className="flex items-center gap-2">
         <Circle
-          className={cn("h-3.5 w-3.5", statusConfig.colorClass)}
-          fill={task.status === "done" ? "currentColor" : "none"}
+          className="h-3.5 w-3.5"
+          style={{ color: statusConfig.color }}
+          fill={task.status === "done" ? statusConfig.color : "none"}
         />
         <span className="text-xs font-mono text-muted-foreground">{task.identifier}</span>
       </div>
@@ -2253,8 +2048,9 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
               className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs hover:bg-accent transition-colors"
             >
               <Circle
-                className={cn("h-2.5 w-2.5", STATUS_CONFIG[task.status].colorClass)}
-                fill={task.status === "done" ? "currentColor" : "none"}
+                className="h-2.5 w-2.5"
+                style={{ color: STATUS_CONFIG[task.status].color }}
+                fill={task.status === "done" ? STATUS_CONFIG[task.status].color : "none"}
               />
               <span className="text-foreground">{STATUS_CONFIG[task.status].label}</span>
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -2264,7 +2060,7 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
                 items={STATUS_ORDER.map((s) => ({
                   key: s,
                   label: STATUS_CONFIG[s].label,
-                  colorClass: STATUS_CONFIG[s].colorClass,
+                  color: STATUS_CONFIG[s].color,
                   active: task.status === s,
                 }))}
                 onSelect={(key) => {
@@ -2293,7 +2089,7 @@ function TaskProperties({ task, onUpdate }: { task: Task; onUpdate: (updates: Pa
                 items={(["urgent", "high", "medium", "low", "none"] as TaskPriority[]).map((p) => ({
                   key: p,
                   label: PRIORITY_CONFIG[p].label,
-                  colorClass: PRIORITY_CONFIG[p].colorClass,
+                  color: PRIORITY_CONFIG[p].color,
                   active: task.priority === p,
                 }))}
                 onSelect={(key) => {
@@ -2414,7 +2210,7 @@ function PriorityDots({ className }: { className?: string }) {
     <div className={cn("h-3.5 w-3.5 flex items-center justify-center", className)}>
       <div className="flex items-end gap-px">
         {[1, 2, 3].map((i) => (
-          <div key={i} className={cn("w-[2px] rounded-sm bg-muted-foreground/40", i === 1 ? "h-[6px]" : i === 2 ? "h-[8px]" : "h-[10px]")} />
+          <div key={i} className="w-[2px] rounded-sm bg-muted-foreground/40" style={{ height: `${4 + i * 2}px` }} />
         ))}
       </div>
     </div>
@@ -2426,7 +2222,7 @@ function InlineDropdownMenu({
   onSelect,
   onClose,
 }: {
-  items: { key: string; label: string; color?: string; colorClass?: string; active?: boolean }[];
+  items: { key: string; label: string; color?: string; active?: boolean }[];
   onSelect: (key: string) => void;
   onClose: () => void;
 }) {
@@ -2443,10 +2239,11 @@ function InlineDropdownMenu({
               item.active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent"
             )}
           >
-            {(item.colorClass || item.color) && (
+            {item.color && (
               <Circle
-                className={cn("h-2.5 w-2.5", item.colorClass)}
-                fill={item.active ? "currentColor" : "none"}
+                className="h-2.5 w-2.5"
+                style={{ color: item.color }}
+                fill={item.active ? item.color : "none"}
               />
             )}
             <span>{item.label}</span>
@@ -2893,11 +2690,15 @@ function NewTaskDialog({
   onOpenChange,
   onCreateTask,
   initialStatus,
+  stepOrder = [],
+  currentStep = "",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateTask: (task: Partial<Task>) => void;
   initialStatus: TaskStatus;
+  stepOrder?: string[];
+  currentStep?: string;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -2905,14 +2706,23 @@ function NewTaskDialog({
   const [priority, setPriority] = useState<TaskPriority>("none");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [selectedStep, setSelectedStep] = useState(currentStep || (stepOrder[0] ?? ""));
 
   const handleCreate = () => {
     if (!title.trim()) return;
-    onCreateTask({ title, description, status, priority, assignee: assignee || undefined, dueDate: dueDate || undefined });
+    const task: Partial<Task> & { deal_stage_name?: string } = {
+      title, description, status, priority,
+      assignee: assignee || undefined,
+      dueDate: dueDate || undefined,
+      dealStageName: selectedStep || undefined,
+    };
+    onCreateTask(task);
     setTitle(""); setDescription(""); setStatus(initialStatus); setPriority("none"); setAssignee(""); setDueDate("");
+    setSelectedStep(currentStep || (stepOrder[0] ?? ""));
   };
 
   React.useEffect(() => { setStatus(initialStatus); }, [initialStatus]);
+  React.useEffect(() => { setSelectedStep(currentStep || (stepOrder[0] ?? "")); }, [currentStep, stepOrder]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2931,13 +2741,23 @@ function NewTaskDialog({
             <Textarea id="description" placeholder="Enter description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
           <div className="flex flex-wrap gap-2">
+            {stepOrder.length > 0 && (
+              <Select value={selectedStep} onValueChange={setSelectedStep}>
+                <SelectTrigger className="w-[180px] h-8"><SelectValue placeholder="Select step..." /></SelectTrigger>
+                <SelectContent>
+                  {stepOrder.map((step) => (
+                    <SelectItem key={step} value={step}>{step}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
               <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_ORDER.map((s) => (
                   <SelectItem key={s} value={s}>
                     <div className="flex items-center gap-2">
-                      <Circle className={cn("h-2.5 w-2.5", STATUS_CONFIG[s].colorClass)} fill={s === "done" ? "currentColor" : "none"} />
+                      <Circle className="h-2.5 w-2.5" style={{ color: STATUS_CONFIG[s].color }} fill={s === "done" ? STATUS_CONFIG[s].color : "none"} />
                       {STATUS_CONFIG[s].label}
                     </div>
                   </SelectItem>

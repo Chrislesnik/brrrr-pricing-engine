@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Clock, Copy, Play, Webhook } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@repo/ui/shadcn/button";
@@ -14,7 +15,12 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select";
 import { TimezoneSelect } from "@/components/workflow-builder/ui/timezone-select";
-import { SchemaBuilder, type SchemaField } from "./schema-builder";
+import {
+  SchemaBuilder,
+  hasSchemaTypeMismatches,
+  type SchemaField,
+  type InputOption,
+} from "./schema-builder";
 
 type TriggerConfigProps = {
   config: Record<string, unknown>;
@@ -29,6 +35,60 @@ export function TriggerConfig({
   disabled,
   workflowId,
 }: TriggerConfigProps) {
+  const [inputs, setInputs] = useState<InputOption[]>([]);
+  const [localSchema, setLocalSchema] = useState<SchemaField[]>(() => {
+    try {
+      return config?.webhookSchema
+        ? (JSON.parse(config.webhookSchema as string) as SchemaField[])
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [schemaHasErrors, setSchemaHasErrors] = useState(false);
+
+  // Sync local schema when config changes externally
+  useEffect(() => {
+    try {
+      const parsed = config?.webhookSchema
+        ? (JSON.parse(config.webhookSchema as string) as SchemaField[])
+        : [];
+      setLocalSchema(parsed);
+      setSchemaHasErrors(inputs.length > 0 && hasSchemaTypeMismatches(parsed, inputs));
+    } catch {
+      // ignore
+    }
+  }, [config?.webhookSchema, inputs]);
+
+  useEffect(() => {
+    if (config?.triggerType !== "Webhook") return;
+    fetch("/api/inputs")
+      .then((r) => r.json())
+      .then((data: InputOption[]) => {
+        if (Array.isArray(data)) {
+          const systemInputs: InputOption[] = [
+            {
+              id: "__deal_id__",
+              input_label: "Deal ID",
+              input_code: "deal_id",
+              input_type: "text",
+            },
+          ];
+          setInputs([...systemInputs, ...data]);
+        }
+      })
+      .catch(() => {});
+  }, [config?.triggerType]);
+
+  const handleSchemaChange = (schema: SchemaField[]) => {
+    setLocalSchema(schema);
+    const hasErrors = inputs.length > 0 && hasSchemaTypeMismatches(schema, inputs);
+    setSchemaHasErrors(hasErrors);
+    if (!hasErrors) {
+      onUpdateConfig("webhookSchema", JSON.stringify(schema));
+    }
+  };
+
   const webhookUrl = workflowId
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/api/workflows/${workflowId}/webhook`
     : "";
@@ -102,17 +162,15 @@ export function TriggerConfig({
             <Label>Request Schema (Optional)</Label>
             <SchemaBuilder
               disabled={disabled}
-              onChange={(schema) =>
-                onUpdateConfig("webhookSchema", JSON.stringify(schema))
-              }
-              schema={
-                config?.webhookSchema
-                  ? (JSON.parse(
-                      config.webhookSchema as string
-                    ) as SchemaField[])
-                  : []
-              }
+              inputs={inputs}
+              onChange={handleSchemaChange}
+              schema={localSchema}
             />
+            {schemaHasErrors && (
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                Fix type mismatches above before saving.
+              </p>
+            )}
             <p className="text-muted-foreground text-xs">
               Define the expected structure of the incoming webhook payload.
             </p>
