@@ -33,7 +33,8 @@ export type ActionConfigFieldBase = {
     | "supabase-column" // Dynamic Supabase column picker (reads table from config)
     | "supabase-filter-builder" // Multi-condition filter builder with AND/OR
     | "supabase-schema-builder" // Schema builder with refresh from Supabase table
-    | "condition-builder"; // Visual IF condition builder with typed operators
+    | "condition-builder" // Visual IF condition builder with typed operators
+    | "toggle"; // Boolean toggle switch
 
   // Placeholder text
   placeholder?: string;

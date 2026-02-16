@@ -43,6 +43,15 @@ import {
   getAllIntegrations,
 } from "@/components/workflow-builder/plugins";
 import { Input } from "@repo/ui/shadcn/input";
+import { Textarea } from "@repo/ui/shadcn/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/shadcn/dialog";
 import { ActionConfigRenderer } from "./action-config-renderer";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
 
@@ -184,6 +193,7 @@ function ConditionBuilderInline({
 type ActionConfigProps = {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
   isOwner?: boolean;
 };
@@ -241,18 +251,228 @@ function DatabaseQueryFields({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  cURL parser                                                                */
+/* -------------------------------------------------------------------------- */
+
+function parseCurl(raw: string): {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+} {
+  // Normalise line continuations and collapse to single line
+  const command = raw
+    .replace(/\\\r?\n/g, " ")
+    .replace(/\r?\n/g, " ")
+    .trim();
+
+  // Tokenise respecting single and double quotes
+  const tokens: string[] = [];
+  let current = "";
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    const prev = i > 0 ? command[i - 1] : "";
+
+    if (ch === "'" && !inDouble && prev !== "\\") {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (ch === '"' && !inSingle && prev !== "\\") {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (ch === " " && !inSingle && !inDouble) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += ch;
+  }
+  if (current) tokens.push(current);
+
+  // Strip leading "curl" token
+  if (tokens.length > 0 && tokens[0].toLowerCase() === "curl") {
+    tokens.shift();
+  }
+
+  let method = "";
+  let url = "";
+  const headers: Record<string, string> = {};
+  let body = "";
+
+  const flagsWithArg = new Set([
+    "-X", "--request",
+    "-H", "--header",
+    "-d", "--data", "--data-raw", "--data-binary", "--data-urlencode",
+    "-u", "--user",
+    "-o", "--output",
+    "-A", "--user-agent",
+    "-e", "--referer",
+    "--url",
+    "-b", "--cookie",
+    "-c", "--cookie-jar",
+    "--connect-timeout",
+    "--max-time",
+    "-m",
+  ]);
+
+  const boolFlags = new Set([
+    "--compressed", "--insecure", "-k", "-L", "--location",
+    "-s", "--silent", "-S", "--show-error", "-v", "--verbose",
+    "-i", "--include", "-I", "--head",
+  ]);
+
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+
+    if (token === "-X" || token === "--request") {
+      method = (tokens[++i] ?? "GET").toUpperCase();
+    } else if (token === "-H" || token === "--header") {
+      const val = tokens[++i] ?? "";
+      const colonIdx = val.indexOf(":");
+      if (colonIdx > 0) {
+        const key = val.slice(0, colonIdx).trim();
+        const value = val.slice(colonIdx + 1).trim();
+        headers[key] = value;
+      }
+    } else if (
+      token === "-d" || token === "--data" ||
+      token === "--data-raw" || token === "--data-binary" ||
+      token === "--data-urlencode"
+    ) {
+      body = tokens[++i] ?? "";
+    } else if (token === "--url") {
+      url = tokens[++i] ?? "";
+    } else if (token === "-A" || token === "--user-agent") {
+      headers["User-Agent"] = tokens[++i] ?? "";
+    } else if (token === "-e" || token === "--referer") {
+      headers["Referer"] = tokens[++i] ?? "";
+    } else if (token === "-u" || token === "--user") {
+      const cred = tokens[++i] ?? "";
+      headers["Authorization"] = "Basic " + btoa(cred);
+    } else if (boolFlags.has(token)) {
+      // skip boolean flags
+    } else if (flagsWithArg.has(token)) {
+      i++; // skip unknown flag argument
+    } else if (token.startsWith("-")) {
+      // unknown flag, skip
+    } else if (!url) {
+      url = token;
+    }
+
+    i++;
+  }
+
+  // Default method
+  if (!method) {
+    method = body ? "POST" : "GET";
+  }
+
+  // Try to pretty-print body if it's JSON
+  if (body) {
+    try {
+      body = JSON.stringify(JSON.parse(body), null, 2);
+    } catch {
+      // Leave as-is if not valid JSON
+    }
+  }
+
+  return { method, url, headers, body };
+}
+
 // HTTP Request fields component
 function HttpRequestFields({
   config,
   onUpdateConfig,
+  onBatchUpdateConfig,
   disabled,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
 }) {
+  const [curlDialogOpen, setCurlDialogOpen] = useState(false);
+  const [curlInput, setCurlInput] = useState("");
+
+  const handleCurlImport = () => {
+    if (!curlInput.trim()) return;
+    const parsed = parseCurl(curlInput);
+    const updates: Record<string, string> = {
+      httpMethod: parsed.method,
+      endpoint: parsed.url,
+      httpHeaders: JSON.stringify(parsed.headers, null, 2),
+    };
+    if (parsed.body) {
+      updates.httpBody = parsed.body;
+    }
+    if (onBatchUpdateConfig) {
+      onBatchUpdateConfig(updates);
+    } else {
+      for (const [key, value] of Object.entries(updates)) {
+        onUpdateConfig(key, value);
+      }
+    }
+    setCurlDialogOpen(false);
+    setCurlInput("");
+  };
+
   return (
     <>
+      {/* Import cURL button */}
+      <div className="flex items-center justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => setCurlDialogOpen(true)}
+          className="text-xs h-7"
+        >
+          Import cURL
+        </Button>
+      </div>
+
+      {/* Import cURL dialog */}
+      <Dialog open={curlDialogOpen} onOpenChange={setCurlDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import cURL command</DialogTitle>
+            <DialogDescription>
+              Paste a cURL command to auto-fill the HTTP request fields.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Paste the cURL command here"
+              value={curlInput}
+              onChange={(e) => setCurlInput(e.target.value)}
+              rows={8}
+              className="font-mono text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              This will overwrite the current Method, URL, Headers, and Body values.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={!curlInput.trim()}
+              onClick={handleCurlImport}
+            >
+              Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-2">
         <Label htmlFor="httpMethod">HTTP Method</Label>
         <Select
@@ -389,11 +609,13 @@ function SystemActionFields({
   actionType,
   config,
   onUpdateConfig,
+  onBatchUpdateConfig,
   disabled,
 }: {
   actionType: string;
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
 }) {
   switch (actionType) {
@@ -403,6 +625,7 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          onBatchUpdateConfig={onBatchUpdateConfig}
         />
       );
     case "Database Query":
@@ -2227,6 +2450,7 @@ function normalizeActionType(actionType: string): string {
 export function ActionConfig({
   config,
   onUpdateConfig,
+  onBatchUpdateConfig,
   disabled,
   isOwner = true,
 }: ActionConfigProps) {
@@ -2431,6 +2655,7 @@ export function ActionConfig({
         config={config}
         disabled={disabled}
         onUpdateConfig={onUpdateConfig}
+        onBatchUpdateConfig={onBatchUpdateConfig}
       />
 
       {/* Plugin actions - declarative config fields */}

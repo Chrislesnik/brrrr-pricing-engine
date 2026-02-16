@@ -100,19 +100,6 @@ const supabasePlugin: IntegrationPlugin = {
           required: true,
         },
         {
-          key: "columns",
-          label: "Columns",
-          type: "template-input",
-          placeholder: "* or id, name, status (comma-separated)",
-          defaultValue: "*",
-        },
-        {
-          key: "filters",
-          label: "Filters",
-          type: "supabase-filter-builder",
-          placeholder: "",
-        },
-        {
           key: "filterMatch",
           label: "Filter Match",
           type: "select",
@@ -123,11 +110,27 @@ const supabasePlugin: IntegrationPlugin = {
           ],
         },
         {
+          key: "filters",
+          label: "Filters",
+          type: "supabase-filter-builder",
+          placeholder: "",
+        },
+        {
+          key: "returnAll",
+          label: "Return All Rows",
+          type: "toggle",
+          defaultValue: "false",
+        },
+        {
           key: "limit",
           label: "Limit",
           type: "number",
           defaultValue: "50",
           min: 1,
+          showWhen: {
+            field: "returnAll",
+            equals: "false",
+          },
         },
         {
           key: "orderBy",
