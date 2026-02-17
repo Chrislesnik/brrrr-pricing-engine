@@ -13,12 +13,16 @@ import {
   deleteOrgPolicy,
   getAvailableResources,
   getColumnFilters,
+} from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
+import {
+  FEATURE_RESOURCES,
   type OrgPolicyRow,
   type ConditionInput,
   type PolicyDefinitionInput,
   type PolicyScope,
   type PolicyEffect,
-} from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
+  type PolicyAction,
+} from "@/app/(pricing-engine)/org/[orgId]/settings/policies/constants";
 import {
   PolicyConditionRow,
   type ConditionFieldOption,
@@ -89,11 +93,16 @@ const standardOperators = [
   { value: "is_not", label: "is not" },
 ];
 
-const actionOptions = [
+const dataActionOptions = [
   { value: "select", label: "Select" },
   { value: "insert", label: "Insert" },
   { value: "update", label: "Update" },
   { value: "delete", label: "Delete" },
+];
+
+const featureActionOptions = [
+  { value: "submit", label: "Submit" },
+  { value: "view", label: "View" },
 ];
 
 const resourceScopeOptions = [
@@ -373,7 +382,7 @@ export default function OrgPolicyBuilder({
         console.error("Failed to load member roles:", err);
       }
 
-      // Load available tables and buckets
+      // Load available tables, buckets, and features
       try {
         const resources = await getAvailableResources();
         const opts: Array<{ value: string; label: string }> = [
@@ -391,6 +400,13 @@ export default function OrgPolicyBuilder({
               label: `Bucket: ${bucket}`,
             });
           }
+        }
+        // Add feature resources
+        for (const feat of resources.features) {
+          opts.push({
+            value: `feature:${feat.name}`,
+            label: `Feature: ${feat.label}`,
+          });
         }
         setResourceOptions(opts);
       } catch (err) {
@@ -451,8 +467,42 @@ export default function OrgPolicyBuilder({
     setConditions((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Determine if any selected resource is a feature
+  const hasFeatureSelected = selectedResources.some((r) => r.startsWith("feature:"));
+  const hasDataSelected = selectedResources.some(
+    (r) => r.startsWith("table:") || r.startsWith("storage_bucket:")
+  );
+
+  // Contextual action options: features get submit/view, data gets CRUD
+  const activeActionOptions = hasFeatureSelected && !hasDataSelected
+    ? featureActionOptions
+    : hasDataSelected && !hasFeatureSelected
+      ? dataActionOptions
+      : [...dataActionOptions, ...featureActionOptions];
+
+  // Reset selected actions when switching between data and feature modes
+  useEffect(() => {
+    if (hasFeatureSelected && !hasDataSelected) {
+      // Only keep feature-valid actions
+      const featureVals = new Set(featureActionOptions.map((o) => o.value));
+      setSelectedActions((prev) => {
+        const valid = prev.filter((a) => featureVals.has(a));
+        return valid.length > 0 ? valid : ["submit"];
+      });
+    } else if (hasDataSelected && !hasFeatureSelected) {
+      // Only keep data-valid actions
+      const dataVals = new Set(dataActionOptions.map((o) => o.value));
+      setSelectedActions((prev) => {
+        const valid = prev.filter((a) => dataVals.has(a));
+        return valid.length > 0 ? valid : ["select", "insert", "update", "delete"];
+      });
+    }
+  }, [hasFeatureSelected, hasDataSelected]);
+
   // Determine if scope selector should be enabled based on selected resources
+  // Features don't have row-level scope
   const scopeEnabled = (() => {
+    if (hasFeatureSelected) return false;
     // If "All Tables" or "All Buckets" is selected, scope is meaningful
     if (selectedResources.some((r) => r.endsWith(":*"))) return true;
     // For specific tables, check if they have ownership columns
@@ -507,15 +557,14 @@ export default function OrgPolicyBuilder({
             const colonIdx = resource.indexOf(":");
             const resourceType = resource.substring(0, colonIdx) as
               | "table"
-              | "storage_bucket";
+              | "storage_bucket"
+              | "feature";
             const resourceName = resource.substring(colonIdx + 1);
 
             await saveOrgPolicy({
               resourceType,
               resourceName: resourceName === "*" ? undefined : resourceName,
-              actions: selectedActions as Array<
-                "select" | "insert" | "update" | "delete"
-              >,
+              actions: selectedActions as PolicyAction[],
               definition,
             });
           }
@@ -690,7 +739,7 @@ export default function OrgPolicyBuilder({
             <span className="text-sm font-semibold shrink-0">Set permissions to</span>
             <div className="flex-1 min-w-[200px]">
               <ChipsSelect
-                options={actionOptions}
+                options={activeActionOptions}
                 selected={selectedActions}
                 onChange={setSelectedActions}
                 placeholder="Select actions..."
@@ -719,7 +768,11 @@ export default function OrgPolicyBuilder({
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">scoped to</span>
-              {!scopeEnabled && (
+              {hasFeatureSelected && !hasDataSelected ? (
+                <span className="text-xs text-muted-foreground">
+                  (not applicable for feature policies)
+                </span>
+              ) : !scopeEnabled && (
                 <span className="text-xs text-muted-foreground">
                   (selected resource has no ownership columns)
                 </span>
@@ -829,13 +882,18 @@ export default function OrgPolicyBuilder({
             <div className="divide-y">
               {initialPolicies.map((policy) => {
                 const resourceLabel =
-                  policy.resource_type === "storage_bucket"
-                    ? "Storage Buckets"
-                    : "Tables";
+                  policy.resource_type === "feature"
+                    ? "Features"
+                    : policy.resource_type === "storage_bucket"
+                      ? "Storage Buckets"
+                      : "Tables";
+                const featureMeta = policy.resource_type === "feature"
+                  ? FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)
+                  : null;
                 const resourceScope =
                   policy.resource_name === "*"
                     ? `All ${resourceLabel}`
-                    : policy.resource_name;
+                    : featureMeta?.label ?? policy.resource_name;
 
                 return (
                   <div
@@ -978,9 +1036,17 @@ export default function OrgPolicyBuilder({
                         <tr key={policy.id}>
                           <td className="py-2 pr-4">
                             <span className="font-mono text-xs">
-                              {policy.resource_type === "storage_bucket" ? "bucket" : "table"}
+                              {policy.resource_type === "feature"
+                                ? "feature"
+                                : policy.resource_type === "storage_bucket"
+                                  ? "bucket"
+                                  : "table"}
                             </span>
-                            <span className="ml-1">{policy.resource_name}</span>
+                            <span className="ml-1">
+                              {policy.resource_type === "feature"
+                                ? (FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)?.label ?? policy.resource_name)
+                                : policy.resource_name}
+                            </span>
                           </td>
                           <td className="py-2 pr-4">
                             <Badge variant="outline" className="text-xs font-mono uppercase">

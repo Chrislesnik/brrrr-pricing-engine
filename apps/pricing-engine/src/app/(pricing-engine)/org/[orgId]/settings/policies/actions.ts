@@ -3,42 +3,30 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-// v2 condition-based input
-export type ConditionInput = {
-  field: string;      // "org_role" | "member_role" | "org_type" | "internal_user"
-  operator: "is" | "is_not";
-  values: string[];
-};
+// Re-export types from constants (type-only re-exports are fine in "use server")
+export type {
+  ConditionInput,
+  PolicyScope,
+  PolicyEffect,
+  PolicyDefinitionInput,
+  ResourceType,
+  PolicyAction,
+  OrgPolicyRow,
+} from "./constants";
 
-export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
-export type PolicyEffect = "ALLOW" | "DENY";
-
-export type PolicyDefinitionInput = {
-  allowInternalUsers: boolean;
-  conditions: ConditionInput[];
-  connector: "AND" | "OR";
-  scope?: PolicyScope;
-  effect?: PolicyEffect;
-};
-
-export type OrgPolicyRow = {
-  id: string;
-  resource_type: "table" | "storage_bucket";
-  resource_name: string;
-  action: "select" | "insert" | "update" | "delete" | "all";
-  definition_json: Record<string, unknown>;
-  compiled_config: Record<string, unknown>;
-  scope: PolicyScope;
-  effect: PolicyEffect;
-  version: number;
-  is_active: boolean;
-  created_at: string;
-};
+import type {
+  PolicyDefinitionInput,
+  ResourceType,
+  PolicyAction,
+  OrgPolicyRow,
+  PolicyScope,
+} from "./constants";
+import { FEATURE_RESOURCES } from "./constants";
 
 type SavePolicyInput = {
-  resourceType: "table" | "storage_bucket";
-  resourceName?: string; // specific table/bucket name, defaults to "*" (all)
-  actions: Array<"select" | "insert" | "update" | "delete">;
+  resourceType: ResourceType;
+  resourceName?: string;
+  actions: PolicyAction[];
   definition: PolicyDefinitionInput;
 };
 
@@ -342,6 +330,7 @@ export async function updateOrgPolicy(input: {
 export async function getAvailableResources(): Promise<{
   tables: string[];
   buckets: string[];
+  features: typeof FEATURE_RESOURCES;
 }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
@@ -367,6 +356,7 @@ export async function getAvailableResources(): Promise<{
       .filter((t) => !excludedTables.includes(t))
       .sort() ?? [],
     buckets: buckets?.map((b) => b.name).sort() ?? [],
+    features: FEATURE_RESOURCES,
   };
 }
 

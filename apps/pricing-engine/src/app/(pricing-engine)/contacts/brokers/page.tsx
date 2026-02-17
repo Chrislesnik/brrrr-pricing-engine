@@ -8,11 +8,12 @@ import RowActions from "./components/broker-row-actions"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { cn } from "@repo/lib/cn"
 import { BrokerStatusCell } from "./components/broker-status-cell"
+import { checkFeatureAccess } from "@/lib/orgs"
 
 export default async function BrokersPage() {
-  const { orgId, userId, orgRole } = await auth()
-  // Hide/Ban access for brokers
-  if (orgRole === "org:broker" || orgRole === "broker") {
+  const { orgId, userId } = await auth()
+  const canView = await checkFeatureAccess("organization_invitations", "view").catch(() => false)
+  if (!canView) {
     notFound()
   }
   const rows = orgId ? await getBrokersForOrg(orgId, userId ?? undefined) : []

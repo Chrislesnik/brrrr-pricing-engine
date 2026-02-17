@@ -3,13 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useAuth } from "@clerk/nextjs";
 import {
   Building2,
   Settings,
   User,
-  Palette,
-  Globe,
   Laptop,
   Moon,
   Sun,
@@ -28,6 +25,7 @@ import {
 } from "@repo/ui/shadcn/command";
 
 import { NAVIGATION_CONFIG, flattenNavigation, type NavItem } from "@/app/(pricing-engine)/config/navigation";
+import { useNavVisibility } from "@/hooks/use-nav-visibility";
 
 interface AppCommandDialogProps {
   open: boolean;
@@ -42,77 +40,7 @@ export function AppCommandDialog({
 }: AppCommandDialogProps) {
   const router = useRouter();
   const { setTheme } = useTheme();
-  const { has, orgRole, isLoaded } = useAuth();
-  const isOwner = orgRole === "org:owner" || orgRole === "owner";
-  
-  const [allowed, setAllowed] = React.useState<Record<string, boolean>>({});
-
-  // Pre-compute permission checks
-  React.useEffect(() => {
-    let active = true;
-    const keys = new Set<string>();
-    
-    const collectPermissions = (items: NavItem[]) => {
-      items.forEach(item => {
-        if (item.requiredPermission) keys.add(item.requiredPermission);
-        if (item.items) collectPermissions(item.items);
-      });
-    };
-    collectPermissions(NAVIGATION_CONFIG);
-
-    if (isOwner) {
-      const next: Record<string, boolean> = {};
-      Array.from(keys).forEach((k) => (next[k] = true));
-      setAllowed(next);
-    } else if (typeof has === "function" && isLoaded) {
-      Promise.all(
-        Array.from(keys).map(async (key) => ({
-          key,
-          ok: await has({ permission: key }),
-        }))
-      ).then((results) => {
-        if (!active) return;
-        const next: Record<string, boolean> = {};
-        results.forEach(({ key, ok }) => {
-          next[key] = ok;
-        });
-        setAllowed(next);
-      });
-    }
-    return () => {
-      active = false;
-    };
-  }, [has, isLoaded, isOwner]);
-
-  const isVisible = React.useCallback(
-    (item: NavItem) => {
-      const bareRole = orgRole ? orgRole.replace(/^org:/, "") : undefined;
-      
-      // Explicit allow list takes precedence
-      if (item.allowOrgRoles && item.allowOrgRoles.length) {
-        const allow =
-          (!!orgRole && item.allowOrgRoles.includes(orgRole)) ||
-          (!!bareRole && item.allowOrgRoles.includes(bareRole));
-        return !!allow;
-      }
-      
-      if (isOwner) return true;
-      
-      // Hide item if current org role is explicitly denied
-      if (item.denyOrgRoles && item.denyOrgRoles.length && orgRole) {
-        if (
-          item.denyOrgRoles.includes(orgRole) ||
-          (bareRole ? item.denyOrgRoles.includes(bareRole) : false)
-        ) {
-          return false;
-        }
-      }
-      
-      if (!item.requiredPermission) return true;
-      return !!allowed[item.requiredPermission];
-    },
-    [allowed, isOwner, orgRole]
-  );
+  const { isVisible } = useNavVisibility(NAVIGATION_CONFIG);
 
   const runCommand = React.useCallback(
     (command: () => void) => {

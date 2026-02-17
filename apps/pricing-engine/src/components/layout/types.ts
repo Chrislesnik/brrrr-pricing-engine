@@ -10,6 +10,16 @@ interface Team {
   plan: string
 }
 
+/**
+ * Policy-engine check for a nav item.
+ * When present, the item is visible only when the policy returns `allowed: true`.
+ */
+export interface NavPolicyCheck {
+  resourceType: string
+  resourceName: string
+  action: string
+}
+
 interface BaseNavItem {
   title: string
   badge?: string
@@ -20,16 +30,21 @@ interface BaseNavItem {
    */
   requiredPermission?: string
   /**
+   * @deprecated Prefer `policyCheck` for policy-driven visibility.
    * Optional list of organization roles that should NOT see this item.
-   * Accepts either Clerk-style roles (e.g. "org:broker") or bare roles (e.g. "broker").
-   * We will compare against both the Clerk `orgRole` and its version without the "org:" prefix.
    */
   denyOrgRoles?: string[]
   /**
+   * @deprecated Prefer `policyCheck` for policy-driven visibility.
    * Optional list of organization roles that are the ONLY ones allowed to see this item.
-   * If provided, this check takes precedence (even for owners).
    */
   allowOrgRoles?: string[]
+  /**
+   * Policy-engine visibility check. When provided, the item is visible only
+   * when the policy engine grants access for the specified resource + action.
+   * Takes precedence over denyOrgRoles / allowOrgRoles.
+   */
+  policyCheck?: NavPolicyCheck
   /**
    * Optional tooltip text shown on hover.
    */

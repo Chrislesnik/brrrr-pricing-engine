@@ -27,6 +27,16 @@ import { TbHomeSearch } from "react-icons/tb";
 // TYPES
 // ============================================================================
 
+/**
+ * Policy-engine check for a nav item.
+ * When present, the item is visible only when the policy returns `allowed: true`.
+ */
+export interface NavPolicyCheck {
+  resourceType: string;
+  resourceName: string;
+  action: string;
+}
+
 export interface NavItem {
   title: string;
   url?: string;
@@ -35,8 +45,16 @@ export interface NavItem {
   
   // RBAC
   requiredPermission?: string;
+  /** @deprecated Prefer `policyCheck` for policy-driven visibility. */
   denyOrgRoles?: string[];
+  /** @deprecated Prefer `policyCheck` for policy-driven visibility. */
   allowOrgRoles?: string[];
+  /**
+   * Policy-engine visibility check. When provided, the item is visible only
+   * when the policy engine grants access for the specified resource + action.
+   * Takes precedence over denyOrgRoles / allowOrgRoles.
+   */
+  policyCheck?: NavPolicyCheck;
   
   // UI
   badge?: string;
@@ -165,7 +183,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       {
         title: "Brokers",
         icon: IconUser,
-        denyOrgRoles: ["org:broker", "broker"],
+        policyCheck: { resourceType: "feature", resourceName: "organization_invitations", action: "view" },
         items: [
           {
             title: "Individuals",

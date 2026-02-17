@@ -1,5 +1,5 @@
-import { clerkClient } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { syncAllExternalMembers } from "@/lib/sync-members"
 
 export type BrokerIndividualRow = {
 	id: string
@@ -125,79 +125,10 @@ export async function getExternalOrgMembers(): Promise<{
 }
 
 /**
- * JIT bulk sync for external org members (reuses the same logic).
+ * JIT bulk sync for external org members. Delegates to the shared
+ * syncAllExternalMembers() utility which handles batch queries,
+ * role precedence, and pending invite roles.
  */
 export async function syncExternalIndividualsFromClerk(): Promise<void> {
-	try {
-		const { data: orgs, error } = await supabaseAdmin
-			.from("organizations")
-			.select("id, clerk_organization_id")
-			.eq("is_internal_yn", false)
-			.not("clerk_organization_id", "is", null)
-
-		if (error || !orgs?.length) return
-
-		const clerk = await clerkClient()
-
-		for (const org of orgs) {
-			const clerkOrgId = org.clerk_organization_id as string
-			const supabaseOrgId = org.id as string
-			if (!clerkOrgId) continue
-
-			try {
-				let offset = 0
-				const limit = 100
-				let hasMore = true
-
-				while (hasMore) {
-					const page =
-						await clerk.organizations.getOrganizationMembershipList({
-							organizationId: clerkOrgId,
-							limit,
-							offset,
-						})
-					const items = page.data ?? []
-
-					for (const m of items) {
-						const memUserId = m.publicUserData?.userId
-						if (!memUserId) continue
-
-						const clerkRole = m.role ?? "member"
-						const memberRole =
-							typeof (m.publicMetadata as Record<string, unknown>)
-								?.org_member_role === "string"
-								? ((m.publicMetadata as Record<string, unknown>)
-										.org_member_role as string)
-								: clerkRole
-
-						await supabaseAdmin
-							.from("organization_members")
-							.upsert(
-								{
-									organization_id: supabaseOrgId,
-									user_id: memUserId,
-									clerk_org_role: clerkRole,
-									clerk_member_role: memberRole,
-									first_name:
-										m.publicUserData?.firstName ?? null,
-									last_name:
-										m.publicUserData?.lastName ?? null,
-								},
-								{ onConflict: "organization_id,user_id" }
-							)
-					}
-
-					hasMore = items.length === limit
-					offset += limit
-				}
-			} catch (orgSyncErr) {
-				console.error(
-					`syncExternalIndividuals: failed for org ${supabaseOrgId}`,
-					orgSyncErr
-				)
-			}
-		}
-	} catch (err) {
-		console.error("syncExternalIndividualsFromClerk: unexpected error", err)
-	}
+	return syncAllExternalMembers()
 }

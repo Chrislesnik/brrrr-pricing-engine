@@ -12,11 +12,20 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, MoreHorizontal, UserPlus, Settings, Archive } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -34,6 +43,8 @@ import type {
 interface Props {
   data: BrokerOrgRow[]
   initialMembersMap?: Record<string, OrgMemberRow[]>
+  /** Called when "Invite Members" is selected from a row action dropdown */
+  onInviteMembers?: (orgId: string) => void
 }
 
 function formatDate(iso: string | null | undefined) {
@@ -54,7 +65,7 @@ function formatRole(role: string | null | undefined) {
   return role.replace(/^org:/, "").replace(/_/g, " ")
 }
 
-export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
+export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
@@ -186,8 +197,52 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
           </span>
         ),
       },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const org = row.original
+          return (
+            <div className="flex justify-end">
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    aria-label="Open menu"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onSelect={() => onInviteMembers?.(org.id)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4 opacity-60" />
+                      Invite Members
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem className="text-red-600">
+                      <Archive className="mr-2 h-4 w-4" />
+                      Archive
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+        meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },
+      },
     ]
-  }, [expandedRows])
+  }, [expandedRows, onInviteMembers])
 
   const table = useReactTable({
     data,

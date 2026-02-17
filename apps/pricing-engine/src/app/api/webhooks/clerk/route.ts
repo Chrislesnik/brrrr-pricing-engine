@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       const m = (data ?? {}) as ClerkMembershipPayload
       const userId = m.user_id ?? m.public_user_data?.user_id ?? ""
       const organizationId = m.organization_id ?? m.organization?.id ?? ""
-      const role = m.role ?? "member"
+      const role = (m.role ?? "member").replace(/^org:/, "")
       let memberRole =
         typeof m.public_metadata?.org_member_role === "string"
           ? m.public_metadata?.org_member_role

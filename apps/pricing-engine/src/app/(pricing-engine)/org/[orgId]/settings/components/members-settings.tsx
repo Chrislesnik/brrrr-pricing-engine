@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
-import { Label } from "@repo/ui/shadcn/label";
 import { Badge } from "@repo/ui/shadcn/badge";
 import {
   Card,
@@ -24,14 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/shadcn/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/shadcn/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
+import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import {
   getOrgMemberRoles,
   setOrgMemberRole,
@@ -60,9 +52,6 @@ export function MembersSettings() {
     },
   });
   const { user } = useUser();
-  const [isInviting, setIsInviting] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("org:member");
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [memberRoles, setMemberRoles] = useState<Record<string, string | null>>(
@@ -123,24 +112,6 @@ export function MembersSettings() {
     return name.includes(query) || email.includes(query);
   });
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
-
-    setIsInviting(true);
-    try {
-      await organization.inviteMember({
-        emailAddress: inviteEmail,
-        role: inviteRole as "org:admin" | "org:member",
-      });
-      setInviteEmail("");
-      setShowInviteDialog(false);
-    } catch (error) {
-      console.error("Failed to invite member:", error);
-    } finally {
-      setIsInviting(false);
-    }
-  };
-
   const handleRemoveMember = async (membershipId: string) => {
     try {
       const memberToRemove = membersList.find((m) => m.id === membershipId);
@@ -196,60 +167,17 @@ export function MembersSettings() {
             Manage who has access to this organization
           </p>
         </div>
-        <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="mr-2 size-4" />
-              Invite member
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite a new member</DialogTitle>
-              <DialogDescription>
-                Send an invitation to join {organization.name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-email">Email address</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="colleague@company.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-role">Role</Label>
-                <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger id="invite-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="org:member">Member</SelectItem>
-                    <SelectItem value="org:admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowInviteDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleInvite} disabled={isInviting}>
-                  {isInviting && (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  )}
-                  Send invitation
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowInviteDialog(true)}>
+          <UserPlus className="mr-2 size-4" />
+          Invite member
+        </Button>
+        <InviteMemberDialog
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+          onSuccess={() => memberships?.revalidate()}
+          orgName={organization.name}
+          orgReadOnly
+        />
       </div>
 
       {/* Search */}
@@ -330,7 +258,6 @@ export function MembersSettings() {
                         onValueChange={(value) =>
                           handleUpdateRole(member.id, value)
                         }
-                        disabled={isCurrentUser}
                       >
                         <SelectTrigger className="w-28">
                           <SelectValue />
@@ -350,7 +277,6 @@ export function MembersSettings() {
                         }
                         disabled={
                           !clerkUserId ||
-                          isCurrentUser ||
                           isMemberRoleLoading ||
                           isSavingMemberRole
                         }

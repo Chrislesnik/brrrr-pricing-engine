@@ -28,73 +28,12 @@ import {
 } from "@repo/ui/shadcn/tooltip"
 import { Badge } from "../ui/badge"
 import { NavItem, type NavGroup } from "./types"
-import { useAuth } from "@clerk/nextjs"
+import { useNavVisibility } from "@/hooks/use-nav-visibility"
 
 export function NavGroup({ title, items }: NavGroup) {
   const { setOpenMobile } = useSidebar()
   const pathname = usePathname()
-  const { has, orgRole, isLoaded } = useAuth()
-  const isOwner = orgRole === "org:owner" || orgRole === "owner"
-
-  const [allowed, setAllowed] = React.useState<Record<string, boolean>>({})
-
-  React.useEffect(() => {
-    let active = true
-    const keys = new Set<string>()
-    items.forEach((item) => {
-      if ("requiredPermission" in item && item.requiredPermission) {
-        keys.add(item.requiredPermission)
-      }
-      if ("items" in item && item.items?.length) {
-        item.items.forEach((sub) => {
-          if (sub.requiredPermission) keys.add(sub.requiredPermission)
-        })
-      }
-    })
-    if (isOwner) {
-      // Owners can see all items regardless of explicit permissions
-      const next: Record<string, boolean> = {}
-      Array.from(keys).forEach((k) => (next[k] = true))
-      setAllowed(next)
-    } else if (typeof has === "function" && isLoaded) {
-      Promise.all(
-        Array.from(keys).map(async (key) => ({
-          key,
-          ok: await has({ permission: key }),
-        }))
-      ).then((results) => {
-        if (!active) return
-        const next: Record<string, boolean> = {}
-        results.forEach(({ key, ok }) => {
-          next[key] = ok
-        })
-        setAllowed(next)
-      })
-    }
-    return () => {
-      active = false
-    }
-  }, [items, has, isOwner, isLoaded])
-
-  const isVisible = (item: { requiredPermission?: string; denyOrgRoles?: string[]; allowOrgRoles?: string[] }) => {
-    const bareRole = orgRole ? orgRole.replace(/^org:/, "") : undefined
-    // Explicit allow list takes precedence (even for owners)
-    if (item.allowOrgRoles && item.allowOrgRoles.length) {
-      const allow =
-        (!!orgRole && item.allowOrgRoles.includes(orgRole)) ||
-        (!!bareRole && item.allowOrgRoles.includes(bareRole))
-      return !!allow
-    }
-    if (isOwner) return true
-    // Hide item if current org role is explicitly denied
-    if (item.denyOrgRoles && item.denyOrgRoles.length && orgRole) {
-      if (item.denyOrgRoles.includes(orgRole) || (bareRole ? item.denyOrgRoles.includes(bareRole) : false)) {
-        return false
-      }
-    }
-    if (!item.requiredPermission) return true
-    return !!allowed[item.requiredPermission]
-  }
+  const { isVisible } = useNavVisibility(items)
 
   return (
     <SidebarGroup>

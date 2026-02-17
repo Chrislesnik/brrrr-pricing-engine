@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { checkFeatureAccess } from "@/lib/orgs"
 
 /**
  * GET /api/brokers/individuals/[memberId]/organizations
@@ -13,13 +14,15 @@ export async function GET(
   { params }: { params: Promise<{ memberId: string }> }
 ) {
   try {
-    const { orgId: clerkOrgId, orgRole } = await auth()
+    const { orgId: clerkOrgId } = await auth()
 
     if (!clerkOrgId) {
       return NextResponse.json({ organizations: [] })
     }
 
-    if (orgRole === "org:broker" || orgRole === "broker") {
+    // Policy-engine check: replaces hardcoded org:broker deny
+    const canView = await checkFeatureAccess("organization_invitations", "view")
+    if (!canView) {
       return NextResponse.json(
         { organizations: [], error: "Forbidden" },
         { status: 403 }
