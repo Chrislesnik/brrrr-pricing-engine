@@ -1,17 +1,8 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import Link from "next/link"
 import useSWR from "swr"
 import { UserPlus } from "lucide-react"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@repo/ui/shadcn/breadcrumb"
 import { Button } from "@repo/ui/shadcn/button"
 import { BrokerCompaniesTable } from "../../components/broker-companies-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
@@ -80,25 +71,6 @@ export default function BrokerOrganizationsPage() {
   return (
     <>
       <div className="mb-4 flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/contacts/brokers/individual">Brokers</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Organizations</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex-none text-xl font-bold tracking-tight">
             Broker Organizations
