@@ -24,6 +24,7 @@ import {
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover";
 import { Button } from "@repo/ui/shadcn/button";
+import { Switch } from "@repo/ui/shadcn/switch";
 import { cn } from "@repo/lib/cn";
 import { TemplateBadgeInput } from "@/components/workflow-builder/ui/template-badge-input";
 import { TemplateBadgeTextarea } from "@/components/workflow-builder/ui/template-badge-textarea";
@@ -175,6 +176,35 @@ function SupabaseTableField({ field, value, onChange, disabled, onUpdateConfig }
     return () => { cancelled = true; };
   }, []);
 
+  // Auto-populate outputSchema when the selected table changes.
+  // This runs in a useEffect so that onUpdateConfig uses the latest
+  // render's closure (which already includes the updated table value),
+  // avoiding the stale-closure bug that previously clobbered the table.
+  useEffect(() => {
+    if (!onUpdateConfig) return;
+    if (!value) {
+      onUpdateConfig("outputSchema", "");
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/supabase-schema?type=columns&table=${encodeURIComponent(value)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data.columns)) {
+          const schema = data.columns.map((col: { name: string; type: string }) => ({
+            name: col.name,
+            type: mapPostgresTypeToSchemaType(col.type),
+            description: col.type,
+          }));
+          onUpdateConfig("outputSchema", JSON.stringify(schema));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground h-9 px-3 border rounded-md">
@@ -210,38 +240,10 @@ function SupabaseTableField({ field, value, onChange, disabled, onUpdateConfig }
                   key={table}
                   value={table}
                   onSelect={(currentValue) => {
-                    const selectedTable = currentValue === value ? "" : currentValue;
-                    onChange(selectedTable);
+                    onChange(currentValue === value ? "" : currentValue);
                     setOpen(false);
-                    // Fetch columns and auto-populate outputSchema for @ autocomplete
-                    // NOTE: Only make ONE onUpdateConfig call to avoid clobbering —
-                    // handleUpdateConfig spreads from stale config, so two sequential
-                    // calls would cause the second to overwrite the first.
-                    if (selectedTable && onUpdateConfig) {
-                      fetch(`/api/supabase-schema?type=columns&table=${encodeURIComponent(selectedTable)}`)
-                        .then((res) => res.json())
-                        .then((data) => {
-                          if (Array.isArray(data.columns)) {
-                            const schema = data.columns.map((col: { name: string; type: string }) => ({
-                              name: col.name,
-                              type: mapPostgresTypeToSchemaType(col.type),
-                              description: col.type,
-                            }));
-                            onUpdateConfig("outputSchema", JSON.stringify(schema));
-                          }
-                        })
-                        .catch(() => {});
-                    } else if (!selectedTable && onUpdateConfig) {
-                      onUpdateConfig("outputSchema", "");
-                    }
                   }}
                 >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === table ? "opacity-100" : "opacity-0"
-                    )}
-                  />
                   {table}
                 </CommandItem>
               ))}
@@ -446,45 +448,56 @@ function SupabaseFilterBuilderField({ field, value, onChange, disabled, config }
   return (
     <div className="space-y-2">
       {conditions.map((cond, idx) => (
-        <div key={idx} className="flex items-center gap-1.5">
-          {/* Column picker */}
-          <Select
-            disabled={disabled || !tableName}
-            value={cond.column}
-            onValueChange={(v) => updateCondition(idx, "column", v)}
-          >
-            <SelectTrigger className="w-[140px] text-xs h-8">
-              <SelectValue placeholder="Column" />
-            </SelectTrigger>
-            <SelectContent>
-              {columns.map((col) => (
-                <SelectItem key={col.name} value={col.name}>
-                  <span className="text-xs">{col.name}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div key={idx} className="rounded-md border p-2.5 space-y-2">
+          {/* Row 1: Column + Operator + Delete */}
+          <div className="flex items-center gap-1.5">
+            <Select
+              disabled={disabled || !tableName}
+              value={cond.column}
+              onValueChange={(v) => updateCondition(idx, "column", v)}
+            >
+              <SelectTrigger className="flex-1 text-xs h-8">
+                <SelectValue placeholder="Column" />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((col) => (
+                  <SelectItem key={col.name} value={col.name}>
+                    <span className="text-xs">{col.name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Operator */}
-          <Select
-            disabled={disabled}
-            value={cond.operator}
-            onValueChange={(v) => updateCondition(idx, "operator", v)}
-          >
-            <SelectTrigger className="w-[120px] text-xs h-8">
-              <SelectValue placeholder="Operator" />
-            </SelectTrigger>
-            <SelectContent>
-              {FILTER_OPERATORS.map((op) => (
-                <SelectItem key={op.value} value={op.value}>
-                  <span className="text-xs">{op.label}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select
+              disabled={disabled}
+              value={cond.operator}
+              onValueChange={(v) => updateCondition(idx, "operator", v)}
+            >
+              <SelectTrigger className="flex-1 text-xs h-8">
+                <SelectValue placeholder="Operator" />
+              </SelectTrigger>
+              <SelectContent>
+                {FILTER_OPERATORS.map((op) => (
+                  <SelectItem key={op.value} value={op.value}>
+                    <span className="text-xs">{op.label}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Value */}
-          <div className="flex-1 text-xs">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+              disabled={disabled}
+              onClick={() => removeCondition(idx)}
+            >
+              <span className="text-sm">×</span>
+            </Button>
+          </div>
+
+          {/* Row 2: Value */}
+          <div className="text-xs">
             <TemplateBadgeInput
               disabled={disabled}
               placeholder="Value or @node"
@@ -492,17 +505,6 @@ function SupabaseFilterBuilderField({ field, value, onChange, disabled, config }
               onChange={(val) => updateCondition(idx, "value", val)}
             />
           </div>
-
-          {/* Delete */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-            disabled={disabled}
-            onClick={() => removeCondition(idx)}
-          >
-            <span className="text-sm">×</span>
-          </Button>
         </div>
       ))}
       <Button
@@ -586,6 +588,23 @@ function SupabaseSchemaBuilderField({
   );
 }
 
+function ToggleField({ field, value, onChange, disabled }: FieldProps) {
+  const checked = value === "true";
+  return (
+    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+      <Label htmlFor={field.key} className="text-sm font-normal cursor-pointer">
+        {field.label}
+      </Label>
+      <Switch
+        id={field.key}
+        disabled={disabled}
+        checked={checked}
+        onCheckedChange={(val) => onChange(val ? "true" : "false")}
+      />
+    </div>
+  );
+}
+
 const FIELD_RENDERERS: Record<
   string,
   React.ComponentType<FieldProps>
@@ -595,6 +614,7 @@ const FIELD_RENDERERS: Record<
   text: TextInputField,
   number: NumberInputField,
   select: SelectField,
+  toggle: ToggleField,
   "schema-builder": SchemaBuilderField,
   "condition-builder": ConditionBuilderField,
 };
@@ -853,8 +873,15 @@ function renderField(
 ) {
   // Check conditional rendering
   if (field.showWhen) {
-    const dependentValue = config[field.showWhen.field];
-    if (dependentValue !== field.showWhen.equals) {
+    const dependentValue = config[field.showWhen.field] as string | undefined;
+    // Treat undefined/empty as defaultValue of the dependent field, or just compare directly
+    const effectiveValue = dependentValue ?? "";
+    const expectedValue = field.showWhen.equals;
+    // For "false" comparisons, also treat empty/undefined as "false"
+    const matches =
+      effectiveValue === expectedValue ||
+      (expectedValue === "false" && !effectiveValue);
+    if (!matches) {
       return null;
     }
   }
@@ -888,6 +915,20 @@ function renderField(
   }
 
   const FieldRenderer = FIELD_RENDERERS[field.type];
+
+  // Toggle renders its own inline label
+  if (field.type === "toggle") {
+    return (
+      <div key={field.key}>
+        <FieldRenderer
+          disabled={disabled}
+          field={field}
+          onChange={(val) => onUpdateConfig(field.key, val)}
+          value={value}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2" key={field.key}>

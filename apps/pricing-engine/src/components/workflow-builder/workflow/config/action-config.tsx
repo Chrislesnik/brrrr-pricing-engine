@@ -6,8 +6,8 @@ import {
   edgesAtom,
   selectedNodeAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
-import { HelpCircle, Plus, Settings } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { HelpCircle, Maximize2, Plus, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
 import { AiGatewayConsentOverlay } from "@/components/workflow-builder/overlays/ai-gateway-consent-overlay";
 import { useOverlay } from "@/components/workflow-builder/overlays/overlay-provider";
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select";
 import { TemplateBadgeInput } from "@/components/workflow-builder/ui/template-badge-input";
+import { ExpressionEditorModal } from "@/components/workflow-builder/ui/expression-editor-modal";
 import {
   Tooltip,
   TooltipContent,
@@ -43,6 +44,15 @@ import {
   getAllIntegrations,
 } from "@/components/workflow-builder/plugins";
 import { Input } from "@repo/ui/shadcn/input";
+import { Textarea } from "@repo/ui/shadcn/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/shadcn/dialog";
 import { ActionConfigRenderer } from "./action-config-renderer";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
 
@@ -184,6 +194,7 @@ function ConditionBuilderInline({
 type ActionConfigProps = {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
   isOwner?: boolean;
 };
@@ -193,10 +204,12 @@ function DatabaseQueryFields({
   config,
   onUpdateConfig,
   disabled,
+  currentNodeId,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
+  currentNodeId?: string;
 }) {
   return (
     <>
@@ -204,6 +217,7 @@ function DatabaseQueryFields({
         <Label htmlFor="dbQuery">SQL Query</Label>
         <div className="overflow-hidden rounded-md border">
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="sql"
             height="150px"
             onChange={(value) => onUpdateConfig("dbQuery", value || "")}
@@ -241,18 +255,238 @@ function DatabaseQueryFields({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  cURL parser                                                                */
+/* -------------------------------------------------------------------------- */
+
+function parseCurl(raw: string): {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+} {
+  // Normalise line continuations and collapse to single line
+  const command = raw
+    .replace(/\\\r?\n/g, " ")
+    .replace(/\r?\n/g, " ")
+    .trim();
+
+  // Tokenise respecting single and double quotes
+  const tokens: string[] = [];
+  let current = "";
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    const prev = i > 0 ? command[i - 1] : "";
+
+    if (ch === "'" && !inDouble && prev !== "\\") {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (ch === '"' && !inSingle && prev !== "\\") {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (ch === " " && !inSingle && !inDouble) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += ch;
+  }
+  if (current) tokens.push(current);
+
+  // Strip leading "curl" token
+  if (tokens.length > 0 && tokens[0].toLowerCase() === "curl") {
+    tokens.shift();
+  }
+
+  let method = "";
+  let url = "";
+  const headers: Record<string, string> = {};
+  let body = "";
+
+  const flagsWithArg = new Set([
+    "-X", "--request",
+    "-H", "--header",
+    "-d", "--data", "--data-raw", "--data-binary", "--data-urlencode",
+    "-u", "--user",
+    "-o", "--output",
+    "-A", "--user-agent",
+    "-e", "--referer",
+    "--url",
+    "-b", "--cookie",
+    "-c", "--cookie-jar",
+    "--connect-timeout",
+    "--max-time",
+    "-m",
+  ]);
+
+  const boolFlags = new Set([
+    "--compressed", "--insecure", "-k", "-L", "--location",
+    "-s", "--silent", "-S", "--show-error", "-v", "--verbose",
+    "-i", "--include", "-I", "--head",
+  ]);
+
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+
+    if (token === "-X" || token === "--request") {
+      method = (tokens[++i] ?? "GET").toUpperCase();
+    } else if (token === "-H" || token === "--header") {
+      const val = tokens[++i] ?? "";
+      const colonIdx = val.indexOf(":");
+      if (colonIdx > 0) {
+        const key = val.slice(0, colonIdx).trim();
+        const value = val.slice(colonIdx + 1).trim();
+        headers[key] = value;
+      }
+    } else if (
+      token === "-d" || token === "--data" ||
+      token === "--data-raw" || token === "--data-binary" ||
+      token === "--data-urlencode"
+    ) {
+      body = tokens[++i] ?? "";
+    } else if (token === "--url") {
+      url = tokens[++i] ?? "";
+    } else if (token === "-A" || token === "--user-agent") {
+      headers["User-Agent"] = tokens[++i] ?? "";
+    } else if (token === "-e" || token === "--referer") {
+      headers["Referer"] = tokens[++i] ?? "";
+    } else if (token === "-u" || token === "--user") {
+      const cred = tokens[++i] ?? "";
+      headers["Authorization"] = "Basic " + btoa(cred);
+    } else if (boolFlags.has(token)) {
+      // skip boolean flags
+    } else if (flagsWithArg.has(token)) {
+      i++; // skip unknown flag argument
+    } else if (token.startsWith("-")) {
+      // unknown flag, skip
+    } else if (!url) {
+      url = token;
+    }
+
+    i++;
+  }
+
+  // Default method
+  if (!method) {
+    method = body ? "POST" : "GET";
+  }
+
+  // Try to pretty-print body if it's JSON
+  if (body) {
+    try {
+      body = JSON.stringify(JSON.parse(body), null, 2);
+    } catch {
+      // Leave as-is if not valid JSON
+    }
+  }
+
+  return { method, url, headers, body };
+}
+
 // HTTP Request fields component
 function HttpRequestFields({
   config,
   onUpdateConfig,
+  onBatchUpdateConfig,
   disabled,
+  currentNodeId,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
+  currentNodeId?: string;
 }) {
+  const [curlDialogOpen, setCurlDialogOpen] = useState(false);
+  const [curlInput, setCurlInput] = useState("");
+  const [headersModalOpen, setHeadersModalOpen] = useState(false);
+  const [bodyModalOpen, setBodyModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!config?.httpMethod) {
+      onUpdateConfig("httpMethod", "POST");
+    }
+  }, []);
+
+  const handleCurlImport = () => {
+    if (!curlInput.trim()) return;
+    const parsed = parseCurl(curlInput);
+    const updates: Record<string, string> = {
+      httpMethod: parsed.method,
+      endpoint: parsed.url,
+      httpHeaders: JSON.stringify(parsed.headers, null, 2),
+    };
+    if (parsed.body) {
+      updates.httpBody = parsed.body;
+    }
+    if (onBatchUpdateConfig) {
+      onBatchUpdateConfig(updates);
+    } else {
+      for (const [key, value] of Object.entries(updates)) {
+        onUpdateConfig(key, value);
+      }
+    }
+    setCurlDialogOpen(false);
+    setCurlInput("");
+  };
+
   return (
     <>
+      {/* Import cURL button */}
+      <div className="flex items-center justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => setCurlDialogOpen(true)}
+          className="text-xs h-7"
+        >
+          Import cURL
+        </Button>
+      </div>
+
+      {/* Import cURL dialog */}
+      <Dialog open={curlDialogOpen} onOpenChange={setCurlDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import cURL command</DialogTitle>
+            <DialogDescription>
+              Paste a cURL command to auto-fill the HTTP request fields.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Paste the cURL command here"
+              value={curlInput}
+              onChange={(e) => setCurlInput(e.target.value)}
+              rows={8}
+              className="font-mono text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              This will overwrite the current Method, URL, Headers, and Body values.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={!curlInput.trim()}
+              onClick={handleCurlImport}
+            >
+              Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-2">
         <Label htmlFor="httpMethod">HTTP Method</Label>
         <Select
@@ -284,8 +518,9 @@ function HttpRequestFields({
       </div>
       <div className="space-y-2">
         <Label htmlFor="httpHeaders">Headers (JSON)</Label>
-        <div className="overflow-hidden rounded-md border">
+        <div className="relative overflow-hidden rounded-md border">
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="json"
             height="100px"
             onChange={(value) => onUpdateConfig("httpHeaders", value || "{}")}
@@ -299,14 +534,32 @@ function HttpRequestFields({
             }}
             value={(config?.httpHeaders as string) || "{}"}
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+            onClick={() => setHeadersModalOpen(true)}
+            title="Open expression editor"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
+      <ExpressionEditorModal
+        open={headersModalOpen}
+        onOpenChange={setHeadersModalOpen}
+        title="Headers (JSON)"
+        value={(config?.httpHeaders as string) || "{}"}
+        onChange={(v) => onUpdateConfig("httpHeaders", v || "{}")}
+        readOnly={disabled}
+      />
       <div className="space-y-2">
         <Label htmlFor="httpBody">Body (JSON)</Label>
         <div
-          className={`overflow-hidden rounded-md border ${config?.httpMethod === "GET" ? "opacity-50" : ""}`}
+          className={`relative overflow-hidden rounded-md border ${config?.httpMethod === "GET" ? "opacity-50" : ""}`}
         >
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="json"
             height="120px"
             onChange={(value) => onUpdateConfig("httpBody", value || "{}")}
@@ -321,6 +574,17 @@ function HttpRequestFields({
             }}
             value={(config?.httpBody as string) || "{}"}
           />
+          {config?.httpMethod !== "GET" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+              onClick={() => setBodyModalOpen(true)}
+              title="Open expression editor"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
         {config?.httpMethod === "GET" && (
           <p className="text-muted-foreground text-xs">
@@ -328,6 +592,14 @@ function HttpRequestFields({
           </p>
         )}
       </div>
+      <ExpressionEditorModal
+        open={bodyModalOpen}
+        onOpenChange={setBodyModalOpen}
+        title="Body (JSON)"
+        value={(config?.httpBody as string) || "{}"}
+        onChange={(v) => onUpdateConfig("httpBody", v || "{}")}
+        readOnly={config?.httpMethod === "GET" || disabled}
+      />
     </>
   );
 }
@@ -389,13 +661,17 @@ function SystemActionFields({
   actionType,
   config,
   onUpdateConfig,
+  onBatchUpdateConfig,
   disabled,
 }: {
   actionType: string;
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onBatchUpdateConfig?: (updates: Record<string, string>) => void;
   disabled: boolean;
 }) {
+  const currentNodeId = useAtomValue(selectedNodeAtom) ?? undefined;
+
   switch (actionType) {
     case "HTTP Request":
       return (
@@ -403,6 +679,8 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          onBatchUpdateConfig={onBatchUpdateConfig}
+          currentNodeId={currentNodeId}
         />
       );
     case "Database Query":
@@ -411,6 +689,7 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          currentNodeId={currentNodeId}
         />
       );
     case "Condition":
@@ -443,6 +722,7 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          currentNodeId={currentNodeId}
         />
       );
     case "Switch":
@@ -555,13 +835,16 @@ function CodeNodeFields({
   config,
   onUpdateConfig,
   disabled,
+  currentNodeId,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
+  currentNodeId?: string;
 }) {
   const mode = (config?.mode as string) || "runOnceAllItems";
   const code = config?.code as string | undefined;
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
 
   // Initialize defaults
   useEffect(() => {
@@ -615,8 +898,9 @@ function CodeNodeFields({
             {mode === "runOnceEachItem" ? "Runs per item" : "Runs once"}
           </span>
         </div>
-        <div className="overflow-hidden rounded-md border">
+        <div className="relative overflow-hidden rounded-md border">
           <CodeEditor
+            currentNodeId={currentNodeId}
             defaultLanguage="javascript"
             height="250px"
             value={code ?? DEFAULT_CODE_ALL_ITEMS}
@@ -633,12 +917,30 @@ function CodeNodeFields({
               automaticLayout: true,
             }}
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+            onClick={() => setCodeModalOpen(true)}
+            title="Open expression editor"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <p className="text-[10px] text-muted-foreground">
           Use <code className="font-mono bg-muted px-1 rounded">$input.all()</code> for input data and{" "}
           <code className="font-mono bg-muted px-1 rounded">{"$node['Name']"}</code> for specific nodes.
         </p>
       </div>
+      <ExpressionEditorModal
+        open={codeModalOpen}
+        onOpenChange={setCodeModalOpen}
+        title="JavaScript"
+        language="javascript"
+        value={code ?? DEFAULT_CODE_ALL_ITEMS}
+        onChange={(v) => onUpdateConfig("code", v || "")}
+        readOnly={disabled}
+      />
 
       {/* AI Code Assistant */}
       <CodeAIAssistant
@@ -678,6 +980,18 @@ function CodeAIAssistant({
   const nodes = useAtomValue(nodesAtom);
   const edges = useAtomValue(edgesAtom);
   const selectedNodeId = useAtomValue(selectedNodeAtom);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizePrompt = useCallback(() => {
+    const el = promptRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, []);
+
+  useEffect(() => {
+    resizePrompt();
+  }, [aiPrompt, resizePrompt]);
 
   const handleGenerate = async () => {
     if (!aiPrompt.trim() || generating) return;
@@ -723,12 +1037,17 @@ function CodeAIAssistant({
 
       const decoder = new TextDecoder();
       let accumulated = "";
+      let lastUpdate = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
-        setSuggestion(accumulated);
+        const now = Date.now();
+        if (now - lastUpdate > 250) {
+          setSuggestion(accumulated);
+          lastUpdate = now;
+        }
       }
 
       // Clean up any markdown fences the model might have included
@@ -747,8 +1066,9 @@ function CodeAIAssistant({
   return (
     <div className="space-y-2">
       <Label className="text-xs">AI Code Assistant</Label>
-      <div className="flex items-center gap-1.5">
-        <Input
+      <div className="flex items-end gap-1.5">
+        <textarea
+          ref={promptRef}
           disabled={disabled || generating}
           placeholder="Describe what the code should do..."
           value={aiPrompt}
@@ -759,14 +1079,15 @@ function CodeAIAssistant({
               void handleGenerate();
             }
           }}
-          className="h-8 text-xs flex-1"
+          rows={1}
+          className="min-h-[32px] max-h-[160px] w-full resize-none overflow-y-auto rounded-md border border-input bg-background px-3 py-1.5 text-xs leading-5 shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1"
         />
         <Button
           variant="default"
           size="sm"
           disabled={disabled || generating || !aiPrompt.trim()}
           onClick={() => void handleGenerate()}
-          className="h-8 text-xs shrink-0 px-3"
+          className="h-8 text-xs shrink-0 px-3 self-end"
         >
           {generating ? "Generating..." : "Generate"}
         </Button>
@@ -2227,6 +2548,7 @@ function normalizeActionType(actionType: string): string {
 export function ActionConfig({
   config,
   onUpdateConfig,
+  onBatchUpdateConfig,
   disabled,
   isOwner = true,
 }: ActionConfigProps) {
@@ -2431,6 +2753,7 @@ export function ActionConfig({
         config={config}
         disabled={disabled}
         onUpdateConfig={onUpdateConfig}
+        onBatchUpdateConfig={onBatchUpdateConfig}
       />
 
       {/* Plugin actions - declarative config fields */}

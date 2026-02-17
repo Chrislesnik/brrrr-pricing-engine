@@ -26,7 +26,7 @@ export default function UserDetailPage({ params }: Props) {
   const user = userList.find((user) => user.id === id)
 
   if (!user) {
-    return redirect(`/scenarios`)
+    return redirect(`/dashboard`)
   }
 
   return (
@@ -55,7 +55,7 @@ export default function UserDetailPage({ params }: Props) {
           <h1 className="text-lg font-bold">
             User Details: {`${user.firstName} ${user.lastName}`}
           </h1>
-          <Badge variant="outline" className="text-muted-foreground">
+          <Badge variant="outline" className="text-muted-foreground max-w-[180px] truncate">
             {user.id}
           </Badge>
         </div>

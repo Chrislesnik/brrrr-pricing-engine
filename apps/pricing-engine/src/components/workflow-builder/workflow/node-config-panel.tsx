@@ -440,6 +440,13 @@ export const PanelInner = () => {
     }
   };
 
+  const handleBatchUpdateConfig = (updates: Record<string, string>) => {
+    if (selectedNode) {
+      const newConfig = { ...selectedNode.data.config, ...updates };
+      updateNodeData({ id: selectedNode.id, data: { config: newConfig } });
+    }
+  };
+
   const handleUpdateWorkspaceName = async (newName: string) => {
     setCurrentWorkflowName(newName);
 
@@ -837,6 +844,7 @@ export const PanelInner = () => {
                   disabled={isGenerating || !isOwner}
                   isOwner={isOwner}
                   onUpdateConfig={handleUpdateConfig}
+                  onBatchUpdateConfig={handleBatchUpdateConfig}
                 />
               ) : null}
 

@@ -21,6 +21,7 @@ export type SupabaseGetManyInput = StepInput & {
   columns?: string;
   filters?: string; // JSON string of FilterCondition[]
   filterMatch?: "and" | "or";
+  returnAll?: string; // "true" to skip limit and return all rows
   limit?: string | number;
   orderBy?: string;
   orderDirection?: string;
@@ -105,12 +106,14 @@ async function stepHandler(input: SupabaseGetManyInput): Promise<GetManyResult> 
         });
       }
 
-      // Apply limit
-      const limit = typeof input.limit === "number"
-        ? input.limit
-        : Number.parseInt(String(input.limit || "50"), 10);
-      if (limit > 0) {
-        query = query.limit(limit);
+      // Apply limit (skip if returnAll is enabled)
+      if (input.returnAll !== "true") {
+        const limit = typeof input.limit === "number"
+          ? input.limit
+          : Number.parseInt(String(input.limit || "50"), 10);
+        if (limit > 0) {
+          query = query.limit(limit);
+        }
       }
 
       const { data, error } = await query;
@@ -137,12 +140,14 @@ async function stepHandler(input: SupabaseGetManyInput): Promise<GetManyResult> 
       });
     }
 
-    // Apply limit
-    const limit = typeof input.limit === "number"
-      ? input.limit
-      : Number.parseInt(String(input.limit || "50"), 10);
-    if (limit > 0) {
-      query = query.limit(limit);
+    // Apply limit (skip if returnAll is enabled)
+    if (input.returnAll !== "true") {
+      const limit = typeof input.limit === "number"
+        ? input.limit
+        : Number.parseInt(String(input.limit || "50"), 10);
+      if (limit > 0) {
+        query = query.limit(limit);
+      }
     }
 
     const { data, error } = await query;

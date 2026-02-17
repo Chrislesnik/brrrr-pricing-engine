@@ -268,164 +268,249 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
           <span className="font-medium">Organizations</span>
           <Filter column={table.getColumn("name")!} />
         </div>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="h-12 border-t">
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="text-muted-foreground first:pl-4 last:pr-4"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
-                const isOpen = !!expandedRows[row.id]
-                const orgId = row.original.id
-                return (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() && "selected"}
-                      className="cursor-pointer"
-                      onClick={(e) => {
-                        if (isAnyDialogOpen()) return
-                        const interactive = (
-                          e.target as HTMLElement
-                        ).closest(
-                          "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
-                        )
-                        if (interactive) return
-                        toggleRow(row.id, orgId)
-                      }}
-                      aria-expanded={isOpen}
+        {/* Desktop table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="h-12 border-t">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="text-muted-foreground first:pl-4 last:pr-4"
                     >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className="h-14 first:pl-4 last:pr-4"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
                           )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {isOpen ? (
-                      membersLoading[orgId] &&
-                      membersMap[orgId] === undefined ? (
-                        <TableRow className="bg-muted/30">
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => {
+                  const isOpen = !!expandedRows[row.id]
+                  const orgId = row.original.id
+                  return (
+                    <Fragment key={row.id}>
+                      <TableRow
+                        data-state={row.getIsSelected() && "selected"}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          if (isAnyDialogOpen()) return
+                          const interactive = (
+                            e.target as HTMLElement
+                          ).closest(
+                            "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
+                          )
+                          if (interactive) return
+                          toggleRow(row.id, orgId)
+                        }}
+                        aria-expanded={isOpen}
+                      >
+                        {row.getVisibleCells().map((cell) => (
                           <TableCell
-                            colSpan={columns.length}
-                            className="text-muted-foreground p-4 text-sm"
+                            key={cell.id}
+                            className="h-14 first:pl-4 last:pr-4"
                           >
-                            Loading members...
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </TableCell>
-                        </TableRow>
-                      ) : membersMap[orgId] == null ? (
-                        <TableRow className="bg-muted/30">
-                          <TableCell
-                            colSpan={columns.length}
-                            className="text-destructive p-4 text-sm"
-                          >
-                            Failed to load members.
-                          </TableCell>
-                        </TableRow>
-                      ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
-                        <TableRow className="bg-muted/30">
-                          <TableCell
-                            colSpan={columns.length}
-                            className="text-muted-foreground p-4 text-sm"
-                          >
-                            No members listed.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        <>
+                        ))}
+                      </TableRow>
+                      {isOpen ? (
+                        membersLoading[orgId] &&
+                        membersMap[orgId] === undefined ? (
                           <TableRow className="bg-muted/30">
                             <TableCell
                               colSpan={columns.length}
-                              className="p-0"
+                              className="text-muted-foreground p-4 text-sm"
                             >
-                              <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                <span>ID</span>
-                                <span>Name</span>
-                                <span>Org Role</span>
-                                <span>Member Role</span>
-                                <span>Joined</span>
-                              </div>
+                              Loading members...
                             </TableCell>
                           </TableRow>
-                          {membersMap[orgId]?.map((member) => (
-                            <TableRow
-                              key={member.id}
-                              className="bg-muted/30"
+                        ) : membersMap[orgId] == null ? (
+                          <TableRow className="bg-muted/30">
+                            <TableCell
+                              colSpan={columns.length}
+                              className="text-destructive p-4 text-sm"
                             >
+                              Failed to load members.
+                            </TableCell>
+                          </TableRow>
+                        ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
+                          <TableRow className="bg-muted/30">
+                            <TableCell
+                              colSpan={columns.length}
+                              className="text-muted-foreground p-4 text-sm"
+                            >
+                              No members listed.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          <>
+                            <TableRow className="bg-muted/30">
                               <TableCell
                                 colSpan={columns.length}
                                 className="p-0"
                               >
-                                <div className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm">
-                                  <div className="flex items-center">
-                                    <span className="text-muted-foreground mr-2">
-                                      ↳
-                                    </span>
-                                    <span className="text-muted-foreground">
-                                      {member.user_id
-                                        ? member.user_id.slice(0, 12) + "…"
-                                        : member.id.slice(0, 12) + "…"}
-                                    </span>
-                                  </div>
-                                  <div className="text-foreground font-semibold">
-                                    {[
-                                      member.first_name,
-                                      member.last_name,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" ") || "-"}
-                                  </div>
-                                  <div className="text-muted-foreground capitalize">
-                                    {formatRole(member.clerk_org_role)}
-                                  </div>
-                                  <div className="text-muted-foreground capitalize">
-                                    {formatRole(member.clerk_member_role)}
-                                  </div>
-                                  <div className="text-muted-foreground">
-                                    {formatDate(member.created_at)}
-                                  </div>
+                                <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
+                                  <span>ID</span>
+                                  <span>Name</span>
+                                  <span>Org Role</span>
+                                  <span>Member Role</span>
+                                  <span>Joined</span>
                                 </div>
                               </TableCell>
                             </TableRow>
-                          ))}
-                        </>
-                      )
-                    ) : null}
-                  </Fragment>
+                            {membersMap[orgId]?.map((member) => (
+                              <TableRow
+                                key={member.id}
+                                className="bg-muted/30"
+                              >
+                                <TableCell
+                                  colSpan={columns.length}
+                                  className="p-0"
+                                >
+                                  <div className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm">
+                                    <div className="flex items-center">
+                                      <span className="text-muted-foreground mr-2">
+                                        ↳
+                                      </span>
+                                      <span className="text-muted-foreground">
+                                        {member.user_id
+                                          ? member.user_id.slice(0, 12) + "\u2026"
+                                          : member.id.slice(0, 12) + "\u2026"}
+                                      </span>
+                                    </div>
+                                    <div className="text-foreground font-semibold">
+                                      {[
+                                        member.first_name,
+                                        member.last_name,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" ") || "-"}
+                                    </div>
+                                    <div className="text-muted-foreground capitalize">
+                                      {formatRole(member.clerk_org_role)}
+                                    </div>
+                                    <div className="text-muted-foreground capitalize">
+                                      {formatRole(member.clerk_member_role)}
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                      {formatDate(member.created_at)}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        )
+                      ) : null}
+                    </Fragment>
+                  )
+                })
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="text-muted-foreground h-24 text-center"
+                  >
+                    No organizations yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile card view */}
+        <div className="md:hidden">
+          <div className="space-y-3 p-3">
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => {
+                const org = row.original
+                const orgId = org.id
+                const isOpen = !!expandedRows[row.id]
+                return (
+                  <div key={row.id}>
+                    <div
+                      className="cursor-pointer rounded-lg border p-3"
+                      onClick={() => toggleRow(row.id, orgId)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[15px] font-semibold">{org.name || "-"}</div>
+                          <div className="mt-0.5 text-sm text-muted-foreground">{org.slug || "-"}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm text-muted-foreground">
+                            {org.member_count} member{org.member_count !== 1 ? "s" : ""}
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 text-muted-foreground transition-transform",
+                              isOpen ? "rotate-180" : "-rotate-90"
+                            )}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          Added {formatDate(org.created_at)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onInviteMembers?.(org.id)
+                          }}
+                        >
+                          <UserPlus className="mr-1 h-3 w-3" />
+                          Invite
+                        </Button>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div className="ml-3 mt-1 space-y-2 border-l-2 border-muted pl-3">
+                        {membersLoading[orgId] && membersMap[orgId] === undefined ? (
+                          <div className="py-2 text-sm text-muted-foreground">Loading members...</div>
+                        ) : membersMap[orgId] == null ? (
+                          <div className="py-2 text-sm text-destructive">Failed to load members.</div>
+                        ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
+                          <div className="py-2 text-sm text-muted-foreground">No members listed.</div>
+                        ) : (
+                          membersMap[orgId]?.map((member) => (
+                            <div key={member.id} className="rounded border p-2 text-sm">
+                              <div className="font-semibold">
+                                {[member.first_name, member.last_name].filter(Boolean).join(" ") || "-"}
+                              </div>
+                              <div className="mt-0.5 text-xs text-muted-foreground capitalize">
+                                {formatRole(member.clerk_org_role)} / {formatRole(member.clerk_member_role)}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )
               })
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground h-24 text-center"
-                >
-                  No organizations yet.
-                </TableCell>
-              </TableRow>
+              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                No organizations yet.
+              </div>
             )}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
       </div>
 
       <DataTablePagination table={table} />

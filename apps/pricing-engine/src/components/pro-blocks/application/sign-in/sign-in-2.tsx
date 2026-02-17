@@ -35,7 +35,7 @@ export function SignIn2() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        router.push("/scenarios");
+        router.push("/dashboard");
       }
     } catch (err: unknown) {
       const clerkError = err as { errors?: { message: string }[] };
@@ -52,7 +52,7 @@ export function SignIn2() {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sign-in/sso-callback",
-        redirectUrlComplete: "/scenarios",
+        redirectUrlComplete: "/dashboard",
       });
     } catch (err: unknown) {
       const clerkError = err as { errors?: { message: string }[] };

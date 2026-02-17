@@ -163,6 +163,19 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
     [selectedNode, updateNodeData]
   );
 
+  const handleBatchUpdateConfig = useCallback(
+    (updates: Record<string, string>) => {
+      if (!selectedNode) return;
+      updateNodeData({
+        id: selectedNode.id,
+        data: {
+          config: { ...selectedNode.data.config, ...updates },
+        },
+      });
+    },
+    [selectedNode, updateNodeData]
+  );
+
   const handleUpdateLabel = useCallback(
     (label: string) => {
       if (!selectedNode) return;
@@ -616,6 +629,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                   disabled={isGenerating || !isOwner}
                   isOwner={isOwner}
                   onUpdateConfig={handleUpdateConfig}
+                  onBatchUpdateConfig={handleBatchUpdateConfig}
                 />
               )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
 import {
@@ -1119,6 +1119,18 @@ function TaskConditionRow({
   const [sqlError, setSqlError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [completion, setCompletion] = useState("");
+  const sqlPromptRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizeSqlPrompt = useCallback(() => {
+    const el = sqlPromptRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, []);
+
+  useEffect(() => {
+    resizeSqlPrompt();
+  }, [sqlPrompt, resizeSqlPrompt]);
 
   const handleSqlGenerate = useCallback(async () => {
     if (!sqlPrompt.trim() || isGenerating) return;
@@ -1143,14 +1155,20 @@ function TaskConditionRow({
 
       const decoder = new TextDecoder();
       let fullText = "";
+      let lastUpdate = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         fullText += chunk;
-        setCompletion(fullText);
+        const now = Date.now();
+        if (now - lastUpdate > 250) {
+          setCompletion(fullText);
+          lastUpdate = now;
+        }
       }
+      setCompletion(fullText);
 
       // Commit the final result to the condition
       updateCondition(ruleIndex, condIndex, "sql_expression", fullText);
@@ -1547,11 +1565,11 @@ function TaskConditionRow({
         </div>
 
         {/* Inline AI prompt bar */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-end gap-1.5">
           <div className="relative flex-1">
-            <Sparkles className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
+            <Sparkles className="absolute left-2 top-2.5 size-3.5 text-muted-foreground pointer-events-none" />
+            <textarea
+              ref={sqlPromptRef}
               value={sqlPrompt}
               onChange={(e) => setSqlPrompt(e.target.value)}
               onKeyDown={(e) => {
@@ -1562,8 +1580,9 @@ function TaskConditionRow({
               }}
               placeholder="Describe the SQL you need..."
               disabled={isGenerating}
+              rows={1}
               className={cn(
-                "h-8 w-full rounded-md border border-input bg-background pl-7 pr-3 text-xs shadow-sm transition-colors",
+                "min-h-[32px] max-h-[160px] w-full resize-none overflow-y-auto rounded-md border border-input bg-background pl-7 pr-3 py-1.5 text-xs leading-5 shadow-sm transition-colors",
                 "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "disabled:cursor-not-allowed disabled:opacity-50"
               )}
@@ -1574,7 +1593,7 @@ function TaskConditionRow({
             onClick={handleSqlGenerate}
             disabled={!sqlPrompt.trim() || isGenerating}
             className={cn(
-              "flex items-center justify-center size-8 rounded-md border transition-colors shrink-0",
+              "flex items-center justify-center size-8 rounded-md border transition-colors shrink-0 self-end",
               sqlPrompt.trim() && !isGenerating
                 ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
                 : "bg-muted text-muted-foreground border-input cursor-not-allowed"

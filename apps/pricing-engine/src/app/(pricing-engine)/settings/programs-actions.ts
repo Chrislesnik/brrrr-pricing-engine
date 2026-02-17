@@ -112,12 +112,21 @@ export async function addProgramAction(formData: FormData) {
         status: "pending",
       })
       if (insErr) return { ok: false, error: insErr.message }
-      // Always notify the external webhook with the created program_document id
+      // Generate a 1-hour signed download URL for the uploaded file
+      const { data: signed } = await supabaseAdmin.storage
+        .from("program-docs")
+        .createSignedUrl(storagePath, 3600)
+      const downloadUrl = signed?.signedUrl ?? null
+      // Always notify the external webhook with the created program_document id + download URL
       try {
         await fetch("https://n8n.axora.info/webhook/e160666a-941f-4a3f-87d7-27025d01e449", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ program_document_id: documentId }),
+          body: JSON.stringify({
+            program_document_id: documentId,
+            storage_path: storagePath,
+            download_url: downloadUrl,
+          }),
         })
       } catch {
         // non-fatal
@@ -257,12 +266,21 @@ export async function updateProgramAction(formData: FormData) {
       if (insErr) {
         return { ok: false, error: insErr.message }
       }
-      // Always notify the external webhook with the created program_document id
+      // Generate a 1-hour signed download URL for the uploaded file
+      const { data: signed } = await supabaseAdmin.storage
+        .from("program-docs")
+        .createSignedUrl(storagePath, 3600)
+      const downloadUrl = signed?.signedUrl ?? null
+      // Always notify the external webhook with the created program_document id + download URL
       try {
         await fetch("https://n8n.axora.info/webhook/e160666a-941f-4a3f-87d7-27025d01e449", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ program_document_id: documentId }),
+          body: JSON.stringify({
+            program_document_id: documentId,
+            storage_path: storagePath,
+            download_url: downloadUrl,
+          }),
         })
       } catch {
         // non-fatal

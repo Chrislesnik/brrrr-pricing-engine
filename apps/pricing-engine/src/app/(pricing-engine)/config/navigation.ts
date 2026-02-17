@@ -69,7 +69,7 @@ export interface NavItem {
 // ============================================================================
 
 export const ROUTES = {
-  dashboard: "/",
+  dashboard: "/dashboard",
   pricingEngine: {
     pipeline: "/scenarios",
     deals: "/deals",
@@ -111,6 +111,17 @@ export const ROUTES = {
 // ============================================================================
 
 export const NAVIGATION_CONFIG: NavItem[] = [
+  {
+    title: "Dashboard",
+    items: [
+      {
+        title: "Dashboard",
+        url: ROUTES.dashboard,
+        icon: Home,
+        shortcut: ["D"],
+      },
+    ],
+  },
   {
     title: "Pricing Engine",
     items: [
@@ -264,8 +275,12 @@ function findNavItemByUrl(url: string, items: NavItem[]): NavItem | null {
   return null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const LONG_HEX_RE = /^[0-9a-f]{12,}$/i;
+
 /**
- * Generates breadcrumb segments from pathname using navigation config for labels
+ * Generates breadcrumb segments from pathname using navigation config for labels.
+ * UUID / long-hex segments are truncated so breadcrumbs stay compact on mobile.
  */
 export function getBreadcrumbSegments(pathname: string): { label: string; href?: string }[] {
   const segments = pathname.split("/").filter(Boolean);
@@ -280,6 +295,11 @@ export function getBreadcrumbSegments(pathname: string): { label: string; href?:
     let label =
       navItem?.title ||
       segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+
+    // Truncate UUID-like or long hex segments so they don't overflow
+    if (!navItem && (UUID_RE.test(segment) || LONG_HEX_RE.test(segment))) {
+      label = segment.slice(0, 8) + "\u2026";
+    }
 
     // Override Settings label for nested settings routes
     if (segment === "settings" && segments.length > 1) {

@@ -338,7 +338,7 @@ export function UserDetailForm({ user }: Props) {
               </pre>
             ),
           })
-          router.push("/scenarios")
+          router.push("/dashboard")
         }}
         className="max-w-md"
         title={`Send Reset Password Email?`}

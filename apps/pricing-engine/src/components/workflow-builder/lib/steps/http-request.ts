@@ -64,11 +64,19 @@ async function httpRequest(
     };
   }
 
+  const method = input.httpMethod || "POST";
+  const headers = parseHeaders(input.httpHeaders);
+  const body = parseBody(method, input.httpBody);
+
+  if (body && !Object.keys(headers).some((k) => k.toLowerCase() === "content-type")) {
+    headers["Content-Type"] = "application/json";
+  }
+
   try {
     const response = await fetch(input.endpoint, {
-      method: input.httpMethod,
-      headers: parseHeaders(input.httpHeaders),
-      body: parseBody(input.httpMethod, input.httpBody),
+      method,
+      headers,
+      body,
     });
 
     if (!response.ok) {
