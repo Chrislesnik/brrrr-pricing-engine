@@ -112,10 +112,18 @@ export function useNavVisibility(items: VisibleItem[]) {
     (item: VisibleItem): boolean => {
       const bareRole = orgRole ? orgRole.replace(/^org:/, "") : undefined
 
-      // 1. Policy check takes precedence when present
+      // 1. Policy check (when present)
+      //    If the policy engine returns true -> show.
+      //    If it returns false but the item also has legacy denyOrgRoles/allowOrgRoles,
+      //    fall through so the item degrades gracefully when the DB migration
+      //    hasn't been applied yet.
       if (item.policyCheck) {
         const key = `${item.policyCheck.resourceType}:${item.policyCheck.resourceName}:${item.policyCheck.action}`
-        return !!policyResults[key]
+        if (policyResults[key] === true) return true
+        // Only hard-deny if no legacy fallback is configured
+        const hasLegacyFallback = !!(item.denyOrgRoles?.length || item.allowOrgRoles?.length)
+        if (!hasLegacyFallback) return false
+        // Otherwise fall through to legacy checks below
       }
 
       // 2. Explicit allow list takes precedence (even for owners)

@@ -48,8 +48,10 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@repo/ui/shadcn/command";
 import { Separator } from "@repo/ui/shadcn/separator";
 import { RadioGroup, RadioGroupItem } from "@repo/ui/shadcn/radio-group";
@@ -228,6 +230,170 @@ function ChipsSelect({
 }
 
 // ============================================================================
+// Grouped Resource Multi-Select
+// ============================================================================
+
+interface ResourceOption {
+  value: string;
+  label: string;
+}
+
+function ResourceChipsSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: ResourceOption[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  placeholder: string;
+}) {
+  function toggle(value: string) {
+    if (selected.includes(value)) {
+      onChange(selected.filter((v) => v !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+  }
+
+  // Helper: format a chip label with a category prefix for clarity
+  function chipLabel(value: string, label: string): string {
+    if (value.endsWith(":*")) return label; // "All Tables", "All Storage Buckets"
+    if (value.startsWith("table:")) return `Table: ${label}`;
+    if (value.startsWith("storage_bucket:")) return `Bucket: ${label}`;
+    if (value.startsWith("feature:")) return `Feature: ${label}`;
+    return label;
+  }
+
+  // Group options by prefix
+  const wildcards = options.filter((o) => o.value.endsWith(":*"));
+  const tables = options.filter(
+    (o) => o.value.startsWith("table:") && !o.value.endsWith(":*")
+  );
+  const buckets = options.filter(
+    (o) => o.value.startsWith("storage_bucket:") && !o.value.endsWith(":*")
+  );
+  const features = options.filter((o) => o.value.startsWith("feature:"));
+
+  function renderItem(opt: ResourceOption) {
+    const isSelected = selected.includes(opt.value);
+    return (
+      <CommandItem
+        key={opt.value}
+        value={opt.value}
+        keywords={[opt.label]}
+        onSelect={() => toggle(opt.value)}
+        className="whitespace-nowrap"
+      >
+        <div
+          className={cn(
+            "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+            isSelected
+              ? "bg-primary border-primary text-primary-foreground"
+              : "border-muted-foreground/25"
+          )}
+        >
+          {isSelected && <Check className="h-3 w-3" />}
+        </div>
+        <span className="truncate">{opt.label}</span>
+      </CommandItem>
+    );
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="justify-between font-normal h-auto min-h-9 shadow-xs"
+        >
+          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+            {selected.length === 0 ? (
+              <span className="text-sm text-muted-foreground">{placeholder}</span>
+            ) : (
+              selected.map((v) => {
+                const opt = options.find((o) => o.value === v);
+                const display = opt ? chipLabel(v, opt.label) : v;
+                return (
+                  <Badge key={v} variant="secondary" className="text-xs gap-1 pr-1">
+                    {display}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20 cursor-pointer"
+                      aria-label={`Remove ${display}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggle(v);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          toggle(v);
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  </Badge>
+                );
+              })
+            )}
+          </div>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0 w-auto min-w-[var(--radix-popover-trigger-width)] max-w-[420px]"
+        align="start"
+      >
+        <Command>
+          <CommandInput placeholder="Search resources..." />
+          <CommandList className="max-h-[300px]">
+            <CommandEmpty>No resources found.</CommandEmpty>
+
+            {wildcards.length > 0 && (
+              <CommandGroup heading="Wildcards">
+                {wildcards.map(renderItem)}
+              </CommandGroup>
+            )}
+
+            {tables.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Tables">
+                  {tables.map(renderItem)}
+                </CommandGroup>
+              </>
+            )}
+
+            {buckets.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Storage Buckets">
+                  {buckets.map(renderItem)}
+                </CommandGroup>
+              </>
+            )}
+
+            {features.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Features">
+                  {features.map(renderItem)}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -390,14 +556,14 @@ export default function OrgPolicyBuilder({
         ];
         if (resources.tables.length > 0) {
           for (const table of resources.tables) {
-            opts.push({ value: `table:${table}`, label: `Table: ${table}` });
+            opts.push({ value: `table:${table}`, label: table });
           }
         }
         if (resources.buckets.length > 0) {
           for (const bucket of resources.buckets) {
             opts.push({
               value: `storage_bucket:${bucket}`,
-              label: `Bucket: ${bucket}`,
+              label: bucket,
             });
           }
         }
@@ -405,7 +571,7 @@ export default function OrgPolicyBuilder({
         for (const feat of resources.features) {
           opts.push({
             value: `feature:${feat.name}`,
-            label: `Feature: ${feat.label}`,
+            label: feat.label,
           });
         }
         setResourceOptions(opts);
@@ -753,7 +919,7 @@ export default function OrgPolicyBuilder({
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-semibold shrink-0">on</span>
             <div className="flex-1 min-w-[200px]">
-              <ChipsSelect
+              <ResourceChipsSelect
                 options={resourceOptions}
                 selected={selectedResources}
                 onChange={setSelectedResources}

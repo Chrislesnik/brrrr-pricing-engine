@@ -115,6 +115,7 @@ export const sidebarData: SidebarData = {
           title: "Brokers",
           icon: IconUser,
           policyCheck: { resourceType: "feature", resourceName: "organization_invitations", action: "view" },
+          denyOrgRoles: ["org:broker", "broker"],
           items: [
             {
               title: "Individuals",
