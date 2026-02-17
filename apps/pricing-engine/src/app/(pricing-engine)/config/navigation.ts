@@ -278,12 +278,21 @@ function findNavItemByUrl(url: string, items: NavItem[]): NavItem | null {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LONG_HEX_RE = /^[0-9a-f]{12,}$/i;
+const CLERK_ORG_ID_RE = /^org_/i;
 
 /**
  * Generates breadcrumb segments from pathname using navigation config for labels.
  * UUID / long-hex segments are truncated so breadcrumbs stay compact on mobile.
+ *
+ * @param pathname  Current URL pathname
+ * @param orgName   Optional active organization display name — replaces raw
+ *                  Clerk org ID segments (e.g. `org_38MVrt…`) with the human-
+ *                  readable name.
  */
-export function getBreadcrumbSegments(pathname: string): { label: string; href?: string }[] {
+export function getBreadcrumbSegments(
+  pathname: string,
+  orgName?: string | null,
+): { label: string; href?: string }[] {
   const segments = pathname.split("/").filter(Boolean);
   
   return segments.map((segment, index) => {
@@ -296,6 +305,11 @@ export function getBreadcrumbSegments(pathname: string): { label: string; href?:
     let label =
       navItem?.title ||
       segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+
+    // Replace Clerk org ID segments with the org's display name
+    if (!navItem && CLERK_ORG_ID_RE.test(segment) && orgName) {
+      label = orgName;
+    }
 
     // Truncate UUID-like or long hex segments so they don't overflow
     if (!navItem && (UUID_RE.test(segment) || LONG_HEX_RE.test(segment))) {

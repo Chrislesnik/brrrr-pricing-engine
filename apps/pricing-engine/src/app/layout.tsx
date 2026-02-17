@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import localFont from "next/font/local"
 import { Toaster } from "@repo/ui/shadcn/toaster"
 import "./globals.css"
 import { Providers } from "./providers"
 import { LinkInAppFix } from "./LinkInAppFix"
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "./fonts/InterVariable.woff2",
   display: "swap",
+  variable: "--font-inter",
 })
 
 export const metadata: Metadata = {

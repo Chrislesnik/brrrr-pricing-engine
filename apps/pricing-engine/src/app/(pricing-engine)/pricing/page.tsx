@@ -992,30 +992,8 @@ export default function PricingEnginePage() {
       loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
     )
     defaultsAppliedRef.current = true
-  }, [
-    initialLoanId,
-    borrowerType,
-    fthb,
-    citizenship,
-    mortgageDebtValue,
-    rural,
-    strValue,
-    decliningMarket,
-    annualFlood,
-    annualHoa,
-    annualMgmt,
-    closingDate,
-    loanStructureType,
-    ppp,
-    borrowerName,
-    uwException,
-    section8,
-    glaExpansion,
-    changeOfUse,
-    hoiEffective,
-    floodEffective,
-    taxEscrowMonths,
-  ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLoanId])
 
   // Keep Tax Escrow (months) default in sync with loan type until user edits it
   useEffect(() => {
@@ -2014,7 +1992,9 @@ export default function PricingEnginePage() {
       el.removeEventListener("change", markDirty, true)
     }
   }, [isDispatching, programResults, lastCalculatedKey])
-  // Also detect programmatic/default changes that don't emit input/change events
+  // Also detect programmatic/default changes that don't emit input/change events.
+  // Intentionally has no deps — must run on every render to catch any state change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
@@ -3173,39 +3153,49 @@ export default function PricingEnginePage() {
                               <div
                                 ref={predictionsMenuRef}
                                 className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow"
-                                role="listbox"
                                 onMouseDown={() => {
-                                  // Mark that the pointer is interacting within the menu (used by onBlur)
                                   pointerInMenuRef.current = true
                                 }}
                                 onMouseUp={() => {
-                                  // Reset after click completes
                                   pointerInMenuRef.current = false
                                 }}
                               >
-                                {predictions.map((p, idx) => (
-                                  <button
-                                    key={p.place_id}
-                                    type="button"
-                                    className={`flex w-full items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
-                                      idx === activePredictionIdx ? "bg-accent" : ""
-                                    }`}
-                                    onMouseEnter={() => setActivePredictionIdx(idx)}
-                                    onClick={() => {
-                                      applyPlaceById(p.place_id)
-                                    }}
-                                  >
-                                    <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <div className="flex min-w-0 flex-col">
-                                      <span className="truncate text-sm font-medium">
-                                        {p.structured_formatting?.main_text ?? p.description}
-                                      </span>
-                                      <span className="truncate text-xs text-muted-foreground">
-                                        {p.structured_formatting?.secondary_text ?? ""}
-                                      </span>
+                                <div
+                                  role="listbox"
+                                  aria-label="Address suggestions"
+                                >
+                                  {predictions.map((p, idx) => (
+                                    <div
+                                      key={p.place_id}
+                                      role="option"
+                                      aria-selected={idx === activePredictionIdx ? "true" : "false"}
+                                      tabIndex={-1}
+                                      className={`flex w-full cursor-pointer items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
+                                        idx === activePredictionIdx ? "bg-accent" : ""
+                                      }`}
+                                      onMouseEnter={() => setActivePredictionIdx(idx)}
+                                      onClick={() => {
+                                        applyPlaceById(p.place_id)
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                          e.preventDefault()
+                                          applyPlaceById(p.place_id)
+                                        }
+                                      }}
+                                    >
+                                      <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                      <div className="flex min-w-0 flex-col">
+                                        <span className="truncate text-sm font-medium">
+                                          {p.structured_formatting?.main_text ?? p.description}
+                                        </span>
+                                        <span className="truncate text-xs text-muted-foreground">
+                                          {p.structured_formatting?.secondary_text ?? ""}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </button>
-                                ))}
+                                  ))}
+                                </div>
                                 <div className="border-t px-2 py-1 text-right text-[10px] uppercase tracking-wide text-muted-foreground">
                                   Powered by Google
                                 </div>
@@ -3699,7 +3689,7 @@ export default function PricingEnginePage() {
                               onMonthChange={setClosingCalMonth}
                               onSelect={(d) => d && setClosingDate(d)}
                               disabled={{ before: new Date() }}
-                              captionLayout="label"
+                              captionLayout="dropdown"
                               className="rounded-md border min-w-[264px]"
                               initialFocus
                             />
@@ -5847,6 +5837,7 @@ function ResultsPanel({
         setSelected(selectedFromProps)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFromProps, results])
 
   // Main panel term sheet preview/download state

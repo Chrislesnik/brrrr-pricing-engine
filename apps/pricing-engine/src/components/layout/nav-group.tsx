@@ -42,44 +42,44 @@ export function NavGroup({ title, items }: NavGroup) {
         {items.filter(isVisible).map((item) => {
           if (!item.items) {
             if (!item.url) return null
-            const menuItem = (
+            const buttonContent = (
+              <SidebarMenuButton
+                asChild
+                isActive={checkIsActive(pathname, item, true)}
+                tooltip={item.title}
+              >
+                <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
+                  {item.badge && <NavBadge>{item.badge}</NavBadge>}
+                </Link>
+              </SidebarMenuButton>
+            )
+            return (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={checkIsActive(pathname, item, true)}
-                  tooltip={item.title}
-                >
-                  <Link href={item.url} onClick={() => setOpenMobile(false)}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    {item.badge && <NavBadge>{item.badge}</NavBadge>}
-                  </Link>
-                </SidebarMenuButton>
+                {item.tooltip ? (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {buttonContent}
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center" className="max-w-xs">
+                        <p>{item.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  buttonContent
+                )}
               </SidebarMenuItem>
             )
-            if (item.tooltip) {
-              return (
-                <TooltipProvider key={item.title} delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      {menuItem}
-                    </TooltipTrigger>
-                    <TooltipContent side="right" align="center" className="max-w-xs">
-                      <p>{item.tooltip}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            }
-            return menuItem
           }
           return (
-            <Collapsible
-              key={item.title}
-              defaultOpen={checkIsActive(pathname, item, true)}
-              className="group/collapsible"
-            >
-              <SidebarMenuItem>
+            <SidebarMenuItem key={item.title}>
+              <Collapsible
+                defaultOpen={checkIsActive(pathname, item, true)}
+                className="group/collapsible"
+              >
                 {item.url ? (
                   <div className="relative flex items-center gap-2">
                     <SidebarMenuButton
@@ -118,51 +118,51 @@ export function NavGroup({ title, items }: NavGroup) {
                     {item.items.filter(isVisible).map((subItem) => {
                       const nestedItems = subItem.items?.filter(isVisible) ?? []
                       if (subItem.url) {
-                        const subButton = (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={checkIsActive(pathname, subItem)}
+                        const subButtonContent = (
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={checkIsActive(pathname, subItem)}
+                          >
+                            <Link
+                              href={subItem.url}
+                              onClick={() => setOpenMobile(false)}
                             >
-                              <Link
-                                href={subItem.url}
-                                onClick={() => setOpenMobile(false)}
-                              >
-                                {subItem.icon && <subItem.icon />}
-                                <span>{subItem.title}</span>
-                                {subItem.badge && (
-                                  <NavBadge>{subItem.badge}</NavBadge>
-                                )}
-                              </Link>
-                            </SidebarMenuSubButton>
+                              {subItem.icon && <subItem.icon />}
+                              <span>{subItem.title}</span>
+                              {subItem.badge && (
+                                <NavBadge>{subItem.badge}</NavBadge>
+                              )}
+                            </Link>
+                          </SidebarMenuSubButton>
+                        )
+                        return (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            {subItem.tooltip ? (
+                              <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    {subButtonContent}
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" align="center" className="max-w-xs">
+                                    <p>{subItem.tooltip}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              subButtonContent
+                            )}
                           </SidebarMenuSubItem>
                         )
-                        if (subItem.tooltip) {
-                          return (
-                            <TooltipProvider key={subItem.title} delayDuration={300}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  {subButton}
-                                </TooltipTrigger>
-                                <TooltipContent side="right" align="center" className="max-w-xs">
-                                  <p>{subItem.tooltip}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )
-                        }
-                        return subButton
                       }
                       // Sub-item without URL: render as collapsible group if it has children,
                       // or a simple label if empty.
                       if (nestedItems.length > 0) {
                         return (
-                          <Collapsible
-                            key={subItem.title}
-                            defaultOpen={nestedItems.some((child) => checkIsActive(pathname, child))}
-                            className="group/nested-collapsible"
-                          >
-                            <SidebarMenuSubItem>
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <Collapsible
+                              defaultOpen={nestedItems.some((child) => checkIsActive(pathname, child))}
+                              className="group/nested-collapsible"
+                            >
                               <CollapsibleTrigger asChild>
                                 <button className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                                   {subItem.icon && <subItem.icon className="h-4 w-4" />}
@@ -175,43 +175,44 @@ export function NavGroup({ title, items }: NavGroup) {
                                 <ul className="mt-1 space-y-1 pl-6">
                                   {nestedItems.map((child) => {
                                     if (!child.url) return null
-                                    const childButton = (
-                                      <SidebarMenuSubItem key={`${subItem.title}-${child.title}`}>
-                                        <SidebarMenuSubButton
-                                          asChild
-                                          isActive={checkIsActive(pathname, child)}
+                                    const childButtonContent = (
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        isActive={checkIsActive(pathname, child)}
+                                      >
+                                        <Link
+                                          href={child.url}
+                                          onClick={() => setOpenMobile(false)}
                                         >
-                                          <Link
-                                            href={child.url}
-                                            onClick={() => setOpenMobile(false)}
-                                          >
-                                            {child.icon && <child.icon />}
-                                            <span>{child.title}</span>
-                                            {child.badge && <NavBadge>{child.badge}</NavBadge>}
-                                          </Link>
-                                        </SidebarMenuSubButton>
+                                          {child.icon && <child.icon />}
+                                          <span>{child.title}</span>
+                                          {child.badge && <NavBadge>{child.badge}</NavBadge>}
+                                        </Link>
+                                      </SidebarMenuSubButton>
+                                    )
+                                    return (
+                                      <SidebarMenuSubItem key={`${subItem.title}-${child.title}`}>
+                                        {child.tooltip ? (
+                                          <TooltipProvider delayDuration={300}>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                {childButtonContent}
+                                              </TooltipTrigger>
+                                              <TooltipContent side="right" align="center" className="max-w-xs">
+                                                <p>{child.tooltip}</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        ) : (
+                                          childButtonContent
+                                        )}
                                       </SidebarMenuSubItem>
                                     )
-                                    if (child.tooltip) {
-                                      return (
-                                        <TooltipProvider key={`${subItem.title}-${child.title}`} delayDuration={300}>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              {childButton}
-                                            </TooltipTrigger>
-                                            <TooltipContent side="right" align="center" className="max-w-xs">
-                                              <p>{child.tooltip}</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      )
-                                    }
-                                    return childButton
                                   })}
                                 </ul>
                               </CollapsibleContent>
-                            </SidebarMenuSubItem>
-                          </Collapsible>
+                            </Collapsible>
+                          </SidebarMenuSubItem>
                         )
                       }
                       // Empty stage label (no children)
@@ -227,8 +228,8 @@ export function NavGroup({ title, items }: NavGroup) {
                     })}
                   </SidebarMenuSub>
                 </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
+              </Collapsible>
+            </SidebarMenuItem>
           )
         })}
       </SidebarMenu>
