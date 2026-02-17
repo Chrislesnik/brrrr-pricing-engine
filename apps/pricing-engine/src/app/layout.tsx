@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import localFont from "next/font/local"
-import { Toaster } from "@repo/ui/shadcn/toaster"
+import { Toaster } from "@/components/toaster"
+import { Toaster as SonnerToaster } from "sonner"
 import "./globals.css"
 import { Providers } from "./providers"
 import { LinkInAppFix } from "./LinkInAppFix"
@@ -46,6 +47,7 @@ export default function RootLayout({
           {children}
         </Providers>
         <Toaster />
+        <SonnerToaster position="top-right" richColors closeButton />
       </body>
     </html>
   )

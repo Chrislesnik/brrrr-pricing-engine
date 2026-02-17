@@ -551,8 +551,13 @@ export default function PricingEnginePage() {
         setIsBrokerMember(j?.editable === false)
         setSelfMemberId(j?.self_member_id ?? null)
         setSelfBrokerId(j?.self_broker_id ?? null)
-      } catch {
-        // ignore
+      } catch (err) {
+        if (!active) return
+        toast({
+          title: "Failed to load user info",
+          description: "Your permissions may not display correctly. Try refreshing the page.",
+          variant: "destructive",
+        })
       }
     })()
     return () => { active = false }
@@ -767,13 +772,16 @@ export default function PricingEnginePage() {
           cache: "no-store",
           headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          if (active) toast({ title: "Failed to load programs", description: `Server returned ${res.status}. Programs may not appear.`, variant: "destructive" })
+          return
+        }
         const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
         if (!active) return
         const ph = Array.isArray(pj?.programs) ? pj.programs : []
         setProgramPlaceholders(ph)
-      } catch {
-        // ignore
+      } catch (err) {
+        if (active) toast({ title: "Failed to load programs", description: "Check your connection and try refreshing.", variant: "destructive" })
       }
     })()
     return () => {
@@ -1575,8 +1583,8 @@ export default function PricingEnginePage() {
           // initialize result slots in same order so containers render in place
           setProgramResults(ph.map((p) => ({ id: p.id, internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
         }
-      } catch {
-        // ignore prefetch errors; we'll still show a generic loader
+      } catch (err) {
+        toast({ title: "Program loading issue", description: "Could not prefetch programs. Results may still load.", variant: "destructive" })
       }
       const payload = buildPayload()
       try {
@@ -1668,8 +1676,9 @@ export default function PricingEnginePage() {
               }
               return next
             })
-          } catch {
-            // leave the loader if a single program fails; others will still resolve
+          } catch (err) {
+            const name = p.external_name || p.internal_name || `Program ${idx + 1}`
+            toast({ title: `${name} failed`, description: "This program could not be calculated. Other programs may still load.", variant: "destructive" })
           }
         })
       )
@@ -2037,8 +2046,8 @@ export default function PricingEnginePage() {
         } else {
           setSelectedScenarioId(undefined)
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        toast({ title: "Failed to load scenarios", description: "Could not retrieve saved scenarios for this loan.", variant: "destructive" })
       }
     })()
   }, [initialLoanId])
@@ -2202,7 +2211,10 @@ export default function PricingEnginePage() {
     ;(async () => {
       try {
         const res = await fetch(`/api/scenarios/${sid}`)
-        if (!res.ok) return
+        if (!res.ok) {
+          toast({ title: "Failed to load scenario", description: `Could not load scenario data (${res.status}).`, variant: "destructive" })
+          return
+        }
         const json = (await res.json()) as { scenario?: { inputs?: Record<string, unknown>; selected?: Record<string, unknown> } }
         const inputs = json.scenario?.inputs ?? {}
         applyInputsPayload(inputs as Record<string, unknown>)
@@ -2237,8 +2249,8 @@ export default function PricingEnginePage() {
                 dscr: sel["dscr"] as number | string | null,
               },
         })
-      } catch {
-        // ignore errors
+      } catch (err) {
+        toast({ title: "Failed to load scenario", description: "Could not restore saved inputs. Try selecting it again.", variant: "destructive" })
       }
     })()
   }, [selectedScenarioId])

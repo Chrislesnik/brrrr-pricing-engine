@@ -15,6 +15,9 @@ const middleware = clerkMiddleware(async (auth, req) => {
   const a = await auth()
 
   if (!isPublic && !a.userId) {
+    if (req.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     const signInUrl = new URL("/sign-in", req.url)
     signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search)
     return NextResponse.redirect(signInUrl)
