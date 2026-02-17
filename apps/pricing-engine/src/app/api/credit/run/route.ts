@@ -162,10 +162,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse the JSON response
-    let webhookData: WebhookResponse["data"] = {}
+    let webhookData: Record<string, unknown> = {}
     try {
-      const json = (await resp.json()) as WebhookResponse
-      webhookData = json?.data ?? json ?? {}
+      const json = await resp.json()
+      const items = Array.isArray(json) ? json : [json]
+      const flat = items.find((item: any) => item?.transunion_score !== undefined || item?.aggregator !== undefined)
+      webhookData = flat ?? items[0] ?? {}
+      console.warn("[credit/run] Parsed webhook keys:", Object.keys(webhookData).slice(0, 15))
     } catch {
       console.error("[credit/run] Failed to parse webhook response as JSON")
       webhookData = {}
@@ -174,17 +177,24 @@ export async function POST(req: NextRequest) {
     const resolvedAggregator =
       (webhookData.aggregator as string) ?? aggregator ?? null
 
-    // ========== STEP 2: Create credit_reports row ==========
+    // ========== STEP 2: Create credit_reports row with all data ==========
     console.warn("[credit/run] Step 2: Creating credit_reports row...")
     const { data: created, error: insErr } = await supabaseAdmin
       .from("credit_reports")
       .insert({
         assigned_to: [userId],
         status: "completed",
-        metadata: {},
         borrower_id: borrowerId ?? null,
         organization_id: orgUuid,
         aggregator: resolvedAggregator,
+        report_id: webhookData.report_id ? String(webhookData.report_id) : null,
+        report_date: webhookData.report_date ?? null,
+        pull_type: (webhookData.pull_type as string) ?? inputs.pull_type ?? "soft",
+        transunion_score: webhookData.transunion_score ? Number(webhookData.transunion_score) : null,
+        experian_score: webhookData.experian_score ? Number(webhookData.experian_score) : null,
+        equifax_score: webhookData.equifax_score ? Number(webhookData.equifax_score) : null,
+        mid_score: webhookData.mid_score ? Number(webhookData.mid_score) : null,
+        data: webhookData.data ?? webhookData,
       } as any)
       .select("id")
       .single()
@@ -203,40 +213,8 @@ export async function POST(req: NextRequest) {
     const reportId = created.id as string
     console.warn("[credit/run] Created credit_reports row:", reportId)
 
-    // ========== STEP 3: Insert credit data into credit_report_data_xactus ==========
-    console.warn("[credit/run] Step 3: Inserting credit data...")
-    const { error: dataErr } = await supabaseAdmin
-      .from("credit_report_data_xactus")
-      .insert({
-        credit_report_id: reportId,
-        borrower_id: borrowerId ?? null,
-        organization_id: orgUuid,
-        uploaded_by: userId,
-        pull_type: (webhookData.pull_type as string) ?? inputs.pull_type ?? "soft",
-        report_id: (webhookData.report_id as string) ?? null,
-        report_date: (webhookData.report_date as string) ?? null,
-        date_ordered: new Date().toISOString().slice(0, 10),
-        aggregator: resolvedAggregator,
-        transunion_score: webhookData.transunion_score ?? null,
-        experian_score: webhookData.experian_score ?? null,
-        equifax_score: webhookData.equifax_score ?? null,
-        mid_score: webhookData.mid_score ?? null,
-        tradelines: webhookData.tradelines ?? [],
-        liabilities: webhookData.liabilities ?? {},
-        public_records: webhookData.public_records ?? [],
-        inquiries: webhookData.inquiries ?? [],
-        cleaned_data: webhookData.cleaned_data ?? null,
-      } as any)
-
-    if (dataErr) {
-      console.error(
-        "[credit/run] Failed to insert credit data:",
-        dataErr.message
-      )
-    }
-
-    // ========== STEP 4: Create viewer + chat records ==========
-    console.warn("[credit/run] Step 4: Creating viewer + chat records...")
+    // ========== STEP 3: Create viewer + chat records ==========
+    console.warn("[credit/run] Step 3: Creating viewer + chat records...")
     try {
       await supabaseAdmin.from("credit_report_viewers").insert({
         report_id: reportId,
@@ -276,7 +254,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ========== STEP 5: Broadcast realtime event ==========
+    // ========== STEP 4: Broadcast realtime event ==========
     try {
       const channel = supabaseAdmin.channel("credit-reports")
       await channel.send({
@@ -296,12 +274,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ========== STEP 6: Fetch PDF from n8n and store in persons bucket ==========
+    // ========== STEP 5: Fetch PDF from n8n and store in persons bucket ==========
     let documentFileId: number | null = null
     let documentStoragePath: string | null = null
 
     try {
-      console.warn("[credit/run] Step 6: Fetching PDF from file webhook...")
+      console.warn("[credit/run] Step 5: Fetching PDF from file webhook...")
       const fileResp = await fetch(FILE_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

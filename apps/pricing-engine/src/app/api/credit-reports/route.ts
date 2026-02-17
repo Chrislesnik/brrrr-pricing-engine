@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     // Fetch credit reports matching filters
     const { data: rows, error } = await supabaseAdmin
       .from("credit_reports")
-      .select("id, bucket, storage_path, status, created_at, metadata, aggregator")
+      .select("id, status, created_at, aggregator")
       .eq("organization_id", orgUuid)
       .eq("borrower_id", borrowerId)
       .contains("assigned_to", [userId])
@@ -64,34 +64,20 @@ export async function GET(req: NextRequest) {
 
     for (const row of rows ?? []) {
       const reportId = row.id as string
-      const bucket = (row as any).bucket as string | null
-      const path = (row as any).storage_path as string | null
-      const meta = (row as any).metadata || {}
-      const originalName = (meta?.originalName as string) || null
       const rowAggregator = (row as any).aggregator as string | null
       const createdAt = (row.created_at as string) ?? ""
 
-      // Check for a linked document_files record (new flow)
       const linkedDoc = linkedDocsMap.get(reportId)
 
-      // Build a display name
       const name =
         linkedDoc?.document_name ||
-        originalName ||
-        (path ? path.split("/").pop() || path : null) ||
         `Credit Report${rowAggregator ? ` (${rowAggregator})` : ""} - ${createdAt.slice(0, 10)}`
 
-      // Try to create a signed URL — prefer linked document, fall back to legacy bucket/path
       let url: string | null = null
       if (linkedDoc) {
         const { data: signed } = await supabaseAdmin.storage
           .from(linkedDoc.storage_bucket)
           .createSignedUrl(linkedDoc.storage_path, 60 * 5)
-        url = signed?.signedUrl ?? null
-      } else if (bucket && path && !path.startsWith("pending/")) {
-        const { data: signed } = await supabaseAdmin.storage
-          .from(bucket)
-          .createSignedUrl(path, 60 * 5)
         url = signed?.signedUrl ?? null
       }
 
