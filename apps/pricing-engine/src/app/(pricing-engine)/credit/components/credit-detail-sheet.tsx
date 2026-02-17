@@ -5,7 +5,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@repo/ui/shadcn/sheet";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
@@ -114,7 +113,7 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
             </div>
             <div className="min-w-0">
               <SheetTitle className="text-lg truncate">{name}</SheetTitle>
-              <SheetDescription className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span
                   className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
                   style={{
@@ -134,7 +133,7 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
                     {report.pull_type} pull
                   </Badge>
                 )}
-              </SheetDescription>
+              </div>
             </div>
           </div>
         </SheetHeader>
