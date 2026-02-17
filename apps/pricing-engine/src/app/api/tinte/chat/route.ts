@@ -1,3 +1,5 @@
+import { auth } from "@clerk/nextjs/server"
+
 export const maxDuration = 60
 
 const SYSTEM_PROMPT = `You are a UI theme designer assistant. You help users create beautiful color themes for their applications.
@@ -115,6 +117,14 @@ interface ChatMessage {
 
 export async function POST(req: Request) {
   try {
+    const { userId } = await auth()
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
     const { messages } = await req.json()
 
     // Convert UI messages to OpenAI format, filtering out messages with null/undefined content

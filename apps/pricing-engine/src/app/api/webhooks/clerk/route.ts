@@ -114,32 +114,55 @@ export async function POST(req: NextRequest) {
         return new Response("Organization not found for membership", { status: 400 })
       }
 
-      // Check for a pending invite role (set when the invitation was sent)
+      // ── Role precedence (matches sync-members.ts resolveMemberRole) ──
+      // 1. pending_invite_roles  (highest — set when invite was sent)
+      // 2. existing DB value     (preserves manual edits)
+      // 3. Clerk metadata        (org_member_role from publicMetadata)
+      // 4. Clerk org role        (lowest — derived from membership.role)
+
+      let pendingRole: string | null = null
+
+      // Consume pending invite role (atomic DELETE … RETURNING)
       if (type === "organizationMembership.created" && memberEmail) {
-        const { data: pendingRow } = await supabaseAdmin
+        const { data: pendingRows } = await supabaseAdmin
           .from("pending_invite_roles")
-          .select("clerk_member_role")
+          .delete()
           .eq("organization_id", orgUuid)
           .ilike("email", memberEmail)
-          .single()
+          .select("clerk_member_role")
 
-        if (pendingRow?.clerk_member_role) {
-          memberRole = pendingRow.clerk_member_role as string
-          // Clean up the pending record
-          await supabaseAdmin
-            .from("pending_invite_roles")
-            .delete()
-            .eq("organization_id", orgUuid)
-            .ilike("email", memberEmail)
+        if (pendingRows?.[0]?.clerk_member_role) {
+          pendingRole = pendingRows[0].clerk_member_role as string
         }
       }
+
+      // Fetch existing DB role so we don't overwrite manual edits
+      let existingDbRole: string | null = null
+      if (!pendingRole) {
+        const { data: existingRow } = await supabaseAdmin
+          .from("organization_members")
+          .select("clerk_member_role")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", userId)
+          .single()
+
+        existingDbRole = (existingRow?.clerk_member_role as string) ?? null
+      }
+
+      // Normalize metadata role (strip "org:" prefix if present)
+      const clerkMetadataRole =
+        typeof memberRole === "string" ? memberRole.replace(/^org:/, "") : null
+
+      // Apply precedence
+      const resolvedMemberRole =
+        pendingRole ?? existingDbRole ?? clerkMetadataRole ?? role
 
       // Upsert on the composite unique key (organization_id, user_id).
       const upsertPayload = {
         organization_id: orgUuid,
         user_id: userId,
         clerk_org_role: role,
-        clerk_member_role: memberRole,
+        clerk_member_role: resolvedMemberRole,
         first_name: firstName,
         last_name: lastName,
       }
