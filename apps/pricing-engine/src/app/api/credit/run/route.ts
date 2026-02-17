@@ -10,8 +10,8 @@ export const runtime = "nodejs"
 type Inputs = {
   first_name?: string
   last_name?: string
-  ssn?: string // raw digits expected or formatted
-  date_of_birth?: string | null // yyyy-mm-dd preferred
+  ssn?: string
+  date_of_birth?: string | null
   address_line1?: string
   city?: string
   state?: string
@@ -23,17 +23,46 @@ type Inputs = {
   pull_type?: "hard" | "soft"
 }
 
-const FIRST_WEBHOOK_URL = "https://n8n.axora.info/webhook/dd842cfb-d4c5-4ce7-94a9-a87e1027dd23"
-const SECOND_WEBHOOK_URL = "https://n8n.axora.info/webhook/f5315945-c5a3-405f-8ef9-76ced3a9b348"
+type WebhookResponse = {
+  data?: {
+    transunion_score?: number | null
+    experian_score?: number | null
+    equifax_score?: number | null
+    mid_score?: number | null
+    pull_type?: string | null
+    report_id?: string | null
+    report_date?: string | null
+    aggregator?: string | null
+    tradelines?: unknown[]
+    liabilities?: Record<string, unknown>
+    public_records?: unknown[]
+    inquiries?: unknown[]
+    cleaned_data?: Record<string, unknown> | null
+  }
+}
+
+const WEBHOOK_URL =
+  "https://n8n.axora.info/webhook/0a006038-2921-4c67-bdb2-879f89d289c8"
+const FILE_WEBHOOK_URL =
+  "https://n8n.axora.info/webhook/0b13fc8d-6028-4953-9df5-6aab90c9b729"
 
 export async function POST(req: NextRequest) {
   console.warn("[credit/run] === Starting credit run ===")
   try {
     const { userId, orgId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!orgId)
+      return NextResponse.json(
+        { error: "No active organization" },
+        { status: 400 }
+      )
     const orgUuid = await getOrgUuidFromClerkId(orgId)
-    if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    if (!orgUuid)
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      )
 
     const body = (await req.json().catch(() => ({}))) as {
       borrowerId?: string | null
@@ -49,12 +78,11 @@ export async function POST(req: NextRequest) {
     const ssnDigits = String(inputs?.ssn ?? "")
       .replace(/\D+/g, "")
       .slice(0, 9)
-    // Support encrypting even when only last4 (>=4 digits) is present, per user request
     const shouldEncrypt = ssnDigits.length >= 4
     const ssnEncrypted = shouldEncrypt ? encryptToBase64(ssnDigits) : null
     const ssnParts = shouldEncrypt ? encryptToParts(ssnDigits) : null
 
-    // Normalize DOB to yyyy-mm-dd if a Date-like string was sent
+    // Normalize DOB to yyyy-mm-dd
     let dob = inputs?.date_of_birth ?? null
     if (dob && /^\d{4}-\d{2}-\d{2}$/.test(dob) === false) {
       try {
@@ -66,11 +94,11 @@ export async function POST(req: NextRequest) {
           dob = `${y}-${m}-${day}`
         }
       } catch {
-        // ignore parse errors; leave as-is
+        // ignore
       }
     }
 
-    // Check if user has active xactus integration (unified workflow_integrations table)
+    // Check for active Xactus integration
     let xactusIntegrationId: string | null = null
     const { data: xactusRow } = await supabaseAdmin
       .from("workflow_integrations")
@@ -91,6 +119,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ========== STEP 1: Call n8n webhook ==========
     const payload = {
       borrower_id: borrowerId,
       organization_id: orgUuid,
@@ -99,7 +128,6 @@ export async function POST(req: NextRequest) {
       first_name: inputs.first_name ?? null,
       last_name: inputs.last_name ?? null,
       ssn_encrypted: ssnEncrypted,
-      // n8n structured fields
       ssn_ciphertext: ssnParts?.ciphertext_b64 ?? null,
       iv: ssnParts?.iv_b64 ?? null,
       algo: ssnParts?.algo ?? null,
@@ -113,73 +141,102 @@ export async function POST(req: NextRequest) {
       include_experian: Boolean(inputs.include_experian),
       include_equifax: Boolean(inputs.include_equifax),
       pull_type: inputs.pull_type ?? "soft",
-      // Also include the raw flags object for flexibility on the receiver side
       inputs,
     }
 
-    // ========== STEP 1: Call first webhook to get aggregator info ==========
-    console.warn("[credit/run] Step 1: Calling first webhook...")
-    const resp1 = await fetch(FIRST_WEBHOOK_URL, {
+    console.warn("[credit/run] Step 1: Calling n8n webhook...")
+    const resp = await fetch(WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-    console.warn("[credit/run] First webhook response status:", resp1.status)
+    console.warn("[credit/run] Webhook response status:", resp.status)
 
-    if (!resp1.ok) {
-      const errText = await resp1.text().catch(() => "Unknown error")
-      console.error("[credit/run] First webhook failed:", errText)
-      return NextResponse.json({ ok: false, status: resp1.status, error: errText }, { status: 500 })
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "Unknown error")
+      console.error("[credit/run] Webhook failed:", errText)
+      return NextResponse.json(
+        { ok: false, status: resp.status, error: errText },
+        { status: 500 }
+      )
     }
 
-    // Parse JSON response from first webhook
-    let firstResponse: { aggregator?: string; aggregator_id?: string } = {}
-    const contentType1 = resp1.headers.get("content-type") || ""
-    const responseText = await resp1.text()
-    console.warn("[credit/run] First webhook content-type:", contentType1)
-    console.warn("[credit/run] First webhook response body:", responseText)
-    
+    // Parse the JSON response
+    let webhookData: WebhookResponse["data"] = {}
     try {
-      firstResponse = JSON.parse(responseText)
+      const json = (await resp.json()) as WebhookResponse
+      webhookData = json?.data ?? json ?? {}
     } catch {
-      console.error("[credit/run] Failed to parse first webhook response as JSON")
-      firstResponse = {}
+      console.error("[credit/run] Failed to parse webhook response as JSON")
+      webhookData = {}
     }
 
-    const responseAggregator = firstResponse.aggregator ?? aggregator ?? null
-    const aggregatorId = firstResponse.aggregator_id ?? null
-    console.warn("[credit/run] Parsed aggregator:", responseAggregator, "aggregator_id:", aggregatorId)
+    const resolvedAggregator =
+      (webhookData.aggregator as string) ?? aggregator ?? null
 
-    // ========== STEP 2: Create credit_reports row immediately (without file) ==========
+    // ========== STEP 2: Create credit_reports row ==========
     console.warn("[credit/run] Step 2: Creating credit_reports row...")
-    const row = {
-      bucket: "credit-reports",
-      // Use a unique placeholder to satisfy unique bucket+path constraint
-      storage_path: `pending/${randomUUID()}`,
-      assigned_to: [userId],
-      status: "pending", // File not yet received
-      metadata: {} as Record<string, unknown>,
-      borrower_id: borrowerId ?? null,
-      organization_id: orgUuid,
-      aggregator: responseAggregator,
-      aggregator_id: aggregatorId ?? null, // Save aggregator_id from first webhook
-    }
-
     const { data: created, error: insErr } = await supabaseAdmin
       .from("credit_reports")
-      .insert(row as any)
+      .insert({
+        assigned_to: [userId],
+        status: "completed",
+        metadata: {},
+        borrower_id: borrowerId ?? null,
+        organization_id: orgUuid,
+        aggregator: resolvedAggregator,
+      } as any)
       .select("id")
       .single()
 
     if (insErr || !created?.id) {
       console.error("[credit/run] Failed to create row:", insErr?.message)
-      return NextResponse.json({ ok: false, error: insErr?.message ?? "Failed to create report row" }, { status: 500 })
+      return NextResponse.json(
+        {
+          ok: false,
+          error: insErr?.message ?? "Failed to create report row",
+        },
+        { status: 500 }
+      )
     }
 
     const reportId = created.id as string
-    console.warn("[credit/run] Created report row with ID:", reportId)
+    console.warn("[credit/run] Created credit_reports row:", reportId)
 
-    // Seed viewer record so the executing user can view the report
+    // ========== STEP 3: Insert credit data into credit_report_data_xactus ==========
+    console.warn("[credit/run] Step 3: Inserting credit data...")
+    const { error: dataErr } = await supabaseAdmin
+      .from("credit_report_data_xactus")
+      .insert({
+        credit_report_id: reportId,
+        borrower_id: borrowerId ?? null,
+        organization_id: orgUuid,
+        uploaded_by: userId,
+        pull_type: (webhookData.pull_type as string) ?? inputs.pull_type ?? "soft",
+        report_id: (webhookData.report_id as string) ?? null,
+        report_date: (webhookData.report_date as string) ?? null,
+        date_ordered: new Date().toISOString().slice(0, 10),
+        aggregator: resolvedAggregator,
+        transunion_score: webhookData.transunion_score ?? null,
+        experian_score: webhookData.experian_score ?? null,
+        equifax_score: webhookData.equifax_score ?? null,
+        mid_score: webhookData.mid_score ?? null,
+        tradelines: webhookData.tradelines ?? [],
+        liabilities: webhookData.liabilities ?? {},
+        public_records: webhookData.public_records ?? [],
+        inquiries: webhookData.inquiries ?? [],
+        cleaned_data: webhookData.cleaned_data ?? null,
+      } as any)
+
+    if (dataErr) {
+      console.error(
+        "[credit/run] Failed to insert credit data:",
+        dataErr.message
+      )
+    }
+
+    // ========== STEP 4: Create viewer + chat records ==========
+    console.warn("[credit/run] Step 4: Creating viewer + chat records...")
     try {
       await supabaseAdmin.from("credit_report_viewers").insert({
         report_id: reportId,
@@ -190,7 +247,6 @@ export async function POST(req: NextRequest) {
       // non-fatal
     }
 
-    // Ensure chat mapping for (report, user)
     let chatIdForUser: string | undefined
     const { data: existingMap } = await supabaseAdmin
       .from("credit_report_user_chats")
@@ -220,83 +276,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ========== STEP 3: Call second webhook with report_id to get the binary file ==========
-    console.warn("[credit/run] Step 3: Calling second webhook with report_id:", reportId)
-    console.warn("[credit/run] Second webhook URL:", SECOND_WEBHOOK_URL)
-    const resp2 = await fetch(SECOND_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id: reportId }),
-    })
-    console.warn("[credit/run] Second webhook response status:", resp2.status)
-
-    if (!resp2.ok) {
-      // File fetch failed, but row is created with status="pending"
-      const errText = await resp2.text().catch(() => "Unknown error")
-      return NextResponse.json({
-        ok: false,
-        status: resp2.status,
-        error: `File webhook failed: ${errText}`,
-        report_id: reportId,
-        aggregator: responseAggregator,
-        chat_id: chatIdForUser ?? null,
-      }, { status: 500 })
-    }
-
-    // ========== STEP 4: Handle binary response and upload to storage ==========
-    const contentType2 = resp2.headers.get("content-type") || ""
-    const cd = resp2.headers.get("content-disposition") || ""
-    const filenameMatch = /filename="([^"]+)"/i.exec(cd)
-    const filename = filenameMatch?.[1] || "report.pdf"
-    const safeName = filename.replace(/[^\w.\-]+/g, "_")
-    const uniqueSlug = randomUUID()
-
-    const buf = Buffer.from(await resp2.arrayBuffer())
-    const storagePath = `${orgUuid}/${borrowerId ?? "noborrower"}/${reportId}-${uniqueSlug}-${safeName}`
-
-    const { error: upErr } = await supabaseAdmin.storage
-      .from("credit-reports")
-      .upload(storagePath, buf, {
-        contentType: contentType2 || "application/pdf",
-        upsert: false,
-      })
-
-    if (upErr) {
-      return NextResponse.json({
-        ok: false,
-        error: `Storage upload failed: ${upErr.message}`,
-        report_id: reportId,
-        aggregator: responseAggregator,
-        chat_id: chatIdForUser ?? null,
-      }, { status: 500 })
-    }
-
-    // ========== STEP 5: Update the row with storage_path, metadata, status="stored" ==========
-    const { error: updateErr } = await supabaseAdmin
-      .from("credit_reports")
-      .update({
-        storage_path: storagePath,
-        status: "stored",
-        metadata: {
-          contentType: contentType2 || "application/pdf",
-          size: buf.length,
-          originalName: filename,
-        },
-      })
-      .eq("id", reportId)
-
-    if (updateErr) {
-      return NextResponse.json({
-        ok: false,
-        error: `Failed to update report row: ${updateErr.message}`,
-        report_id: reportId,
-        storage_path: storagePath,
-        aggregator: responseAggregator,
-        chat_id: chatIdForUser ?? null,
-      }, { status: 500 })
-    }
-
-    // ========== STEP 6: Broadcast realtime event so clients refresh dropdown ==========
+    // ========== STEP 5: Broadcast realtime event ==========
     try {
       const channel = supabaseAdmin.channel("credit-reports")
       await channel.send({
@@ -305,27 +285,154 @@ export async function POST(req: NextRequest) {
         payload: {
           reportId,
           borrowerId,
-          storage_path: storagePath,
-          filename,
           organization_id: orgUuid,
         },
       })
       await channel.unsubscribe()
     } catch (e) {
-      console.error("[credit/run] Failed to broadcast credit_report_stored", e)
+      console.error(
+        "[credit/run] Failed to broadcast credit_report_stored",
+        e
+      )
+    }
+
+    // ========== STEP 6: Fetch PDF from n8n and store in persons bucket ==========
+    let documentFileId: number | null = null
+    let documentStoragePath: string | null = null
+
+    try {
+      console.warn("[credit/run] Step 6: Fetching PDF from file webhook...")
+      const fileResp = await fetch(FILE_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credit_report_id: reportId }),
+      })
+      console.warn("[credit/run] File webhook status:", fileResp.status)
+
+      if (fileResp.ok) {
+        const contentType = fileResp.headers.get("content-type") || "application/pdf"
+        const cd = fileResp.headers.get("content-disposition") || ""
+        const filenameMatch = /filename="([^"]+)"/i.exec(cd)
+        const rawFilename = filenameMatch?.[1] || `credit-report-${reportId}.pdf`
+        const safeName = rawFilename.replace(/[^\w.\-]+/g, "_")
+        const uniqueSlug = randomUUID()
+
+        const buf = Buffer.from(await fileResp.arrayBuffer())
+        console.warn("[credit/run] Received file:", buf.length, "bytes, type:", contentType)
+
+        if (buf.length > 0) {
+          const borrowerFolder = borrowerId ?? "no-borrower"
+          const storagePath = `${borrowerFolder}/credit/${reportId}-${uniqueSlug}-${safeName}`
+
+          const { error: upErr } = await supabaseAdmin.storage
+            .from("persons")
+            .upload(storagePath, buf, {
+              contentType: contentType || "application/pdf",
+              upsert: false,
+            })
+
+          if (upErr) {
+            console.error("[credit/run] Storage upload failed:", upErr.message)
+          } else {
+            documentStoragePath = storagePath
+            console.warn("[credit/run] Uploaded to persons/", storagePath)
+
+            // Look up "Credit & Background" document category
+            const { data: creditCat } = await supabaseAdmin
+              .from("document_categories")
+              .select("id")
+              .eq("code", "credit_and_background")
+              .maybeSingle()
+
+            // Create document_files row
+            const { data: docFile, error: docErr } = await supabaseAdmin
+              .from("document_files")
+              .insert({
+                document_name: rawFilename,
+                file_type: contentType || "application/pdf",
+                file_size: buf.length,
+                storage_bucket: "persons",
+                storage_path: storagePath,
+                uploaded_by: userId,
+                uploaded_at: new Date().toISOString(),
+                document_category_id: creditCat?.id ?? null,
+              })
+              .select("id")
+              .single()
+
+            if (docErr || !docFile?.id) {
+              console.error("[credit/run] Failed to create document_files row:", docErr?.message)
+            } else {
+              documentFileId = docFile.id as number
+              console.warn("[credit/run] Created document_files row:", documentFileId)
+
+              // Link document to credit report
+              await supabaseAdmin
+                .from("document_files_credit_reports")
+                .insert({
+                  document_file_id: documentFileId,
+                  credit_report_id: reportId,
+                  created_by: userId,
+                })
+                .then(({ error: e }) => {
+                  if (e) console.error("[credit/run] Failed to link doc to credit report:", e.message)
+                })
+
+              // Link document to org
+              await supabaseAdmin
+                .from("document_files_clerk_orgs")
+                .insert({
+                  document_file_id: documentFileId,
+                  clerk_org_id: orgUuid,
+                  created_by: userId,
+                })
+                .then(({ error: e }) => {
+                  if (e) console.error("[credit/run] Failed to link doc to org:", e.message)
+                })
+
+              // Link document to borrower
+              if (borrowerId) {
+                await supabaseAdmin
+                  .from("document_files_borrowers")
+                  .insert({
+                    document_file_id: documentFileId,
+                    borrower_id: borrowerId,
+                    created_by: userId,
+                  })
+                  .then(({ error: e }) => {
+                    if (e) console.error("[credit/run] Failed to link doc to borrower:", e.message)
+                  })
+              }
+            }
+          }
+        } else {
+          console.warn("[credit/run] File webhook returned empty body")
+        }
+      } else {
+        const errText = await fileResp.text().catch(() => "Unknown error")
+        console.error("[credit/run] File webhook failed:", fileResp.status, errText)
+      }
+    } catch (fileErr) {
+      console.error("[credit/run] File fetch/store error (non-fatal):", fileErr)
     }
 
     // ========== Success ==========
+    console.warn("[credit/run] === Credit run completed successfully ===")
     return NextResponse.json({
       ok: true,
       status: 200,
       report_id: reportId,
-      aggregator: responseAggregator,
-      aggregator_id: aggregatorId,
-      storage_path: storagePath,
+      aggregator: resolvedAggregator,
       chat_id: chatIdForUser ?? null,
+      document_file_id: documentFileId,
+      document_storage_path: documentStoragePath,
+      scores: {
+        transunion: webhookData.transunion_score ?? null,
+        experian: webhookData.experian_score ?? null,
+        equifax: webhookData.equifax_score ?? null,
+        mid: webhookData.mid_score ?? null,
+      },
     })
-
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
     console.error("[credit/run] Unhandled error:", e)

@@ -12,6 +12,7 @@ import {
   flexComponent,
   dataSourceHandlebars,
 } from "@grapesjs/studio-sdk-plugins"
+import aiChat from "@grapesjs/studio-sdk-plugins/dist/aiChat"
 import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
 import { Field, typeColorConfig, FieldType } from "./field-types"
 
@@ -151,64 +152,29 @@ export function StudioEditorWrapper({
             globalData: globalData,
             blocks: true,
           },
-          plugins: [
-            presetPrintable,
-            canvasFullSize,
-            layoutSidebarButtons,
-            googleFontsAssetProvider.init({
-              apiKey: process.env.NEXT_PUBLIC_GOOGLE_FONTS_API_KEY || "",
-            }),
-            dataSourceHandlebars,
-            rteProseMirror.init({
-              toolbar({ items, layouts, commands }) {
-                return [
-                  ...items,
-                  layouts.separator,
-                  {
-                    id: "variables",
-                    type: "selectField",
-                    emptyState: "Insert Variable",
-                    options: styledVariableOptions,
-                    onChange: ({ value }: { value: string }) =>
-                      commands.text.replace(value, { select: true }),
-                  },
-                ]
-              },
-            }),
-            flexComponent,
-          ],
-          project: {
-            type: "document",
-            default: {
-              pages: [
-                {
-                  name: template?.name || "Document",
-                  component: templateHtml,
-                },
-              ],
-            },
-          },
-          layout: {
-            default: {
-              type: "row",
-              height: "100%",
-              children: [
-                {
-                  type: "sidebarLeft",
-                  children: {
-                    type: "panelLayers",
-                    header: {
-                      label: "Layers",
-                      collapsible: false,
-                      icon: "layers",
-                    },
-                  },
-                },
-                {
-                  type: "canvasSidebarTop",
-                  sidebarTop: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          layout: (layoutSidebarButtons as any).createLayoutConfig({
+            sidebarButtons: ({ sidebarButtons, createSidebarButton }: any) => [
+              ...sidebarButtons,
+              createSidebarButton({
+                id: "aiChatPanel",
+                tooltip: "AI Assistant",
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2m16 0h2m-7-1v2m-6-2v2"/></g></svg>',
+                layoutCommand: { header: false },
+                layoutComponent: { type: "aiChatPanel" },
+              }),
+            ],
+            rootLayout: ({ rootLayout }: any) => {
+              // Inject custom toolbar buttons into canvasSidebarTop
+              const children = rootLayout?.children
+              if (Array.isArray(children)) {
+                const canvasIdx = children.findIndex((c: any) => c?.type === "canvasSidebarTop")
+                if (canvasIdx !== -1) {
+                  const canvas = { ...children[canvasIdx] }
+                  canvas.sidebarTop = {
+                    ...canvas.sidebarTop,
                     rightContainer: {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ...canvas.sidebarTop?.rightContainer,
                       buttons: ({ items, editor }: { items: any[]; editor: any }) => [
                         {
                           id: "print",
@@ -248,9 +214,50 @@ export function StudioEditorWrapper({
                         },
                       ],
                     },
+                  }
+                  children[canvasIdx] = canvas
+                }
+              }
+              return rootLayout
+            },
+          }),
+          plugins: [
+            presetPrintable,
+            canvasFullSize,
+            layoutSidebarButtons.init({ skipLayoutConfig: true }),
+            googleFontsAssetProvider.init({
+              apiKey: process.env.NEXT_PUBLIC_GOOGLE_FONTS_API_KEY || "",
+            }),
+            dataSourceHandlebars,
+            rteProseMirror.init({
+              toolbar({ items, layouts, commands }) {
+                return [
+                  ...items,
+                  layouts.separator,
+                  {
+                    id: "variables",
+                    type: "selectField",
+                    emptyState: "Insert Variable",
+                    options: styledVariableOptions,
+                    onChange: ({ value }: { value: string }) =>
+                      commands.text.replace(value, { select: true }),
                   },
+                ]
+              },
+            }),
+            flexComponent,
+            aiChat.init({
+              chatApi: "/api/ai-chat",
+            }),
+          ],
+          project: {
+            type: "document",
+            default: {
+              pages: [
+                {
+                  name: template?.name || "Document",
+                  component: templateHtml,
                 },
-                { type: "sidebarRight" },
               ],
             },
           },

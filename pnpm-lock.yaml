@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@grapesjs/studio-sdk-plugins':
+        specifier: ^1.0.33
+        version: 1.0.33(@ai-sdk/anthropic@3.0.44(zod@4.3.6))(@ai-sdk/openai@3.0.29(zod@4.3.6))(@types/react@19.2.10)(react@19.0.0)
     devDependencies:
       '@changesets/cli':
         specifier: ^2.27.1
@@ -120,9 +124,12 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^3.0.44
         version: 3.0.44(zod@3.25.76)
+      '@ai-sdk/openai':
+        specifier: ^3.0.0
+        version: 3.0.29(zod@3.25.76)
       '@ai-sdk/react':
-        specifier: ^2.0.115
-        version: 2.0.125(react@19.0.0)(zod@3.25.76)
+        specifier: ^3.0.35
+        version: 3.0.88(react@19.0.0)(zod@3.25.76)
       '@capacitor/core':
         specifier: ^7.4.4
         version: 7.4.5
@@ -160,8 +167,8 @@ importers:
         specifier: ^1.0.57
         version: 1.0.57(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@grapesjs/studio-sdk-plugins':
-        specifier: ^1.0.32
-        version: 1.0.32
+        specifier: ^1.0.33
+        version: 1.0.33(@ai-sdk/anthropic@3.0.44(zod@3.25.76))(@ai-sdk/openai@3.0.29(zod@3.25.76))(@types/react@19.2.10)(react@19.0.0)
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.71.1(react@19.0.0))
@@ -313,8 +320,8 @@ importers:
         specifier: ^12.10.0
         version: 12.10.0(@types/react@19.2.10)(immer@10.2.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       ai:
-        specifier: ^5.0.113
-        version: 5.0.123(zod@3.25.76)
+        specifier: ^6.0.33
+        version: 6.0.86(zod@3.25.76)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -822,14 +829,14 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.29':
-    resolution: {integrity: sha512-1b7E9F/B5gex/1uCkhs+sGIbH0KsZOItHnNz3iY5ir+nc4ZUA6WOU5Cu2w1USlc+3UVbhf+H+iNLlxVjLe4VvQ==}
+  '@ai-sdk/gateway@3.0.46':
+    resolution: {integrity: sha512-zH1UbNRjG5woOXXFOrVCZraqZuFTtmPvLardMGcgLkzpxKV0U3tAGoyWKSZ862H+eBJfI/Hf2yj/zzGJcCkycg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@3.0.20':
-    resolution: {integrity: sha512-iXHVe0apM2zUEzauqJwqmpC37A5rihrStAih5Ks+JE32iTe4LZ58y17UGBjpQQTCRw9YxMeo2UFLxLpBluyvLQ==}
+  '@ai-sdk/openai@3.0.29':
+    resolution: {integrity: sha512-ugVTIVpuSLKTjzSPe1F1DWiblJT/lwrrHx0OZEKjpMk/EYP6j6VD/F7SJqM1dsqOJryeBCJWFbUzLNqc99PrMA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -840,23 +847,15 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider@2.0.1':
-    resolution: {integrity: sha512-KCUwswvsC5VsW2PWFqF8eJgSCu5Ysj7m1TxiHTVA6g7k360bk0RNQENT8KTMAYEs+8fWPD3Uu4dEmzGHc+jGng==}
-    engines: {node: '>=18'}
-
   '@ai-sdk/provider@3.0.8':
     resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/react@2.0.125':
-    resolution: {integrity: sha512-Bew93kJxqw0ylQj8AvFZ15vZjT2abKv5NyGhWY3f0mENHgNJYe5tt8x0dsx5Btq0Yqijz5gN0MCeKru00VQzrQ==}
+  '@ai-sdk/react@3.0.88':
+    resolution: {integrity: sha512-fsUsDP0S+AAmxwgzxYhn9MQKmnAg7AttV3yrSw3bvI5MVfl0LBD3ViRuGNqY8S1DkkDfEF4BLom/nkbD1zY4bQ==}
     engines: {node: '>=18'}
     peerDependencies:
       react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
-      zod: ^3.25.76 || ^4.1.8
-    peerDependenciesMeta:
-      zod:
-        optional: true
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -1224,8 +1223,31 @@ packages:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
-  '@grapesjs/studio-sdk-plugins@1.0.32':
-    resolution: {integrity: sha512-7TikoTUvfuNDfxl6sdTs/+Ai8uU2L2aTpd97TuTUfh3dypUJCYde0qrJoWBlY411UkWlMQJ5WJnekymlYFr/Gw==}
+  '@grapesjs/studio-sdk-plugins@1.0.33':
+    resolution: {integrity: sha512-hQUmtJIBI33EovqKJqkHwrJMSOXfyv3BPh1N1izqCRMU2FqRhst8v8MO9e/bn/AGjuHNLJIvT4bfmovz2mH6DA==}
+    peerDependencies:
+      '@ai-sdk/anthropic': '>=3.0.0'
+      '@ai-sdk/azure': '>=3.0.0'
+      '@ai-sdk/cohere': '>=3.0.0'
+      '@ai-sdk/google': '>=3.0.0'
+      '@ai-sdk/groq': '>=3.0.0'
+      '@ai-sdk/mistral': '>=3.0.0'
+      '@ai-sdk/openai': '>=3.0.0'
+    peerDependenciesMeta:
+      '@ai-sdk/anthropic':
+        optional: true
+      '@ai-sdk/azure':
+        optional: true
+      '@ai-sdk/cohere':
+        optional: true
+      '@ai-sdk/google':
+        optional: true
+      '@ai-sdk/groq':
+        optional: true
+      '@ai-sdk/mistral':
+        optional: true
+      '@ai-sdk/openai':
+        optional: true
 
   '@grapesjs/studio-sdk@1.0.57':
     resolution: {integrity: sha512-YL8sd2o8dTKbqNMOq4ZUT3lZ/547j9dA7oH9ri0kpRM3pBUogbl8EcKBH7VOWFWyTGp1QFA/b4ETsRAvQzgZYQ==}
@@ -3503,8 +3525,8 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
-  ai@5.0.123:
-    resolution: {integrity: sha512-V3Imb0tg0pHCa6a/VsoW/FZpT07mwUw/4Hj6nexJC1Nvf1eyKQJyaYVkl+YTLnA8cKQSUkoarKhXWbFy4CSgjw==}
+  ai@6.0.86:
+    resolution: {integrity: sha512-U2W2LBCHA/pr0Ui7vmmsjBiLEzBbZF3yVHNy7Rbzn7IX+SvoQPFM5rN74hhfVzZoE8zBuGD4nLLk+j0elGacvQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -6431,6 +6453,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.3.6:
+    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -6472,19 +6497,39 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/gateway@2.0.29(zod@3.25.76)':
+  '@ai-sdk/anthropic@3.0.44(zod@4.3.6)':
     dependencies:
-      '@ai-sdk/provider': 2.0.1
-      '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@4.3.6)
+      zod: 4.3.6
+    optional: true
+
+  '@ai-sdk/gateway@3.0.46(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       '@vercel/oidc': 3.1.0
       zod: 3.25.76
 
-  '@ai-sdk/provider-utils@3.0.20(zod@3.25.76)':
+  '@ai-sdk/gateway@3.0.46(zod@4.3.6)':
     dependencies:
-      '@ai-sdk/provider': 2.0.1
-      '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.0.6
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@4.3.6)
+      '@vercel/oidc': 3.1.0
+      zod: 4.3.6
+
+  '@ai-sdk/openai@3.0.29(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       zod: 3.25.76
+
+  '@ai-sdk/openai@3.0.29(zod@4.3.6)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@4.3.6)
+      zod: 4.3.6
+    optional: true
 
   '@ai-sdk/provider-utils@4.0.15(zod@3.25.76)':
     dependencies:
@@ -6493,23 +6538,36 @@ snapshots:
       eventsource-parser: 3.0.6
       zod: 3.25.76
 
-  '@ai-sdk/provider@2.0.1':
+  '@ai-sdk/provider-utils@4.0.15(zod@4.3.6)':
     dependencies:
-      json-schema: 0.4.0
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.6
+      zod: 4.3.6
 
   '@ai-sdk/provider@3.0.8':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@2.0.125(react@19.0.0)(zod@3.25.76)':
+  '@ai-sdk/react@3.0.88(react@19.0.0)(zod@3.25.76)':
     dependencies:
-      '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
-      ai: 5.0.123(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
+      ai: 6.0.86(zod@3.25.76)
       react: 19.0.0
       swr: 2.3.8(react@19.0.0)
       throttleit: 2.1.0
-    optionalDependencies:
-      zod: 3.25.76
+    transitivePeerDependencies:
+      - zod
+
+  '@ai-sdk/react@3.0.88(react@19.0.0)(zod@4.3.6)':
+    dependencies:
+      '@ai-sdk/provider-utils': 4.0.15(zod@4.3.6)
+      ai: 6.0.86(zod@4.3.6)
+      react: 19.0.0
+      swr: 2.3.8(react@19.0.0)
+      throttleit: 2.1.0
+    transitivePeerDependencies:
+      - zod
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -7037,9 +7095,12 @@ snapshots:
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
 
-  '@grapesjs/studio-sdk-plugins@1.0.32':
+  '@grapesjs/studio-sdk-plugins@1.0.33(@ai-sdk/anthropic@3.0.44(zod@3.25.76))(@ai-sdk/openai@3.0.29(zod@3.25.76))(@types/react@19.2.10)(react@19.0.0)':
     dependencies:
+      '@ai-sdk/react': 3.0.88(react@19.0.0)(zod@4.3.6)
+      ai: 6.0.86(zod@4.3.6)
       handlebars: 4.7.8
+      marked: 17.0.1
       prosemirror-commands: 1.7.1
       prosemirror-history: 1.5.0
       prosemirror-inputrules: 1.5.1
@@ -7049,6 +7110,42 @@ snapshots:
       prosemirror-state: 1.4.4
       prosemirror-tables: 1.8.5
       prosemirror-view: 1.41.5
+      react-markdown: 10.1.0(@types/react@19.2.10)(react@19.0.0)
+      remark-gfm: 4.0.1
+      zod: 4.3.6
+    optionalDependencies:
+      '@ai-sdk/anthropic': 3.0.44(zod@3.25.76)
+      '@ai-sdk/openai': 3.0.29(zod@3.25.76)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+      - supports-color
+
+  '@grapesjs/studio-sdk-plugins@1.0.33(@ai-sdk/anthropic@3.0.44(zod@4.3.6))(@ai-sdk/openai@3.0.29(zod@4.3.6))(@types/react@19.2.10)(react@19.0.0)':
+    dependencies:
+      '@ai-sdk/react': 3.0.88(react@19.0.0)(zod@4.3.6)
+      ai: 6.0.86(zod@4.3.6)
+      handlebars: 4.7.8
+      marked: 17.0.1
+      prosemirror-commands: 1.7.1
+      prosemirror-history: 1.5.0
+      prosemirror-inputrules: 1.5.1
+      prosemirror-keymap: 1.2.3
+      prosemirror-model: 1.25.4
+      prosemirror-schema-list: 1.5.1
+      prosemirror-state: 1.4.4
+      prosemirror-tables: 1.8.5
+      prosemirror-view: 1.41.5
+      react-markdown: 10.1.0(@types/react@19.2.10)(react@19.0.0)
+      remark-gfm: 4.0.1
+      zod: 4.3.6
+    optionalDependencies:
+      '@ai-sdk/anthropic': 3.0.44(zod@4.3.6)
+      '@ai-sdk/openai': 3.0.29(zod@4.3.6)
+    transitivePeerDependencies:
+      - '@types/react'
+      - react
+      - supports-color
 
   '@grapesjs/studio-sdk@1.0.57(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
@@ -9902,13 +9999,21 @@ snapshots:
 
   acorn@8.15.0: {}
 
-  ai@5.0.123(zod@3.25.76):
+  ai@6.0.86(zod@3.25.76):
     dependencies:
-      '@ai-sdk/gateway': 2.0.29(zod@3.25.76)
-      '@ai-sdk/provider': 2.0.1
-      '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
+      '@ai-sdk/gateway': 3.0.46(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
+
+  ai@6.0.86(zod@4.3.6):
+    dependencies:
+      '@ai-sdk/gateway': 3.0.46(zod@4.3.6)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@4.3.6)
+      '@opentelemetry/api': 1.9.0
+      zod: 4.3.6
 
   ajv@6.12.6:
     dependencies:
@@ -13613,6 +13718,8 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
+
+  zod@4.3.6: {}
 
   zustand@4.5.7(@types/react@19.2.10)(immer@10.2.0)(react@19.0.0):
     dependencies:

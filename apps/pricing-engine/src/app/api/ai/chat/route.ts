@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: webSearch ? "perplexity/sonar" : model ?? "openai/gpt-4o",
-    messages: convertToModelMessages(messages),
+    messages: await convertToModelMessages(messages),
     system:
       "You are an AI assistant that helps loan officers price loans and answer questions succinctly.",
   })
