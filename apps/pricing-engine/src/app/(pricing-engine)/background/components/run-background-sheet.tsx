@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Sheet,
   SheetContent,
@@ -138,6 +139,8 @@ interface RunBackgroundSheetProps {
 /* -------------------------------------------------------------------------- */
 
 export function RunBackgroundSheet({ open, onOpenChange, onCreated }: RunBackgroundSheetProps) {
+  const { toast } = useToast();
+
   // Mode
   const [isEntity, setIsEntity] = useState(false);
 
@@ -361,28 +364,70 @@ export function RunBackgroundSheet({ open, onOpenChange, onCreated }: RunBackgro
     [onOpenChange, resetForm]
   );
 
-  // Submit
+  // Submit — POST all fields server-side to n8n via /api/background/run
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/background-reports", {
+      const dobStr = dob
+        ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, "0")}-${String(dob.getDate()).padStart(2, "0")}`
+        : null;
+      const dofStr = dateOfFormation
+        ? `${dateOfFormation.getFullYear()}-${String(dateOfFormation.getMonth() + 1).padStart(2, "0")}-${String(dateOfFormation.getDate()).padStart(2, "0")}`
+        : null;
+
+      const res = await fetch("/api/background/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           borrower_id: isEntity ? null : selectedBorrowerId || null,
           entity_id: isEntity ? selectedEntityId || null : null,
           is_entity: isEntity,
-          report_type: reportType,
-          status: "pending",
+          // Compliance
+          glb: glb || null,
+          dppa: dppa || null,
+          voter: voter || null,
+          // Entity fields
+          entity_name: entityName || null,
+          entity_type: entityType || null,
+          ein: ein ? ein.replace(/\D+/g, "") : null,
+          state_of_formation: stateOfFormation || null,
+          date_of_formation: dofStr,
+          // Individual fields
+          first_name: firstName || null,
+          middle_initial: middleInitial || null,
+          last_name: lastName || null,
+          date_of_birth: dobStr,
+          ssn: ssn ? ssn.replace(/\D+/g, "") : null,
+          email: email || null,
+          phone: phone ? phone.replace(/\D+/g, "") : null,
+          // Address
+          street: street || null,
+          city: city || null,
+          state: stateCode || null,
+          zip: zip || null,
+          county: county || null,
+          province: province || null,
+          country: country || "US",
+          // Report meta
+          report_type: reportType || null,
           notes: notes || null,
         }),
       });
-      if (res.ok) {
-        onCreated?.();
-        handleOpenChange(false);
+
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j?.ok === false) {
+        throw new Error(j?.error || `Background run failed (status ${res.status})`);
       }
-    } catch {
-      // ignore
+
+      toast({
+        title: "Background check dispatched",
+        description: "The request has been sent for processing.",
+      });
+      onCreated?.();
+      handleOpenChange(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Background run failed";
+      toast({ title: "Background run failed", description: msg });
     } finally {
       setSaving(false);
     }

@@ -178,6 +178,7 @@ const CartStep = ({
   isEntity?: boolean
 }) => {
   const isCredit = stepper.current.id === "credit"
+  const isBackground = stepper.current.id === "background"
   const { toast } = useToast()
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -937,55 +938,108 @@ const CartStep = ({
   ])
 
   async function handleRun() {
-    if (!isCredit || runPhase !== "idle") return
+    if (!(isCredit || isBackground) || runPhase !== "idle") return
     setRunPhase("bounce")
     const bounceTimer = setTimeout(() => setRunPhase("running"), 180)
     try {
-      const digits = ssn.replace(/\D+/g, "").slice(0, 9)
-      const inputs = {
-        first_name: firstName || undefined,
-        last_name: lastName || undefined,
-        ssn: digits || undefined,
-        date_of_birth: (() => {
-          if (!dob) return undefined
-          const y = dob.getFullYear()
-          const m = String(dob.getMonth() + 1).padStart(2, "0")
-          const d = String(dob.getDate()).padStart(2, "0")
-          return `${y}-${m}-${d}`
-        })(),
-        address_line1: street || undefined,
-        city: city || undefined,
-        state: stateCode || undefined,
-        zip: zip || undefined,
-        county: county || undefined,
-        include_transunion: includeTU,
-        include_experian: includeEX,
-        include_equifax: includeEQ,
-        pull_type: pullType,
+      if (isBackground) {
+        const dobStr = dob
+          ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, "0")}-${String(dob.getDate()).padStart(2, "0")}`
+          : null
+        const dofStr = dateOfFormation
+          ? `${dateOfFormation.getFullYear()}-${String(dateOfFormation.getMonth() + 1).padStart(2, "0")}-${String(dateOfFormation.getDate()).padStart(2, "0")}`
+          : null
+
+        const res = await fetch("/api/background/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            borrower_id: isEntity ? null : currentBorrowerId ?? null,
+            entity_id: isEntity ? currentEntityId ?? null : null,
+            is_entity: !!isEntity,
+            glb: glb || null,
+            dppa: dppa || null,
+            voter: voter || null,
+            entity_name: entityName || null,
+            entity_type: entityType || null,
+            ein: ein ? ein.replace(/\D+/g, "") : null,
+            state_of_formation: stateOfFormation || null,
+            date_of_formation: dofStr,
+            first_name: guarantorFirstName || null,
+            middle_initial: guarantorMiddleInitial || null,
+            last_name: guarantorLastName || null,
+            date_of_birth: dobStr,
+            ssn: guarantorSsn ? guarantorSsn.replace(/\D+/g, "") : null,
+            email: guarantorEmail || null,
+            phone: guarantorPhone ? guarantorPhone.replace(/\D+/g, "") : null,
+            street: street || null,
+            city: city || null,
+            state: stateCode || null,
+            zip: zip || null,
+            county: county || null,
+            province: province || null,
+            country: country || "US",
+            report_type: "comprehensive",
+          }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok || j?.ok === false) {
+          throw new Error(
+            j?.error || `Background run failed (status ${res.status})`
+          )
+        }
+        toast({
+          title: "Background check dispatched",
+          description: "The request has been sent for processing.",
+        })
+      } else {
+        const digits = ssn.replace(/\D+/g, "").slice(0, 9)
+        const inputs = {
+          first_name: firstName || undefined,
+          last_name: lastName || undefined,
+          ssn: digits || undefined,
+          date_of_birth: (() => {
+            if (!dob) return undefined
+            const y = dob.getFullYear()
+            const m = String(dob.getMonth() + 1).padStart(2, "0")
+            const d = String(dob.getDate()).padStart(2, "0")
+            return `${y}-${m}-${d}`
+          })(),
+          address_line1: street || undefined,
+          city: city || undefined,
+          state: stateCode || undefined,
+          zip: zip || undefined,
+          county: county || undefined,
+          include_transunion: includeTU,
+          include_experian: includeEX,
+          include_equifax: includeEQ,
+          pull_type: pullType,
+        }
+        const res = await fetch("/api/credit/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            borrowerId: currentBorrowerId ?? null,
+            inputs,
+            aggregator: null,
+          }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok || j?.ok === false) {
+          throw new Error(
+            j?.error || `Webhook failed (status ${j?.status ?? res.status})`
+          )
+        }
+        toast({
+          title: "Credit run dispatched",
+          description: "Webhook received the payload.",
+        })
       }
-      const res = await fetch("/api/credit/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          borrowerId: currentBorrowerId ?? null,
-          inputs,
-          aggregator: null,
-        }),
-      })
-      const j = await res.json().catch(() => ({}))
-      if (!res.ok || j?.ok === false) {
-        throw new Error(
-          j?.error || `Webhook failed (status ${j?.status ?? res.status})`
-        )
-      }
-      toast({
-        title: "Credit run dispatched",
-        description: "Webhook received the payload.",
-      })
     } catch (e) {
+      const label = isBackground ? "Background run" : "Credit run"
       const msg =
-        e instanceof Error ? e.message : "Failed to run credit dispatch"
-      toast({ title: "Credit run failed", description: msg })
+        e instanceof Error ? e.message : `Failed to run ${label.toLowerCase()}`
+      toast({ title: `${label} failed`, description: msg })
       setRunPhase("error")
       setTimeout(() => setRunPhase("idle"), 900)
     } finally {
