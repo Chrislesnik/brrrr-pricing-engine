@@ -152,6 +152,17 @@ function buildDefinition(definition: PolicyDefinitionInput) {
   };
 }
 
+export async function getOrgDisplayName(): Promise<string> {
+  const { orgId, token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+  const { data } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("clerk_organization_id", orgId)
+    .single();
+  return (data?.name as string) ?? "This Organization";
+}
+
 export async function getOrgPolicies(): Promise<{
   orgPk: string;
   policies: OrgPolicyRow[];
@@ -160,13 +171,38 @@ export async function getOrgPolicies(): Promise<{
   const supabase = supabaseForUser(token);
   const orgPk = await getOrgPk(supabase, orgId);
 
-  const { data, error } = await supabase
+  // Try with is_protected_policy first; fall back if column doesn't exist yet
+  let data: unknown[] | null = null;
+  let error: { message: string } | null = null;
+
+  // Fetch org-specific + global (org_id IS NULL) policies
+  const result = await supabase
     .from("organization_policies")
     .select(
-      "id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
+      "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,is_protected_policy,created_at"
     )
-    .eq("org_id", orgPk)
+    .or(`org_id.eq.${orgPk},org_id.is.null`)
     .order("created_at", { ascending: false });
+
+  if (result.error && result.error.message.includes("is_protected_policy")) {
+    // Column not yet added — retry without it
+    const fallback = await supabase
+      .from("organization_policies")
+      .select(
+        "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
+      )
+      .or(`org_id.eq.${orgPk},org_id.is.null`)
+      .order("created_at", { ascending: false });
+
+    data = (fallback.data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      is_protected_policy: false,
+    }));
+    error = fallback.error as { message: string } | null;
+  } else {
+    data = result.data;
+    error = result.error as { message: string } | null;
+  }
 
   if (error) throw new Error(error.message);
 
@@ -267,6 +303,20 @@ export async function setOrgPolicyActive(input: {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
+  // Prevent disabling system policies (gracefully handle missing column)
+  try {
+    const { data: policyRow } = await supabase
+      .from("organization_policies")
+      .select("is_protected_policy")
+      .eq("id", input.id)
+      .single();
+    if (policyRow?.is_protected_policy && !input.isActive) {
+      throw new Error("Protected policies cannot be disabled. They are required for core application security.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  }
+
   const { error } = await supabase
     .from("organization_policies")
     .update({ is_active: input.isActive })
@@ -283,6 +333,20 @@ export async function updateOrgPolicy(input: {
 }): Promise<{ ok: true }> {
   const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
+
+  // Prevent editing system policies (gracefully handle missing column)
+  try {
+    const { data: policyRow } = await supabase
+      .from("organization_policies")
+      .select("is_protected_policy")
+      .eq("id", input.id)
+      .single();
+    if (policyRow?.is_protected_policy) {
+      throw new Error("Protected policies cannot be edited. They are required for core application security.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  }
 
   const compiledConfig = compilePolicy(input.definition);
   const definitionJson = buildDefinition(input.definition);
@@ -381,6 +445,20 @@ export async function deleteOrgPolicy(input: {
 }): Promise<{ ok: true }> {
   const { token, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
+
+  // Prevent archiving system policies (gracefully handle missing column)
+  try {
+    const { data: policyRow } = await supabase
+      .from("organization_policies")
+      .select("is_protected_policy")
+      .eq("id", input.id)
+      .single();
+    if (policyRow?.is_protected_policy) {
+      throw new Error("Protected policies cannot be archived. They are required for core application security.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  }
 
   if (input.action === "restore") {
     const { error } = await supabase

@@ -181,7 +181,7 @@ export function TasksSettings() {
   useEffect(() => {
     async function checkAccessAndFetch() {
       try {
-        const accessResponse = await fetch("/api/org/settings-access");
+        const accessResponse = await fetch("/api/org/settings-access?tab=tasks");
         if (accessResponse.ok) {
           const accessData = await accessResponse.json();
           setCanAccess(accessData.canAccess);

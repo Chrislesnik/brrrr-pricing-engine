@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import * as React from "react";
+import { useState, useTransition, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   getMemberRolesForPolicies,
@@ -22,6 +24,7 @@ import {
   type PolicyScope,
   type PolicyEffect,
   type PolicyAction,
+  type ResourceType,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/constants";
 import {
   PolicyConditionRow,
@@ -66,7 +69,34 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@repo/ui/shadcn/alert-dialog";
-import { ChevronsUpDown, Check, X, Plus, Pencil, Archive } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/shadcn/select";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui/shadcn/tabs";
+import {
+  ChevronsUpDown,
+  Check,
+  X,
+  Plus,
+  Pencil,
+  Archive,
+  Lock,
+  SlidersHorizontal,
+  ChevronRight,
+  ChevronDown,
+  ArrowUpDown,
+  Kanban,
+  Table2,
+  LayoutGrid,
+} from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
 // ============================================================================
@@ -110,6 +140,8 @@ const featureActionOptions = [
 const resourceScopeOptions = [
   { value: "table:*", label: "All Tables" },
   { value: "storage_bucket:*", label: "All Storage Buckets" },
+  { value: "feature:settings_*", label: "All Settings" },
+  { value: "route:*", label: "All Routes" },
 ];
 
 const scopeOptions: Array<{ value: PolicyScope; label: string; description: string }> = [
@@ -259,22 +291,30 @@ function ResourceChipsSelect({
 
   // Helper: format a chip label with a category prefix for clarity
   function chipLabel(value: string, label: string): string {
-    if (value.endsWith(":*")) return label; // "All Tables", "All Storage Buckets"
+    if (value.endsWith(":*") || value.endsWith("_*")) return label; // wildcards
     if (value.startsWith("table:")) return `Table: ${label}`;
     if (value.startsWith("storage_bucket:")) return `Bucket: ${label}`;
     if (value.startsWith("feature:")) return `Feature: ${label}`;
+    if (value.startsWith("route:")) return `Route: ${label}`;
     return label;
   }
 
   // Group options by prefix
-  const wildcards = options.filter((o) => o.value.endsWith(":*"));
+  const isWildcard = (o: ResourceOption) =>
+    o.value.endsWith(":*") || o.value.endsWith("_*");
+  const wildcards = options.filter(isWildcard);
   const tables = options.filter(
-    (o) => o.value.startsWith("table:") && !o.value.endsWith(":*")
+    (o) => o.value.startsWith("table:") && !isWildcard(o)
   );
   const buckets = options.filter(
-    (o) => o.value.startsWith("storage_bucket:") && !o.value.endsWith(":*")
+    (o) => o.value.startsWith("storage_bucket:") && !isWildcard(o)
   );
-  const features = options.filter((o) => o.value.startsWith("feature:"));
+  const features = options.filter(
+    (o) => o.value.startsWith("feature:") && !isWildcard(o)
+  );
+  const routes = options.filter(
+    (o) => o.value.startsWith("route:") && !isWildcard(o)
+  );
 
   function renderItem(opt: ResourceOption) {
     const isSelected = selected.includes(opt.value);
@@ -386,6 +426,15 @@ function ResourceChipsSelect({
                 </CommandGroup>
               </>
             )}
+
+            {routes.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Routes">
+                  {routes.map(renderItem)}
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -475,8 +524,10 @@ function loadPolicyIntoForm(
 
 export default function OrgPolicyBuilder({
   initialPolicies,
+  orgDisplayName = "This Organization",
 }: {
   initialPolicies: OrgPolicyRow[];
+  orgDisplayName?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -1030,263 +1081,1063 @@ export default function OrgPolicyBuilder({
       </Card>
 
       {/* ============================================================ */}
-      {/* Existing Policies */}
+      {/* Existing Policies — Tabbed by resource_type */}
       {/* ============================================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Existing Policies</CardTitle>
-          <CardDescription>
-            {initialPolicies.length} {initialPolicies.length === 1 ? "policy" : "policies"} configured
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {initialPolicies.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">
-              No policies found for this organization.
-            </p>
-          ) : (
-            <div className="divide-y">
-              {initialPolicies.map((policy) => {
-                const resourceLabel =
-                  policy.resource_type === "feature"
-                    ? "Features"
-                    : policy.resource_type === "storage_bucket"
-                      ? "Storage Buckets"
-                      : "Tables";
-                const featureMeta = policy.resource_type === "feature"
-                  ? FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)
-                  : null;
-                const resourceScope =
-                  policy.resource_name === "*"
-                    ? `All ${resourceLabel}`
-                    : featureMeta?.label ?? policy.resource_name;
+      <ExistingPoliciesCard
+        policies={initialPolicies}
+        editingPolicyId={editingPolicyId}
+        onEdit={handleEdit}
+        onToggleActive={handleToggleActive}
+        onDelete={handleDelete}
+        orgDisplayName={orgDisplayName}
+      />
+    </div>
+  );
+}
 
-                return (
-                  <div
-                    key={policy.id}
-                    className={cn(
-                      "flex items-center gap-4 py-3 px-1",
-                      editingPolicyId === policy.id && "bg-muted/50 -mx-1 px-2 rounded"
-                    )}
-                  >
-                    {/* Policy info */}
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {policy.effect === "DENY" ? (
-                          <Badge variant="destructive" className="text-xs font-mono uppercase">
-                            DENY {policy.action}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs font-mono uppercase">
-                            {policy.action}
-                          </Badge>
-                        )}
-                        <span className="text-sm font-medium">{resourceScope}</span>
-                        {policy.scope && policy.scope !== "all" && (
-                          <Badge variant="secondary" className="text-xs">
-                            {policy.scope === "org_records" && "Org Records"}
-                            {policy.scope === "user_records" && "User Records"}
-                            {policy.scope === "org_and_user" && "Org + User"}
-                          </Badge>
-                        )}
-                        {!policy.is_active && (
-                          <Badge variant="secondary" className="text-xs">
-                            Inactive
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {summarizeConditions(policy)}
-                      </p>
-                    </div>
+// ============================================================================
+// Display settings for policy table columns
+// ============================================================================
 
-                    {/* Active toggle */}
-                    <Switch
-                      checked={policy.is_active}
-                      onCheckedChange={(checked) =>
-                        handleToggleActive(policy.id, checked)
-                      }
-                      className="shrink-0"
-                    />
+type DisplayColumn = "resourceType" | "resourceName" | "scope" | "action" | "organization" | "conditions" | "effect" | "version";
 
-                    {/* Edit */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => handleEdit(policy)}
-                      aria-label="Edit policy"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+const POLICY_DISPLAY_COLUMNS: { key: DisplayColumn; label: string }[] = [
+  { key: "resourceType", label: "Resource Type" },
+  { key: "resourceName", label: "Resource Name" },
+  { key: "scope", label: "Scope" },
+  { key: "action", label: "Action" },
+  { key: "organization", label: "Organization" },
+  { key: "conditions", label: "Conditions" },
+  { key: "effect", label: "Effect" },
+  { key: "version", label: "Version" },
+];
 
-                    {/* Delete */}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                          aria-label="Archive policy"
+type PolicyViewType = "table" | "board";
+type GroupByField = DisplayColumn | "none";
+type OrderByField = DisplayColumn;
+
+const VIEW_OPTIONS: { value: PolicyViewType; label: string; icon: typeof Table2 }[] = [
+  { value: "table", label: "Table", icon: Table2 },
+  { value: "board", label: "Board", icon: LayoutGrid },
+];
+
+const GROUPABLE_COLUMNS: { value: GroupByField; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "resourceType", label: "Resource Type" },
+  { value: "resourceName", label: "Resource Name" },
+  { value: "scope", label: "Scope" },
+  { value: "action", label: "Action" },
+  { value: "organization", label: "Organization" },
+  { value: "effect", label: "Effect" },
+];
+
+const ORDERABLE_COLUMNS: { value: OrderByField; label: string }[] = [
+  { value: "resourceType", label: "Resource Type" },
+  { value: "resourceName", label: "Resource Name" },
+  { value: "scope", label: "Scope" },
+  { value: "action", label: "Action" },
+  { value: "organization", label: "Organization" },
+  { value: "effect", label: "Effect" },
+  { value: "version", label: "Version" },
+];
+
+const RESOURCE_TYPE_TABS: { value: string; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "table", label: "Tables" },
+  { value: "storage_bucket", label: "Buckets" },
+  { value: "feature", label: "Features" },
+  { value: "route", label: "Routes" },
+];
+
+const RESOURCE_TYPE_LABELS: Record<string, string> = {
+  table: "Table",
+  storage_bucket: "Storage Bucket",
+  feature: "Feature",
+  route: "Route",
+};
+
+// ============================================================================
+// Policy Toolbar — Linear-style Display popover
+// ============================================================================
+
+const selectTriggerCls =
+  "h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1";
+
+function PolicyToolbar({
+  visibleColumns,
+  onToggleColumn,
+  showInactive,
+  onSetShowInactive,
+  groupBy,
+  onSetGroupBy,
+  subGroupBy,
+  onSetSubGroupBy,
+  orderBy,
+  onSetOrderBy,
+  orderAsc,
+  onToggleOrderDir,
+  viewType,
+  onSetViewType,
+  activeTab,
+  onSetTab,
+  counts,
+  onReset,
+}: {
+  visibleColumns: Record<DisplayColumn, boolean>;
+  onToggleColumn: (col: DisplayColumn) => void;
+  showInactive: boolean;
+  onSetShowInactive: (v: boolean) => void;
+  groupBy: GroupByField;
+  onSetGroupBy: (g: GroupByField) => void;
+  subGroupBy: GroupByField;
+  onSetSubGroupBy: (g: GroupByField) => void;
+  orderBy: OrderByField;
+  onSetOrderBy: (o: OrderByField) => void;
+  orderAsc: boolean;
+  onToggleOrderDir: () => void;
+  viewType: PolicyViewType;
+  onSetViewType: (v: PolicyViewType) => void;
+  activeTab: string;
+  onSetTab: (tab: string) => void;
+  counts: Record<string, number>;
+  onReset: () => void;
+}) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const settingsPopoverRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        settingsPopoverRef.current?.contains(target) ||
+        settingsBtnRef.current?.contains(target) ||
+        (target instanceof Element &&
+          (target.closest("[data-radix-popper-content-wrapper]") ||
+            target.closest("[role='listbox']") ||
+            target.closest("[role='option']")))
+      ) return;
+      setSettingsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    if (settingsOpen && settingsBtnRef.current) {
+      const rect = settingsBtnRef.current.getBoundingClientRect();
+      setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [settingsOpen]);
+
+  return (
+    <div className="flex items-center justify-between border-b px-4 py-2">
+      <div className="flex items-center gap-1">
+        <div className="relative">
+          <Button
+            ref={settingsBtnRef}
+            variant="secondary"
+            size="sm"
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className="h-7 gap-1.5 text-xs"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Display</span>
+          </Button>
+
+          {settingsOpen &&
+            createPortal(
+              <div
+                ref={settingsPopoverRef}
+                className="fixed z-[9999] w-[320px] rounded-lg border bg-card shadow-lg"
+                style={{ top: popoverPos.top, left: popoverPos.left }}
+              >
+                {/* View switcher */}
+                <div className="p-3 pb-0">
+                  <div className="flex rounded-lg bg-muted/60 p-0.5">
+                    {VIEW_OPTIONS.map((opt) => {
+                      const active = viewType === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => onSetViewType(opt.value)}
+                          className={cn(
+                            "flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs font-medium transition-all",
+                            active
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
                         >
-                          <Archive className="h-3.5 w-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Archive policy?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will archive the{" "}
-                            <strong>{policy.action}</strong> policy for{" "}
-                            <strong>{resourceScope}</strong>. It can be restored later.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(policy.id)}
-                            className="bg-destructive text-white hover:bg-destructive/90"
-                          >
-                            Archive
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          <opt.icon className="h-4 w-4" />
+                          <span className="text-[10px]">{opt.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </div>
 
-      {/* ============================================================ */}
-      {/* Policy Inventory */}
-      {/* ============================================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Policy Inventory</CardTitle>
-          <CardDescription>
-            Overview of all active policies and table coverage
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Active policies by resource */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold">Active Policies</h4>
-            {initialPolicies.filter((p) => p.is_active).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active policies.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Resource</th>
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Action</th>
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Scope</th>
-                      <th className="py-2 pr-4 font-medium text-muted-foreground">Conditions</th>
-                      <th className="py-2 font-medium text-muted-foreground">Version</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {initialPolicies
-                      .filter((p) => p.is_active)
-                      .sort((a, b) => {
-                        const typeCompare = a.resource_type.localeCompare(b.resource_type);
-                        if (typeCompare !== 0) return typeCompare;
-                        const nameCompare = a.resource_name.localeCompare(b.resource_name);
-                        if (nameCompare !== 0) return nameCompare;
-                        return a.action.localeCompare(b.action);
-                      })
-                      .map((policy) => (
-                        <tr key={policy.id}>
-                          <td className="py-2 pr-4">
-                            <span className="font-mono text-xs">
-                              {policy.resource_type === "feature"
-                                ? "feature"
-                                : policy.resource_type === "storage_bucket"
-                                  ? "bucket"
-                                  : "table"}
-                            </span>
-                            <span className="ml-1">
-                              {policy.resource_type === "feature"
-                                ? (FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)?.label ?? policy.resource_name)
-                                : policy.resource_name}
-                            </span>
-                          </td>
-                          <td className="py-2 pr-4">
-                            <Badge variant="outline" className="text-xs font-mono uppercase">
-                              {policy.action}
-                            </Badge>
-                          </td>
-                          <td className="py-2 pr-4">
-                            <Badge
-                              variant={policy.scope === "all" ? "secondary" : "default"}
-                              className="text-xs"
-                            >
-                              {policy.scope === "all" && "All"}
-                              {policy.scope === "org_records" && "Org"}
-                              {policy.scope === "user_records" && "User"}
-                              {policy.scope === "org_and_user" && "Org+User"}
-                              {!policy.scope && "All"}
-                            </Badge>
-                          </td>
-                          <td className="py-2 pr-4 text-xs text-muted-foreground max-w-[300px] truncate">
-                            {summarizeConditions(policy)}
-                          </td>
-                          <td className="py-2 text-xs text-muted-foreground">v{policy.version}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
+                {/* Grouping / Sub-grouping / Ordering */}
+                <div className="px-3 py-3 space-y-2.5">
+                  {/* Grouping */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Kanban className="h-3.5 w-3.5" />
+                      <span>{viewType === "board" ? "Columns" : "Grouping"}</span>
+                    </div>
+                    <Select value={groupBy} onValueChange={(v) => onSetGroupBy(v as GroupByField)}>
+                      <SelectTrigger className={selectTriggerCls}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10000]">
+                        {GROUPABLE_COLUMNS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Sub-grouping */}
+                  {viewType === "table" && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Kanban className="h-3.5 w-3.5" />
+                        <span>Sub-grouping</span>
+                      </div>
+                      <Select value={subGroupBy} onValueChange={(v) => onSetSubGroupBy(v as GroupByField)}>
+                        <SelectTrigger className={selectTriggerCls}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10000]">
+                          {GROUPABLE_COLUMNS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Ordering */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                      <span>Ordering</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Select value={orderBy} onValueChange={(v) => onSetOrderBy(v as OrderByField)}>
+                        <SelectTrigger className={selectTriggerCls}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10000]">
+                          {ORDERABLE_COLUMNS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <button
+                        onClick={onToggleOrderDir}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                        title={orderAsc ? "Ascending" : "Descending"}
+                      >
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t" />
+
+                {/* Inactive policies */}
+                <div className="px-3 py-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Inactive policies</span>
+                    <Select value={showInactive ? "show" : "hide"} onValueChange={(v) => onSetShowInactive(v === "show")}>
+                      <SelectTrigger className={selectTriggerCls}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10000]">
+                        <SelectItem value="show" className="text-xs">Show</SelectItem>
+                        <SelectItem value="hide" className="text-xs">Hide</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="border-t" />
+
+                {/* Display properties */}
+                <div className="px-3 py-3">
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-2">Display properties</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {POLICY_DISPLAY_COLUMNS.map((col) => {
+                      const active = visibleColumns[col.key];
+                      return (
+                        <button
+                          key={col.key}
+                          onClick={() => onToggleColumn(col.key)}
+                          className={cn(
+                            "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                            active
+                              ? "border-primary/30 bg-primary/10 text-foreground"
+                              : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {col.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Reset */}
+                <div className="border-t px-3 py-2.5 flex justify-center">
+                  <button
+                    onClick={onReset}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>,
+              document.body
+            )}
+        </div>
+      </div>
+
+      {/* Resource type filter tabs (right side) */}
+      <Tabs value={activeTab} onValueChange={onSetTab}>
+        <TabsList className="h-8">
+          {RESOURCE_TYPE_TABS.map((tab) => {
+            const count = counts[tab.value] ?? 0;
+            if (tab.value !== "all" && count === 0) return null;
+            return (
+              <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5 text-xs px-2.5 py-1">
+                {tab.label}
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-muted/80 px-1 text-[10px] font-medium text-muted-foreground">
+                  {count}
+                </span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
+    </div>
+  );
+}
+
+// ============================================================================
+// Helper: resolve display values for a policy
+// ============================================================================
+
+function resolveResourceName(policy: OrgPolicyRow): string {
+  if (policy.resource_type === "feature") {
+    return FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)?.label ?? policy.resource_name;
+  }
+  if (policy.resource_name === "*") return "* (All)";
+  return policy.resource_name;
+}
+
+function resolveOrgLabel(policy: OrgPolicyRow, orgDisplayName: string): string {
+  return policy.org_id ? orgDisplayName : "Global";
+}
+
+// ============================================================================
+// Policy table row — renders as <tr>
+// ============================================================================
+
+function PolicyTableRow({
+  policy,
+  isEditing,
+  onEdit,
+  onToggleActive,
+  onDelete,
+  visibleColumns,
+  orgDisplayName,
+  colCount,
+}: {
+  policy: OrgPolicyRow;
+  isEditing: boolean;
+  onEdit: (p: OrgPolicyRow) => void;
+  onToggleActive: (id: string, active: boolean) => void;
+  onDelete: (id: string) => void;
+  visibleColumns: Record<DisplayColumn, boolean>;
+  orgDisplayName: string;
+  colCount: number;
+}) {
+  const isProtected = !!(policy as OrgPolicyRow & { is_protected_policy?: boolean }).is_protected_policy;
+  const tdCls = "px-4 py-2.5";
+
+  const resourceName = resolveResourceName(policy);
+
+  return (
+    <tr
+      className={cn(
+        "border-b border-border cursor-pointer transition-colors group",
+        isEditing ? "bg-primary/5" : "hover:bg-accent/50",
+        isProtected && "bg-amber-50/30 dark:bg-amber-950/10"
+      )}
+    >
+      {visibleColumns.resourceType && (
+        <td className={tdCls}>
+          <span className="inline-flex items-center gap-1.5">
+            {isProtected && <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />}
+            <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+              {RESOURCE_TYPE_LABELS[policy.resource_type] ?? policy.resource_type}
+            </Badge>
+          </span>
+        </td>
+      )}
+
+      {visibleColumns.resourceName && (
+        <td className={tdCls}>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-foreground whitespace-nowrap">{resourceName}</span>
+            {isProtected && (
+              <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                Protected
+              </Badge>
             )}
           </div>
+        </td>
+      )}
 
-          <Separator />
+      {visibleColumns.scope && (
+        <td className={tdCls}>
+          <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+            {policy.scope === "all" && "All"}
+            {policy.scope === "org_records" && "Org"}
+            {policy.scope === "user_records" && "User"}
+            {policy.scope === "org_and_user" && "Org+User"}
+            {!policy.scope && "All"}
+          </Badge>
+        </td>
+      )}
 
-          {/* Coverage report */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold">Coverage</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-1">
-                <p className="text-muted-foreground">Tables with specific policies</p>
-                <p className="text-2xl font-bold">
-                  {new Set(
-                    initialPolicies
-                      .filter((p) => p.is_active && p.resource_type === "table" && p.resource_name !== "*")
-                      .map((p) => p.resource_name)
-                  ).size}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground">Tables using wildcard policy</p>
-                <p className="text-2xl font-bold">
-                  {columnFilters.filter((f) => !f.org_column && !f.user_column).length > 0
-                    ? `${columnFilters.length - new Set(
-                        initialPolicies
-                          .filter((p) => p.is_active && p.resource_type === "table" && p.resource_name !== "*")
-                          .map((p) => p.resource_name)
-                      ).size}`
-                    : columnFilters.length.toString()}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground">Total active policies</p>
-                <p className="text-2xl font-bold">
-                  {initialPolicies.filter((p) => p.is_active).length}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground">Inactive policies</p>
-                <p className="text-2xl font-bold">
-                  {initialPolicies.filter((p) => !p.is_active).length}
-                </p>
-              </div>
-            </div>
+      {visibleColumns.action && (
+        <td className={tdCls}>
+          <div className="flex items-center gap-1.5">
+            {visibleColumns.effect && policy.effect === "DENY" && (
+              <Badge variant="destructive" className="text-[10px] font-mono uppercase whitespace-nowrap">
+                DENY
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-[10px] font-mono uppercase whitespace-nowrap">
+              {policy.action}
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
+        </td>
+      )}
+
+      {visibleColumns.organization && (
+        <td className={tdCls}>
+          <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+            {resolveOrgLabel(policy, orgDisplayName)}
+          </Badge>
+        </td>
+      )}
+
+      {visibleColumns.conditions && (
+        <td className={cn(tdCls, "max-w-[260px]")}>
+          <span className="text-xs text-muted-foreground truncate block">
+            {summarizeConditions(policy)}
+          </span>
+        </td>
+      )}
+
+      {visibleColumns.version && (
+        <td className={tdCls}>
+          <span className="text-xs text-muted-foreground">v{policy.version}</span>
+        </td>
+      )}
+
+      {/* Row actions — always visible column */}
+      <td className={cn(tdCls, "text-right sticky right-0 bg-inherit")}>
+        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Switch
+            checked={policy.is_active}
+            onCheckedChange={(checked) => onToggleActive(policy.id, checked)}
+            className="shrink-0"
+            disabled={isProtected}
+            title={isProtected ? "Protected policies cannot be disabled" : undefined}
+          />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={(e) => { e.stopPropagation(); onEdit(policy); }}
+            aria-label="Edit policy"
+            disabled={isProtected}
+            title={isProtected ? "Protected policies cannot be edited" : undefined}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+
+          {isProtected ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 opacity-30 cursor-not-allowed"
+              disabled
+              aria-label="Protected policies cannot be archived"
+              title="Protected policies cannot be archived"
+            >
+              <Archive className="h-3 w-3" />
+            </Button>
+          ) : (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                  aria-label="Archive policy"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Archive className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Archive policy?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will archive the{" "}
+                    <strong>{policy.action}</strong> policy for{" "}
+                    <strong>{resourceName}</strong>. It can be restored later.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDelete(policy.id)}
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    Archive
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ============================================================================
+// Collapsible group row header (Linear-style)
+// ============================================================================
+
+function GroupHeaderRow({
+  label,
+  count,
+  colCount,
+  isCollapsed,
+  onToggle,
+  depth,
+}: {
+  label: string;
+  count: number;
+  colCount: number;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  depth: number;
+}) {
+  return (
+    <tr
+      className="border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={onToggle}
+    >
+      <td colSpan={colCount} className="px-4 py-2">
+        <div className="flex items-center gap-2" style={{ paddingLeft: depth * 16 }}>
+          {isCollapsed ? (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+          <span className="text-xs font-semibold text-foreground">{label}</span>
+          <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+            {count}
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ============================================================================
+// Grouped Table View — two-level grouping: resource_type > resource_name
+// ============================================================================
+
+function PolicyTableView({
+  policies,
+  editingPolicyId,
+  onEdit,
+  onToggleActive,
+  onDelete,
+  visibleColumns,
+  orgDisplayName,
+  groupBy,
+}: {
+  policies: OrgPolicyRow[];
+  editingPolicyId: string | null;
+  onEdit: (p: OrgPolicyRow) => void;
+  onToggleActive: (id: string, active: boolean) => void;
+  onDelete: (id: string) => void;
+  visibleColumns: Record<DisplayColumn, boolean>;
+  orgDisplayName: string;
+  groupBy: GroupByField;
+}) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggle = (key: string) =>
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const thCls =
+    "px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap";
+  const show = (k: DisplayColumn) => visibleColumns[k];
+
+  const colCount =
+    (show("resourceType") ? 1 : 0) +
+    (show("resourceName") ? 1 : 0) +
+    (show("scope") ? 1 : 0) +
+    (show("action") ? 1 : 0) +
+    (show("organization") ? 1 : 0) +
+    (show("conditions") ? 1 : 0) +
+    (show("version") ? 1 : 0) +
+    1; // actions column
+
+  // Build groups
+  const typeGroups = useMemo(() => {
+    const map = new Map<string, Map<string, OrgPolicyRow[]>>();
+
+    for (const p of policies) {
+      const typeKey = RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type;
+      const nameKey = resolveResourceName(p);
+
+      if (!map.has(typeKey)) map.set(typeKey, new Map());
+      const nameMap = map.get(typeKey)!;
+      if (!nameMap.has(nameKey)) nameMap.set(nameKey, []);
+      nameMap.get(nameKey)!.push(p);
+    }
+
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([type, nameMap]) => ({
+        type,
+        names: Array.from(nameMap.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([name, items]) => ({ name, items })),
+        count: Array.from(nameMap.values()).reduce((s, arr) => s + arr.length, 0),
+      }));
+  }, [policies]);
+
+  if (policies.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground py-8 text-center">
+        No policies in this category.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-auto">
+      <table className="w-full border-collapse">
+        <thead className="sticky top-0 z-10 bg-card">
+          <tr className="border-b border-border">
+            {show("resourceType") && <th className={thCls}>Resource Type</th>}
+            {show("resourceName") && <th className={thCls}>Resource Name</th>}
+            {show("scope") && <th className={thCls}>Scope</th>}
+            {show("action") && <th className={thCls}>Action</th>}
+            {show("organization") && <th className={thCls}>Organization</th>}
+            {show("conditions") && <th className={thCls}>Conditions</th>}
+            {show("version") && <th className={thCls}>Ver</th>}
+            <th className={cn(thCls, "text-right sticky right-0 bg-card")} />
+          </tr>
+        </thead>
+        <tbody>
+          {groupBy === "none" ? (
+            policies
+              .sort((a, b) => a.resource_type.localeCompare(b.resource_type) || a.resource_name.localeCompare(b.resource_name))
+              .map((p) => (
+                <PolicyTableRow
+                  key={p.id}
+                  policy={p}
+                  isEditing={editingPolicyId === p.id}
+                  onEdit={onEdit}
+                  onToggleActive={onToggleActive}
+                  onDelete={onDelete}
+                  visibleColumns={visibleColumns}
+                  orgDisplayName={orgDisplayName}
+                  colCount={colCount}
+                />
+              ))
+          ) : groupBy === "resourceName" ? (
+            typeGroups.flatMap((tg) =>
+              tg.names.map((ng) => {
+                const key = `${tg.type}/${ng.name}`;
+                const isC = collapsed[key];
+                return (
+                  <React.Fragment key={key}>
+                    <GroupHeaderRow
+                      label={ng.name}
+                      count={ng.items.length}
+                      colCount={colCount}
+                      isCollapsed={!!isC}
+                      onToggle={() => toggle(key)}
+                      depth={0}
+                    />
+                    {!isC &&
+                      ng.items.map((p) => (
+                        <PolicyTableRow
+                          key={p.id}
+                          policy={p}
+                          isEditing={editingPolicyId === p.id}
+                          onEdit={onEdit}
+                          onToggleActive={onToggleActive}
+                          onDelete={onDelete}
+                          visibleColumns={visibleColumns}
+                          orgDisplayName={orgDisplayName}
+                          colCount={colCount}
+                        />
+                      ))}
+                  </React.Fragment>
+                );
+              })
+            )
+          ) : (
+            typeGroups.map((tg) => {
+              const typeKey = `type:${tg.type}`;
+              const isTypeCollapsed = collapsed[typeKey];
+
+              return (
+                <React.Fragment key={typeKey}>
+                  <GroupHeaderRow
+                    label={tg.type}
+                    count={tg.count}
+                    colCount={colCount}
+                    isCollapsed={!!isTypeCollapsed}
+                    onToggle={() => toggle(typeKey)}
+                    depth={0}
+                  />
+                  {!isTypeCollapsed &&
+                    tg.names.map((ng) => {
+                      const nameKey = `${typeKey}/${ng.name}`;
+                      const isNameCollapsed = collapsed[nameKey];
+
+                      if (ng.items.length === 1) {
+                        return (
+                          <PolicyTableRow
+                            key={ng.items[0].id}
+                            policy={ng.items[0]}
+                            isEditing={editingPolicyId === ng.items[0].id}
+                            onEdit={onEdit}
+                            onToggleActive={onToggleActive}
+                            onDelete={onDelete}
+                            visibleColumns={visibleColumns}
+                            orgDisplayName={orgDisplayName}
+                            colCount={colCount}
+                          />
+                        );
+                      }
+
+                      return (
+                        <React.Fragment key={nameKey}>
+                          <GroupHeaderRow
+                            label={ng.name}
+                            count={ng.items.length}
+                            colCount={colCount}
+                            isCollapsed={!!isNameCollapsed}
+                            onToggle={() => toggle(nameKey)}
+                            depth={1}
+                          />
+                          {!isNameCollapsed &&
+                            ng.items.map((p) => (
+                              <PolicyTableRow
+                                key={p.id}
+                                policy={p}
+                                isEditing={editingPolicyId === p.id}
+                                onEdit={onEdit}
+                                onToggleActive={onToggleActive}
+                                onDelete={onDelete}
+                                visibleColumns={visibleColumns}
+                                orgDisplayName={orgDisplayName}
+                                colCount={colCount}
+                              />
+                            ))}
+                        </React.Fragment>
+                      );
+                    })}
+                </React.Fragment>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ============================================================================
+// Board / Kanban view — groups policies into columns
+// ============================================================================
+
+function PolicyBoardView({
+  policies,
+  editingPolicyId,
+  onEdit,
+  onToggleActive,
+  orgDisplayName,
+  groupBy,
+}: {
+  policies: OrgPolicyRow[];
+  editingPolicyId: string | null;
+  onEdit: (p: OrgPolicyRow) => void;
+  onToggleActive: (id: string, active: boolean) => void;
+  orgDisplayName: string;
+  groupBy: GroupByField;
+}) {
+  const columns = useMemo(() => {
+    const grouper = (p: OrgPolicyRow): string => {
+      switch (groupBy) {
+        case "resourceType":
+          return RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type;
+        case "resourceName":
+          return resolveResourceName(p);
+        case "scope":
+          return p.scope ?? "all";
+        case "action":
+          return p.action;
+        case "organization":
+          return resolveOrgLabel(p, orgDisplayName);
+        case "effect":
+          return p.effect ?? "ALLOW";
+        default:
+          return "All Policies";
+      }
+    };
+
+    const map = new Map<string, OrgPolicyRow[]>();
+    for (const p of policies) {
+      const key = grouper(p);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(p);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([label, items]) => ({ label, items }));
+  }, [policies, groupBy, orgDisplayName]);
+
+  if (policies.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground py-8 text-center">
+        No policies in this category.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-4 p-4 overflow-x-auto min-h-[200px]">
+      {columns.map((col) => (
+        <div
+          key={col.label}
+          className="flex flex-col w-[280px] min-w-[280px] rounded-lg border bg-muted/20"
+        >
+          <div className="flex items-center justify-between px-3 py-2.5 border-b">
+            <span className="text-xs font-semibold text-foreground">{col.label}</span>
+            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+              {col.items.length}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {col.items.map((p) => {
+              const isProtected = !!(p as OrgPolicyRow & { is_protected_policy?: boolean }).is_protected_policy;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => onEdit(p)}
+                  className={cn(
+                    "rounded-lg border bg-card p-3 space-y-2 cursor-pointer transition-colors",
+                    editingPolicyId === p.id ? "ring-2 ring-primary/50" : "hover:bg-accent/50",
+                    isProtected && "border-amber-500/30"
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="secondary" className="text-[10px]">
+                      {RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type}
+                    </Badge>
+                    {isProtected && <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />}
+                  </div>
+                  <p className="text-sm font-medium text-foreground leading-tight">
+                    {resolveResourceName(p)}
+                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {p.effect === "DENY" && (
+                      <Badge variant="destructive" className="text-[10px]">DENY</Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px] font-mono uppercase">
+                      {p.action}
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {p.scope === "org_records" ? "Org" : p.scope === "user_records" ? "User" : p.scope === "org_and_user" ? "Org+User" : "All"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-muted-foreground">
+                      {resolveOrgLabel(p, orgDisplayName)}
+                    </span>
+                    <Switch
+                      checked={p.is_active}
+                      onCheckedChange={(checked) => onToggleActive(p.id, checked)}
+                      className="shrink-0 scale-75"
+                      disabled={isProtected}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Existing Policies — matches Deal Tasks multi-view layout
+// ============================================================================
+
+const DEFAULT_VISIBLE_COLS: Record<DisplayColumn, boolean> = {
+  resourceType: true,
+  resourceName: true,
+  scope: true,
+  action: true,
+  organization: true,
+  conditions: true,
+  effect: true,
+  version: false,
+};
+
+const DEFAULT_GROUP_BY: GroupByField = "resourceType";
+const DEFAULT_SUB_GROUP_BY: GroupByField = "resourceName";
+const DEFAULT_ORDER_BY: OrderByField = "resourceType";
+
+function ExistingPoliciesCard({
+  policies,
+  editingPolicyId,
+  onEdit,
+  onToggleActive,
+  onDelete,
+  orgDisplayName,
+}: {
+  policies: OrgPolicyRow[];
+  editingPolicyId: string | null;
+  onEdit: (p: OrgPolicyRow) => void;
+  onToggleActive: (id: string, active: boolean) => void;
+  onDelete: (id: string) => void;
+  orgDisplayName: string;
+}) {
+  const [showInactive, setShowInactive] = useState(true);
+  const [groupBy, setGroupBy] = useState<GroupByField>(DEFAULT_GROUP_BY);
+  const [subGroupBy, setSubGroupBy] = useState<GroupByField>(DEFAULT_SUB_GROUP_BY);
+  const [orderBy, setOrderBy] = useState<OrderByField>(DEFAULT_ORDER_BY);
+  const [orderAsc, setOrderAsc] = useState(true);
+  const [viewType, setViewType] = useState<PolicyViewType>("table");
+  const [activeTab, setActiveTab] = useState("all");
+  const [visibleColumns, setVisibleColumns] = useState<Record<DisplayColumn, boolean>>(
+    () => ({ ...DEFAULT_VISIBLE_COLS })
+  );
+
+  const toggleColumn = useCallback(
+    (col: DisplayColumn) =>
+      setVisibleColumns((prev) => ({ ...prev, [col]: !prev[col] })),
+    []
+  );
+
+  const handleReset = useCallback(() => {
+    setShowInactive(true);
+    setGroupBy(DEFAULT_GROUP_BY);
+    setSubGroupBy(DEFAULT_SUB_GROUP_BY);
+    setOrderBy(DEFAULT_ORDER_BY);
+    setOrderAsc(true);
+    setViewType("table");
+    setActiveTab("all");
+    setVisibleColumns({ ...DEFAULT_VISIBLE_COLS });
+  }, []);
+
+  const filteredPolicies = useMemo(
+    () => (showInactive ? policies : policies.filter((p) => p.is_active)),
+    [policies, showInactive]
+  );
+
+  const tabPolicies = useMemo(
+    () =>
+      activeTab === "all"
+        ? filteredPolicies
+        : filteredPolicies.filter((p) => p.resource_type === activeTab),
+    [filteredPolicies, activeTab]
+  );
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: filteredPolicies.length };
+    for (const p of filteredPolicies) {
+      c[p.resource_type] = (c[p.resource_type] ?? 0) + 1;
+    }
+    return c;
+  }, [filteredPolicies]);
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+      <PolicyToolbar
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        showInactive={showInactive}
+        onSetShowInactive={setShowInactive}
+        groupBy={groupBy}
+        onSetGroupBy={setGroupBy}
+        subGroupBy={subGroupBy}
+        onSetSubGroupBy={setSubGroupBy}
+        orderBy={orderBy}
+        onSetOrderBy={setOrderBy}
+        orderAsc={orderAsc}
+        onToggleOrderDir={() => setOrderAsc((v) => !v)}
+        viewType={viewType}
+        onSetViewType={setViewType}
+        activeTab={activeTab}
+        onSetTab={setActiveTab}
+        counts={counts}
+        onReset={handleReset}
+      />
+
+      <div className="flex-1 min-h-0 overflow-auto">
+        {viewType === "board" ? (
+          <PolicyBoardView
+            policies={tabPolicies}
+            editingPolicyId={editingPolicyId}
+            onEdit={onEdit}
+            onToggleActive={onToggleActive}
+            orgDisplayName={orgDisplayName}
+            groupBy={groupBy}
+          />
+        ) : (
+          <PolicyTableView
+            policies={tabPolicies}
+            editingPolicyId={editingPolicyId}
+            onEdit={onEdit}
+            onToggleActive={onToggleActive}
+            onDelete={onDelete}
+            visibleColumns={visibleColumns}
+            orgDisplayName={orgDisplayName}
+            groupBy={groupBy}
+          />
+        )}
+      </div>
     </div>
   );
 }

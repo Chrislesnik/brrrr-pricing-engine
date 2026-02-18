@@ -11,7 +11,7 @@
 BEGIN;
 
 -- =====================================================
--- Step 1: Widen resource_type CHECK to include 'feature'
+-- Step 1: Widen resource_type CHECK to include 'feature' and 'route'
 -- =====================================================
 ALTER TABLE public.organization_policies
   DROP CONSTRAINT IF EXISTS organization_policies_resource_type_check;
@@ -24,7 +24,8 @@ ALTER TABLE public.organization_policies
     CHECK (resource_type = ANY (ARRAY[
       'table'::text,
       'storage_bucket'::text,
-      'feature'::text
+      'feature'::text,
+      'route'::text
     ]));
 
 -- =====================================================

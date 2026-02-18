@@ -119,7 +119,7 @@ export function DocumentsSettings() {
     async function checkAccessAndFetch() {
       // Check permissions via Supabase (admin/owner in internal org)
       try {
-        const accessResponse = await fetch("/api/org/settings-access");
+        const accessResponse = await fetch("/api/org/settings-access?tab=documents");
         if (accessResponse.ok) {
           const accessData = await accessResponse.json();
           setCanAccess(accessData.canAccess);

@@ -357,7 +357,7 @@ export function InputsSettings() {
     async function checkAccessAndFetch() {
       // Check permissions via Supabase (admin/owner in internal org)
       try {
-        const accessResponse = await fetch("/api/org/settings-access");
+        const accessResponse = await fetch("/api/org/settings-access?tab=inputs");
         if (accessResponse.ok) {
           const accessData = await accessResponse.json();
           setCanAccess(accessData.canAccess);
