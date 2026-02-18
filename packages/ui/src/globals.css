@@ -39,17 +39,22 @@
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
   /* Task status colors */
-  --task-status-todo: #6B7280;
-  --task-status-in-progress: #3B82F6;
-  --task-status-in-review: #F59E0B;
-  --task-status-blocked: #EF4444;
-  --task-status-done: #10B981;
+  --task-status-todo: hsl(220 9% 46%);
+  --task-status-in-progress: hsl(217 91% 60%);
+  --task-status-in-review: hsl(38 92% 50%);
+  --task-status-blocked: hsl(0 84% 60%);
+  --task-status-done: hsl(160 84% 39%);
   /* Task priority colors */
-  --task-priority-urgent: #EF4444;
-  --task-priority-high: #F97316;
-  --task-priority-medium: #F59E0B;
-  --task-priority-low: #6B7280;
-  --task-priority-none: #D1D5DB;
+  --task-priority-urgent: hsl(0 84% 60%);
+  --task-priority-high: hsl(25 95% 53%);
+  --task-priority-medium: hsl(38 92% 50%);
+  --task-priority-low: hsl(220 9% 46%);
+  --task-priority-none: hsl(216 12% 84%);
+  /* Resource type colors (policy builder) */
+  --resource-table: hsl(217 91% 60%);
+  --resource-storage: hsl(271 81% 56%);
+  --resource-feature: hsl(160 84% 39%);
+  --resource-route: hsl(38 92% 50%);
   --radius: 0.625rem;
   --sidebar-background: 0 0% 98%;
   --sidebar-foreground: 0 0% 4%;
@@ -132,6 +137,11 @@
   --sidebar-accent-foreground: 240 4.8% 95.9%;
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-ring: 217 91.2% 59.8%;
+  /* Resource type colors (policy builder) — lighter for dark bg */
+  --resource-table: hsl(217 92% 68%);
+  --resource-storage: hsl(271 81% 70%);
+  --resource-feature: hsl(160 72% 50%);
+  --resource-route: hsl(38 92% 56%);
   /* Loader wave gradient colors */
   --gradient-warm-1: #ff453a;
   --gradient-warm-2: #ff7a1a;
@@ -412,12 +422,12 @@
 .bg-task-blocked { background-color: var(--task-status-blocked); }
 .bg-task-done { background-color: var(--task-status-done); }
 
-/* Task status badge styles (10% alpha background + text color) */
-.badge-task-todo { background-color: rgb(107 114 128 / 0.1); color: var(--task-status-todo); }
-.badge-task-in-progress { background-color: rgb(59 130 246 / 0.1); color: var(--task-status-in-progress); }
-.badge-task-in-review { background-color: rgb(245 158 11 / 0.1); color: var(--task-status-in-review); }
-.badge-task-blocked { background-color: rgb(239 68 68 / 0.1); color: var(--task-status-blocked); }
-.badge-task-done { background-color: rgb(16 185 129 / 0.1); color: var(--task-status-done); }
+/* Task status badge styles (muted bg, text color, 30% alpha border) */
+.badge-task-todo { background-color: hsl(220 9% 46% / 0.1); color: var(--task-status-todo); border-color: hsl(220 9% 46% / 0.3); }
+.badge-task-in-progress { background-color: hsl(217 91% 60% / 0.1); color: var(--task-status-in-progress); border-color: hsl(217 91% 60% / 0.3); }
+.badge-task-in-review { background-color: hsl(38 92% 50% / 0.1); color: var(--task-status-in-review); border-color: hsl(38 92% 50% / 0.3); }
+.badge-task-blocked { background-color: hsl(0 84% 60% / 0.1); color: var(--task-status-blocked); border-color: hsl(0 84% 60% / 0.3); }
+.badge-task-done { background-color: hsl(160 84% 39% / 0.1); color: var(--task-status-done); border-color: hsl(160 84% 39% / 0.3); }
 
 /* Task priority text colors */
 .text-priority-urgent { color: var(--task-priority-urgent); }
@@ -433,12 +443,40 @@
 .bg-priority-low { background-color: var(--task-priority-low); }
 .bg-priority-none { background-color: var(--task-priority-none); }
 
-/* Task priority badge styles */
-.badge-priority-urgent { background-color: rgb(239 68 68 / 0.1); color: var(--task-priority-urgent); }
-.badge-priority-high { background-color: rgb(249 115 22 / 0.1); color: var(--task-priority-high); }
-.badge-priority-medium { background-color: rgb(245 158 11 / 0.1); color: var(--task-priority-medium); }
-.badge-priority-low { background-color: rgb(107 114 128 / 0.1); color: var(--task-priority-low); }
-.badge-priority-none { background-color: rgb(209 213 219 / 0.1); color: var(--task-priority-none); }
+/* Task priority badge styles (muted bg, text color, 30% alpha border) */
+.badge-priority-urgent { background-color: hsl(0 84% 60% / 0.1); color: var(--task-priority-urgent); border-color: hsl(0 84% 60% / 0.3); }
+.badge-priority-high { background-color: hsl(25 95% 53% / 0.1); color: var(--task-priority-high); border-color: hsl(25 95% 53% / 0.3); }
+.badge-priority-medium { background-color: hsl(38 92% 50% / 0.1); color: var(--task-priority-medium); border-color: hsl(38 92% 50% / 0.3); }
+.badge-priority-low { background-color: hsl(220 9% 46% / 0.1); color: var(--task-priority-low); border-color: hsl(220 9% 46% / 0.3); }
+.badge-priority-none { background-color: hsl(216 12% 84% / 0.1); color: var(--task-priority-none); border-color: hsl(216 12% 84% / 0.3); }
+
+/* ========================================================================== */
+/*  Resource type utility classes (policy builder)                             */
+/* ========================================================================== */
+
+/* Resource type text colors */
+.text-resource-table { color: var(--resource-table); }
+.text-resource-storage { color: var(--resource-storage); }
+.text-resource-feature { color: var(--resource-feature); }
+.text-resource-route { color: var(--resource-route); }
+
+/* Resource type background colors */
+.bg-resource-table { background-color: var(--resource-table); }
+.bg-resource-storage { background-color: var(--resource-storage); }
+.bg-resource-feature { background-color: var(--resource-feature); }
+.bg-resource-route { background-color: var(--resource-route); }
+
+/* Resource type badge styles (muted bg, text color, 30% alpha border) */
+.badge-resource-table { background-color: hsl(217 91% 60% / 0.12); color: var(--resource-table); border-color: hsl(217 91% 60% / 0.3); }
+.badge-resource-storage { background-color: hsl(271 81% 56% / 0.12); color: var(--resource-storage); border-color: hsl(271 81% 56% / 0.3); }
+.badge-resource-feature { background-color: hsl(160 84% 39% / 0.12); color: var(--resource-feature); border-color: hsl(160 84% 39% / 0.3); }
+.badge-resource-route { background-color: hsl(38 92% 50% / 0.12); color: var(--resource-route); border-color: hsl(38 92% 50% / 0.3); }
+
+/* Resource type group header tints (5% alpha) */
+.bg-resource-table-tint { background-color: hsl(217 91% 60% / 0.05); }
+.bg-resource-storage-tint { background-color: hsl(271 81% 56% / 0.05); }
+.bg-resource-feature-tint { background-color: hsl(160 84% 39% / 0.05); }
+.bg-resource-route-tint { background-color: hsl(38 92% 50% / 0.05); }
 
 /* Task progress bar - native <progress> element styled via CSS */
 progress.task-progress-bar {

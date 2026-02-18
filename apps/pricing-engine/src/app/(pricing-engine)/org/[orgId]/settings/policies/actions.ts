@@ -123,9 +123,24 @@ function normalizeRole(value?: string) {
   return trimmed.toLowerCase().replace(/^org:/, "");
 }
 
+function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
+  const sc = definition.scopeConditions ?? [];
+  if (sc.length === 0) return definition.scope || "all";
+
+  const hasOrgEquals = sc.some((c) => c.column === "org_id" && c.operator === "=");
+  const hasUserEquals = sc.some(
+    (c) => (c.column === "created_by" || c.column === "user_id") && c.operator === "="
+  );
+
+  if (hasOrgEquals && hasUserEquals) return "org_and_user";
+  if (hasOrgEquals) return "org_records";
+  if (hasUserEquals) return "user_records";
+  return "all";
+}
+
 function compilePolicy(definition: PolicyDefinitionInput) {
   return {
-    version: 2,
+    version: 3,
     allow_internal_users: !!definition.allowInternalUsers,
     conditions: (definition.conditions ?? []).map((c) => ({
       field: c.field,
@@ -133,14 +148,20 @@ function compilePolicy(definition: PolicyDefinitionInput) {
       values: c.values.map((v) => v.toLowerCase()),
     })),
     connector: definition.connector || "AND",
-    scope: definition.scope || "all",
+    scope: deriveLegacyScope(definition),
+    scope_conditions: (definition.scopeConditions ?? []).map((c) => ({
+      column: c.column,
+      operator: c.operator,
+      reference: c.reference,
+    })),
+    scope_connector: definition.scopeConnector || "OR",
   };
 }
 
 function buildDefinition(definition: PolicyDefinitionInput) {
   return {
-    version: 2,
-    effect: "ALLOW",
+    version: 3,
+    effect: definition.effect || "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
     conditions: (definition.conditions ?? []).map((c) => ({
       field: c.field,
@@ -148,7 +169,13 @@ function buildDefinition(definition: PolicyDefinitionInput) {
       values: c.values,
     })),
     connector: definition.connector || "AND",
-    scope: definition.scope || "all",
+    scope: deriveLegacyScope(definition),
+    scope_conditions: (definition.scopeConditions ?? []).map((c) => ({
+      column: c.column,
+      operator: c.operator,
+      reference: c.reference,
+    })),
+    scope_connector: definition.scopeConnector || "OR",
   };
 }
 
@@ -330,11 +357,13 @@ export async function setOrgPolicyActive(input: {
 export async function updateOrgPolicy(input: {
   id: string;
   definition: PolicyDefinitionInput;
+  action?: PolicyAction;
+  resourceType?: ResourceType;
+  resourceName?: string;
 }): Promise<{ ok: true }> {
   const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
-  // Prevent editing system policies (gracefully handle missing column)
   try {
     const { data: policyRow } = await supabase
       .from("organization_policies")
@@ -359,31 +388,52 @@ export async function updateOrgPolicy(input: {
   }
 
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
-  const currentUserAllowed =
-    normalizedOrgRole === "owner" ||
-    compiledConfig.allow_internal_users ||
-    compiledConfig.conditions.some(
+  const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
+
+  if (!isPrivileged) {
+    const hasOrgRoleDenyCondition = compiledConfig.conditions.some(
       (c: { field: string; operator: string; values: string[] }) =>
         c.field === "org_role" &&
-        c.operator === "is" &&
-        (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+        c.operator === "is_not" &&
+        c.values.includes(normalizedOrgRole)
     );
 
-  if (!currentUserAllowed && normalizedOrgRole !== "owner") {
-    throw new Error(
-      "This policy would deny your access based on your org role. Update the conditions or use an owner account."
+    const hasOrgRoleRestriction = compiledConfig.conditions.some(
+      (c: { field: string; operator: string; values: string[] }) =>
+        c.field === "org_role" && c.operator === "is"
     );
+
+    const orgRoleAllowed =
+      !hasOrgRoleRestriction ||
+      compiledConfig.conditions.some(
+        (c: { field: string; operator: string; values: string[] }) =>
+          c.field === "org_role" &&
+          c.operator === "is" &&
+          (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+      );
+
+    if (hasOrgRoleDenyCondition || !orgRoleAllowed) {
+      throw new Error(
+        "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
+      );
+    }
   }
+
+  const updatePayload: Record<string, unknown> = {
+    definition_json: definitionJson,
+    compiled_config: compiledConfig,
+    scope: input.definition.scope || "all",
+    effect: input.definition.effect || "ALLOW",
+    created_by_clerk_sub: userId,
+  };
+
+  if (input.action) updatePayload.action = input.action;
+  if (input.resourceType) updatePayload.resource_type = input.resourceType;
+  if (input.resourceName !== undefined) updatePayload.resource_name = input.resourceName || "*";
 
   const { error } = await supabase
     .from("organization_policies")
-    .update({
-      definition_json: definitionJson,
-      compiled_config: compiledConfig,
-      scope: input.definition.scope || "all",
-      effect: input.definition.effect || "ALLOW",
-      created_by_clerk_sub: userId,
-    })
+    .update(updatePayload)
     .eq("id", input.id);
 
   if (error) throw new Error(error.message);

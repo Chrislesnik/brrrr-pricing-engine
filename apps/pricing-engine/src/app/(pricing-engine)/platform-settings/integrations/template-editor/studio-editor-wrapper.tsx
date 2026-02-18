@@ -10,7 +10,6 @@ import {
   googleFontsAssetProvider,
   rteProseMirror,
   flexComponent,
-  dataSourceHandlebars,
 } from "@grapesjs/studio-sdk-plugins"
 import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
 import { Field, typeColorConfig, FieldType } from "./field-types"
@@ -158,7 +157,6 @@ export function StudioEditorWrapper({
             googleFontsAssetProvider.init({
               apiKey: process.env.NEXT_PUBLIC_GOOGLE_FONTS_API_KEY || "",
             }),
-            dataSourceHandlebars,
             rteProseMirror.init({
               toolbar({ items, layouts, commands }) {
                 return [

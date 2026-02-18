@@ -20,6 +20,7 @@ import {
   FEATURE_RESOURCES,
   type OrgPolicyRow,
   type ConditionInput,
+  type ScopeConditionInput,
   type PolicyDefinitionInput,
   type PolicyScope,
   type PolicyEffect,
@@ -82,6 +83,21 @@ import {
   TabsTrigger,
 } from "@repo/ui/shadcn/tabs";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@repo/ui/shadcn/sheet";
+import {
   ChevronsUpDown,
   Check,
   X,
@@ -96,6 +112,8 @@ import {
   Kanban,
   Table2,
   LayoutGrid,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -144,12 +162,100 @@ const resourceScopeOptions = [
   { value: "route:*", label: "All Routes" },
 ];
 
-const scopeOptions: Array<{ value: PolicyScope; label: string; description: string }> = [
-  { value: "all", label: "All Records", description: "User can access all rows in the table" },
-  { value: "org_records", label: "Organization Records", description: "Only rows belonging to the user's organization" },
-  { value: "user_records", label: "User's Own Records", description: "Only rows created by or assigned to the user" },
-  { value: "org_and_user", label: "Org + User Records", description: "Rows belonging to the org or created by the user" },
+const SCOPE_SUBJECTS: Array<{ value: string; label: string; description: string }> = [
+  { value: "active_org", label: "Active Organization", description: "organizations.id of the logged-in org" },
+  { value: "current_user_clerk", label: "Logged-in User (Clerk ID)", description: "users.clerk_user_id from JWT" },
+  { value: "current_user_pk", label: "Logged-in User (User ID)", description: "users.id resolved from JWT" },
 ];
+
+const SCOPE_OPERATORS: Array<{ value: string; label: string }> = [
+  { value: "is", label: "IS" },
+  { value: "is_not", label: "IS NOT" },
+  { value: "is_one_of", label: "IS ONE OF" },
+  { value: "is_not_one_of", label: "IS NOT ONE OF" },
+  { value: "contains", label: "CONTAINS" },
+  { value: "not_contains", label: "DOES NOT CONTAIN" },
+];
+
+type ScopeConditionState = {
+  subject: string;
+  operator: string;
+  targetColumn: string;
+};
+
+const defaultScopeCondition: ScopeConditionState = {
+  subject: "active_org",
+  operator: "is",
+  targetColumn: "",
+};
+
+function scopeConditionsToLegacyScope(conditions: ScopeConditionState[]): PolicyScope {
+  if (conditions.length === 0) return "all";
+  const hasOrg = conditions.some((c) => c.subject === "active_org" && c.operator === "is");
+  const hasUser = conditions.some(
+    (c) => (c.subject === "current_user_clerk" || c.subject === "current_user_pk") && c.operator === "is"
+  );
+  if (hasOrg && hasUser) return "org_and_user";
+  if (hasOrg) return "org_records";
+  if (hasUser) return "user_records";
+  return "all";
+}
+
+function legacyScopeToConditions(scope: PolicyScope): ScopeConditionState[] {
+  switch (scope) {
+    case "org_records":
+      return [{ subject: "active_org", operator: "is", targetColumn: "org_id" }];
+    case "user_records":
+      return [{ subject: "current_user_clerk", operator: "is", targetColumn: "created_by" }];
+    case "org_and_user":
+      return [
+        { subject: "active_org", operator: "is", targetColumn: "org_id" },
+        { subject: "current_user_clerk", operator: "is", targetColumn: "created_by" },
+      ];
+    default:
+      return [];
+  }
+}
+
+function buildScopeTargetOptions(
+  selectedResources: string[],
+  columnFilters: Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+): Array<{ value: string; label: string }> {
+  const isWildcard = selectedResources.some((r) => r.endsWith(":*"));
+
+  if (isWildcard) {
+    const allCols = new Set<string>();
+    for (const f of columnFilters) {
+      if (f.org_column) allCols.add(f.org_column);
+      if (f.user_column) allCols.add(f.user_column);
+    }
+    return Array.from(allCols)
+      .sort()
+      .map((col) => ({ value: col, label: `{resource}.${col}` }));
+  }
+
+  const opts: Array<{ value: string; label: string }> = [];
+  const seen = new Set<string>();
+
+  for (const r of selectedResources) {
+    const tableName = r.split(":")[1];
+    if (!tableName || tableName === "*") continue;
+
+    const filter = columnFilters.find((f) => f.table_name === tableName);
+    if (filter?.org_column && !seen.has(`${tableName}.${filter.org_column}`)) {
+      const key = `${tableName}.${filter.org_column}`;
+      seen.add(key);
+      opts.push({ value: key, label: key });
+    }
+    if (filter?.user_column && !seen.has(`${tableName}.${filter.user_column}`)) {
+      const key = `${tableName}.${filter.user_column}`;
+      seen.add(key);
+      opts.push({ value: key, label: key });
+    }
+  }
+
+  return opts.sort((a, b) => a.label.localeCompare(b.label));
+}
 
 const defaultCondition: ConditionState = {
   field: "org_role",
@@ -316,6 +422,15 @@ function ResourceChipsSelect({
     (o) => o.value.startsWith("route:") && !isWildcard(o)
   );
 
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    tables: true,
+    buckets: true,
+  });
+
+  function toggleCollapse(key: string) {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   function renderItem(opt: ResourceOption) {
     const isSelected = selected.includes(opt.value);
     return (
@@ -338,6 +453,47 @@ function ResourceChipsSelect({
         </div>
         <span className="truncate">{opt.label}</span>
       </CommandItem>
+    );
+  }
+
+  function renderCollapsibleGroup(
+    key: string,
+    heading: string,
+    items: ResourceOption[],
+    showSeparator: boolean
+  ) {
+    if (items.length === 0) return null;
+    const isCollapsed = collapsed[key] ?? false;
+    const selectedCount = items.filter((o) => selected.includes(o.value)).length;
+    return (
+      <React.Fragment key={key}>
+        {showSeparator && <CommandSeparator />}
+        <div>
+          <button
+            type="button"
+            onClick={() => toggleCollapse(key)}
+            className="flex w-full items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-3 w-3 shrink-0" />
+            ) : (
+              <ChevronDown className="h-3 w-3 shrink-0" />
+            )}
+            <span>{heading}</span>
+            <span className="ml-auto text-[10px] tabular-nums">
+              {selectedCount > 0 && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal">
+                  {selectedCount}
+                </Badge>
+              )}
+              <span className="ml-1 opacity-60">{items.length}</span>
+            </span>
+          </button>
+          {!isCollapsed && (
+            <CommandGroup>{items.map(renderItem)}</CommandGroup>
+          )}
+        </div>
+      </React.Fragment>
     );
   }
 
@@ -400,45 +556,187 @@ function ResourceChipsSelect({
               </CommandGroup>
             )}
 
-            {tables.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Tables">
-                  {tables.map(renderItem)}
-                </CommandGroup>
-              </>
-            )}
-
-            {buckets.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Storage Buckets">
-                  {buckets.map(renderItem)}
-                </CommandGroup>
-              </>
-            )}
-
-            {features.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Features">
-                  {features.map(renderItem)}
-                </CommandGroup>
-              </>
-            )}
-
-            {routes.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Routes">
-                  {routes.map(renderItem)}
-                </CommandGroup>
-              </>
-            )}
+            {renderCollapsibleGroup("tables", "Tables", tables, wildcards.length > 0)}
+            {renderCollapsibleGroup("buckets", "Storage Buckets", buckets, wildcards.length > 0 || tables.length > 0)}
+            {renderCollapsibleGroup("features", "Features", features, wildcards.length > 0 || tables.length > 0 || buckets.length > 0)}
+            {renderCollapsibleGroup("routes", "Routes", routes, wildcards.length > 0 || tables.length > 0 || buckets.length > 0 || features.length > 0)}
           </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// ============================================================================
+// Scope Condition Builder
+// ============================================================================
+
+function ScopeConditionBuilder({
+  scopeConditions,
+  setScopeConditions,
+  scopeConnector,
+  setScopeConnector,
+  scopeEnabled,
+  selectedResources,
+  columnFilters,
+}: {
+  scopeConditions: ScopeConditionState[];
+  setScopeConditions: (c: ScopeConditionState[]) => void;
+  scopeConnector: "AND" | "OR";
+  setScopeConnector: (c: "AND" | "OR") => void;
+  scopeEnabled: boolean;
+  selectedResources: string[];
+  columnFilters: Array<{ table_name: string; org_column: string | null; user_column: string | null }>;
+}) {
+  const targetOptions = useMemo(
+    () => buildScopeTargetOptions(selectedResources, columnFilters),
+    [selectedResources, columnFilters]
+  );
+
+  function updateCondition(idx: number, patch: Partial<ScopeConditionState>) {
+    const updated = [...scopeConditions];
+    updated[idx] = { ...updated[idx], ...patch };
+    setScopeConditions(updated);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold">WHERE</h3>
+        {!scopeEnabled && (
+          <span className="text-xs text-muted-foreground">
+            (not applicable — selected resource has no ownership columns)
+          </span>
+        )}
+        {scopeEnabled && scopeConditions.length === 0 && (
+          <span className="text-xs text-muted-foreground">
+            all records (no row-level filter)
+          </span>
+        )}
+      </div>
+
+      {scopeEnabled && scopeConditions.length > 0 && (
+        <div className="space-y-2 rounded-lg border p-4">
+          {scopeConditions.map((sc, idx) => (
+            <div key={`scope-${idx}`}>
+              {idx > 0 && (
+                <div className="flex items-center gap-2 py-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScopeConnector(scopeConnector === "AND" ? "OR" : "AND")
+                    }
+                    className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    {scopeConnector}
+                  </button>
+                  <Separator className="flex-1" />
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select
+                  value={sc.subject}
+                  onValueChange={(v) => updateCondition(idx, { subject: v })}
+                >
+                  <SelectTrigger className="w-auto min-w-[180px] h-9 text-xs">
+                    <span className="truncate">
+                      {SCOPE_SUBJECTS.find((s) => s.value === sc.subject)?.label ?? sc.subject}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="z-[10000] min-w-[300px]">
+                    {SCOPE_SUBJECTS.map((s) => (
+                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                        <div>
+                          <span className="font-medium">{s.label}</span>
+                          <span className="ml-2 text-[10px] text-muted-foreground">{s.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={sc.operator}
+                  onValueChange={(v) => updateCondition(idx, { operator: v })}
+                >
+                  <SelectTrigger className="w-auto min-w-[80px] h-9 text-xs font-semibold">
+                    <span className="truncate">
+                      {SCOPE_OPERATORS.find((o) => o.value === sc.operator)?.label ?? sc.operator}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="z-[10000]">
+                    {SCOPE_OPERATORS.map((o) => (
+                      <SelectItem key={o.value} value={o.value} className="text-xs font-semibold">
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={sc.targetColumn || "_placeholder"}
+                  onValueChange={(v) => { if (v !== "_placeholder") updateCondition(idx, { targetColumn: v }); }}
+                >
+                  <SelectTrigger className={cn(
+                    "w-auto min-w-[220px] h-9 text-xs font-mono",
+                    !sc.targetColumn && "text-muted-foreground"
+                  )}>
+                    <span className="truncate">
+                      {sc.targetColumn || "Select column..."}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="z-[10000] min-w-[280px]">
+                    {targetOptions.length > 0 ? (
+                      targetOptions.map((t) => (
+                        <SelectItem key={t.value} value={t.value} className="text-xs font-mono">
+                          {t.label}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="_placeholder" disabled className="text-xs text-muted-foreground">
+                        No columns available for selected resource
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setScopeConditions(scopeConditions.filter((_, i) => i !== idx))}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setScopeConditions([...scopeConditions, { ...defaultScopeCondition }])}
+            className="mt-2 gap-1 text-muted-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Add Scope Condition
+          </Button>
+        </div>
+      )}
+
+      {scopeEnabled && scopeConditions.length === 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setScopeConditions([{ ...defaultScopeCondition }])}
+          className="gap-1 text-muted-foreground"
+        >
+          <Plus className="h-4 w-4" />
+          Add Scope Condition
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -488,6 +786,8 @@ function loadPolicyIntoForm(
     setSelectedActions: (a: string[]) => void;
     setSelectedResources: (r: string[]) => void;
     setSelectedScope: (s: PolicyScope) => void;
+    setScopeConditions: (c: ScopeConditionState[]) => void;
+    setScopeConnector: (c: "AND" | "OR") => void;
     setSelectedEffect: (e: PolicyEffect) => void;
     setEditingPolicyId: (id: string | null) => void;
   }
@@ -498,6 +798,8 @@ function loadPolicyIntoForm(
     allow_internal_users?: boolean;
     scope?: PolicyScope;
     effect?: PolicyEffect;
+    scope_conditions?: Array<{ column: string; operator: string; reference: string }>;
+    scope_connector?: "AND" | "OR";
   };
 
   setters.setConditions(
@@ -513,9 +815,22 @@ function loadPolicyIntoForm(
   setters.setAllowInternalUsers(def?.allow_internal_users ?? false);
   setters.setSelectedActions([policy.action === "all" ? "select" : policy.action]);
   setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
-  setters.setSelectedScope(policy.scope ?? def?.scope ?? "all");
   setters.setSelectedEffect(policy.effect ?? def?.effect ?? "ALLOW");
   setters.setEditingPolicyId(policy.id);
+
+  if (def?.scope_conditions?.length) {
+    setters.setScopeConditions(
+      def.scope_conditions.map((c) => ({
+        subject: c.reference,
+        operator: c.operator,
+        targetColumn: c.column,
+      }))
+    );
+    setters.setScopeConnector(def.scope_connector ?? "OR");
+  } else {
+    setters.setScopeConditions(legacyScopeToConditions(policy.scope ?? def?.scope ?? "all"));
+    setters.setScopeConnector("OR");
+  }
 }
 
 // ============================================================================
@@ -553,8 +868,11 @@ export default function OrgPolicyBuilder({
     "table:*",
   ]);
 
-  // Scope
-  const [selectedScope, setSelectedScope] = useState<PolicyScope>("all");
+  // Scope (composable conditions derive the legacy PolicyScope value)
+  const [scopeConditions, setScopeConditions] = useState<ScopeConditionState[]>([]);
+  const [scopeConnector, setScopeConnector] = useState<"AND" | "OR">("OR");
+  const selectedScope = scopeConditionsToLegacyScope(scopeConditions);
+  const setSelectedScope = (s: PolicyScope) => setScopeConditions(legacyScopeToConditions(s));
 
   // Effect (ALLOW or DENY)
   const [selectedEffect, setSelectedEffect] = useState<PolicyEffect>("ALLOW");
@@ -566,6 +884,12 @@ export default function OrgPolicyBuilder({
   const [columnFilters, setColumnFilters] = useState<
     Array<{ table_name: string; org_column: string | null; user_column: string | null }>
   >([]);
+
+  // Policies in local state for optimistic updates (synced from server)
+  const [policies, setPolicies] = useState<OrgPolicyRow[]>(initialPolicies);
+  useEffect(() => {
+    setPolicies(initialPolicies);
+  }, [initialPolicies]);
 
   // Status
   const [error, setError] = useState<string | null>(null);
@@ -736,14 +1060,14 @@ export default function OrgPolicyBuilder({
     setConnector("AND");
     setSelectedActions(["select", "insert", "update", "delete"]);
     setSelectedResources(["table:*"]);
-    setSelectedScope("all");
+    setScopeConditions([]);
+    setScopeConnector("OR");
     setSelectedEffect("ALLOW");
     setAllowInternalUsers(false);
     setError(null);
     setStatus(null);
   }
 
-  // Save (create or update)
   async function handleSave() {
     setError(null);
     setStatus(null);
@@ -755,27 +1079,44 @@ export default function OrgPolicyBuilder({
           values: c.values,
         }));
 
+        const scopeConditionInputs: ScopeConditionInput[] = scopeConditions
+          .filter((c) => c.targetColumn)
+          .map((c) => ({
+            column: c.targetColumn,
+            operator: c.operator,
+            reference: c.subject,
+          }));
+
         const definition: PolicyDefinitionInput = {
           allowInternalUsers,
           conditions: conditionInputs,
           connector,
           scope: selectedScope,
           effect: selectedEffect,
+          scopeConditions: scopeConditionInputs,
+          scopeConnector: scopeConnector,
         };
 
         if (editingPolicyId) {
-          // Update existing policy
-          await updateOrgPolicy({ id: editingPolicyId, definition });
-          setStatus("Policy updated successfully.");
+          const res = selectedResources[0] ?? "table:*";
+          const colonIdx = res.indexOf(":");
+          const resType = res.substring(0, colonIdx) as ResourceType;
+          const resName = res.substring(colonIdx + 1);
+
+          await updateOrgPolicy({
+            id: editingPolicyId,
+            definition,
+            action: (selectedActions[0] ?? "select") as PolicyAction,
+            resourceType: resType,
+            resourceName: resName,
+          });
+
+          router.refresh();
           resetForm();
         } else {
-          // Create new policies - parse "type:name" format
           for (const resource of selectedResources) {
             const colonIdx = resource.indexOf(":");
-            const resourceType = resource.substring(0, colonIdx) as
-              | "table"
-              | "storage_bucket"
-              | "feature";
+            const resourceType = resource.substring(0, colonIdx) as ResourceType;
             const resourceName = resource.substring(colonIdx + 1);
 
             await saveOrgPolicy({
@@ -786,8 +1127,8 @@ export default function OrgPolicyBuilder({
             });
           }
           setStatus("Policy saved successfully.");
+          router.refresh();
         }
-        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save policy.");
       }
@@ -797,11 +1138,19 @@ export default function OrgPolicyBuilder({
   async function handleToggleActive(id: string, isActive: boolean) {
     setError(null);
     setStatus(null);
+    const previous = policies.find((p) => p.id === id);
+    if (!previous) return;
+    setPolicies((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, is_active: isActive } : p))
+    );
     startTransition(async () => {
       try {
         await setOrgPolicyActive({ id, isActive });
         router.refresh();
       } catch (err) {
+        setPolicies((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, is_active: previous.is_active } : p))
+        );
         setError(
           err instanceof Error ? err.message : "Failed to update policy."
         );
@@ -833,258 +1182,232 @@ export default function OrgPolicyBuilder({
       setSelectedActions,
       setSelectedResources,
       setSelectedScope,
+      setScopeConditions,
+      setScopeConnector,
       setSelectedEffect,
       setEditingPolicyId,
     });
     setError(null);
     setStatus(null);
-    // Scroll to top of form
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  const editingPolicy = editingPolicyId
+    ? policies.find((p) => p.id === editingPolicyId) ?? null
+    : null;
+
+  const policyFormBody = (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <RadioGroup
+          value={selectedEffect}
+          onValueChange={(v) => setSelectedEffect(v as PolicyEffect)}
+          className="flex gap-2"
+        >
+          <label className={cn(
+            "flex items-center rounded-md border px-4 py-2 cursor-pointer transition-colors text-sm font-semibold",
+            selectedEffect === "ALLOW"
+              ? "bg-success-muted text-success border-success/30"
+              : "bg-transparent text-muted-foreground border-border hover:bg-muted/50"
+          )}>
+            <RadioGroupItem value="ALLOW" className="sr-only" />
+            Allow
+          </label>
+          <label className={cn(
+            "flex items-center rounded-md border px-4 py-2 cursor-pointer transition-colors text-sm font-semibold",
+            selectedEffect === "DENY"
+              ? "bg-danger-muted text-danger border-danger/30"
+              : "bg-transparent text-muted-foreground border-border hover:bg-muted/50"
+          )}>
+            <RadioGroupItem value="DENY" className="sr-only" />
+            Deny
+          </label>
+        </RadioGroup>
+        <span className="text-xs text-muted-foreground">
+          {selectedEffect === "DENY"
+            ? "Deny policies override Allow policies"
+            : "Grant access when conditions match"}
+        </span>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">IF</h3>
+        </div>
+
+        <div className="space-y-2 rounded-lg border p-4">
+          {conditions.map((condition, index) => (
+            <div key={`condition-${index}`}>
+              {index > 0 && (
+                <div className="flex items-center gap-2 py-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConnector(connector === "AND" ? "OR" : "AND")
+                    }
+                    className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    {connector}
+                  </button>
+                  <Separator className="flex-1" />
+                </div>
+              )}
+
+              <PolicyConditionRow
+                condition={condition}
+                fieldOptions={fieldOptions}
+                onChange={(updated) => updateCondition(index, updated)}
+                onRemove={() => removeCondition(index)}
+                canRemove={conditions.length > 1}
+              />
+            </div>
+          ))}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={addCondition}
+            className="mt-2 gap-1 text-muted-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Add Condition
+          </Button>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold">THEN</h3>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-semibold shrink-0">SET PERMISSIONS TO</span>
+        <div className="min-w-[160px]">
+          <ChipsSelect
+            options={activeActionOptions}
+            selected={selectedActions}
+            onChange={setSelectedActions}
+            placeholder="Select actions..."
+          />
+        </div>
+        <span className="text-sm font-semibold shrink-0">ON</span>
+        <div className="min-w-[200px] flex-1">
+          <ResourceChipsSelect
+            options={resourceOptions}
+            selected={selectedResources}
+            onChange={setSelectedResources}
+            placeholder="Select resources (tables, buckets)..."
+          />
+        </div>
+      </div>
+
+      <ScopeConditionBuilder
+        scopeConditions={scopeConditions}
+        setScopeConditions={setScopeConditions}
+        scopeConnector={scopeConnector}
+        setScopeConnector={setScopeConnector}
+        scopeEnabled={scopeEnabled}
+        selectedResources={selectedResources}
+        columnFilters={columnFilters}
+      />
+
+      <Separator />
+
+      <div className="flex items-center gap-3">
+        <Switch
+          checked={allowInternalUsers}
+          onCheckedChange={setAllowInternalUsers}
+        />
+        <div>
+          <Label className="cursor-pointer">
+            Bypass for internal users
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Internal users skip all conditions above
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+      {status && (
+        <p className="text-sm text-emerald-600" role="status">
+          {status}
+        </p>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
+        {editingPolicyId && (
+          <Button variant="outline" onClick={resetForm} disabled={isPending}>
+            Cancel
+          </Button>
+        )}
+        <Button
+          onClick={handleSave}
+          disabled={
+            isPending ||
+            selectedActions.length === 0 ||
+            selectedResources.length === 0
+          }
+        >
+          {isPending
+            ? "Saving..."
+            : editingPolicyId
+              ? "Update policy"
+              : "Save policy"}
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-8 pb-12">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>
-                {editingPolicyId ? "Edit Access Policy" : "Create Access Policy"}
-              </CardTitle>
-              <CardDescription>
-                {editingPolicyId
-                  ? "Update the conditions and actions for this policy"
-                  : "Define who can access what using conditions and actions"}
-              </CardDescription>
-            </div>
-            {editingPolicyId && (
-              <Button variant="ghost" size="sm" onClick={resetForm}>
-                Cancel Edit
-              </Button>
-            )}
-          </div>
+          <CardTitle>Create Access Policy</CardTitle>
+          <CardDescription>
+            Define who can access what using conditions and actions
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* ============================================================ */}
-          {/* Effect Toggle (ALLOW / DENY) */}
-          {/* ============================================================ */}
-          <div className="flex items-center gap-3">
-            <RadioGroup
-              value={selectedEffect}
-              onValueChange={(v) => setSelectedEffect(v as PolicyEffect)}
-              className="flex gap-4"
-            >
-              <label className={cn(
-                "flex items-center gap-2 rounded-lg border px-4 py-2 cursor-pointer transition-colors",
-                selectedEffect === "ALLOW" ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" : "border-border"
-              )}>
-                <RadioGroupItem value="ALLOW" />
-                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Allow</span>
-              </label>
-              <label className={cn(
-                "flex items-center gap-2 rounded-lg border px-4 py-2 cursor-pointer transition-colors",
-                selectedEffect === "DENY" ? "border-destructive bg-destructive/5" : "border-border"
-              )}>
-                <RadioGroupItem value="DENY" />
-                <span className="text-sm font-medium text-destructive">Deny</span>
-              </label>
-            </RadioGroup>
-            <span className="text-xs text-muted-foreground">
-              {selectedEffect === "DENY"
-                ? "Deny policies override Allow policies"
-                : "Grant access when conditions match"}
-            </span>
-          </div>
-
-          <Separator />
-
-          {/* ============================================================ */}
-          {/* WHEN Section */}
-          {/* ============================================================ */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">When</h3>
-            </div>
-
-            <div className="space-y-2 rounded-lg border p-4">
-              {conditions.map((condition, index) => (
-                <div key={`condition-${index}`}>
-                  {/* Connector between conditions */}
-                  {index > 0 && (
-                    <div className="flex items-center gap-2 py-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setConnector(connector === "AND" ? "OR" : "AND")
-                        }
-                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      >
-                        {connector}
-                      </button>
-                      <Separator className="flex-1" />
-                    </div>
-                  )}
-
-                  <PolicyConditionRow
-                    condition={condition}
-                    fieldOptions={fieldOptions}
-                    onChange={(updated) => updateCondition(index, updated)}
-                    onRemove={() => removeCondition(index)}
-                    canRemove={conditions.length > 1}
-                  />
-                </div>
-              ))}
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={addCondition}
-                className="mt-2 gap-1 text-muted-foreground"
-              >
-                <Plus className="h-4 w-4" />
-                Add Condition
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* ============================================================ */}
-          {/* SET Section (Actions) */}
-          {/* ============================================================ */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-semibold shrink-0">Set permissions to</span>
-            <div className="flex-1 min-w-[200px]">
-              <ChipsSelect
-                options={activeActionOptions}
-                selected={selectedActions}
-                onChange={setSelectedActions}
-                placeholder="Select actions..."
-              />
-            </div>
-          </div>
-
-          {/* ============================================================ */}
-          {/* ON Section (Resources) */}
-          {/* ============================================================ */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-semibold shrink-0">on</span>
-            <div className="flex-1 min-w-[200px]">
-              <ResourceChipsSelect
-                options={resourceOptions}
-                selected={selectedResources}
-                onChange={setSelectedResources}
-                placeholder="Select resources (tables, buckets)..."
-              />
-            </div>
-          </div>
-
-          {/* ============================================================ */}
-          {/* SCOPE Section (Row Scope) */}
-          {/* ============================================================ */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">scoped to</span>
-              {hasFeatureSelected && !hasDataSelected ? (
-                <span className="text-xs text-muted-foreground">
-                  (not applicable for feature policies)
-                </span>
-              ) : !scopeEnabled && (
-                <span className="text-xs text-muted-foreground">
-                  (selected resource has no ownership columns)
-                </span>
-              )}
-            </div>
-            <RadioGroup
-              value={selectedScope}
-              onValueChange={(v) => setSelectedScope(v as PolicyScope)}
-              disabled={!scopeEnabled}
-              className="grid grid-cols-2 gap-3"
-            >
-              {scopeOptions.map((opt) => (
-                <label
-                  key={opt.value}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-                    selectedScope === opt.value
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/50",
-                    !scopeEnabled && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <RadioGroupItem value={opt.value} className="mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium leading-none">{opt.label}</p>
-                    <p className="text-xs text-muted-foreground">{opt.description}</p>
-                  </div>
-                </label>
-              ))}
-            </RadioGroup>
-          </div>
-
-          <Separator />
-
-          {/* ============================================================ */}
-          {/* Global Override */}
-          {/* ============================================================ */}
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={allowInternalUsers}
-              onCheckedChange={setAllowInternalUsers}
-            />
-            <div>
-              <Label className="cursor-pointer">
-                Bypass for internal users
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Internal users skip all conditions above
-              </p>
-            </div>
-          </div>
-
-          {/* ============================================================ */}
-          {/* Status + Save */}
-          {/* ============================================================ */}
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          {status && (
-            <p className="text-sm text-emerald-600" role="status">
-              {status}
-            </p>
-          )}
-
-          <div className="flex items-center justify-end gap-2">
-            {editingPolicyId && (
-              <Button variant="outline" onClick={resetForm} disabled={isPending}>
+        <CardContent>
+          {!editingPolicyId && policyFormBody}
+          {editingPolicyId && (
+            <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+              Editing policy in side panel&hellip;
+              <Button variant="link" size="sm" onClick={resetForm} className="ml-1">
                 Cancel
               </Button>
-            )}
-            <Button
-              onClick={handleSave}
-              disabled={
-                isPending ||
-                selectedActions.length === 0 ||
-                selectedResources.length === 0
-              }
-            >
-              {isPending
-                ? "Saving..."
-                : editingPolicyId
-                  ? "Update policy"
-                  : "Save policy"}
-            </Button>
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* ============================================================ */}
-      {/* Existing Policies — Tabbed by resource_type */}
-      {/* ============================================================ */}
+      <Sheet open={!!editingPolicyId} onOpenChange={(open) => { if (!open) resetForm(); }}>
+        <SheetContent side="right" className="sm:max-w-2xl w-full overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              Edit Access Policy
+            </SheetTitle>
+            <SheetDescription>
+              Update the conditions and actions for{" "}
+              {editingPolicy
+                ? `${editingPolicy.action.toUpperCase()} on ${resolveResourceName(editingPolicy)}`
+                : "this policy"}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            {policyFormBody}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <ExistingPoliciesCard
-        policies={initialPolicies}
+        policies={policies}
         editingPolicyId={editingPolicyId}
         onEdit={handleEdit}
         onToggleActive={handleToggleActive}
@@ -1099,7 +1422,7 @@ export default function OrgPolicyBuilder({
 // Display settings for policy table columns
 // ============================================================================
 
-type DisplayColumn = "resourceType" | "resourceName" | "scope" | "action" | "organization" | "conditions" | "effect" | "version";
+type DisplayColumn = "resourceType" | "resourceName" | "scope" | "action" | "organization" | "conditions" | "effect" | "version" | "isActive";
 
 const POLICY_DISPLAY_COLUMNS: { key: DisplayColumn; label: string }[] = [
   { key: "resourceType", label: "Resource Type" },
@@ -1110,6 +1433,7 @@ const POLICY_DISPLAY_COLUMNS: { key: DisplayColumn; label: string }[] = [
   { key: "conditions", label: "Conditions" },
   { key: "effect", label: "Effect" },
   { key: "version", label: "Version" },
+  { key: "isActive", label: "Is Active" },
 ];
 
 type PolicyViewType = "table" | "board";
@@ -1129,6 +1453,7 @@ const GROUPABLE_COLUMNS: { value: GroupByField; label: string }[] = [
   { value: "action", label: "Action" },
   { value: "organization", label: "Organization" },
   { value: "effect", label: "Effect" },
+  { value: "isActive", label: "Is Active" },
 ];
 
 const ORDERABLE_COLUMNS: { value: OrderByField; label: string }[] = [
@@ -1139,6 +1464,7 @@ const ORDERABLE_COLUMNS: { value: OrderByField; label: string }[] = [
   { value: "organization", label: "Organization" },
   { value: "effect", label: "Effect" },
   { value: "version", label: "Version" },
+  { value: "isActive", label: "Is Active" },
 ];
 
 const RESOURCE_TYPE_TABS: { value: string; label: string }[] = [
@@ -1440,12 +1766,92 @@ function resolveResourceName(policy: OrgPolicyRow): string {
   if (policy.resource_type === "feature") {
     return FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)?.label ?? policy.resource_name;
   }
-  if (policy.resource_name === "*") return "* (All)";
+  if (policy.resource_name === "*") return "Wildcard";
   return policy.resource_name;
 }
 
 function resolveOrgLabel(policy: OrgPolicyRow, orgDisplayName: string): string {
   return policy.org_id ? orgDisplayName : "Global";
+}
+
+function getPolicyFieldValue(p: OrgPolicyRow, field: DisplayColumn | "none", orgDisplayName: string): string {
+  switch (field) {
+    case "resourceType": return RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type;
+    case "resourceName": return resolveResourceName(p);
+    case "scope": return p.scope ?? "all";
+    case "action": return p.action;
+    case "organization": return resolveOrgLabel(p, orgDisplayName);
+    case "conditions": return summarizeConditions(p);
+    case "effect": return p.effect ?? "ALLOW";
+    case "version": return `v${p.version}`;
+    case "isActive": return p.is_active ? "Active" : "Inactive";
+    case "none": return "";
+    default: return "";
+  }
+}
+
+function getRawResourceType(p: OrgPolicyRow, field: DisplayColumn | "none"): string | undefined {
+  if (field === "resourceType") return p.resource_type;
+  return undefined;
+}
+
+const RESOURCE_TYPE_TINT: Record<string, string> = {
+  table: "bg-resource-table-tint",
+  storage_bucket: "bg-resource-storage-tint",
+  feature: "bg-resource-feature-tint",
+  route: "bg-resource-route-tint",
+};
+
+const RESOURCE_TYPE_BADGE_CLS: Record<string, string> = {
+  table: "badge-resource-table",
+  storage_bucket: "badge-resource-storage",
+  feature: "badge-resource-feature",
+  route: "badge-resource-route",
+};
+
+// ============================================================================
+// Active toggle badge with hover text swap
+// ============================================================================
+
+function ActiveToggleBadge({
+  isActive,
+  isProtected,
+  onToggle,
+  small,
+}: {
+  isActive: boolean;
+  isProtected: boolean;
+  onToggle: () => void;
+  small?: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const showActive = hovered ? !isActive : isActive;
+  const label = showActive ? "Active" : "Inactive";
+
+  return (
+    <Badge
+      className={cn(
+        "capitalize whitespace-nowrap select-none transition-colors",
+        small && "text-[10px]",
+        isProtected
+          ? "cursor-not-allowed opacity-70"
+          : "cursor-pointer",
+        showActive
+          ? "bg-success-muted text-success border-success/30"
+          : "bg-danger-muted text-danger border-danger/30"
+      )}
+      onMouseEnter={() => { if (!isProtected) setHovered(true); }}
+      onMouseLeave={() => setHovered(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!isProtected) onToggle();
+      }}
+      title={isProtected ? "Protected policy" : isActive ? "Click to deactivate" : "Click to activate"}
+    >
+      {label}
+    </Badge>
+  );
 }
 
 // ============================================================================
@@ -1488,7 +1894,10 @@ function PolicyTableRow({
         <td className={tdCls}>
           <span className="inline-flex items-center gap-1.5">
             {isProtected && <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />}
-            <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+            <Badge
+              variant="outline"
+              className={cn("capitalize whitespace-nowrap", RESOURCE_TYPE_BADGE_CLS[policy.resource_type])}
+            >
               {RESOURCE_TYPE_LABELS[policy.resource_type] ?? policy.resource_type}
             </Badge>
           </span>
@@ -1500,7 +1909,7 @@ function PolicyTableRow({
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-foreground whitespace-nowrap">{resourceName}</span>
             {isProtected && (
-              <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700 dark:text-amber-400 whitespace-nowrap">
+              <Badge className="capitalize whitespace-nowrap bg-warning-muted text-warning border-warning/30">
                 Protected
               </Badge>
             )}
@@ -1510,7 +1919,7 @@ function PolicyTableRow({
 
       {visibleColumns.scope && (
         <td className={tdCls}>
-          <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+          <Badge variant="secondary" className="capitalize whitespace-nowrap">
             {policy.scope === "all" && "All"}
             {policy.scope === "org_records" && "Org"}
             {policy.scope === "user_records" && "User"}
@@ -1522,22 +1931,15 @@ function PolicyTableRow({
 
       {visibleColumns.action && (
         <td className={tdCls}>
-          <div className="flex items-center gap-1.5">
-            {visibleColumns.effect && policy.effect === "DENY" && (
-              <Badge variant="destructive" className="text-[10px] font-mono uppercase whitespace-nowrap">
-                DENY
-              </Badge>
-            )}
-            <Badge variant="outline" className="text-[10px] font-mono uppercase whitespace-nowrap">
-              {policy.action}
-            </Badge>
-          </div>
+          <Badge variant="outline" className="uppercase whitespace-nowrap">
+            {policy.action}
+          </Badge>
         </td>
       )}
 
       {visibleColumns.organization && (
         <td className={tdCls}>
-          <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+          <Badge variant="secondary" className="capitalize whitespace-nowrap">
             {resolveOrgLabel(policy, orgDisplayName)}
           </Badge>
         </td>
@@ -1551,81 +1953,71 @@ function PolicyTableRow({
         </td>
       )}
 
+      {visibleColumns.effect && (
+        <td className={tdCls}>
+          <Badge variant="outline" className="uppercase whitespace-nowrap">
+            {policy.effect ?? "ALLOW"}
+          </Badge>
+        </td>
+      )}
+
+      {visibleColumns.isActive && (
+        <td className={tdCls}>
+          <ActiveToggleBadge
+            isActive={policy.is_active}
+            isProtected={isProtected}
+            onToggle={() => onToggleActive(policy.id, !policy.is_active)}
+          />
+        </td>
+      )}
+
       {visibleColumns.version && (
         <td className={tdCls}>
           <span className="text-xs text-muted-foreground">v{policy.version}</span>
         </td>
       )}
 
-      {/* Row actions — always visible column */}
-      <td className={cn(tdCls, "text-right sticky right-0 bg-inherit")}>
-        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Switch
-            checked={policy.is_active}
-            onCheckedChange={(checked) => onToggleActive(policy.id, checked)}
-            className="shrink-0"
-            disabled={isProtected}
-            title={isProtected ? "Protected policies cannot be disabled" : undefined}
-          />
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={(e) => { e.stopPropagation(); onEdit(policy); }}
-            aria-label="Edit policy"
-            disabled={isProtected}
-            title={isProtected ? "Protected policies cannot be edited" : undefined}
-          >
-            <Pencil className="h-3 w-3" />
-          </Button>
-
-          {isProtected ? (
+      {/* Row actions dropdown */}
+      <td className={cn(tdCls, "text-right w-10")}>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 shrink-0 opacity-30 cursor-not-allowed"
-              disabled
-              aria-label="Protected policies cannot be archived"
-              title="Protected policies cannot be archived"
+              className="h-7 w-7"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Archive className="h-3 w-3" />
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
             </Button>
-          ) : (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
-                  aria-label="Archive policy"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Archive className="h-3 w-3" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Archive policy?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will archive the{" "}
-                    <strong>{policy.action}</strong> policy for{" "}
-                    <strong>{resourceName}</strong>. It can be restored later.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => onDelete(policy.id)}
-                    className="bg-destructive text-white hover:bg-destructive/90"
-                  >
-                    Archive
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuItem onSelect={() => onEdit(policy)}>
+                <Pencil className="mr-2 h-4 w-4 opacity-60" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => onDelete(policy.id)}
+                disabled={isProtected}
+              >
+                <Archive className="mr-2 h-4 w-4 opacity-60" />
+                Archive
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => onDelete(policy.id)}
+                disabled={isProtected}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </td>
     </tr>
   );
@@ -1642,6 +2034,7 @@ function GroupHeaderRow({
   isCollapsed,
   onToggle,
   depth,
+  resourceType,
 }: {
   label: string;
   count: number;
@@ -1649,20 +2042,29 @@ function GroupHeaderRow({
   isCollapsed: boolean;
   onToggle: () => void;
   depth: number;
+  resourceType?: string;
 }) {
+  const tintCls = resourceType ? RESOURCE_TYPE_TINT[resourceType] : undefined;
+  const textCls = resourceType
+    ? `text-resource-${resourceType === "storage_bucket" ? "storage" : resourceType}`
+    : undefined;
+
   return (
     <tr
-      className="border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+      className={cn(
+        "border-b border-border cursor-pointer hover:bg-muted/50 transition-colors",
+        tintCls ?? "bg-muted/30"
+      )}
       onClick={onToggle}
     >
       <td colSpan={colCount} className="px-4 py-2">
         <div className="flex items-center gap-2" style={{ paddingLeft: depth * 16 }}>
           {isCollapsed ? (
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronRight className={cn("h-3.5 w-3.5", textCls ?? "text-muted-foreground")} />
           ) : (
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronDown className={cn("h-3.5 w-3.5", textCls ?? "text-muted-foreground")} />
           )}
-          <span className="text-xs font-semibold text-foreground">{label}</span>
+          <span className={cn("text-xs font-semibold", textCls ?? "text-foreground")}>{label}</span>
           <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
             {count}
           </span>
@@ -1685,6 +2087,9 @@ function PolicyTableView({
   visibleColumns,
   orgDisplayName,
   groupBy,
+  subGroupBy,
+  orderBy,
+  orderAsc,
 }: {
   policies: OrgPolicyRow[];
   editingPolicyId: string | null;
@@ -1694,6 +2099,9 @@ function PolicyTableView({
   visibleColumns: Record<DisplayColumn, boolean>;
   orgDisplayName: string;
   groupBy: GroupByField;
+  subGroupBy: GroupByField;
+  orderBy: OrderByField;
+  orderAsc: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) =>
@@ -1710,33 +2118,56 @@ function PolicyTableView({
     (show("action") ? 1 : 0) +
     (show("organization") ? 1 : 0) +
     (show("conditions") ? 1 : 0) +
+    (show("effect") ? 1 : 0) +
+    (show("isActive") ? 1 : 0) +
     (show("version") ? 1 : 0) +
-    1; // actions column
+    1;
 
-  // Build groups
-  const typeGroups = useMemo(() => {
-    const map = new Map<string, Map<string, OrgPolicyRow[]>>();
+  const sortFn = useCallback(
+    (a: OrgPolicyRow, b: OrgPolicyRow) => {
+      const av = getPolicyFieldValue(a, orderBy, orgDisplayName);
+      const bv = getPolicyFieldValue(b, orderBy, orgDisplayName);
+      const cmp = av.localeCompare(bv);
+      return orderAsc ? cmp : -cmp;
+    },
+    [orderBy, orderAsc, orgDisplayName]
+  );
 
+  const groups = useMemo(() => {
+    if (groupBy === "none") return null;
+
+    const map = new Map<string, { rawType?: string; items: OrgPolicyRow[] }>();
     for (const p of policies) {
-      const typeKey = RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type;
-      const nameKey = resolveResourceName(p);
-
-      if (!map.has(typeKey)) map.set(typeKey, new Map());
-      const nameMap = map.get(typeKey)!;
-      if (!nameMap.has(nameKey)) nameMap.set(nameKey, []);
-      nameMap.get(nameKey)!.push(p);
+      const key = getPolicyFieldValue(p, groupBy, orgDisplayName);
+      if (!map.has(key)) map.set(key, { rawType: getRawResourceType(p, groupBy), items: [] });
+      map.get(key)!.items.push(p);
     }
 
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([type, nameMap]) => ({
-        type,
-        names: Array.from(nameMap.entries())
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([name, items]) => ({ name, items })),
-        count: Array.from(nameMap.values()).reduce((s, arr) => s + arr.length, 0),
-      }));
-  }, [policies]);
+      .map(([label, { rawType, items }]) => ({ label, rawType, items: [...items].sort(sortFn) }));
+  }, [policies, groupBy, orgDisplayName, sortFn]);
+
+  const buildSubGroups = useCallback(
+    (items: OrgPolicyRow[], parentRawType?: string) => {
+      if (subGroupBy === "none" || subGroupBy === groupBy) return null;
+
+      const map = new Map<string, { rawType?: string; items: OrgPolicyRow[] }>();
+      for (const p of items) {
+        const key = getPolicyFieldValue(p, subGroupBy, orgDisplayName);
+        if (!map.has(key))
+          map.set(key, { rawType: getRawResourceType(p, subGroupBy) ?? parentRawType, items: [] });
+        map.get(key)!.items.push(p);
+      }
+
+      return Array.from(map.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([label, { rawType, items }]) => ({ label, rawType, items }));
+    },
+    [subGroupBy, groupBy, orgDisplayName]
+  );
+
+  const sortedFlat = useMemo(() => [...policies].sort(sortFn), [policies, sortFn]);
 
   if (policies.length === 0) {
     return (
@@ -1745,6 +2176,20 @@ function PolicyTableView({
       </div>
     );
   }
+
+  const renderRow = (p: OrgPolicyRow) => (
+    <PolicyTableRow
+      key={p.id}
+      policy={p}
+      isEditing={editingPolicyId === p.id}
+      onEdit={onEdit}
+      onToggleActive={onToggleActive}
+      onDelete={onDelete}
+      visibleColumns={visibleColumns}
+      orgDisplayName={orgDisplayName}
+      colCount={colCount}
+    />
+  );
 
   return (
     <div className="overflow-auto">
@@ -1757,123 +2202,59 @@ function PolicyTableView({
             {show("action") && <th className={thCls}>Action</th>}
             {show("organization") && <th className={thCls}>Organization</th>}
             {show("conditions") && <th className={thCls}>Conditions</th>}
-            {show("version") && <th className={thCls}>Ver</th>}
-            <th className={cn(thCls, "text-right sticky right-0 bg-card")} />
+            {show("effect") && <th className={thCls}>Effect</th>}
+            {show("isActive") && <th className={thCls}>Active</th>}
+            {show("version") && <th className={thCls} />}
+            <th className={cn(thCls, "text-right")} />
           </tr>
         </thead>
         <tbody>
           {groupBy === "none" ? (
-            policies
-              .sort((a, b) => a.resource_type.localeCompare(b.resource_type) || a.resource_name.localeCompare(b.resource_name))
-              .map((p) => (
-                <PolicyTableRow
-                  key={p.id}
-                  policy={p}
-                  isEditing={editingPolicyId === p.id}
-                  onEdit={onEdit}
-                  onToggleActive={onToggleActive}
-                  onDelete={onDelete}
-                  visibleColumns={visibleColumns}
-                  orgDisplayName={orgDisplayName}
-                  colCount={colCount}
-                />
-              ))
-          ) : groupBy === "resourceName" ? (
-            typeGroups.flatMap((tg) =>
-              tg.names.map((ng) => {
-                const key = `${tg.type}/${ng.name}`;
-                const isC = collapsed[key];
-                return (
-                  <React.Fragment key={key}>
-                    <GroupHeaderRow
-                      label={ng.name}
-                      count={ng.items.length}
-                      colCount={colCount}
-                      isCollapsed={!!isC}
-                      onToggle={() => toggle(key)}
-                      depth={0}
-                    />
-                    {!isC &&
-                      ng.items.map((p) => (
-                        <PolicyTableRow
-                          key={p.id}
-                          policy={p}
-                          isEditing={editingPolicyId === p.id}
-                          onEdit={onEdit}
-                          onToggleActive={onToggleActive}
-                          onDelete={onDelete}
-                          visibleColumns={visibleColumns}
-                          orgDisplayName={orgDisplayName}
-                          colCount={colCount}
-                        />
-                      ))}
-                  </React.Fragment>
-                );
-              })
-            )
+            sortedFlat.map(renderRow)
           ) : (
-            typeGroups.map((tg) => {
-              const typeKey = `type:${tg.type}`;
-              const isTypeCollapsed = collapsed[typeKey];
+            groups!.map((grp) => {
+              const grpKey = `grp:${grp.label}`;
+              const isGrpCollapsed = collapsed[grpKey];
+              const subGroups = buildSubGroups(grp.items, grp.rawType);
 
               return (
-                <React.Fragment key={typeKey}>
+                <React.Fragment key={grpKey}>
                   <GroupHeaderRow
-                    label={tg.type}
-                    count={tg.count}
+                    label={grp.label}
+                    count={grp.items.length}
                     colCount={colCount}
-                    isCollapsed={!!isTypeCollapsed}
-                    onToggle={() => toggle(typeKey)}
+                    isCollapsed={!!isGrpCollapsed}
+                    onToggle={() => toggle(grpKey)}
                     depth={0}
+                    resourceType={grp.rawType}
                   />
-                  {!isTypeCollapsed &&
-                    tg.names.map((ng) => {
-                      const nameKey = `${typeKey}/${ng.name}`;
-                      const isNameCollapsed = collapsed[nameKey];
+                  {!isGrpCollapsed && (
+                    subGroups
+                      ? subGroups.map((sg) => {
+                          const sgKey = `${grpKey}/${sg.label}`;
+                          const isSgCollapsed = collapsed[sgKey];
 
-                      if (ng.items.length === 1) {
-                        return (
-                          <PolicyTableRow
-                            key={ng.items[0].id}
-                            policy={ng.items[0]}
-                            isEditing={editingPolicyId === ng.items[0].id}
-                            onEdit={onEdit}
-                            onToggleActive={onToggleActive}
-                            onDelete={onDelete}
-                            visibleColumns={visibleColumns}
-                            orgDisplayName={orgDisplayName}
-                            colCount={colCount}
-                          />
-                        );
-                      }
+                          if (sg.items.length === 1 && subGroups.length > 1) {
+                            return renderRow(sg.items[0]);
+                          }
 
-                      return (
-                        <React.Fragment key={nameKey}>
-                          <GroupHeaderRow
-                            label={ng.name}
-                            count={ng.items.length}
-                            colCount={colCount}
-                            isCollapsed={!!isNameCollapsed}
-                            onToggle={() => toggle(nameKey)}
-                            depth={1}
-                          />
-                          {!isNameCollapsed &&
-                            ng.items.map((p) => (
-                              <PolicyTableRow
-                                key={p.id}
-                                policy={p}
-                                isEditing={editingPolicyId === p.id}
-                                onEdit={onEdit}
-                                onToggleActive={onToggleActive}
-                                onDelete={onDelete}
-                                visibleColumns={visibleColumns}
-                                orgDisplayName={orgDisplayName}
+                          return (
+                            <React.Fragment key={sgKey}>
+                              <GroupHeaderRow
+                                label={sg.label}
+                                count={sg.items.length}
                                 colCount={colCount}
+                                isCollapsed={!!isSgCollapsed}
+                                onToggle={() => toggle(sgKey)}
+                                depth={1}
+                                resourceType={sg.rawType}
                               />
-                            ))}
-                        </React.Fragment>
-                      );
-                    })}
+                              {!isSgCollapsed && sg.items.map(renderRow)}
+                            </React.Fragment>
+                          );
+                        })
+                      : grp.items.map(renderRow)
+                  )}
                 </React.Fragment>
               );
             })
@@ -1904,34 +2285,34 @@ function PolicyBoardView({
   groupBy: GroupByField;
 }) {
   const columns = useMemo(() => {
-    const grouper = (p: OrgPolicyRow): string => {
+    const grouper = (p: OrgPolicyRow): { label: string; rawType?: string } => {
       switch (groupBy) {
         case "resourceType":
-          return RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type;
+          return { label: RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type, rawType: p.resource_type };
         case "resourceName":
-          return resolveResourceName(p);
+          return { label: resolveResourceName(p), rawType: p.resource_type };
         case "scope":
-          return p.scope ?? "all";
+          return { label: p.scope ?? "all" };
         case "action":
-          return p.action;
+          return { label: p.action };
         case "organization":
-          return resolveOrgLabel(p, orgDisplayName);
+          return { label: resolveOrgLabel(p, orgDisplayName) };
         case "effect":
-          return p.effect ?? "ALLOW";
+          return { label: p.effect ?? "ALLOW" };
         default:
-          return "All Policies";
+          return { label: "All Policies" };
       }
     };
 
-    const map = new Map<string, OrgPolicyRow[]>();
+    const map = new Map<string, { rawType?: string; items: OrgPolicyRow[] }>();
     for (const p of policies) {
-      const key = grouper(p);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(p);
+      const { label, rawType } = grouper(p);
+      if (!map.has(label)) map.set(label, { rawType, items: [] });
+      map.get(label)!.items.push(p);
     }
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([label, items]) => ({ label, items }));
+      .map(([label, { rawType, items }]) => ({ label, rawType, items }));
   }, [policies, groupBy, orgDisplayName]);
 
   if (policies.length === 0) {
@@ -1944,13 +2325,18 @@ function PolicyBoardView({
 
   return (
     <div className="flex gap-4 p-4 overflow-x-auto min-h-[200px]">
-      {columns.map((col) => (
+      {columns.map((col) => {
+        const tintCls = col.rawType ? RESOURCE_TYPE_TINT[col.rawType] : undefined;
+        const textCls = col.rawType
+          ? `text-resource-${col.rawType === "storage_bucket" ? "storage" : col.rawType}`
+          : undefined;
+        return (
         <div
           key={col.label}
           className="flex flex-col w-[280px] min-w-[280px] rounded-lg border bg-muted/20"
         >
-          <div className="flex items-center justify-between px-3 py-2.5 border-b">
-            <span className="text-xs font-semibold text-foreground">{col.label}</span>
+          <div className={cn("flex items-center justify-between px-3 py-2.5 border-b", tintCls)}>
+            <span className={cn("text-xs font-semibold", textCls ?? "text-foreground")}>{col.label}</span>
             <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
               {col.items.length}
             </span>
@@ -1969,7 +2355,10 @@ function PolicyBoardView({
                   )}
                 >
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className={cn("capitalize", RESOURCE_TYPE_BADGE_CLS[p.resource_type])}
+                    >
                       {RESOURCE_TYPE_LABELS[p.resource_type] ?? p.resource_type}
                     </Badge>
                     {isProtected && <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />}
@@ -1979,12 +2368,12 @@ function PolicyBoardView({
                   </p>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {p.effect === "DENY" && (
-                      <Badge variant="destructive" className="text-[10px]">DENY</Badge>
+                      <Badge className="uppercase bg-danger-muted text-danger border-danger/30">DENY</Badge>
                     )}
-                    <Badge variant="outline" className="text-[10px] font-mono uppercase">
+                    <Badge variant="outline" className="uppercase">
                       {p.action}
                     </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="capitalize">
                       {p.scope === "org_records" ? "Org" : p.scope === "user_records" ? "User" : p.scope === "org_and_user" ? "Org+User" : "All"}
                     </Badge>
                   </div>
@@ -1992,11 +2381,11 @@ function PolicyBoardView({
                     <span className="text-[10px] text-muted-foreground">
                       {resolveOrgLabel(p, orgDisplayName)}
                     </span>
-                    <Switch
-                      checked={p.is_active}
-                      onCheckedChange={(checked) => onToggleActive(p.id, checked)}
-                      className="shrink-0 scale-75"
-                      disabled={isProtected}
+                    <ActiveToggleBadge
+                      isActive={p.is_active}
+                      isProtected={isProtected}
+                      onToggle={() => onToggleActive(p.id, !p.is_active)}
+                      small
                     />
                   </div>
                 </div>
@@ -2004,7 +2393,8 @@ function PolicyBoardView({
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -2022,6 +2412,7 @@ const DEFAULT_VISIBLE_COLS: Record<DisplayColumn, boolean> = {
   conditions: true,
   effect: true,
   version: false,
+  isActive: false,
 };
 
 const DEFAULT_GROUP_BY: GroupByField = "resourceType";
@@ -2135,6 +2526,9 @@ function ExistingPoliciesCard({
             visibleColumns={visibleColumns}
             orgDisplayName={orgDisplayName}
             groupBy={groupBy}
+            subGroupBy={subGroupBy}
+            orderBy={orderBy}
+            orderAsc={orderAsc}
           />
         )}
       </div>

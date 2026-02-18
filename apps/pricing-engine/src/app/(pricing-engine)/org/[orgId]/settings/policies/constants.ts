@@ -9,6 +9,12 @@ export type ConditionInput = {
   values: string[];
 };
 
+export type ScopeConditionInput = {
+  column: string;
+  operator: string;
+  reference: string;
+};
+
 export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
 export type PolicyEffect = "ALLOW" | "DENY";
 
@@ -18,6 +24,8 @@ export type PolicyDefinitionInput = {
   connector: "AND" | "OR";
   scope?: PolicyScope;
   effect?: PolicyEffect;
+  scopeConditions?: ScopeConditionInput[];
+  scopeConnector?: "AND" | "OR";
 };
 
 export type ResourceType = "table" | "storage_bucket" | "feature" | "route";

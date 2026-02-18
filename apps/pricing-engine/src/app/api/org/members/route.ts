@@ -308,6 +308,34 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Enrich with email + avatar from users table
+    const userIdsForEnrichment = deduped.map((m) => m.user_id).filter(Boolean)
+    if (userIdsForEnrichment.length > 0) {
+      try {
+        const { data: userProfiles } = await supabaseAdmin
+          .from("users")
+          .select("clerk_user_id, email, image_url, avatar_url, has_image")
+          .in("clerk_user_id", userIdsForEnrichment)
+        const profileMap = new Map<string, { email: string | null; image_url: string | null }>()
+        for (const u of userProfiles ?? []) {
+          const img = (u.image_url as string | null) ?? (u.avatar_url as string | null) ?? null
+          profileMap.set(u.clerk_user_id as string, {
+            email: (u.email as string | null) ?? null,
+            image_url: img,
+          })
+        }
+        for (const m of deduped) {
+          const profile = profileMap.get(m.user_id)
+          if (profile) {
+            ;(m as any).email = profile.email
+            ;(m as any).image_url = profile.image_url
+          }
+        }
+      } catch {
+        // ignore enrichment errors
+      }
+    }
+
     // Resolve broker id for this member if they are a broker
     let selfBrokerId: string | null = null
     try {
