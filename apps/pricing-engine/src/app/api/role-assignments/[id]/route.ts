@@ -71,6 +71,26 @@ export async function DELETE(
     const resourceId = assignment.resource_id as string;
     const removedUserId = assignment.user_id as string;
 
+    if (resourceType === "broker_org") {
+      try {
+        const { data: mem } = await supabaseAdmin
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", removedUserId)
+          .maybeSingle()
+        if (mem?.id) {
+          await supabaseAdmin
+            .from("organization_account_managers")
+            .delete()
+            .eq("organization_id", resourceId)
+            .eq("account_manager_id", mem.id)
+        }
+      } catch {
+        // best-effort sync
+      }
+    }
+
     if (resourceType === "deal" || resourceType === "loan") {
       // Check if user still has other role assignments on this resource
       const { data: remaining } = await supabaseAdmin

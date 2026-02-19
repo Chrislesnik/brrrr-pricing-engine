@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
+import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import {
   getExternalOrganizations,
   syncExternalOrgMembersFromClerk,
@@ -7,13 +8,12 @@ import {
 
 export async function GET() {
   try {
-    const { orgId, orgRole } = await auth()
+    const { orgId, orgRole, userId } = await auth()
 
     if (!orgId) {
       return NextResponse.json({ items: [], membersMap: {} })
     }
 
-    // Block broker role from accessing this page
     if (orgRole === "org:broker" || orgRole === "broker") {
       return NextResponse.json(
         { items: [], membersMap: {}, error: "Forbidden" },
@@ -21,10 +21,14 @@ export async function GET() {
       )
     }
 
-    // JIT bulk sync: pull all external orgs' members from Clerk into Supabase
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+
     await syncExternalOrgMembersFromClerk()
 
-    const { organizations, membersMap } = await getExternalOrganizations()
+    const { organizations, membersMap } = await getExternalOrganizations(
+      orgUuid ?? undefined,
+      userId ?? undefined
+    )
     return NextResponse.json({ items: organizations, membersMap })
   } catch (error) {
     console.error("Broker organizations list API error:", error)

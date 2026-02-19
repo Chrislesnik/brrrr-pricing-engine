@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Dialog, DialogContent, DialogTitle } from "@repo/ui/shadcn/dialog"
+import { XIcon } from "lucide-react"
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@repo/ui/shadcn/dialog"
 import { Button } from "@repo/ui/shadcn/button"
 import { cn } from "@repo/lib/cn"
 import { toast } from "@/hooks/use-toast"
@@ -10,16 +11,17 @@ import {
   ProgramsLoader,
   ProgramsList,
   RatesFeesTable,
+  stripEmptyRateRows,
   type RateRow,
 } from "./broker-settings-shared"
 
 export function BrokerSettingsDialog({
-  brokerId,
+  brokerOrgId,
   open,
   onOpenChange,
   onSaved,
 }: {
-  brokerId: string
+  brokerOrgId: string
   open: boolean
   onOpenChange: (v: boolean) => void
   onSaved?: () => void
@@ -37,7 +39,7 @@ export function BrokerSettingsDialog({
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`/api/brokers/${brokerId}/custom-settings`, { cache: "no-store" })
+        const res = await fetch(`/api/brokers/${brokerOrgId}/custom-settings`, { cache: "no-store" })
         const j = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(j?.error ?? "Failed to load")
         if (cancelled) return
@@ -50,6 +52,8 @@ export function BrokerSettingsDialog({
             ? j.rates.map((r: any) => ({
                 id: String(r.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`),
                 minUpb: r.min_upb ?? "",
+                minOp: r.min_op ?? ">=",
+                maxOp: r.max_op ?? "<=",
                 maxUpb: r.max_upb ?? "",
                 origination: r.origination ?? "",
                 adminFee: r.admin_fee ?? "",
@@ -68,7 +72,7 @@ export function BrokerSettingsDialog({
     return () => {
       cancelled = true
     }
-  }, [open, brokerId])
+  }, [open, brokerOrgId])
 
   const NavItem = ({
     id,
@@ -95,16 +99,18 @@ export function BrokerSettingsDialog({
         allow_buydown_rate: allowBuydown,
         allow_white_labeling: allowWhiteLabeling,
         program_visibility: programVisibility,
-        rates: rateRows.map((r) => ({
+        rates: stripEmptyRateRows(rateRows).map((r) => ({
           id: r.id,
           min_upb: r.minUpb ?? "",
+          min_op: r.minOp ?? ">=",
+          max_op: r.maxOp ?? "<=",
           max_upb: r.maxUpb ?? "",
           origination: r.origination ?? "",
           admin_fee: r.adminFee ?? "",
           ysp: r.ysp ?? "",
         })),
       }
-      const res = await fetch(`/api/brokers/${brokerId}/custom-settings`, {
+      const res = await fetch(`/api/brokers/${brokerOrgId}/custom-settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -133,7 +139,7 @@ export function BrokerSettingsDialog({
     <>
       {open && tab === "programs" ? <ProgramsLoader /> : null}
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]">
+        <DialogContent hideClose className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]">
           <DialogTitle className="sr-only">Broker Settings</DialogTitle>
           <div className="grid grid-cols-[260px_1fr]">
             <aside className="border-r bg-muted/40 p-4">
@@ -149,8 +155,12 @@ export function BrokerSettingsDialog({
               </nav>
             </aside>
             <section className="bg-background flex flex-col">
-              <header className="flex h-12 items-center border-b px-6 text-sm font-semibold">
-                {tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}
+              <header className="flex h-12 items-center justify-between border-b px-6 text-sm font-semibold">
+                <span>{tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}</span>
+                <DialogClose className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                  <XIcon className="size-4" />
+                  <span className="sr-only">Close</span>
+                </DialogClose>
               </header>
               <div className="flex-1 p-6 overflow-y-auto max-h-[60vh]">
                 {tab === "programs" ? (

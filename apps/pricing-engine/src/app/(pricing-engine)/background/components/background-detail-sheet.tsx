@@ -6,7 +6,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@repo/ui/shadcn/sheet";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
@@ -120,6 +119,7 @@ export function BackgroundDetailSheet({ report, open, onOpenChange }: Background
   if (!report) return null;
 
   const name = getDisplayName(report);
+  const reportType = report.type ?? (report.is_entity ? "entity" : "person");
   const statusColor =
     report.status === "completed"
       ? "border-green-500/50 text-green-600 dark:text-green-400"
@@ -135,23 +135,23 @@ export function BackgroundDetailSheet({ report, open, onOpenChange }: Background
             <div
               className={cn(
                 "flex items-center justify-center h-10 w-10 rounded-full shrink-0",
-                report.is_entity
+                reportType === "entity"
                   ? "bg-primary/10 text-primary"
                   : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
               )}
             >
-              {report.is_entity ? <Building className="h-5 w-5" /> : <User className="h-5 w-5" />}
+              {reportType === "entity" ? <Building className="h-5 w-5" /> : <User className="h-5 w-5" />}
             </div>
             <div className="min-w-0">
               <SheetTitle className="text-lg truncate">{name}</SheetTitle>
-              <SheetDescription className="flex items-center gap-2 mt-0.5">
-                <Badge variant={report.is_entity ? "default" : "secondary"} className="text-xs">
-                  {report.is_entity ? "Entity" : "Individual"}
+              <div className="text-muted-foreground text-sm flex items-center gap-2 mt-0.5">
+                <Badge variant={reportType === "entity" ? "default" : "secondary"} className="text-xs capitalize">
+                  {reportType}
                 </Badge>
                 <Badge variant="outline" className={cn("text-xs capitalize", statusColor)}>
                   {report.status || "pending"}
                 </Badge>
-              </SheetDescription>
+              </div>
             </div>
           </div>
         </SheetHeader>
@@ -161,12 +161,15 @@ export function BackgroundDetailSheet({ report, open, onOpenChange }: Background
           <div>
             <h3 className="text-sm font-semibold mb-2">Report Details</h3>
             <div className="rounded-lg border divide-y px-4">
-              <DetailRow label="Report Type" value={
-                <span className="capitalize">{report.report_type || "—"}</span>
+              <DetailRow label="Type" value={
+                <span className="capitalize">{reportType}</span>
               } />
-              <DetailRow label="Report Date" value={formatDate(report.report_date)} />
+              <DetailRow label="Status" value={
+                <Badge variant="outline" className={cn("text-xs capitalize", statusColor)}>
+                  {report.status || "pending"}
+                </Badge>
+              } />
               <DetailRow label="Created" value={formatDateTime(report.created_at)} />
-              <DetailRow label="Last Updated" value={formatDateTime(report.updated_at)} />
             </div>
           </div>
 
@@ -181,23 +184,30 @@ export function BackgroundDetailSheet({ report, open, onOpenChange }: Background
           )}
 
           {/* Document */}
-          {report.storage_path && (
+          {report.linked_doc && (
             <div>
               <h3 className="text-sm font-semibold mb-2">Document</h3>
               <div className="rounded-lg border p-3 flex items-center gap-3">
                 <FileText className="h-8 w-8 text-muted-foreground shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">
-                    {report.file_name || "Document"}
+                    {report.linked_doc.document_name || "Document"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {report.file_type || "Unknown type"} · {formatFileSize(report.file_size)}
+                    {report.linked_doc.file_type || "Unknown type"} · {formatFileSize(report.linked_doc.file_size)}
                   </p>
                 </div>
-                <Button variant="outline" size="sm" className="shrink-0 gap-1.5">
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </Button>
+                {report.download_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => window.open(report.download_url!, "_blank")}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </Button>
+                )}
               </div>
             </div>
           )}

@@ -162,9 +162,9 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   const brokerIds = brokerRows.map((b) => b.id as string)
   const { data: custom, error: customErr } = await supabaseAdmin
     .from("custom_broker_settings")
-    .select('broker_id, \"default\"')
+    .select('broker_org_id, \"default\"')
     .eq("organization_id", orgUuid)
-    .in("broker_id", brokerIds.length ? brokerIds : ["00000000-0000-0000-0000-000000000000"])
+    .in("broker_org_id", brokerIds.length ? brokerIds : ["00000000-0000-0000-0000-000000000000"])
 
   if (customErr) {
     logError("fetch custom settings error:", customErr.message)
@@ -172,7 +172,7 @@ export async function getBrokersForOrg(orgId: string, userId?: string): Promise<
   const customByBroker = new Map<string, any>()
   for (const c of custom ?? []) {
     const row: any = c
-    customByBroker.set(row.broker_id as string, row)
+    customByBroker.set(row.broker_org_id as string, row)
   }
 
   // Helper to resolve a member name; caches in memberById map

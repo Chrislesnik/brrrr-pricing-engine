@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useMemo, useState } from "react"
+import { Fragment, useCallback, useMemo, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -12,11 +12,19 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, MoreHorizontal, Settings, UserPlus } from "lucide-react"
 import { cn } from "@repo/lib/cn"
+import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -26,6 +34,8 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { BrokerSettingsDialog } from "../brokers/components/broker-settings-dialog"
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 import type {
   BrokerOrgRow,
   OrgMemberRow,
@@ -34,6 +44,7 @@ import type {
 interface Props {
   data: BrokerOrgRow[]
   initialMembersMap?: Record<string, OrgMemberRow[]>
+  onSettingsChanged?: () => void
 }
 
 function formatDate(iso: string | null | undefined) {
@@ -54,7 +65,55 @@ function formatRole(role: string | null | undefined) {
   return role.replace(/^org:/, "").replace(/_/g, " ")
 }
 
-export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
+function ActionsCell({
+  org,
+  onOpenSettings,
+  onOpenAssign,
+}: {
+  org: BrokerOrgRow
+  onOpenSettings: (orgId: string) => void
+  onOpenAssign: (orgId: string) => void
+}) {
+  return (
+    <div className="flex justify-center">
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenSettings(org.id)
+            }}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Broker Settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenAssign(org.id)
+            }}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Assign Account Manager
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
+export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
@@ -68,6 +127,12 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
   const [membersLoading, setMembersLoading] = useState<
     Record<string, boolean>
   >({})
+
+  const [settingsOrgId, setSettingsOrgId] = useState<string | null>(null)
+  const [assignOrgId, setAssignOrgId] = useState<string | null>(null)
+
+  const onOpenSettings = useCallback((orgId: string) => setSettingsOrgId(orgId), [])
+  const onOpenAssign = useCallback((orgId: string) => setAssignOrgId(orgId), [])
 
   const fetchMembers = async (orgId: string) => {
     if (membersMap[orgId] !== undefined || membersLoading[orgId]) return
@@ -178,6 +243,22 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
         ),
       },
       {
+        header: "Permissions",
+        accessorKey: "permissions",
+        cell: ({ row }) => {
+          const p = row.original.permissions ?? "default"
+          const color =
+            p === "custom"
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "bg-highlight-muted text-highlight-foreground border-highlight/30"
+          return (
+            <Badge variant="outline" className={cn("uppercase text-[10px]", color)}>
+              {p}
+            </Badge>
+          )
+        },
+      },
+      {
         header: "Date Added",
         accessorKey: "created_at",
         cell: ({ row }) => (
@@ -186,8 +267,21 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
           </span>
         ),
       },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <ActionsCell
+            org={row.original}
+            onOpenSettings={onOpenSettings}
+            onOpenAssign={onOpenAssign}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
     ]
-  }, [expandedRows])
+  }, [expandedRows, onOpenSettings, onOpenAssign])
 
   const table = useReactTable({
     data,
@@ -406,8 +500,21 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
                           />
                         </div>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Added {formatDate(org.created_at)}
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "uppercase text-[10px]",
+                            org.permissions === "custom"
+                              ? "bg-primary/10 text-primary border-primary/30"
+                              : "bg-highlight-muted text-highlight-foreground border-highlight/30"
+                          )}
+                        >
+                          {org.permissions ?? "default"}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Added {formatDate(org.created_at)}
+                        </span>
                       </div>
                     </div>
                     {isOpen && (
@@ -445,6 +552,25 @@ export function BrokerCompaniesTable({ data, initialMembersMap }: Props) {
       </div>
 
       <DataTablePagination table={table} />
+
+      {settingsOrgId && (
+        <BrokerSettingsDialog
+          brokerOrgId={settingsOrgId}
+          open={!!settingsOrgId}
+          onOpenChange={(v) => { if (!v) setSettingsOrgId(null) }}
+          onSaved={() => onSettingsChanged?.()}
+        />
+      )}
+
+      {assignOrgId && (
+        <RoleAssignmentDialog
+          resourceType="broker_org"
+          resourceId={assignOrgId}
+          open={!!assignOrgId}
+          onOpenChange={(v) => { if (!v) setAssignOrgId(null) }}
+          onSaved={() => onSettingsChanged?.()}
+        />
+      )}
     </div>
   )
 }

@@ -136,6 +136,27 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       application_appraisal: {
         Row: {
           application_id: string
@@ -528,6 +549,7 @@ export type Database = {
           application_url: string | null
           borrower_name: string | null
           created_at: string
+          display_id: string
           documenso_document_id: string | null
           entity_id: string | null
           external_defaults: Json | null
@@ -549,6 +571,7 @@ export type Database = {
           application_url?: string | null
           borrower_name?: string | null
           created_at?: string
+          display_id: string
           documenso_document_id?: string | null
           entity_id?: string | null
           external_defaults?: Json | null
@@ -570,6 +593,7 @@ export type Database = {
           application_url?: string | null
           borrower_name?: string | null
           created_at?: string
+          display_id?: string
           documenso_document_id?: string | null
           entity_id?: string | null
           external_defaults?: Json | null
@@ -862,6 +886,306 @@ export type Database = {
           },
         ]
       }
+      background_person_search: {
+        Row: {
+          background_report_id: string | null
+          created_at: string
+          data: Json | null
+          dppa: number | null
+          entity_id: string | null
+          glb: string | null
+          group_id: string | null
+          id: number
+          voter: number | null
+        }
+        Insert: {
+          background_report_id?: string | null
+          created_at?: string
+          data?: Json | null
+          dppa?: number | null
+          entity_id?: string | null
+          glb?: string | null
+          group_id?: string | null
+          id?: number
+          voter?: number | null
+        }
+        Update: {
+          background_report_id?: string | null
+          created_at?: string
+          data?: Json | null
+          dppa?: number | null
+          entity_id?: string | null
+          glb?: string | null
+          group_id?: string | null
+          id?: number
+          voter?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_person_search_background_report_id_fkey"
+            columns: ["background_report_id"]
+            isOneToOne: false
+            referencedRelation: "background_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      background_person_search_bankruptcy: {
+        Row: {
+          background_person_report_id: string | null
+          bk_case_number: string | null
+          bk_chapter: string | null
+          bk_court_state: string | null
+          bk_discharged_date: string | null
+          bk_filing_date: string | null
+          created_at: string
+          data: Json | null
+          id: number
+        }
+        Insert: {
+          background_person_report_id?: string | null
+          bk_case_number?: string | null
+          bk_chapter?: string | null
+          bk_court_state?: string | null
+          bk_discharged_date?: string | null
+          bk_filing_date?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: number
+        }
+        Update: {
+          background_person_report_id?: string | null
+          bk_case_number?: string | null
+          bk_chapter?: string | null
+          bk_court_state?: string | null
+          bk_discharged_date?: string | null
+          bk_filing_date?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: number
+        }
+        Relationships: []
+      }
+      background_person_search_criminal: {
+        Row: {
+          background_person_search_id: number | null
+          cr_case_info: string | null
+          cr_case_status: string | null
+          cr_disposition: string | null
+          cr_filed_date: string | null
+          cr_offense: string | null
+          cr_severity: string | null
+          created_at: string
+          data: Json | null
+          id: number
+        }
+        Insert: {
+          background_person_search_id?: number | null
+          cr_case_info?: string | null
+          cr_case_status?: string | null
+          cr_disposition?: string | null
+          cr_filed_date?: string | null
+          cr_offense?: string | null
+          cr_severity?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: number
+        }
+        Update: {
+          background_person_search_id?: number | null
+          cr_case_info?: string | null
+          cr_case_status?: string | null
+          cr_disposition?: string | null
+          cr_filed_date?: string | null
+          cr_offense?: string | null
+          cr_severity?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_person_search_crimi_background_person_search_id_fkey"
+            columns: ["background_person_search_id"]
+            isOneToOne: false
+            referencedRelation: "background_person_search"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      background_person_search_lien: {
+        Row: {
+          amount: string | null
+          background_person_search_id: number | null
+          created_at: string
+          creditor_name: string | null
+          data: Json | null
+          debtor_name: string | null
+          file_date: string | null
+          filing_county: string | null
+          filing_state: string | null
+          filing_type: string | null
+          id: number
+        }
+        Insert: {
+          amount?: string | null
+          background_person_search_id?: number | null
+          created_at?: string
+          creditor_name?: string | null
+          data?: Json | null
+          debtor_name?: string | null
+          file_date?: string | null
+          filing_county?: string | null
+          filing_state?: string | null
+          filing_type?: string | null
+          id?: number
+        }
+        Update: {
+          amount?: string | null
+          background_person_search_id?: number | null
+          created_at?: string
+          creditor_name?: string | null
+          data?: Json | null
+          debtor_name?: string | null
+          file_date?: string | null
+          filing_county?: string | null
+          filing_state?: string | null
+          filing_type?: string | null
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_people_search_lien_background_people_search_id_fkey"
+            columns: ["background_person_search_id"]
+            isOneToOne: false
+            referencedRelation: "background_person_search"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      background_person_search_litigation: {
+        Row: {
+          background_person_search_id: number | null
+          created_at: string
+          data: Json | null
+          id: number
+          lit_case_number: string | null
+          lit_case_type: string | null
+          lit_disposition_date: string | null
+          lit_filing_date: string | null
+          lit_judgement_amount: string | null
+          lit_status: string | null
+        }
+        Insert: {
+          background_person_search_id?: number | null
+          created_at?: string
+          data?: Json | null
+          id?: number
+          lit_case_number?: string | null
+          lit_case_type?: string | null
+          lit_disposition_date?: string | null
+          lit_filing_date?: string | null
+          lit_judgement_amount?: string | null
+          lit_status?: string | null
+        }
+        Update: {
+          background_person_search_id?: number | null
+          created_at?: string
+          data?: Json | null
+          id?: number
+          lit_case_number?: string | null
+          lit_case_type?: string | null
+          lit_disposition_date?: string | null
+          lit_filing_date?: string | null
+          lit_judgement_amount?: string | null
+          lit_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_person_search_litig_background_person_search_id_fkey"
+            columns: ["background_person_search_id"]
+            isOneToOne: false
+            referencedRelation: "background_person_search"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      background_person_search_quick_analysis: {
+        Row: {
+          background_person_search_id: number | null
+          created_at: string
+          id: number
+          record_details: Json | null
+        }
+        Insert: {
+          background_person_search_id?: number | null
+          created_at?: string
+          id?: number
+          record_details?: Json | null
+        }
+        Update: {
+          background_person_search_id?: number | null
+          created_at?: string
+          id?: number
+          record_details?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_person_search_quick_background_person_search_id_fkey"
+            columns: ["background_person_search_id"]
+            isOneToOne: false
+            referencedRelation: "background_person_search"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      background_person_search_ucc: {
+        Row: {
+          background_person_search_id: number | null
+          collateral_summary: string | null
+          created_at: string
+          data: Json | null
+          debtor_name: string | null
+          filing_date: string | null
+          filing_number: string | null
+          filing_type: string | null
+          id: number
+          secured_party: string | null
+        }
+        Insert: {
+          background_person_search_id?: number | null
+          collateral_summary?: string | null
+          created_at?: string
+          data?: Json | null
+          debtor_name?: string | null
+          filing_date?: string | null
+          filing_number?: string | null
+          filing_type?: string | null
+          id?: number
+          secured_party?: string | null
+        }
+        Update: {
+          background_person_search_id?: number | null
+          collateral_summary?: string | null
+          created_at?: string
+          data?: Json | null
+          debtor_name?: string | null
+          filing_date?: string | null
+          filing_number?: string | null
+          filing_type?: string | null
+          id?: number
+          secured_party?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_people_search_ucc_background_people_search_id_fkey"
+            columns: ["background_person_search_id"]
+            isOneToOne: false
+            referencedRelation: "background_person_search"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       background_report_applications: {
         Row: {
           application_id: string
@@ -900,58 +1224,37 @@ export type Database = {
       }
       background_reports: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           borrower_id: string | null
           created_at: string
           created_by: string | null
           entity_id: string | null
-          file_name: string | null
-          file_size: number | null
-          file_type: string | null
           id: string
-          is_entity: boolean
-          notes: string | null
           organization_id: string
-          report_date: string | null
-          report_type: string | null
-          status: string | null
-          storage_path: string | null
-          updated_at: string
+          type: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           borrower_id?: string | null
           created_at?: string
           created_by?: string | null
           entity_id?: string | null
-          file_name?: string | null
-          file_size?: number | null
-          file_type?: string | null
           id?: string
-          is_entity?: boolean
-          notes?: string | null
           organization_id: string
-          report_date?: string | null
-          report_type?: string | null
-          status?: string | null
-          storage_path?: string | null
-          updated_at?: string
+          type: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           borrower_id?: string | null
           created_at?: string
           created_by?: string | null
           entity_id?: string | null
-          file_name?: string | null
-          file_size?: number | null
-          file_type?: string | null
           id?: string
-          is_entity?: boolean
-          notes?: string | null
           organization_id?: string
-          report_date?: string | null
-          report_type?: string | null
-          status?: string | null
-          storage_path?: string | null
-          updated_at?: string
+          type?: string
         }
         Relationships: [
           {
@@ -1377,63 +1680,82 @@ export type Database = {
       }
       credit_report_data_xactus: {
         Row: {
+          aggregator: string | null
           borrower_id: string | null
           cleaned_data: Json | null
           created_at: string
+          credit_report_id: string | null
           date_ordered: string | null
           equifax_score: number | null
           experian_score: number | null
-          file_size: number | null
-          file_type: string | null
           guarantor_id: number | null
           id: string
+          inquiries: Json
+          liabilities: Json
+          mid_score: number | null
           organization_id: string | null
+          public_records: Json
           pull_type: string | null
-          raw_data: string | null
+          report_date: string | null
           report_id: string | null
+          tradelines: Json
           transunion_score: number | null
-          uploaded_at: string | null
           uploaded_by: string | null
         }
         Insert: {
+          aggregator?: string | null
           borrower_id?: string | null
           cleaned_data?: Json | null
           created_at?: string
+          credit_report_id?: string | null
           date_ordered?: string | null
           equifax_score?: number | null
           experian_score?: number | null
-          file_size?: number | null
-          file_type?: string | null
           guarantor_id?: number | null
           id?: string
+          inquiries?: Json
+          liabilities?: Json
+          mid_score?: number | null
           organization_id?: string | null
+          public_records?: Json
           pull_type?: string | null
-          raw_data?: string | null
+          report_date?: string | null
           report_id?: string | null
+          tradelines?: Json
           transunion_score?: number | null
-          uploaded_at?: string | null
           uploaded_by?: string | null
         }
         Update: {
+          aggregator?: string | null
           borrower_id?: string | null
           cleaned_data?: Json | null
           created_at?: string
+          credit_report_id?: string | null
           date_ordered?: string | null
           equifax_score?: number | null
           experian_score?: number | null
-          file_size?: number | null
-          file_type?: string | null
           guarantor_id?: number | null
           id?: string
+          inquiries?: Json
+          liabilities?: Json
+          mid_score?: number | null
           organization_id?: string | null
+          public_records?: Json
           pull_type?: string | null
-          raw_data?: string | null
+          report_date?: string | null
           report_id?: string | null
+          tradelines?: Json
           transunion_score?: number | null
-          uploaded_at?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_report_data_xactus_credit_report_id_fkey"
+            columns: ["credit_report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "credit_report_data_xactus_guarantor_id_fkey"
             columns: ["guarantor_id"]
@@ -1525,45 +1847,60 @@ export type Database = {
       credit_reports: {
         Row: {
           aggregator: string | null
-          aggregator_id: string | null
+          archived_at: string | null
+          archived_by: string | null
           assigned_to: string[]
           borrower_id: string | null
-          bucket: string
           created_at: string
+          data: Json | null
+          equifax_score: number | null
+          experian_score: number | null
           id: string
-          metadata: Json
+          mid_score: number | null
           organization_id: string | null
-          report_id: number | null
+          pull_type: string | null
+          report_date: string | null
+          report_id: string | null
           status: string | null
-          storage_path: string
+          transunion_score: number | null
         }
         Insert: {
           aggregator?: string | null
-          aggregator_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           assigned_to: string[]
           borrower_id?: string | null
-          bucket?: string
           created_at?: string
+          data?: Json | null
+          equifax_score?: number | null
+          experian_score?: number | null
           id?: string
-          metadata?: Json
+          mid_score?: number | null
           organization_id?: string | null
-          report_id?: number | null
+          pull_type?: string | null
+          report_date?: string | null
+          report_id?: string | null
           status?: string | null
-          storage_path: string
+          transunion_score?: number | null
         }
         Update: {
           aggregator?: string | null
-          aggregator_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           assigned_to?: string[]
           borrower_id?: string | null
-          bucket?: string
           created_at?: string
+          data?: Json | null
+          equifax_score?: number | null
+          experian_score?: number | null
           id?: string
-          metadata?: Json
+          mid_score?: number | null
           organization_id?: string | null
-          report_id?: number | null
+          pull_type?: string | null
+          report_date?: string | null
+          report_id?: string | null
           status?: string | null
-          storage_path?: string
+          transunion_score?: number | null
         }
         Relationships: [
           {
@@ -1587,7 +1924,7 @@ export type Database = {
           allow_buydown_rate: boolean
           allow_white_labeling: boolean
           allow_ysp: boolean
-          broker_id: string
+          broker_org_id: string
           created_at: string
           default: boolean | null
           id: string
@@ -1601,7 +1938,7 @@ export type Database = {
           allow_buydown_rate?: boolean
           allow_white_labeling?: boolean
           allow_ysp?: boolean
-          broker_id: string
+          broker_org_id: string
           created_at?: string
           default?: boolean | null
           id?: string
@@ -1615,7 +1952,7 @@ export type Database = {
           allow_buydown_rate?: boolean
           allow_white_labeling?: boolean
           allow_ysp?: boolean
-          broker_id?: string
+          broker_org_id?: string
           created_at?: string
           default?: boolean | null
           id?: string
@@ -1627,17 +1964,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "custom_broker_settings_broker_fk"
-            columns: ["broker_id"]
+            foreignKeyName: "custom_broker_settings_broker_org_fk"
+            columns: ["broker_org_id"]
             isOneToOne: false
-            referencedRelation: "brokers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "custom_broker_settings_broker_fk"
-            columns: ["broker_id"]
-            isOneToOne: false
-            referencedRelation: "v_brokers_with_manager_names"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -2722,6 +3052,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           deal_id: string
+          deal_stage_id: number | null
           description: string | null
           display_order: number | null
           due_date_at: string | null
@@ -2743,6 +3074,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deal_id: string
+          deal_stage_id?: number | null
           description?: string | null
           display_order?: number | null
           due_date_at?: string | null
@@ -2764,6 +3096,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deal_id?: string
+          deal_stage_id?: number | null
           description?: string | null
           display_order?: number | null
           due_date_at?: string | null
@@ -2783,6 +3116,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_tasks_deal_stage_id_fkey"
+            columns: ["deal_stage_id"]
+            isOneToOne: false
+            referencedRelation: "deal_stages"
             referencedColumns: ["id"]
           },
           {
@@ -2811,6 +3151,35 @@ export type Database = {
             columns: ["task_template_id"]
             isOneToOne: false
             referencedRelation: "task_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_users: {
+        Row: {
+          created_at: string
+          deal_id: string
+          id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          id?: never
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          id?: never
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_users_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]
@@ -3196,6 +3565,45 @@ export type Database = {
           },
         ]
       }
+      document_files_background_reports: {
+        Row: {
+          background_report_id: string | null
+          created_at: string
+          created_by: string | null
+          document_file_id: number | null
+          id: number
+        }
+        Insert: {
+          background_report_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_file_id?: number | null
+          id?: number
+        }
+        Update: {
+          background_report_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_file_id?: number | null
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_background_reports_background_report_id_fkey"
+            columns: ["background_report_id"]
+            isOneToOne: false
+            referencedRelation: "background_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_background_reports_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_files_borrowers: {
         Row: {
           borrower_id: string
@@ -3306,6 +3714,45 @@ export type Database = {
           },
           {
             foreignKeyName: "document_files_clerk_users_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_credit_reports: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          credit_report_id: string
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          credit_report_id: string
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          credit_report_id?: string
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_credit_reports_cr_fkey"
+            columns: ["credit_report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_credit_reports_doc_fkey"
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
@@ -3882,6 +4329,74 @@ export type Database = {
             columns: ["document_category_id"]
             isOneToOne: false
             referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          created_at: string
+          editor_json: Json
+          email_output_html: string | null
+          email_output_text: string | null
+          from_address: string | null
+          id: number
+          liveblocks_room_id: string | null
+          name: string
+          organization_id: string
+          preview_text: string
+          published_at: string | null
+          reply_to: string | null
+          schema_version: number
+          status: string
+          styles: Json
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          editor_json?: Json
+          email_output_html?: string | null
+          email_output_text?: string | null
+          from_address?: string | null
+          id?: number
+          liveblocks_room_id?: string | null
+          name?: string
+          organization_id: string
+          preview_text?: string
+          published_at?: string | null
+          reply_to?: string | null
+          schema_version?: number
+          status?: string
+          styles?: Json
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          editor_json?: Json
+          email_output_html?: string | null
+          email_output_text?: string | null
+          from_address?: string | null
+          id?: number
+          liveblocks_room_id?: string | null
+          name?: string
+          organization_id?: string
+          preview_text?: string
+          published_at?: string | null
+          reply_to?: string | null
+          schema_version?: number
+          status?: string
+          styles?: Json
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4734,6 +5249,7 @@ export type Database = {
           archived_by: string | null
           assigned_to_user_id: Json | null
           created_at: string
+          display_id: string
           id: string
           organization_id: string
           primary_user_id: string | null
@@ -4745,6 +5261,7 @@ export type Database = {
           archived_by?: string | null
           assigned_to_user_id?: Json | null
           created_at?: string
+          display_id: string
           id?: string
           organization_id: string
           primary_user_id?: string | null
@@ -4756,6 +5273,7 @@ export type Database = {
           archived_by?: string | null
           assigned_to_user_id?: Json | null
           created_at?: string
+          display_id?: string
           id?: string
           organization_id?: string
           primary_user_id?: string | null
@@ -4825,6 +5343,42 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      organization_account_managers: {
+        Row: {
+          account_manager_id: string
+          created_at: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          account_manager_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          account_manager_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_account_managers_account_manager_id_fkey"
+            columns: ["account_manager_id"]
+            isOneToOne: false
+            referencedRelation: "organization_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_account_managers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organization_member_roles: {
         Row: {
@@ -5511,6 +6065,54 @@ export type Database = {
         }
         Relationships: []
       }
+      role_assignments: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: number
+          organization_id: string | null
+          resource_id: string
+          resource_type: string
+          role_type_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: never
+          organization_id?: string | null
+          resource_id: string
+          resource_type: string
+          role_type_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: never
+          organization_id?: string | null
+          resource_id?: string
+          resource_type?: string
+          role_type_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_role_type_id_fkey"
+            columns: ["role_type_id"]
+            isOneToOne: false
+            referencedRelation: "deal_role_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_logic: {
         Row: {
           created_at: string
@@ -5754,10 +6356,49 @@ export type Database = {
         }
         Relationships: []
       }
+      task_template_roles: {
+        Row: {
+          created_at: string
+          deal_role_type_id: number
+          id: number
+          task_template_id: number
+        }
+        Insert: {
+          created_at?: string
+          deal_role_type_id: number
+          id?: never
+          task_template_id: number
+        }
+        Update: {
+          created_at?: string
+          deal_role_type_id?: number
+          id?: never
+          task_template_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_template_roles_deal_role_type_id_fkey"
+            columns: ["deal_role_type_id"]
+            isOneToOne: false
+            referencedRelation: "deal_role_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_template_roles_task_template_id_fkey"
+            columns: ["task_template_id"]
+            isOneToOne: false
+            referencedRelation: "task_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_templates: {
         Row: {
           archived_at: string | null
           archived_by: string | null
+          button_action_id: number | null
+          button_enabled: boolean
+          button_label: string | null
           code: string
           created_at: string
           deal_stage_id: number | null
@@ -5775,6 +6416,9 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
+          button_action_id?: number | null
+          button_enabled?: boolean
+          button_label?: string | null
           code: string
           created_at?: string
           deal_stage_id?: number | null
@@ -5792,6 +6436,9 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_by?: string | null
+          button_action_id?: number | null
+          button_enabled?: boolean
+          button_label?: string | null
           code?: string
           created_at?: string
           deal_stage_id?: number | null
@@ -5807,6 +6454,13 @@ export type Database = {
           uuid?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_templates_button_action_id_fkey"
+            columns: ["button_action_id"]
+            isOneToOne: false
+            referencedRelation: "actions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_templates_deal_stage_id_fkey"
             columns: ["deal_stage_id"]
@@ -6360,7 +7014,7 @@ export type Database = {
         Args: { filter?: Json; match_count: number; query_embedding: string }
         Returns: {
           content: string
-          id: string
+          id: number
           metadata: Json
           similarity: number
         }[]
@@ -6386,6 +7040,15 @@ export type Database = {
           content: string
           cosine_sim: number
           document_id: string
+        }[]
+      }
+      match_program_document_chunks: {
+        Args: { filter?: Json; match_count: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: number
+          metadata: Json
+          similarity: number
         }[]
       }
       sync_application_from_primary_scenario: {

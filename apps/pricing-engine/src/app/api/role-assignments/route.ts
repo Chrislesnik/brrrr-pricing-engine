@@ -185,6 +185,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
+    // Sync organization_account_managers for broker_org assignments
+    if (resource_type === "broker_org") {
+      try {
+        const { data: mem } = await supabaseAdmin
+          .from("organization_members")
+          .select("id")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", targetUserId)
+          .maybeSingle();
+        if (mem?.id) {
+          await supabaseAdmin
+            .from("organization_account_managers")
+            .upsert(
+              { organization_id: resource_id, account_manager_id: mem.id },
+              { onConflict: "organization_id,account_manager_id" }
+            );
+        }
+      } catch {
+        // best-effort sync
+      }
+    }
+
     // Sync deal_users if resource is a deal or loan
     if (resource_type === "deal" || resource_type === "loan") {
       try {

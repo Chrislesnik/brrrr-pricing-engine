@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@repo/ui/shadcn/dialog"
 import { BrokerCompaniesTable } from "../../components/broker-companies-table"
+import { DefaultBrokerSettingsDialog } from "../components/default-broker-settings-dialog"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { BrokerOrgRow, OrgMemberRow } from "../../data/fetch-broker-companies"
 
@@ -134,17 +135,20 @@ export default function BrokerOrganizationsPage() {
           <h2 className="flex-none text-xl font-bold tracking-tight">
             Broker Organizations
           </h2>
-          <Button
-            className="space-x-1"
-            onClick={() => setShowInviteDialog(true)}
-          >
-            <span>Invite Members</span>
-            <UserPlus size={18} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <DefaultBrokerSettingsDialog />
+            <Button
+              className="space-x-1"
+              onClick={() => setShowInviteDialog(true)}
+            >
+              <span>Invite Members</span>
+              <UserPlus size={18} />
+            </Button>
+          </div>
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <BrokerCompaniesTable data={organizations} initialMembersMap={membersMap} />
+        <BrokerCompaniesTable data={organizations} initialMembersMap={membersMap} onSettingsChanged={() => mutate()} />
       </div>
 
       <Dialog

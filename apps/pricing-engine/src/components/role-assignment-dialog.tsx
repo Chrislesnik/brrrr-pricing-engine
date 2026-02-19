@@ -50,7 +50,7 @@ type RoleAssignment = {
 }
 
 interface RoleAssignmentDialogProps {
-  resourceType: "deal" | "loan" | "borrower" | "entity" | "deal_task"
+  resourceType: "deal" | "loan" | "borrower" | "entity" | "deal_task" | "broker_org"
   resourceId: string
   open: boolean
   onOpenChange: (next: boolean) => void

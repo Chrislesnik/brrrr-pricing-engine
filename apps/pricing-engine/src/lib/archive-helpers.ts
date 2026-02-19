@@ -11,6 +11,7 @@ export type ArchivableTable =
   | "borrowers"
   | "entities"
   | "credit_reports"
+  | "background_reports"
   | "guarantor"
   // Tier 2: Operational
   | "inputs"
