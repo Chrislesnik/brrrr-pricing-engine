@@ -7,6 +7,7 @@ import { Extension } from "@tiptap/core"
 import Suggestion from "@tiptap/suggestion"
 import tippy, { Instance as TippyInstance } from "tippy.js"
 import { SlashCommandList, SlashCommandListHandle, slashCommandItems } from "./slash-commands"
+import { MergeTagExtension } from "./merge-tag-extension"
 import type { EmailTemplateStyles } from "./types"
 import { useLiveblocksExtension } from "@liveblocks/react-tiptap"
 import "tippy.js/dist/tippy.css"
@@ -100,6 +101,7 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
     extensions: [
       liveblocks,
       StarterKit,
+      MergeTagExtension,
       Placeholder.configure({
         placeholder: ({ node }: { node: { type: { name: string } } }) => {
           if (node.type.name === "heading") return "Heading..."
@@ -110,7 +112,7 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
     ] as any[],
     editorProps: {
       attributes: {
-        class: "outline-none focus:outline-none min-h-[200px]",
+        class: "outline-none focus:outline-none min-h-[640px] caret-current",
       },
     },
     onCreate: ({ editor }) => {
@@ -127,10 +129,10 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
   } as React.CSSProperties
 
   return (
-    <div className="email-editor-container mx-auto bg-white" style={containerStyle}>
+    <div className="email-editor-container mx-auto bg-card" style={containerStyle}>
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-8 py-6 [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:float-left [&_.ProseMirror_p.is-editor-empty:first-child]:before:h-0 [&_.ProseMirror_p.is-editor-empty:first-child]:before:text-[#aaa] [&_.ProseMirror_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]"
+        className="prose prose-sm max-w-none px-8 py-6 text-card-foreground [&_.ProseMirror]:caret-current [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:float-left [&_.ProseMirror_p.is-editor-empty:first-child]:before:h-0 [&_.ProseMirror_p.is-editor-empty:first-child]:before:text-muted-foreground/40 [&_.ProseMirror_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]"
       />
       <style>{`
         .email-editor-container a {

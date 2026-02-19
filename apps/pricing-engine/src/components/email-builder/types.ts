@@ -11,6 +11,9 @@ export type EmailTemplateStyles = {
   typography: {
     fontSize: number
     lineHeight: number
+    fontWeight?: number
+    textColor?: string
+    textDecoration?: "none" | "underline" | "line-through"
   }
   link: {
     color: string

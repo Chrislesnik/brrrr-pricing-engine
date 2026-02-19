@@ -1,19 +1,31 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useUser } from "@clerk/nextjs"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { RoomProvider, useStorage, useMutation } from "@liveblocks/react/suspense"
 import { StylesPanel } from "./styles-panel"
 import { EmailEditor } from "./email-editor"
 import { defaultEmailStyles, type EmailTemplateStyles } from "./types"
 import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@repo/ui/shadcn/sheet"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu"
+import { MERGE_TAGS } from "./merge-tag-extension"
+import {
   MoreHorizontal,
-  Globe,
   PanelLeft,
-  Reply,
   ChevronRight,
   Loader2,
-  ArrowLeft,
   Undo2,
   Redo2,
   Bold,
@@ -30,7 +42,14 @@ import {
   Link,
   Image,
   Minus,
-  Quote,
+  Mail,
+  Eye,
+  FileCode,
+  Save,
+  FolderOpen,
+  FilePlus,
+  Copy,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import type { Editor } from "@tiptap/react"
@@ -41,14 +60,37 @@ type Props = {
   onBack?: () => void
 }
 
+function UserAvatar() {
+  const { user } = useUser()
+  const initials = user
+    ? (user.firstName?.[0] ?? user.emailAddresses[0]?.emailAddress?.[0] ?? "U").toUpperCase()
+    : "U"
+  const imageUrl = user?.imageUrl
+
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt={user?.fullName ?? "User"}
+        className="size-6 rounded-full object-cover"
+      />
+    )
+  }
+
+  return (
+    <div className="flex size-6 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-semibold text-white">
+      {initials}
+    </div>
+  )
+}
+
 function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: string; onBack?: () => void }) {
   const [stylesPanelOpen, setStylesPanelOpen] = useState(true)
   const [editor, setEditor] = useState<Editor | null>(null)
 
-  const templateName =
-    (useStorage((root) => root.templateName as string | undefined) ?? initialName)
-  const status =
-    (useStorage((root) => root.status as "draft" | "published" | undefined) ?? "draft")
+  const templateName = useStorage((root) => root.templateName as string | undefined) ?? initialName
+  const status = useStorage((root) => root.status as "draft" | "published" | undefined) ?? "draft"
   const storedStyles = useStorage((root) => root.styles as EmailTemplateStyles | undefined)
   const styles: EmailTemplateStyles = storedStyles
     ? {
@@ -82,132 +124,187 @@ function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: strin
   )
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-white">
-      {/* Top Navigation Bar */}
-      <header className="flex h-11 flex-shrink-0 items-center justify-between border-b border-[#e5e5e5] bg-white px-3">
-        {/* Left: Back + Styles toggle */}
-        <div className="flex items-center gap-1">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-[#666] transition-colors hover:bg-[#f5f5f5] hover:text-[#111]"
-              aria-label="Back to templates"
-            >
-              <ArrowLeft className="size-3.5" />
-              Templates
-            </button>
-          )}
-          <div className="mx-1 h-4 w-px bg-[#e5e5e5]" />
-          <button
-            type="button"
-            onClick={() => setStylesPanelOpen((o) => !o)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-              stylesPanelOpen
-                ? "bg-[#f0f0f0] text-[#111]"
-                : "text-[#666] hover:bg-[#f5f5f5] hover:text-[#111]"
-            )}
-          >
-            <PanelLeft className="size-3.5" />
-            Styles
-          </button>
-        </div>
+    <div className="flex h-full flex-col overflow-hidden bg-background">
 
-        {/* Center: Breadcrumb + status */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-[#999]">Templates</span>
-          <ChevronRight className="size-3.5 text-[#ccc]" />
-          <input
-            value={templateName}
-            onChange={(e) => updateTemplateName(e.target.value)}
-            className="bg-transparent text-sm font-medium text-[#111] outline-none focus:underline"
-            aria-label="Template name"
-          />
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              status === "published"
-                ? "bg-[#dcfce7] text-[#16a34a]"
-                : "bg-[#f3f4f6] text-[#6b7280]"
-            )}
-          >
-            {status === "published" ? "Published" : "Draft"}
-          </span>
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#666] transition-colors hover:bg-[#f5f5f5] hover:text-[#111]"
-            aria-label="Reply-To"
-          >
-            <Reply className="size-3.5" />
-            Reply-To
-          </button>
-          <button
-            type="button"
-            className="rounded-md p-1.5 text-[#666] transition-colors hover:bg-[#f5f5f5] hover:text-[#111]"
-            aria-label="More options"
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => publish()}
-            className="flex items-center gap-1.5 rounded-md bg-[#111] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#333]"
-          >
-            <Globe className="size-3.5" />
-            Publish
-          </button>
-        </div>
-      </header>
-
-      {/* From / Subject / Preview text rows */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-[#e5e5e5] px-4 py-1.5">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#bbb]">From</span>
-          <span className="text-sm text-[#555]">Acme &lt;acme@example.com&gt;</span>
-        </div>
-        <span className="cursor-pointer text-xs text-[#aaa] hover:text-[#777]">Reply-To</span>
-      </div>
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-[#e5e5e5] px-4 py-1.5">
-        <input
-          placeholder="Subject"
-          className="flex-1 bg-transparent text-sm text-[#111] placeholder-[#bbb] outline-none"
-          aria-label="Email subject"
-        />
-        <span className="cursor-pointer text-xs text-[#aaa] hover:text-[#777]">Preview text</span>
-      </div>
-
-      {/* Formatting toolbar */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-0.5 border-b border-[#e5e5e5] bg-white px-3 py-1">
-        <FormattingToolbar editor={editor} />
-      </div>
-
-      {/* Main content area */}
-      <div className="flex min-h-0 flex-1">
-        {/* Styles panel */}
-        {stylesPanelOpen && (
+      {/* ── Styles Sheet ──────────────────────────────────────────────────── */}
+      <Sheet open={stylesPanelOpen} onOpenChange={setStylesPanelOpen}>
+        <SheetContent
+          side="left"
+          className="w-[240px] p-0 sm:max-w-[240px] [&>button]:hidden"
+        >
+          <SheetTitle className="sr-only">Styles</SheetTitle>
           <StylesPanel
             styles={styles}
             onChange={handleStylesChange}
             onReset={() => handleStylesChange(defaultEmailStyles)}
             onClose={() => setStylesPanelOpen(false)}
           />
-        )}
+        </SheetContent>
+      </Sheet>
 
-        {/* Email canvas */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#f3f3f3] px-4 py-6">
-          <div className="mx-auto w-full" style={{ maxWidth: `${styles.container.width + 64}px` }}>
-            <div className="rounded-sm bg-white shadow-sm">
-              <EmailEditor styles={styles} onEditorReady={setEditor} />
+      {/* ── Top bar ───────────────────────────────────────────────────────── */}
+      <header className="flex h-11 flex-shrink-0 items-center justify-between border-b border-border bg-background px-3">
+
+        {/* Left: Styles sheet toggle */}
+        <button
+          type="button"
+          onClick={() => setStylesPanelOpen(true)}
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <PanelLeft className="size-3.5" />
+          Styles
+        </button>
+
+        {/* Right: breadcrumb · name · status · mail · avatar · more · publish */}
+        <div className="flex items-center gap-2">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Templates
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Templates</span>
+          )}
+          <ChevronRight className="size-3 text-muted-foreground/40" />
+          <input
+            value={templateName}
+            onChange={(e) => updateTemplateName(e.target.value)}
+            className="min-w-0 max-w-[180px] bg-transparent text-xs font-medium text-foreground outline-none hover:underline focus:underline"
+            aria-label="Template name"
+          />
+          <span
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-medium",
+              status === "published"
+                ? "bg-[#dcfce7] text-[#16a34a]"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {status === "published" ? "Published" : "Draft"}
+          </span>
+
+          {/* Send test email */}
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            aria-label="Send test email"
+          >
+            <Mail className="size-3.5" />
+            Mail
+          </button>
+
+          <UserAvatar />
+
+          {/* More actions dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                aria-label="More options"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem className="gap-2">
+                <Eye className="size-3.5 text-muted-foreground" />
+                Preview Email
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2">
+                <FileCode className="size-3.5 text-muted-foreground" />
+                Export HTML
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2">
+                <Save className="size-3.5 text-muted-foreground" />
+                Save Template
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2">
+                <FolderOpen className="size-3.5 text-muted-foreground" />
+                Open Template
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2">
+                <FilePlus className="size-3.5 text-muted-foreground" />
+                New Template
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2">
+                <Copy className="size-3.5 text-muted-foreground" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive">
+                <Trash2 className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <button
+            type="button"
+            onClick={() => publish()}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+              status === "published"
+                ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                : "bg-foreground text-background hover:bg-foreground/90"
+            )}
+          >
+            Publish
+          </button>
+        </div>
+      </header>
+
+      {/* ── Canvas (scrollable) ───────────────────────────────────────────── */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted px-4 py-6">
+        <div className="mx-auto w-full" style={{ maxWidth: `${styles.container.width + 64}px` }}>
+
+          {/* Email card — From/Subject/Toolbar/Editor all nested inside */}
+          <div className="overflow-hidden rounded-sm bg-card shadow-sm">
+
+            {/* From row */}
+            <div className="flex items-center justify-between border-b border-border px-6 py-2">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/50">From</span>
+                <span className="text-sm text-card-foreground">Acme &lt;acme@example.com&gt;</span>
+              </div>
+              <button type="button" className="text-xs text-muted-foreground/60 transition-colors hover:text-card-foreground">
+                Reply-To
+              </button>
             </div>
-            <div className="mt-3 rounded-sm bg-white/50 px-8 py-3 text-center text-xs text-[#ccc]">
-              Press &quot;/&quot; in the editor above for block commands
+
+            {/* Subject row */}
+            <div className="flex items-center justify-between border-b border-border px-6 py-2">
+              <input
+                placeholder="Subject"
+                className="flex-1 bg-transparent text-sm text-card-foreground placeholder:text-muted-foreground/40 outline-none"
+                aria-label="Email subject"
+              />
+              <button type="button" className="text-xs text-muted-foreground/60 transition-colors hover:text-card-foreground">
+                Preview text
+              </button>
             </div>
+
+            {/* Formatting toolbar + Merge Tags — unified section */}
+            <div className="border-b border-border">
+              <div className="flex items-center gap-0.5 px-3 py-1">
+                <FormattingToolbar editor={editor} />
+              </div>
+              <div className="flex items-center px-3 py-1">
+                <MergeTagsButton editor={editor} />
+              </div>
+            </div>
+
+            {/* Editor body */}
+            <EmailEditor styles={styles} onEditorReady={setEditor} />
           </div>
+
+          <p className="mt-3 text-center text-xs text-muted-foreground/40">
+            Press &quot;/&quot; for block commands
+          </p>
         </div>
       </div>
     </div>
@@ -232,8 +329,8 @@ function ToolbarBtn({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        "flex h-6 w-6 items-center justify-center rounded text-[#555] transition-colors hover:bg-[#f0f0f0] active:bg-[#e8e8e8]",
-        active && "bg-[#f0f0f0] text-[#111]"
+        "flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
+        active && "bg-accent text-accent-foreground"
       )}
     >
       {children}
@@ -242,7 +339,7 @@ function ToolbarBtn({
 }
 
 function Sep() {
-  return <div className="mx-0.5 h-4 w-px bg-[#e5e5e5]" />
+  return <div className="mx-0.5 h-4 w-px bg-border" />
 }
 
 function FormattingToolbar({ editor }: { editor: Editor | null }) {
@@ -251,9 +348,6 @@ function FormattingToolbar({ editor }: { editor: Editor | null }) {
 
   return (
     <>
-      <span className="mr-1 text-[11px] text-[#bbb]">{"{ }"}</span>
-      <span className="mr-2 text-[11px] font-medium text-[#888]">Merge Tags</span>
-
       <ToolbarBtn label="Undo" onClick={() => e?.chain().focus().undo().run()}>
         <Undo2 className="size-3.5" />
       </ToolbarBtn>
@@ -267,59 +361,110 @@ function FormattingToolbar({ editor }: { editor: Editor | null }) {
       <ToolbarBtn label="Italic" active={e?.isActive("italic")} onClick={() => e?.chain().focus().toggleItalic().run()}>
         <Italic className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Underline">
+      <ToolbarBtn label="Underline" active={e?.isActive("underline")} onClick={() => e?.chain().focus().toggleUnderline?.().run()}>
         <Underline className="size-3.5" />
       </ToolbarBtn>
       <ToolbarBtn label="Strikethrough" active={e?.isActive("strike")} onClick={() => e?.chain().focus().toggleStrike().run()}>
         <Strikethrough className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Code" active={e?.isActive("code")} onClick={() => e?.chain().focus().toggleCode().run()}>
+      <ToolbarBtn label="Inline Code" active={e?.isActive("code")} onClick={() => e?.chain().focus().toggleCode().run()}>
         <Code className="size-3.5" />
       </ToolbarBtn>
       <Sep />
       <ToolbarBtn label="Heading 1" active={e?.isActive("heading", { level: 1 })} onClick={() => e?.chain().focus().toggleHeading({ level: 1 }).run()}>
-        <span className="text-[10px] font-bold">H1</span>
+        <span className="text-[9px] font-bold leading-none">H1</span>
       </ToolbarBtn>
       <ToolbarBtn label="Heading 2" active={e?.isActive("heading", { level: 2 })} onClick={() => e?.chain().focus().toggleHeading({ level: 2 }).run()}>
-        <span className="text-[10px] font-bold">H2</span>
+        <span className="text-[9px] font-bold leading-none">H2</span>
       </ToolbarBtn>
       <ToolbarBtn label="Heading 3" active={e?.isActive("heading", { level: 3 })} onClick={() => e?.chain().focus().toggleHeading({ level: 3 }).run()}>
-        <span className="text-[10px] font-bold">H3</span>
+        <span className="text-[9px] font-bold leading-none">H3</span>
+      </ToolbarBtn>
+      <ToolbarBtn label="Heading 4" active={e?.isActive("heading", { level: 4 })} onClick={() => e?.chain().focus().toggleHeading({ level: 4 }).run()}>
+        <span className="text-[9px] font-bold leading-none">H4</span>
       </ToolbarBtn>
       <Sep />
-      <ToolbarBtn label="Align left">
+      <ToolbarBtn label="Align Left" active={e?.isActive({ textAlign: "left" })} onClick={() => e?.chain().focus().setTextAlign?.("left").run()}>
         <AlignLeft className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Align center">
+      <ToolbarBtn label="Align Center" active={e?.isActive({ textAlign: "center" })} onClick={() => e?.chain().focus().setTextAlign?.("center").run()}>
         <AlignCenter className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Align right">
+      <ToolbarBtn label="Align Right" active={e?.isActive({ textAlign: "right" })} onClick={() => e?.chain().focus().setTextAlign?.("right").run()}>
         <AlignRight className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Justify">
+      <ToolbarBtn label="Justify" active={e?.isActive({ textAlign: "justify" })} onClick={() => e?.chain().focus().setTextAlign?.("justify").run()}>
         <AlignJustify className="size-3.5" />
       </ToolbarBtn>
       <Sep />
-      <ToolbarBtn label="Bullet list" active={e?.isActive("bulletList")} onClick={() => e?.chain().focus().toggleBulletList().run()}>
+      <ToolbarBtn label="Bullet List" active={e?.isActive("bulletList")} onClick={() => e?.chain().focus().toggleBulletList().run()}>
         <List className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Ordered list" active={e?.isActive("orderedList")} onClick={() => e?.chain().focus().toggleOrderedList().run()}>
+      <ToolbarBtn label="Numbered List" active={e?.isActive("orderedList")} onClick={() => e?.chain().focus().toggleOrderedList().run()}>
         <ListOrdered className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Quote" active={e?.isActive("blockquote")} onClick={() => e?.chain().focus().toggleBlockquote().run()}>
-        <Quote className="size-3.5" />
-      </ToolbarBtn>
       <Sep />
-      <ToolbarBtn label="Link">
+      <ToolbarBtn label="Add Link">
         <Link className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Image">
+      <ToolbarBtn label="Insert Image">
         <Image className="size-3.5" />
       </ToolbarBtn>
-      <ToolbarBtn label="Divider" onClick={() => e?.chain().focus().setHorizontalRule().run()}>
+      <ToolbarBtn label="Horizontal Rule" onClick={() => e?.chain().focus().setHorizontalRule().run()}>
         <Minus className="size-3.5" />
       </ToolbarBtn>
     </>
+  )
+}
+
+function MergeTagsButton({ editor }: { editor: import("@tiptap/react").Editor | null }) {
+  // Group tags by category
+  const categories = Array.from(new Set(MERGE_TAGS.map((t) => t.category)))
+
+  const insert = (name: string, label: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = editor as any
+    e?.chain().focus().insertContent({ type: "mergeTag", attrs: { name, label } }).run()
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <span className="font-mono text-[11px] text-muted-foreground/50">{"{ }"}</span>
+          <span className="font-medium">Merge Tags</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-52 max-h-80 overflow-y-auto">
+        {categories.map((category, i) => {
+          const tags = MERGE_TAGS.filter((t) => t.category === category)
+          return (
+            <div key={category}>
+              {i > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+                {category}
+              </DropdownMenuLabel>
+              {tags.map((tag) => (
+                <DropdownMenuItem
+                  key={tag.name}
+                  className="gap-2 font-mono text-xs"
+                  onClick={() => insert(tag.name, tag.label)}
+                >
+                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium">
+                    {"{{"}
+                    {tag.label}
+                    {"}}"}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </div>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
