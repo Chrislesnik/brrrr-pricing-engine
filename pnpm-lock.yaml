@@ -9,25 +9,25 @@ importers:
   .:
     dependencies:
       '@tiptap/extension-color':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0(@tiptap/extension-text-style@3.20.0(@tiptap/core@3.20.0(@tiptap/pm@3.20.0)))
       '@tiptap/extension-image':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.0(@tiptap/pm@3.20.0))
       '@tiptap/extension-text-style':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.0(@tiptap/pm@3.20.0))
       '@tiptap/extension-typography':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.0(@tiptap/pm@3.20.0))
       '@tiptap/pm':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0
       '@tiptap/react':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.0(@tiptap/pm@3.20.0))(@tiptap/pm@3.20.0)(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@tiptap/starter-kit':
-        specifier: ^3.19.0
+        specifier: ^3.20.0
         version: 3.20.0
     devDependencies:
       '@changesets/cli':
@@ -53,7 +53,7 @@ importers:
     dependencies:
       '@clerk/nextjs':
         specifier: ^6.35.2
-        version: 6.37.0(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        version: 6.37.0(next@16.0.7(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@clerk/types':
         specifier: ^4.101.14
         version: 4.101.14(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -150,7 +150,7 @@ importers:
         version: 7.4.5
       '@clerk/nextjs':
         specifier: ^6.35.2
-        version: 6.37.0(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        version: 6.37.0(next@16.0.7(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@clerk/types':
         specifier: ^4.101.14
         version: 4.101.14(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -541,7 +541,7 @@ importers:
     dependencies:
       '@clerk/nextjs':
         specifier: ^6.35.2
-        version: 6.37.0(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        version: 6.37.0(next@16.0.7(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@repo/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -731,7 +731,7 @@ importers:
     dependencies:
       '@clerk/nextjs':
         specifier: ^6.35.2
-        version: 6.37.0(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        version: 6.37.0(next@16.0.7(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@clerk/types':
         specifier: ^4.101.14
         version: 4.101.14(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -7224,7 +7224,7 @@ snapshots:
       react-dom: 19.0.0(react@19.0.0)
       tslib: 2.8.1
 
-  '@clerk/nextjs@6.37.0(next@16.0.7(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@clerk/nextjs@6.37.0(next@16.0.7(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@clerk/backend': 2.29.6(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@clerk/clerk-react': 5.60.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)

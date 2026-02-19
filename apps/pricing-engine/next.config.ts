@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@documenso/embed-react"],
+  turbopack: {},
   experimental: {
     serverActions: {
       // Allow multi-file uploads via server actions
