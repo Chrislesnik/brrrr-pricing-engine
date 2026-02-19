@@ -2832,18 +2832,7 @@ export default function PricingEnginePage() {
                       {loanType === "dscr" && (
                         <>
                           <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="fthb">FTHB</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>First Time Home Buyer</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
+                            <Label htmlFor="fthb">First Time Homebuyer</Label>
                             <Select
                               value={fthb}
                               onValueChange={(v) => {
@@ -3398,18 +3387,7 @@ export default function PricingEnginePage() {
                         {loanType === "dscr" && (
                           <>
                         <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <Label htmlFor="str">STR</Label>
-                            <TooltipProvider>
-                              <Tooltip delayDuration={50}>
-                                <TooltipTrigger>
-                                  <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                  <span className="sr-only">More Info</span>
-                                </TooltipTrigger>
-                                <TooltipContent>Short-Term Rental</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
+                          <Label htmlFor="str">Short-Term Rental</Label>
                             <Select
                               value={strValue}
                               onValueChange={(v) => {
@@ -3604,9 +3582,20 @@ export default function PricingEnginePage() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-hoi">
-                          Annual HOI <span className="text-red-600">*</span>
-                        </Label>
+                        <div className="flex items-center gap-1">
+                          <Label htmlFor="annual-hoi">
+                            Annual Homeowner's Ins. <span className="text-red-600">*</span>
+                          </Label>
+                          <TooltipProvider>
+                            <Tooltip delayDuration={50}>
+                              <TooltipTrigger>
+                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
+                                <span className="sr-only">More Info</span>
+                              </TooltipTrigger>
+                              <TooltipContent>Property's annual homeowner's insurance cost</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
@@ -3777,7 +3766,7 @@ export default function PricingEnginePage() {
                           </div>
                           <div className="flex flex-col gap-1">
                             <Label htmlFor="ppp">
-                              PPP <span className="text-red-600">*</span>
+                              Pre-Payment Penalty <span className="text-red-600">*</span>
                             </Label>
                             <Select
                               value={ppp}
@@ -3886,20 +3875,9 @@ export default function PricingEnginePage() {
                         </>
                       ) : null}
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="aiv">
-                            AIV<span className="text-red-600"> *</span>
-                          </Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>As-Is Value</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
+                        <Label htmlFor="aiv">
+                          As-Is Value<span className="text-red-600"> *</span>
+                        </Label>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                             $
