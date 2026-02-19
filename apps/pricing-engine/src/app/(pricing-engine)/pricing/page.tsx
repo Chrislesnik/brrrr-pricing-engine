@@ -48,6 +48,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
@@ -790,6 +791,8 @@ export default function PricingEnginePage() {
   const [county, setCounty] = useState<string>("")
   const streetInputRef = useRef<HTMLInputElement | null>(null)
   const [sendingReApi, setSendingReApi] = useState<boolean>(false)
+  const [reApiClicked, setReApiClicked] = useState(false)
+  const [mapsClicked, setMapsClicked] = useState(false)
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""
   const [mapsLoadError, setMapsLoadError] = useState(false)
   const [mapsModalOpen, setMapsModalOpen] = useState(false)
@@ -808,6 +811,10 @@ export default function PricingEnginePage() {
     const st = typeof stateCode === "string" ? stateCode.trim() : ""
     return Boolean(s && c && st && z)
   }, [city, stateCode, street, zip])
+  useEffect(() => {
+    setReApiClicked(false)
+    setMapsClicked(false)
+  }, [street, city, stateCode, zip])
   const fullAddress = useMemo(() => {
     const parts = [street, apt, city, stateCode, zip]
       .map((p) => (typeof p === "string" ? p.trim() : p))
@@ -3108,18 +3115,26 @@ export default function PricingEnginePage() {
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-7 not-italic"
-                        onClick={handleSendToReApi}
+                        className={cn(
+                          "h-7 not-italic",
+                          hasBasicAddress && !reApiClicked && !sendingReApi &&
+                            "border border-primary/50 animate-attention-glow"
+                        )}
+                        onClick={(e) => { setReApiClicked(true); handleSendToReApi(e); }}
                         disabled={!hasBasicAddress || sendingReApi}
                         aria-disabled={sendingReApi || !hasBasicAddress}
                       >
-                        {sendingReApi ? "Sending..." : "RE API"}
+                        {sendingReApi ? "Sending..." : "Property Data"}
                       </Button>
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-7 not-italic"
-                        onClick={(e) => handleOpenMapsModal(e)}
+                        className={cn(
+                          "h-7 not-italic",
+                          hasBasicAddress && !mapsClicked &&
+                            "border border-primary/50 animate-attention-glow"
+                        )}
+                        onClick={(e) => { setMapsClicked(true); handleOpenMapsModal(e); }}
                         disabled={!hasBasicAddress}
                       >
                         Google Maps
