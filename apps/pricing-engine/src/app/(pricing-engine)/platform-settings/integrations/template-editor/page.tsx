@@ -63,6 +63,10 @@ export default function TemplateEditorPage() {
     return <DocumentsTab />
   }
 
+  if (activeTab === "emails" && isEditorMode) {
+    return <EmailsTab />
+  }
+
   return (
     <div className="w-full flex justify-center px-4 py-8 md:px-6">
       <div className="w-full max-w-6xl">

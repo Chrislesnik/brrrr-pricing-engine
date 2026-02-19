@@ -301,10 +301,12 @@ export function getBreadcrumbSegments(
     // Try to find matching nav item for accurate label
     const navItem = findNavItemByUrl(href, NAVIGATION_CONFIG);
     
-    // Use nav item title if found, otherwise capitalize segment
+    // Use nav item title if found, otherwise title-case each word in the segment
     let label =
       navItem?.title ||
-      segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+      segment
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
 
     // Replace Clerk org ID segments with the org's display name
     if (!navItem && CLERK_ORG_ID_RE.test(segment) && orgName) {

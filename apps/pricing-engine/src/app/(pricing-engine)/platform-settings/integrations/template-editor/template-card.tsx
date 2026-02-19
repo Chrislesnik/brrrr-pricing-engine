@@ -64,6 +64,9 @@ export function TemplateCard({
             <p className="text-xs text-muted-foreground mt-1">
               Updated {format(new Date(template.updated_at), "MMM d, yyyy")}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Created {format(new Date(template.created_at), "MMM d, yyyy")}
+            </p>
           </div>
           
           {/* Actions Dropdown */}
@@ -107,11 +110,6 @@ export function TemplateCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
-        {/* Created date */}
-        <p className="text-xs text-muted-foreground/70 mt-2">
-          Created {format(new Date(template.created_at), "MMM d, yyyy")}
-        </p>
       </div>
     </div>
   )

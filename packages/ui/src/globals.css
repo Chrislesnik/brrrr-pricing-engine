@@ -50,11 +50,11 @@
   --task-priority-medium: hsl(38 92% 50%);
   --task-priority-low: hsl(220 9% 46%);
   --task-priority-none: hsl(216 12% 84%);
-  /* Resource type colors (policy builder) */
-  --resource-table: hsl(217 91% 60%);
-  --resource-storage: hsl(271 81% 56%);
-  --resource-feature: hsl(160 84% 39%);
-  --resource-route: hsl(38 92% 50%);
+  /* Resource type colors (policy builder) — tuned for light-mode contrast */
+  --resource-table: hsl(217 85% 42%);
+  --resource-storage: hsl(271 68% 44%);
+  --resource-feature: hsl(160 84% 28%);
+  --resource-route: hsl(38 90% 34%);
   --radius: 0.625rem;
   --sidebar-background: 0 0% 98%;
   --sidebar-foreground: 0 0% 4%;
@@ -466,11 +466,12 @@
 .bg-resource-feature { background-color: var(--resource-feature); }
 .bg-resource-route { background-color: var(--resource-route); }
 
-/* Resource type badge styles (muted bg, text color, 30% alpha border) */
-.badge-resource-table { background-color: hsl(217 91% 60% / 0.12); color: var(--resource-table); border-color: hsl(217 91% 60% / 0.3); }
-.badge-resource-storage { background-color: hsl(271 81% 56% / 0.12); color: var(--resource-storage); border-color: hsl(271 81% 56% / 0.3); }
-.badge-resource-feature { background-color: hsl(160 84% 39% / 0.12); color: var(--resource-feature); border-color: hsl(160 84% 39% / 0.3); }
-.badge-resource-route { background-color: hsl(38 92% 50% / 0.12); color: var(--resource-route); border-color: hsl(38 92% 50% / 0.3); }
+/* Resource type badge styles — bg/border use mid-range hue values that blend
+   well in both light and dark mode; text uses the themed CSS variable */
+.badge-resource-table   { background-color: hsl(217 85% 52% / 0.12); color: var(--resource-table);   border-color: hsl(217 85% 52% / 0.30); }
+.badge-resource-storage { background-color: hsl(271 68% 52% / 0.12); color: var(--resource-storage); border-color: hsl(271 68% 52% / 0.30); }
+.badge-resource-feature { background-color: hsl(160 84% 36% / 0.12); color: var(--resource-feature); border-color: hsl(160 84% 36% / 0.30); }
+.badge-resource-route   { background-color: hsl(38  90% 48% / 0.12); color: var(--resource-route);   border-color: hsl(38  90% 48% / 0.30); }
 
 /* Resource type group header tints (5% alpha) */
 .bg-resource-table-tint { background-color: hsl(217 91% 60% / 0.05); }

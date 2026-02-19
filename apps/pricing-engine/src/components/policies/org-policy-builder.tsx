@@ -80,9 +80,6 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select";
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
 } from "@repo/ui/shadcn/tabs";
 import {
   DropdownMenu,
@@ -104,7 +101,7 @@ import {
   Check,
   X,
   Plus,
-  Pencil,
+  Workflow,
   Archive,
   Lock,
   SlidersHorizontal,
@@ -1025,16 +1022,9 @@ export default function OrgPolicyBuilder({
   const [connector, setConnector] = useState<"AND" | "OR">("AND");
 
   // THEN state
-  const [selectedActions, setSelectedActions] = useState<string[]>([
-    "select",
-    "insert",
-    "update",
-    "delete",
-  ]);
+  const [selectedActions, setSelectedActions] = useState<string[]>([]);
   // Resource selection: format is "type:name" e.g. "table:*", "table:deals", "storage_bucket:deals"
-  const [selectedResources, setSelectedResources] = useState<string[]>([
-    "table:*",
-  ]);
+  const [selectedResources, setSelectedResources] = useState<string[]>([]);
 
   // Scope (composable conditions derive the legacy PolicyScope value)
   const [scopeConditions, setScopeConditions] = useState<ScopeConditionState[]>([]);
@@ -1263,8 +1253,8 @@ export default function OrgPolicyBuilder({
     setEditingPolicyId(null);
     setConditions([{ ...defaultCondition }]);
     setConnector("AND");
-    setSelectedActions(["select", "insert", "update", "delete"]);
-    setSelectedResources(["table:*"]);
+    setSelectedActions([]);
+    setSelectedResources([]);
     setScopeConditions([]);
     setScopeConnector("OR");
     setSelectedNamedScopes([]);
@@ -1872,6 +1862,43 @@ function PolicyToolbar({
 
   return (
     <div className="flex items-center justify-between border-b px-4 py-2">
+      {/* Resource type filter buttons */}
+      <div className="flex items-center gap-0.5">
+        {RESOURCE_TYPE_TABS.map((tab) => {
+          const count = counts[tab.value] ?? 0;
+          if (tab.value !== "all" && count === 0) return null;
+          const isActive = activeTab === tab.value;
+          const colorKey = tab.value === "storage_bucket" ? "storage" : tab.value;
+          const hasColor = tab.value !== "all";
+          return (
+            <button
+              key={tab.value}
+              onClick={() => onSetTab(tab.value)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 h-7 text-xs font-medium transition-colors",
+                isActive
+                  ? hasColor
+                    ? `text-resource-${colorKey} bg-transparent`
+                    : "text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  "inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                  isActive && hasColor
+                    ? `badge-resource-${colorKey}`
+                    : "border-transparent bg-muted/80 text-muted-foreground"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex items-center gap-1">
         <div className="relative">
           <Button
@@ -2049,23 +2076,6 @@ function PolicyToolbar({
         </div>
       </div>
 
-      {/* Resource type filter tabs (right side) */}
-      <Tabs value={activeTab} onValueChange={onSetTab}>
-        <TabsList className="h-8">
-          {RESOURCE_TYPE_TABS.map((tab) => {
-            const count = counts[tab.value] ?? 0;
-            if (tab.value !== "all" && count === 0) return null;
-            return (
-              <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5 text-xs px-2.5 py-1">
-                {tab.label}
-                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-muted/80 px-1 text-[10px] font-medium text-muted-foreground">
-                  {count}
-                </span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
     </div>
   );
 }
@@ -2142,6 +2152,7 @@ function ActiveToggleBadge({
 
   return (
     <Badge
+      variant="outline"
       className={cn(
         "capitalize whitespace-nowrap select-none transition-colors",
         small && "text-[10px]",
@@ -2219,17 +2230,18 @@ function PolicyConditionChips({
   return (
     <div className="flex items-center gap-1 flex-wrap">
       {isMultiRule && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 shrink-0">
+        <span className="badge-resource-table inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0">
           {ruleCount} rules
         </span>
       )}
       {namedScopes.map((ns) => (
-        <span
+        <Badge
           key={ns.name}
-          className="inline-flex items-center rounded border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400 whitespace-nowrap"
+          variant="outline"
+          className="badge-resource-table capitalize whitespace-nowrap"
         >
           {ns.name.replace(/_/g, " ")}
-        </span>
+        </Badge>
       ))}
       {conditions.map((c, i) => {
         const label = CONDITION_FIELD_LABELS[c.field] ?? c.field;
@@ -2326,7 +2338,7 @@ function PolicyTableRow({
 
       {visibleColumns.scope && (
         <td className={tdCls}>
-          <Badge variant="outline" className="capitalize whitespace-nowrap">
+          <Badge variant="outline" className="uppercase whitespace-nowrap">
             {policy.scope === "all" && "All"}
             {policy.scope === "org_records" && "Org"}
             {policy.scope === "user_records" && "User"}
@@ -2344,10 +2356,10 @@ function PolicyTableRow({
         </td>
       )}
 
-      {visibleColumns.organization && (
+      {visibleColumns.effect && (
         <td className={tdCls}>
-          <Badge variant="outline" className="capitalize whitespace-nowrap">
-            {resolveOrgLabel(policy, orgDisplayName)}
+          <Badge variant="outline" className="uppercase whitespace-nowrap">
+            {policy.effect ?? "ALLOW"}
           </Badge>
         </td>
       )}
@@ -2358,10 +2370,10 @@ function PolicyTableRow({
         </td>
       )}
 
-      {visibleColumns.effect && (
+      {visibleColumns.organization && (
         <td className={tdCls}>
-          <Badge variant="outline" className="uppercase whitespace-nowrap">
-            {policy.effect ?? "ALLOW"}
+          <Badge variant="outline" className="capitalize whitespace-nowrap">
+            {resolveOrgLabel(policy, orgDisplayName)}
           </Badge>
         </td>
       )}
@@ -2406,12 +2418,12 @@ function PolicyTableRow({
                   </>
                 ) : isMultiRule ? (
                   <>
-                    <Pencil className="mr-2 h-4 w-4 opacity-60" />
-                    Inspect (multi-rule)
+                    <Workflow className="mr-2 h-4 w-4 opacity-60" />
+                    Inspect
                   </>
                 ) : (
                   <>
-                    <Pencil className="mr-2 h-4 w-4 opacity-60" />
+                    <Workflow className="mr-2 h-4 w-4 opacity-60" />
                     Edit
                   </>
                 )}
@@ -2620,9 +2632,9 @@ function PolicyTableView({
             {show("resourceName") && <th className={thCls}>Resource Name</th>}
             {show("scope") && <th className={thCls}>Scope</th>}
             {show("action") && <th className={thCls}>Action</th>}
-            {show("organization") && <th className={thCls}>Organization</th>}
-            {show("conditions") && <th className={thCls}>Conditions</th>}
             {show("effect") && <th className={thCls}>Effect</th>}
+            {show("conditions") && <th className={thCls}>Conditions</th>}
+            {show("organization") && <th className={thCls}>Organization</th>}
             {show("isActive") && <th className={thCls}>Active</th>}
             {show("version") && <th className={thCls} />}
             <th className={cn(thCls, "text-right")} />
