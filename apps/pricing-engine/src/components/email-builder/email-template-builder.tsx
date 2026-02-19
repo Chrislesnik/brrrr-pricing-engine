@@ -432,7 +432,7 @@ function MergeTagsButton({ editor }: { editor: import("@tiptap/react").Editor | 
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex items-center gap-1.5 rounded bg-accent px-1.5 py-0.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
         >
           <span className="font-mono text-[11px] text-muted-foreground/50">{"{ }"}</span>
           <span className="font-medium">Merge Tags</span>
