@@ -478,6 +478,11 @@
 .bg-resource-feature-tint { background-color: hsl(160 84% 39% / 0.05); }
 .bg-resource-route-tint { background-color: hsl(38 92% 50% / 0.05); }
 
+.border-l-resource-table { border-left-color: var(--resource-table); }
+.border-l-resource-storage { border-left-color: var(--resource-storage); }
+.border-l-resource-feature { border-left-color: var(--resource-feature); }
+.border-l-resource-route { border-left-color: var(--resource-route); }
+
 /* Task progress bar - native <progress> element styled via CSS */
 progress.task-progress-bar {
   -webkit-appearance: none;

@@ -15,6 +15,22 @@ export type ScopeConditionInput = {
   reference: string;
 };
 
+/** A named multi-hop scope predicate, e.g. 'deal_participant'. */
+export type NamedScopeConditionInput = {
+  name: string;
+};
+
+/**
+ * A named scope entry from the organization_policy_named_scopes registry.
+ * Fetched at runtime and shown as toggles in the policy builder WHERE section.
+ */
+export type NamedScopeRow = {
+  name: string;
+  label: string;
+  description: string | null;
+  uses_precomputed: boolean;
+};
+
 export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
 export type PolicyEffect = "ALLOW" | "DENY";
 
@@ -26,6 +42,8 @@ export type PolicyDefinitionInput = {
   effect?: PolicyEffect;
   scopeConditions?: ScopeConditionInput[];
   scopeConnector?: "AND" | "OR";
+  /** Named multi-hop scope predicates (Option B/C). Mutually exclusive with scopeConditions. */
+  namedScopeConditions?: NamedScopeConditionInput[];
 };
 
 export type ResourceType = "table" | "storage_bucket" | "feature" | "route";

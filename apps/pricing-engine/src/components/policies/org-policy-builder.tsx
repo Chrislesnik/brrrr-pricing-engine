@@ -15,6 +15,7 @@ import {
   deleteOrgPolicy,
   getAvailableResources,
   getColumnFilters,
+  getNamedScopeRegistry,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import {
   FEATURE_RESOURCES,
@@ -26,6 +27,7 @@ import {
   type PolicyEffect,
   type PolicyAction,
   type ResourceType,
+  type NamedScopeRow,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/constants";
 import {
   PolicyConditionRow,
@@ -577,21 +579,61 @@ function ScopeConditionBuilder({
   scopeConnector,
   setScopeConnector,
   scopeEnabled,
+  hasOnlyFeatures,
   selectedResources,
   columnFilters,
+  namedScopeRegistry,
+  selectedNamedScopes,
+  setSelectedNamedScopes,
 }: {
   scopeConditions: ScopeConditionState[];
   setScopeConditions: (c: ScopeConditionState[]) => void;
   scopeConnector: "AND" | "OR";
   setScopeConnector: (c: "AND" | "OR") => void;
   scopeEnabled: boolean;
+  hasOnlyFeatures: boolean;
   selectedResources: string[];
-  columnFilters: Array<{ table_name: string; org_column: string | null; user_column: string | null }>;
+  columnFilters: Array<{ table_name: string; org_column: string | null; user_column: string | null; named_scopes: string[] }>;
+  namedScopeRegistry: NamedScopeRow[];
+  selectedNamedScopes: string[];
+  setSelectedNamedScopes: (s: string[]) => void;
 }) {
   const targetOptions = useMemo(
     () => buildScopeTargetOptions(selectedResources, columnFilters),
     [selectedResources, columnFilters]
   );
+
+  // Determine which named scopes are available for the currently selected tables
+  const availableNamedScopes = useMemo(() => {
+    const tableNames = selectedResources
+      .filter((r) => r.startsWith("table:") && !r.endsWith(":*"))
+      .map((r) => r.slice("table:".length));
+
+    if (selectedResources.some((r) => r === "table:*")) {
+      // Wildcard: show all named scopes
+      return namedScopeRegistry;
+    }
+
+    const applicableNames = new Set<string>();
+    for (const tableName of tableNames) {
+      const filter = columnFilters.find((f) => f.table_name === tableName);
+      for (const ns of filter?.named_scopes ?? []) applicableNames.add(ns);
+    }
+    return namedScopeRegistry.filter((ns) => applicableNames.has(ns.name));
+  }, [selectedResources, columnFilters, namedScopeRegistry]);
+
+  const hasNamedScopes = availableNamedScopes.length > 0;
+  const usingNamedScope = selectedNamedScopes.length > 0;
+
+  function toggleNamedScope(name: string) {
+    if (selectedNamedScopes.includes(name)) {
+      setSelectedNamedScopes(selectedNamedScopes.filter((s) => s !== name));
+    } else {
+      // Named scopes and column conditions are mutually exclusive
+      setScopeConditions([]);
+      setSelectedNamedScopes([...selectedNamedScopes, name]);
+    }
+  }
 
   function updateCondition(idx: number, patch: Partial<ScopeConditionState>) {
     const updated = [...scopeConditions];
@@ -605,17 +647,57 @@ function ScopeConditionBuilder({
         <h3 className="text-sm font-semibold">WHERE</h3>
         {!scopeEnabled && (
           <span className="text-xs text-muted-foreground">
-            (not applicable — selected resource has no ownership columns)
+            {hasOnlyFeatures
+              ? "(not applicable — add a table or storage resource to enable row-level filtering)"
+              : "(not applicable — selected resource has no ownership columns)"}
           </span>
         )}
-        {scopeEnabled && scopeConditions.length === 0 && (
+        {scopeEnabled && !usingNamedScope && scopeConditions.length === 0 && (
           <span className="text-xs text-muted-foreground">
             all records (no row-level filter)
           </span>
         )}
       </div>
 
-      {scopeEnabled && scopeConditions.length > 0 && (
+      {/* Named scope predicates (Option B/C) — shown when selected table has registered named scopes */}
+      {scopeEnabled && hasNamedScopes && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Named Scopes
+          </p>
+          <p className="text-xs text-muted-foreground -mt-1">
+            Multi-hop predicates evaluated via the named scope dispatcher.
+            Selecting one disables column-level WHERE conditions.
+          </p>
+          {availableNamedScopes.map((ns) => (
+            <label
+              key={ns.name}
+              className="flex items-start gap-3 cursor-pointer group"
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                checked={selectedNamedScopes.includes(ns.name)}
+                onChange={() => toggleNamedScope(ns.name)}
+              />
+              <div>
+                <span className="text-sm font-medium group-hover:text-foreground transition-colors">
+                  {ns.label}
+                </span>
+                {ns.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{ns.description}</p>
+                )}
+                <code className="text-[10px] text-muted-foreground font-mono">
+                  named:{ns.name}{ns.uses_precomputed ? " · precomputed" : " · live subquery"}
+                </code>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Column-level scope conditions — disabled when a named scope is active */}
+      {scopeEnabled && !usingNamedScope && scopeConditions.length > 0 && (
         <div className="space-y-2 rounded-lg border p-4">
           {scopeConditions.map((sc, idx) => (
             <div key={`scope-${idx}`}>
@@ -725,7 +807,7 @@ function ScopeConditionBuilder({
         </div>
       )}
 
-      {scopeEnabled && scopeConditions.length === 0 && (
+      {scopeEnabled && !usingNamedScope && scopeConditions.length === 0 && (
         <Button
           variant="ghost"
           size="sm"
@@ -790,6 +872,7 @@ function loadPolicyIntoForm(
     setScopeConnector: (c: "AND" | "OR") => void;
     setSelectedEffect: (e: PolicyEffect) => void;
     setEditingPolicyId: (id: string | null) => void;
+    setSelectedNamedScopes: (s: string[]) => void;
   }
 ) {
   const def = policy.definition_json as {
@@ -800,6 +883,7 @@ function loadPolicyIntoForm(
     effect?: PolicyEffect;
     scope_conditions?: Array<{ column: string; operator: string; reference: string }>;
     scope_connector?: "AND" | "OR";
+    named_scope_conditions?: Array<{ name: string }>;
   };
 
   setters.setConditions(
@@ -818,7 +902,13 @@ function loadPolicyIntoForm(
   setters.setSelectedEffect(policy.effect ?? def?.effect ?? "ALLOW");
   setters.setEditingPolicyId(policy.id);
 
-  if (def?.scope_conditions?.length) {
+  // Restore named scope conditions (takes priority over column conditions)
+  if (def?.named_scope_conditions?.length) {
+    setters.setSelectedNamedScopes(def.named_scope_conditions.map((c) => c.name));
+    setters.setScopeConditions([]);
+    setters.setScopeConnector("OR");
+  } else if (def?.scope_conditions?.length) {
+    setters.setSelectedNamedScopes([]);
     setters.setScopeConditions(
       def.scope_conditions.map((c) => ({
         subject: c.reference,
@@ -828,6 +918,7 @@ function loadPolicyIntoForm(
     );
     setters.setScopeConnector(def.scope_connector ?? "OR");
   } else {
+    setters.setSelectedNamedScopes([]);
     setters.setScopeConditions(legacyScopeToConditions(policy.scope ?? def?.scope ?? "all"));
     setters.setScopeConnector("OR");
   }
@@ -880,9 +971,13 @@ export default function OrgPolicyBuilder({
   // Global override
   const [allowInternalUsers, setAllowInternalUsers] = useState(false);
 
+  // Named scope state
+  const [selectedNamedScopes, setSelectedNamedScopes] = useState<string[]>([]);
+  const [namedScopeRegistry, setNamedScopeRegistry] = useState<NamedScopeRow[]>([]);
+
   // Column filters (for conditional scope selector)
   const [columnFilters, setColumnFilters] = useState<
-    Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+    Array<{ table_name: string; org_column: string | null; user_column: string | null; named_scopes: string[] }>
   >([]);
 
   // Policies in local state for optimistic updates (synced from server)
@@ -954,12 +1049,16 @@ export default function OrgPolicyBuilder({
         console.error("Failed to load available resources:", err);
       }
 
-      // Load column filters for conditional scope selector
+      // Load column filters and named scope registry
       try {
-        const filters = await getColumnFilters();
+        const [filters, namedScopes] = await Promise.all([
+          getColumnFilters(),
+          getNamedScopeRegistry(),
+        ]);
         setColumnFilters(filters);
+        setNamedScopeRegistry(namedScopes);
       } catch (err) {
-        console.error("Failed to load column filters:", err);
+        console.error("Failed to load column filters / named scope registry:", err);
       }
     }
     loadDynamicData();
@@ -1014,21 +1113,41 @@ export default function OrgPolicyBuilder({
     (r) => r.startsWith("table:") || r.startsWith("storage_bucket:")
   );
 
-  // Contextual action options: features get submit/view, data gets CRUD
+  // Derive allowed actions from the specific selected feature resources
+  const activeFeatureActionOptions = useMemo(() => {
+    const selectedFeatureNames = selectedResources
+      .filter((r) => r.startsWith("feature:"))
+      .map((r) => r.slice("feature:".length));
+
+    const actionSet = new Set<string>();
+    for (const name of selectedFeatureNames) {
+      const feat = FEATURE_RESOURCES.find((f) => f.name === name);
+      feat?.actions.forEach((a) => actionSet.add(a));
+    }
+    // Fallback for unregistered features
+    if (actionSet.size === 0) actionSet.add("submit");
+
+    return [...actionSet].map((a) => ({
+      value: a,
+      label: a.charAt(0).toUpperCase() + a.slice(1),
+    }));
+  }, [selectedResources]);
+
+  // Contextual action options: features get their registered actions, data gets CRUD
   const activeActionOptions = hasFeatureSelected && !hasDataSelected
-    ? featureActionOptions
+    ? activeFeatureActionOptions
     : hasDataSelected && !hasFeatureSelected
       ? dataActionOptions
-      : [...dataActionOptions, ...featureActionOptions];
+      : [...dataActionOptions, ...activeFeatureActionOptions];
 
   // Reset selected actions when switching between data and feature modes
   useEffect(() => {
     if (hasFeatureSelected && !hasDataSelected) {
-      // Only keep feature-valid actions
-      const featureVals = new Set(featureActionOptions.map((o) => o.value));
+      // Only keep actions valid for the selected features
+      const featureVals = new Set(activeFeatureActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => featureVals.has(a));
-        return valid.length > 0 ? valid : ["submit"];
+        return valid.length > 0 ? valid : [activeFeatureActionOptions[0]?.value ?? "submit"];
       });
     } else if (hasDataSelected && !hasFeatureSelected) {
       // Only keep data-valid actions
@@ -1038,21 +1157,30 @@ export default function OrgPolicyBuilder({
         return valid.length > 0 ? valid : ["select", "insert", "update", "delete"];
       });
     }
-  }, [hasFeatureSelected, hasDataSelected]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasFeatureSelected, hasDataSelected, selectedResources]);
 
-  // Determine if scope selector should be enabled based on selected resources
-  // Features don't have row-level scope
+  // Determine if row-level scope selector should be enabled based on selected data resources.
+  // Features never have row-level scope; when mixed with data resources, only the data
+  // resources determine whether WHERE conditions are applicable.
   const scopeEnabled = (() => {
-    if (hasFeatureSelected) return false;
-    // If "All Tables" or "All Buckets" is selected, scope is meaningful
-    if (selectedResources.some((r) => r.endsWith(":*"))) return true;
-    // For specific tables, check if they have ownership columns
-    return selectedResources.some((r) => {
-      const name = r.split(":")[1];
-      const filter = columnFilters.find((f) => f.table_name === name);
-      return filter && (filter.org_column || filter.user_column);
-    });
+    if (!hasDataSelected) return false;
+    // If "All Tables" or "All Buckets" is selected, scope is always meaningful
+    if (selectedResources.some((r) =>
+      (r.startsWith("table:") || r.startsWith("storage_bucket:")) && r.endsWith(":*")
+    )) return true;
+    // For specific tables/buckets, check if they have ownership columns
+    return selectedResources
+      .filter((r) => r.startsWith("table:") || r.startsWith("storage_bucket:"))
+      .some((r) => {
+        const name = r.split(":")[1];
+        const filter = columnFilters.find((f) => f.table_name === name);
+        return filter && (filter.org_column || filter.user_column);
+      });
   })();
+
+  // For feature resources: show the "Applies To" org-level scope selector alongside the row-level builder
+  const featureScopeEnabled = hasFeatureSelected;
 
   function resetForm() {
     setEditingPolicyId(null);
@@ -1062,6 +1190,7 @@ export default function OrgPolicyBuilder({
     setSelectedResources(["table:*"]);
     setScopeConditions([]);
     setScopeConnector("OR");
+    setSelectedNamedScopes([]);
     setSelectedEffect("ALLOW");
     setAllowInternalUsers(false);
     setError(null);
@@ -1093,8 +1222,10 @@ export default function OrgPolicyBuilder({
           connector,
           scope: selectedScope,
           effect: selectedEffect,
-          scopeConditions: scopeConditionInputs,
+          // Named scopes take priority; suppress column conditions if any are selected
+          scopeConditions: selectedNamedScopes.length > 0 ? [] : scopeConditionInputs,
           scopeConnector: scopeConnector,
+          namedScopeConditions: selectedNamedScopes.map((name) => ({ name })),
         };
 
         if (editingPolicyId) {
@@ -1186,6 +1317,7 @@ export default function OrgPolicyBuilder({
       setScopeConnector,
       setSelectedEffect,
       setEditingPolicyId,
+      setSelectedNamedScopes,
     });
     setError(null);
     setStatus(null);
@@ -1303,15 +1435,68 @@ export default function OrgPolicyBuilder({
         </div>
       </div>
 
-      <ScopeConditionBuilder
-        scopeConditions={scopeConditions}
-        setScopeConditions={setScopeConditions}
-        scopeConnector={scopeConnector}
-        setScopeConnector={setScopeConnector}
-        scopeEnabled={scopeEnabled}
-        selectedResources={selectedResources}
-        columnFilters={columnFilters}
-      />
+      {featureScopeEnabled && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">APPLIES TO</h3>
+            <span className="text-xs text-muted-foreground">
+              which organization(s) does this policy cover?
+            </span>
+          </div>
+          <RadioGroup
+            value={selectedScope === "all" ? "all" : "org_records"}
+            onValueChange={(v) => setSelectedScope(v as PolicyScope)}
+            className="space-y-2"
+          >
+            <label
+              className={cn(
+                "flex items-start gap-3 rounded-md p-3 cursor-pointer border transition-colors",
+                selectedScope !== "all"
+                  ? "bg-accent/50 border-primary/30"
+                  : "hover:bg-muted/50 border-border"
+              )}
+            >
+              <RadioGroupItem value="org_records" className="mt-0.5" />
+              <div>
+                <div className="text-sm font-medium">Active Organization Only</div>
+                <div className="text-xs text-muted-foreground">
+                  User can only perform this action within their own organization
+                </div>
+              </div>
+            </label>
+            <label
+              className={cn(
+                "flex items-start gap-3 rounded-md p-3 cursor-pointer border transition-colors",
+                selectedScope === "all"
+                  ? "bg-accent/50 border-primary/30"
+                  : "hover:bg-muted/50 border-border"
+              )}
+            >
+              <RadioGroupItem value="all" className="mt-0.5" />
+              <div>
+                <div className="text-sm font-medium">All Organizations</div>
+                <div className="text-xs text-muted-foreground">
+                  User can perform this action across any organization
+                </div>
+              </div>
+            </label>
+          </RadioGroup>
+        </div>
+      )}
+
+        <ScopeConditionBuilder
+          scopeConditions={scopeConditions}
+          setScopeConditions={setScopeConditions}
+          scopeConnector={scopeConnector}
+          setScopeConnector={setScopeConnector}
+          scopeEnabled={scopeEnabled}
+          hasOnlyFeatures={hasFeatureSelected && !hasDataSelected}
+          selectedResources={selectedResources}
+          columnFilters={columnFilters}
+          namedScopeRegistry={namedScopeRegistry}
+          selectedNamedScopes={selectedNamedScopes}
+          setSelectedNamedScopes={setSelectedNamedScopes}
+        />
 
       <Separator />
 
@@ -1795,11 +1980,11 @@ function getRawResourceType(p: OrgPolicyRow, field: DisplayColumn | "none"): str
   return undefined;
 }
 
-const RESOURCE_TYPE_TINT: Record<string, string> = {
-  table: "bg-resource-table-tint",
-  storage_bucket: "bg-resource-storage-tint",
-  feature: "bg-resource-feature-tint",
-  route: "bg-resource-route-tint",
+const RESOURCE_TYPE_BORDER_L: Record<string, string> = {
+  table: "border-l-resource-table",
+  storage_bucket: "border-l-resource-storage",
+  feature: "border-l-resource-feature",
+  route: "border-l-resource-route",
 };
 
 const RESOURCE_TYPE_BADGE_CLS: Record<string, string> = {
@@ -2044,7 +2229,7 @@ function GroupHeaderRow({
   depth: number;
   resourceType?: string;
 }) {
-  const tintCls = resourceType ? RESOURCE_TYPE_TINT[resourceType] : undefined;
+  const borderCls = resourceType ? RESOURCE_TYPE_BORDER_L[resourceType] : undefined;
   const textCls = resourceType
     ? `text-resource-${resourceType === "storage_bucket" ? "storage" : resourceType}`
     : undefined;
@@ -2052,8 +2237,9 @@ function GroupHeaderRow({
   return (
     <tr
       className={cn(
-        "border-b border-border cursor-pointer hover:bg-muted/50 transition-colors",
-        tintCls ?? "bg-muted/30"
+        "border-b border-border cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors",
+        borderCls && "border-l-2",
+        borderCls
       )}
       onClick={onToggle}
     >
@@ -2326,7 +2512,7 @@ function PolicyBoardView({
   return (
     <div className="flex gap-4 p-4 overflow-x-auto min-h-[200px]">
       {columns.map((col) => {
-        const tintCls = col.rawType ? RESOURCE_TYPE_TINT[col.rawType] : undefined;
+        const borderCls = col.rawType ? RESOURCE_TYPE_BORDER_L[col.rawType] : undefined;
         const textCls = col.rawType
           ? `text-resource-${col.rawType === "storage_bucket" ? "storage" : col.rawType}`
           : undefined;
@@ -2335,7 +2521,7 @@ function PolicyBoardView({
           key={col.label}
           className="flex flex-col w-[280px] min-w-[280px] rounded-lg border bg-muted/20"
         >
-          <div className={cn("flex items-center justify-between px-3 py-2.5 border-b", tintCls)}>
+          <div className={cn("flex items-center justify-between px-3 py-2.5 border-b bg-muted/30", borderCls && "border-l-2", borderCls)}>
             <span className={cn("text-xs font-semibold", textCls ?? "text-foreground")}>{col.label}</span>
             <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
               {col.items.length}

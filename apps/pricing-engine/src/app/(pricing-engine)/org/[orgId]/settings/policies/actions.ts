@@ -12,6 +12,7 @@ export type {
   ResourceType,
   PolicyAction,
   OrgPolicyRow,
+  NamedScopeRow,
 } from "./constants";
 
 import type {
@@ -20,6 +21,7 @@ import type {
   PolicyAction,
   OrgPolicyRow,
   PolicyScope,
+  NamedScopeRow,
 } from "./constants";
 import { FEATURE_RESOURCES } from "./constants";
 
@@ -139,27 +141,52 @@ function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
 }
 
 function compilePolicy(definition: PolicyDefinitionInput) {
+  const legacyScope = deriveLegacyScope(definition);
+  const conditions = (definition.conditions ?? []).map((c) => ({
+    field: c.field,
+    operator: c.operator,
+    values: c.values.map((v) => v.toLowerCase()),
+  }));
+  const scopeConditions = (definition.scopeConditions ?? []).map((c) => ({
+    column: c.column,
+    operator: c.operator,
+    reference: c.reference,
+  }));
+  const namedScopes = definition.namedScopeConditions ?? [];
+
+  // Named scopes override column-level scope conditions.
+  // Scope becomes 'named:<scopeName>' so check_org_access() returns it as-is,
+  // and RLS policies can dispatch to check_named_scope() accordingly.
+  const ruleScope = namedScopes.length > 0
+    ? `named:${namedScopes[0].name}`
+    : legacyScope;
+
+  const ruleObj: Record<string, unknown> = {
+    connector: definition.connector || "AND",
+    scope: ruleScope,
+    conditions,
+  };
+  if (namedScopes.length > 0) {
+    ruleObj.named_scope_conditions = namedScopes.map((n) => ({ name: n.name }));
+  }
+
   return {
     version: 3,
     allow_internal_users: !!definition.allowInternalUsers,
-    conditions: (definition.conditions ?? []).map((c) => ({
-      field: c.field,
-      operator: c.operator,
-      values: c.values.map((v) => v.toLowerCase()),
-    })),
+    // V3 rules array — what the policy engine reads for version >= 3
+    rules: [ruleObj],
+    // Legacy V2 fields kept for backwards-compatible reads and UI display
+    conditions,
     connector: definition.connector || "AND",
-    scope: deriveLegacyScope(definition),
-    scope_conditions: (definition.scopeConditions ?? []).map((c) => ({
-      column: c.column,
-      operator: c.operator,
-      reference: c.reference,
-    })),
+    scope: legacyScope,
+    scope_conditions: scopeConditions,
     scope_connector: definition.scopeConnector || "OR",
   };
 }
 
 function buildDefinition(definition: PolicyDefinitionInput) {
-  return {
+  const namedScopes = definition.namedScopeConditions ?? [];
+  const base = {
     version: 3,
     effect: definition.effect || "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
@@ -177,6 +204,10 @@ function buildDefinition(definition: PolicyDefinitionInput) {
     })),
     scope_connector: definition.scopeConnector || "OR",
   };
+  if (namedScopes.length > 0) {
+    return { ...base, named_scope_conditions: namedScopes.map((n) => ({ name: n.name })) };
+  }
+  return base;
 }
 
 export async function getOrgDisplayName(): Promise<string> {
@@ -475,18 +506,36 @@ export async function getAvailableResources(): Promise<{
 }
 
 export async function getColumnFilters(): Promise<
-  Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+  Array<{ table_name: string; org_column: string | null; user_column: string | null; named_scopes: string[] }>
 > {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
   const { data } = await supabase
     .from("organization_policies_column_filters")
-    .select("table_name,org_column,user_column")
+    .select("table_name,org_column,user_column,named_scopes")
     .eq("is_excluded", false)
     .order("table_name");
 
-  return (data ?? []) as Array<{ table_name: string; org_column: string | null; user_column: string | null }>;
+  return (data ?? []) as Array<{
+    table_name: string;
+    org_column: string | null;
+    user_column: string | null;
+    named_scopes: string[];
+  }>;
+}
+
+/** Fetches the named scope registry for display in the policy builder. */
+export async function getNamedScopeRegistry(): Promise<NamedScopeRow[]> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { data } = await supabase
+    .from("organization_policy_named_scopes")
+    .select("name,label,description,uses_precomputed")
+    .order("name");
+
+  return (data ?? []) as NamedScopeRow[];
 }
 
 export async function deleteOrgPolicy(input: {
