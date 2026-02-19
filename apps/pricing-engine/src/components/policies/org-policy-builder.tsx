@@ -116,6 +116,9 @@ import {
   LayoutGrid,
   MoreHorizontal,
   Trash2,
+  AlertTriangle,
+  ShieldAlert,
+  Info,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -830,16 +833,20 @@ function ScopeConditionBuilder({
 // Helper: extract human-readable summary from a policy's definition_json
 // ============================================================================
 
+type RuleCondition = { field: string; operator: string; values: string[] };
+type RuleGroup = { conditions?: RuleCondition[]; connector?: string; scope?: string };
+
 function summarizeConditions(policy: OrgPolicyRow): string {
   const def = policy.definition_json as {
-    conditions?: Array<{ field: string; operator: string; values: string[] }>;
+    conditions?: RuleCondition[];
+    rules?: RuleGroup[];
     connector?: string;
     allow_internal_users?: boolean;
   };
-
-  if (!def?.conditions?.length) {
-    return def?.allow_internal_users ? "Internal users only" : "No conditions";
-  }
+  const compiled = policy.compiled_config as {
+    rules?: RuleGroup[];
+    allow_internal_users?: boolean;
+  };
 
   const fieldLabels: Record<string, string> = {
     org_role: "Org Role",
@@ -848,16 +855,49 @@ function summarizeConditions(policy: OrgPolicyRow): string {
     internal_user: "User Type",
   };
 
-  const parts = def.conditions.map((c) => {
-    const label = fieldLabels[c.field] ?? c.field;
-    const op = c.operator === "is_not" ? "is not" : "is";
-    return `${label} ${op} ${c.values.join(", ")}`;
-  });
+  function conditionText(conds: RuleCondition[], connector = "AND"): string {
+    const parts = conds.map((c) => {
+      const label = fieldLabels[c.field] ?? c.field;
+      const op = c.operator === "is_not" ? "≠" : "=";
+      return `${label} ${op} ${c.values.join(" / ")}`;
+    });
+    return parts.join(` ${connector} `);
+  }
 
-  const joined = parts.join(` ${def.connector ?? "AND"} `);
+  // V3: prefer compiled_config.rules, fall back to definition_json.rules
+  const rules: RuleGroup[] | undefined = compiled?.rules ?? def?.rules;
+
+  if (rules?.length) {
+    const nonEmptyRules = rules.filter((r) => r.conditions?.length);
+    if (!nonEmptyRules.length) {
+      return compiled?.allow_internal_users ? "Internal users only" : "No conditions";
+    }
+    if (nonEmptyRules.length === 1) {
+      const r = nonEmptyRules[0];
+      return conditionText(r.conditions!, r.connector ?? "AND");
+    }
+    // Multi-rule (Tier 1-3 style): show each rule's conditions separated by " OR "
+    return nonEmptyRules
+      .map((r) => `(${conditionText(r.conditions!, r.connector ?? "AND")})`)
+      .join(" OR ");
+  }
+
+  // V2 fallback: top-level conditions array
+  if (!def?.conditions?.length) {
+    return def?.allow_internal_users ? "Internal users only" : "No conditions";
+  }
+  const joined = conditionText(def.conditions, def.connector ?? "AND");
   if (def.allow_internal_users) return `${joined} (+ internal bypass)`;
   return joined;
 }
+
+// Represents a single V3 rule group as stored in compiled_config / definition_json
+type V3Rule = {
+  conditions?: Array<{ field: string; operator: string; values: string[] }>;
+  connector?: "AND" | "OR";
+  scope?: string;
+  named_scope_conditions?: Array<{ name: string }>;
+};
 
 function loadPolicyIntoForm(
   policy: OrgPolicyRow,
@@ -877,6 +917,7 @@ function loadPolicyIntoForm(
 ) {
   const def = policy.definition_json as {
     conditions?: Array<{ field: string; operator: string; values: string[] }>;
+    rules?: V3Rule[];
     connector?: "AND" | "OR";
     allow_internal_users?: boolean;
     scope?: PolicyScope;
@@ -886,25 +927,61 @@ function loadPolicyIntoForm(
     named_scope_conditions?: Array<{ name: string }>;
   };
 
-  setters.setConditions(
+  const compiled = policy.compiled_config as {
+    rules?: V3Rule[];
+    allow_internal_users?: boolean;
+  };
+
+  // For V3 policies, conditions live in rules[]. Use the first rule as the
+  // editable representation. If compiled_config has rules, prefer that since
+  // it is always authoritative (definition_json may omit rules for seeded policies).
+  const v3Rules = compiled?.rules ?? def?.rules ?? [];
+  const firstRule: V3Rule | undefined = v3Rules[0];
+
+  // Prefer definition_json top-level conditions (UI-created V2/V3 single-rule),
+  // then fall back to first V3 rule's conditions.
+  const resolvedConditions =
     def?.conditions?.length
-      ? def.conditions.map((c) => ({
+      ? def.conditions
+      : firstRule?.conditions ?? [];
+
+  const resolvedConnector =
+    def?.connector ?? firstRule?.connector ?? "AND";
+
+  // Scope: prefer definition_json.scope, then first rule's scope (strip 'named:' prefix
+  // for legacy scope resolution — named scopes are handled separately below).
+  const rawFirstRuleScope = firstRule?.scope ?? "";
+  const resolvedLegacyScope: PolicyScope =
+    def?.scope ??
+    (rawFirstRuleScope.startsWith("named:")
+      ? "all"
+      : (rawFirstRuleScope as PolicyScope) || policy.scope || "all");
+
+  setters.setConditions(
+    resolvedConditions.length
+      ? resolvedConditions.map((c) => ({
           field: c.field,
           operator: c.operator,
           values: c.values,
         }))
       : [{ ...defaultCondition }]
   );
-  setters.setConnector(def?.connector ?? "AND");
-  setters.setAllowInternalUsers(def?.allow_internal_users ?? false);
+  setters.setConnector(resolvedConnector as "AND" | "OR");
+  setters.setAllowInternalUsers(
+    def?.allow_internal_users ?? compiled?.allow_internal_users ?? false
+  );
   setters.setSelectedActions([policy.action === "all" ? "select" : policy.action]);
   setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
   setters.setSelectedEffect(policy.effect ?? def?.effect ?? "ALLOW");
   setters.setEditingPolicyId(policy.id);
 
-  // Restore named scope conditions (takes priority over column conditions)
-  if (def?.named_scope_conditions?.length) {
-    setters.setSelectedNamedScopes(def.named_scope_conditions.map((c) => c.name));
+  // Restore named scope conditions — check definition_json, then first V3 rule
+  const namedFromDef = def?.named_scope_conditions ?? [];
+  const namedFromRule = firstRule?.named_scope_conditions ?? [];
+  const resolvedNamedScopes = namedFromDef.length ? namedFromDef : namedFromRule;
+
+  if (resolvedNamedScopes.length) {
+    setters.setSelectedNamedScopes(resolvedNamedScopes.map((c) => c.name));
     setters.setScopeConditions([]);
     setters.setScopeConnector("OR");
   } else if (def?.scope_conditions?.length) {
@@ -919,7 +996,7 @@ function loadPolicyIntoForm(
     setters.setScopeConnector(def.scope_connector ?? "OR");
   } else {
     setters.setSelectedNamedScopes([]);
-    setters.setScopeConditions(legacyScopeToConditions(policy.scope ?? def?.scope ?? "all"));
+    setters.setScopeConditions(legacyScopeToConditions(resolvedLegacyScope));
     setters.setScopeConnector("OR");
   }
 }
@@ -1327,8 +1404,49 @@ export default function OrgPolicyBuilder({
     ? policies.find((p) => p.id === editingPolicyId) ?? null
     : null;
 
+  // Derive flags from the policy currently being edited
+  const editingCompiledConfig = editingPolicy?.compiled_config as
+    | { rules?: unknown[]; allow_internal_users?: boolean }
+    | undefined;
+  const isMultiRulePolicy = (editingCompiledConfig?.rules?.length ?? 0) > 1;
+  const isProtectedPolicy = !!(
+    editingPolicy as (OrgPolicyRow & { is_protected_policy?: boolean }) | null
+  )?.is_protected_policy;
+
   const policyFormBody = (
     <div className="space-y-6">
+
+      {/* Protected policy — read-only notice */}
+      {editingPolicyId && isProtectedPolicy && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <ShieldAlert className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-amber-600 dark:text-amber-400">System-protected policy</p>
+            <p className="text-muted-foreground mt-0.5">
+              This policy is managed by the platform and cannot be modified or deleted via the UI.
+              Apply a SQL migration to make changes.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-rule policy — first-rule-only edit warning */}
+      {editingPolicyId && isMultiRulePolicy && !isProtectedPolicy && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm">
+          <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold text-blue-600 dark:text-blue-400">
+              Multi-rule policy ({editingCompiledConfig?.rules?.length} rules)
+            </p>
+            <p className="text-muted-foreground mt-0.5">
+              This policy contains multiple rule groups (e.g. Tier 1 + Tier 2 + …). The form
+              shows only the <strong>first rule</strong> for reference. Saving will replace all
+              rules with a single rule — use a SQL migration to edit multi-rule policies safely.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         <RadioGroup
           value={selectedEffect}
@@ -1537,7 +1655,16 @@ export default function OrgPolicyBuilder({
           disabled={
             isPending ||
             selectedActions.length === 0 ||
-            selectedResources.length === 0
+            selectedResources.length === 0 ||
+            isProtectedPolicy ||
+            isMultiRulePolicy
+          }
+          title={
+            isProtectedPolicy
+              ? "System-protected policies cannot be edited via the UI"
+              : isMultiRulePolicy
+                ? "Multi-rule policies must be edited via SQL migration"
+                : undefined
           }
         >
           {isPending
@@ -2040,6 +2167,99 @@ function ActiveToggleBadge({
 }
 
 // ============================================================================
+// Conditions cell — per-condition chips
+// ============================================================================
+
+const CONDITION_FIELD_LABELS: Record<string, string> = {
+  org_role: "Org Role",
+  member_role: "Member Role",
+  org_type: "Org Type",
+  internal_user: "User Type",
+};
+
+function PolicyConditionChips({
+  policy,
+  isMultiRule,
+  ruleCount,
+}: {
+  policy: OrgPolicyRow;
+  isMultiRule: boolean;
+  ruleCount: number;
+}) {
+  const compiled = policy.compiled_config as { rules?: RuleGroup[]; allow_internal_users?: boolean } | undefined;
+  const def = policy.definition_json as {
+    conditions?: RuleCondition[];
+    rules?: RuleGroup[];
+    connector?: string;
+    allow_internal_users?: boolean;
+  } | undefined;
+
+  // Get first rule's conditions for display (V3 compiled → V3 def → V2 def)
+  const firstRule = compiled?.rules?.[0] ?? def?.rules?.[0];
+  const conditions: RuleCondition[] = firstRule?.conditions ?? def?.conditions ?? [];
+  const connector: string = firstRule?.connector ?? def?.connector ?? "AND";
+  const namedScopes: Array<{ name: string }> =
+    (firstRule as unknown as { named_scope_conditions?: Array<{ name: string }> })?.named_scope_conditions ??
+    (def as unknown as { named_scope_conditions?: Array<{ name: string }> })?.named_scope_conditions ??
+    [];
+
+  const allowInternalOnly =
+    (compiled?.allow_internal_users || def?.allow_internal_users) && !conditions.length && !namedScopes.length;
+
+  if (allowInternalOnly) {
+    return (
+      <span className="text-[11px] text-muted-foreground italic">Internal users</span>
+    );
+  }
+
+  if (!conditions.length && !namedScopes.length && !isMultiRule) {
+    return <span className="text-[11px] text-muted-foreground italic">No conditions</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {isMultiRule && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 shrink-0">
+          {ruleCount} rules
+        </span>
+      )}
+      {namedScopes.map((ns) => (
+        <span
+          key={ns.name}
+          className="inline-flex items-center rounded border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400 whitespace-nowrap"
+        >
+          {ns.name.replace(/_/g, " ")}
+        </span>
+      ))}
+      {conditions.map((c, i) => {
+        const label = CONDITION_FIELD_LABELS[c.field] ?? c.field;
+        const op = c.operator === "is_not" ? "≠" : "=";
+        const vals = c.values.join(", ");
+        return (
+          <React.Fragment key={i}>
+            {i > 0 && !isMultiRule && (
+              <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase leading-none px-0.5">
+                {connector}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-0.5 rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap">
+              <span className="text-muted-foreground">{label}</span>
+              <span className="text-muted-foreground/70 mx-0.5">{op}</span>
+              <span className="text-foreground">{vals}</span>
+            </span>
+          </React.Fragment>
+        );
+      })}
+      {isMultiRule && conditions.length > 0 && (
+        <span className="text-[10px] text-muted-foreground italic whitespace-nowrap">
+          +{ruleCount - 1} more
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Policy table row — renders as <tr>
 // ============================================================================
 
@@ -2063,6 +2283,8 @@ function PolicyTableRow({
   colCount: number;
 }) {
   const isProtected = !!(policy as OrgPolicyRow & { is_protected_policy?: boolean }).is_protected_policy;
+  const rowCompiled = policy.compiled_config as { rules?: unknown[] } | undefined;
+  const isMultiRule = (rowCompiled?.rules?.length ?? 0) > 1;
   const tdCls = "px-4 py-2.5";
 
   const resourceName = resolveResourceName(policy);
@@ -2104,7 +2326,7 @@ function PolicyTableRow({
 
       {visibleColumns.scope && (
         <td className={tdCls}>
-          <Badge variant="secondary" className="capitalize whitespace-nowrap">
+          <Badge variant="outline" className="capitalize whitespace-nowrap">
             {policy.scope === "all" && "All"}
             {policy.scope === "org_records" && "Org"}
             {policy.scope === "user_records" && "User"}
@@ -2124,17 +2346,15 @@ function PolicyTableRow({
 
       {visibleColumns.organization && (
         <td className={tdCls}>
-          <Badge variant="secondary" className="capitalize whitespace-nowrap">
+          <Badge variant="outline" className="capitalize whitespace-nowrap">
             {resolveOrgLabel(policy, orgDisplayName)}
           </Badge>
         </td>
       )}
 
       {visibleColumns.conditions && (
-        <td className={cn(tdCls, "max-w-[260px]")}>
-          <span className="text-xs text-muted-foreground truncate block">
-            {summarizeConditions(policy)}
-          </span>
+        <td className={cn(tdCls, "max-w-[300px]")}>
+          <PolicyConditionChips policy={policy} isMultiRule={isMultiRule} ruleCount={rowCompiled?.rules?.length ?? 0} />
         </td>
       )}
 
@@ -2179,12 +2399,26 @@ function PolicyTableRow({
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem onSelect={() => onEdit(policy)}>
-                <Pencil className="mr-2 h-4 w-4 opacity-60" />
-                Edit
+                {isProtected ? (
+                  <>
+                    <Lock className="mr-2 h-4 w-4 opacity-60" />
+                    View (protected)
+                  </>
+                ) : isMultiRule ? (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4 opacity-60" />
+                    Inspect (multi-rule)
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4 opacity-60" />
+                    Edit
+                  </>
+                )}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => onDelete(policy.id)}
-                disabled={isProtected}
+                disabled={isProtected || isMultiRule}
               >
                 <Archive className="mr-2 h-4 w-4 opacity-60" />
                 Archive
@@ -2195,7 +2429,7 @@ function PolicyTableRow({
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onSelect={() => onDelete(policy.id)}
-                disabled={isProtected}
+                disabled={isProtected || isMultiRule}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
