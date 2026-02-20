@@ -51,6 +51,10 @@ export type CellOpts =
   | {
       variant: "currency-calc"
     }
+  | {
+      variant: "cycle-select"
+      options: CellSelectOption[]
+    }
 
 export interface CellUpdate {
   rowIndex: number

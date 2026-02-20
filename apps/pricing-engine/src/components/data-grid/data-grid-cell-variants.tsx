@@ -2424,3 +2424,112 @@ export function CurrencyCalcCell<TData>({
     </DataGridCellWrapper>
   )
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CycleSelectCell - Click / Enter / Space cycles through options, arrow keys
+// navigate freely (no dropdown overlay).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function CycleSelectCell<TData>({
+  cell,
+  tableMeta,
+  rowIndex,
+  columnId,
+  rowHeight,
+  isFocused,
+  isSelected,
+  isSearchMatch,
+  isActiveSearchMatch,
+  readOnly,
+}: Omit<DataGridCellProps<TData>, "isEditing">) {
+  const initialValue = cell.getValue() as string
+  const [value, setValue] = React.useState(initialValue)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const cellOpts = cell.column.columnDef.meta?.cell
+  const options =
+    cellOpts?.variant === "cycle-select" ? cellOpts.options : []
+
+  const prevInitialValueRef = React.useRef(initialValue)
+  if (initialValue !== prevInitialValueRef.current) {
+    prevInitialValueRef.current = initialValue
+    setValue(initialValue)
+  }
+
+  const cycleValue = React.useCallback(() => {
+    if (readOnly || options.length === 0) return
+    const curIdx = options.findIndex((o) => o.value === value)
+    const nextIdx = (curIdx + 1) % options.length
+    const next = options[nextIdx]?.value ?? options[0]?.value ?? ""
+    setValue(next)
+    tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: next })
+  }, [readOnly, options, value, tableMeta, rowIndex, columnId])
+
+  const onWrapperKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!isFocused) return
+
+      switch (event.key) {
+        case "Enter":
+        case " ": {
+          event.preventDefault()
+          event.stopPropagation()
+          cycleValue()
+          break
+        }
+        case "Tab": {
+          event.preventDefault()
+          event.stopPropagation()
+          tableMeta?.onCellEditingStart?.(rowIndex, columnId)
+          tableMeta?.onCellEditingStop?.({
+            direction: event.shiftKey ? "left" : "right",
+          })
+          break
+        }
+      }
+    },
+    [isFocused, cycleValue, tableMeta, rowIndex, columnId]
+  )
+
+  const onWrapperClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      if (isFocused && !readOnly) {
+        event.preventDefault()
+        event.stopPropagation()
+        cycleValue()
+      }
+    },
+    [isFocused, readOnly, cycleValue]
+  )
+
+  const displayLabel =
+    options.find((opt) => opt.value === value)?.label ?? value
+
+  return (
+    <DataGridCellWrapper<TData>
+      ref={containerRef}
+      cell={cell}
+      tableMeta={tableMeta}
+      rowIndex={rowIndex}
+      columnId={columnId}
+      rowHeight={rowHeight}
+      isEditing={false}
+      isFocused={isFocused}
+      isSelected={isSelected}
+      isSearchMatch={isSearchMatch}
+      isActiveSearchMatch={isActiveSearchMatch}
+      readOnly={readOnly}
+      onKeyDown={onWrapperKeyDown}
+      onClick={onWrapperClick}
+    >
+      {displayLabel ? (
+        <Badge
+          data-slot="grid-cell-content"
+          variant="secondary"
+          className="px-1.5 py-px whitespace-pre-wrap"
+        >
+          {displayLabel}
+        </Badge>
+      ) : null}
+    </DataGridCellWrapper>
+  )
+}
