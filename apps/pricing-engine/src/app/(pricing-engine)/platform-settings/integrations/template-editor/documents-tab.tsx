@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
@@ -23,28 +23,12 @@ const StudioEditorWrapper = dynamic(
   }
 )
 
+/* GrapesJS: modal z-index fixes + violet-to-org-primary catch-all */
 const grapejsThemeStyles = `
-  [data-radix-dialog-content]:not([data-radix-popper-content-wrapper] *),
-  [role="dialog"][data-state="open"]:not(.gs-cmp-modal-container):not([class*="gs-"]):not([data-radix-popper-content-wrapper] *):not([data-side]) {
-    position: fixed !important;
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    z-index: 100001 !important;
-    max-height: 85vh !important;
-  }
-  
-  [data-radix-dialog-overlay] {
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 100000 !important;
-  }
-
   #headlessui-portal-root {
     position: fixed !important;
     z-index: 99999 !important;
   }
-  
   .gs-cmp-modal-wrapper {
     position: fixed !important;
     inset: 0 !important;
@@ -54,11 +38,9 @@ const grapejsThemeStyles = `
     justify-content: center !important;
     background-color: rgba(0, 0, 0, 0.5) !important;
   }
-  
   .gs-cmp-modal-container {
     position: relative !important;
     z-index: 100000 !important;
-    background-color: white !important;
     border-radius: 8px !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
     max-height: 90vh !important;
@@ -66,48 +48,8 @@ const grapejsThemeStyles = `
     flex-direction: column !important;
     overflow: visible !important;
   }
-  
-  .dark .gs-cmp-modal-container {
-    background-color: hsl(0 0% 12%) !important;
-    color: #f3f4f6 !important;
-  }
-
-  .gs-cmp-modal-container > * {
-    overflow: visible !important;
-  }
-
-  .gs-cmp-modal-container [class*="footer"],
-  .gs-cmp-modal-container [class*="button"],
   .gs-cmp-modal-container button,
-  .gs-cmp-modal-container [role="button"] {
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: flex !important;
-  }
-
-  .gs-cmp-modal-container [class*="content"] {
-    overflow-y: auto !important;
-    flex: 1 1 auto !important;
-    max-height: calc(90vh - 120px) !important;
-  }
-
-  .gs-cmp-modal-container [class*="footer"] {
-    flex: 0 0 auto !important;
-    padding: 16px !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
-    display: flex !important;
-    gap: 8px !important;
-    justify-content: flex-end !important;
-  }
-
-  .dark .gs-cmp-modal-container [class*="footer"] {
-    border-top-color: rgba(255, 255, 255, 0.1) !important;
-  }
-
-  .gs-studio-root .gs-cmp-modal-container button,
-  .gs-studio-root .gs-cmp-modal-container [role="button"],
-  .gs-studio-root .gs-cmp-modal-container [type="button"],
-  .gs-studio-root .gs-cmp-modal-container [type="submit"],
+  .gs-cmp-modal-container [role="button"],
   .gs-studio-root [data-headlessui-state] button {
     visibility: visible !important;
     opacity: 1 !important;
@@ -115,144 +57,127 @@ const grapejsThemeStyles = `
     pointer-events: auto !important;
   }
 
-  .gs-cmp-modal-container {
+  /* Ensure sidebar panels are scrollable */
+  .blocks-panel-left,
+  .variables-only-blocks {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .blocks-panel-left > *,
+  .variables-only-blocks > * {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+  }
+
+  /* Right panel: hide block content until JS has cleaned up non-Variable categories */
+  .variables-only-blocks:not(.--categories-ready) > * {
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+  .variables-only-blocks.--categories-ready > * {
+    visibility: visible !important;
+    height: auto !important;
     overflow: visible !important;
   }
 
-  .gs-cmp-modal-container > div {
-    overflow: visible !important;
-  }
-
-  .gs-studio-root [data-gjs-type="data-variable"],
-  .data-variable-field {
-    display: inline-block;
-    background-color: #fef3c7;
-    border: 1px solid #f59e0b;
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 12px;
-    color: #92400e;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .gs-studio-root [data-gjs-type="data-variable"]:hover,
-  .data-variable-field:hover {
-    background-color: #fde68a;
-    border-color: #d97706;
-  }
-
-  .dark .gs-studio-root [data-gjs-type="data-variable"],
-  .dark .data-variable-field {
-    background-color: #78350f;
-    border-color: #d97706;
-    color: #fef3c7;
-  }
-
-  .gs-studio-root [data-tooltip-content="Settings"],
-  .gs-studio-root button[aria-label="Settings"],
-  .gs-studio-root [data-test-id="settings"],
-  .gs-studio-root .gs-cmp-top-bar-right button:last-child {
-    display: none !important;
-  }
-
-  .gs-studio-root .gs-utl-text-violet-800,
-  .gs-studio-root .gs-utl-text-violet-700,
-  .gs-studio-root .gs-utl-text-violet-600,
-  .gs-studio-root .gs-utl-text-violet-500 {
+  /* Remap any remaining violet/purple classes to the org primary */
+  .gs-studio-root [class*="gs-utl-text-violet"],
+  .gs-studio-root [class*="gs-utl-text-purple"] {
     color: hsl(var(--primary)) !important;
   }
-
-  .dark .gs-studio-root .gs-utl-text-violet-400,
-  .dark .gs-studio-root .gs-utl-text-violet-300,
-  .dark .gs-studio-root .gs-utl-text-violet-200 {
-    color: hsl(var(--primary)) !important;
-  }
-
-  .gs-studio-root .gs-utl-bg-violet-100,
-  .gs-studio-root .gs-utl-bg-violet-50 {
-    background-color: hsl(var(--primary) / 0.1) !important;
-  }
-
-  .dark .gs-studio-root .gs-utl-bg-violet-900,
-  .dark .gs-studio-root .gs-utl-bg-violet-800 {
-    background-color: hsl(var(--primary) / 0.2) !important;
-  }
-
-  .gs-studio-root [class*="gs-utl-bg-violet"]:not(button):not([role="button"]) {
+  .gs-studio-root [class*="gs-utl-bg-violet"]:not(button):not([role="button"]),
+  .gs-studio-root [class*="gs-utl-bg-purple"]:not(button):not([role="button"]) {
     background-color: hsl(var(--primary) / 0.15) !important;
   }
-
-  .dark .gs-studio-root [class*="gs-utl-bg-violet"]:not(button):not([role="button"]) {
-    background-color: hsl(var(--primary) / 0.25) !important;
-  }
-
-  .gs-studio-root button.gs-utl-bg-violet-500,
-  .gs-studio-root button[class*="gs-utl-bg-violet-500"],
-  .gs-studio-root [role="button"].gs-utl-bg-violet-500,
-  #headlessui-portal-root button.gs-utl-bg-violet-500,
-  #headlessui-portal-root button[class*="gs-utl-bg-violet-500"] {
+  .gs-studio-root button[class*="gs-utl-bg-violet"],
+  .gs-studio-root [role="button"][class*="gs-utl-bg-violet"],
+  .gs-studio-root button[class*="gs-utl-bg-purple"],
+  .gs-studio-root [role="button"][class*="gs-utl-bg-purple"],
+  #headlessui-portal-root button[class*="gs-utl-bg-violet"],
+  #headlessui-portal-root button[class*="gs-utl-bg-purple"] {
     background-color: hsl(var(--primary)) !important;
     color: hsl(var(--primary-foreground)) !important;
   }
-
-  .gs-studio-root button.gs-utl-bg-violet-500:hover,
-  .gs-studio-root button[class*="gs-utl-bg-violet-500"]:hover,
-  .gs-studio-root [role="button"].gs-utl-bg-violet-500:hover,
-  #headlessui-portal-root button.gs-utl-bg-violet-500:hover,
-  #headlessui-portal-root button[class*="gs-utl-bg-violet-500"]:hover {
-    background-color: hsl(var(--primary) / 0.9) !important;
+  .gs-studio-root button[class*="gs-utl-bg-violet"]:hover,
+  .gs-studio-root [role="button"][class*="gs-utl-bg-violet"]:hover,
+  #headlessui-portal-root button[class*="gs-utl-bg-violet"]:hover {
+    background-color: hsl(var(--primary) / 0.85) !important;
   }
-
-  .dark .gs-studio-root button.gs-utl-bg-violet-500,
-  .dark .gs-studio-root button[class*="gs-utl-bg-violet-500"],
-  .dark .gs-studio-root [role="button"].gs-utl-bg-violet-500,
-  .dark #headlessui-portal-root button.gs-utl-bg-violet-500,
-  .dark #headlessui-portal-root button[class*="gs-utl-bg-violet-500"] {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
-  }
-
-  .dark .gs-studio-root button.gs-utl-bg-violet-500:hover,
-  .dark .gs-studio-root button[class*="gs-utl-bg-violet-500"]:hover,
-  .dark .gs-studio-root [role="button"].gs-utl-bg-violet-500:hover,
-  .dark #headlessui-portal-root button.gs-utl-bg-violet-500:hover,
-  .dark #headlessui-portal-root button[class*="gs-utl-bg-violet-500"]:hover {
-    background-color: hsl(var(--primary) / 0.8) !important;
-  }
-
-  .gs-studio-root .gs-theme-cl-hTAo:hover,
-  .gs-studio-root [class*="hover\\:gs-utl-text-violet"]:hover {
+  .gs-studio-root [class*="hover\\:gs-utl-text-violet"]:hover,
+  .gs-studio-root [class*="hover\\:dark\\:gs-utl-text-violet"]:hover,
+  .gs-studio-root .gs-theme-cl-hTAo:hover {
     color: hsl(var(--primary)) !important;
   }
-
-  .dark .gs-studio-root .gs-theme-cl-hTAo:hover,
-  .dark .gs-studio-root [class*="hover\\:dark\\:gs-utl-text-violet"]:hover {
-    color: hsl(var(--primary)) !important;
-  }
-
-  .gs-studio-root .gs-utl-border-violet-500,
-  .gs-studio-root .gs-utl-border-violet-400,
-  .gs-studio-root .gs-utl-border-violet-300 {
+  .gs-studio-root [class*="gs-utl-border-violet"] {
     border-color: hsl(var(--primary)) !important;
   }
-
-  .gs-studio-root .gs-utl-ring-violet-500,
-  .gs-studio-root .gs-utl-ring-violet-400 {
+  .gs-studio-root [class*="gs-utl-ring-violet"] {
     --tw-ring-color: hsl(var(--primary)) !important;
   }
-
   .gs-studio-root .gs-block-item--active,
   .gs-studio-root .gs-layer-item--selected {
     border-color: hsl(var(--primary)) !important;
     background-color: hsl(var(--primary) / 0.1) !important;
   }
 
-  .dark .gs-studio-root .gs-block-item--active,
-  .dark .gs-studio-root .gs-layer-item--selected {
-    border-color: hsl(var(--primary)) !important;
-    background-color: hsl(var(--primary) / 0.2) !important;
+  /* Override GrapesJS dark mode base chrome (zinc/gray utility classes) with org theme */
+  .dark .gs-studio-root [class*="gs-utl-bg-zinc-900"],
+  .dark .gs-studio-root [class*="gs-utl-bg-zinc-800"] {
+    background-color: hsl(var(--background)) !important;
+  }
+  .dark .gs-studio-root [class*="gs-utl-bg-zinc-700"],
+  .dark .gs-studio-root [class*="gs-utl-bg-zinc-600"] {
+    background-color: hsl(var(--muted)) !important;
+  }
+  .dark .gs-studio-root [class*="gs-utl-text-gray-400"],
+  .dark .gs-studio-root [class*="gs-utl-text-gray-300"] {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  .dark .gs-studio-root [class*="gs-utl-text-gray-200"],
+  .dark .gs-studio-root [class*="gs-utl-text-gray-100"],
+  .dark .gs-studio-root [class*="gs-utl-text-white"] {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .gs-studio-root [class*="gs-utl-border-zinc-700"],
+  .dark .gs-studio-root [class*="gs-utl-border-zinc-600"] {
+    border-color: hsl(var(--border)) !important;
+  }
+  .dark .gs-studio-root .gs-theme-cl-bg {
+    background-color: hsl(var(--background)) !important;
+  }
+  .dark .gs-studio-root .gs-theme-cl-txt {
+    color: hsl(var(--foreground)) !important;
+  }
+  .dark .gs-studio-root .gs-theme-cl-br {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Override light mode base chrome too */
+  .gs-studio-root [class*="gs-utl-bg-white"] {
+    background-color: hsl(var(--background)) !important;
+  }
+  .gs-studio-root [class*="gs-utl-bg-gray-100"],
+  .gs-studio-root [class*="gs-utl-bg-gray-50"] {
+    background-color: hsl(var(--muted)) !important;
+  }
+  .gs-studio-root [class*="gs-utl-text-gray-900"],
+  .gs-studio-root [class*="gs-utl-text-gray-800"] {
+    color: hsl(var(--foreground)) !important;
+  }
+  .gs-studio-root [class*="gs-utl-border-gray-300"],
+  .gs-studio-root [class*="gs-utl-border-gray-200"] {
+    border-color: hsl(var(--border)) !important;
+  }
+  .gs-studio-root .gs-theme-cl-bg {
+    background-color: hsl(var(--background)) !important;
+  }
+  .gs-studio-root .gs-theme-cl-txt {
+    color: hsl(var(--foreground)) !important;
+  }
+  .gs-studio-root .gs-theme-cl-br {
+    border-color: hsl(var(--border)) !important;
   }
 `
 
@@ -272,35 +197,52 @@ export function DocumentsTab() {
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [showTestPanel, setShowTestPanel] = useState(false)
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
-  const [previewApplyCounter, setPreviewApplyCounter] = useState(0)
-  
-  const handleApplyPreviewValues = useCallback((values: Record<string, string>) => {
-    setPreviewValues(values)
-    setPreviewApplyCounter(prev => prev + 1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<any>(null)
+  const handleEditorReady = useCallback((editor: any) => {
+    editorRef.current = editor
   }, [])
 
-  const hasPreviewValues = useMemo(() =>
-    Object.values(previewValues).some(v => v.trim() !== ""),
-    [previewValues]
-  )
+  const handleApplyPreviewValues = useCallback((values: Record<string, string>) => {
+    setPreviewValues(values)
 
-  const globalData = useMemo(() => {
-    const baseData = fieldsToGlobalData(fields)
-    Object.entries(previewValues).forEach(([key, value]) => {
-      if (value.trim()) {
-        if (!baseData[key]) {
-          baseData[key] = { data: "" }
+    if (editorRef.current) {
+      const editor = editorRef.current
+      try {
+        const ds = editor.DataSources.get("globalData")
+        if (ds) {
+          Object.entries(values).forEach(([key, value]) => {
+            const record = ds.getRecord(key)
+            if (record) {
+              record.set({ data: value.trim() || `{{${key}}}` })
+            }
+          })
         }
-        baseData[key].data = value
+      } catch (e) {
+        console.warn("Failed to update data source with test values:", e)
       }
-    })
-    return baseData
-  }, [fields, previewValues])
+    }
+  }, [])
+
+  const globalData = useMemo(() => fieldsToGlobalData(fields), [fields])
+
+  const handleInsertVariable = useCallback((fieldName: string) => {
+    const editor = editorRef.current
+    if (!editor) return
+    const selected = editor.getSelected() || editor.getWrapper()
+    if (selected) {
+      const resolver = JSON.stringify({
+        path: `globalData.${fieldName}.data`,
+        defaultValue: fieldName,
+      })
+      selected.append(`<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`)
+    }
+  }, [])
 
   const variableOptions = useMemo(() => 
     fields.map(field => ({
       id: `{{${field.name}}}`,
-      label: field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      label: field.name
     })),
     [fields]
   )
@@ -494,16 +436,16 @@ export function DocumentsTab() {
       <div className="flex-1 flex min-h-0 gap-0 px-4 pb-4">
         <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden isolate">
           <StudioEditorWrapper
-            key={`editor-${templateId}-${fields.length}-${previewApplyCounter}`}
+            key={`editor-${templateId}-${fields.length}`}
             globalData={globalData}
             variableOptions={variableOptions}
             fields={fields}
-            isPreviewMode={hasPreviewValues}
             template={editorTemplate}
             onSave={handleEditorSave}
+            onEditorReady={handleEditorReady}
           />
         </div>
-        
+
         {showTestPanel && (
           <div className="w-[280px] flex-shrink-0">
             <VariablePreviewPanel
