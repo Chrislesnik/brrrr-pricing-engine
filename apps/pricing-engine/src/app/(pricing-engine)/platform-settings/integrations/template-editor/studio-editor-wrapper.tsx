@@ -245,16 +245,37 @@ export function StudioEditorWrapper({
                             symbols: false,
                           },
                         },
-                        {
-                        id: "styles",
-                        label: "Styles",
-                          children: {
-                            type: "panelPagesLayers",
-                            panelPagesProps: { header: { label: "Pages" } },
-                            panelLayersProps: { header: { label: "Layers" } },
-                          },
-                        },
                       ],
+                      editorEvents: {
+                        "component:selected": ({ editor, state, setState }: any) => {
+                          const baseTabs = (state.tabs || []).filter((t: any) => t.id !== "properties")
+                          if (editor.getSelected()) {
+                            setState({
+                              value: "properties",
+                              tabs: [
+                                ...baseTabs,
+                                {
+                                  id: "properties",
+                                  label: "Properties",
+                                  children: {
+                                    type: "column",
+                                    children: [
+                                      { type: "panelStyles" },
+                                      { type: "panelTraits" },
+                                    ],
+                                  },
+                                },
+                              ],
+                            })
+                          }
+                        },
+                        "component:deselected": ({ state, setState }: any) => {
+                          setState({
+                            value: "blocks",
+                            tabs: (state.tabs || []).filter((t: any) => t.id !== "properties"),
+                          })
+                        },
+                      },
                     },
                   ],
                 },
