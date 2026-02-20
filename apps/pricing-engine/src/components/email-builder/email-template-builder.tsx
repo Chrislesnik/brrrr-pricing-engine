@@ -92,7 +92,7 @@ function UserAvatar() {
 }
 
 function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: string; onBack?: () => void }) {
-  const [stylesPanelOpen, setStylesPanelOpen] = useState(true)
+  const [stylesPanelOpen, setStylesPanelOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [editor, setEditor] = useState<Editor | null>(null)
 
@@ -274,7 +274,7 @@ function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: strin
       </header>
 
       {/* ── Canvas (scrollable) ───────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted px-4 py-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-neutral-100 px-4 py-6 dark:bg-neutral-800/60">
         <div className="mx-auto w-full" style={{ maxWidth: `${styles.container.width + 64}px` }}>
 
           {/* Email card — From/Subject/Toolbar/Editor all nested inside */}
