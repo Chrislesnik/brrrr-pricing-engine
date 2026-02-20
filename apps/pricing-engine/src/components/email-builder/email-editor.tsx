@@ -51,6 +51,16 @@ function createSlashExtension(): Extension {
             interactive: true,
             trigger: "manual",
             placement: "bottom-start",
+            animation: false,
+            onMount(instance) {
+              const box = instance.popper.querySelector<HTMLElement>(".tippy-box")
+              const content = instance.popper.querySelector<HTMLElement>(".tippy-content")
+              if (box) {
+                box.style.cssText =
+                  "background:transparent;border:none;box-shadow:none;padding:0;max-width:none"
+              }
+              if (content) content.style.padding = "0"
+            },
           })
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

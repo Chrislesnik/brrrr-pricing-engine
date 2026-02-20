@@ -91,7 +91,18 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Insert a hyperlink",
     icon: <Link className="size-4" />,
     command: (editor, range) => {
-      editor.chain().focus().deleteRange(range).run()
+      const url = window.prompt("Enter link URL:", "https://")
+      if (!url) {
+        editor.chain().focus().deleteRange(range).run()
+        return
+      }
+      const text = window.prompt("Link text:", "Click here") ?? "Click here"
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent(`<a href="${url}">${text}</a>`)
+        .run()
     },
   },
   {
@@ -99,11 +110,12 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Call-to-action button",
     icon: <Square className="size-4" />,
     command: (editor, range) => {
+      const label = window.prompt("Button label:", "Click here") ?? "Click here"
       editor
         .chain()
         .focus()
         .deleteRange(range)
-        .insertContent('<button class="email-button">Click here</button>')
+        .insertContent(`<p><a class="email-button" href="#">${label}</a></p>`)
         .run()
     },
   },
@@ -112,7 +124,20 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Embed a video via thumbnail",
     icon: <Video className="size-4" />,
     command: (editor, range) => {
-      editor.chain().focus().deleteRange(range).run()
+      const url = window.prompt("Enter video URL (YouTube, Vimeo, etc.):", "https://")
+      if (!url) {
+        editor.chain().focus().deleteRange(range).run()
+        return
+      }
+      // Email clients don't support video — render a linked image placeholder
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent(
+          `<p><a href="${url}" title="Watch video">▶ Watch video: ${url}</a></p>`
+        )
+        .run()
     },
   },
   {
@@ -128,7 +153,8 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Inline code snippet",
     icon: <Code2 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).toggleCode().run()
+      editor.chain().focus().deleteRange(range).insertContent("`code`").run()
+      ;(editor.chain().focus() as AnyChain).toggleCode().run()
     },
   },
   {
@@ -136,7 +162,10 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Write or paste raw HTML",
     icon: <FileCode className="size-4" />,
     command: (editor, range) => {
-      editor.chain().focus().deleteRange(range).run()
+      ;(editor.chain().focus().deleteRange(range) as AnyChain)
+        .setCodeBlock()
+        .insertContent("<!-- paste your HTML here -->")
+        .run()
     },
   },
 ]
@@ -194,7 +223,7 @@ export const SlashCommandList = forwardRef<SlashCommandListHandle, SlashCommandL
 
     let lastSection = ""
     return (
-      <div className="z-50 w-64 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white shadow-lg">
+      <div className="z-50 w-64 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg">
         <div className="max-h-80 overflow-y-auto p-1">
           {items.map((item, index) => {
             const section = SECTION_MAP[item.title] ?? ""
@@ -203,7 +232,7 @@ export const SlashCommandList = forwardRef<SlashCommandListHandle, SlashCommandL
             return (
               <div key={item.title}>
                 {showSection && (
-                  <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-[#aaa]">
+                  <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {section}
                   </div>
                 )}
@@ -212,15 +241,17 @@ export const SlashCommandList = forwardRef<SlashCommandListHandle, SlashCommandL
                   onClick={() => command(item)}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors",
-                    index === selectedIndex ? "bg-[#f5f5f5]" : "hover:bg-[#f9f9f9]"
+                    index === selectedIndex
+                      ? "bg-accent text-accent-foreground"
+                      : "text-popover-foreground hover:bg-accent/50"
                   )}
                 >
-                  <span className="flex size-7 items-center justify-center rounded border border-[#e5e5e5] bg-white text-[#666]">
+                  <span className="flex size-7 flex-shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground">
                     {item.icon}
                   </span>
-                  <span className="flex flex-col">
-                    <span className="text-sm font-medium text-[#111]">{item.title}</span>
-                    <span className="text-xs text-[#999]">{item.description}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium">{item.title}</span>
+                    <span className="truncate text-xs text-muted-foreground">{item.description}</span>
                   </span>
                 </button>
               </div>

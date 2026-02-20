@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useUser } from "@clerk/nextjs"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { RoomProvider, useStorage, useMutation } from "@liveblocks/react/suspense"
@@ -12,6 +12,12 @@ import {
   SheetContent,
   SheetTitle,
 } from "@repo/ui/shadcn/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/shadcn/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +93,7 @@ function UserAvatar() {
 
 function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: string; onBack?: () => void }) {
   const [stylesPanelOpen, setStylesPanelOpen] = useState(true)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [editor, setEditor] = useState<Editor | null>(null)
 
   const templateName = useStorage((root) => root.templateName as string | undefined) ?? initialName
@@ -125,6 +132,14 @@ function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: strin
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
+
+      {/* ── Preview Dialog ────────────────────────────────────────────────── */}
+      <PreviewEmailDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        editor={editor}
+        styles={styles}
+      />
 
       {/* ── Styles Sheet ──────────────────────────────────────────────────── */}
       <Sheet open={stylesPanelOpen} onOpenChange={setStylesPanelOpen}>
@@ -210,7 +225,7 @@ function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: strin
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="gap-2">
+              <DropdownMenuItem className="gap-2" onClick={() => setPreviewOpen(true)}>
                 <Eye className="size-3.5 text-muted-foreground" />
                 Preview Email
               </DropdownMenuItem>
@@ -267,11 +282,15 @@ function EmailTemplateBuilderInner({ initialName, onBack }: { initialName: strin
 
             {/* From row */}
             <div className="flex items-center justify-between border-b border-border px-6 py-2">
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/50">From</span>
-                <span className="text-sm text-card-foreground">Acme &lt;acme@example.com&gt;</span>
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="flex-shrink-0 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/50">From</span>
+                <input
+                  placeholder="Sender Name <sender@example.com>"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-card-foreground placeholder:text-muted-foreground/40 outline-none"
+                  aria-label="From address"
+                />
               </div>
-              <button type="button" className="text-xs text-muted-foreground/60 transition-colors hover:text-card-foreground">
+              <button type="button" className="ml-3 flex-shrink-0 text-xs text-muted-foreground/60 transition-colors hover:text-card-foreground">
                 Reply-To
               </button>
             </div>
@@ -465,6 +484,131 @@ function MergeTagsButton({ editor }: { editor: import("@tiptap/react").Editor | 
         })}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+// ─── Preview Email Dialog ────────────────────────────────────────────────────
+
+type LoanOption = { id: string; displayId: string; label: string }
+
+function PreviewEmailDialog({
+  open,
+  onOpenChange,
+  editor,
+  styles,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  editor: Editor | null
+  styles: EmailTemplateStyles
+}) {
+  const [loans, setLoans] = useState<LoanOption[]>([])
+  const [selectedLoanId, setSelectedLoanId] = useState<string>("")
+  const [previewHtml, setPreviewHtml] = useState<string>("")
+  const [loading, setLoading] = useState(false)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // Fetch available loans when dialog opens
+  useEffect(() => {
+    if (!open) return
+    fetch("/api/loans/list")
+      .then((r) => r.json())
+      .then((data: LoanOption[]) => setLoans(data ?? []))
+      .catch(() => setLoans([]))
+  }, [open])
+
+  const fetchPreview = useCallback(
+    async (loanId: string) => {
+      if (!editor) return
+      setLoading(true)
+      try {
+        const editorJson = editor.getJSON()
+        const res = await fetch("/api/email-templates/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            loanId: loanId || undefined,
+            editorJson,
+            styles: {
+              fontSize: styles.typography.fontSize,
+              lineHeight: styles.typography.lineHeight,
+              containerWidth: styles.container.width,
+              linkColor: styles.link.color,
+              buttonBackground: styles.button.background,
+              buttonTextColor: styles.button.textColor,
+              buttonRadius: styles.button.radius,
+            },
+          }),
+        })
+        const html = await res.text()
+        setPreviewHtml(html)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [editor, styles]
+  )
+
+  // Render HTML into the iframe
+  useEffect(() => {
+    if (!previewHtml || !iframeRef.current) return
+    const doc = iframeRef.current.contentDocument
+    if (!doc) return
+    doc.open()
+    doc.write(previewHtml)
+    doc.close()
+  }, [previewHtml])
+
+  // Auto-preview when dialog opens (without a loan — raw template)
+  useEffect(() => {
+    if (open && editor) fetchPreview("")
+  }, [open, editor, fetchPreview])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[90vh] max-w-4xl flex-col gap-0 p-0">
+        <DialogHeader className="flex-shrink-0 border-b border-border px-5 py-4">
+          <DialogTitle className="text-sm font-semibold">Preview Email</DialogTitle>
+        </DialogHeader>
+
+        {/* Loan selector toolbar */}
+        <div className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-muted/40 px-5 py-2.5">
+          <span className="text-xs text-muted-foreground">Preview with deal data from:</span>
+          <select
+            value={selectedLoanId}
+            onChange={(e) => {
+              setSelectedLoanId(e.target.value)
+              fetchPreview(e.target.value)
+            }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">— No deal (show placeholders) —</option>
+            {loans.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.displayId} {l.label ? `· ${l.label}` : ""}
+              </option>
+            ))}
+          </select>
+          {loading && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+        </div>
+
+        {/* Preview iframe */}
+        <div className="min-h-0 flex-1 overflow-hidden bg-muted">
+          {loading && !previewHtml ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <iframe
+              ref={iframeRef}
+              title="Email preview"
+              className="h-full w-full border-0"
+              sandbox="allow-same-origin"
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
