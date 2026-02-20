@@ -512,9 +512,19 @@ function PreviewEmailDialog({
   useEffect(() => {
     if (!open) return
     fetch("/api/loans/list")
-      .then((r) => r.json())
-      .then((data: LoanOption[]) => setLoans(data ?? []))
-      .catch(() => setLoans([]))
+      .then(async (r) => {
+        if (!r.ok) {
+          console.error("[PreviewEmailDialog] /api/loans/list returned", r.status)
+          return []
+        }
+        const data = await r.json()
+        return Array.isArray(data) ? data : []
+      })
+      .then((data: LoanOption[]) => setLoans(data))
+      .catch((err) => {
+        console.error("[PreviewEmailDialog] fetch failed:", err)
+        setLoans([])
+      })
   }, [open])
 
   const fetchPreview = useCallback(
