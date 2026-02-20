@@ -3,12 +3,6 @@
 import { useCallback } from "react"
 import {
   BellIcon,
-  CheckCircle2Icon,
-  UserPlusIcon,
-  ArrowRightLeftIcon,
-  FileTextIcon,
-  ClipboardCheckIcon,
-  LinkIcon,
   Loader2,
 } from "lucide-react"
 import {
@@ -18,36 +12,34 @@ import {
 } from "@liveblocks/react/suspense"
 import { ClientSideSuspense } from "@liveblocks/react/suspense"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { Button } from "@/components/ui/button"
 import type { InboxNotificationData } from "@liveblocks/client"
+import TeamNotifications, {
+  type NotificationType,
+  type TeamNotification,
+} from "@/components/ui/team-notifications"
 
-function getNotificationIcon(kind: string) {
+function mapKindToType(kind: string): NotificationType {
   switch (kind) {
     case "thread":
     case "textMention":
-      return <FileTextIcon className="size-4 text-info" />
+      return "mention"
     case "$taskAssignment":
-      return <ClipboardCheckIcon className="size-4 text-primary" />
-    case "$loanAssignment":
-      return <LinkIcon className="size-4 text-chart-1" />
+      return "system"
     case "$dealAssignment":
-      return <UserPlusIcon className="size-4 text-primary" />
-    case "$applicationCompleted":
-      return <CheckCircle2Icon className="size-4 text-success" />
+    case "$loanAssignment":
     case "$dealStatusChange":
-      return <ArrowRightLeftIcon className="size-4 text-chart-1" />
+      return "project_updated"
+    case "$applicationCompleted":
+      return "system"
     default:
-      return <BellIcon className="size-4 text-muted-foreground" />
+      return "system"
   }
 }
 
 function getNotificationContent(notification: InboxNotificationData) {
   const kind = notification.kind
-  const activities = notification.activities ?? []
-  const latestActivity = activities[activities.length - 1] as Record<string, unknown> | undefined
+  const activities = (notification as Record<string, unknown>).activities as unknown[] | undefined
+  const latestActivity = activities?.[activities.length - 1] as Record<string, unknown> | undefined
 
   switch (kind) {
     case "thread":
@@ -106,129 +98,60 @@ function getNotificationContent(notification: InboxNotificationData) {
   }
 }
 
-function formatTime(date: Date) {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  const diffHrs = Math.floor(diffMin / 60)
-  const diffDays = Math.floor(diffHrs / 24)
-
-  if (diffMin < 1) return "Just now"
-  if (diffMin < 60) return `${diffMin} min ago`
-  if (diffHrs < 24) return `${diffHrs} hour${diffHrs > 1 ? "s" : ""} ago`
-  if (diffDays === 1) return "Yesterday"
-  return `${diffDays} days ago`
-}
-
-function NotificationsList() {
+function NotificationsList({ onOpenChat }: { onOpenChat?: (dealId: string) => void }) {
   const { inboxNotifications } = useInboxNotifications()
   const markAsRead = useMarkInboxNotificationAsRead()
   const markAllAsRead = useMarkAllInboxNotificationsAsRead()
 
-  const unreadCount = inboxNotifications.filter((n) => !n.readAt).length
+  const mapped: TeamNotification[] = inboxNotifications.map((n) => {
+    const { title, description } = getNotificationContent(n)
+    const dealId = n.roomId?.startsWith("deal:") ? n.roomId.slice(5) : undefined
+    return {
+      id: n.id,
+      type: mapKindToType(n.kind),
+      title,
+      message: description,
+      read: !!n.readAt,
+      timestamp: n.notifiedAt,
+      link: dealId ? `/deals/${dealId}` : undefined,
+      metadata: { kind: n.kind, dealId },
+    }
+  })
 
-  const handleClick = useCallback(
-    (notification: InboxNotificationData) => {
-      if (!notification.readAt) {
+  const handleNotificationClick = useCallback(
+    (notification: TeamNotification) => {
+      if (!notification.read) {
         markAsRead(notification.id)
       }
-      // Navigate to the relevant page if the notification has a roomId
-      if (notification.roomId?.startsWith("deal:")) {
-        const dealId = notification.roomId.slice(5)
-        window.location.href = `/deals/${dealId}`
+      const kind = notification.metadata?.kind as string | undefined
+      const dealId = notification.metadata?.dealId as string | undefined
+
+      if ((kind === "thread" || kind === "textMention") && dealId && onOpenChat) {
+        onOpenChat(dealId)
+      } else if (notification.link) {
+        window.location.href = notification.link
       }
     },
-    [markAsRead]
+    [markAsRead, onOpenChat]
   )
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden">
-      <CardHeader className="flex-none border-b px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BellIcon className="size-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-semibold">Notifications</CardTitle>
-          </div>
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <>
-                <Badge
-                  variant="secondary"
-                  className="h-5 rounded-full px-1.5 text-[10px] font-semibold"
-                >
-                  {unreadCount}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={() => markAllAsRead()}
-                >
-                  Mark all read
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-full">
-          <div className="flex flex-col">
-            {inboxNotifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <BellIcon className="mb-2 size-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No notifications yet</p>
-              </div>
-            ) : (
-              inboxNotifications.map((notification, idx) => {
-                const isUnread = !notification.readAt
-                const { title, description } = getNotificationContent(notification)
-                const icon = getNotificationIcon(notification.kind)
-
-                return (
-                  <div key={notification.id}>
-                    <button
-                      type="button"
-                      className={`flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
-                        isUnread ? "bg-muted/30" : ""
-                      }`}
-                      onClick={() => handleClick(notification)}
-                    >
-                      <div className="mt-0.5 flex-none">{icon}</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p
-                            className={`text-sm leading-tight ${
-                              isUnread ? "font-semibold" : "font-medium"
-                            }`}
-                          >
-                            {title}
-                          </p>
-                          {isUnread && (
-                            <span className="mt-1 flex-none size-2 rounded-full bg-primary" />
-                          )}
-                        </div>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                          {description}
-                        </p>
-                        <p className="mt-1 text-[10px] text-muted-foreground/70">
-                          {formatTime(notification.notifiedAt)}
-                        </p>
-                      </div>
-                    </button>
-                    {idx < inboxNotifications.length - 1 && <Separator />}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+    <TeamNotifications
+      notifications={mapped}
+      onNotificationClick={handleNotificationClick}
+      onMarkAsRead={async (id) => markAsRead(id)}
+      onMarkAllAsRead={async () => markAllAsRead()}
+      showFilters={true}
+      className="flex h-full flex-col overflow-hidden"
+    />
   )
 }
 
-export function NotificationsPanel() {
+interface NotificationsPanelProps {
+  onOpenChat?: (dealId: string) => void
+}
+
+export function NotificationsPanel({ onOpenChat }: NotificationsPanelProps) {
   return (
     <ClientSideSuspense
       fallback={
@@ -245,7 +168,7 @@ export function NotificationsPanel() {
         </Card>
       }
     >
-      <NotificationsList />
+      <NotificationsList onOpenChat={onOpenChat} />
     </ClientSideSuspense>
   )
 }

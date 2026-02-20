@@ -91,6 +91,7 @@ import {
 } from "@repo/ui/shadcn/sheet";
 import { cn } from "@repo/lib/cn";
 import { DealTasksTab } from "./deal-tasks-tab";
+import { DealPipelineTasks } from "./deal-pipeline-tasks";
 import { InlineCommentsPanel } from "@/components/liveblocks/comments-panel";
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
 
