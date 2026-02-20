@@ -184,7 +184,7 @@ export function ApplicationsTable({ data }: Props) {
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform",
+                  "h-4 w-4 transition-transform duration-200",
                   isOpen ? "rotate-180" : "-rotate-90"
                 )}
                 aria-hidden="true"
@@ -479,25 +479,45 @@ export function ApplicationsTable({ data }: Props) {
                           </TableCell>
                         ))}
                       </TableRow>
-                      {isOpen ? (
-                        <TableRow className="bg-muted/30">
-                          <TableCell colSpan={columns.length} className="p-4">
-                            <ApplicationPartyEditor
-                              loanId={row.original.id}
-                              showBorrowerEntity={row.original.showBorrowerEntity}
-                              initialEntityId={row.original.entityId}
-                              initialEntityName={
-                                row.original.borrowerEntityName ?? undefined
-                              }
-                              initialGuarantors={row.original.guarantors ?? []}
-                              initialSignedEmails={
-                                row.original.signedEmails ?? []
-                              }
-                              initialSentEmails={row.original.sentEmails ?? []}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
+                      <TableRow
+                        className={cn(
+                          "bg-muted/30 border-0",
+                          !isOpen && "border-0"
+                        )}
+                      >
+                        <TableCell colSpan={columns.length} className="p-0">
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                            style={{
+                              gridTemplateRows: isOpen ? "1fr" : "0fr",
+                            }}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="p-4">
+                                <ApplicationPartyEditor
+                                  loanId={row.original.id}
+                                  showBorrowerEntity={
+                                    row.original.showBorrowerEntity
+                                  }
+                                  initialEntityId={row.original.entityId}
+                                  initialEntityName={
+                                    row.original.borrowerEntityName ?? undefined
+                                  }
+                                  initialGuarantors={
+                                    row.original.guarantors ?? []
+                                  }
+                                  initialSignedEmails={
+                                    row.original.signedEmails ?? []
+                                  }
+                                  initialSentEmails={
+                                    row.original.sentEmails ?? []
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     </Fragment>
                   )
                 })

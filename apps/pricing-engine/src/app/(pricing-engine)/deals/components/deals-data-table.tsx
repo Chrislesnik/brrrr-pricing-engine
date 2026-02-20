@@ -916,24 +916,30 @@ export function DealsDataTable({
                           );
                         })}
                       </TableRow>
-                      {isExpanded && (
-                        <tr>
-                          <td
-                            className="p-0 border-t border-border/50 relative overflow-visible"
-                            colSpan={row.getVisibleCells().length}
-                            style={{
-                              position: "sticky",
-                              left: 0,
-                              width: containerWidth > 0 ? containerWidth : "100%",
-                              maxWidth: containerWidth > 0 ? containerWidth : "100%",
-                            }}
+                      <tr>
+                        <td
+                          className="p-0 border-0 bg-muted/20"
+                          colSpan={row.getVisibleCells().length}
+                          style={{
+                            position: "sticky",
+                            left: 0,
+                            width: containerWidth > 0 ? containerWidth : "100%",
+                            maxWidth: containerWidth > 0 ? containerWidth : "100%",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                            style={{ gridTemplateRows: isExpanded ? "1fr" : "0fr" }}
                           >
-                            <div style={{ height: 500 }}>
-                              <DealTasksTab dealId={dealId} />
+                            <div className="overflow-hidden">
+                              <div className="overflow-y-auto" style={{ maxHeight: 600 }}>
+                                <DealPipelineTasks dealId={dealId} />
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      )}
+                          </div>
+                        </td>
+                      </tr>
                     </React.Fragment>
                   );
                 })

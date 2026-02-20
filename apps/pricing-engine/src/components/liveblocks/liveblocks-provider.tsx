@@ -21,7 +21,7 @@ export function LiveblocksProviderWrapper({ children }: Props) {
       resolveMentionSuggestions={async ({ text, roomId }) => {
         const params = new URLSearchParams();
         params.set("search", text);
-        // Extract deal ID from room ID (format: "deal:<uuid>")
+        params.set("_t", String(Date.now()));
         if (roomId?.startsWith("deal:")) {
           params.set("dealId", roomId.slice(5));
         }

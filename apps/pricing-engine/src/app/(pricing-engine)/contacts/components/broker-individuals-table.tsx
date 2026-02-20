@@ -123,7 +123,7 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform",
+                  "h-4 w-4 transition-transform duration-200",
                   isOpen ? "rotate-180" : "-rotate-90"
                 )}
                 aria-hidden="true"
@@ -282,86 +282,66 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
                           </TableCell>
                         ))}
                       </TableRow>
-                      {isOpen ? (
-                        orgsLoading[memberId] &&
-                        orgsMap[memberId] === undefined ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              Loading organizations...
-                            </TableCell>
-                          </TableRow>
-                        ) : orgsMap[memberId] == null ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-destructive p-4 text-sm"
-                            >
-                              Failed to load organizations.
-                            </TableCell>
-                          </TableRow>
-                        ) : (orgsMap[memberId]?.length ?? 0) === 0 ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              No organizations linked.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <>
-                            <TableRow className="bg-muted/30">
-                              <TableCell
-                                colSpan={columns.length}
-                                className="p-0"
-                              >
-                                <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                  <span>Organization</span>
-                                  <span>Slug</span>
-                                  <span>Members</span>
-                                  <span>Date Added</span>
-                                  <span />
+                      <TableRow className="bg-muted/30 border-0">
+                        <TableCell colSpan={columns.length} className="p-0">
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                            style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                          >
+                            <div className="overflow-hidden">
+                              {orgsLoading[memberId] &&
+                              orgsMap[memberId] === undefined ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  Loading organizations...
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                            {orgsMap[memberId]?.map((org) => (
-                              <TableRow
-                                key={org.id}
-                                className="bg-muted/30"
-                              >
-                                <TableCell
-                                  colSpan={columns.length}
-                                  className="p-0"
-                                >
-                                  <div className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm">
-                                    <div className="flex items-center">
-                                      <span className="text-muted-foreground mr-2">
-                                        ↳
-                                      </span>
-                                      <span className="text-foreground font-semibold">
-                                        {org.name}
-                                      </span>
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                      {org.slug || "-"}
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                      {org.member_count}
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                      {formatDate(org.created_at)}
-                                    </div>
-                                    <div />
+                              ) : orgsMap[memberId] == null ? (
+                                <div className="text-destructive p-4 text-sm">
+                                  Failed to load organizations.
+                                </div>
+                              ) : (orgsMap[memberId]?.length ?? 0) === 0 ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  No organizations linked.
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
+                                    <span>Organization</span>
+                                    <span>Slug</span>
+                                    <span>Members</span>
+                                    <span>Date Added</span>
+                                    <span />
                                   </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </>
-                        )
-                      ) : null}
+                                  {orgsMap[memberId]?.map((org) => (
+                                    <div
+                                      key={org.id}
+                                      className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm"
+                                    >
+                                      <div className="flex items-center">
+                                        <span className="text-muted-foreground mr-2">
+                                          ↳
+                                        </span>
+                                        <span className="text-foreground font-semibold">
+                                          {org.name}
+                                        </span>
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        {org.slug || "-"}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        {org.member_count}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        {formatDate(org.created_at)}
+                                      </div>
+                                      <div />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     </Fragment>
                   )
                 })

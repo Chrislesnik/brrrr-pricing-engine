@@ -193,7 +193,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform",
+                  "h-4 w-4 transition-transform duration-200",
                   isOpen ? "rotate-180" : "-rotate-90"
                 )}
                 aria-hidden="true"
@@ -366,95 +366,72 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
                           </TableCell>
                         ))}
                       </TableRow>
-                      {isOpen ? (
-                        membersLoading[orgId] &&
-                        membersMap[orgId] === undefined ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              Loading members...
-                            </TableCell>
-                          </TableRow>
-                        ) : membersMap[orgId] == null ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-destructive p-4 text-sm"
-                            >
-                              Failed to load members.
-                            </TableCell>
-                          </TableRow>
-                        ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              No members listed.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <>
-                            <TableRow className="bg-muted/30">
-                              <TableCell
-                                colSpan={columns.length}
-                                className="p-0"
-                              >
-                                <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                  <span>ID</span>
-                                  <span>Name</span>
-                                  <span>Org Role</span>
-                                  <span>Member Role</span>
-                                  <span>Joined</span>
+                      <TableRow className="bg-muted/30 border-0">
+                        <TableCell colSpan={columns.length} className="p-0">
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                            style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                          >
+                            <div className="overflow-hidden">
+                              {membersLoading[orgId] &&
+                              membersMap[orgId] === undefined ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  Loading members...
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                            {membersMap[orgId]?.map((member) => (
-                              <TableRow
-                                key={member.id}
-                                className="bg-muted/30"
-                              >
-                                <TableCell
-                                  colSpan={columns.length}
-                                  className="p-0"
-                                >
-                                  <div className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm">
-                                    <div className="flex items-center">
-                                      <span className="text-muted-foreground mr-2">
-                                        ↳
-                                      </span>
-                                      <span className="text-muted-foreground">
-                                        {member.user_id
-                                          ? member.user_id.slice(0, 12) + "\u2026"
-                                          : member.id.slice(0, 12) + "\u2026"}
-                                      </span>
-                                    </div>
-                                    <div className="text-foreground font-semibold">
-                                      {[
-                                        member.first_name,
-                                        member.last_name,
-                                      ]
-                                        .filter(Boolean)
-                                        .join(" ") || "-"}
-                                    </div>
-                                    <div className="text-muted-foreground capitalize">
-                                      {formatRole(member.clerk_org_role)}
-                                    </div>
-                                    <div className="text-muted-foreground capitalize">
-                                      {formatRole(member.clerk_member_role)}
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                      {formatDate(member.created_at)}
-                                    </div>
+                              ) : membersMap[orgId] == null ? (
+                                <div className="text-destructive p-4 text-sm">
+                                  Failed to load members.
+                                </div>
+                              ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  No members listed.
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
+                                    <span>ID</span>
+                                    <span>Name</span>
+                                    <span>Org Role</span>
+                                    <span>Member Role</span>
+                                    <span>Joined</span>
                                   </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </>
-                        )
-                      ) : null}
+                                  {membersMap[orgId]?.map((member) => (
+                                    <div
+                                      key={member.id}
+                                      className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm"
+                                    >
+                                      <div className="flex items-center">
+                                        <span className="text-muted-foreground mr-2">
+                                          ↳
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                          {member.user_id
+                                            ? member.user_id.slice(0, 12) + "…"
+                                            : member.id.slice(0, 12) + "…"}
+                                        </span>
+                                      </div>
+                                      <div className="text-foreground font-semibold">
+                                        {[member.first_name, member.last_name]
+                                          .filter(Boolean)
+                                          .join(" ") || "-"}
+                                      </div>
+                                      <div className="text-muted-foreground capitalize">
+                                        {formatRole(member.clerk_org_role)}
+                                      </div>
+                                      <div className="text-muted-foreground capitalize">
+                                        {formatRole(member.clerk_member_role)}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        {formatDate(member.created_at)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     </Fragment>
                   )
                 })

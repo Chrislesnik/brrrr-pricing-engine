@@ -11,6 +11,9 @@ importers:
       '@grapesjs/studio-sdk-plugins':
         specifier: ^1.0.33
         version: 1.0.33(@ai-sdk/anthropic@3.0.44(zod@4.3.6))(@ai-sdk/openai@3.0.30(zod@4.3.6))(@types/react@19.2.10)(react@19.0.0)
+      '@tiptap/core':
+        specifier: ^3.20.0
+        version: 3.20.0(@tiptap/pm@3.20.0)
       '@tiptap/extension-color':
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/extension-text-style@3.20.0(@tiptap/core@3.20.0(@tiptap/pm@3.20.0)))

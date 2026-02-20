@@ -342,7 +342,7 @@ export function AppraisalsTable() {
                               >
                                 <ChevronDown
                                   className={cn(
-                                    "h-4 w-4 transition-transform",
+                                    "h-4 w-4 transition-transform duration-200",
                                     isOpen ? "rotate-180" : "-rotate-90"
                                   )}
                                   aria-hidden="true"
@@ -358,13 +358,18 @@ export function AppraisalsTable() {
                         );
                       })}
                     </TableRow>
-                    {isOpen && (
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell colSpan={columns.length} className="p-0">
-                          <ExpandedContent order={row.original} />
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    <TableRow className="bg-muted/30 hover:bg-muted/30 border-0">
+                      <TableCell colSpan={columns.length} className="p-0">
+                        <div
+                          className="grid transition-[grid-template-rows] duration-200 ease-out"
+                          style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                        >
+                          <div className="overflow-hidden">
+                            <ExpandedContent order={row.original} />
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   </Fragment>
                 );
               })
