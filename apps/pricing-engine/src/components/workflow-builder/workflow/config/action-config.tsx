@@ -2371,129 +2371,136 @@ function SetFieldsFields({
               )}
             </div>
 
-            {/* Conditional toggle */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`conditional-${idx}`}
-                disabled={disabled}
-                checked={!!field.conditional}
-                onChange={(e) => {
-                  const on = e.target.checked;
-                  updateRow(idx, {
-                    conditional: on,
-                    branches: on ? (field.branches?.length ? field.branches : [{ ...DEFAULT_BRANCH }]) : field.branches,
-                    elseValue: on ? (field.elseValue ?? "") : field.elseValue,
-                    elseMode: on ? (field.elseMode ?? "fixed") : field.elseMode,
-                  });
-                }}
-                className="h-3.5 w-3.5 rounded border"
-              />
-              <Label
-                htmlFor={`conditional-${idx}`}
-                className="text-[10px] cursor-pointer text-muted-foreground"
-              >
-                Conditional
-              </Label>
-            </div>
+            {/* Conditional toggle + collapsible section */}
+            <Collapsible defaultOpen={!!field.conditional}>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`conditional-${idx}`}
+                  disabled={disabled}
+                  checked={!!field.conditional}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    updateRow(idx, {
+                      conditional: on,
+                      branches: on ? (field.branches?.length ? field.branches : [{ ...DEFAULT_BRANCH }]) : field.branches,
+                      elseValue: on ? (field.elseValue ?? "") : field.elseValue,
+                      elseMode: on ? (field.elseMode ?? "fixed") : field.elseMode,
+                    });
+                  }}
+                  className="h-3.5 w-3.5 rounded border"
+                />
+                <Label
+                  htmlFor={`conditional-${idx}`}
+                  className="text-[10px] cursor-pointer text-muted-foreground"
+                >
+                  Conditional
+                </Label>
+                {field.conditional && (
+                  <CollapsibleTrigger className="ml-auto flex items-center gap-1 group cursor-pointer text-muted-foreground hover:text-foreground">
+                    <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
+                  </CollapsibleTrigger>
+                )}
+              </div>
 
-            {field.conditional ? (
-              <>
-                {/* Branches: IF / ELSE IF ... */}
-                {(field.branches || []).map((branch, bIdx) => (
-                  <Collapsible key={bIdx} defaultOpen={bIdx === 0}>
+              {field.conditional ? (
+                <CollapsibleContent className="space-y-2 pt-2">
+                  {/* Branches: IF / ELSE IF ... */}
+                  {(field.branches || []).map((branch, bIdx) => (
+                    <Collapsible key={bIdx} defaultOpen={bIdx === 0}>
+                      <div className="rounded-md border border-dashed bg-background/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-2.5 py-1.5">
+                          <CollapsibleTrigger className="flex items-center gap-1.5 group cursor-pointer">
+                            <ChevronRight className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {bIdx === 0 ? "If" : "Else If"}
+                            </span>
+                          </CollapsibleTrigger>
+                          {(field.branches?.length ?? 0) > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                              disabled={disabled}
+                              onClick={() => removeBranch(idx, bIdx)}
+                            >
+                              <span className="text-xs">×</span>
+                            </Button>
+                          )}
+                        </div>
+                        <CollapsibleContent className="px-2.5 pb-2.5 space-y-2">
+                          <ConditionBuilderInline
+                            disabled={disabled}
+                            value={branch.condition}
+                            onChange={(val) => updateBranch(idx, bIdx, { condition: val })}
+                          />
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Then
+                          </span>
+                          <SetFieldValueInput
+                            field={field}
+                            mode={branch.mode}
+                            fieldValue={branch.value}
+                            disabled={disabled}
+                            onChangeValue={(val) => updateBranch(idx, bIdx, { value: val })}
+                            onChangeMode={(m) => updateBranch(idx, bIdx, { mode: m })}
+                          />
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  ))}
+
+                  {/* Add branch button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => addBranch(idx)}
+                    className="w-full gap-1.5 text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Branch
+                  </Button>
+
+                  {/* ELSE fallback */}
+                  <Collapsible defaultOpen>
                     <div className="rounded-md border border-dashed bg-background/50 overflow-hidden">
-                      <div className="flex items-center justify-between px-2.5 py-1.5">
+                      <div className="px-2.5 py-1.5">
                         <CollapsibleTrigger className="flex items-center gap-1.5 group cursor-pointer">
                           <ChevronRight className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            {bIdx === 0 ? "If" : "Else If"}
+                            Else
                           </span>
                         </CollapsibleTrigger>
-                        {(field.branches?.length ?? 0) > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-                            disabled={disabled}
-                            onClick={() => removeBranch(idx, bIdx)}
-                          >
-                            <span className="text-xs">×</span>
-                          </Button>
-                        )}
                       </div>
                       <CollapsibleContent className="px-2.5 pb-2.5 space-y-2">
-                        <ConditionBuilderInline
-                          disabled={disabled}
-                          value={branch.condition}
-                          onChange={(val) => updateBranch(idx, bIdx, { condition: val })}
-                        />
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          Then
-                        </span>
                         <SetFieldValueInput
                           field={field}
-                          mode={branch.mode}
-                          fieldValue={branch.value}
+                          mode={field.elseMode || "fixed"}
+                          fieldValue={field.elseValue || ""}
                           disabled={disabled}
-                          onChangeValue={(val) => updateBranch(idx, bIdx, { value: val })}
-                          onChangeMode={(m) => updateBranch(idx, bIdx, { mode: m })}
+                          onChangeValue={(val) => updateRow(idx, { elseValue: val })}
+                          onChangeMode={(m) => updateRow(idx, { elseMode: m })}
+                          placeholder="Default value when no condition matches"
                         />
                       </CollapsibleContent>
                     </div>
                   </Collapsible>
-                ))}
-
-                {/* Add branch button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={disabled}
-                  onClick={() => addBranch(idx)}
-                  className="w-full gap-1.5 text-xs"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Branch
-                </Button>
-
-                {/* ELSE fallback */}
-                <Collapsible defaultOpen>
-                  <div className="rounded-md border border-dashed bg-background/50 overflow-hidden">
-                    <div className="px-2.5 py-1.5">
-                      <CollapsibleTrigger className="flex items-center gap-1.5 group cursor-pointer">
-                        <ChevronRight className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          Else
-                        </span>
-                      </CollapsibleTrigger>
-                    </div>
-                    <CollapsibleContent className="px-2.5 pb-2.5 space-y-2">
-                      <SetFieldValueInput
-                        field={field}
-                        mode={field.elseMode || "fixed"}
-                        fieldValue={field.elseValue || ""}
-                        disabled={disabled}
-                        onChangeValue={(val) => updateRow(idx, { elseValue: val })}
-                        onChangeMode={(m) => updateRow(idx, { elseMode: m })}
-                        placeholder="Default value when no condition matches"
-                      />
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-              </>
-            ) : (
-              <>
-                {/* Non-conditional: value + mode toggle (original layout) */}
-                <SetFieldValueInput
-                  field={field}
-                  mode={field.mode}
-                  fieldValue={field.value}
-                  disabled={disabled}
-                  onChangeValue={(val) => updateRow(idx, { value: val })}
-                  onChangeMode={(m) => updateRow(idx, { mode: m })}
-                />
-              </>
-            )}
+                </CollapsibleContent>
+              ) : (
+                <>
+                  {/* Non-conditional: value + mode toggle (original layout) */}
+                  <SetFieldValueInput
+                    field={field}
+                    mode={field.mode}
+                    fieldValue={field.value}
+                    disabled={disabled}
+                    onChangeValue={(val) => updateRow(idx, { value: val })}
+                    onChangeMode={(m) => updateRow(idx, { mode: m })}
+                  />
+                </>
+              )}
+            </Collapsible>
           </div>
         ))}
       </div>
