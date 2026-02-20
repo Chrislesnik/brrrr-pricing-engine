@@ -367,6 +367,8 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last Name"
                     autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
                     className="h-9"
                   />
                 </div>
@@ -390,6 +392,8 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
                       onChange={(e) => setSsn(formatSSN(e.target.value))}
                       placeholder="123-45-6789"
                       autoComplete="off"
+                      data-1p-ignore
+                      data-lpignore="true"
                       name="credit-ssn-field"
                       className="h-9 pr-9"
                     />

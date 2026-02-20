@@ -1293,6 +1293,9 @@ const CartStep = ({
                       placeholder="Last Name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
+                      autoComplete="off"
+                      data-1p-ignore
+                      data-lpignore="true"
                     />
                   </div>
                 </div>
@@ -1313,6 +1316,9 @@ const CartStep = ({
                         }}
                         maxLength={11}
                         className="pr-9"
+                        autoComplete="off"
+                        data-1p-ignore
+                        data-lpignore="true"
                       />
                       <button
                         type="button"
@@ -2231,6 +2237,9 @@ const CartStep = ({
                           placeholder="Last Name"
                           value={guarantorLastName}
                           onChange={(e) => setGuarantorLastName(e.target.value)}
+                          autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
                         />
                       </div>
                     </div>
@@ -2327,6 +2336,9 @@ const CartStep = ({
                             }
                             maxLength={11}
                             className="pr-9"
+                            autoComplete="off"
+                            data-1p-ignore
+                            data-lpignore="true"
                           />
                           <button
                             type="button"
