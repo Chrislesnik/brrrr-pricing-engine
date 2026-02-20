@@ -1,8 +1,5 @@
 "use client"
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyChain = any
-
 import { Editor, Range } from "@tiptap/core"
 import {
   Heading1,
@@ -29,13 +26,18 @@ export type SlashCommandItem = {
   command: (editor: Editor, range: Range) => void
 }
 
+// ─── Commands ─────────────────────────────────────────────────────────────────
+// All commands use a single `.chain().run()` call to avoid ordering issues.
+// None use window.prompt — instead we insert a selectable placeholder that
+// the user can immediately edit.
+
 export const slashCommandItems: SlashCommandItem[] = [
   {
     title: "Text",
     description: "Plain paragraph text",
     icon: <Type className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setParagraph().run()
+      editor.chain().focus().deleteRange(range).setNode("paragraph").run()
     },
   },
   {
@@ -43,7 +45,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Large section heading",
     icon: <Heading1 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 1 }).run()
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 1 }).run()
     },
   },
   {
@@ -51,7 +53,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Medium section heading",
     icon: <Heading2 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 2 }).run()
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 2 }).run()
     },
   },
   {
@@ -59,7 +61,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Small section heading",
     icon: <Heading3 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 3 }).run()
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 3 }).run()
     },
   },
   {
@@ -67,7 +69,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Sub-section heading",
     icon: <Heading4 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 4 }).run()
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 4 }).run()
     },
   },
   {
@@ -75,7 +77,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Small sub-heading",
     icon: <Heading5 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 5 }).run()
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 5 }).run()
     },
   },
   {
@@ -83,7 +85,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Tiny heading",
     icon: <Heading6 className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 6 }).run()
+      editor.chain().focus().deleteRange(range).setNode("heading", { level: 6 }).run()
     },
   },
   {
@@ -91,17 +93,17 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Insert a hyperlink",
     icon: <Link className="size-4" />,
     command: (editor, range) => {
-      const url = window.prompt("Enter link URL:", "https://")
-      if (!url) {
-        editor.chain().focus().deleteRange(range).run()
-        return
-      }
-      const text = window.prompt("Link text:", "Click here") ?? "Click here"
+      // Insert "Link text" with the link mark applied; user edits URL via the
+      // FloatingToolbar link picker that appears on selection.
       editor
         .chain()
         .focus()
         .deleteRange(range)
-        .insertContent(`<a href="${url}">${text}</a>`)
+        .insertContent({
+          type: "text",
+          text: "Link text",
+          marks: [{ type: "link", attrs: { href: "#", target: "_blank" } }],
+        })
         .run()
     },
   },
@@ -110,34 +112,22 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Call-to-action button",
     icon: <Square className="size-4" />,
     command: (editor, range) => {
-      const label = window.prompt("Button label:", "Click here") ?? "Click here"
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertContent(`<p><a class="email-button" href="#">${label}</a></p>`)
-        .run()
-    },
-  },
-  {
-    title: "Video Embed",
-    description: "Embed a video via thumbnail",
-    icon: <Video className="size-4" />,
-    command: (editor, range) => {
-      const url = window.prompt("Enter video URL (YouTube, Vimeo, etc.):", "https://")
-      if (!url) {
-        editor.chain().focus().deleteRange(range).run()
-        return
-      }
-      // Email clients don't support video — render a linked image placeholder
       editor
         .chain()
         .focus()
         .deleteRange(range)
         .insertContent(
-          `<p><a href="${url}" title="Watch video">▶ Watch video: ${url}</a></p>`
+          `<p><a class="email-button" href="#">Button text</a></p>`
         )
         .run()
+    },
+  },
+  {
+    title: "Divider",
+    description: "Horizontal rule",
+    icon: <Video className="size-4" />,
+    command: (editor, range) => {
+      editor.chain().focus().deleteRange(range).setHorizontalRule().run()
     },
   },
   {
@@ -145,7 +135,7 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Multi-line code with formatting",
     icon: <Code className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain).setCodeBlock().run()
+      editor.chain().focus().deleteRange(range).setNode("codeBlock").run()
     },
   },
   {
@@ -153,8 +143,13 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Inline code snippet",
     icon: <Code2 className="size-4" />,
     command: (editor, range) => {
-      editor.chain().focus().deleteRange(range).insertContent("`code`").run()
-      ;(editor.chain().focus() as AnyChain).toggleCode().run()
+      // Insert literal backtick-wrapped text then select it for the user
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent({ type: "text", text: "code", marks: [{ type: "code" }] })
+        .run()
     },
   },
   {
@@ -162,13 +157,18 @@ export const slashCommandItems: SlashCommandItem[] = [
     description: "Write or paste raw HTML",
     icon: <FileCode className="size-4" />,
     command: (editor, range) => {
-      ;(editor.chain().focus().deleteRange(range) as AnyChain)
-        .setCodeBlock()
-        .insertContent("<!-- paste your HTML here -->")
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setNode("codeBlock", { language: "html" })
+        .insertContent("<!-- paste HTML here -->")
         .run()
     },
   },
 ]
+
+// ─── Section labels ────────────────────────────────────────────────────────────
 
 const SECTION_MAP: Record<string, string> = {
   Text: "TEXT",
@@ -180,11 +180,13 @@ const SECTION_MAP: Record<string, string> = {
   "Heading 6": "TEXT",
   Link: "MEDIA",
   Button: "MEDIA",
-  "Video Embed": "MEDIA",
+  Divider: "MEDIA",
   "Code Block": "CODE",
   "Inline Code": "CODE",
   HTML: "CODE",
 }
+
+// ─── List component ────────────────────────────────────────────────────────────
 
 export type SlashCommandListHandle = {
   onKeyDown: (event: KeyboardEvent) => boolean
@@ -223,7 +225,11 @@ export const SlashCommandList = forwardRef<SlashCommandListHandle, SlashCommandL
 
     let lastSection = ""
     return (
-      <div className="z-50 w-64 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg">
+      // onMouseDown preventDefault keeps editor focus when clicking popup items
+      <div
+        className="z-50 w-64 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
+        onMouseDown={(e) => e.preventDefault()}
+      >
         <div className="max-h-80 overflow-y-auto p-1">
           {items.map((item, index) => {
             const section = SECTION_MAP[item.title] ?? ""
@@ -238,6 +244,7 @@ export const SlashCommandList = forwardRef<SlashCommandListHandle, SlashCommandL
                 )}
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => command(item)}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors",

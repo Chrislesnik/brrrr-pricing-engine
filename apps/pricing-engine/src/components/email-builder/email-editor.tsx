@@ -1,7 +1,9 @@
 "use client"
 
+import { Suspense } from "react"
 import { useEditor, EditorContent, ReactRenderer, Editor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
+import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
 import { Extension } from "@tiptap/core"
 import Suggestion from "@tiptap/suggestion"
@@ -111,20 +113,19 @@ function createSlashExtension(): Extension {
   })
 }
 
-// ─── Thread overlay (anchored desktop / floating mobile) ──────────────────────
+// ─── Thread overlay ───────────────────────────────────────────────────────────
+// Wrapped in its own Suspense so thread-loading suspension / fetch errors
+// don't propagate up and affect the editor itself.
 
-function ThreadsOverlay({ editor }: { editor: Editor | null }) {
+function ThreadsContent({ editor }: { editor: Editor | null }) {
   const { threads } = useThreads({ query: { resolved: false } })
-
   return (
     <>
-      {/* Small screens: threads float near their selection */}
       <FloatingThreads
         editor={editor}
         threads={threads}
         className="w-[350px] xl:hidden"
       />
-      {/* Large screens: threads anchored to the right of the editor */}
       <AnchoredThreads
         editor={editor}
         threads={threads}
@@ -134,7 +135,15 @@ function ThreadsOverlay({ editor }: { editor: Editor | null }) {
   )
 }
 
-// ─── Main editor component ────────────────────────────────────────────────────
+function ThreadsOverlay({ editor }: { editor: Editor | null }) {
+  return (
+    <Suspense fallback={null}>
+      <ThreadsContent editor={editor} />
+    </Suspense>
+  )
+}
+
+// ─── Main editor ──────────────────────────────────────────────────────────────
 
 export function EmailEditor({ styles, onEditorReady }: Props) {
   const liveblocks = useLiveblocksExtension()
@@ -145,8 +154,12 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
     extensions: [
       liveblocks,
       StarterKit.configure({
-        // Liveblocks handles its own collaborative undo/redo
+        // Liveblocks provides its own collaborative undo/redo via Yjs
         undoRedo: false,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
       }),
       MergeTagExtension,
       Placeholder.configure({
@@ -188,7 +201,7 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
       {/* Liveblocks: floating composer to start a comment thread */}
       <FloatingComposer editor={editor} style={{ width: "350px" }} />
 
-      {/* Liveblocks: render active comment threads */}
+      {/* Liveblocks: active comment threads (isolated Suspense boundary) */}
       <ThreadsOverlay editor={editor} />
 
       <style>{`

@@ -82,6 +82,7 @@
     "@tanstack/react-virtual": "^3.13.18",
     "@tiptap/extension-collaboration": "^3.20.0",
     "@tiptap/extension-collaboration-cursor": "^2.26.2",
+    "@tiptap/extension-link": "^3.20.0",
     "@tiptap/extension-placeholder": "^3.20.0",
     "@tiptap/html": "^3.20.0",
     "@tiptap/suggestion": "^3.20.0",

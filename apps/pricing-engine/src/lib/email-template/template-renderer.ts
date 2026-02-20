@@ -1,5 +1,6 @@
 import { generateHTML } from "@tiptap/html"
 import StarterKit from "@tiptap/starter-kit"
+import Link from "@tiptap/extension-link"
 import type { MergeValues } from "./merge-resolver"
 
 // ─── Tiptap JSON types (minimal) ─────────────────────────────────────────────
@@ -57,7 +58,7 @@ export function renderTemplate(
 ): string {
   const resolved = resolveNode(editorJson as TiptapNode, values)
 
-  const bodyHtml = generateHTML(resolved as Parameters<typeof generateHTML>[0], [StarterKit])
+  const bodyHtml = generateHTML(resolved as Parameters<typeof generateHTML>[0], [StarterKit, Link])
 
   const font = styles?.fontFamily ?? "Inter, -apple-system, sans-serif"
   const fontSize = styles?.fontSize ?? 15
