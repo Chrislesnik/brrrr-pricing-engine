@@ -552,13 +552,8 @@ export default function PricingEnginePage() {
         setIsBrokerMember(j?.editable === false)
         setSelfMemberId(j?.self_member_id ?? null)
         setSelfBrokerId(j?.self_broker_id ?? null)
-      } catch (err) {
-        if (!active) return
-        toast({
-          title: "Failed to load user info",
-          description: "Your permissions may not display correctly. Try refreshing the page.",
-          variant: "destructive",
-        })
+      } catch {
+        // ignore
       }
     })()
     return () => { active = false }
@@ -773,16 +768,13 @@ export default function PricingEnginePage() {
           cache: "no-store",
           headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
         })
-        if (!res.ok) {
-          if (active) toast({ title: "Failed to load programs", description: `Server returned ${res.status}. Programs may not appear.`, variant: "destructive" })
-          return
-        }
+        if (!res.ok) return
         const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
         if (!active) return
         const ph = Array.isArray(pj?.programs) ? pj.programs : []
         setProgramPlaceholders(ph)
-      } catch (err) {
-        if (active) toast({ title: "Failed to load programs", description: "Check your connection and try refreshing.", variant: "destructive" })
+      } catch {
+        // ignore
       }
     })()
     return () => {
@@ -1007,8 +999,30 @@ export default function PricingEnginePage() {
       loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
     )
     defaultsAppliedRef.current = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialLoanId])
+  }, [
+    initialLoanId,
+    borrowerType,
+    fthb,
+    citizenship,
+    mortgageDebtValue,
+    rural,
+    strValue,
+    decliningMarket,
+    annualFlood,
+    annualHoa,
+    annualMgmt,
+    closingDate,
+    loanStructureType,
+    ppp,
+    borrowerName,
+    uwException,
+    section8,
+    glaExpansion,
+    changeOfUse,
+    hoiEffective,
+    floodEffective,
+    taxEscrowMonths,
+  ])
 
   // Keep Tax Escrow (months) default in sync with loan type until user edits it
   useEffect(() => {
@@ -1590,8 +1604,8 @@ export default function PricingEnginePage() {
           // initialize result slots in same order so containers render in place
           setProgramResults(ph.map((p) => ({ id: p.id, internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
         }
-      } catch (err) {
-        toast({ title: "Program loading issue", description: "Could not prefetch programs. Results may still load.", variant: "destructive" })
+      } catch {
+        // ignore prefetch errors; we'll still show a generic loader
       }
       const payload = buildPayload()
       try {
@@ -1683,9 +1697,8 @@ export default function PricingEnginePage() {
               }
               return next
             })
-          } catch (err) {
-            const name = p.external_name || p.internal_name || `Program ${idx + 1}`
-            toast({ title: `${name} failed`, description: "This program could not be calculated. Other programs may still load.", variant: "destructive" })
+          } catch {
+            // leave the loader if a single program fails; others will still resolve
           }
         })
       )
@@ -2008,9 +2021,7 @@ export default function PricingEnginePage() {
       el.removeEventListener("change", markDirty, true)
     }
   }, [isDispatching, programResults, lastCalculatedKey])
-  // Also detect programmatic/default changes that don't emit input/change events.
-  // Intentionally has no deps — must run on every render to catch any state change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Also detect programmatic/default changes that don't emit input/change events
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
@@ -2053,8 +2064,8 @@ export default function PricingEnginePage() {
         } else {
           setSelectedScenarioId(undefined)
         }
-      } catch (err) {
-        toast({ title: "Failed to load scenarios", description: "Could not retrieve saved scenarios for this loan.", variant: "destructive" })
+      } catch {
+        // ignore
       }
     })()
   }, [initialLoanId])
@@ -2218,10 +2229,7 @@ export default function PricingEnginePage() {
     ;(async () => {
       try {
         const res = await fetch(`/api/scenarios/${sid}`)
-        if (!res.ok) {
-          toast({ title: "Failed to load scenario", description: `Could not load scenario data (${res.status}).`, variant: "destructive" })
-          return
-        }
+        if (!res.ok) return
         const json = (await res.json()) as { scenario?: { inputs?: Record<string, unknown>; selected?: Record<string, unknown> } }
         const inputs = json.scenario?.inputs ?? {}
         applyInputsPayload(inputs as Record<string, unknown>)
@@ -2256,8 +2264,8 @@ export default function PricingEnginePage() {
                 dscr: sel["dscr"] as number | string | null,
               },
         })
-      } catch (err) {
-        toast({ title: "Failed to load scenario", description: "Could not restore saved inputs. Try selecting it again.", variant: "destructive" })
+      } catch {
+        // ignore errors
       }
     })()
   }, [selectedScenarioId])
@@ -3169,49 +3177,39 @@ export default function PricingEnginePage() {
                               <div
                                 ref={predictionsMenuRef}
                                 className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow"
+                                role="listbox"
                                 onMouseDown={() => {
+                                  // Mark that the pointer is interacting within the menu (used by onBlur)
                                   pointerInMenuRef.current = true
                                 }}
                                 onMouseUp={() => {
+                                  // Reset after click completes
                                   pointerInMenuRef.current = false
                                 }}
                               >
-                                <div
-                                  role="listbox"
-                                  aria-label="Address suggestions"
-                                >
-                                  {predictions.map((p, idx) => (
-                                    <div
-                                      key={p.place_id}
-                                      role="option"
-                                      aria-selected={idx === activePredictionIdx ? "true" : "false"}
-                                      tabIndex={-1}
-                                      className={`flex w-full cursor-pointer items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
-                                        idx === activePredictionIdx ? "bg-accent" : ""
-                                      }`}
-                                      onMouseEnter={() => setActivePredictionIdx(idx)}
-                                      onClick={() => {
-                                        applyPlaceById(p.place_id)
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                          e.preventDefault()
-                                          applyPlaceById(p.place_id)
-                                        }
-                                      }}
-                                    >
-                                      <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                      <div className="flex min-w-0 flex-col">
-                                        <span className="truncate text-sm font-medium">
-                                          {p.structured_formatting?.main_text ?? p.description}
-                                        </span>
-                                        <span className="truncate text-xs text-muted-foreground">
-                                          {p.structured_formatting?.secondary_text ?? ""}
-                                        </span>
-                                      </div>
+                                {predictions.map((p, idx) => (
+                                  <button
+                                    key={p.place_id}
+                                    type="button"
+                                    className={`flex w-full items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
+                                      idx === activePredictionIdx ? "bg-accent" : ""
+                                    }`}
+                                    onMouseEnter={() => setActivePredictionIdx(idx)}
+                                    onClick={() => {
+                                      applyPlaceById(p.place_id)
+                                    }}
+                                  >
+                                    <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                    <div className="flex min-w-0 flex-col">
+                                      <span className="truncate text-sm font-medium">
+                                        {p.structured_formatting?.main_text ?? p.description}
+                                      </span>
+                                      <span className="truncate text-xs text-muted-foreground">
+                                        {p.structured_formatting?.secondary_text ?? ""}
+                                      </span>
                                     </div>
-                                  ))}
-                                </div>
+                                  </button>
+                                ))}
                                 <div className="border-t px-2 py-1 text-right text-[10px] uppercase tracking-wide text-muted-foreground">
                                   Powered by Google
                                 </div>
@@ -3705,7 +3703,7 @@ export default function PricingEnginePage() {
                               onMonthChange={setClosingCalMonth}
                               onSelect={(d) => d && setClosingDate(d)}
                               disabled={{ before: new Date() }}
-                              captionLayout="dropdown"
+                              captionLayout="label"
                               className="rounded-md border min-w-[264px]"
                               initialFocus
                             />
@@ -5842,7 +5840,6 @@ function ResultsPanel({
         setSelected(selectedFromProps)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFromProps, results])
 
   // Main panel term sheet preview/download state
