@@ -213,7 +213,7 @@ export function StudioEditorWrapper({
       <StudioEditorComponent
         key={grapejsTheme}
         options={{
-          licenseKey: "",
+          licenseKey: process.env.NEXT_PUBLIC_GRAPESJS_LICENSE_KEY || "",
           theme: grapejsTheme,
           customTheme,
           fonts: { enableFontManager: true },
@@ -286,24 +286,6 @@ export function StudioEditorWrapper({
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       buttons: ({ items }: { items: any[] }) => [
                         ...items.filter((item: any) => TOOLBAR_KEEP_LEFT.includes(item.id)),
-                        {
-                          id: "ai-chat",
-                          icon: ICONS.aiChat,
-                          tooltip: "AI Assistant",
-                          editorEvents: {
-                            "studio:layoutToggle:aiChatPanel": ({ fromEvent, setState }: any) =>
-                              setState({ active: fromEvent.isOpen }),
-                          },
-                          onClick: ({ editor }: any) => {
-                            editor.runCommand("studio:layoutToggle", {
-                              id: "aiChatPanel",
-                              layout: { type: "aiChatPanel" },
-                              header: { label: "AI Assistant" },
-                              placer: { type: "absolute", position: "right" },
-                              style: { width: 360 },
-                            })
-                          },
-                        },
                       ],
                     },
                     rightContainer: {
@@ -355,9 +337,31 @@ export function StudioEditorWrapper({
                   style: { borderLeftWidth: 1, overflowY: "auto" },
                   children: [
                     {
-                      type: "panelBlocks",
-                      symbols: false,
-                      header: { label: "Variables", collapsible: false },
+                      type: "tabs",
+                      value: "variables",
+                      tabs: [
+                        {
+                          id: "variables",
+                          label: "Variables",
+                          children: {
+                            type: "panelBlocks",
+                            symbols: false,
+                            header: { label: "Variables", collapsible: false },
+                          },
+                        },
+                        {
+                          id: "ai-chat",
+                          label: "AI Chat",
+                          children: {
+                            type: "column",
+                            full: true,
+                            style: { height: "100%", minHeight: 0 },
+                            children: [
+                              { type: "aiChatPanel" },
+                            ],
+                          },
+                        },
+                      ],
                     },
                   ],
                 },
@@ -559,34 +563,37 @@ export function StudioEditorWrapper({
             }
           })
 
-          // Remove all non-"Variables" category DOM nodes from the right panel, then reveal
+          // Hide all non-"Variables" categories in the right panel via CSS + DOM hiding
           const cleanRightPanel = () => {
-            const container = document.querySelector(".variables-only-blocks")
-            if (!container) return
+            const sidebar = document.querySelector(".variables-only-blocks")
+            if (!sidebar) return
 
-            const removeNonVariableCategories = () => {
+            const blocksPanels = sidebar.querySelectorAll("[class*='panel-blocks'], [class*='PanelBlocks'], [class*='panelBlocks']")
+            const target = blocksPanels[0] || sidebar
+
+            const hideNonVariableCategories = () => {
               const categoryNames = ["Basic", "Data Sources", "Extra", "Layout"]
-              // Find buttons/headings that label each category section
-              container.querySelectorAll("button, [role='button']").forEach(el => {
+              target.querySelectorAll("button, [role='button']").forEach(el => {
                 const text = el.textContent?.trim() || ""
-                if (categoryNames.some(name => text === name)) {
-                  const wrapper = el.closest("[data-state]") || el.parentElement
-                  if (wrapper && wrapper !== container) wrapper.remove()
+                if (categoryNames.some(name => text === name || text.startsWith(name))) {
+                  const wrapper = (el.closest("[data-state]") || el.parentElement) as HTMLElement | null
+                  if (wrapper && wrapper !== sidebar && wrapper !== target) {
+                    wrapper.style.display = "none"
+                  }
                 }
               })
-              // Reveal the panel once cleaned
-              container.classList.add("--categories-ready")
+              sidebar.classList.add("--categories-ready")
             }
 
-            removeNonVariableCategories()
-            // Re-run on DOM changes in case GrapesJS re-renders categories
+            hideNonVariableCategories()
             const observer = new MutationObserver(() => {
-              removeNonVariableCategories()
+              hideNonVariableCategories()
             })
-            observer.observe(container, { childList: true, subtree: true })
+            observer.observe(target, { childList: true, subtree: true })
           }
           setTimeout(cleanRightPanel, 200)
           setTimeout(cleanRightPanel, 800)
+          setTimeout(cleanRightPanel, 1500)
           editor.on("block:add", () => setTimeout(cleanRightPanel, 50))
 
           // MutationObserver: hide "Variables" category from the left panel

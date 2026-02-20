@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     messages,
     projectContext,
     abortSignal: req.signal,
-    model: openaiProvider("gpt-4o"),
-    agentCode: { model: openaiProvider("gpt-4o") },
+    model: openaiProvider("gpt-4.1"),
+    agentCode: { model: openaiProvider("gpt-4.1") },
   })
 }

@@ -49,6 +49,14 @@ const grapejsThemeStyles = `
   .gs-preview-mode iframe {
     pointer-events: none !important;
   }
+  /* AI Chat panel: ensure it fills the tab height */
+  .variables-only-blocks [class*="aiChat"],
+  .variables-only-blocks [class*="ai-chat"] {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
   /* Preview mode: hide left and right sidebars */
   .gs-preview-mode .blocks-panel-left,
   .gs-preview-mode .variables-only-blocks {
