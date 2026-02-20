@@ -4,8 +4,8 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 /**
- * GET /api/document-templates/[id]/fields
- * Get all fields for a specific document template
+ * GET /api/document-templates/[id]/variables
+ * Get all variables for a specific document template
  */
 export async function GET(
   req: NextRequest,
@@ -21,7 +21,6 @@ export async function GET(
 
     const { id: templateId } = await params
 
-    // Verify the template belongs to the organization
     const { data: template, error: templateError } = await supabaseAdmin
       .from("document_templates")
       .select("id")
@@ -32,25 +31,23 @@ export async function GET(
     if (templateError) return NextResponse.json({ error: templateError.message }, { status: 500 })
     if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 })
 
-    // Fetch fields ordered by position
-    const { data: fields, error } = await supabaseAdmin
-      .from("document_template_fields")
-      .select("id, name, field_type, required, position, created_at, updated_at")
+    const { data: variables, error } = await supabaseAdmin
+      .from("document_template_variables")
+      .select("id, name, variable_type, required, position, created_at, updated_at")
       .eq("template_id", templateId)
       .order("position", { ascending: true })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Map field_type to type for frontend compatibility
-    const mappedFields = (fields ?? []).map(f => ({
-      id: f.id,
-      name: f.name,
-      type: f.field_type,
-      required: f.required,
-      position: f.position,
+    const mappedVariables = (variables ?? []).map(v => ({
+      id: v.id,
+      name: v.name,
+      type: v.variable_type,
+      required: v.required,
+      position: v.position,
     }))
 
-    return NextResponse.json({ fields: mappedFields })
+    return NextResponse.json({ variables: mappedVariables })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -58,8 +55,8 @@ export async function GET(
 }
 
 /**
- * PUT /api/document-templates/[id]/fields
- * Replace all fields for a template (bulk update)
+ * PUT /api/document-templates/[id]/variables
+ * Replace all variables for a template (bulk update)
  */
 export async function PUT(
   req: NextRequest,
@@ -75,13 +72,12 @@ export async function PUT(
 
     const { id: templateId } = await params
     const body = await req.json()
-    const { fields } = body
+    const { variables } = body
 
-    if (!Array.isArray(fields)) {
-      return NextResponse.json({ error: "Fields must be an array" }, { status: 400 })
+    if (!Array.isArray(variables)) {
+      return NextResponse.json({ error: "Variables must be an array" }, { status: 400 })
     }
 
-    // Verify the template belongs to the organization
     const { data: template, error: templateError } = await supabaseAdmin
       .from("document_templates")
       .select("id")
@@ -92,49 +88,46 @@ export async function PUT(
     if (templateError) return NextResponse.json({ error: templateError.message }, { status: 500 })
     if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 })
 
-    // Delete existing fields
     const { error: deleteError } = await supabaseAdmin
-      .from("document_template_fields")
+      .from("document_template_variables")
       .delete()
       .eq("template_id", templateId)
 
     if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
 
-    // Insert new fields if any
-    if (fields.length > 0) {
-      const fieldsToInsert = fields.map((f: { name: string; type: string; required?: boolean }, index: number) => ({
+    if (variables.length > 0) {
+      const variablesToInsert = variables.map((v: { name: string; type: string; required?: boolean }, index: number) => ({
         template_id: templateId,
-        name: f.name,
-        field_type: f.type,
-        required: f.required ?? false,
+        name: v.name,
+        variable_type: v.type,
+        required: v.required ?? false,
         position: index,
       }))
 
       const { error: insertError } = await supabaseAdmin
-        .from("document_template_fields")
-        .insert(fieldsToInsert)
+        .from("document_template_variables")
+        .insert(variablesToInsert)
 
       if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // Fetch and return updated fields
-    const { data: updatedFields, error: fetchError } = await supabaseAdmin
-      .from("document_template_fields")
-      .select("id, name, field_type, required, position")
+    const { data: updatedVariables, error: fetchError } = await supabaseAdmin
+      .from("document_template_variables")
+      .select("id, name, variable_type, required, position")
       .eq("template_id", templateId)
       .order("position", { ascending: true })
 
     if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
 
-    const mappedFields = (updatedFields ?? []).map(f => ({
-      id: f.id,
-      name: f.name,
-      type: f.field_type,
-      required: f.required,
-      position: f.position,
+    const mappedVariables = (updatedVariables ?? []).map(v => ({
+      id: v.id,
+      name: v.name,
+      type: v.variable_type,
+      required: v.required,
+      position: v.position,
     }))
 
-    return NextResponse.json({ fields: mappedFields })
+    return NextResponse.json({ variables: mappedVariables })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -142,8 +135,8 @@ export async function PUT(
 }
 
 /**
- * POST /api/document-templates/[id]/fields
- * Add a single field to a template
+ * POST /api/document-templates/[id]/variables
+ * Add a single variable to a template
  */
 export async function POST(
   req: NextRequest,
@@ -168,7 +161,6 @@ export async function POST(
       return NextResponse.json({ error: "Type is required" }, { status: 400 })
     }
 
-    // Verify the template belongs to the organization
     const { data: template, error: templateError } = await supabaseAdmin
       .from("document_templates")
       .select("id")
@@ -179,9 +171,8 @@ export async function POST(
     if (templateError) return NextResponse.json({ error: templateError.message }, { status: 500 })
     if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 })
 
-    // Get the max position
     const { data: maxPosData } = await supabaseAdmin
-      .from("document_template_fields")
+      .from("document_template_variables")
       .select("position")
       .eq("template_id", templateId)
       .order("position", { ascending: false })
@@ -190,13 +181,12 @@ export async function POST(
 
     const newPosition = (maxPosData?.position ?? -1) + 1
 
-    // Insert the new field
-    const { data: newField, error: insertError } = await supabaseAdmin
-      .from("document_template_fields")
+    const { data: newVariable, error: insertError } = await supabaseAdmin
+      .from("document_template_variables")
       .insert({
         template_id: templateId,
         name,
-        field_type: type,
+        variable_type: type,
         required,
         position: newPosition,
       })
@@ -206,12 +196,12 @@ export async function POST(
     if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
 
     return NextResponse.json({
-      field: {
-        id: newField.id,
-        name: newField.name,
-        type: newField.field_type,
-        required: newField.required,
-        position: newField.position,
+      variable: {
+        id: newVariable.id,
+        name: newVariable.name,
+        type: newVariable.variable_type,
+        required: newVariable.required,
+        position: newVariable.position,
       }
     }, { status: 201 })
   } catch (e) {

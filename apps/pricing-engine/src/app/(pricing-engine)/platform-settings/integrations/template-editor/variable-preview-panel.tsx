@@ -6,56 +6,49 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { IconTestPipe, IconRefresh, IconPlayerPlay } from "@tabler/icons-react"
-import { Field, FieldType, getTypeColors } from "./field-types"
+import { Variable, VariableType, getTypeColors } from "./variable-types"
 import { cn } from "@/lib/utils"
 
 interface VariablePreviewPanelProps {
-  fields: Field[]
+  variables: Variable[]
   values: Record<string, string>
   onValuesChange: (values: Record<string, string>) => void
 }
 
 export function VariablePreviewPanel({
-  fields,
+  variables,
   values,
   onValuesChange,
 }: VariablePreviewPanelProps) {
-  // Local state for immediate input feedback
   const [localValues, setLocalValues] = useState<Record<string, string>>(values)
 
-  // Sync local values when external values change (only if different)
   useEffect(() => {
     setLocalValues(values)
   }, [values])
 
-  // Handle input change - immediate local update only
-  const handleInputChange = useCallback((fieldName: string, value: string) => {
-    setLocalValues(prev => ({ ...prev, [fieldName]: value }))
+  const handleInputChange = useCallback((variableName: string, value: string) => {
+    setLocalValues(prev => ({ ...prev, [variableName]: value }))
   }, [])
 
-  // Apply test data to preview - manual trigger
   const handleApplyToPreview = useCallback(() => {
     onValuesChange(localValues)
   }, [localValues, onValuesChange])
 
-  // Check if there are unapplied changes
   const hasUnappliedChanges = Object.keys(localValues).some(
     key => localValues[key] !== values[key]
   )
 
-  // Clear all values
   const handleClearAll = useCallback(() => {
     const emptyValues: Record<string, string> = {}
-    fields.forEach(f => {
-      emptyValues[f.name] = ""
+    variables.forEach(v => {
+      emptyValues[v.name] = ""
     })
     setLocalValues(emptyValues)
     onValuesChange(emptyValues)
-  }, [fields, onValuesChange])
+  }, [variables, onValuesChange])
 
-  // Get placeholder based on field type
-  const getPlaceholder = (field: Field): string => {
-    switch (field.type) {
+  const getPlaceholder = (variable: Variable): string => {
+    switch (variable.type) {
       case "Number":
         return "0"
       case "Boolean":
@@ -65,23 +58,22 @@ export function VariablePreviewPanel({
       case "Object":
         return "{}"
       default:
-        return `Enter ${field.name.replace(/_/g, " ")}`
+        return `Enter ${variable.name.replace(/_/g, " ")}`
     }
   }
 
-  // Get input type based on field type
-  const getInputType = (field: Field): string => {
-    switch (field.type) {
+  const getInputType = (variable: Variable): string => {
+    switch (variable.type) {
       case "Number":
-        return "text" // Keep text for flexibility with currency, etc.
+        return "text"
       default:
         return "text"
     }
   }
 
-  if (fields.length === 0) {
+  if (variables.length === 0) {
     return (
-      <div className="flex flex-col h-full p-2">
+      <div className="flex flex-col h-full">
         <div className="flex flex-col h-full bg-background border rounded-lg shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
             <div className="flex items-center gap-2">
@@ -91,8 +83,8 @@ export function VariablePreviewPanel({
           </div>
           <div className="flex-1 flex items-center justify-center p-4">
             <p className="text-sm text-muted-foreground text-center">
-              No fields defined.<br />
-              Click "Edit Fields" to add variables.
+              No variables defined.<br />
+              Click &quot;Edit Variables&quot; to add variables.
             </p>
           </div>
         </div>
@@ -101,7 +93,7 @@ export function VariablePreviewPanel({
   }
 
   return (
-    <div className="flex flex-col h-full p-2">
+    <div className="flex flex-col h-full">
       <div className="flex flex-col h-full bg-background border rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
@@ -121,33 +113,33 @@ export function VariablePreviewPanel({
           </Button>
         </div>
 
-        {/* Fields List */}
+        {/* Variables List */}
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
-            {fields.map((field) => (
-              <div key={field.id} className="space-y-1.5">
+            {variables.map((variable) => (
+              <div key={variable.id} className="space-y-1.5">
                 <Label 
-                  htmlFor={`preview-${field.id}`}
+                  htmlFor={`preview-${variable.id}`}
                   className="text-xs font-medium text-muted-foreground flex items-center gap-1"
                 >
-                  <span className="font-mono">{field.name}</span>
-                  {field.required && (
+                  <span className="font-mono">{variable.name}</span>
+                  {variable.required && (
                     <span className="text-destructive">*</span>
                   )}
                   <span className={cn(
                     "ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded",
-                    getTypeColors(field.type).bg,
-                    getTypeColors(field.type).text
+                    getTypeColors(variable.type).bg,
+                    getTypeColors(variable.type).text
                   )}>
-                    {field.type}
+                    {variable.type}
                   </span>
                 </Label>
                 <Input
-                  id={`preview-${field.id}`}
-                  type={getInputType(field)}
-                  placeholder={getPlaceholder(field)}
-                  value={localValues[field.name] || ""}
-                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  id={`preview-${variable.id}`}
+                  type={getInputType(variable)}
+                  placeholder={getPlaceholder(variable)}
+                  value={localValues[variable.name] || ""}
+                  onChange={(e) => handleInputChange(variable.name, e.target.value)}
                   className="h-8 text-sm font-mono"
                 />
               </div>

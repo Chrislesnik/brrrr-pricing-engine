@@ -5,8 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe } from "@tabler/icons-react"
-import { Field, defaultFields, fieldsToGlobalData } from "./field-types"
-import { FieldEditorModal } from "./field-editor-modal"
+import { Variable, defaultVariables, variablesToGlobalData } from "./variable-types"
+import { VariableEditorModal } from "./variable-editor-modal"
 import { TemplateGallery } from "./template-gallery"
 import { VariablePreviewPanel } from "./variable-preview-panel"
 import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
@@ -25,6 +25,36 @@ const StudioEditorWrapper = dynamic(
 
 /* GrapesJS: modal z-index fixes + violet-to-org-primary catch-all */
 const grapejsThemeStyles = `
+  /* Preview mode: hide all editor chrome */
+  .gs-preview-mode .gjs-cv-canvas__frames,
+  .gs-preview-mode [class*="gs-canvas"] {
+    pointer-events: none !important;
+  }
+  .gs-preview-mode [class*="spot"],
+  .gs-preview-mode [class*="Spot"],
+  .gs-preview-mode [class*="toolbar"],
+  .gs-preview-mode [class*="Toolbar"],
+  .gs-preview-mode [class*="resizer"],
+  .gs-preview-mode [class*="Resizer"],
+  .gs-preview-mode [class*="badge"],
+  .gs-preview-mode [class*="Badge"],
+  .gs-preview-mode [class*="highlight"],
+  .gs-preview-mode [class*="Highlight"],
+  .gs-preview-mode [class*="offset-v"],
+  .gs-preview-mode [class*="offset-fixed"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+  .gs-preview-mode iframe {
+    pointer-events: none !important;
+  }
+  /* Preview mode: hide left and right sidebars */
+  .gs-preview-mode .blocks-panel-left,
+  .gs-preview-mode .variables-only-blocks {
+    display: none !important;
+  }
+
   #headlessui-portal-root {
     position: fixed !important;
     z-index: 99999 !important;
@@ -190,8 +220,8 @@ export function DocumentsTab() {
   const templateName = searchParams.get("name") || "Untitled Template"
   const isEditorMode = templateId !== null || isNewTemplate
 
-  const [fields, setFields] = useState<Field[]>(defaultFields)
-  const [fieldEditorOpen, setFieldEditorOpen] = useState(false)
+  const [variables, setVariables] = useState<Variable[]>(defaultVariables)
+  const [variableEditorOpen, setVariableEditorOpen] = useState(false)
   const [currentTemplate, setCurrentTemplate] = useState<DocumentTemplate | null>(null)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
   const [templateError, setTemplateError] = useState<string | null>(null)
@@ -205,46 +235,71 @@ export function DocumentsTab() {
 
   const handleApplyPreviewValues = useCallback((values: Record<string, string>) => {
     setPreviewValues(values)
+    if (!editorRef.current) return
+    const editor = editorRef.current
+    try {
+      // Use GrapesJS component API to find all data-variable components
+      const wrapper = editor.DomComponents.getWrapper()
+      const varComponents = wrapper.findType("data-variable")
 
-    if (editorRef.current) {
-      const editor = editorRef.current
-      try {
-        const ds = editor.DataSources.get("globalData")
-        if (ds) {
-          Object.entries(values).forEach(([key, value]) => {
-            const record = ds.getRecord(key)
-            if (record) {
-              record.set({ data: value.trim() || `{{${key}}}` })
-            }
-          })
+      const hasAnyValue = Object.values(values).some(v => v.trim())
+
+      varComponents.forEach((comp: any) => {
+        const el = comp.getEl()
+        if (!el) return
+
+        // If all values are empty (clear), restore original tags
+        if (!hasAnyValue && el.hasAttribute("data-preview-active")) {
+          el.innerHTML = el.getAttribute("data-preview-original") || ""
+          el.style.cssText = el.getAttribute("data-preview-original-style") || ""
+          el.removeAttribute("data-preview-active")
+          el.removeAttribute("data-preview-original")
+          el.removeAttribute("data-preview-original-style")
+          return
         }
-      } catch (e) {
-        console.warn("Failed to update data source with test values:", e)
-      }
+
+        const resolver = comp.get("dataResolver") || {}
+        const path = resolver.path || ""
+        const pathMatch = path.match(/globalData\.([^.]+)\./)
+        const varName = pathMatch?.[1] || ""
+        const testValue = values[varName]?.trim()
+        if (!testValue) return
+
+        // Save original state for restoration
+        if (!el.hasAttribute("data-preview-original")) {
+          el.setAttribute("data-preview-original", el.innerHTML)
+          el.setAttribute("data-preview-original-style", el.getAttribute("style") || "")
+        }
+        el.setAttribute("data-preview-active", "true")
+        el.textContent = testValue
+        el.style.cssText = "display:inline !important;background:none !important;border:none !important;padding:0 !important;font-size:inherit !important;font-weight:inherit !important;font-family:inherit !important;color:inherit !important;line-height:inherit !important;white-space:normal !important;border-radius:0 !important;vertical-align:baseline !important;"
+      })
+    } catch (e) {
+      console.warn("Failed to apply preview values:", e)
     }
   }, [])
 
-  const globalData = useMemo(() => fieldsToGlobalData(fields), [fields])
+  const globalData = useMemo(() => variablesToGlobalData(variables), [variables])
 
-  const handleInsertVariable = useCallback((fieldName: string) => {
+  const handleInsertVariable = useCallback((variableName: string) => {
     const editor = editorRef.current
     if (!editor) return
     const selected = editor.getSelected() || editor.getWrapper()
     if (selected) {
       const resolver = JSON.stringify({
-        path: `globalData.${fieldName}.data`,
-        defaultValue: fieldName,
+        path: `globalData.${variableName}.data`,
+        defaultValue: variableName,
       })
       selected.append(`<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`)
     }
   }, [])
 
   const variableOptions = useMemo(() => 
-    fields.map(field => ({
-      id: `{{${field.name}}}`,
-      label: field.name
+    variables.map(variable => ({
+      id: `{{${variable.name}}}`,
+      label: variable.name
     })),
-    [fields]
+    [variables]
   )
 
   useEffect(() => {
@@ -254,22 +309,22 @@ export function DocumentsTab() {
     setLoadingTemplate(true)
     setTemplateError(null)
     setCurrentTemplate(null)
-    setFields(defaultFields)
+    setVariables(defaultVariables)
 
     Promise.all([
       fetch(`/api/document-templates/${templateId}`).then(res => {
         if (!res.ok) throw new Error("Template not found")
         return res.json()
       }),
-      fetch(`/api/document-templates/${templateId}/fields`).then(res => {
-        if (!res.ok) throw new Error("Failed to load fields")
+      fetch(`/api/document-templates/${templateId}/variables`).then(res => {
+        if (!res.ok) throw new Error("Failed to load variables")
         return res.json()
       })
     ])
-      .then(([templateData, fieldsData]) => {
+      .then(([templateData, variablesData]) => {
         if (cancelled) return
         setCurrentTemplate(templateData.template)
-        setFields(fieldsData.fields || [])
+        setVariables(variablesData.variables || [])
       })
       .catch(e => {
         if (cancelled) return
@@ -416,19 +471,46 @@ export function DocumentsTab() {
         <div className="flex items-center gap-2">
           <Button
             variant={showTestPanel ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setShowTestPanel(!showTestPanel)}
+            className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+            onClick={() => {
+              const next = !showTestPanel
+              setShowTestPanel(next)
+              const editor = editorRef.current
+              if (!editor) return
+
+              if (next) {
+                editor.select(null)
+                const root = document.querySelector(".gs-studio-root")
+                root?.classList.add("gs-preview-mode")
+              } else {
+                // Restore original variable tags in the canvas
+                try {
+                  const wrapper = editor.DomComponents.getWrapper()
+                  wrapper.findType("data-variable").forEach((comp: any) => {
+                    const el = comp.getEl()
+                    if (!el || !el.hasAttribute("data-preview-active")) return
+                    el.innerHTML = el.getAttribute("data-preview-original") || ""
+                    el.style.cssText = el.getAttribute("data-preview-original-style") || ""
+                    el.removeAttribute("data-preview-active")
+                    el.removeAttribute("data-preview-original")
+                    el.removeAttribute("data-preview-original-style")
+                  })
+                } catch {}
+                const root = document.querySelector(".gs-studio-root")
+                root?.classList.remove("gs-preview-mode")
+              }
+            }}
           >
             <IconTestPipe className="h-4 w-4 mr-1.5" />
             Test Data
           </Button>
           <Button
             variant="outline"
-            onClick={() => setFieldEditorOpen(true)}
+            onClick={() => setVariableEditorOpen(true)}
             className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
           >
             <IconDatabase className="h-4 w-4 mr-2" />
-            Edit Fields
+            Edit Variables
           </Button>
         </div>
       </div>
@@ -436,10 +518,10 @@ export function DocumentsTab() {
       <div className="flex-1 flex min-h-0 gap-0 px-4 pb-4">
         <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden isolate">
           <StudioEditorWrapper
-            key={`editor-${templateId}-${fields.length}`}
+            key={`editor-${templateId}-${variables.length}`}
             globalData={globalData}
             variableOptions={variableOptions}
-            fields={fields}
+            variables={variables}
             template={editorTemplate}
             onSave={handleEditorSave}
             onEditorReady={handleEditorReady}
@@ -447,9 +529,9 @@ export function DocumentsTab() {
         </div>
 
         {showTestPanel && (
-          <div className="w-[280px] flex-shrink-0">
+          <div className="w-[280px] flex-shrink-0 h-full pl-2">
             <VariablePreviewPanel
-              fields={fields}
+              variables={variables}
               values={previewValues}
               onValuesChange={handleApplyPreviewValues}
             />
@@ -457,11 +539,11 @@ export function DocumentsTab() {
         )}
       </div>
 
-      <FieldEditorModal
-        open={fieldEditorOpen}
-        onOpenChange={setFieldEditorOpen}
-        fields={fields}
-        onFieldsChange={setFields}
+      <VariableEditorModal
+        open={variableEditorOpen}
+        onOpenChange={setVariableEditorOpen}
+        variables={variables}
+        onVariablesChange={setVariables}
         templateId={templateId || undefined}
       />
     </div>

@@ -13,7 +13,7 @@ import {
 } from "@grapesjs/studio-sdk-plugins"
 import aiChat from "@grapesjs/studio-sdk-plugins/dist/aiChat"
 import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
-import { Field, typeColorConfig, FieldType } from "./field-types"
+import { Variable, typeColorConfig, VariableType } from "./variable-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
 
@@ -93,7 +93,7 @@ function buildCustomThemeFromHex(colors: Record<string, string>, mode: "light" |
 interface StudioEditorWrapperProps {
   globalData: Record<string, { data: string }>
   variableOptions: { id: string; label: string }[]
-  fields: Field[]
+  variables: Variable[]
   template?: DocumentTemplate | null
   onSave?: (html: string, projectData: object) => void
   onEditorReady?: (editor: any) => void
@@ -106,7 +106,7 @@ interface StudioEditorWrapperProps {
 export function StudioEditorWrapper({
   globalData,
   variableOptions,
-  fields,
+  variables,
   template,
   onSave,
   onEditorReady,
@@ -195,13 +195,13 @@ export function StudioEditorWrapper({
   }
 
   // Colored pill labels for the variable dropdown in the RTE toolbar
-  const fieldTypeMap = new Map<string, FieldType>()
-  fields.forEach(f => fieldTypeMap.set(f.name, f.type))
+  const variableTypeMap = new Map<string, VariableType>()
+  variables.forEach(v => variableTypeMap.set(v.name, v.type))
 
   const styledVariableOptions = variableOptions.map(opt => {
-    const fieldName = opt.id.replace(/^\{\{|\}\}$/g, "")
-    const fieldType = fieldTypeMap.get(fieldName) || "String"
-    const colors = typeColorConfig[fieldType] || typeColorConfig["String"]
+    const varName = opt.id.replace(/^\{\{|\}\}$/g, "")
+    const varType = variableTypeMap.get(varName) || "String"
+    const colors = typeColorConfig[varType] || typeColorConfig["String"]
     return {
       id: opt.id,
       label: `<span style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:500;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:${colors.bgHex};color:${colors.textHex};border:1px solid ${colors.borderHex}">${opt.label}</span>`,
@@ -302,19 +302,6 @@ export function StudioEditorWrapper({
                               placer: { type: "absolute", position: "right" },
                               style: { width: 360 },
                             })
-                          },
-                        },
-                        {
-                          id: "toggle-datasources-preview",
-                          icon: "databaseOutlineOn",
-                          tooltip: "Toggle Data Preview",
-                          editorEvents: {
-                            "studio:toggleDataSourcesPreview": ({ fromEvent, setState }: any) => {
-                              setState({ active: fromEvent.showPlaceholder })
-                            },
-                          },
-                          onClick: ({ editor }: any) => {
-                            editor.runCommand("studio:toggleStateDataSource")
                           },
                         },
                       ],
@@ -461,16 +448,19 @@ export function StudioEditorWrapper({
             if (category === "basic" && !keepBasic.some(k => label.includes(k) || id.includes(k))) {
               toRemove.push(id)
             }
+            if (category === "data sources") {
+              toRemove.push(id)
+            }
           })
           toRemove.forEach(id => { try { editor.Blocks.remove(id) } catch { /* already removed */ } })
 
-          // Register each field as a draggable block with a placeholder span.
+          // Register each variable as a draggable block with a placeholder span.
           // On drop, the placeholder is replaced with a proper data-variable component.
-          fields.forEach(field => {
-            editor.Blocks.add(`variable-${field.name}`, {
-              label: field.name,
+          variables.forEach(variable => {
+            editor.Blocks.add(`variable-${variable.name}`, {
+              label: variable.name,
               category: "Variables",
-              content: `<span data-var-field="${field.name}"></span>`,
+              content: `<span data-var-field="${variable.name}"></span>`,
             })
           })
 
@@ -478,8 +468,8 @@ export function StudioEditorWrapper({
           let skipNextModal = false
 
           editor.on("component:add", (component: any) => {
-            const fieldName = component.getAttributes?.()?.["data-var-field"]
-            if (!fieldName) return
+            const varName = component.getAttributes?.()?.["data-var-field"]
+            if (!varName) return
 
             const parent = component.parent()
             if (!parent) return
@@ -488,8 +478,8 @@ export function StudioEditorWrapper({
 
             skipNextModal = true
             const resolver = JSON.stringify({
-              path: `globalData.${fieldName}.data.data`,
-              defaultValue: fieldName,
+              path: `globalData.${varName}.data.data`,
+              defaultValue: varName,
             })
             parent.append(
               `<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`,
@@ -642,8 +632,8 @@ export function StudioEditorWrapper({
               const existingStyle = canvasDoc.getElementById("variable-tag-styles")
               if (existingStyle) existingStyle.remove()
 
-              const fieldMap = new Map<string, FieldType>()
-              fields.forEach(f => fieldMap.set(f.name, f.type))
+              const variableMap = new Map<string, VariableType>()
+              variables.forEach(v => variableMap.set(v.name, v.type))
 
               let css = `
                 [data-variable], [data-gjs-type="data-variable"] {
@@ -662,11 +652,11 @@ export function StudioEditorWrapper({
                 }
               `
 
-              fields.forEach(field => {
-                const colors = typeColorConfig[field.type] || typeColorConfig["String"]
+              variables.forEach(variable => {
+                const colors = typeColorConfig[variable.type] || typeColorConfig["String"]
                 css += `
-                  [data-variable*="${field.name}"],
-                  [data-gjs-type="data-variable"][title*="${field.name}"] {
+                  [data-variable*="${variable.name}"],
+                  [data-gjs-type="data-variable"][title*="${variable.name}"] {
                     background-color: ${colors.bgHex} !important;
                     color: ${colors.textHex} !important;
                     border: 1px solid ${colors.borderHex} !important;

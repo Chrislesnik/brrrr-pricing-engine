@@ -1,15 +1,15 @@
-// Field types for Template Editor
-export type FieldType = "String" | "Number" | "Boolean" | "Array" | "Object" | "Binary Data"
+// Variable types for Template Editor
+export type VariableType = "String" | "Number" | "Boolean" | "Array" | "Object" | "Binary Data"
 
-export interface Field {
+export interface Variable {
   id: string
   name: string
-  type: FieldType
+  type: VariableType
   required?: boolean
 }
 
-// Shared color configuration for field types
-// Used by Field Editor modal, Test Data panel, and canvas variable widgets
+// Shared color configuration for variable types
+// Used by Variable Editor modal, Test Data panel, and canvas variable widgets
 export interface TypeColorConfig {
   bg: string        // Tailwind background class
   text: string      // Tailwind text class
@@ -21,7 +21,7 @@ export interface TypeColorConfig {
   borderHex: string
 }
 
-export const typeColorConfig: Record<FieldType, TypeColorConfig> = {
+export const typeColorConfig: Record<VariableType, TypeColorConfig> = {
   "String": { 
     bg: "bg-yellow-500/15", 
     text: "text-yellow-600 dark:text-yellow-400", 
@@ -78,27 +78,26 @@ export const typeColorConfig: Record<FieldType, TypeColorConfig> = {
   },
 }
 
-// Get color config for a field type (with fallback)
-export function getTypeColors(type: FieldType): TypeColorConfig {
+// Get color config for a variable type (with fallback)
+export function getTypeColors(type: VariableType): TypeColorConfig {
   return typeColorConfig[type] || typeColorConfig["String"]
 }
 
-// Default fields - empty, will be loaded from Supabase
-export const defaultFields: Field[] = []
+// Default variables - empty, will be loaded from Supabase
+export const defaultVariables: Variable[] = []
 
-// Helper to generate a unique ID for new fields
-export function generateFieldId(): string {
-  return `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+// Helper to generate a unique ID for new variables
+export function generateVariableId(): string {
+  return `variable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
-// Convert fields to GrapeJS globalData format
-// GrapesJS expects nested structure: { fieldName: { data: "value" } }
-export function fieldsToGlobalData(fields: Field[]): Record<string, { data: string }> {
+// Convert variables to GrapeJS globalData format
+// GrapesJS expects nested structure: { variableName: { data: "value" } }
+export function variablesToGlobalData(variables: Variable[]): Record<string, { data: string }> {
   const globalData: Record<string, { data: string }> = {}
-  fields.forEach((field) => {
-    // Use placeholder value based on type
+  variables.forEach((variable) => {
     let value: string
-    switch (field.type) {
+    switch (variable.type) {
       case "Number":
         value = "0"
         break
@@ -115,9 +114,9 @@ export function fieldsToGlobalData(fields: Field[]): Record<string, { data: stri
         value = "/placeholder.png"
         break
       default:
-        value = `{{${field.name}}}`
+        value = `{{${variable.name}}}`
     }
-    globalData[field.name] = { data: value }
+    globalData[variable.name] = { data: value }
   })
   return globalData
 }
