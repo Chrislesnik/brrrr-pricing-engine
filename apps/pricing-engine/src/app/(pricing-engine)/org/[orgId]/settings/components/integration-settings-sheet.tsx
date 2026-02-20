@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { Loader2, Settings2, X } from "lucide-react";
+import { Loader2, X, Plus, Archive, Pencil, Check } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Label } from "@repo/ui/shadcn/label";
 import { Input } from "@repo/ui/shadcn/input";
 import { Textarea } from "@repo/ui/shadcn/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@repo/ui/shadcn/badge";
+import { Separator } from "@repo/ui/shadcn/separator";
+import { PasswordInput } from "@repo/ui/custom/password-input";
 import {
   Sheet,
   SheetContent,
@@ -18,7 +20,15 @@ import {
   SheetTitle,
 } from "@repo/ui/shadcn/sheet";
 import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon";
-import { updateIntegrationSettings } from "./integration-settings-actions";
+import { getIntegration } from "@/components/workflow-builder/plugins";
+import type { IntegrationType } from "@/components/workflow-builder/lib/types/integration";
+import {
+  updateIntegrationSettings,
+  getIntegrationConnections,
+  saveIntegrationConnection,
+  archiveIntegrationConnection,
+  type ConnectionRow,
+} from "./integration-settings-actions";
 
 interface IntegrationSettingsRow {
   id: number;
@@ -42,12 +52,59 @@ interface IntegrationSettingsSheetProps {
   onSaved: () => void;
 }
 
+type CredentialField = {
+  key: string;
+  label: string;
+  isSecret: boolean;
+};
+
 const SYSTEM_LOGO_MAP: Record<string, { src: string; alt: string }> = {
   floify: { src: "/integrations/floify-logo.png", alt: "Floify" },
   xactus: { src: "/integrations/xactus-logo.png", alt: "Xactus" },
   clear: { src: "/integrations/clear-thomson-reuters-logo.png", alt: "Clear Capital" },
   nadlan: { src: "/integrations/nadlan-logo.png", alt: "Nadlan" },
 };
+
+const SYSTEM_CREDENTIAL_FIELDS: Record<string, CredentialField[]> = {
+  floify: [
+    { key: "x_api_key", label: "X-API-KEY", isSecret: false },
+    { key: "user_api_key", label: "User API Key", isSecret: false },
+  ],
+  xactus: [
+    { key: "account_user", label: "Account User", isSecret: false },
+    { key: "account_password", label: "Account Password", isSecret: true },
+  ],
+  clear: [
+    { key: "username", label: "Username", isSecret: false },
+    { key: "password", label: "Password", isSecret: true },
+  ],
+  nadlan: [
+    { key: "username", label: "Username", isSecret: false },
+    { key: "password", label: "Password", isSecret: true },
+  ],
+};
+
+function getCredentialFields(slug: string): CredentialField[] {
+  if (SYSTEM_CREDENTIAL_FIELDS[slug]) {
+    return SYSTEM_CREDENTIAL_FIELDS[slug];
+  }
+
+  const plugin = getIntegration(slug as IntegrationType);
+  if (plugin?.formFields?.length) {
+    return plugin.formFields.map((f) => ({
+      key: f.configKey,
+      label: f.label,
+      isSecret: f.type === "password",
+    }));
+  }
+
+  switch (slug) {
+    case "database":
+      return [{ key: "url", label: "Database URL", isSecret: true }];
+    default:
+      return [{ key: "apiKey", label: "API Key", isSecret: true }];
+  }
+}
 
 function SheetIntegrationLogo({ slug }: { slug: string }) {
   const systemLogo = SYSTEM_LOGO_MAP[slug];
@@ -75,6 +132,7 @@ export function IntegrationSettingsSheet({
 }: IntegrationSettingsSheetProps) {
   const [saving, setSaving] = useState(false);
 
+  // Catalog settings state
   const [active, setActive] = useState(true);
   const [description, setDescription] = useState("");
   const [levelGlobal, setLevelGlobal] = useState(false);
@@ -82,6 +140,15 @@ export function IntegrationSettingsSheet({
   const [levelIndividual, setLevelIndividual] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+
+  // Connection state
+  const [connections, setConnections] = useState<ConnectionRow[]>([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [showConnForm, setShowConnForm] = useState(false);
+  const [editingConnId, setEditingConnId] = useState<string | null>(null);
+  const [connFieldValues, setConnFieldValues] = useState<Record<string, string>>({});
+  const [connSaving, setConnSaving] = useState(false);
+  const [connError, setConnError] = useState<string | null>(null);
 
   useEffect(() => {
     if (integration) {
@@ -92,9 +159,34 @@ export function IntegrationSettingsSheet({
       setLevelIndividual(integration.level_individual);
       setTags(integration.tags ?? []);
       setTagInput("");
+      setShowConnForm(false);
+      setEditingConnId(null);
+      setConnFieldValues({});
+      setConnError(null);
     }
   }, [integration]);
 
+  const loadConnections = useCallback(async () => {
+    if (!integration) return;
+    setConnectionsLoading(true);
+    try {
+      const data = await getIntegrationConnections(integration.slug);
+      setConnections(data.filter((c) => !c.archived_at));
+    } catch (err) {
+      console.error("Failed to load connections:", err);
+      setConnections([]);
+    } finally {
+      setConnectionsLoading(false);
+    }
+  }, [integration]);
+
+  useEffect(() => {
+    if (open && integration) {
+      loadConnections();
+    }
+  }, [open, integration, loadConnections]);
+
+  // Tag helpers
   const addTag = useCallback(() => {
     const trimmed = tagInput.trim().toLowerCase();
     if (trimmed && !tags.includes(trimmed)) {
@@ -114,6 +206,7 @@ export function IntegrationSettingsSheet({
     }
   };
 
+  // Catalog save
   const handleSave = useCallback(async () => {
     if (!integration) return;
     setSaving(true);
@@ -135,6 +228,73 @@ export function IntegrationSettingsSheet({
       setSaving(false);
     }
   }, [integration, active, description, levelGlobal, levelOrg, levelIndividual, tags, onSaved, onOpenChange]);
+
+  // Connection form helpers
+  const credentialFields = integration ? getCredentialFields(integration.slug) : [];
+
+  const openAddForm = () => {
+    setEditingConnId(null);
+    setConnFieldValues({});
+    setConnError(null);
+    setShowConnForm(true);
+  };
+
+  const openEditForm = (conn: ConnectionRow) => {
+    setEditingConnId(conn.id);
+    const prefilled: Record<string, string> = {};
+    for (const field of credentialFields) {
+      const val = conn.config[field.key];
+      if (val) prefilled[field.key] = val;
+    }
+    setConnFieldValues(prefilled);
+    setConnError(null);
+    setShowConnForm(true);
+  };
+
+  const handleConnSave = useCallback(async () => {
+    if (!integration) return;
+    setConnSaving(true);
+    setConnError(null);
+    try {
+      const config: Record<string, string> = {};
+      for (const field of credentialFields) {
+        const val = (connFieldValues[field.key] || "").trim();
+        if (editingConnId && !val && field.isSecret) {
+          config[field.key] = "configured";
+        } else {
+          config[field.key] = val;
+        }
+      }
+
+      await saveIntegrationConnection({
+        id: editingConnId ?? undefined,
+        type: integration.slug,
+        config,
+      });
+
+      setShowConnForm(false);
+      setEditingConnId(null);
+      setConnFieldValues({});
+      await loadConnections();
+    } catch (err) {
+      setConnError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setConnSaving(false);
+    }
+  }, [integration, credentialFields, connFieldValues, editingConnId, loadConnections]);
+
+  const handleArchive = useCallback(async (id: string) => {
+    try {
+      await archiveIntegrationConnection(id);
+      await loadConnections();
+    } catch (err) {
+      console.error("Failed to archive connection:", err);
+    }
+  }, [loadConnections]);
+
+  const hasAnyFieldValue = credentialFields.some(
+    (f) => (connFieldValues[f.key] || "").trim().length > 0,
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -275,6 +435,201 @@ export function IntegrationSettingsSheet({
                         </button>
                       </Badge>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Connections section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Connections</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Manage your configured credentials for this integration.
+                    </p>
+                  </div>
+                  {!showConnForm && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={openAddForm}
+                    >
+                      <Plus className="size-3.5" />
+                      Add
+                    </Button>
+                  )}
+                </div>
+
+                {/* Connection form (add/edit) */}
+                {showConnForm && (
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">
+                        {editingConnId ? "Update Connection" : "New Connection"}
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6"
+                        onClick={() => {
+                          setShowConnForm(false);
+                          setEditingConnId(null);
+                          setConnFieldValues({});
+                          setConnError(null);
+                        }}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+
+                    {credentialFields.map((field) => (
+                      <div key={field.key} className="space-y-1">
+                        <Label htmlFor={`conn-${field.key}`} className="text-xs">
+                          {field.label}
+                        </Label>
+                        {field.isSecret ? (
+                          <PasswordInput
+                            id={`conn-${field.key}`}
+                            autoComplete="new-password"
+                            value={connFieldValues[field.key] || ""}
+                            onChange={(e) =>
+                              setConnFieldValues((prev) => ({
+                                ...prev,
+                                [field.key]: e.target.value,
+                              }))
+                            }
+                            placeholder={
+                              editingConnId && !connFieldValues[field.key]
+                                ? "Leave empty to keep current"
+                                : `Enter ${field.label}`
+                            }
+                            disabled={connSaving}
+                          />
+                        ) : (
+                          <Input
+                            id={`conn-${field.key}`}
+                            autoComplete="off"
+                            value={connFieldValues[field.key] || ""}
+                            onChange={(e) =>
+                              setConnFieldValues((prev) => ({
+                                ...prev,
+                                [field.key]: e.target.value,
+                              }))
+                            }
+                            placeholder={`Enter ${field.label}`}
+                            disabled={connSaving}
+                          />
+                        )}
+                      </div>
+                    ))}
+
+                    {connError && (
+                      <p className="text-xs text-destructive">{connError}</p>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowConnForm(false);
+                          setEditingConnId(null);
+                          setConnFieldValues({});
+                          setConnError(null);
+                        }}
+                        disabled={connSaving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleConnSave}
+                        disabled={connSaving || (!editingConnId && !hasAnyFieldValue)}
+                      >
+                        {connSaving && (
+                          <Loader2 className="size-3.5 animate-spin mr-1" />
+                        )}
+                        {editingConnId ? "Update" : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing connections list */}
+                {connectionsLoading ? (
+                  <div className="flex items-center gap-2 py-4 text-muted-foreground text-sm">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading connections...
+                  </div>
+                ) : connections.length === 0 && !showConnForm ? (
+                  <div className="rounded-lg border border-dashed p-4 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No connections configured yet.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 mt-2"
+                      onClick={openAddForm}
+                    >
+                      <Plus className="size-3.5" />
+                      Add Connection
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {connections.map((conn) => {
+                      const configured = Object.values(conn.config).some(
+                        (v) => v === "configured" || (v && v !== ""),
+                      );
+                      return (
+                        <div
+                          key={conn.id}
+                          className="flex items-center justify-between rounded-lg border p-3"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <SheetIntegrationLogo slug={conn.type} />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {conn.name || integration?.name || conn.type}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {configured && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="gap-0.5 text-[10px] px-1.5 py-0"
+                                  >
+                                    <Check className="size-2.5" />
+                                    Configured
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              onClick={() => openEditForm(conn)}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleArchive(conn.id)}
+                            >
+                              <Archive className="size-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
