@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { notifyLoanAssignment } from "@/lib/notifications"
 
 export const runtime = "nodejs"
 
@@ -125,6 +126,31 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       }
     } catch {
       // Activity logging should not block the main flow
+    }
+
+    // Send Liveblocks notification to newly assigned users
+    if (added.length > 0) {
+      try {
+        const { data: assignerRow } = await supabaseAdmin
+          .from("users")
+          .select("full_name, first_name, last_name")
+          .eq("clerk_user_id", userId)
+          .maybeSingle()
+        const assignerName =
+          assignerRow?.full_name ||
+          [assignerRow?.first_name, assignerRow?.last_name].filter(Boolean).join(" ") ||
+          "Someone"
+        // The id here could be a loan or deal; use it as both loanId and dealId for routing
+        await Promise.allSettled(
+          added
+            .filter((uid) => uid !== userId)
+            .map((uid) =>
+              notifyLoanAssignment(uid, { loanId: id, dealId: id, assignerName })
+            )
+        )
+      } catch {
+        // Notification is non-critical
+      }
     }
 
     return NextResponse.json({ ok: true })

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getOrgUuidFromClerkId } from "@/lib/orgs";
 import { restoreRecord } from "@/lib/archive-helpers";
+import { notifyTaskAssignment } from "@/lib/notifications";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -230,6 +231,38 @@ export async function PATCH(
         }
       } catch (syncErr) {
         console.error("Error syncing role_assignments for task:", syncErr);
+      }
+
+      // Send Liveblocks notification to newly assigned users
+      try {
+        const previousIds = new Set<string>();
+        const newUserIds = Array.isArray(body.assigned_to_user_ids)
+          ? (body.assigned_to_user_ids as string[])
+          : [];
+        const addedUserIds = newUserIds.filter(
+          (uid) => uid !== userId && !previousIds.has(uid)
+        );
+        if (addedUserIds.length > 0) {
+          const { data: assignerRow } = await supabaseAdmin
+            .from("users")
+            .select("full_name, first_name, last_name")
+            .eq("clerk_user_id", userId)
+            .maybeSingle();
+          const assignerName =
+            assignerRow?.full_name ||
+            [assignerRow?.first_name, assignerRow?.last_name]
+              .filter(Boolean)
+              .join(" ") ||
+            "Someone";
+          const taskName = (updatedTask as any).title || "a task";
+          await Promise.allSettled(
+            addedUserIds.map((uid) =>
+              notifyTaskAssignment(uid, { dealId, taskName, assignerName })
+            )
+          );
+        }
+      } catch {
+        // Notification is non-critical
       }
     }
 

@@ -9,10 +9,11 @@ import {
   LogOut,
   Hash,
   Mail,
-  MessageSquare,
   Monitor,
+  Loader2,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
+import { useNotificationSettings } from "@liveblocks/react";
 
 import {
   Avatar,
@@ -50,6 +51,138 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table";
 
+type Channel = "email" | "slack" | "teams";
+type Kind = "thread" | "textMention" | "$taskAssignment" | "$loanAssignment" | "$dealAssignment" | "$applicationCompleted" | "$dealStatusChange";
+
+const CHANNELS: { key: Channel; label: string; icon: React.ReactNode }[] = [
+  { key: "email", label: "Email", icon: <Mail className="size-4" /> },
+  { key: "slack", label: "Slack", icon: <Hash className="size-4" /> },
+  { key: "teams", label: "Teams", icon: <Monitor className="size-4" /> },
+];
+
+const NOTIFICATION_KINDS: { kind: Kind; title: string; description: string }[] = [
+  {
+    kind: "textMention",
+    title: "Direct Mentions",
+    description: "Get notified when a team member tags you with @.",
+  },
+  {
+    kind: "thread",
+    title: "Comments",
+    description: "Receive updates when someone comments on a loan, deal, or task you're involved in.",
+  },
+  {
+    kind: "$taskAssignment",
+    title: "Task Assignments",
+    description: "Get notified when a task is assigned to you or your team.",
+  },
+  {
+    kind: "$loanAssignment",
+    title: "Loan Assignments",
+    description: "Get notified when a loan scenario is assigned to you.",
+  },
+  {
+    kind: "$dealAssignment",
+    title: "Deal Assignments",
+    description: "Get notified when you're added to a deal as an assignee.",
+  },
+  {
+    kind: "$applicationCompleted",
+    title: "Application Completed",
+    description: "Get notified when a borrower completes and submits their application.",
+  },
+  {
+    kind: "$dealStatusChange",
+    title: "Deal Status Changes",
+    description: "Get notified when a deal moves to a new stage in the pipeline.",
+  },
+];
+
+function NotificationSettingsTable() {
+  const [{ isLoading, error, settings }, updateSettings] =
+    useNotificationSettings();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading preferences...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        Failed to load notification preferences.
+      </div>
+    );
+  }
+
+  function getChecked(channel: Channel, kind: Kind): boolean {
+    const channelSettings = settings?.[channel] as Record<string, boolean> | null | undefined;
+    if (!channelSettings) return false;
+    return Boolean(channelSettings[kind]);
+  }
+
+  function handleToggle(channel: Channel, kind: Kind, checked: boolean) {
+    updateSettings({ [channel]: { [kind]: checked } });
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow className="[&_div]:flex [&_div]:items-center [&_div]:justify-center [&_div]:gap-1.5 [&_div]:font-semibold [&_div]:text-muted-foreground/80 [&_div_svg]:size-4">
+          <TableHead>
+            <div className="!justify-start">
+              <Bell className="size-4" /> Notify me about
+            </div>
+          </TableHead>
+          {CHANNELS.map((ch) => (
+            <TableHead key={ch.key}>
+              <div>
+                {ch.icon} {ch.label}
+              </div>
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {NOTIFICATION_KINDS.map((n) => (
+          <TableRow key={n.kind}>
+            <TableCell>
+              <p className="font-semibold">{n.title}</p>
+              <p className="text-xs font-medium text-muted-foreground/70">
+                {n.description}
+              </p>
+            </TableCell>
+            {CHANNELS.map((ch) => {
+              const channelSettings = settings?.[ch.key];
+              if (!channelSettings) {
+                return (
+                  <TableCell key={ch.key} className="text-center">
+                    <Checkbox disabled checked={false} />
+                  </TableCell>
+                );
+              }
+              return (
+                <TableCell key={ch.key} className="text-center">
+                  <Checkbox
+                    checked={getChecked(ch.key, n.kind)}
+                    onCheckedChange={(checked) =>
+                      handleToggle(ch.key, n.kind, Boolean(checked))
+                    }
+                  />
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 export function NavUser({
   user,
 }: {
@@ -68,11 +201,9 @@ export function NavUser({
   const handleSignOut = async () => {
     try {
       await signOut({ redirectUrl: "/sign-in" });
-      // Force page reload to ensure clean state
       window.location.href = "/sign-in";
     } catch (error) {
       console.error("Sign out error:", error);
-      // Force redirect even if signOut fails
       window.location.href = "/sign-in";
     }
   };
@@ -180,130 +311,10 @@ export function NavUser({
                 Manage your notification preferences
               </p>
             </DialogHeader>
-            <Table>
-              <TableHeader>
-                <TableRow className="[&_div]:flex [&_div]:items-center [&_div]:justify-center [&_div]:gap-1.5 [&_div]:font-semibold [&_div]:text-muted-foreground/80 [&_div_svg]:size-4">
-                  <TableHead>
-                    <div className="!justify-start">
-                      <Bell className="size-4" /> Notify me about
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div>
-                      <Mail className="size-4" /> Email
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div>
-                      <MessageSquare className="size-4" /> SMS
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div>
-                      <Hash className="size-4" /> Slack
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div>
-                      <Monitor className="size-4" /> Teams
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {NOTIFICATION_SETTINGS.map((n) => (
-                  <TableRow key={n.id}>
-                    <TableCell>
-                      <p className="font-semibold">{n.title}</p>
-                      <p className="text-xs font-medium text-muted-foreground/70">
-                        {n.description}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox defaultChecked={n.email} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox defaultChecked={n.sms} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox defaultChecked={n.slack} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox defaultChecked={n.teams} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <NotificationSettingsTable />
           </DialogContent>
         </Dialog>
       </SidebarMenuItem>
     </SidebarMenu>
   );
 }
-
-const NOTIFICATION_SETTINGS = [
-  {
-    id: "mentions",
-    title: "Direct Mentions",
-    description: "Get notified when a team member tags you with @.",
-    email: true,
-    sms: false,
-    slack: true,
-    teams: false,
-  },
-  {
-    id: "comments",
-    title: "Comments",
-    description: "Receive updates when someone comments on a loan, deal, or task you're involved in.",
-    email: true,
-    sms: false,
-    slack: true,
-    teams: false,
-  },
-  {
-    id: "task-assignment",
-    title: "Task Assignments",
-    description: "Get notified when a task is assigned to you or your team.",
-    email: true,
-    sms: false,
-    slack: true,
-    teams: true,
-  },
-  {
-    id: "loan-assignment",
-    title: "Loan Assignments",
-    description: "Get notified when a loan scenario is assigned to you.",
-    email: true,
-    sms: false,
-    slack: true,
-    teams: true,
-  },
-  {
-    id: "deal-assignment",
-    title: "Deal Assignments",
-    description: "Get notified when you're added to a deal as an assignee.",
-    email: true,
-    sms: false,
-    slack: true,
-    teams: true,
-  },
-  {
-    id: "application-completed",
-    title: "Application Completed",
-    description: "Get notified when a borrower completes and submits their application.",
-    email: true,
-    sms: true,
-    slack: true,
-    teams: false,
-  },
-  {
-    id: "deal-status",
-    title: "Deal Status Changes",
-    description: "Get notified when a deal moves to a new stage in the pipeline.",
-    email: true,
-    sms: false,
-    slack: true,
-    teams: false,
-  },
-];
