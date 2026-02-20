@@ -6,14 +6,14 @@ import "server-only";
 
 import { type StepInput, withStepLogging } from "./step-handler";
 
-type ConditionRow = {
+export type ConditionRow = {
   leftValue: string;
   operator: string;
   rightValue: string;
   dataType: string;
 };
 
-type StructuredCondition = {
+export type StructuredCondition = {
   match: "and" | "or";
   conditions: ConditionRow[];
 };
@@ -33,7 +33,7 @@ type ConditionResult = {
 /**
  * Evaluate a single condition with typed operators
  */
-function evaluateSingleCondition(cond: ConditionRow): boolean {
+export function evaluateSingleCondition(cond: ConditionRow): boolean {
   const left = cond.leftValue;
   const right = cond.rightValue;
   const op = cond.operator;
@@ -102,7 +102,7 @@ function evaluateSingleCondition(cond: ConditionRow): boolean {
 /**
  * Evaluate structured conditions with AND/OR logic
  */
-function evaluateStructuredConditions(data: StructuredCondition): boolean {
+export function evaluateStructuredConditions(data: StructuredCondition): boolean {
   if (!data.conditions || data.conditions.length === 0) {
     return true; // No conditions = always true
   }

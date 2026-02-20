@@ -6,7 +6,7 @@ import {
   edgesAtom,
   selectedNodeAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
-import { HelpCircle, Maximize2, Plus, Settings } from "lucide-react";
+import { ChevronRight, HelpCircle, Maximize2, Plus, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
 import { AiGatewayConsentOverlay } from "@/components/workflow-builder/overlays/ai-gateway-consent-overlay";
@@ -55,141 +55,12 @@ import {
 } from "@repo/ui/shadcn/dialog";
 import { ActionConfigRenderer } from "./action-config-renderer";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
-
-// ── Condition Builder (inline version for the Condition system action) ──
-
-const CONDITION_DATA_TYPES = [
-  { value: "string", label: "T", title: "String" },
-  { value: "number", label: "#", title: "Number" },
-  { value: "boolean", label: "◉", title: "Boolean" },
-  { value: "date", label: "◷", title: "Date" },
-];
-
-const CONDITION_OPERATORS: Record<string, Array<{ value: string; label: string; unary?: boolean }>> = {
-  string: [
-    { value: "equals", label: "is equal to" },
-    { value: "not_equals", label: "is not equal to" },
-    { value: "contains", label: "contains" },
-    { value: "not_contains", label: "does not contain" },
-    { value: "starts_with", label: "starts with" },
-    { value: "ends_with", label: "ends with" },
-    { value: "is_empty", label: "is empty", unary: true },
-    { value: "is_not_empty", label: "is not empty", unary: true },
-  ],
-  number: [
-    { value: "equals", label: "is equal to" },
-    { value: "not_equals", label: "is not equal to" },
-    { value: "greater_than", label: "is greater than" },
-    { value: "greater_than_or_equal", label: "is greater or equal" },
-    { value: "less_than", label: "is less than" },
-    { value: "less_than_or_equal", label: "is less or equal" },
-  ],
-  boolean: [
-    { value: "is_true", label: "is true", unary: true },
-    { value: "is_false", label: "is false", unary: true },
-  ],
-  date: [
-    { value: "equals", label: "is equal to" },
-    { value: "is_after", label: "is after" },
-    { value: "is_before", label: "is before" },
-  ],
-};
-
-type ConditionRowData = { leftValue: string; operator: string; rightValue: string; dataType: string };
-type ConditionBuilderState = { match: "and" | "or"; conditions: ConditionRowData[] };
-
-function ConditionBuilderInline({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  disabled: boolean;
-}) {
-  let data: ConditionBuilderState;
-  try {
-    data = value ? JSON.parse(value) : null;
-    if (!data?.conditions) data = { match: "and", conditions: [{ leftValue: "", operator: "equals", rightValue: "", dataType: "string" }] };
-  } catch {
-    data = { match: "and", conditions: [{ leftValue: "", operator: "equals", rightValue: "", dataType: "string" }] };
-  }
-
-  const update = (d: ConditionBuilderState) => onChange(JSON.stringify(d));
-
-  const updateCond = (idx: number, key: keyof ConditionRowData, val: string) => {
-    const updated = [...data.conditions];
-    updated[idx] = { ...updated[idx], [key]: val };
-    if (key === "dataType") {
-      const ops = CONDITION_OPERATORS[val] || CONDITION_OPERATORS.string;
-      updated[idx].operator = ops[0].value;
-      updated[idx].rightValue = "";
-    }
-    update({ ...data, conditions: updated });
-  };
-
-  const ops = (dt: string) => CONDITION_OPERATORS[dt] || CONDITION_OPERATORS.string;
-  const isUnary = (dt: string, op: string) => ops(dt).find((o) => o.value === op)?.unary ?? false;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">When</span>
-        <Select disabled={disabled} value={data.match} onValueChange={(v) => update({ ...data, match: v as "and" | "or" })}>
-          <SelectTrigger className="w-[140px] h-7 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="and">All conditions (AND)</SelectItem>
-            <SelectItem value="or">Any condition (OR)</SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="text-xs text-muted-foreground">are met</span>
-      </div>
-
-      {data.conditions.map((cond, idx) => (
-        <div key={idx} className="space-y-1.5 rounded-lg border p-2.5 bg-muted/30">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-muted-foreground w-10 shrink-0">Value</span>
-            <div className="flex-1 text-xs [&_.template-badge-input]:h-8 [&_.template-badge-input]:text-xs">
-              <TemplateBadgeInput disabled={disabled} placeholder="Type @ to reference a node output" value={cond.leftValue} onChange={(val) => updateCond(idx, "leftValue", val)} />
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Select disabled={disabled} value={cond.dataType} onValueChange={(v) => updateCond(idx, "dataType", v)}>
-              <SelectTrigger className="w-12 h-8 text-xs px-2 justify-center"><SelectValue /></SelectTrigger>
-              <SelectContent>{CONDITION_DATA_TYPES.map((dt) => (<SelectItem key={dt.value} value={dt.value}><span title={dt.title}>{dt.label} {dt.title}</span></SelectItem>))}</SelectContent>
-            </Select>
-            <Select disabled={disabled} value={cond.operator} onValueChange={(v) => updateCond(idx, "operator", v)}>
-              <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{ops(cond.dataType).map((op) => (<SelectItem key={op.value} value={op.value}><span className="text-xs">{op.label}</span></SelectItem>))}</SelectContent>
-            </Select>
-            {data.conditions.length > 1 && (
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" disabled={disabled} onClick={() => update({ ...data, conditions: data.conditions.filter((_, i) => i !== idx) })}>
-                <span className="text-sm">×</span>
-              </Button>
-            )}
-          </div>
-          {!isUnary(cond.dataType, cond.operator) && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground w-10 shrink-0">With</span>
-              <div className="flex-1 text-xs [&_.template-badge-input]:h-8 [&_.template-badge-input]:text-xs">
-                <TemplateBadgeInput disabled={disabled} placeholder={cond.dataType === "number" ? "e.g. 100 or @node" : cond.dataType === "date" ? "e.g. 2024-01-01 or @node" : "e.g. active or @node"} value={cond.rightValue} onChange={(val) => updateCond(idx, "rightValue", val)} />
-              </div>
-            </div>
-          )}
-          {idx < data.conditions.length - 1 && (
-            <div className="flex items-center justify-center pt-1">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{data.match === "and" ? "AND" : "OR"}</span>
-            </div>
-          )}
-        </div>
-      ))}
-
-      <Button variant="outline" size="sm" className="w-full text-xs" disabled={disabled} onClick={() => update({ ...data, conditions: [...data.conditions, { leftValue: "", operator: "equals", rightValue: "", dataType: "string" }] })}>
-        + Add Condition
-      </Button>
-    </div>
-  );
-}
+import { ConditionBuilderInline } from "@/components/workflow-builder/ui/condition-builder-inline";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@repo/ui/shadcn/collapsible";
 
 type ActionConfigProps = {
   config: Record<string, unknown>;
@@ -2246,12 +2117,37 @@ function WaitFields({
 
 // ── Set Fields config component ──
 
+type ConditionalBranch = {
+  condition: string;
+  value: string;
+  mode: "fixed" | "expression";
+};
+
 type SetFieldRow = {
   name: string;
   type: "string" | "number" | "boolean" | "date" | "json" | "array";
   mode: "fixed" | "expression";
   value: string;
+  conditional?: boolean;
+  branches?: ConditionalBranch[];
+  elseValue?: string;
+  elseMode?: "fixed" | "expression";
+  /** @deprecated legacy single-condition field */
+  condition?: string;
 };
+
+function migrateLegacyRow(row: SetFieldRow): SetFieldRow {
+  if (row.conditional && row.condition && !row.branches) {
+    return {
+      ...row,
+      branches: [{ condition: row.condition, value: row.value, mode: row.mode }],
+      condition: undefined,
+    };
+  }
+  return row;
+}
+
+const DEFAULT_BRANCH: ConditionalBranch = { condition: "", value: "", mode: "fixed" };
 
 const SET_FIELD_TYPES = [
   { value: "string", label: "String" },
@@ -2261,6 +2157,101 @@ const SET_FIELD_TYPES = [
   { value: "json", label: "JSON" },
   { value: "array", label: "Array" },
 ] as const;
+
+function SetFieldValueInput({
+  field,
+  mode,
+  fieldValue,
+  disabled,
+  onChangeValue,
+  onChangeMode,
+  placeholder,
+}: {
+  field: SetFieldRow;
+  mode: "fixed" | "expression";
+  fieldValue: string;
+  disabled: boolean;
+  onChangeValue: (val: string) => void;
+  onChangeMode: (mode: "fixed" | "expression") => void;
+  placeholder?: string;
+}) {
+  return (
+    <>
+      <div>
+        {mode === "expression" ? (
+          <TemplateBadgeInput
+            disabled={disabled}
+            placeholder={placeholder ?? "Use @ to reference previous nodes"}
+            value={fieldValue}
+            onChange={onChangeValue}
+          />
+        ) : field.type === "boolean" ? (
+          <Select
+            disabled={disabled}
+            value={fieldValue || "false"}
+            onValueChange={onChangeValue}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">
+                <span className="text-xs">true</span>
+              </SelectItem>
+              <SelectItem value="false">
+                <span className="text-xs">false</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            disabled={disabled}
+            placeholder={
+              field.type === "number"
+                ? "0"
+                : field.type === "date"
+                  ? "2026-01-15"
+                  : field.type === "json"
+                    ? '{"key": "value"}'
+                    : field.type === "array"
+                      ? '["a", "b"]'
+                      : "value"
+            }
+            value={fieldValue}
+            onChange={(e) => onChangeValue(e.target.value)}
+            className="h-8 text-xs"
+          />
+        )}
+      </div>
+      <div className="flex shrink-0 rounded-md border overflow-hidden h-7 w-fit">
+        <button
+          type="button"
+          disabled={disabled}
+          className={`px-2.5 text-[10px] font-medium transition-colors ${
+            mode === "fixed"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => onChangeMode("fixed")}
+        >
+          Fixed
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          className={`px-2.5 text-[10px] font-medium transition-colors ${
+            mode === "expression"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => onChangeMode("expression")}
+        >
+          Expression
+        </button>
+      </div>
+    </>
+  );
+}
 
 function SetFieldsFields({
   config,
@@ -2273,12 +2264,11 @@ function SetFieldsFields({
 }) {
   let fields: SetFieldRow[] = [];
   try {
-    fields = JSON.parse((config?.fields as string) || "[]");
+    fields = (JSON.parse((config?.fields as string) || "[]") as SetFieldRow[]).map(migrateLegacyRow);
   } catch {
     fields = [];
   }
 
-  // Auto-add first row if empty
   if (fields.length === 0) {
     fields = [{ name: "", type: "string", mode: "fixed", value: "" }];
   }
@@ -2287,13 +2277,41 @@ function SetFieldsFields({
     onUpdateConfig("fields", JSON.stringify(newFields));
   };
 
-  const updateRow = (index: number, key: keyof SetFieldRow, val: string) => {
+  const updateRow = (index: number, patch: Partial<SetFieldRow>) => {
     const updated = [...fields];
-    updated[index] = { ...updated[index], [key]: val };
-    // Reset value when type changes to avoid stale data
-    if (key === "type") {
+    updated[index] = { ...updated[index], ...patch };
+    if ("type" in patch && patch.type !== fields[index].type) {
       updated[index].value = "";
+      updated[index].elseValue = "";
+      if (updated[index].branches) {
+        updated[index].branches = updated[index].branches!.map((b) => ({ ...b, value: "" }));
+      }
     }
+    update(updated);
+  };
+
+  const updateBranch = (rowIdx: number, branchIdx: number, patch: Partial<ConditionalBranch>) => {
+    const updated = [...fields];
+    const branches = [...(updated[rowIdx].branches || [])];
+    branches[branchIdx] = { ...branches[branchIdx], ...patch };
+    updated[rowIdx] = { ...updated[rowIdx], branches };
+    update(updated);
+  };
+
+  const addBranch = (rowIdx: number) => {
+    const updated = [...fields];
+    const branches = [...(updated[rowIdx].branches || [])];
+    branches.push({ ...DEFAULT_BRANCH });
+    updated[rowIdx] = { ...updated[rowIdx], branches };
+    update(updated);
+  };
+
+  const removeBranch = (rowIdx: number, branchIdx: number) => {
+    const updated = [...fields];
+    const branches = [...(updated[rowIdx].branches || [])];
+    if (branches.length <= 1) return;
+    branches.splice(branchIdx, 1);
+    updated[rowIdx] = { ...updated[rowIdx], branches };
     update(updated);
   };
 
@@ -2321,13 +2339,13 @@ function SetFieldsFields({
                 disabled={disabled}
                 placeholder="field_name"
                 value={field.name}
-                onChange={(e) => updateRow(idx, "name", e.target.value)}
+                onChange={(e) => updateRow(idx, { name: e.target.value })}
                 className="flex-1 h-8 text-xs font-mono"
               />
               <Select
                 disabled={disabled}
                 value={field.type}
-                onValueChange={(v) => updateRow(idx, "type", v)}
+                onValueChange={(v) => updateRow(idx, { type: v as SetFieldRow["type"] })}
               >
                 <SelectTrigger className="w-24 h-8 text-xs">
                   <SelectValue />
@@ -2353,81 +2371,129 @@ function SetFieldsFields({
               )}
             </div>
 
-            {/* Row 2: Value */}
-            <div>
-              {field.mode === "expression" ? (
-                <TemplateBadgeInput
-                  disabled={disabled}
-                  placeholder="Use @ to reference previous nodes"
-                  value={field.value}
-                  onChange={(val) => updateRow(idx, "value", val)}
-                />
-              ) : field.type === "boolean" ? (
-                <Select
-                  disabled={disabled}
-                  value={field.value || "false"}
-                  onValueChange={(v) => updateRow(idx, "value", v)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">
-                      <span className="text-xs">true</span>
-                    </SelectItem>
-                    <SelectItem value="false">
-                      <span className="text-xs">false</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                    disabled={disabled}
-                    placeholder={
-                      field.type === "number"
-                        ? "0"
-                        : field.type === "date"
-                          ? "2026-01-15"
-                          : field.type === "json"
-                            ? '{"key": "value"}'
-                            : field.type === "array"
-                              ? '["a", "b"]'
-                              : "value"
-                    }
-                    value={field.value}
-                    onChange={(e) => updateRow(idx, "value", e.target.value)}
-                    className="h-8 text-xs"
-                  />
-                )}
+            {/* Conditional toggle */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id={`conditional-${idx}`}
+                disabled={disabled}
+                checked={!!field.conditional}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  updateRow(idx, {
+                    conditional: on,
+                    branches: on ? (field.branches?.length ? field.branches : [{ ...DEFAULT_BRANCH }]) : field.branches,
+                    elseValue: on ? (field.elseValue ?? "") : field.elseValue,
+                    elseMode: on ? (field.elseMode ?? "fixed") : field.elseMode,
+                  });
+                }}
+                className="h-3.5 w-3.5 rounded border"
+              />
+              <Label
+                htmlFor={`conditional-${idx}`}
+                className="text-[10px] cursor-pointer text-muted-foreground"
+              >
+                Conditional
+              </Label>
             </div>
 
-            {/* Row 3: Mode toggle */}
-            <div className="flex shrink-0 rounded-md border overflow-hidden h-7 w-fit">
-              <button
-                type="button"
-                disabled={disabled}
-                className={`px-2.5 text-[10px] font-medium transition-colors ${
-                  field.mode === "fixed"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-                onClick={() => updateRow(idx, "mode", "fixed")}
-              >
-                Fixed
-              </button>
-              <button
-                type="button"
-                disabled={disabled}
-                className={`px-2.5 text-[10px] font-medium transition-colors ${
-                  field.mode === "expression"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-                onClick={() => updateRow(idx, "mode", "expression")}
-              >
-                Expression
-              </button>
-            </div>
+            {field.conditional ? (
+              <>
+                {/* Branches: IF / ELSE IF ... */}
+                {(field.branches || []).map((branch, bIdx) => (
+                  <Collapsible key={bIdx} defaultOpen={bIdx === 0}>
+                    <div className="rounded-md border border-dashed bg-background/50 overflow-hidden">
+                      <div className="flex items-center justify-between px-2.5 py-1.5">
+                        <CollapsibleTrigger className="flex items-center gap-1.5 group cursor-pointer">
+                          <ChevronRight className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {bIdx === 0 ? "If" : "Else If"}
+                          </span>
+                        </CollapsibleTrigger>
+                        {(field.branches?.length ?? 0) > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                            disabled={disabled}
+                            onClick={() => removeBranch(idx, bIdx)}
+                          >
+                            <span className="text-xs">×</span>
+                          </Button>
+                        )}
+                      </div>
+                      <CollapsibleContent className="px-2.5 pb-2.5 space-y-2">
+                        <ConditionBuilderInline
+                          disabled={disabled}
+                          value={branch.condition}
+                          onChange={(val) => updateBranch(idx, bIdx, { condition: val })}
+                        />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Then
+                        </span>
+                        <SetFieldValueInput
+                          field={field}
+                          mode={branch.mode}
+                          fieldValue={branch.value}
+                          disabled={disabled}
+                          onChangeValue={(val) => updateBranch(idx, bIdx, { value: val })}
+                          onChangeMode={(m) => updateBranch(idx, bIdx, { mode: m })}
+                        />
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                ))}
+
+                {/* Add branch button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => addBranch(idx)}
+                  className="w-full gap-1.5 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Branch
+                </Button>
+
+                {/* ELSE fallback */}
+                <Collapsible defaultOpen>
+                  <div className="rounded-md border border-dashed bg-background/50 overflow-hidden">
+                    <div className="px-2.5 py-1.5">
+                      <CollapsibleTrigger className="flex items-center gap-1.5 group cursor-pointer">
+                        <ChevronRight className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Else
+                        </span>
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent className="px-2.5 pb-2.5 space-y-2">
+                      <SetFieldValueInput
+                        field={field}
+                        mode={field.elseMode || "fixed"}
+                        fieldValue={field.elseValue || ""}
+                        disabled={disabled}
+                        onChangeValue={(val) => updateRow(idx, { elseValue: val })}
+                        onChangeMode={(m) => updateRow(idx, { elseMode: m })}
+                        placeholder="Default value when no condition matches"
+                      />
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              </>
+            ) : (
+              <>
+                {/* Non-conditional: value + mode toggle (original layout) */}
+                <SetFieldValueInput
+                  field={field}
+                  mode={field.mode}
+                  fieldValue={field.value}
+                  disabled={disabled}
+                  onChangeValue={(val) => updateRow(idx, { value: val })}
+                  onChangeMode={(m) => updateRow(idx, { mode: m })}
+                />
+              </>
+            )}
           </div>
         ))}
       </div>
