@@ -1,7 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
-import { NextFetchEvent, NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
-const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)", "/api/webhooks(.*)"])
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks(.*)",
+  "/api/signature-requests/webhook",
+])
 
 const middleware = clerkMiddleware(async (auth, req) => {
   const isPublic = isPublicRoute(req)
@@ -9,6 +15,9 @@ const middleware = clerkMiddleware(async (auth, req) => {
   const a = await auth()
 
   if (!isPublic && !a.userId) {
+    if (req.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     const signInUrl = new URL("/sign-in", req.url)
     signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search)
     return NextResponse.redirect(signInUrl)
@@ -21,9 +30,7 @@ const middleware = clerkMiddleware(async (auth, req) => {
   return NextResponse.next()
 })
 
-export function proxy(request: NextRequest, event: NextFetchEvent) {
-  return middleware(request, event)
-}
+export default middleware
 
 export const config = {
   matcher: [

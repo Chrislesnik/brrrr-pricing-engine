@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
+import { checkFeatureAccess } from "@/lib/orgs"
 import {
   getExternalOrgMembers,
   syncExternalIndividualsFromClerk,
@@ -7,13 +8,15 @@ import {
 
 export async function GET() {
   try {
-    const { orgId, orgRole } = await auth()
+    const { orgId } = await auth()
 
     if (!orgId) {
       return NextResponse.json({ items: [], orgsMap: {} })
     }
 
-    if (orgRole === "org:broker" || orgRole === "broker") {
+    // Policy-engine check: replaces hardcoded org:broker deny
+    const canView = await checkFeatureAccess("organization_invitations", "view")
+    if (!canView) {
       return NextResponse.json(
         { items: [], orgsMap: {}, error: "Forbidden" },
         { status: 403 }

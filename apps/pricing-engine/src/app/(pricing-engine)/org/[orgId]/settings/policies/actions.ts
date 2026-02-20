@@ -3,42 +3,32 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-// v2 condition-based input
-export type ConditionInput = {
-  field: string;      // "org_role" | "member_role" | "org_type" | "internal_user"
-  operator: "is" | "is_not";
-  values: string[];
-};
+// Re-export types from constants (type-only re-exports are fine in "use server")
+export type {
+  ConditionInput,
+  PolicyScope,
+  PolicyEffect,
+  PolicyDefinitionInput,
+  ResourceType,
+  PolicyAction,
+  OrgPolicyRow,
+  NamedScopeRow,
+} from "./constants";
 
-export type PolicyScope = "all" | "org_records" | "user_records" | "org_and_user";
-export type PolicyEffect = "ALLOW" | "DENY";
-
-export type PolicyDefinitionInput = {
-  allowInternalUsers: boolean;
-  conditions: ConditionInput[];
-  connector: "AND" | "OR";
-  scope?: PolicyScope;
-  effect?: PolicyEffect;
-};
-
-export type OrgPolicyRow = {
-  id: string;
-  resource_type: "table" | "storage_bucket";
-  resource_name: string;
-  action: "select" | "insert" | "update" | "delete" | "all";
-  definition_json: Record<string, unknown>;
-  compiled_config: Record<string, unknown>;
-  scope: PolicyScope;
-  effect: PolicyEffect;
-  version: number;
-  is_active: boolean;
-  created_at: string;
-};
+import type {
+  PolicyDefinitionInput,
+  ResourceType,
+  PolicyAction,
+  OrgPolicyRow,
+  PolicyScope,
+  NamedScopeRow,
+} from "./constants";
+import { FEATURE_RESOURCES } from "./constants";
 
 type SavePolicyInput = {
-  resourceType: "table" | "storage_bucket";
-  resourceName?: string; // specific table/bucket name, defaults to "*" (all)
-  actions: Array<"select" | "insert" | "update" | "delete">;
+  resourceType: ResourceType;
+  resourceName?: string;
+  actions: PolicyAction[];
   definition: PolicyDefinitionInput;
 };
 
@@ -135,24 +125,70 @@ function normalizeRole(value?: string) {
   return trimmed.toLowerCase().replace(/^org:/, "");
 }
 
+function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
+  const sc = definition.scopeConditions ?? [];
+  if (sc.length === 0) return definition.scope || "all";
+
+  const hasOrgEquals = sc.some((c) => c.column === "org_id" && c.operator === "=");
+  const hasUserEquals = sc.some(
+    (c) => (c.column === "created_by" || c.column === "user_id") && c.operator === "="
+  );
+
+  if (hasOrgEquals && hasUserEquals) return "org_and_user";
+  if (hasOrgEquals) return "org_records";
+  if (hasUserEquals) return "user_records";
+  return "all";
+}
+
 function compilePolicy(definition: PolicyDefinitionInput) {
-  return {
-    version: 2,
-    allow_internal_users: !!definition.allowInternalUsers,
-    conditions: (definition.conditions ?? []).map((c) => ({
-      field: c.field,
-      operator: c.operator,
-      values: c.values.map((v) => v.toLowerCase()),
-    })),
+  const legacyScope = deriveLegacyScope(definition);
+  const conditions = (definition.conditions ?? []).map((c) => ({
+    field: c.field,
+    operator: c.operator,
+    values: c.values.map((v) => v.toLowerCase()),
+  }));
+  const scopeConditions = (definition.scopeConditions ?? []).map((c) => ({
+    column: c.column,
+    operator: c.operator,
+    reference: c.reference,
+  }));
+  const namedScopes = definition.namedScopeConditions ?? [];
+
+  // Named scopes override column-level scope conditions.
+  // Scope becomes 'named:<scopeName>' so check_org_access() returns it as-is,
+  // and RLS policies can dispatch to check_named_scope() accordingly.
+  const ruleScope = namedScopes.length > 0
+    ? `named:${namedScopes[0].name}`
+    : legacyScope;
+
+  const ruleObj: Record<string, unknown> = {
     connector: definition.connector || "AND",
-    scope: definition.scope || "all",
+    scope: ruleScope,
+    conditions,
+  };
+  if (namedScopes.length > 0) {
+    ruleObj.named_scope_conditions = namedScopes.map((n) => ({ name: n.name }));
+  }
+
+  return {
+    version: 3,
+    allow_internal_users: !!definition.allowInternalUsers,
+    // V3 rules array — what the policy engine reads for version >= 3
+    rules: [ruleObj],
+    // Legacy V2 fields kept for backwards-compatible reads and UI display
+    conditions,
+    connector: definition.connector || "AND",
+    scope: legacyScope,
+    scope_conditions: scopeConditions,
+    scope_connector: definition.scopeConnector || "OR",
   };
 }
 
 function buildDefinition(definition: PolicyDefinitionInput) {
-  return {
-    version: 2,
-    effect: "ALLOW",
+  const namedScopes = definition.namedScopeConditions ?? [];
+  const base = {
+    version: 3,
+    effect: definition.effect || "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
     conditions: (definition.conditions ?? []).map((c) => ({
       field: c.field,
@@ -160,8 +196,29 @@ function buildDefinition(definition: PolicyDefinitionInput) {
       values: c.values,
     })),
     connector: definition.connector || "AND",
-    scope: definition.scope || "all",
+    scope: deriveLegacyScope(definition),
+    scope_conditions: (definition.scopeConditions ?? []).map((c) => ({
+      column: c.column,
+      operator: c.operator,
+      reference: c.reference,
+    })),
+    scope_connector: definition.scopeConnector || "OR",
   };
+  if (namedScopes.length > 0) {
+    return { ...base, named_scope_conditions: namedScopes.map((n) => ({ name: n.name })) };
+  }
+  return base;
+}
+
+export async function getOrgDisplayName(): Promise<string> {
+  const { orgId, token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+  const { data } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("clerk_organization_id", orgId)
+    .single();
+  return (data?.name as string) ?? "This Organization";
 }
 
 export async function getOrgPolicies(): Promise<{
@@ -172,13 +229,38 @@ export async function getOrgPolicies(): Promise<{
   const supabase = supabaseForUser(token);
   const orgPk = await getOrgPk(supabase, orgId);
 
-  const { data, error } = await supabase
+  // Try with is_protected_policy first; fall back if column doesn't exist yet
+  let data: unknown[] | null = null;
+  let error: { message: string } | null = null;
+
+  // Fetch org-specific + global (org_id IS NULL) policies
+  const result = await supabase
     .from("organization_policies")
     .select(
-      "id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
+      "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,is_protected_policy,created_at"
     )
-    .eq("org_id", orgPk)
+    .or(`org_id.eq.${orgPk},org_id.is.null`)
     .order("created_at", { ascending: false });
+
+  if (result.error && result.error.message.includes("is_protected_policy")) {
+    // Column not yet added — retry without it
+    const fallback = await supabase
+      .from("organization_policies")
+      .select(
+        "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
+      )
+      .or(`org_id.eq.${orgPk},org_id.is.null`)
+      .order("created_at", { ascending: false });
+
+    data = (fallback.data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      is_protected_policy: false,
+    }));
+    error = fallback.error as { message: string } | null;
+  } else {
+    data = result.data;
+    error = result.error as { message: string } | null;
+  }
 
   if (error) throw new Error(error.message);
 
@@ -279,6 +361,20 @@ export async function setOrgPolicyActive(input: {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
+  // Prevent disabling system policies (gracefully handle missing column)
+  try {
+    const { data: policyRow } = await supabase
+      .from("organization_policies")
+      .select("is_protected_policy")
+      .eq("id", input.id)
+      .single();
+    if (policyRow?.is_protected_policy && !input.isActive) {
+      throw new Error("Protected policies cannot be disabled. They are required for core application security.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  }
+
   const { error } = await supabase
     .from("organization_policies")
     .update({ is_active: input.isActive })
@@ -292,9 +388,25 @@ export async function setOrgPolicyActive(input: {
 export async function updateOrgPolicy(input: {
   id: string;
   definition: PolicyDefinitionInput;
+  action?: PolicyAction;
+  resourceType?: ResourceType;
+  resourceName?: string;
 }): Promise<{ ok: true }> {
   const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
+
+  try {
+    const { data: policyRow } = await supabase
+      .from("organization_policies")
+      .select("is_protected_policy")
+      .eq("id", input.id)
+      .single();
+    if (policyRow?.is_protected_policy) {
+      throw new Error("Protected policies cannot be edited. They are required for core application security.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  }
 
   const compiledConfig = compilePolicy(input.definition);
   const definitionJson = buildDefinition(input.definition);
@@ -307,31 +419,52 @@ export async function updateOrgPolicy(input: {
   }
 
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
-  const currentUserAllowed =
-    normalizedOrgRole === "owner" ||
-    compiledConfig.allow_internal_users ||
-    compiledConfig.conditions.some(
+  const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
+
+  if (!isPrivileged) {
+    const hasOrgRoleDenyCondition = compiledConfig.conditions.some(
       (c: { field: string; operator: string; values: string[] }) =>
         c.field === "org_role" &&
-        c.operator === "is" &&
-        (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+        c.operator === "is_not" &&
+        c.values.includes(normalizedOrgRole)
     );
 
-  if (!currentUserAllowed && normalizedOrgRole !== "owner") {
-    throw new Error(
-      "This policy would deny your access based on your org role. Update the conditions or use an owner account."
+    const hasOrgRoleRestriction = compiledConfig.conditions.some(
+      (c: { field: string; operator: string; values: string[] }) =>
+        c.field === "org_role" && c.operator === "is"
     );
+
+    const orgRoleAllowed =
+      !hasOrgRoleRestriction ||
+      compiledConfig.conditions.some(
+        (c: { field: string; operator: string; values: string[] }) =>
+          c.field === "org_role" &&
+          c.operator === "is" &&
+          (c.values.includes("*") || c.values.includes(normalizedOrgRole))
+      );
+
+    if (hasOrgRoleDenyCondition || !orgRoleAllowed) {
+      throw new Error(
+        "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
+      );
+    }
   }
+
+  const updatePayload: Record<string, unknown> = {
+    definition_json: definitionJson,
+    compiled_config: compiledConfig,
+    scope: input.definition.scope || "all",
+    effect: input.definition.effect || "ALLOW",
+    created_by_clerk_sub: userId,
+  };
+
+  if (input.action) updatePayload.action = input.action;
+  if (input.resourceType) updatePayload.resource_type = input.resourceType;
+  if (input.resourceName !== undefined) updatePayload.resource_name = input.resourceName || "*";
 
   const { error } = await supabase
     .from("organization_policies")
-    .update({
-      definition_json: definitionJson,
-      compiled_config: compiledConfig,
-      scope: input.definition.scope || "all",
-      effect: input.definition.effect || "ALLOW",
-      created_by_clerk_sub: userId,
-    })
+    .update(updatePayload)
     .eq("id", input.id);
 
   if (error) throw new Error(error.message);
@@ -342,6 +475,7 @@ export async function updateOrgPolicy(input: {
 export async function getAvailableResources(): Promise<{
   tables: string[];
   buckets: string[];
+  features: typeof FEATURE_RESOURCES;
 }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
@@ -367,22 +501,41 @@ export async function getAvailableResources(): Promise<{
       .filter((t) => !excludedTables.includes(t))
       .sort() ?? [],
     buckets: buckets?.map((b) => b.name).sort() ?? [],
+    features: FEATURE_RESOURCES,
   };
 }
 
 export async function getColumnFilters(): Promise<
-  Array<{ table_name: string; org_column: string | null; user_column: string | null }>
+  Array<{ table_name: string; org_column: string | null; user_column: string | null; named_scopes: string[] }>
 > {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
   const { data } = await supabase
     .from("organization_policies_column_filters")
-    .select("table_name,org_column,user_column")
+    .select("table_name,org_column,user_column,named_scopes")
     .eq("is_excluded", false)
     .order("table_name");
 
-  return (data ?? []) as Array<{ table_name: string; org_column: string | null; user_column: string | null }>;
+  return (data ?? []) as Array<{
+    table_name: string;
+    org_column: string | null;
+    user_column: string | null;
+    named_scopes: string[];
+  }>;
+}
+
+/** Fetches the named scope registry for display in the policy builder. */
+export async function getNamedScopeRegistry(): Promise<NamedScopeRow[]> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { data } = await supabase
+    .from("organization_policy_named_scopes")
+    .select("name,label,description,uses_precomputed")
+    .order("name");
+
+  return (data ?? []) as NamedScopeRow[];
 }
 
 export async function deleteOrgPolicy(input: {
@@ -391,6 +544,20 @@ export async function deleteOrgPolicy(input: {
 }): Promise<{ ok: true }> {
   const { token, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
+
+  // Prevent archiving system policies (gracefully handle missing column)
+  try {
+    const { data: policyRow } = await supabase
+      .from("organization_policies")
+      .select("is_protected_policy")
+      .eq("id", input.id)
+      .single();
+    if (policyRow?.is_protected_policy) {
+      throw new Error("Protected policies cannot be archived. They are required for core application security.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  }
 
   if (input.action === "restore") {
     const { error } = await supabase

@@ -5616,7 +5616,7 @@ export type Database = {
           clerk_organization_id: string | null
           created_at: string
           id: string
-          is_internal_yn: boolean | null
+          is_internal_yn: boolean
           name: string
           org_id: number
           slug: string | null
@@ -5629,7 +5629,7 @@ export type Database = {
           clerk_organization_id?: string | null
           created_at?: string
           id?: string
-          is_internal_yn?: boolean | null
+          is_internal_yn?: boolean
           name: string
           org_id?: number
           slug?: string | null
@@ -5642,7 +5642,7 @@ export type Database = {
           clerk_organization_id?: string | null
           created_at?: string
           id?: string
-          is_internal_yn?: boolean | null
+          is_internal_yn?: boolean
           name?: string
           org_id?: number
           slug?: string | null

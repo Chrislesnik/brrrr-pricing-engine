@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@repo/lib/cn";
@@ -30,6 +31,11 @@ import {
   File as FileIcon,
   Loader2,
   Lock,
+  Trash2,
+  Kanban,
+  Table2,
+  CheckSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   Sheet,
@@ -84,7 +90,7 @@ import type { ThreadData } from "@liveblocks/client";
 
 export type TaskStatus = "todo" | "done" | "skipped";
 export type TaskPriority = "none" | "low" | "medium" | "high" | "urgent";
-type ViewType = "checklist";
+type ViewType = "board" | "table" | "checklist";
 type RuleOperator = "is" | "is_not" | "contains" | "not_contains";
 type LogicOperator = "and" | "or";
 type SortColumn = "priority" | "status" | "title" | "assignee" | "created" | "dueDate";
@@ -111,6 +117,10 @@ export interface Task {
   createdAt?: string;
   updatedAt?: string;
   dealStageName?: string;
+  stage?: string;
+  stageCode?: string;
+  stageColor?: string;
+  stageOrder?: number;
   buttonEnabled?: boolean;
   buttonLabel?: string;
   buttonActionId?: number;
@@ -140,12 +150,26 @@ interface SortRule {
   ascending: boolean;
 }
 
+interface DisplayProperties {
+  id?: boolean;
+  status?: boolean;
+  assignee?: boolean;
+  priority?: boolean;
+  dueDate?: boolean;
+  labels?: boolean;
+  stage?: boolean;
+  created?: boolean;
+  updated?: boolean;
+}
+
 interface ViewSettings {
   currentView: ViewType;
-  groupBy: "status" | "priority" | "assignee" | "label";
+  groupBy: "status" | "priority" | "assignee" | "label" | "stage";
   sortRules: SortRule[];
   showCompletedTasks: boolean;
+  showEmptyGroups: boolean;
   advancedFilter: AdvancedFilterState;
+  displayProperties: DisplayProperties;
 }
 
 export interface DealTaskTrackerProps {
@@ -162,18 +186,18 @@ export interface DealTaskTrackerProps {
 /*  Constants                                                                  */
 /* ========================================================================== */
 
-const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
-  todo: { label: "To Do", color: "#6B7280" },
-  done: { label: "Done", color: "#10B981" },
-  skipped: { label: "Skipped", color: "#9CA3AF" },
+const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; colorClass: string; badgeClass: string; bgClass: string }> = {
+  todo: { label: "To Do", color: "#6B7280", colorClass: "text-gray-500", badgeClass: "bg-gray-500/10 text-gray-500", bgClass: "bg-gray-500" },
+  done: { label: "Done", color: "#10B981", colorClass: "text-emerald-500", badgeClass: "bg-emerald-500/10 text-emerald-500", bgClass: "bg-emerald-500" },
+  skipped: { label: "Skipped", color: "#9CA3AF", colorClass: "text-gray-400", badgeClass: "bg-gray-400/10 text-gray-400", bgClass: "bg-gray-400" },
 };
 
-const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; level: number }> = {
-  urgent: { label: "Urgent", color: "#EF4444", level: 4 },
-  high: { label: "High", color: "#F97316", level: 3 },
-  medium: { label: "Medium", color: "#F59E0B", level: 2 },
-  low: { label: "Low", color: "#6B7280", level: 1 },
-  none: { label: "No priority", color: "#D1D5DB", level: 0 },
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; colorClass: string; badgeClass: string; bgClass: string; level: number }> = {
+  urgent: { label: "Urgent", color: "#EF4444", colorClass: "text-red-500", badgeClass: "bg-red-500/10 text-red-500", bgClass: "bg-red-500", level: 4 },
+  high: { label: "High", color: "#F97316", colorClass: "text-orange-500", badgeClass: "bg-orange-500/10 text-orange-500", bgClass: "bg-orange-500", level: 3 },
+  medium: { label: "Medium", color: "#F59E0B", colorClass: "text-amber-500", badgeClass: "bg-amber-500/10 text-amber-500", bgClass: "bg-amber-500", level: 2 },
+  low: { label: "Low", color: "#6B7280", colorClass: "text-gray-500", badgeClass: "bg-gray-500/10 text-gray-500", bgClass: "bg-gray-500", level: 1 },
+  none: { label: "No priority", color: "#D1D5DB", colorClass: "text-gray-300", badgeClass: "bg-gray-300/10 text-gray-300", bgClass: "bg-gray-300", level: 0 },
 };
 
 const STATUS_ORDER: TaskStatus[] = ["todo", "done", "skipped"];
@@ -319,6 +343,7 @@ interface TaskGroup {
   key: string;
   label: string;
   color: string;
+  colorClass: string;
   tasks: Task[];
 }
 
@@ -328,6 +353,7 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: status,
       label: STATUS_CONFIG[status].label,
       color: STATUS_CONFIG[status].color,
+      colorClass: STATUS_CONFIG[status].colorClass,
       tasks: tasks.filter((t) => t.status === status),
     }));
   }
@@ -336,6 +362,7 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: p,
       label: PRIORITY_CONFIG[p].label,
       color: PRIORITY_CONFIG[p].color,
+      colorClass: PRIORITY_CONFIG[p].colorClass,
       tasks: tasks.filter((t) => t.priority === p),
     }));
   }
@@ -345,16 +372,43 @@ function getGroups(tasks: Task[], groupBy: string): TaskGroup[] {
       key: a,
       label: a,
       color: "#6B7280",
+      colorClass: "text-gray-500",
       tasks: tasks.filter((t) => (t.assignee ?? "Unassigned") === a),
     }));
   }
+  if (groupBy === "stage") {
+    const stageMap = new Map<string, { name: string; color: string; order: number }>();
+    for (const t of tasks) {
+      const code = t.stageCode ?? "__unassigned__";
+      if (!stageMap.has(code)) {
+        stageMap.set(code, {
+          name: t.stage ?? "Unassigned",
+          color: t.stageColor ?? "#6B7280",
+          order: t.stageOrder ?? 9999,
+        });
+      }
+    }
+    if (!stageMap.has("__unassigned__")) {
+      stageMap.set("__unassigned__", { name: "Unassigned", color: "#6B7280", order: 9999 });
+    }
+    return [...stageMap.entries()]
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([code, info]) => ({
+        key: code,
+        label: info.name,
+        color: info.color,
+        colorClass: "text-gray-500",
+        tasks: tasks.filter((t) => (t.stageCode ?? "__unassigned__") === code),
+      }));
+  }
   // label
   const labels = [...new Set(tasks.flatMap((t) => t.labels))].sort();
-  if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", tasks }];
+  if (labels.length === 0) return [{ key: "none", label: "No labels", color: "#6B7280", colorClass: "text-gray-500", tasks }];
   return labels.map((l) => ({
     key: l,
     label: l,
     color: "#6B7280",
+    colorClass: "text-gray-500",
     tasks: tasks.filter((t) => t.labels.includes(l)),
   }));
 }
@@ -378,7 +432,11 @@ function getActiveFilterCount(filter: AdvancedFilterState): number {
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) cb();
+      if (!ref.current) return;
+      const target = e.target as HTMLElement;
+      if (ref.current.contains(target)) return;
+      if (target.closest("[data-radix-popper-content-wrapper]") || target.closest("[role='listbox']") || target.closest("[role='option']")) return;
+      cb();
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -431,7 +489,9 @@ export function DealTaskTracker({
     groupBy: "status",
     sortRules: [{ id: "sort-default", column: "priority", ascending: false }],
     showCompletedTasks: true,
+    showEmptyGroups: true,
     advancedFilter: { logic: "and", items: [] },
+    displayProperties: { id: true, status: true, assignee: true, priority: true, dueDate: true, labels: true, stage: true, created: true, updated: false },
   });
 
   // Keep in sync with prop changes
@@ -663,14 +723,50 @@ export function DealTaskTracker({
   const activeFilterCount = getActiveFilterCount(viewSettings.advancedFilter);
 
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <ViewToolbar
+        viewSettings={viewSettings}
+        onSetView={(v) => setViewSettings((p) => ({ ...p, currentView: v }))}
+        onUpdateViewSettings={(s) => setViewSettings((p) => ({ ...p, ...s }))}
         onAddTask={() => handleAddTaskToStatus("todo")}
+        sortRules={viewSettings.sortRules}
+        onAddSortRule={(col) => {
+          const id = `sort-${Date.now()}`;
+          setViewSettings((p) => ({ ...p, sortRules: [...p.sortRules, { id, column: col as SortColumn, ascending: true }] }));
+        }}
+        onUpdateSortRule={(ruleId, updates) => {
+          setViewSettings((p) => ({
+            ...p,
+            sortRules: p.sortRules.map((r) => (r.id === ruleId ? { ...r, ...updates } : r)),
+          }));
+        }}
+        onRemoveSortRule={(ruleId) => {
+          setViewSettings((p) => ({ ...p, sortRules: p.sortRules.filter((r) => r.id !== ruleId) }));
+        }}
       />
 
       {/* View content */}
-      <div className="min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
+        {viewSettings.currentView === "board" && (
+          <BoardView
+            groups={sortedGroups}
+            groupBy={viewSettings.groupBy}
+            onStatusChange={handleStatusChange}
+            onTaskClick={setSelectedTask}
+            onAddTask={handleAddTaskToStatus}
+            selectedTaskId={selectedTask?.id ?? null}
+            displayProperties={viewSettings.displayProperties}
+          />
+        )}
+        {viewSettings.currentView === "table" && (
+          <TableView
+            groups={sortedGroups}
+            onTaskClick={setSelectedTask}
+            selectedTaskId={selectedTask?.id ?? null}
+            displayProperties={viewSettings.displayProperties}
+          />
+        )}
         {viewSettings.currentView === "checklist" && (
           <ChecklistView
             groups={sortedGroups}
@@ -719,29 +815,288 @@ export function DealTaskTracker({
 /*  ViewToolbar                                                                */
 /* ========================================================================== */
 
+const VIEW_OPTIONS: { value: ViewType; label: string; icon: typeof Kanban }[] = [
+  { value: "board", label: "Board", icon: Kanban },
+  { value: "table", label: "Table", icon: Table2 },
+  { value: "checklist", label: "Checklist", icon: CheckSquare },
+];
+
+const GROUP_OPTIONS: { value: ViewSettings["groupBy"]; label: string }[] = [
+  { value: "status", label: "Status" },
+  { value: "priority", label: "Priority" },
+  { value: "assignee", label: "Assignee" },
+  { value: "label", label: "Label" },
+  { value: "stage", label: "Deal Stage" },
+];
+
+const DISPLAY_PROPERTIES: { key: keyof DisplayProperties; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "status", label: "Status" },
+  { key: "assignee", label: "Assignee" },
+  { key: "priority", label: "Priority" },
+  { key: "dueDate", label: "Due date" },
+  { key: "labels", label: "Labels" },
+  { key: "stage", label: "Deal Stage" },
+  { key: "created", label: "Created" },
+  { key: "updated", label: "Updated" },
+];
+
 function ViewToolbar({
+  viewSettings,
+  onSetView,
+  onUpdateViewSettings,
   onAddTask,
+  sortRules,
+  onAddSortRule,
+  onUpdateSortRule,
+  onRemoveSortRule,
 }: {
+  viewSettings: ViewSettings;
+  onSetView: (v: ViewType) => void;
+  onUpdateViewSettings: (s: Partial<ViewSettings>) => void;
   onAddTask: () => void;
+  sortRules: SortRule[];
+  onAddSortRule: (column: string) => void;
+  onUpdateSortRule: (ruleId: string, updates: Partial<SortRule>) => void;
+  onRemoveSortRule: (ruleId: string) => void;
 }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPopoverRef = useRef<HTMLDivElement>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        settingsPopoverRef.current?.contains(target) ||
+        settingsBtnRef.current?.contains(target) ||
+        (target instanceof Element && (target.closest("[data-radix-popper-content-wrapper]") || target.closest("[role='listbox']") || target.closest("[role='option']")))
+      ) return;
+      setSettingsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [settingsOpen]);
+
+  useEffect(() => {
+    if (settingsOpen && settingsBtnRef.current) {
+      const rect = settingsBtnRef.current.getBoundingClientRect();
+      setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [settingsOpen]);
 
   return (
-    <div className="flex items-center justify-between mb-6">
-      <div>
-        <h2 className="text-lg font-semibold">Tasks</h2>
-        <p className="text-sm text-muted-foreground">
-          Track and manage tasks across deal stages
-        </p>
+    <div className="flex items-center justify-between border-b px-4 py-2">
+      <div className="flex items-center gap-1">
+        {/* Display popover */}
+        <div className="relative">
+          <button
+            ref={settingsBtnRef}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+              settingsOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Display</span>
+          </button>
+
+          {settingsOpen && createPortal(
+            <div
+              ref={settingsPopoverRef}
+              className="fixed z-[9999] w-[320px] rounded-lg border bg-card shadow-lg"
+              style={{ top: popoverPos.top, left: popoverPos.left }}
+            >
+              {/* Layout switcher */}
+              <div className="p-3 pb-0">
+                <div className="flex rounded-lg bg-muted/60 p-0.5">
+                  {VIEW_OPTIONS.map((opt) => {
+                    const active = viewSettings.currentView === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => onSetView(opt.value)}
+                        className={cn(
+                          "flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs font-medium transition-all",
+                          active
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <opt.icon className="h-4 w-4" />
+                        <span className="text-[10px]">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Grouping / Ordering */}
+              <div className="px-3 py-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Kanban className="h-3.5 w-3.5" />
+                    <span>{viewSettings.currentView === "board" ? "Columns" : "Grouping"}</span>
+                  </div>
+                  <Select value={viewSettings.groupBy} onValueChange={(v) => onUpdateViewSettings({ groupBy: v as ViewSettings["groupBy"] })}>
+                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[10000]">
+                      {GROUP_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    <span>Ordering</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Select
+                      value={sortRules[0]?.column ?? "priority"}
+                      onValueChange={(v) => {
+                        if (sortRules[0]) {
+                          onUpdateSortRule(sortRules[0].id, { column: v as SortColumn });
+                        } else {
+                          onAddSortRule(v);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10000]">
+                        <SelectItem value="priority" className="text-xs">Priority</SelectItem>
+                        <SelectItem value="status" className="text-xs">Status</SelectItem>
+                        <SelectItem value="title" className="text-xs">Title</SelectItem>
+                        <SelectItem value="created" className="text-xs">Created</SelectItem>
+                        <SelectItem value="dueDate" className="text-xs">Due date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => {
+                        if (sortRules[0]) {
+                          onUpdateSortRule(sortRules[0].id, { ascending: !sortRules[0].ascending });
+                        }
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                      title={sortRules[0]?.ascending ? "Ascending" : "Descending"}
+                    >
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t" />
+
+              {/* Completed tasks */}
+              <div className="px-3 py-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Completed tasks</span>
+                  <Select value={viewSettings.showCompletedTasks ? "all" : "hidden"} onValueChange={(v) => onUpdateViewSettings({ showCompletedTasks: v === "all" })}>
+                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[10000]">
+                      <SelectItem value="all" className="text-xs">All</SelectItem>
+                      <SelectItem value="hidden" className="text-xs">Hidden</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="border-t" />
+
+              {/* View-specific options */}
+              <div className="px-3 py-3">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2">
+                  {viewSettings.currentView === "board" ? "Board" : viewSettings.currentView === "table" ? "Table" : "Checklist"} options
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Show empty groups</span>
+                  <button
+                    title="Toggle show empty groups"
+                    onClick={() => onUpdateViewSettings({ showEmptyGroups: !viewSettings.showEmptyGroups })}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors",
+                      viewSettings.showEmptyGroups ? "bg-primary" : "bg-muted"
+                    )}
+                  >
+                    <span className={cn(
+                      "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform mt-0.5",
+                      viewSettings.showEmptyGroups ? "translate-x-4 ml-0.5" : "translate-x-0 ml-0.5"
+                    )} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t" />
+
+              {/* Display properties */}
+              <div className="px-3 py-3">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2">Display properties</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {DISPLAY_PROPERTIES.map((prop) => {
+                    const active = viewSettings.displayProperties?.[prop.key] !== false;
+                    return (
+                      <button
+                        key={prop.key}
+                        onClick={() => onUpdateViewSettings({
+                          displayProperties: {
+                            ...viewSettings.displayProperties,
+                            [prop.key]: !active,
+                          },
+                        })}
+                        className={cn(
+                          "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          active
+                            ? "border-primary/30 bg-primary/10 text-foreground"
+                            : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {prop.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reset */}
+              <div className="border-t px-3 py-2 flex justify-center">
+                <button
+                  onClick={() => onUpdateViewSettings({
+                    groupBy: "status",
+                    showCompletedTasks: true,
+                    showEmptyGroups: true,
+                    displayProperties: Object.fromEntries(DISPLAY_PROPERTIES.map((p) => [p.key, true])),
+                  })}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onAddTask}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>New task</span>
-        </button>
-      </div>
+
+      {/* Add task */}
+      <button
+        onClick={onAddTask}
+        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span>New task</span>
+      </button>
     </div>
   );
 }
@@ -757,6 +1112,7 @@ function BoardView({
   onTaskClick,
   onAddTask,
   selectedTaskId,
+  displayProperties,
 }: {
   groups: TaskGroup[];
   groupBy: string;
@@ -764,6 +1120,7 @@ function BoardView({
   onTaskClick: (task: Task) => void;
   onAddTask: (status: TaskStatus) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
 }) {
   return (
     <div className="flex h-full gap-3 overflow-x-auto px-4 py-4">
@@ -779,6 +1136,7 @@ function BoardView({
           onTaskClick={onTaskClick}
           onAddTask={onAddTask}
           selectedTaskId={selectedTaskId}
+          displayProperties={displayProperties}
         />
       ))}
     </div>
@@ -795,6 +1153,7 @@ function BoardColumn({
   onTaskClick,
   onAddTask,
   selectedTaskId,
+  displayProperties,
 }: {
   groupKey: string;
   label: string;
@@ -805,6 +1164,7 @@ function BoardColumn({
   onTaskClick: (task: Task) => void;
   onAddTask: (status: TaskStatus) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -864,7 +1224,7 @@ function BoardColumn({
           </div>
         ) : (
           tasks.map((task) => (
-            <DraggableCard key={task.id} task={task} onClick={() => onTaskClick(task)} isSelected={selectedTaskId === task.id} />
+            <DraggableCard key={task.id} task={task} onClick={() => onTaskClick(task)} isSelected={selectedTaskId === task.id} displayProperties={displayProperties} />
           ))
         )}
       </div>
@@ -872,7 +1232,7 @@ function BoardColumn({
   );
 }
 
-function DraggableCard({ task, onClick, isSelected }: { task: Task; onClick: () => void; isSelected: boolean }) {
+function DraggableCard({ task, onClick, isSelected, displayProperties }: { task: Task; onClick: () => void; isSelected: boolean; displayProperties: DisplayProperties }) {
   const [isDragging, setIsDragging] = useState(false);
 
   return (
@@ -885,13 +1245,14 @@ function DraggableCard({ task, onClick, isSelected }: { task: Task; onClick: () 
       onDragEnd={() => setIsDragging(false)}
       className={cn("transition-opacity", isDragging && "opacity-40")}
     >
-      <TaskCard task={task} onClick={onClick} isSelected={isSelected} />
+      <TaskCard task={task} onClick={onClick} isSelected={isSelected} displayProperties={displayProperties} />
     </div>
   );
 }
 
-function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: () => void; isSelected?: boolean }) {
+function TaskCard({ task, onClick, isSelected = false, displayProperties: dp }: { task: Task; onClick: () => void; isSelected?: boolean; displayProperties?: DisplayProperties }) {
   const statusConfig = STATUS_CONFIG[task.status];
+  const show = (key: keyof DisplayProperties) => !dp || dp[key] !== false;
   return (
     <button
       onClick={onClick}
@@ -904,13 +1265,15 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
     >
       {/* Header row */}
       <div className="flex items-center gap-2 mb-1.5">
-        <Circle
-          className="h-3 w-3 flex-shrink-0"
-          style={{ color: statusConfig.color }}
-          fill={task.status === "done" ? statusConfig.color : "none"}
-          strokeWidth={2}
-        />
-        {task.identifier && (
+        {show("status") && (
+          <Circle
+            className="h-3 w-3 flex-shrink-0"
+            style={{ color: statusConfig.color }}
+            fill={task.status === "done" ? statusConfig.color : "none"}
+            strokeWidth={2}
+          />
+        )}
+        {show("id") && task.identifier && (
           <span className="text-[11px] font-mono text-muted-foreground">{task.identifier}</span>
         )}
       </div>
@@ -918,24 +1281,36 @@ function TaskCard({ task, onClick, isSelected = false }: { task: Task; onClick: 
       {/* Title */}
       <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 mb-2">{task.title}</p>
 
+      {/* Stage badge */}
+      {show("stage") && task.stage && (
+        <div className="mb-2">
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+            style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
+          >
+            {task.stage}
+          </span>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <PriorityIcon priority={task.priority} />
-          {task.labels.slice(0, 2).map((lbl) => (
+          {show("priority") && <PriorityIcon priority={task.priority} />}
+          {show("labels") && task.labels.slice(0, 2).map((lbl) => (
             <span key={lbl} className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
               {lbl}
             </span>
           ))}
         </div>
         <div className="flex items-center gap-2.5">
-          {task.dueDate && (
+          {show("dueDate") && task.dueDate && (
             <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
               <Calendar className="h-3 w-3" />
               {new Date(task.dueDate).toLocaleDateString()}
             </span>
           )}
-          {task.assignee && (
+          {show("assignee") && task.assignee && (
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary" title={task.assignee}>
               {task.assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
             </div>
@@ -954,23 +1329,32 @@ function TableView({
   groups,
   onTaskClick,
   selectedTaskId,
+  displayProperties: dp,
 }: {
   groups: TaskGroup[];
   onTaskClick: (task: Task) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
 }) {
+  const show = (key: keyof DisplayProperties) => dp[key] !== false;
+  const thCls = "px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
+  const colCount = 1 + (show("id") ? 1 : 0) + 1 + (show("status") ? 1 : 0) + (show("priority") ? 1 : 0) + (show("assignee") ? 1 : 0) + (show("stage") ? 1 : 0) + (show("labels") ? 1 : 0) + (show("dueDate") ? 1 : 0) + (show("created") ? 1 : 0) + (show("updated") ? 1 : 0);
   return (
     <div className="h-full overflow-auto">
       <table className="w-full border-collapse">
         <thead className="sticky top-0 z-10 bg-card">
           <tr className="border-b border-border">
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[40px]" />
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[80px]">ID</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Title</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[100px]">Status</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[90px]">Priority</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[130px]">Assignee</th>
-            <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-[120px]">Labels</th>
+            <th className={cn(thCls, "w-[40px]")} />
+            {show("id") && <th className={cn(thCls, "w-[80px]")}>ID</th>}
+            <th className={thCls}>Title</th>
+            {show("status") && <th className={cn(thCls, "w-[100px]")}>Status</th>}
+            {show("priority") && <th className={cn(thCls, "w-[90px]")}>Priority</th>}
+            {show("assignee") && <th className={cn(thCls, "w-[130px]")}>Assignee</th>}
+            {show("stage") && <th className={cn(thCls, "w-[120px]")}>Stage</th>}
+            {show("labels") && <th className={cn(thCls, "w-[120px]")}>Labels</th>}
+            {show("dueDate") && <th className={cn(thCls, "w-[110px]")}>Due Date</th>}
+            {show("created") && <th className={cn(thCls, "w-[110px]")}>Created</th>}
+            {show("updated") && <th className={cn(thCls, "w-[110px]")}>Updated</th>}
           </tr>
         </thead>
         <tbody>
@@ -983,6 +1367,8 @@ function TableView({
               tasks={group.tasks}
               onTaskClick={onTaskClick}
               selectedTaskId={selectedTaskId}
+              displayProperties={dp}
+              colCount={colCount}
             />
           ))}
         </tbody>
@@ -998,6 +1384,8 @@ function TableGroupRows({
   tasks,
   onTaskClick,
   selectedTaskId,
+  displayProperties: dp,
+  colCount,
 }: {
   groupKey: string;
   label: string;
@@ -1005,8 +1393,11 @@ function TableGroupRows({
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   selectedTaskId: string | null;
+  displayProperties: DisplayProperties;
+  colCount: number;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const show = (key: keyof DisplayProperties) => dp[key] !== false;
 
   return (
     <>
@@ -1014,7 +1405,7 @@ function TableGroupRows({
         className="border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <td colSpan={7} className="px-4 py-2">
+        <td colSpan={colCount} className="px-4 py-2">
           <div className="flex items-center gap-2">
             {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
             <Circle className="h-3 w-3" style={{ color }} fill={groupKey === "done" ? color : "none"} />
@@ -1039,47 +1430,98 @@ function TableGroupRows({
               <td className="px-4 py-2.5">
                 <Circle className="h-3 w-3" style={{ color: statusConfig.color }} fill={task.status === "done" ? statusConfig.color : "none"} strokeWidth={2} />
               </td>
-              <td className="px-4 py-2.5">
-                <span className="text-xs font-mono text-muted-foreground">{task.identifier ?? task.id.slice(0, 6)}</span>
-              </td>
+              {show("id") && (
+                <td className="px-4 py-2.5">
+                  <span className="text-xs font-mono text-muted-foreground">{task.identifier ?? task.id.slice(0, 6)}</span>
+                </td>
+              )}
               <td className="px-4 py-2.5">
                 <span className="text-sm text-foreground">{task.title}</span>
               </td>
-              <td className="px-4 py-2.5">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: `${statusConfig.color}1A`, color: statusConfig.color }}
-                >
-                  {statusConfig.label}
-                </span>
-              </td>
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-1.5">
-                  <PriorityIcon priority={task.priority} />
-                  <span className="text-xs text-muted-foreground">{PRIORITY_CONFIG[task.priority].label}</span>
-                </div>
-              </td>
-              <td className="px-4 py-2.5">
-                {task.assignee ? (
+              {show("status") && (
+                <td className="px-4 py-2.5">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{ backgroundColor: `${statusConfig.color}1A`, color: statusConfig.color }}
+                  >
+                    {statusConfig.label}
+                  </span>
+                </td>
+              )}
+              {show("priority") && (
+                <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1.5">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary">
-                      {task.assignee.split(" ").map((n) => n[0]).join("")}
-                    </div>
-                    <span className="text-xs text-muted-foreground">{task.assignee}</span>
+                    <PriorityIcon priority={task.priority} />
+                    <span className="text-xs text-muted-foreground">{PRIORITY_CONFIG[task.priority].label}</span>
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-1">
-                  {task.labels.slice(0, 2).map((lbl) => (
-                    <span key={lbl} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {lbl}
+                </td>
+              )}
+              {show("assignee") && (
+                <td className="px-4 py-2.5">
+                  {task.assignee ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary">
+                        {task.assignee.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{task.assignee}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("stage") && (
+                <td className="px-4 py-2.5">
+                  {task.stage ? (
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border"
+                      style={task.stageColor ? { borderColor: task.stageColor, color: task.stageColor } : undefined}
+                    >
+                      {task.stage}
                     </span>
-                  ))}
-                </div>
-              </td>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("labels") && (
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-1">
+                    {task.labels.slice(0, 2).map((lbl) => (
+                      <span key={lbl} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {lbl}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+              )}
+              {show("dueDate") && (
+                <td className="px-4 py-2.5">
+                  {task.dueDate ? (
+                    <span className="text-xs text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("created") && (
+                <td className="px-4 py-2.5">
+                  {task.createdAt ? (
+                    <span className="text-xs text-muted-foreground">{new Date(task.createdAt).toLocaleDateString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
+              {show("updated") && (
+                <td className="px-4 py-2.5">
+                  {task.updatedAt ? (
+                    <span className="text-xs text-muted-foreground">{new Date(task.updatedAt).toLocaleDateString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              )}
             </tr>
           );
         })}
@@ -1135,9 +1577,9 @@ function ChecklistView({
     : null;
 
   return (
-    <div className="overflow-auto">
+    <div className="overflow-auto px-4 py-4">
       {/* Progress bar – scoped to current step */}
-      <div className="mb-5 max-w-5xl">
+      <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-foreground">
             {currentStepIdx >= 0 ? stepOrder[currentStepIdx] : "Progress"}
@@ -1157,7 +1599,7 @@ function ChecklistView({
       </div>
 
       {/* Step-grouped checklists */}
-      <div className="flex flex-col gap-2 max-w-5xl">
+      <div className="flex flex-col gap-2">
         {stepOrder.map((stepName, idx) => {
           const isAccessible = idx <= currentStepIdx;
           const tasks = tasksByStep.get(stepName) ?? [];

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId, getUserRoleInOrg } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, checkFeatureAccess, getUserRoleInOrg } from "@/lib/orgs"
 import { permanentlyDelete, type ArchivableTable } from "@/lib/archive-helpers"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
@@ -54,32 +54,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No active organization" }, { status: 400 })
     }
 
-    // 1. Verify the user is an internal user
-    const { data: userRow } = await supabaseAdmin
-      .from("users")
-      .select("id, is_internal_yn")
-      .eq("clerk_user_id", userId)
-      .maybeSingle()
-
-    if (!userRow || !userRow.is_internal_yn) {
-      return NextResponse.json(
-        { error: "Only internal users can permanently delete records" },
-        { status: 403 }
-      )
-    }
-
-    // 2. Resolve the organization and verify membership
+    // Resolve the organization
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
 
-    // 3. Verify the user's role in this org is "admin" or "owner"
-    const role = await getUserRoleInOrg(orgUuid, userId)
-    const normalizedRole = role ? role.replace(/^org:/, "") : ""
-    if (normalizedRole !== "admin" && normalizedRole !== "owner") {
+    // Policy engine check: feature:permanent_delete/delete
+    let canDelete = await checkFeatureAccess("permanent_delete", "delete").catch(() => false)
+
+    // Fallback: if no feature:permanent_delete policy exists yet (migration not applied),
+    // use the original hardcoded checks to avoid regression.
+    if (!canDelete) {
+      const { data: policyExists } = await supabaseAdmin
+        .from("organization_policies")
+        .select("id")
+        .eq("resource_type", "feature")
+        .eq("resource_name", "permanent_delete")
+        .eq("action", "delete")
+        .eq("is_active", true)
+        .limit(1)
+
+      if (!policyExists || policyExists.length === 0) {
+        // Legacy fallback: check is_internal_yn + admin/owner
+        const { data: userRow } = await supabaseAdmin
+          .from("users")
+          .select("id, is_internal_yn")
+          .eq("clerk_user_id", userId)
+          .maybeSingle()
+
+        const role = await getUserRoleInOrg(orgUuid, userId)
+        const normalizedRole = role ? role.replace(/^org:/, "") : ""
+
+        canDelete = !!(
+          userRow?.is_internal_yn &&
+          (normalizedRole === "admin" || normalizedRole === "owner")
+        )
+      }
+    }
+
+    if (!canDelete) {
       return NextResponse.json(
-        { error: "Only internal admin/owner users can permanently delete records" },
+        { error: "You do not have permission to permanently delete records" },
         { status: 403 }
       )
     }

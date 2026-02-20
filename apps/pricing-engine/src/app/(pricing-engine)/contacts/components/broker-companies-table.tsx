@@ -12,7 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown, MoreHorizontal, Settings, UserPlus } from "lucide-react"
+import { ChevronDown, MoreHorizontal, Settings, UserPlus, Archive } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
@@ -21,7 +21,9 @@ import { Label } from "@repo/ui/shadcn/label"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
@@ -45,6 +47,7 @@ interface Props {
   data: BrokerOrgRow[]
   initialMembersMap?: Record<string, OrgMemberRow[]>
   onSettingsChanged?: () => void
+  onInviteMembers?: (orgId: string) => void
 }
 
 function formatDate(iso: string | null | undefined) {
@@ -113,7 +116,7 @@ function ActionsCell({
   )
 }
 
-export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged }: Props) {
+export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged, onInviteMembers }: Props) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
@@ -424,8 +427,8 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
                                       </span>
                                       <span className="text-muted-foreground">
                                         {member.user_id
-                                          ? member.user_id.slice(0, 12) + "…"
-                                          : member.id.slice(0, 12) + "…"}
+                                          ? member.user_id.slice(0, 12) + "\u2026"
+                                          : member.id.slice(0, 12) + "\u2026"}
                                       </span>
                                     </div>
                                     <div className="text-foreground font-semibold">

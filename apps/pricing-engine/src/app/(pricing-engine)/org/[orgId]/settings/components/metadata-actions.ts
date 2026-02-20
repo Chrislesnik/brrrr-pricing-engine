@@ -2,22 +2,7 @@
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-
-function normalizeRole(value?: string | null) {
-  return (value ?? "").toLowerCase();
-}
-
-function assertOrgAccess(orgRole: string | null | undefined, required: "owner" | "admin") {
-  const role = normalizeRole(orgRole);
-  const isOwner = role === "org:owner" || role === "owner";
-  const isAdmin = role === "org:admin" || role === "admin";
-  if (required === "owner" && !isOwner) {
-    throw new Error("Owner access required.");
-  }
-  if (required === "admin" && !(isOwner || isAdmin)) {
-    throw new Error("Admin access required.");
-  }
-}
+import { assertPolicyAccess } from "@/lib/orgs";
 
 async function getOrgPk(clerkOrgId: string) {
   const { data, error } = await supabaseAdmin
@@ -34,10 +19,11 @@ async function getOrgPk(clerkOrgId: string) {
 }
 
 export async function getOrgInternalFlag(): Promise<{ isInternal: boolean }> {
-  const { orgId, orgRole } = await auth();
+  const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  assertOrgAccess(orgRole, "admin");
+  // Policy-engine check: read access on organizations table
+  await assertPolicyAccess("table", "organizations", "select");
   const { isInternal } = await getOrgPk(orgId);
   return { isInternal };
 }
@@ -45,10 +31,11 @@ export async function getOrgInternalFlag(): Promise<{ isInternal: boolean }> {
 export async function setOrgInternalFlag(input: {
   isInternal: boolean;
 }): Promise<{ ok: true }> {
-  const { orgId, orgRole } = await auth();
+  const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  assertOrgAccess(orgRole, "owner");
+  // Policy-engine check: write access on organizations table
+  await assertPolicyAccess("table", "organizations", "update");
   const { orgPk } = await getOrgPk(orgId);
 
   const { error } = await supabaseAdmin
@@ -70,10 +57,11 @@ export async function setOrgInternalFlag(input: {
 export async function getOrgMemberRoles(): Promise<{
   roles: Record<string, string | null>;
 }> {
-  const { orgId, orgRole } = await auth();
+  const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  assertOrgAccess(orgRole, "admin");
+  // Policy-engine check: read access on organization_members table
+  await assertPolicyAccess("table", "organization_members", "select");
   const { orgPk } = await getOrgPk(orgId);
 
   const { data, error } = await supabaseAdmin
@@ -93,14 +81,47 @@ export async function getOrgMemberRoles(): Promise<{
   return { roles };
 }
 
+/**
+ * Returns the list of active member roles configured in organization_member_roles
+ * for the current org (both global roles and org-specific ones).
+ */
+export async function getActiveMemberRoleOptions(): Promise<
+  { value: string; label: string }[]
+> {
+  const { orgId } = await auth();
+  if (!orgId) return [];
+
+  // Policy-engine check: read access on organization_member_roles table
+  await assertPolicyAccess("table", "organization_member_roles", "select");
+  const { orgPk } = await getOrgPk(orgId);
+
+  const { data, error } = await supabaseAdmin
+    .from("organization_member_roles")
+    .select("role_code, role_name")
+    .or(`organization_id.is.null,organization_id.eq.${orgPk}`)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.error("getActiveMemberRoleOptions error:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((r) => ({
+    value: r.role_code as string,
+    label: r.role_name as string,
+  }));
+}
+
 export async function setOrgMemberRole(input: {
   clerkUserId: string;
   memberRole: string | null;
 }): Promise<{ ok: true }> {
-  const { orgId, orgRole } = await auth();
+  const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  assertOrgAccess(orgRole, "admin");
+  // Policy-engine check: write access on organization_members table
+  await assertPolicyAccess("table", "organization_members", "update");
   const { orgPk } = await getOrgPk(orgId);
 
   const { error } = await supabaseAdmin
@@ -110,9 +131,6 @@ export async function setOrgMemberRole(input: {
     .eq("user_id", input.clerkUserId);
 
   if (error) throw new Error(error.message);
-
-  // Note: Clerk SDK v5+ removed publicMetadata from updateOrganizationMembership.
-  // Role is stored in Supabase organization_members table.
 
   return { ok: true };
 }

@@ -27,6 +27,16 @@ import { TbHomeSearch } from "react-icons/tb";
 // TYPES
 // ============================================================================
 
+/**
+ * Policy-engine check for a nav item.
+ * When present, the item is visible only when the policy returns `allowed: true`.
+ */
+export interface NavPolicyCheck {
+  resourceType: string;
+  resourceName: string;
+  action: string;
+}
+
 export interface NavItem {
   title: string;
   url?: string;
@@ -35,8 +45,16 @@ export interface NavItem {
   
   // RBAC
   requiredPermission?: string;
+  /** @deprecated Prefer `policyCheck` for policy-driven visibility. */
   denyOrgRoles?: string[];
+  /** @deprecated Prefer `policyCheck` for policy-driven visibility. */
   allowOrgRoles?: string[];
+  /**
+   * Policy-engine visibility check. When provided, the item is visible only
+   * when the policy engine grants access for the specified resource + action.
+   * Takes precedence over denyOrgRoles / allowOrgRoles.
+   */
+  policyCheck?: NavPolicyCheck;
   
   // UI
   badge?: string;
@@ -176,6 +194,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
       {
         title: "Brokers",
         icon: IconUser,
+        policyCheck: { resourceType: "feature", resourceName: "organization_invitations", action: "view" },
         denyOrgRoles: ["org:broker", "broker"],
         items: [
           {
@@ -259,12 +278,21 @@ function findNavItemByUrl(url: string, items: NavItem[]): NavItem | null {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LONG_HEX_RE = /^[0-9a-f]{12,}$/i;
+const CLERK_ORG_ID_RE = /^org_/i;
 
 /**
  * Generates breadcrumb segments from pathname using navigation config for labels.
  * UUID / long-hex segments are truncated so breadcrumbs stay compact on mobile.
+ *
+ * @param pathname  Current URL pathname
+ * @param orgName   Optional active organization display name — replaces raw
+ *                  Clerk org ID segments (e.g. `org_38MVrt…`) with the human-
+ *                  readable name.
  */
-export function getBreadcrumbSegments(pathname: string): { label: string; href?: string }[] {
+export function getBreadcrumbSegments(
+  pathname: string,
+  orgName?: string | null,
+): { label: string; href?: string }[] {
   const segments = pathname.split("/").filter(Boolean);
   
   return segments.map((segment, index) => {
@@ -273,14 +301,21 @@ export function getBreadcrumbSegments(pathname: string): { label: string; href?:
     // Try to find matching nav item for accurate label
     const navItem = findNavItemByUrl(href, NAVIGATION_CONFIG);
     
-    // Use nav item title if found, otherwise capitalize segment
+    // Use nav item title if found, otherwise title-case each word in the segment
     let label =
       navItem?.title ||
-      segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+      segment
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    // Replace Clerk org ID segments with the org's display name
+    if (!navItem && CLERK_ORG_ID_RE.test(segment) && orgName) {
+      label = orgName;
+    }
 
     // Truncate UUID-like or long hex segments so they don't overflow
     if (!navItem && (UUID_RE.test(segment) || LONG_HEX_RE.test(segment))) {
-      label = segment.slice(0, 8) + "…";
+      label = segment.slice(0, 8) + "\u2026";
     }
 
     // Override Settings label for nested settings routes

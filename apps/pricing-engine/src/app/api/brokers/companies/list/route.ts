@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+import { checkFeatureAccess } from "@/lib/orgs"
 import {
   getExternalOrganizations,
   syncExternalOrgMembersFromClerk,
@@ -8,32 +9,36 @@ import {
 
 export async function GET() {
   try {
-    const { orgId, orgRole, userId } = await auth()
+    const { orgId } = await auth()
 
     if (!orgId) {
-      return NextResponse.json({ items: [], membersMap: {} })
+      return NextResponse.json({ items: [], membersMap: {}, isActiveOrgInternal: false })
     }
 
-    if (orgRole === "org:broker" || orgRole === "broker") {
+    const canView = await checkFeatureAccess("organization_invitations", "view")
+    if (!canView) {
       return NextResponse.json(
-        { items: [], membersMap: {}, error: "Forbidden" },
+        { items: [], membersMap: {}, isActiveOrgInternal: false, error: "Forbidden" },
         { status: 403 }
       )
     }
 
-    const orgUuid = await getOrgUuidFromClerkId(orgId)
+    const { data: activeOrgRow } = await supabaseAdmin
+      .from("organizations")
+      .select("id, is_internal_yn")
+      .eq("clerk_organization_id", orgId)
+      .single()
+    const isActiveOrgInternal = activeOrgRow?.is_internal_yn === true
+    const activeOrgSupabaseId = (activeOrgRow?.id as string) ?? null
 
     await syncExternalOrgMembersFromClerk()
 
-    const { organizations, membersMap } = await getExternalOrganizations(
-      orgUuid ?? undefined,
-      userId ?? undefined
-    )
-    return NextResponse.json({ items: organizations, membersMap })
+    const { organizations, membersMap } = await getExternalOrganizations()
+    return NextResponse.json({ items: organizations, membersMap, isActiveOrgInternal, activeOrgSupabaseId })
   } catch (error) {
     console.error("Broker organizations list API error:", error)
     return NextResponse.json(
-      { items: [], membersMap: {}, error: "Failed to fetch broker organizations" },
+      { items: [], membersMap: {}, isActiveOrgInternal: false, error: "Failed to fetch broker organizations" },
       { status: 500 }
     )
   }

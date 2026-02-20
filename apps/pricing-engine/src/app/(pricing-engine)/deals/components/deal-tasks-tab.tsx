@@ -29,8 +29,10 @@ interface TaskPriorityRow {
 
 interface DealStageRow {
   id: number;
+  code: string;
   name: string;
-  display_order: number;
+  color: string | null;
+  display_order: number | null;
 }
 
 interface TaskTemplateRow {
@@ -130,6 +132,10 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
     checked: status === "done",
     createdAt: task.created_at,
     updatedAt: task.updated_at,
+    stage: task.deal_stages?.name ?? undefined,
+    stageCode: task.deal_stages?.code ?? undefined,
+    stageColor: task.deal_stages?.color ?? undefined,
+    stageOrder: task.deal_stages?.display_order ?? undefined,
     dealStageName: task.deal_stages?.name ?? undefined,
     buttonEnabled: task.task_templates?.button_enabled ?? false,
     buttonLabel: task.task_templates?.button_label ?? undefined,
@@ -250,6 +256,10 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
         if (updates.assignee !== undefined)
           payload.assigned_to_user_ids = updates.assignee ? [updates.assignee] : [];
         if (updates.dueDate !== undefined) payload.due_date_at = updates.dueDate || null;
+        // Map checked toggle to status when no explicit status update
+        if (updates.checked !== undefined && updates.status === undefined) {
+          payload.task_status_id = updates.checked ? STATUS_TO_ID.done : STATUS_TO_ID.todo;
+        }
 
         const response = await fetch(`/api/deals/${dealId}/tasks/${taskId}`, {
           method: "PATCH",

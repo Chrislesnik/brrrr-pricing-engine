@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, checkPolicyAccess } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
@@ -40,14 +40,16 @@ export async function GET() {
 // POST: Save organization's theme
 export async function POST(req: NextRequest) {
   try {
-    const { userId, orgId, orgRole } = await auth()
+    const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
     
-    // Only org owners and admins can save themes
-    const canEdit = orgRole === "org:owner" || orgRole === "owner" || orgRole === "org:admin" || orgRole === "admin"
+    // Policy-engine check: replaces hardcoded owner/admin guard.
+    // Uses the data-level policy for the organization_themes table.
+    const canEdit = await checkPolicyAccess("table", "organization_themes", "update")
+      .catch(() => false)
     if (!canEdit) {
-      return NextResponse.json({ error: "Only organization owners and admins can update themes" }, { status: 403 })
+      return NextResponse.json({ error: "You do not have permission to update themes" }, { status: 403 })
     }
     
     const orgUuid = await getOrgUuidFromClerkId(orgId)
@@ -86,14 +88,15 @@ export async function POST(req: NextRequest) {
 // DELETE: Reset organization's theme to defaults
 export async function DELETE() {
   try {
-    const { userId, orgId, orgRole } = await auth()
+    const { userId, orgId } = await auth()
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
     
-    // Only org owners and admins can delete themes
-    const canEdit = orgRole === "org:owner" || orgRole === "owner" || orgRole === "org:admin" || orgRole === "admin"
-    if (!canEdit) {
-      return NextResponse.json({ error: "Only organization owners and admins can reset themes" }, { status: 403 })
+    // Policy-engine check: replaces hardcoded owner/admin guard
+    const canDelete = await checkPolicyAccess("table", "organization_themes", "delete")
+      .catch(() => false)
+    if (!canDelete) {
+      return NextResponse.json({ error: "You do not have permission to reset themes" }, { status: 403 })
     }
     
     const orgUuid = await getOrgUuidFromClerkId(orgId)

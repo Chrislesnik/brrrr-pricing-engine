@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
-import { Toaster } from "@repo/ui/shadcn/toaster"
+import localFont from "next/font/local"
+import { Toaster } from "@/components/toaster"
+import { Toaster as SonnerToaster } from "sonner"
 import "./globals.css"
 import { Providers } from "./providers"
 import { LinkInAppFix } from "./LinkInAppFix"
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "./fonts/InterVariable.woff2",
   display: "swap",
+  variable: "--font-inter",
 })
 
 export const metadata: Metadata = {
@@ -45,6 +47,7 @@ export default function RootLayout({
           {children}
         </Providers>
         <Toaster />
+        <SonnerToaster position="top-right" richColors closeButton />
       </body>
     </html>
   )

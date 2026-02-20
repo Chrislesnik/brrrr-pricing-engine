@@ -14,8 +14,8 @@
 --   document_categories (1 policy)
 --   document_files (2 policies)
 --   rbac_permissions (1 policy)
---   term_sheet_templates (3 policies)
---   term_sheet_template_fields (3 policies)
+--   document_templates (3 policies)
+--   document_template_fields (3 policies)
 -- =====================================================
 
 BEGIN;
@@ -185,11 +185,11 @@ CREATE POLICY "Internal admins can manage permissions"
   );
 
 -- =====================================================
--- 8. term_sheet_templates: 3 policies
+-- 8. document_templates: 3 policies
 -- =====================================================
-DROP POLICY IF EXISTS "Users can read org templates" ON public.term_sheet_templates;
+DROP POLICY IF EXISTS "Users can read org templates" ON public.document_templates;
 CREATE POLICY "Users can read org templates"
-  ON public.term_sheet_templates
+  ON public.document_templates
   FOR SELECT
   TO authenticated
   USING (
@@ -199,9 +199,9 @@ CREATE POLICY "Users can read org templates"
     )
   );
 
-DROP POLICY IF EXISTS "Org admins can manage all templates" ON public.term_sheet_templates;
+DROP POLICY IF EXISTS "Org admins can manage all templates" ON public.document_templates;
 CREATE POLICY "Org admins can manage all templates"
-  ON public.term_sheet_templates
+  ON public.document_templates
   FOR ALL
   TO authenticated
   USING (
@@ -219,40 +219,40 @@ CREATE POLICY "Org admins can manage all templates"
     )
   );
 
-DROP POLICY IF EXISTS "Users can manage own templates" ON public.term_sheet_templates;
+DROP POLICY IF EXISTS "Users can manage own templates" ON public.document_templates;
 CREATE POLICY "Users can manage own templates"
-  ON public.term_sheet_templates
+  ON public.document_templates
   FOR ALL
   TO authenticated
   USING (user_id = (auth.jwt() ->> 'sub'))
   WITH CHECK (user_id = (auth.jwt() ->> 'sub'));
 
 -- =====================================================
--- 9. term_sheet_template_fields: 3 policies
+-- 9. document_template_fields: 3 policies
 -- =====================================================
-DROP POLICY IF EXISTS "Users can read fields for org templates" ON public.term_sheet_template_fields;
+DROP POLICY IF EXISTS "Users can read fields for org templates" ON public.document_template_fields;
 CREATE POLICY "Users can read fields for org templates"
-  ON public.term_sheet_template_fields
+  ON public.document_template_fields
   FOR SELECT
   TO authenticated
   USING (
     template_id IN (
       SELECT tst.id
-      FROM term_sheet_templates tst
+      FROM document_templates tst
       JOIN organization_members om ON tst.organization_id = om.organization_id
       WHERE om.user_id = (auth.jwt() ->> 'sub')
     )
   );
 
-DROP POLICY IF EXISTS "Org admins can manage all template fields" ON public.term_sheet_template_fields;
+DROP POLICY IF EXISTS "Org admins can manage all template fields" ON public.document_template_fields;
 CREATE POLICY "Org admins can manage all template fields"
-  ON public.term_sheet_template_fields
+  ON public.document_template_fields
   FOR ALL
   TO authenticated
   USING (
     template_id IN (
       SELECT tst.id
-      FROM term_sheet_templates tst
+      FROM document_templates tst
       JOIN organization_members om ON tst.organization_id = om.organization_id
       WHERE om.user_id = (auth.jwt() ->> 'sub')
         AND om.clerk_org_role = 'admin'
@@ -261,30 +261,30 @@ CREATE POLICY "Org admins can manage all template fields"
   WITH CHECK (
     template_id IN (
       SELECT tst.id
-      FROM term_sheet_templates tst
+      FROM document_templates tst
       JOIN organization_members om ON tst.organization_id = om.organization_id
       WHERE om.user_id = (auth.jwt() ->> 'sub')
         AND om.clerk_org_role = 'admin'
     )
   );
 
-DROP POLICY IF EXISTS "Users can manage fields for own templates" ON public.term_sheet_template_fields;
+DROP POLICY IF EXISTS "Users can manage fields for own templates" ON public.document_template_fields;
 CREATE POLICY "Users can manage fields for own templates"
-  ON public.term_sheet_template_fields
+  ON public.document_template_fields
   FOR ALL
   TO authenticated
   USING (
     template_id IN (
-      SELECT term_sheet_templates.id
-      FROM term_sheet_templates
-      WHERE term_sheet_templates.user_id = (auth.jwt() ->> 'sub')
+      SELECT document_templates.id
+      FROM document_templates
+      WHERE document_templates.user_id = (auth.jwt() ->> 'sub')
     )
   )
   WITH CHECK (
     template_id IN (
-      SELECT term_sheet_templates.id
-      FROM term_sheet_templates
-      WHERE term_sheet_templates.user_id = (auth.jwt() ->> 'sub')
+      SELECT document_templates.id
+      FROM document_templates
+      WHERE document_templates.user_id = (auth.jwt() ->> 'sub')
     )
   );
 

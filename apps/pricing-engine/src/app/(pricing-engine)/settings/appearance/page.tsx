@@ -1,14 +1,11 @@
-import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 import ContentSection from "../components/content-section"
 import { AppearanceForm } from "./appearance-form"
+import { checkPolicyAccess } from "@/lib/orgs"
 
 export default async function SettingsAppearancePage() {
-  const { orgRole } = await auth()
-  
-  // Only org owners can access appearance settings
-  const isOwner = orgRole === "org:owner" || orgRole === "owner"
-  if (!isOwner) {
+  const canEdit = await checkPolicyAccess("table", "organization_themes", "update").catch(() => false)
+  if (!canEdit) {
     notFound()
   }
 

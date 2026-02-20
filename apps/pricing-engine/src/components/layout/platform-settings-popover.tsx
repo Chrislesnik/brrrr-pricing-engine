@@ -19,11 +19,12 @@ import {
   ArrowRightLeft,
   FileCode2,
   Mail,
-  Wand2,
+  Sparkles,
   LayoutGrid,
   TextCursorInput,
   FileText,
   ListChecks,
+  GlobeLock,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -110,7 +111,7 @@ export function PlatformSettingsPopover({
   const handleTemplateEditorClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push("/platform-settings/integrations/template-editor");
+    router.push("/platform-settings/integrations/template-editor?tab=documents");
     setPopoverOpen(false);
   };
 
@@ -258,7 +259,7 @@ export function PlatformSettingsPopover({
                         className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
                         <div className="flex items-center gap-3">
-                          <Wand2 className="h-4 w-4 text-muted-foreground" />
+                          <Sparkles className="h-4 w-4 text-muted-foreground" />
                           <span>Template Studio</span>
                         </div>
                         <ChevronRight
@@ -271,18 +272,62 @@ export function PlatformSettingsPopover({
                     <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
                       <div className="pl-6 pr-1 pb-1">
                         <Link
-                          href="/platform-settings/integrations/template-editor"
-                          onClick={handleTemplateEditorClick}
+                          href="/platform-settings/integrations/template-editor?tab=documents"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push("/platform-settings/integrations/template-editor?tab=documents");
+                            setPopoverOpen(false);
+                          }}
                           className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                            isTemplateEditorActive
+                            isTemplateEditorActive && (!searchParams.get("tab") || searchParams.get("tab") === "documents")
                               ? "bg-accent text-accent-foreground"
                               : "text-foreground"
                           }`}
                         >
                           <FileCode2 className="h-4 w-4 text-muted-foreground" />
-                          <span>Documents (HTML)</span>
+                          <span>Documents</span>
                         </Link>
-                        {/* TODO: Emails tab - hidden until ready */}
+                        <Link
+                          href="/platform-settings/integrations/template-editor?tab=emails"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push("/platform-settings/integrations/template-editor?tab=emails");
+                            setPopoverOpen(false);
+                          }}
+                          className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                            isTemplateEditorActive && searchParams.get("tab") === "emails"
+                              ? "bg-accent text-accent-foreground"
+                              : "text-foreground"
+                          }`}
+                        >
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="flex items-center gap-2">
+                            Emails
+                            <span className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">AI</span>
+                          </span>
+                        </Link>
+                        <Link
+                          href="/platform-settings/integrations/template-editor?tab=sites"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push("/platform-settings/integrations/template-editor?tab=sites");
+                            setPopoverOpen(false);
+                          }}
+                          className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                            isTemplateEditorActive && searchParams.get("tab") === "sites"
+                              ? "bg-accent text-accent-foreground"
+                              : "text-foreground"
+                          }`}
+                        >
+                          <GlobeLock className="h-4 w-4 text-muted-foreground" />
+                          <span className="flex items-center gap-2">
+                            Landing Pages
+                            <span className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">AI</span>
+                          </span>
+                        </Link>
                       </div>
                     </CollapsibleContent>
                   </Collapsible>

@@ -55,6 +55,18 @@ export function TeamSwitcherV2() {
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // Just-in-time sync: ensure the active Clerk org exists in Supabase.
+  // Fires on mount, org switch, and after org creation dialog closes.
+  const [lastSyncedOrgId, setLastSyncedOrgId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!organization?.id) return;
+    if (organization.id === lastSyncedOrgId) return;
+    setLastSyncedOrgId(organization.id);
+    fetch("/api/org/ensure-sync", { method: "POST" }).catch(() => {
+      // Non-fatal: webhook may handle it
+    });
+  }, [organization?.id, lastSyncedOrgId]);
+
   // Get current organization and user's role
   const currentOrg = organization;
   const currentMembership = userMemberships?.data?.find(
@@ -226,7 +238,16 @@ export function TeamSwitcherV2() {
       </SidebarMenu>
 
       {/* Create Organization Modal - using shadcn Dialog for proper portal cleanup */}
-      <Dialog open={showCreateOrg} onOpenChange={setShowCreateOrg}>
+      <Dialog
+        open={showCreateOrg}
+        onOpenChange={(open) => {
+          setShowCreateOrg(open);
+          // When dialog closes after creating an org, force a re-sync
+          if (!open && organization?.id) {
+            setLastSyncedOrgId(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Create Organization</DialogTitle>

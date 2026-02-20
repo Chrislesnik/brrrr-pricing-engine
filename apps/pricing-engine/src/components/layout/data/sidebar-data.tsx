@@ -114,6 +114,7 @@ export const sidebarData: SidebarData = {
         {
           title: "Brokers",
           icon: IconUser,
+          policyCheck: { resourceType: "feature", resourceName: "organization_invitations", action: "view" },
           denyOrgRoles: ["org:broker", "broker"],
           items: [
             {
@@ -160,15 +161,13 @@ export const sidebarData: SidebarData = {
               title: "Company",
               icon: IconUser,
               url: "/settings/company",
-              // Visible only to broker role
               allowOrgRoles: ["org:broker", "broker"],
             },
             {
               title: "Appearance",
               icon: IconPalette,
               url: "/settings/appearance",
-              // Visible only to org owners
-              allowOrgRoles: ["org:owner", "owner"],
+              policyCheck: { resourceType: "table", resourceName: "organization_themes", action: "update" },
             },
           ],
         }

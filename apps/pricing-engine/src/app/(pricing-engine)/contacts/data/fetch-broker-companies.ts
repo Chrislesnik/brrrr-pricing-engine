@@ -1,5 +1,5 @@
-import { clerkClient } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { syncAllExternalMembers } from "@/lib/sync-members"
 
 export type BrokerOrgRow = {
 	id: string
@@ -142,107 +142,12 @@ export async function getExternalOrganizations(
 }
 
 /**
- * JIT bulk sync: fetches all members from Clerk for every external
- * organization that has a clerk_organization_id, and upserts them
- * into the Supabase organization_members table.
+ * JIT bulk sync: delegates to the shared syncAllExternalMembers() utility
+ * which handles batch queries, role precedence, and pending invite roles.
  *
  * Call this before getExternalOrganizations() so the returned data
  * includes freshly synced member information.
  */
 export async function syncExternalOrgMembersFromClerk(): Promise<void> {
-	try {
-		// Get all external orgs that have a Clerk org ID
-		const { data: orgs, error } = await supabaseAdmin
-			.from("organizations")
-			.select("id, clerk_organization_id")
-			.eq("is_internal_yn", false)
-			.not("clerk_organization_id", "is", null)
-
-		if (error || !orgs?.length) return
-
-		const clerk = await clerkClient()
-
-		for (const org of orgs) {
-			const clerkOrgId = org.clerk_organization_id as string
-			const supabaseOrgId = org.id as string
-			if (!clerkOrgId) continue
-
-			try {
-				let offset = 0
-				const limit = 100
-				let hasMore = true
-
-				while (hasMore) {
-					const page =
-						await clerk.organizations.getOrganizationMembershipList({
-							organizationId: clerkOrgId,
-							limit,
-							offset,
-						})
-					const items = page.data ?? []
-
-					for (const m of items) {
-						const memUserId = m.publicUserData?.userId
-						if (!memUserId) continue
-
-						const clerkRole = m.role ?? "member"
-						let memberRole =
-							typeof (m.publicMetadata as Record<string, unknown>)
-								?.org_member_role === "string"
-								? ((m.publicMetadata as Record<string, unknown>)
-										.org_member_role as string)
-								: clerkRole
-
-						const memberEmail =
-							(m.publicUserData as Record<string, unknown>)
-								?.identifier as string | undefined
-						if (memberEmail) {
-							const { data: pendingRow } = await supabaseAdmin
-								.from("pending_invite_roles")
-								.select("clerk_member_role")
-								.eq("organization_id", supabaseOrgId)
-								.ilike("email", memberEmail)
-								.maybeSingle()
-
-							if (pendingRow?.clerk_member_role) {
-								memberRole =
-									pendingRow.clerk_member_role as string
-								await supabaseAdmin
-									.from("pending_invite_roles")
-									.delete()
-									.eq("organization_id", supabaseOrgId)
-									.ilike("email", memberEmail)
-							}
-						}
-
-						await supabaseAdmin
-							.from("organization_members")
-							.upsert(
-								{
-									organization_id: supabaseOrgId,
-									user_id: memUserId,
-									clerk_org_role: clerkRole,
-									clerk_member_role: memberRole,
-									first_name:
-										m.publicUserData?.firstName ?? null,
-									last_name:
-										m.publicUserData?.lastName ?? null,
-								},
-								{ onConflict: "organization_id,user_id" }
-							)
-					}
-
-					hasMore = items.length === limit
-					offset += limit
-				}
-			} catch (orgSyncErr) {
-				console.error(
-					`syncExternalOrgMembers: failed for org ${supabaseOrgId}`,
-					orgSyncErr
-				)
-			}
-		}
-	} catch (err) {
-		console.error("syncExternalOrgMembersFromClerk: unexpected error", err)
-	}
+	return syncAllExternalMembers()
 }

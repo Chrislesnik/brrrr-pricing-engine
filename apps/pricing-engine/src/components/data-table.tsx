@@ -804,7 +804,7 @@ export function DataTable() {
         onValueChange={setActiveTab}
         className="w-full space-y-6"
       >
-        <div className="flex items-center justify-between px-4 lg:px-6">
+        <div className="flex items-center justify-between">
           <Label htmlFor="view-selector" className="sr-only">
             View
           </Label>
@@ -876,7 +876,7 @@ export function DataTable() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 px-4 lg:px-6">
+          <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             <span className="ml-2 text-sm text-muted-foreground">
               Loading...
@@ -886,7 +886,6 @@ export function DataTable() {
           <>
             <TabsContent
               value="deals"
-              className="px-4 lg:px-6"
             >
               <TabTable<DealWithRelations>
                 data={deals}
@@ -900,7 +899,6 @@ export function DataTable() {
             </TabsContent>
             <TabsContent
               value="scenarios"
-              className="px-4 lg:px-6"
             >
               <TabTable<LoanRow>
                 data={scenarios}
@@ -914,7 +912,6 @@ export function DataTable() {
             </TabsContent>
             <TabsContent
               value="applications"
-              className="px-4 lg:px-6"
             >
               <TabTable<AppRow>
                 data={applications}

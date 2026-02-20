@@ -381,6 +381,7 @@ export function GeneralSettings() {
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      aria-label="Upload light mode logo"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) setLightLogoFile(file);
@@ -481,6 +482,7 @@ export function GeneralSettings() {
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      aria-label="Upload dark mode logo"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) setDarkLogoFile(file);
@@ -587,6 +589,7 @@ export function GeneralSettings() {
               </p>
             </div>
             <Switch
+              aria-label="Internal organization"
               checked={isInternal}
               disabled={isInternalLoading || isSavingInternal}
               onCheckedChange={(checked) => {

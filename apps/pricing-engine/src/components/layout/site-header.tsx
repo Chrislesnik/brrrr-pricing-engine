@@ -9,7 +9,7 @@ import { SlashIcon, Settings, ChevronDown } from "lucide-react";
 import { Separator } from "@repo/ui/shadcn/separator";
 import { SidebarTrigger } from "@repo/ui/shadcn/sidebar";
 import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useOrganization } from "@clerk/nextjs";
 import { getBreadcrumbSegments } from "@/app/(pricing-engine)/config/navigation";
 
 // Dynamic imports with ssr: false to prevent hydration mismatches
@@ -66,8 +66,8 @@ interface SiteHeaderProps {
   dealName?: string;
 }
 
-function generateBreadcrumbs(pathname: string): React.ReactNode {
-  const segments = getBreadcrumbSegments(pathname);
+function generateBreadcrumbs(pathname: string, orgName?: string | null): React.ReactNode {
+  const segments = getBreadcrumbSegments(pathname, orgName);
 
   // Handle simple single-segment breadcrumbs (like Dashboard)
   if (segments.length === 1) {
@@ -136,6 +136,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const { user } = useUser();
+  const { organization } = useOrganization();
 
   React.useEffect(() => {
     setMounted(true);
@@ -159,7 +160,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
           className="bg-border shrink-0 w-[1px] mr-2 h-4"
         />
         {mounted ? (
-          breadcrumb || generateBreadcrumbs(pathname)
+          breadcrumb || generateBreadcrumbs(pathname, organization?.name)
         ) : (
           <div className="h-4 w-32 bg-muted/50 animate-pulse rounded" />
         )}

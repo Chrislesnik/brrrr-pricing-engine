@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@repo/ui/shadcn/card";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/shadcn/alert";
-import { getOrgPolicies } from "./actions";
+import { getOrgPolicies, getOrgDisplayName } from "./actions";
 import OrgPolicyBuilder from "@/components/policies/org-policy-builder";
 
 export default async function PoliciesPage({
@@ -20,9 +20,11 @@ export default async function PoliciesPage({
 
   let policiesData;
   let error: string | null = null;
+  let orgDisplayName = "This Organization";
 
   try {
     policiesData = await getOrgPolicies();
+    orgDisplayName = await getOrgDisplayName().catch(() => "This Organization");
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load policies";
     console.error("Error loading org policies:", e);
@@ -54,7 +56,10 @@ export default async function PoliciesPage({
         )}
 
         {policiesData && !error && (
-          <OrgPolicyBuilder initialPolicies={policiesData.policies} />
+          <OrgPolicyBuilder
+            initialPolicies={policiesData.policies}
+            orgDisplayName={orgDisplayName}
+          />
         )}
       </div>
     </div>

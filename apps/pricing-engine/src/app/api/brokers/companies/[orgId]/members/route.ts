@@ -1,26 +1,32 @@
-import { auth, clerkClient } from "@clerk/nextjs/server"
+import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { checkFeatureAccess } from "@/lib/orgs"
+import { syncOrgMembers } from "@/lib/sync-members"
 
 /**
  * GET /api/brokers/companies/[orgId]/members
  *
  * Fetches members for a given organization (by Supabase UUID).
- * Performs a JIT sync: looks up the org's clerk_organization_id, fetches all
- * memberships from Clerk, upserts them into Supabase, then returns the rows.
+ * Performs a JIT sync via the shared syncOrgMembers() utility,
+ * then returns the rows from Supabase.
+ *
+ * Authorization: governed by the "organization_invitations / view" policy.
  */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
 ) {
   try {
-    const { orgId: clerkOrgId, orgRole } = await auth()
+    const { orgId: clerkOrgId } = await auth()
 
     if (!clerkOrgId) {
       return NextResponse.json({ members: [] })
     }
 
-    if (orgRole === "org:broker" || orgRole === "broker") {
+    // Policy-engine check: replaces hardcoded org:broker deny
+    const canView = await checkFeatureAccess("organization_invitations", "view")
+    if (!canView) {
       return NextResponse.json({ members: [], error: "Forbidden" }, { status: 403 })
     }
 
@@ -40,73 +46,10 @@ export async function GET(
 
     const clerkOrgIdForThisOrg = orgRow.clerk_organization_id as string
 
-    // JIT sync: fetch all members from Clerk and upsert into Supabase
+    // JIT sync using the shared utility (batch queries, role precedence)
     try {
-      const clerk = await clerkClient()
-      let offset = 0
-      const limit = 100
-      let hasMore = true
-
-      while (hasMore) {
-        const page = await clerk.organizations.getOrganizationMembershipList({
-          organizationId: clerkOrgIdForThisOrg,
-          limit,
-          offset,
-        })
-        const items = page.data ?? []
-
-        for (const m of items) {
-          const memUserId = m.publicUserData?.userId
-          if (!memUserId) continue
-
-          const clerkRole = m.role ?? "member"
-          let memberRole =
-            typeof (m.publicMetadata as Record<string, unknown>)?.org_member_role === "string"
-              ? ((m.publicMetadata as Record<string, unknown>).org_member_role as string)
-              : clerkRole
-
-          // Check for a pending invite role
-          const memberEmail =
-            (m.publicUserData as Record<string, unknown>)
-              ?.identifier as string | undefined
-          if (memberEmail) {
-            const { data: pendingRow } = await supabaseAdmin
-              .from("pending_invite_roles")
-              .select("clerk_member_role")
-              .eq("organization_id", orgId)
-              .ilike("email", memberEmail)
-              .maybeSingle()
-
-            if (pendingRow?.clerk_member_role) {
-              memberRole = pendingRow.clerk_member_role as string
-              await supabaseAdmin
-                .from("pending_invite_roles")
-                .delete()
-                .eq("organization_id", orgId)
-                .ilike("email", memberEmail)
-            }
-          }
-
-          await supabaseAdmin
-            .from("organization_members")
-            .upsert(
-              {
-                organization_id: orgId,
-                user_id: memUserId,
-                clerk_org_role: clerkRole,
-                clerk_member_role: memberRole,
-                first_name: m.publicUserData?.firstName ?? null,
-                last_name: m.publicUserData?.lastName ?? null,
-              },
-              { onConflict: "organization_id,user_id" }
-            )
-        }
-
-        hasMore = items.length === limit
-        offset += limit
-      }
+      await syncOrgMembers(clerkOrgIdForThisOrg, orgId)
     } catch (syncErr) {
-      // Non-fatal: fall through to return whatever is already in Supabase
       console.error("Members JIT sync error:", syncErr)
     }
 

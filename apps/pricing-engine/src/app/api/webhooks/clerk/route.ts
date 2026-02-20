@@ -17,7 +17,14 @@ export async function POST(req: NextRequest) {
   }
 
   const payload = await req.text()
-  const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET as string)
+  const secret =
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET ??
+    process.env.CLERK_WEBHOOK_SECRET
+  if (!secret) {
+    console.error("Missing CLERK_WEBHOOK_SIGNING_SECRET env var")
+    return new Response("Webhook secret not configured", { status: 500 })
+  }
+  const wh = new Webhook(secret)
 
   let evt: unknown
   try {
@@ -72,7 +79,12 @@ export async function POST(req: NextRequest) {
       type ClerkMembershipPayload = {
         id?: string
         user_id?: string
-        public_user_data?: { user_id?: string; first_name?: string | null; last_name?: string | null }
+        public_user_data?: {
+          user_id?: string
+          first_name?: string | null
+          last_name?: string | null
+          identifier?: string
+        }
         organization_id?: string
         organization?: { id?: string }
         role?: string
@@ -81,13 +93,15 @@ export async function POST(req: NextRequest) {
       const m = (data ?? {}) as ClerkMembershipPayload
       const userId = m.user_id ?? m.public_user_data?.user_id ?? ""
       const organizationId = m.organization_id ?? m.organization?.id ?? ""
-      const role = m.role ?? "member"
-      const memberRole =
+      const role = (m.role ?? "member").replace(/^org:/, "")
+      let memberRole =
         typeof m.public_metadata?.org_member_role === "string"
           ? m.public_metadata?.org_member_role
-          : null
+          : role
       const firstName = (m.public_user_data?.first_name ?? "") || null
       const lastName = (m.public_user_data?.last_name ?? "") || null
+      const memberEmail = m.public_user_data?.identifier ?? ""
+
       // Resolve Supabase org UUID by Clerk organization id
       const { data: orgRow, error: orgErr } = await supabaseAdmin
         .from("organizations")
@@ -99,18 +113,62 @@ export async function POST(req: NextRequest) {
       if (!orgUuid) {
         return new Response("Organization not found for membership", { status: 400 })
       }
+
+      // ── Role precedence (matches sync-members.ts resolveMemberRole) ──
+      // 1. pending_invite_roles  (highest — set when invite was sent)
+      // 2. existing DB value     (preserves manual edits)
+      // 3. Clerk metadata        (org_member_role from publicMetadata)
+      // 4. Clerk org role        (lowest — derived from membership.role)
+
+      let pendingRole: string | null = null
+
+      // Consume pending invite role (atomic DELETE … RETURNING)
+      if (type === "organizationMembership.created" && memberEmail) {
+        const { data: pendingRows } = await supabaseAdmin
+          .from("pending_invite_roles")
+          .delete()
+          .eq("organization_id", orgUuid)
+          .ilike("email", memberEmail)
+          .select("clerk_member_role")
+
+        if (pendingRows?.[0]?.clerk_member_role) {
+          pendingRole = pendingRows[0].clerk_member_role as string
+        }
+      }
+
+      // Fetch existing DB role so we don't overwrite manual edits
+      let existingDbRole: string | null = null
+      if (!pendingRole) {
+        const { data: existingRow } = await supabaseAdmin
+          .from("organization_members")
+          .select("clerk_member_role")
+          .eq("organization_id", orgUuid)
+          .eq("user_id", userId)
+          .single()
+
+        existingDbRole = (existingRow?.clerk_member_role as string) ?? null
+      }
+
+      // Normalize metadata role (strip "org:" prefix if present)
+      const clerkMetadataRole =
+        typeof memberRole === "string" ? memberRole.replace(/^org:/, "") : null
+
+      // Apply precedence
+      const resolvedMemberRole =
+        pendingRole ?? existingDbRole ?? clerkMetadataRole ?? role
+
+      // Upsert on the composite unique key (organization_id, user_id).
       const upsertPayload = {
-        id: m.id as string,
         organization_id: orgUuid,
         user_id: userId,
         clerk_org_role: role,
-        ...(memberRole !== null ? { clerk_member_role: memberRole } : {}),
+        clerk_member_role: resolvedMemberRole,
         first_name: firstName,
         last_name: lastName,
       }
       const { error } = await supabaseAdmin
         .from("organization_members")
-        .upsert(upsertPayload, { onConflict: "id" })
+        .upsert(upsertPayload, { onConflict: "organization_id,user_id" })
       if (error) return new Response(error.message, { status: 500 })
       break
     }
@@ -130,9 +188,32 @@ export async function POST(req: NextRequest) {
       break
     }
     case "organizationMembership.deleted": {
-      const m = data ?? {}
-      const { error } = await supabaseAdmin.from("organization_members").delete().eq("id", m.id as string)
-      if (error) return new Response(error.message, { status: 500 })
+      type ClerkMembershipDeletePayload = {
+        user_id?: string
+        public_user_data?: { user_id?: string }
+        organization_id?: string
+        organization?: { id?: string }
+      }
+      const m = (data ?? {}) as ClerkMembershipDeletePayload
+      const delUserId = m.user_id ?? m.public_user_data?.user_id ?? ""
+      const delClerkOrgId = m.organization_id ?? m.organization?.id ?? ""
+      if (!delUserId || !delClerkOrgId) {
+        return new Response("Missing user_id or organization_id for membership delete", { status: 400 })
+      }
+      // Resolve Supabase org UUID
+      const { data: delOrgRow } = await supabaseAdmin
+        .from("organizations")
+        .select("id")
+        .eq("clerk_organization_id", delClerkOrgId)
+        .single()
+      if (delOrgRow?.id) {
+        const { error } = await supabaseAdmin
+          .from("organization_members")
+          .delete()
+          .eq("organization_id", delOrgRow.id as string)
+          .eq("user_id", delUserId)
+        if (error) return new Response(error.message, { status: 500 })
+      }
       break
     }
     default:

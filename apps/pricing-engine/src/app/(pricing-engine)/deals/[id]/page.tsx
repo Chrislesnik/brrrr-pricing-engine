@@ -400,7 +400,7 @@ function DealRecordContent() {
           })()}
 
           {/* Tabs with animated underline */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col gap-0">
             <TabsList className="bg-background relative w-full justify-start rounded-none border-b p-0 h-auto px-6">
               {dealTabs.map((tab, index) => (
                 <TabsTrigger
@@ -430,12 +430,13 @@ function DealRecordContent() {
               />
             </TabsList>
 
-            {/* All tabs: standard padding */}
-            <div className="flex-1 p-6">
-              <TabsContent value="tasks" className="mt-0">
-                <DealTasksTab dealId={dealId} />
-              </TabsContent>
+            {/* Tasks tab: full-bleed, no padding (Linear-style) */}
+            <TabsContent value="tasks" className="mt-0 flex-1 flex flex-col min-h-0">
+              <DealTasksTab dealId={dealId} />
+            </TabsContent>
 
+            {/* Other tabs: standard padding */}
+            <div className="flex-1 p-6">
               <TabsContent value="details" className="mt-0">
                 <DealDetailsTab deal={deal} />
               </TabsContent>
