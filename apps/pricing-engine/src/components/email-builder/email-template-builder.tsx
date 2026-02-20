@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useUser } from "@clerk/nextjs"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { RoomProvider, useStorage, useMutation } from "@liveblocks/react/suspense"
@@ -506,7 +506,7 @@ function PreviewEmailDialog({
   const [selectedLoanId, setSelectedLoanId] = useState<string>("")
   const [previewHtml, setPreviewHtml] = useState<string>("")
   const [loading, setLoading] = useState(false)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [srcDoc, setSrcDoc] = useState("")
 
   // Fetch available loans when dialog opens
   useEffect(() => {
@@ -552,22 +552,13 @@ function PreviewEmailDialog({
         })
         const html = await res.text()
         setPreviewHtml(html)
+        setSrcDoc(html)
       } finally {
         setLoading(false)
       }
     },
     [editor, styles]
   )
-
-  // Render HTML into the iframe
-  useEffect(() => {
-    if (!previewHtml || !iframeRef.current) return
-    const doc = iframeRef.current.contentDocument
-    if (!doc) return
-    doc.open()
-    doc.write(previewHtml)
-    doc.close()
-  }, [previewHtml])
 
   // Auto-preview when dialog opens (without a loan — raw template)
   useEffect(() => {
@@ -610,10 +601,10 @@ function PreviewEmailDialog({
             </div>
           ) : (
             <iframe
-              ref={iframeRef}
               title="Email preview"
+              srcDoc={srcDoc}
               className="h-full w-full border-0"
-              sandbox="allow-same-origin"
+              sandbox="allow-popups"
             />
           )}
         </div>
