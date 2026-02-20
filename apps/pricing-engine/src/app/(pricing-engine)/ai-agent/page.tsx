@@ -60,6 +60,11 @@ export default function AIAgentPage() {
   const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
   const [keyboardOffset, setKeyboardOffset] = React.useState<number>(0)
 
+  // Typewriter animation state
+  const animatedIdsRef = React.useRef<Set<string>>(new Set())
+  const timersRef = React.useRef<Record<string, number>>({})
+  const [visibleContent, setVisibleContent] = React.useState<Record<string, string>>({})
+
   // Auto-select first chat when chats load
   React.useEffect(() => {
     if (!selectedChatId && chats.length > 0) {
@@ -76,6 +81,9 @@ export default function AIAgentPage() {
   // Sync SWR messages data to local state for optimistic updates
   React.useEffect(() => {
     if (messagesData?.items) {
+      for (const m of messagesData.items) {
+        animatedIdsRef.current.add(m.id)
+      }
       setMessages(messagesData.items)
     } else if (!selectedChatId) {
       setMessages([])
@@ -98,6 +106,39 @@ export default function AIAgentPage() {
       vv.removeEventListener("scroll", update)
     }
   }, [])
+
+  // Word-by-word typewriter for new assistant messages
+  React.useEffect(() => {
+    for (const m of messages) {
+      if (animatedIdsRef.current.has(m.id)) continue
+      if (m.role === "user" || m.id.startsWith("thinking-") || !m.content) {
+        animatedIdsRef.current.add(m.id)
+        continue
+      }
+
+      const words = m.content.split(/(\s+)/)
+      let idx = 0
+      setVisibleContent((prev) => ({ ...prev, [m.id]: "" }))
+
+      const timer = window.setInterval(() => {
+        idx += 1
+        const partial = words.slice(0, idx).join("")
+        setVisibleContent((prev) => ({ ...prev, [m.id]: partial }))
+        if (idx >= words.length) {
+          clearInterval(timer)
+          delete timersRef.current[m.id]
+          animatedIdsRef.current.add(m.id)
+          setVisibleContent((prev) => ({ ...prev, [m.id]: m.content }))
+        }
+      }, 30)
+      timersRef.current[m.id] = timer
+    }
+
+    return () => {
+      for (const t of Object.values(timersRef.current)) clearInterval(t)
+      timersRef.current = {}
+    }
+  }, [messages])
 
   // Keep selected program in sync with chosen loan type
   React.useEffect(() => {
@@ -449,7 +490,7 @@ export default function AIAgentPage() {
                                     : "prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
                                 }
                               >
-                                <ReactMarkdown>{m.content}</ReactMarkdown>
+                                <ReactMarkdown>{visibleContent[m.id] ?? m.content}</ReactMarkdown>
                               </div>
                             )}
                           </MessageContent>
