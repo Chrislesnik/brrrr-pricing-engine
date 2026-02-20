@@ -6,16 +6,25 @@ import Placeholder from "@tiptap/extension-placeholder"
 import { Extension } from "@tiptap/core"
 import Suggestion from "@tiptap/suggestion"
 import tippy, { Instance as TippyInstance } from "tippy.js"
+import {
+  useLiveblocksExtension,
+  FloatingToolbar,
+  FloatingComposer,
+  FloatingThreads,
+  AnchoredThreads,
+} from "@liveblocks/react-tiptap"
+import { useThreads } from "@liveblocks/react/suspense"
 import { SlashCommandList, SlashCommandListHandle, slashCommandItems } from "./slash-commands"
 import { MergeTagExtension } from "./merge-tag-extension"
 import type { EmailTemplateStyles } from "./types"
-import { useLiveblocksExtension } from "@liveblocks/react-tiptap"
 import "tippy.js/dist/tippy.css"
 
 type Props = {
   styles: EmailTemplateStyles
   onEditorReady?: (editor: Editor) => void
 }
+
+// ─── Slash command extension ──────────────────────────────────────────────────
 
 function createSlashExtension(): Extension {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,6 +111,31 @@ function createSlashExtension(): Extension {
   })
 }
 
+// ─── Thread overlay (anchored desktop / floating mobile) ──────────────────────
+
+function ThreadsOverlay({ editor }: { editor: Editor | null }) {
+  const { threads } = useThreads({ query: { resolved: false } })
+
+  return (
+    <>
+      {/* Small screens: threads float near their selection */}
+      <FloatingThreads
+        editor={editor}
+        threads={threads}
+        className="w-[350px] xl:hidden"
+      />
+      {/* Large screens: threads anchored to the right of the editor */}
+      <AnchoredThreads
+        editor={editor}
+        threads={threads}
+        className="absolute -right-[380px] top-0 hidden w-[350px] xl:block"
+      />
+    </>
+  )
+}
+
+// ─── Main editor component ────────────────────────────────────────────────────
+
 export function EmailEditor({ styles, onEditorReady }: Props) {
   const liveblocks = useLiveblocksExtension()
 
@@ -110,7 +144,10 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
     immediatelyRender: false,
     extensions: [
       liveblocks,
-      StarterKit,
+      StarterKit.configure({
+        // Liveblocks handles its own collaborative undo/redo
+        undoRedo: false,
+      }),
       MergeTagExtension,
       Placeholder.configure({
         placeholder: ({ node }: { node: { type: { name: string } } }) => {
@@ -139,11 +176,21 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
   } as React.CSSProperties
 
   return (
-    <div className="email-editor-container mx-auto bg-card" style={containerStyle}>
+    <div className="relative email-editor-container mx-auto bg-card" style={containerStyle}>
       <EditorContent
         editor={editor}
         className="prose prose-sm max-w-none px-8 py-6 text-card-foreground [&_.ProseMirror]:caret-current [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:float-left [&_.ProseMirror_p.is-editor-empty:first-child]:before:h-0 [&_.ProseMirror_p.is-editor-empty:first-child]:before:text-muted-foreground/40 [&_.ProseMirror_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]"
       />
+
+      {/* Liveblocks: floating formatting toolbar on text selection */}
+      <FloatingToolbar editor={editor} />
+
+      {/* Liveblocks: floating composer to start a comment thread */}
+      <FloatingComposer editor={editor} style={{ width: "350px" }} />
+
+      {/* Liveblocks: render active comment threads */}
+      <ThreadsOverlay editor={editor} />
+
       <style>{`
         .email-editor-container a {
           color: ${styles.link.color};

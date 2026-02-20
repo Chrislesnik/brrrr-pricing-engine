@@ -4,6 +4,7 @@
 /* Liveblocks default + dark-mode styles */
 @import "@liveblocks/react-ui/styles.css";
 @import "@liveblocks/react-ui/styles/dark/attributes.css";
+@import "@liveblocks/react-tiptap/styles.css";
 
 /* ── App-level token extensions ───────────────────────────────────────────── */
 /* These supplement the shared design tokens in @repo/ui/globals.css.        */
