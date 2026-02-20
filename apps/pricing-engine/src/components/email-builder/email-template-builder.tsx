@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useUser } from "@clerk/nextjs"
 import { ClientSideSuspense } from "@liveblocks/react"
 import { RoomProvider, useStorage, useMutation } from "@liveblocks/react/suspense"
@@ -26,11 +26,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover"
 import { MERGE_TAGS } from "./merge-tag-extension"
 import {
   MoreHorizontal,
   PanelLeft,
   ChevronRight,
+  ChevronDown,
   Loader2,
   Undo2,
   Redo2,
@@ -56,6 +62,7 @@ import {
   FilePlus,
   Copy,
   Trash2,
+  Search,
 } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import type { Editor } from "@tiptap/react"
@@ -437,18 +444,50 @@ function FormattingToolbar({ editor }: { editor: Editor | null }) {
 }
 
 function MergeTagsButton({ editor }: { editor: import("@tiptap/react").Editor | null }) {
-  // Group tags by category
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const categories = Array.from(new Set(MERGE_TAGS.map((t) => t.category)))
+
+  const lowerQ = query.toLowerCase()
+  const filtered = lowerQ
+    ? MERGE_TAGS.filter(
+        (t) =>
+          t.name.toLowerCase().includes(lowerQ) ||
+          t.label.toLowerCase().includes(lowerQ) ||
+          t.category.toLowerCase().includes(lowerQ)
+      )
+    : MERGE_TAGS
+
+  const toggleCollapse = (cat: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
+  }
 
   const insert = (name: string, label: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const e = editor as any
     e?.chain().focus().insertContent({ type: "mergeTag", attrs: { name, label } }).run()
+    setOpen(false)
+    setQuery("")
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v)
+        if (v) setTimeout(() => inputRef.current?.focus(), 50)
+        else setQuery("")
+      }}
+    >
+      <PopoverTrigger asChild>
         <button
           type="button"
           className="flex items-center gap-1.5 rounded bg-accent px-1.5 py-0.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
@@ -456,34 +495,88 @@ function MergeTagsButton({ editor }: { editor: import("@tiptap/react").Editor | 
           <span className="font-mono text-[11px] text-muted-foreground/50">{"{ }"}</span>
           <span className="font-medium">Merge Tags</span>
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-52 max-h-80 overflow-y-auto">
-        {categories.map((category, i) => {
-          const tags = MERGE_TAGS.filter((t) => t.category === category)
-          return (
-            <div key={category}>
-              {i > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
-                {category}
-              </DropdownMenuLabel>
-              {tags.map((tag) => (
-                <DropdownMenuItem
-                  key={tag.name}
-                  className="gap-2 font-mono text-xs"
-                  onClick={() => insert(tag.name, tag.label)}
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="w-72 p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {/* Search bar */}
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <Search className="size-3.5 shrink-0 text-muted-foreground/50" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search fields…"
+            className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 outline-none"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="text-[10px] text-muted-foreground/60 hover:text-foreground"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Scrollable list */}
+        <div className="max-h-72 overflow-y-auto">
+          {categories.map((category) => {
+            const tags = filtered.filter((t) => t.category === category)
+            if (tags.length === 0) return null
+            const isCollapsed = collapsed.has(category) && !lowerQ
+            return (
+              <div key={category}>
+                {/* Collapsible group header */}
+                <button
+                  type="button"
+                  onClick={() => toggleCollapse(category)}
+                  className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 hover:bg-accent/50 transition-colors"
                 >
-                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium">
-                    {"{{"}
-                    {tag.label}
-                    {"}}"}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </div>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                  <span>{category}</span>
+                  <ChevronDown
+                    className={cn(
+                      "size-3 transition-transform",
+                      isCollapsed && "-rotate-90"
+                    )}
+                  />
+                </button>
+
+                {/* Tag rows */}
+                {!isCollapsed && tags.map((tag) => (
+                  <button
+                    key={tag.name}
+                    type="button"
+                    onClick={() => insert(tag.name, tag.label)}
+                    className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent outline-none"
+                  >
+                    <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] font-medium">
+                      {"{{"}
+                      {tag.name}
+                      {"}}"}
+                    </span>
+                    <span className="font-sans text-[10px] text-muted-foreground/60">
+                      {tag.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )
+          })}
+
+          {filtered.length === 0 && (
+            <p className="py-6 text-center text-xs text-muted-foreground/60">
+              No fields match &quot;{query}&quot;
+            </p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
