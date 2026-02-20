@@ -20,13 +20,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { IntegrationConfig, IntegrationType } from "./types/integration";
 
 /**
- * Fetch an integration record by ID from workflow_integrations table
+ * Fetch an integration record by ID from integration_setup table
  */
 async function getIntegrationById(
   id: string
 ): Promise<{ type: IntegrationType; config: IntegrationConfig } | null> {
   const { data, error } = await supabaseAdmin
-    .from("workflow_integrations")
+    .from("integration_setup")
     .select("type, config")
     .eq("id", id)
     .single();

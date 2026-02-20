@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
     const integrationId = body.integrationId as string | undefined
     if (integrationId) {
       const { data, error } = await supabaseAdmin
-        .from("workflow_integrations")
+        .from("integration_setup")
         .select("type, config")
         .eq("id", integrationId)
         .eq("organization_id", orgUuid)

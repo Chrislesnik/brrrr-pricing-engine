@@ -231,7 +231,7 @@ export function StudioEditorWrapper({
                   type: "column",
                   className: "blocks-panel-left",
                   width: 320,
-                  style: { borderRightWidth: 1, overflowY: "auto" },
+                  style: { borderRightWidth: 1 },
                   children: [
                     {
                       type: "tabs",
@@ -258,11 +258,8 @@ export function StudioEditorWrapper({
                                   id: "properties",
                                   label: "Properties",
                                   children: {
-                                    type: "column",
-                                    children: [
-                                      { type: "panelStyles" },
-                                      { type: "panelTraits" },
-                                    ],
+                                    type: "panelSidebarTabs",
+                                    style: { width: "100%" },
                                   },
                                 },
                               ],
@@ -439,6 +436,56 @@ export function StudioEditorWrapper({
         onReady={(editor: any) => {
           onEditorReady?.(editor)
 
+          // ── Fix tooltips & popovers in the left panel ──────────────────
+          // Inject a <style> AFTER the SDK's scoped CSS so !important wins.
+          // CSS !important in a stylesheet overrides inline styles (Floating UI)
+          // that don't use !important.
+          const injectLeftPanelFixes = () => {
+            const id = "gs-left-panel-fixes"
+            if (document.getElementById(id)) return
+            const style = document.createElement("style")
+            style.id = id
+            style.textContent = `
+              /* Break overflow:hidden chain in the left panel */
+              .blocks-panel-left,
+              .blocks-panel-left [class*="gs-utl-overflow-hidden"],
+              .blocks-panel-left [class*="gs-cmp-tabs__panels"] {
+                overflow: visible !important;
+              }
+
+              /* Keep the style property list scrollable */
+              .blocks-panel-left .gs-cmp-styles-provider {
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+              }
+
+              /* Tooltip content: position to the RIGHT of trigger */
+              .blocks-panel-left .gs-cmp-tooltip-content {
+                position: absolute !important;
+                left: 100% !important;
+                top: 50% !important;
+                bottom: auto !important;
+                right: auto !important;
+                transform: translateY(-50%) !important;
+                margin-left: 8px !important;
+                z-index: 99999 !important;
+              }
+
+              /* Color picker & other popovers */
+              .blocks-panel-left [id^="headlessui-popover-panel"] {
+                z-index: 99999 !important;
+              }
+              .blocks-panel-left [id^="headlessui-listbox-options"],
+              .blocks-panel-left [id^="headlessui-menu-items"],
+              .blocks-panel-left [id^="headlessui-combobox-options"] {
+                z-index: 99999 !important;
+              }
+            `
+            document.head.appendChild(style)
+          }
+
+          injectLeftPanelFixes()
+
           // Remove unwanted blocks from Basic category (keep only Text, Image, Link)
           const keepBasic = ["text", "image", "link"]
           const toRemove: string[] = []
@@ -457,6 +504,46 @@ export function StudioEditorWrapper({
             }
           })
           toRemove.forEach(id => { try { editor.Blocks.remove(id) } catch { /* already removed */ } })
+
+          // Streamline Style Manager sectors for document editing
+          const sm = editor.StyleManager
+          const sectorsToRemove = ["position"]
+          const sizePropsToRemove = [
+            "min-width", "max-width", "min-height", "max-height",
+          ]
+
+          try {
+            sectorsToRemove.forEach(id => {
+              try { sm.removeSector(id) } catch { /* not found */ }
+            })
+
+            const sizeSector = sm.getSector("size")
+            if (sizeSector) {
+              sizePropsToRemove.forEach(prop => {
+                try { sizeSector.getProperty(prop)?.remove() } catch { /* not found */ }
+              })
+            }
+          } catch {
+            // StyleManager API may differ across SDK versions; fail silently
+          }
+
+          // Limit style properties on data-variable inline tags
+          try {
+            const dvType = editor.Components.getType("data-variable")
+            if (dvType) {
+              editor.Components.addType("data-variable", {
+                extend: "data-variable",
+                model: {
+                  defaults: {
+                    ...dvType.model?.prototype?.defaults,
+                    stylable: ["color", "font-size", "font-weight", "font-family"],
+                  },
+                },
+              })
+            }
+          } catch {
+            // data-variable type may not exist yet
+          }
 
           // Register each variable as a draggable block with a placeholder span.
           // On drop, the placeholder is replaced with a proper data-variable component.
@@ -517,6 +604,7 @@ export function StudioEditorWrapper({
                     step: 10,
                   },
                 ],
+                stylable: ["width", "height", "margin", "padding"],
                 resizable: true,
                 droppable: false,
               },

@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     // Check for active Xactus integration
     let xactusIntegrationId: string | null = null
     const { data: xactusRow } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("id, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)

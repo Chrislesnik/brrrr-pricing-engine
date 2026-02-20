@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     const id = req.nextUrl.searchParams.get("id")
 
     let query = supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("id, type, name, config, created_at, updated_at")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .insert({
         organization_id: orgUuid,
         user_id: userId,

@@ -61,6 +61,7 @@ const ORG_SETTINGS_ITEMS = [
   { id: "inputs", label: "Inputs", icon: TextCursorInput, path: "?tab=inputs" },
   { id: "documents", label: "Documents", icon: FileText, path: "?tab=documents" },
   { id: "tasks", label: "Tasks & Actions", icon: ListChecks, path: "?tab=tasks" },
+  { id: "integrations", label: "Integrations", icon: Plug, path: "?tab=integrations" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;
 

@@ -149,4 +149,24 @@ export const FEATURE_RESOURCES: Array<{
     description: "Customize organization appearance",
     actions: ["view"],
   },
+  {
+    name: "settings_integrations",
+    label: "Settings — Integrations",
+    description: "Manage integration settings",
+    actions: ["view"],
+  },
 ];
+
+/**
+ * Dynamic integration feature resource type.
+ * Each integration_settings catalog entry maps to a feature named `integration:<slug>`.
+ * These are loaded at runtime from the DB and merged with FEATURE_RESOURCES.
+ */
+export type IntegrationFeatureResource = {
+  name: string;
+  label: string;
+  description: string;
+  actions: PolicyAction[];
+  slug: string;
+  integrationSettingsId: number;
+};

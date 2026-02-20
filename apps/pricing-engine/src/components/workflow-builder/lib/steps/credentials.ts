@@ -29,7 +29,7 @@ export type EnvVarConfig = {
 };
 
 /**
- * Fetch stored credentials from the workflow_integrations table via API.
+ * Fetch stored credentials from the integration_setup table via API.
  * Maps integration types + config field names to EnvVarConfig keys.
  */
 export async function fetchUserCredentials(): Promise<EnvVarConfig> {

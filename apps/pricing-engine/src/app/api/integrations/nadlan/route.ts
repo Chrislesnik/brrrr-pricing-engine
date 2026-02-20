@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 async function ensureNadlanRow(orgUuid: string, userId: string): Promise<string> {
   const { data } = await supabaseAdmin
-    .from("workflow_integrations")
+    .from("integration_setup")
     .select("id")
     .eq("organization_id", orgUuid)
     .eq("user_id", userId)
@@ -16,7 +16,7 @@ async function ensureNadlanRow(orgUuid: string, userId: string): Promise<string>
   if (data?.id) return data.id as string
 
   const { data: created, error } = await supabaseAdmin
-    .from("workflow_integrations")
+    .from("integration_setup")
     .insert({ organization_id: orgUuid, user_id: userId, type: "nadlan", name: null, config: { status: "true" } })
     .select("id")
     .single()
@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
     const { data } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("id, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const rowId = await ensureNadlanRow(orgUuid, userId)
 
     const { data: existing } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("config")
       .eq("id", rowId)
       .single()
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     const updatedConfig = { ...existingConfig, username, password, status: "true" }
 
     const { error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .update({ config: updatedConfig })
       .eq("id", rowId)
 

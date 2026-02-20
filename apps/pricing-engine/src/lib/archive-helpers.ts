@@ -25,7 +25,7 @@ export type ArchivableTable =
   | "programs"
   | "document_templates"
   // Tier 3: Settings/Config
-  | "workflow_integrations"
+  | "integration_setup"
   | "organization_policies"
   | "organization_member_roles"
   | "deal_stages"

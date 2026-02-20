@@ -275,3 +275,8 @@ button.lb-composer-action:last-child:hover,
 .lb-mention-symbol[class] {
   opacity: 0.7 !important;
 }
+
+/* ── GrapesJS left panel: overflow + z-index fixes are applied via
+   JavaScript in studio-editor-wrapper.tsx onReady, because the SDK's
+   internal Tailwind utilities and inline styles defeat external CSS. ────── */
+
