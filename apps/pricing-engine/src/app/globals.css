@@ -1,6 +1,10 @@
 /* Import shared UI styles */
 @import "@repo/ui/globals.css";
 
+/* Liveblocks default + dark-mode styles */
+@import "@liveblocks/react-ui/styles.css";
+@import "@liveblocks/react-ui/styles/dark/attributes.css";
+
 /* ── App-level token extensions ───────────────────────────────────────────── */
 /* These supplement the shared design tokens in @repo/ui/globals.css.        */
 
@@ -8,17 +12,11 @@
   /* Neutral (hue-0, 0% saturation) canvas background for the email editor.
      Kept separate from --muted which carries a 240° blue hue tint.          */
   --canvas-background: 0 0% 93%;
-
-  /* Sidebar background: re-exposed here for clarity */
 }
 
 .dark {
   --canvas-background: 0 0% 11%;
 }
-
-/* Liveblocks default + dark-mode styles */
-@import "@liveblocks/react-ui/styles.css";
-@import "@liveblocks/react-ui/styles/dark/attributes.css";
 
 /* App-specific styles can be added below */
 
