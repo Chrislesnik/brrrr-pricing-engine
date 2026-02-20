@@ -135,7 +135,7 @@ export function InputAIOrderSheet({
               </span>
             </div>
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed">
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center rounded-lg border border-dashed">
               <Sparkles className="size-8 text-muted-foreground/50 mb-3" />
               <p className="text-sm text-muted-foreground">
                 No document types linked to this input.

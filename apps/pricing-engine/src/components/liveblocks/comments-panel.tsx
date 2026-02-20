@@ -147,7 +147,13 @@ function ThreadDetailView({
   onBack: () => void;
 }) {
   const threadContainerRef = useRef<HTMLDivElement>(null);
+  const threadScrollRef = useRef<HTMLDivElement>(null);
   useEnableSubmitWithAttachments(threadContainerRef);
+
+  useEffect(() => {
+    const el = threadScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread.comments.length]);
 
   return (
     <div ref={threadContainerRef} className="flex flex-col h-full">
@@ -165,7 +171,7 @@ function ThreadDetailView({
       </div>
 
       {/* Full thread with all replies */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={threadScrollRef} className="flex-1 overflow-y-auto">
         <Thread
           thread={thread}
           showComposer={true}
@@ -190,7 +196,12 @@ function ChatListView({
   onOpenThread: (thread: ThreadData) => void;
 }) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   useEnableSubmitWithAttachments(chatContainerRef);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [threads.length]);
 
   return (
     <div ref={chatContainerRef} className="flex flex-col h-full">
@@ -242,6 +253,7 @@ function ChatListView({
             );
           })
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Composer at the bottom — creates new threads */}
