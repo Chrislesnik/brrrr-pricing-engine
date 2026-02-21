@@ -127,11 +127,21 @@ export async function sendDocument(documentId: string): Promise<unknown> {
 /**
  * Resend a signing reminder to all pending recipients.
  * Endpoint: POST /api/v1/documents/{id}/resend
+ * Requires a `recipients` array of recipient IDs (numbers).
  */
 export async function resendDocument(documentId: string): Promise<unknown> {
+  const doc = await getDocument(documentId)
+  const pendingRecipientIds = doc.recipients
+    .filter((r) => r.signingStatus !== "SIGNED")
+    .map((r) => Number(r.id))
+
+  if (pendingRecipientIds.length === 0) {
+    throw new Error("No pending recipients to remind")
+  }
+
   return documensoFetch(`/documents/${documentId}/resend`, {
     method: "POST",
-    body: {},
+    body: { recipients: pendingRecipientIds },
   })
 }
 
