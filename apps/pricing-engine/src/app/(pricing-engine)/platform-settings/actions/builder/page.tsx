@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { nanoid } from "nanoid";
-import { Provider as JotaiProvider, useSetAtom, useAtomValue } from "jotai";
+import { Provider as JotaiProvider, useSetAtom, useAtom, useAtomValue } from "jotai";
 import { Button } from "@repo/ui/shadcn/button";
 import { ReactFlowProvider } from "@xyflow/react";
 import { OverlayProvider } from "@/components/workflow-builder/overlays/overlay-provider";
@@ -28,7 +28,7 @@ function ActionBuilderInner() {
   const setEdges = useSetAtom(edgesAtom);
   const setCurrentWorkflowId = useSetAtom(currentWorkflowIdAtom);
   const setCurrentWorkflowName = useSetAtom(currentWorkflowNameAtom);
-  const hasUnsavedChanges = useAtomValue(hasUnsavedChangesAtom);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useAtom(hasUnsavedChangesAtom);
   const nodes = useAtomValue(nodesAtom);
   const edges = useAtomValue(edgesAtom);
   const actionName = useAtomValue(currentWorkflowNameAtom);
@@ -86,12 +86,13 @@ function ActionBuilderInner() {
     setSaving(true);
     try {
       await api.workflow.update(actionId, { nodes, edges });
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error("Failed to save:", err);
     } finally {
       setSaving(false);
     }
-  }, [actionId, nodes, edges]);
+  }, [actionId, nodes, edges, setHasUnsavedChanges]);
 
   // Save & Exit
   const handleSaveAndExit = useCallback(async () => {

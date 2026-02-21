@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTheme } from "next-themes"
 import StudioEditorComponent from "@grapesjs/studio-sdk/react"
 import {
@@ -13,6 +14,7 @@ import {
 } from "@grapesjs/studio-sdk-plugins"
 import aiChat from "@grapesjs/studio-sdk-plugins/dist/aiChat"
 import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
+import { PropertiesPanel } from "./properties-panel"
 import { Variable, typeColorConfig, VariableType } from "./variable-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
@@ -114,6 +116,9 @@ export function StudioEditorWrapper({
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
   const [themeState, setThemeState] = useState<{ theme: ReturnType<typeof buildCustomThemeFromHex>; mode: string } | null>(null)
+  const [hasSelection, setHasSelection] = useState(false)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const editorRef = useRef<any>(null)
   const { resolvedTheme } = useTheme()
 
   const grapejsTheme = resolvedTheme === "dark" ? "dark" : "light"
@@ -258,8 +263,10 @@ export function StudioEditorWrapper({
                                   id: "properties",
                                   label: "Properties",
                                   children: {
-                                    type: "panelSidebarTabs",
-                                    style: { width: "100%" },
+                                    type: "column",
+                                    className: "custom-properties-portal",
+                                    style: { width: "100%", height: "100%", overflow: "hidden" },
+                                    children: [],
                                   },
                                 },
                               ],
@@ -329,7 +336,7 @@ export function StudioEditorWrapper({
                 {
                   type: "column",
                   id: "rightSidebar",
-                  className: "variables-only-blocks",
+                  className: "right-sidebar-panel",
                   width: 320,
                   style: { borderLeftWidth: 1, overflowY: "auto" },
                   children: [
@@ -344,18 +351,15 @@ export function StudioEditorWrapper({
                             type: "panelBlocks",
                             symbols: false,
                             header: { label: "Variables", collapsible: false },
+                            blocks: ({ blocks }: any) =>
+                              blocks.filter((b: any) => b.category?.getLabel?.() === "Variables"),
                           },
                         },
                         {
-                          id: "ai-chat",
-                          label: "AI Chat",
+                          id: "layers",
+                          label: "Layers",
                           children: {
-                            type: "column",
-                            full: true,
-                            style: { height: "100%", minHeight: 0 },
-                            children: [
-                              { type: "aiChatPanel" },
-                            ],
+                            type: "panelLayers",
                           },
                         },
                       ],
@@ -396,29 +400,35 @@ export function StudioEditorWrapper({
           plugins: [
             presetPrintable,
             canvasFullSize,
-            googleFontsAssetProvider.init({
-              apiKey: process.env.NEXT_PUBLIC_GOOGLE_FONTS_API_KEY || "",
-            }),
+            ...(googleFontsAssetProvider?.init
+              ? [googleFontsAssetProvider.init({
+                  apiKey: process.env.NEXT_PUBLIC_GOOGLE_FONTS_API_KEY || "",
+                })]
+              : []),
             dataSourceHandlebars,
-            rteProseMirror.init({
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              toolbar({ items, layouts, commands }: any) {
-                return [
-                  ...items,
-                  layouts.separator,
-                  {
-                    id: "variables",
-                    type: "selectField",
-                    emptyState: "Insert Variable",
-                    options: styledVariableOptions,
-                    onChange: ({ value }: { value: string }) =>
-                      commands.text.replace(value, { select: true }),
+            ...(rteProseMirror?.init
+              ? [rteProseMirror.init({
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  toolbar({ items, layouts, commands }: any) {
+                    return [
+                      ...items,
+                      layouts.separator,
+                      {
+                        id: "variables",
+                        type: "selectField",
+                        emptyState: "Insert Variable",
+                        options: styledVariableOptions,
+                        onChange: ({ value }: { value: string }) =>
+                          commands.text.replace(value, { select: true }),
+                      },
+                    ]
                   },
-                ]
-              },
-            }),
+                })]
+              : []),
             flexComponent,
-            aiChat.init({ chatApi: "/api/ai-chat" }),
+            ...(aiChat?.init
+              ? [aiChat.init({ chatApi: "/api/ai-chat" })]
+              : []),
           ],
 
           project: {
@@ -434,7 +444,25 @@ export function StudioEditorWrapper({
           },
         }}
         onReady={(editor: any) => {
+          editorRef.current = editor
           onEditorReady?.(editor)
+
+          editor.on("component:selected", () => {
+            setHasSelection(true)
+            const findTarget = (retries = 15) => {
+              const el = document.querySelector(".custom-properties-portal")
+              if (el) {
+                setPortalTarget(el as HTMLElement)
+              } else if (retries > 0) {
+                requestAnimationFrame(() => findTarget(retries - 1))
+              }
+            }
+            requestAnimationFrame(() => findTarget())
+          })
+          editor.on("component:deselected", () => {
+            setHasSelection(false)
+            setPortalTarget(null)
+          })
 
           // ── Fix tooltips & popovers in the left panel ──────────────────
           // Inject a <style> AFTER the SDK's scoped CSS so !important wins.
@@ -505,28 +533,6 @@ export function StudioEditorWrapper({
           })
           toRemove.forEach(id => { try { editor.Blocks.remove(id) } catch { /* already removed */ } })
 
-          // Streamline Style Manager sectors for document editing
-          const sm = editor.StyleManager
-          const sectorsToRemove = ["position"]
-          const sizePropsToRemove = [
-            "min-width", "max-width", "min-height", "max-height",
-          ]
-
-          try {
-            sectorsToRemove.forEach(id => {
-              try { sm.removeSector(id) } catch { /* not found */ }
-            })
-
-            const sizeSector = sm.getSector("size")
-            if (sizeSector) {
-              sizePropsToRemove.forEach(prop => {
-                try { sizeSector.getProperty(prop)?.remove() } catch { /* not found */ }
-              })
-            }
-          } catch {
-            // StyleManager API may differ across SDK versions; fail silently
-          }
-
           // Limit style properties on data-variable inline tags
           try {
             const dvType = editor.Components.getType("data-variable")
@@ -545,13 +551,13 @@ export function StudioEditorWrapper({
             // data-variable type may not exist yet
           }
 
-          // Register each variable as a draggable block with a placeholder span.
-          // On drop, the placeholder is replaced with a proper data-variable component.
+          // Register each variable as a draggable block with a visible placeholder span.
+          // On drop, the component:add listener swaps it to a data-variable component.
           variables.forEach(variable => {
             editor.Blocks.add(`variable-${variable.name}`, {
               label: variable.name,
               category: "Variables",
-              content: `<span data-var-field="${variable.name}"></span>`,
+              content: `<span data-var-field="${variable.name}" style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${variable.name}}}</span>`,
             })
           })
 
@@ -562,20 +568,30 @@ export function StudioEditorWrapper({
             const varName = component.getAttributes?.()?.["data-var-field"]
             if (!varName) return
 
-            const parent = component.parent()
-            if (!parent) return
-            const idx = component.index()
-            component.remove()
+            setTimeout(() => {
+              const parent = component.parent()
+              if (!parent) return
+              const idx = component.index()
+              component.remove()
 
-            skipNextModal = true
-            const resolver = JSON.stringify({
-              path: `globalData.${varName}.data.data`,
-              defaultValue: varName,
-            })
-            parent.append(
-              `<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`,
-              { at: idx }
-            )
+              skipNextModal = true
+
+              if (editor.Components.getType("data-variable")) {
+                const resolver = JSON.stringify({
+                  path: `globalData.${varName}.data.data`,
+                  defaultValue: varName,
+                })
+                parent.append(
+                  `<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`,
+                  { at: idx }
+                )
+              } else {
+                parent.append(
+                  `<span style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${varName}}}</span>`,
+                  { at: idx }
+                )
+              }
+            }, 0)
           })
 
           // QR Code custom component type
@@ -650,39 +666,6 @@ export function StudioEditorWrapper({
               setTimeout(() => editor.Modal.close(), 50)
             }
           })
-
-          // Hide all non-"Variables" categories in the right panel via CSS + DOM hiding
-          const cleanRightPanel = () => {
-            const sidebar = document.querySelector(".variables-only-blocks")
-            if (!sidebar) return
-
-            const blocksPanels = sidebar.querySelectorAll("[class*='panel-blocks'], [class*='PanelBlocks'], [class*='panelBlocks']")
-            const target = blocksPanels[0] || sidebar
-
-            const hideNonVariableCategories = () => {
-              const categoryNames = ["Basic", "Data Sources", "Extra", "Layout"]
-              target.querySelectorAll("button, [role='button']").forEach(el => {
-                const text = el.textContent?.trim() || ""
-                if (categoryNames.some(name => text === name || text.startsWith(name))) {
-                  const wrapper = (el.closest("[data-state]") || el.parentElement) as HTMLElement | null
-                  if (wrapper && wrapper !== sidebar && wrapper !== target) {
-                    wrapper.style.display = "none"
-                  }
-                }
-              })
-              sidebar.classList.add("--categories-ready")
-            }
-
-            hideNonVariableCategories()
-            const observer = new MutationObserver(() => {
-              hideNonVariableCategories()
-            })
-            observer.observe(target, { childList: true, subtree: true })
-          }
-          setTimeout(cleanRightPanel, 200)
-          setTimeout(cleanRightPanel, 800)
-          setTimeout(cleanRightPanel, 1500)
-          editor.on("block:add", () => setTimeout(cleanRightPanel, 50))
 
           // MutationObserver: hide "Variables" category from the left panel
           const setupLeftPanelFilter = () => {
@@ -772,6 +755,12 @@ export function StudioEditorWrapper({
           editor.on("canvas:frame:load", () => setTimeout(injectVariableStyles, 300))
         }}
       />
+      {hasSelection && portalTarget && editorRef.current &&
+        createPortal(
+          <PropertiesPanel editor={editorRef.current} />,
+          portalTarget
+        )
+      }
     </div>
   )
 }

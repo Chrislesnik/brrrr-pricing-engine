@@ -13,7 +13,6 @@ import {
   nodesAtom,
   edgesAtom,
   hasUnsavedChangesAtom,
-  autosaveAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
 
 export const Controls = () => {
@@ -23,7 +22,6 @@ export const Controls = () => {
   const [nodes, setNodes] = useAtom(nodesAtom);
   const [edges] = useAtom(edgesAtom);
   const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
-  const triggerAutosave = useSetAtom(autosaveAtom);
 
   const handleZoomIn = () => {
     zoomIn();
@@ -49,11 +47,10 @@ export const Controls = () => {
     const layoutedNodes = getLayoutedElements(nodes, edges);
     setNodes(layoutedNodes);
     setHasUnsavedChanges(true);
-    triggerAutosave({ immediate: true });
     setTimeout(() => {
       fitView({ padding: 0.2, duration: 300 });
     }, 0);
-  }, [nodes, edges, setNodes, setHasUnsavedChanges, triggerAutosave, fitView]);
+  }, [nodes, edges, setNodes, setHasUnsavedChanges, fitView]);
 
   return (
     <ButtonGroup orientation="vertical">

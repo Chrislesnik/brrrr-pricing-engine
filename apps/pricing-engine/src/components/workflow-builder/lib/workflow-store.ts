@@ -155,21 +155,15 @@ export const onNodesChangeAtom = atom(
       set(newlyCreatedNodeIdAtom, null);
     }
 
-    // Check if there were any deletions to trigger immediate save
+    // Mark as having unsaved changes on structural or position changes
     const hadDeletions = filteredChanges.some(
       (change) => change.type === "remove"
     );
-    if (hadDeletions) {
-      set(autosaveAtom, { immediate: true });
-      return;
-    }
-
-    // Check if there were any position changes (node moved) to trigger debounced save
     const hadPositionChanges = filteredChanges.some(
       (change) => change.type === "position" && change.dragging === false
     );
-    if (hadPositionChanges) {
-      set(autosaveAtom); // Debounced save
+    if (hadDeletions || hadPositionChanges) {
+      set(hasUnsavedChangesAtom, true);
     }
   }
 );
@@ -196,10 +190,9 @@ export const onEdgesChangeAtom = atom(
       }
     }
 
-    // Check if there were any deletions to trigger immediate save
     const hadDeletions = changes.some((change) => change.type === "remove");
     if (hadDeletions) {
-      set(autosaveAtom, { immediate: true });
+      set(hasUnsavedChangesAtom, true);
     }
   }
 );
@@ -226,11 +219,7 @@ export const addNodeAtom = atom(null, (get, set, node: WorkflowNode) => {
     set(newlyCreatedNodeIdAtom, node.id);
   }
 
-  // Mark as having unsaved changes
   set(hasUnsavedChangesAtom, true);
-
-  // Trigger immediate autosave
-  set(autosaveAtom, { immediate: true });
 });
 
 export const updateNodeDataAtom = atom(
@@ -275,11 +264,8 @@ export const updateNodeDataAtom = atom(
 
     set(nodesAtom, newNodes);
 
-    // Mark as having unsaved changes (except for status updates during execution)
     if (!data.status) {
       set(hasUnsavedChangesAtom, true);
-      // Trigger debounced autosave (for typing)
-      set(autosaveAtom);
     }
   }
 );
@@ -362,11 +348,7 @@ export const deleteNodeAtom = atom(null, (get, set, nodeId: string) => {
     set(selectedNodeAtom, null);
   }
 
-  // Mark as having unsaved changes
   set(hasUnsavedChangesAtom, true);
-
-  // Trigger immediate autosave
-  set(autosaveAtom, { immediate: true });
 });
 
 export const deleteEdgeAtom = atom(null, (get, set, edgeId: string) => {
@@ -384,11 +366,7 @@ export const deleteEdgeAtom = atom(null, (get, set, edgeId: string) => {
     set(selectedEdgeAtom, null);
   }
 
-  // Mark as having unsaved changes
   set(hasUnsavedChangesAtom, true);
-
-  // Trigger immediate autosave
-  set(autosaveAtom, { immediate: true });
 });
 
 export const deleteSelectedItemsAtom = atom(null, (get, set) => {
@@ -428,11 +406,7 @@ export const deleteSelectedItemsAtom = atom(null, (get, set) => {
   set(selectedNodeAtom, null);
   set(selectedEdgeAtom, null);
 
-  // Mark as having unsaved changes
   set(hasUnsavedChangesAtom, true);
-
-  // Trigger immediate autosave
-  set(autosaveAtom, { immediate: true });
 });
 
 export const clearWorkflowAtom = atom(null, (get, set) => {
