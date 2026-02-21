@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { XIcon } from "lucide-react"
+import { Settings, XIcon } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@repo/ui/shadcn/dialog"
 import { cn } from "@repo/lib/cn"
@@ -123,8 +123,9 @@ export function DefaultBrokerSettingsDialog() {
 
   return (
     <>
-      <Button variant="default" size="sm" type="button" onClick={() => setOpen(true)}>
-        Default Broker Settings
+      <Button className="space-x-1" type="button" onClick={() => setOpen(true)}>
+        <span>Default Broker Settings</span>
+        <Settings size={18} />
       </Button>
       {open && tab === "programs" ? <ProgramsLoader /> : null}
       <Dialog open={open} onOpenChange={setOpen}>

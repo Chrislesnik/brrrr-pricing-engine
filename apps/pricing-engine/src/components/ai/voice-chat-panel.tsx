@@ -39,6 +39,9 @@ export function VoiceChatPanel({
     prevActiveRef.current = isSessionActive
   }, [isSessionActive, transcripts, onSessionEnd])
 
+  const lastTranscript = transcripts.length > 0 ? transcripts[transcripts.length - 1] : null
+  const isSearching = isSessionActive && !isSpeaking && lastTranscript?.role === "user"
+
   return (
     <div className="relative flex flex-col w-full h-full overflow-hidden">
       {/* Orb -- stationary, centered, above everything */}
@@ -48,6 +51,7 @@ export function VoiceChatPanel({
             volumeLevel={volumeLevel}
             isSessionActive={isSessionActive}
             isSpeaking={isSpeaking}
+            isSearching={isSearching}
             onClick={toggleCall}
             size={500}
           />

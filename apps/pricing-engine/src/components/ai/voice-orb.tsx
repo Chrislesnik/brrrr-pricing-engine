@@ -8,28 +8,35 @@ interface VoiceOrbProps {
   volumeLevel: number
   isSessionActive: boolean
   isSpeaking?: boolean
+  isSearching?: boolean
   onClick?: () => void
   size?: number
 }
 
 const noise = createNoise3D()
 
-export function VoiceOrb({ volumeLevel, isSessionActive, isSpeaking = false, onClick, size = 300 }: VoiceOrbProps) {
+const COLOR_DEFAULT = new THREE.Color(0xffffff)
+const COLOR_SEARCHING = new THREE.Color(0x3b82f6)
+
+export function VoiceOrb({ volumeLevel, isSessionActive, isSpeaking = false, isSearching = false, onClick, size = 300 }: VoiceOrbProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const groupRef = useRef<THREE.Group | null>(null)
   const ballRef = useRef<THREE.Mesh | null>(null)
+  const materialRef = useRef<THREE.MeshLambertMaterial | null>(null)
   const originalPositionsRef = useRef<Float32Array | null>(null)
   const frameRef = useRef<number>(0)
   const volumeRef = useRef(0)
   const activeRef = useRef(false)
   const speakingRef = useRef(false)
+  const searchingRef = useRef(false)
 
   volumeRef.current = volumeLevel
   activeRef.current = isSessionActive
   speakingRef.current = isSpeaking
+  searchingRef.current = isSearching
 
   useEffect(() => {
     const container = containerRef.current
@@ -60,6 +67,7 @@ export function VoiceOrb({ volumeLevel, isSessionActive, isSpeaking = false, onC
     const ball = new THREE.Mesh(geometry, material)
     ball.position.set(0, 0, 0)
     ballRef.current = ball
+    materialRef.current = material
     originalPositionsRef.current = new Float32Array(ball.geometry.attributes.position.array)
 
     group.add(ball)
@@ -100,6 +108,11 @@ export function VoiceOrb({ volumeLevel, isSessionActive, isSpeaking = false, onC
         }
       } else if (originalPositionsRef.current) {
         resetBall(ballRef.current, originalPositionsRef.current)
+      }
+
+      if (materialRef.current) {
+        const target = searchingRef.current ? COLOR_SEARCHING : COLOR_DEFAULT
+        materialRef.current.color.lerp(target, 0.08)
       }
 
       rendererRef.current.render(sceneRef.current, cameraRef.current)

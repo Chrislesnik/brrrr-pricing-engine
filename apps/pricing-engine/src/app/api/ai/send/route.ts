@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { cleanAiResponse } from "@/lib/clean-ai-response"
 
 export const runtime = "nodejs"
 
@@ -89,9 +90,8 @@ export async function POST(req: Request) {
       // fall back to text()
       aiResponseText = await res.text().catch(() => "")
     }
-    // Preserve newlines/spaces; only fallback if the response is effectively empty
-    const effective = (aiResponseText || "")
-    if (!effective || effective.replace(/\s/g, "") === "") {
+    aiResponseText = cleanAiResponse(aiResponseText)
+    if (!aiResponseText || aiResponseText.replace(/\s/g, "") === "") {
       aiResponseText = "Sorry, I couldn't generate a response."
     }
 

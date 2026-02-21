@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getVoiceContext } from "../context"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { cleanAiResponse } from "@/lib/clean-ai-response"
 
 export const runtime = "nodejs"
 
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
             answer = "Sorry, I could not retrieve the information right now."
           }
 
+          answer = cleanAiResponse(answer)
           if (!answer.trim()) {
             answer = "Sorry, I couldn't generate a response."
           }
