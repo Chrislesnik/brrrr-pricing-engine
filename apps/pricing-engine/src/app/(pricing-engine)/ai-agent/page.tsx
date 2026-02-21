@@ -14,10 +14,12 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select"
 import { useAuth } from "@clerk/nextjs"
-import { Copy, Menu, Pencil, Trash2, MessageSquare, Loader2 } from "lucide-react"
+import { Copy, Menu, Pencil, Trash2, MessageSquare, Loader2, Mic, Phone, PhoneOff, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Sheet, SheetContent } from "@repo/ui/shadcn/sheet"
 import ReactMarkdown from "react-markdown"
+import { VoiceChatPanel } from "@/components/ai/voice-chat-panel"
+import { useVapi, type VapiTranscript } from "@/hooks/use-vapi"
 import {
   Conversation,
   ConversationContent,
@@ -36,7 +38,7 @@ import {
 // SWR fetcher
 const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
 
-type Chat = { id: string; name?: string; created_at: string; last_used_at: string }
+type Chat = { id: string; name?: string; created_at: string; last_used_at: string; loan_type?: string; program_id?: string }
 type Program = { id: string; internal_name: string; external_name: string; loan_type: string }
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string }
 
@@ -59,6 +61,7 @@ export default function AIAgentPage() {
   const [editingName, setEditingName] = React.useState<string>("")
   const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
   const [keyboardOffset, setKeyboardOffset] = React.useState<number>(0)
+  const [voiceMode, setVoiceMode] = React.useState(false)
 
   // Typewriter animation state
   const animatedIdsRef = React.useRef<Set<string>>(new Set())
@@ -71,6 +74,19 @@ export default function AIAgentPage() {
       setSelectedChatId(chats[0].id)
     }
   }, [chats, selectedChatId])
+
+  // Restore loan_type and program_id when switching chats
+  React.useEffect(() => {
+    if (!selectedChatId) return
+    const chat = chats.find((c) => c.id === selectedChatId)
+    if (!chat) return
+    if (chat.loan_type && (chat.loan_type === "dscr" || chat.loan_type === "bridge")) {
+      setLoanType(chat.loan_type)
+    }
+    if (chat.program_id) {
+      setSelectedProgramId(chat.program_id)
+    }
+  }, [selectedChatId, chats])
 
   // Load messages for selected chat using SWR
   const { data: messagesData, isLoading: messagesLoading } = useSWR<{ items: ChatMessage[] }>(
@@ -148,12 +164,41 @@ export default function AIAgentPage() {
     }
   }, [loanType, programs, selectedProgramId])
 
+  // Persist loan_type / program_id to the current chat
+  const persistChatSelections = React.useCallback(
+    async (overrides?: { loan_type?: string; program_id?: string | null }) => {
+      if (!selectedChatId) return
+      const payload: Record<string, unknown> = {}
+      if (overrides?.loan_type !== undefined) payload.loan_type = overrides.loan_type
+      if (overrides?.program_id !== undefined) payload.program_id = overrides.program_id
+      if (Object.keys(payload).length === 0) return
+      try {
+        await fetch(`/api/ai/chats/${selectedChatId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        mutate("/api/ai/chats", (data: { items: Chat[] } | undefined) => {
+          if (!data) return data
+          return {
+            items: data.items.map((c) =>
+              c.id === selectedChatId ? { ...c, ...payload } as Chat : c
+            ),
+          }
+        }, false)
+      } catch {
+        // non-fatal
+      }
+    },
+    [selectedChatId],
+  )
+
   async function createNewConversation() {
     try {
       const res = await fetch("/api/ai/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "New chat" }),
+        body: JSON.stringify({ name: "New chat", loan_type: loanType, program_id: selectedProgramId }),
       })
       const json = (await res.json()) as { ok: boolean; chat?: Chat }
       if (json.ok && json.chat) {
@@ -262,6 +307,30 @@ export default function AIAgentPage() {
       toast({ title: "Delete failed", description: msg, variant: "destructive" })
     }
   }
+
+  const vapiMetadata = React.useMemo(
+    () => ({
+      sessionId: selectedChatId ?? "",
+      program_id: selectedProgramId ?? "",
+    }),
+    [selectedChatId, selectedProgramId],
+  )
+
+  const vapi = useVapi({ metadata: vapiMetadata })
+
+  const handleVoiceSessionEnd = React.useCallback(
+    async (_transcripts: VapiTranscript[]) => {
+      if (!selectedChatId) return
+
+      // Messages are already persisted by the webhook during the call.
+      // Just refresh the chat data from the server to pick them up.
+      mutate(`/api/ai/chats/${selectedChatId}/messages`)
+      mutate("/api/ai/chats")
+
+      setVoiceMode(false)
+    },
+    [selectedChatId],
+  )
 
   const ChatListItem = ({ c, isMobile = false }: { c: Chat; isMobile?: boolean }) => {
     const commonClass =
@@ -417,7 +486,7 @@ export default function AIAgentPage() {
             </div>
             <div className="ml-auto flex items-center gap-2 min-w-0 overflow-hidden flex-1 justify-end">
               <div className="min-w-0 flex-1 md:flex-none md:w-[160px]">
-                <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
+                <Select value={loanType} onValueChange={(v) => { setLoanType(v as "dscr" | "bridge"); persistChatSelections({ loan_type: v }) }}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Loan Type" />
                   </SelectTrigger>
@@ -428,7 +497,7 @@ export default function AIAgentPage() {
                 </Select>
               </div>
               <div className="min-w-0 flex-1 md:flex-none md:w-[220px]">
-                <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
+                <Select value={selectedProgramId} onValueChange={(v) => { setSelectedProgramId(v); persistChatSelections({ program_id: v }) }}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Programs" />
                   </SelectTrigger>
@@ -451,7 +520,17 @@ export default function AIAgentPage() {
           </div>
 
           <div className="relative flex min-h-0 flex-1 flex-col">
-            {selectedChatId ? (
+            {voiceMode && selectedChatId ? (
+              <VoiceChatPanel
+                isSessionActive={vapi.isSessionActive}
+                isConnecting={vapi.isConnecting}
+                isSpeaking={vapi.isSpeaking}
+                volumeLevel={vapi.volumeLevel}
+                transcripts={vapi.transcripts}
+                toggleCall={vapi.toggleCall}
+                onSessionEnd={handleVoiceSessionEnd}
+              />
+            ) : selectedChatId ? (
               <Conversation className="flex-1 min-h-0 px-3">
                 <ConversationContent className="mx-auto max-w-2xl pt-4 pb-6">
                   {messagesLoading ? (
@@ -541,16 +620,89 @@ export default function AIAgentPage() {
             style={keyboardOffset ? ({ bottom: keyboardOffset } as React.CSSProperties) : undefined}
           >
             <div className="mx-auto w-full max-w-2xl pb-2">
-              <PromptInput onSubmit={handleSend}>
-                <PromptInputTextarea placeholder="Ask your AI Agent…" />
-                <PromptInputFooter>
-                  <div />
-                  <PromptInputSubmit
-                    disabled={!selectedChatId}
-                    status={isThinking ? "streaming" : undefined}
-                  />
-                </PromptInputFooter>
-              </PromptInput>
+              {voiceMode ? (
+                <div className="flex items-center justify-between rounded-xl border bg-background px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {vapi.isSessionActive ? (
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {vapi.isSpeaking ? "Assistant speaking" : "Listening..."}
+                        </span>
+                      </div>
+                    ) : vapi.isConnecting ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Connecting...</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Voice mode</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {vapi.isSessionActive ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={vapi.stopCall}
+                        className="gap-1.5"
+                      >
+                        <PhoneOff className="h-4 w-4" />
+                        End Call
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={vapi.toggleCall}
+                        disabled={!selectedChatId || vapi.isConnecting}
+                        className="gap-1.5"
+                      >
+                        <Phone className="h-4 w-4" />
+                        Start Call
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        if (vapi.isSessionActive) vapi.stopCall()
+                        setVoiceMode(false)
+                      }}
+                      aria-label="Exit voice mode"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <PromptInput onSubmit={handleSend}>
+                  <PromptInputTextarea placeholder="Ask your AI Agent…" />
+                  <PromptInputFooter>
+                    <div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={!selectedChatId}
+                        onClick={() => { setVoiceMode(true); vapi.startCall() }}
+                        aria-label="Voice mode"
+                      >
+                        <Mic className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <PromptInputSubmit
+                      disabled={!selectedChatId}
+                      status={isThinking ? "streaming" : undefined}
+                    />
+                  </PromptInputFooter>
+                </PromptInput>
+              )}
             </div>
           </div>
         </div>

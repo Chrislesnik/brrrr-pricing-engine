@@ -702,7 +702,10 @@ export function RunBackgroundSheet({ open, onOpenChange, onCreated }: RunBackgro
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="First Name"
-                      autoComplete="off"
+                      name="bg-order-given"
+                      autoComplete="one-time-code"
+                      data-1p-ignore
+                      data-lpignore="true"
                       className="h-9"
                     />
                   </div>
@@ -723,7 +726,8 @@ export function RunBackgroundSheet({ open, onOpenChange, onCreated }: RunBackgro
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Last Name"
-                      autoComplete="off"
+                      name="bg-order-surname"
+                      autoComplete="one-time-code"
                       data-1p-ignore
                       data-lpignore="true"
                       className="h-9"
@@ -748,10 +752,11 @@ export function RunBackgroundSheet({ open, onOpenChange, onCreated }: RunBackgro
                         value={ssn}
                         onChange={(e) => setSsn(formatSSN(e.target.value))}
                         placeholder="123-45-6789"
-                        autoComplete="off"
+                        inputMode="numeric"
+                        name="bg-order-tin"
+                        autoComplete="one-time-code"
                         data-1p-ignore
                         data-lpignore="true"
-                        name="bg-ssn-field"
                         className="h-9 pr-9"
                       />
                       <button

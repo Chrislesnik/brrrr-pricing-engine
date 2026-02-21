@@ -356,7 +356,10 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First Name"
-                    autoComplete="off"
+                    name="credit-order-given"
+                    autoComplete="one-time-code"
+                    data-1p-ignore
+                    data-lpignore="true"
                     className="h-9"
                   />
                 </div>
@@ -366,7 +369,8 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last Name"
-                    autoComplete="off"
+                    name="credit-order-surname"
+                    autoComplete="one-time-code"
                     data-1p-ignore
                     data-lpignore="true"
                     className="h-9"
@@ -391,10 +395,11 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
                       value={ssn}
                       onChange={(e) => setSsn(formatSSN(e.target.value))}
                       placeholder="123-45-6789"
-                      autoComplete="off"
+                      inputMode="numeric"
+                      name="credit-order-tin"
+                      autoComplete="one-time-code"
                       data-1p-ignore
                       data-lpignore="true"
-                      name="credit-ssn-field"
                       className="h-9 pr-9"
                     />
                     <button

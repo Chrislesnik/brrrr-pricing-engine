@@ -1283,6 +1283,10 @@ const CartStep = ({
                       placeholder="First Name"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
+                      name="credit-borrower-given"
+                      autoComplete="one-time-code"
+                      data-1p-ignore
+                      data-lpignore="true"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -1293,7 +1297,8 @@ const CartStep = ({
                       placeholder="Last Name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      autoComplete="off"
+                      name="credit-borrower-surname"
+                      autoComplete="one-time-code"
                       data-1p-ignore
                       data-lpignore="true"
                     />
@@ -1316,7 +1321,8 @@ const CartStep = ({
                         }}
                         maxLength={11}
                         className="pr-9"
-                        autoComplete="off"
+                        name="credit-borrower-tin"
+                        autoComplete="one-time-code"
                         data-1p-ignore
                         data-lpignore="true"
                       />
@@ -2237,7 +2243,8 @@ const CartStep = ({
                           placeholder="Last Name"
                           value={guarantorLastName}
                           onChange={(e) => setGuarantorLastName(e.target.value)}
-                          autoComplete="off"
+                          name="credit-guarantor-surname"
+                          autoComplete="one-time-code"
                           data-1p-ignore
                           data-lpignore="true"
                         />
@@ -2336,7 +2343,8 @@ const CartStep = ({
                             }
                             maxLength={11}
                             className="pr-9"
-                            autoComplete="off"
+                            name="credit-guarantor-tin"
+                            autoComplete="one-time-code"
                             data-1p-ignore
                             data-lpignore="true"
                           />
