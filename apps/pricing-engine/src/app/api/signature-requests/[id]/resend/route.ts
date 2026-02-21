@@ -53,9 +53,17 @@ export async function POST(
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    await resendDocument(request.documenso_document_id)
+    const result = await resendDocument(request.documenso_document_id)
 
-    return NextResponse.json({ success: true })
+    if (result.sent) {
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json({
+      success: true,
+      fallback: true,
+      signingUrls: result.signingUrls,
+    })
   } catch (err) {
     console.error("Resend error:", err)
     return NextResponse.json(

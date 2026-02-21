@@ -41,17 +41,9 @@ export function VoiceChatPanel({
 
   return (
     <div className="relative flex flex-col w-full h-full overflow-hidden">
-      {/* Top fade over transcript area */}
-      {transcripts.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-background to-transparent" />
-      )}
-
-      <div
-        ref={scrollRef}
-        className="flex-1 flex flex-col items-center overflow-y-auto min-h-0"
-      >
-        {/* Orb -- centered with spacing */}
-        <div className="flex flex-col items-center justify-center shrink-0 py-8">
+      {/* Orb -- stationary, centered, above everything */}
+      <div className="absolute inset-x-0 top-0 z-20 flex justify-center pointer-events-none py-8">
+        <div className="pointer-events-auto">
           <VoiceOrb
             volumeLevel={volumeLevel}
             isSessionActive={isSessionActive}
@@ -60,8 +52,17 @@ export function VoiceChatPanel({
             size={500}
           />
         </div>
+      </div>
 
-        {/* Transcripts -- fill remaining space to bottom */}
+      {/* Scrollable transcript area -- masked so content fades and hides behind the orb */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto min-h-0 pt-[564px]"
+        style={{
+          maskImage: "linear-gradient(to bottom, transparent 460px, black 564px)",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 460px, black 564px)",
+        }}
+      >
         {transcripts.length > 0 && (
           <div className="w-full max-w-lg mx-auto flex flex-col gap-2 px-4 pb-4">
             {transcripts.map((t, i) => (

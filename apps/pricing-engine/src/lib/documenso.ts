@@ -108,6 +108,7 @@ export async function getDocument(documentId: string): Promise<{
     name: string
     role: string
     signingStatus: string
+    signingUrl: string
   }>
 }> {
   return documensoFetch(`/documents/${documentId}`)
@@ -126,32 +127,38 @@ export async function sendDocument(documentId: string): Promise<unknown> {
 
 /**
  * Resend a signing reminder to pending recipients.
- * Tries the v1 resend endpoint first; if Documenso returns a 500 (known
- * bug with embed-created documents using findUnique), falls back to the
- * send endpoint which uses a compatible query.
+ * Tries the v1 resend endpoint first. If Documenso's endpoint fails
+ * (known issue with embed-created documents), returns signing URLs
+ * so the caller can surface them to the user.
  */
-export async function resendDocument(documentId: string): Promise<unknown> {
+export async function resendDocument(
+  documentId: string,
+): Promise<{ sent: boolean; signingUrls?: Array<{ email: string; name: string; url: string }> }> {
   const doc = await getDocument(documentId)
-  const pendingRecipientIds = doc.recipients
-    .filter((r) => r.signingStatus !== "SIGNED")
-    .map((r) => Number(r.id))
+  const pendingRecipients = doc.recipients.filter(
+    (r) => r.signingStatus !== "SIGNED",
+  )
 
-  if (pendingRecipientIds.length === 0) {
+  if (pendingRecipients.length === 0) {
     throw new Error("No pending recipients to remind")
   }
 
   try {
-    return await documensoFetch(`/documents/${documentId}/resend`, {
+    await documensoFetch(`/documents/${documentId}/resend`, {
       method: "POST",
-      body: { recipients: pendingRecipientIds },
+      body: { recipients: pendingRecipients.map((r) => Number(r.id)) },
     })
-  } catch {
-    // Fallback: the send endpoint uses getEnvelopeById (findFirst)
-    // instead of the broken findUnique path in the resend endpoint.
-    return await documensoFetch(`/documents/${documentId}/send`, {
-      method: "POST",
-      body: { sendEmail: true },
-    })
+    return { sent: true }
+  } catch (err) {
+    console.warn("Documenso resend failed, returning signing URLs as fallback:", err)
+    return {
+      sent: false,
+      signingUrls: pendingRecipients.map((r) => ({
+        email: r.email,
+        name: r.name,
+        url: r.signingUrl,
+      })),
+    }
   }
 }
 

@@ -229,9 +229,9 @@ export async function POST(
     const body = await req.json()
     const { documentId, documentName, recipients } = body
 
-    if (!documentId || !documentName) {
+    if (!documentId) {
       return NextResponse.json(
-        { error: "documentId and documentName are required" },
+        { error: "documentId is required" },
         { status: 400 }
       )
     }
@@ -240,6 +240,25 @@ export async function POST(
     const hasAccess = await canAccessDeal(dealId, userId, clerkOrgId)
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    // Fetch the actual document title and recipients from Documenso
+    let resolvedName = documentName || "Signature Request"
+    let resolvedRecipients = recipients || []
+    try {
+      const documensoDoc = await getDocument(documentId)
+      if (documensoDoc.title) {
+        resolvedName = documensoDoc.title
+      }
+      if (documensoDoc.recipients?.length) {
+        resolvedRecipients = documensoDoc.recipients.map((r) => ({
+          email: r.email,
+          name: r.name,
+          status: r.signingStatus?.toLowerCase() || "pending",
+        }))
+      }
+    } catch (docErr) {
+      console.warn("Could not fetch document details from Documenso:", docErr)
     }
 
     // Resolve org UUID for the record (fall back to deal's org)
@@ -256,9 +275,9 @@ export async function POST(
       .insert({
         deal_id: dealId,
         documenso_document_id: documentId,
-        document_name: documentName,
+        document_name: resolvedName,
         status: "pending",
-        recipients: recipients || [],
+        recipients: resolvedRecipients,
         created_by_user_id: userId,
         organization_id: orgUuid ?? deal?.organization_id,
       })
