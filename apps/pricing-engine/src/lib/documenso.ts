@@ -125,9 +125,10 @@ export async function sendDocument(documentId: string): Promise<unknown> {
 }
 
 /**
- * Resend a signing reminder to all pending recipients.
- * Endpoint: POST /api/v1/documents/{id}/resend
- * Requires a `recipients` array of recipient IDs (numbers).
+ * Resend a signing reminder to pending recipients.
+ * Tries the v1 resend endpoint first; if Documenso returns a 500 (known
+ * bug with embed-created documents using findUnique), falls back to the
+ * send endpoint which uses a compatible query.
  */
 export async function resendDocument(documentId: string): Promise<unknown> {
   const doc = await getDocument(documentId)
@@ -139,10 +140,19 @@ export async function resendDocument(documentId: string): Promise<unknown> {
     throw new Error("No pending recipients to remind")
   }
 
-  return documensoFetch(`/documents/${documentId}/resend`, {
-    method: "POST",
-    body: { recipients: pendingRecipientIds },
-  })
+  try {
+    return await documensoFetch(`/documents/${documentId}/resend`, {
+      method: "POST",
+      body: { recipients: pendingRecipientIds },
+    })
+  } catch {
+    // Fallback: the send endpoint uses getEnvelopeById (findFirst)
+    // instead of the broken findUnique path in the resend endpoint.
+    return await documensoFetch(`/documents/${documentId}/send`, {
+      method: "POST",
+      body: { sendEmail: true },
+    })
+  }
 }
 
 /**
