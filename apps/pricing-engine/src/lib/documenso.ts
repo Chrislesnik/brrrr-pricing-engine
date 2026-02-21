@@ -114,6 +114,59 @@ export async function getDocument(documentId: string): Promise<{
 }
 
 /**
+ * Send a drafted document to its recipients
+ * Endpoint: POST /api/v1/documents/{id}/send
+ */
+export async function sendDocument(documentId: string): Promise<unknown> {
+  return documensoFetch(`/documents/${documentId}/send`, {
+    method: "POST",
+    body: {},
+  })
+}
+
+/**
+ * Resend a signing reminder to all pending recipients.
+ * Endpoint: POST /api/v1/documents/{id}/resend
+ */
+export async function resendDocument(documentId: string): Promise<unknown> {
+  return documensoFetch(`/documents/${documentId}/resend`, {
+    method: "POST",
+    body: {},
+  })
+}
+
+/**
+ * Download a document PDF from Documenso (v2 API).
+ * Returns the raw Response so the caller can stream the binary PDF.
+ * Endpoint: GET /api/v2/document/{documentId}/download?version=signed
+ * Ref: https://openapi.documenso.com/reference#tag/document/get/document/{documentId}/download
+ */
+export async function downloadDocument(
+  documentId: string,
+  version: "original" | "signed" = "signed",
+): Promise<Response> {
+  if (!DOCUMENSO_API_KEY) {
+    throw new Error("DOCUMENSO_API_KEY is not configured")
+  }
+
+  const response = await fetch(
+    `${DOCUMENSO_API_URL}/v2/document/${documentId}/download?version=${version}`,
+    {
+      headers: {
+        Authorization: `Bearer ${DOCUMENSO_API_KEY}`,
+      },
+    },
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Documenso API error: ${response.status} ${errorText}`)
+  }
+
+  return response
+}
+
+/**
  * Delete/cancel a document
  */
 export async function deleteDocument(documentId: string): Promise<void> {

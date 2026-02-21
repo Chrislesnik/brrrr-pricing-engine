@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
-import { deleteDocument, getDocument } from "@/lib/documenso"
+import { deleteDocument, getDocument, sendDocument } from "@/lib/documenso"
 
 /** Check if the current user can access a deal */
 async function canAccessDeal(
@@ -126,8 +126,11 @@ export async function GET(
 }
 
 /**
- * DELETE /api/signature-requests/[id]
- * Cancel/delete a signature request
+ * DELETE /api/signature-requests/[id]?action=cancel|cancel-delete|delete
+ *
+ * cancel        – Cancel in Documenso, set local status to "cancelled"
+ * cancel-delete – Cancel in Documenso + remove the Supabase row
+ * delete        – Remove the Supabase row (only if already cancelled/signed/declined/expired)
  */
 export async function DELETE(
   req: NextRequest,
@@ -141,8 +144,8 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const action = req.nextUrl.searchParams.get("action") || "cancel"
 
-    // Fetch the signature request
     const { data: request, error: fetchError } = await supabaseAdmin
       .from("deal_signature_requests")
       .select("*")
@@ -153,49 +156,55 @@ export async function DELETE(
       return NextResponse.json({ error: "Signature request not found" }, { status: 404 })
     }
 
-    // Verify user can access the parent deal
     const hasAccess = await canAccessDeal(request.deal_id, userId, clerkOrgId)
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    // Only allow deleting pending requests
-    if (request.status !== "pending") {
-      return NextResponse.json(
-        { error: "Cannot delete a signature request that is not pending" },
-        { status: 400 }
-      )
+    const needsDocumensoCancel = action === "cancel" || action === "cancel-delete"
+    const needsRowDelete = action === "cancel-delete" || action === "delete"
+
+    if (needsDocumensoCancel && request.status === "pending") {
+      try {
+        await deleteDocument(request.documenso_document_id)
+      } catch (docError) {
+        console.warn("Failed to cancel in Documenso:", docError)
+      }
     }
 
-    // Try to delete from Documenso
-    try {
-      await deleteDocument(request.documenso_document_id)
-    } catch (docError) {
-      console.warn("Failed to delete from Documenso:", docError)
-      // Continue with local deletion even if Documenso fails
-    }
+    if (needsRowDelete) {
+      if (needsDocumensoCancel || ["cancelled", "signed", "declined", "expired"].includes(request.status)) {
+        const { error: delError } = await supabaseAdmin
+          .from("deal_signature_requests")
+          .delete()
+          .eq("id", id)
 
-    // Update status to cancelled
-    const { error: updateError } = await supabaseAdmin
-      .from("deal_signature_requests")
-      .update({ status: "cancelled" })
-      .eq("id", id)
+        if (delError) {
+          console.error("Error deleting signature request row:", delError)
+          return NextResponse.json({ error: "Failed to delete" }, { status: 500 })
+        }
+      } else {
+        return NextResponse.json(
+          { error: "Cannot delete a request that is still active. Cancel it first." },
+          { status: 400 },
+        )
+      }
+    } else {
+      const { error: updateError } = await supabaseAdmin
+        .from("deal_signature_requests")
+        .update({ status: "cancelled" })
+        .eq("id", id)
 
-    if (updateError) {
-      console.error("Error cancelling signature request:", updateError)
-      return NextResponse.json(
-        { error: "Failed to cancel signature request" },
-        { status: 500 }
-      )
+      if (updateError) {
+        console.error("Error cancelling signature request:", updateError)
+        return NextResponse.json({ error: "Failed to cancel" }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting signature request:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    console.error("Error in DELETE signature request:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
@@ -260,6 +269,23 @@ export async function POST(
       console.error("Error creating signature request:", insertError)
       return NextResponse.json(
         { error: "Failed to create signature request" },
+        { status: 500 }
+      )
+    }
+
+    // Send the document to recipients via Documenso
+    try {
+      await sendDocument(documentId)
+      console.log(`Document ${documentId} sent to recipients`)
+    } catch (sendErr) {
+      console.error("Failed to send document via Documenso:", sendErr)
+      // Update status to reflect the send failure
+      await supabaseAdmin
+        .from("deal_signature_requests")
+        .update({ status: "draft" })
+        .eq("id", request.id)
+      return NextResponse.json(
+        { error: "Document saved but failed to send. Please try resending." },
         { status: 500 }
       )
     }

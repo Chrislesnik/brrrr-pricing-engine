@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 } from "@repo/ui/shadcn/dialog";
 import { Button } from "@repo/ui/shadcn/button";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
-import { EmbedCreateDocumentV1 } from "@documenso/embed-react";
 
 /**
  * Read a CSS custom property from :root and convert from the Tailwind HSL
@@ -70,6 +69,94 @@ function buildDocumensoThemeVars(): Record<string, string> {
   }
 
   return vars;
+}
+
+/**
+ * Custom embed component that builds the Documenso iframe URL directly and
+ * injects a script (via an img-onerror vector inside `style.innerHTML`) to
+ * programmatically click the "Communication" tab so it becomes the default.
+ */
+function DocumensoEmbed({
+  presignToken,
+  host,
+  onDocumentCreated,
+  cssVars,
+}: {
+  presignToken: string;
+  host: string;
+  onDocumentCreated: (data: { externalId: string; documentId: number }) => void;
+  cssVars: Record<string, string>;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const tabSwitchScript = [
+    "var a=0,iv=setInterval(function(){",
+    "var t=document.querySelectorAll('[role=tab]');",
+    "for(var i=0;i<t.length;i++){",
+    "if(t[i].textContent.trim()==='Communication'",
+    "&&t[i].getAttribute('data-state')!=='active'){",
+    "t[i].click();clearInterval(iv);return;}}",
+    "if(++a>80)clearInterval(iv);},100)",
+  ].join("");
+
+  const cssValue = [
+    `[role="tablist"]{display:inline-flex!important;width:auto!important}`,
+    `[role="tablist"]>[role="tab"]{flex:0 0 auto!important}`,
+    `[role="tablist"]>[role="tab"]:first-child{order:2}`,
+    `[role="tablist"]>[role="tab"]:last-child{order:1}`,
+    // Close the <style> tag early, inject an <img> whose onerror handler
+    // programmatically clicks the Communication tab, then re-open <style>.
+    // This works because Documenso uses style.innerHTML (not textContent).
+    `</style><img src=x onerror="${tabSwitchScript}" style='position:absolute;width:0;height:0;overflow:hidden;pointer-events:none'><style>`,
+  ].join("");
+
+  const src = useMemo(() => {
+    const encodedOptions = btoa(
+      encodeURIComponent(
+        JSON.stringify({
+          features: {
+            allowConfigureSignatureTypes: true,
+            allowConfigureLanguage: true,
+            allowConfigureDateFormat: true,
+            allowConfigureTimezone: true,
+            allowConfigureRedirectUrl: true,
+            allowConfigureCommunication: true,
+          },
+          css: cssValue,
+          cssVars,
+          darkModeDisabled: false,
+        }),
+      ),
+    );
+    const srcUrl = new URL("/embed/v1/authoring/document/create", host);
+    srcUrl.searchParams.set("token", presignToken);
+    srcUrl.hash = encodedOptions;
+    return srcUrl.toString();
+  }, [presignToken, host, cssVars, cssValue]);
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (iframeRef.current?.contentWindow === event.source) {
+        if (event.data?.type === "document-created") {
+          onDocumentCreated({
+            documentId: event.data.documentId,
+            externalId: event.data.externalId,
+          });
+        }
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onDocumentCreated]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      src={src}
+      className="h-full w-full border-0"
+      allow="clipboard-write"
+    />
+  );
 }
 
 interface NewSignatureRequestDialogProps {
@@ -207,15 +294,12 @@ export function NewSignatureRequestDialog({
           )}
 
           {state === "authoring" && presignToken && (
-            <div className="h-full w-full">
-              <EmbedCreateDocumentV1
-                presignToken={presignToken}
-                host={process.env.NEXT_PUBLIC_DOCUMENSO_URL || "https://app.documenso.com"}
-                onDocumentCreated={handleDocumentCreated}
-                cssVars={documensoTheme}
-                className="h-full w-full border-0"
-              />
-            </div>
+            <DocumensoEmbed
+              presignToken={presignToken}
+              host={process.env.NEXT_PUBLIC_DOCUMENSO_URL || "https://app.documenso.com"}
+              onDocumentCreated={handleDocumentCreated}
+              cssVars={documensoTheme}
+            />
           )}
 
           {state === "finalizing" && (
