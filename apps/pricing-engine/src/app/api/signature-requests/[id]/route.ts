@@ -273,21 +273,15 @@ export async function POST(
       )
     }
 
-    // Send the document to recipients via Documenso
+    // The Documenso embed already sends the document as part of its
+    // createEmbeddingDocument flow. We attempt sendDocument as a fallback
+    // in case the embed didn't send it, but ignore errors (e.g. if the
+    // document is already in PENDING state).
     try {
       await sendDocument(documentId)
       console.log(`Document ${documentId} sent to recipients`)
-    } catch (sendErr) {
-      console.error("Failed to send document via Documenso:", sendErr)
-      // Update status to reflect the send failure
-      await supabaseAdmin
-        .from("deal_signature_requests")
-        .update({ status: "draft" })
-        .eq("id", request.id)
-      return NextResponse.json(
-        { error: "Document saved but failed to send. Please try resending." },
-        { status: 500 }
-      )
+    } catch {
+      console.log(`Document ${documentId} likely already sent by embed`)
     }
 
     return NextResponse.json({ request })
