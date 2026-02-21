@@ -49,17 +49,9 @@ const grapejsThemeStyles = `
   .gs-preview-mode iframe {
     pointer-events: none !important;
   }
-  /* AI Chat panel: ensure it fills the tab height */
-  .variables-only-blocks [class*="aiChat"],
-  .variables-only-blocks [class*="ai-chat"] {
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-  }
-
   /* Preview mode: hide left and right sidebars */
   .gs-preview-mode .blocks-panel-left,
-  .gs-preview-mode .variables-only-blocks {
+  .gs-preview-mode .right-sidebar-panel {
     display: none !important;
   }
 
@@ -97,27 +89,15 @@ const grapejsThemeStyles = `
 
   /* Ensure sidebar panels are scrollable */
   .blocks-panel-left,
-  .variables-only-blocks {
+  .right-sidebar-panel {
     overflow-y: auto !important;
     overflow-x: hidden !important;
   }
   .blocks-panel-left > *,
-  .variables-only-blocks > * {
+  .right-sidebar-panel > * {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     min-height: 0 !important;
-  }
-
-  /* Right panel: hide block content until JS has cleaned up non-Variable categories */
-  .variables-only-blocks:not(.--categories-ready) > * {
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
-  }
-  .variables-only-blocks.--categories-ready > * {
-    visibility: visible !important;
-    height: auto !important;
-    overflow: visible !important;
   }
 
   /* Remap any remaining violet/purple classes to the org primary */
