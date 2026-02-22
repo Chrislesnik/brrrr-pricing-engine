@@ -58,6 +58,8 @@ interface DynamicPEInputProps {
   onAddressSelect?: (fields: AddressFields) => void
   isRequired?: boolean
   isComputed?: boolean
+  isExpressionDefault?: boolean
+  expressionLabel?: string
   touched?: boolean
   formValues?: Record<string, unknown>
   signalColor?: string | null
@@ -70,13 +72,15 @@ export function DynamicPEInput({
   onAddressSelect,
   isRequired,
   isComputed,
+  isExpressionDefault,
+  expressionLabel,
   touched,
   formValues,
   signalColor,
 }: DynamicPEInputProps) {
   const id = `pe-${field.input_code}`
   const placeholder = field.placeholder ?? ""
-  const isDefault = !touched && value === field.default_value
+  const isDefault = (!touched && value === field.default_value) || !!isExpressionDefault
 
   const constraints = NUMERIC_INPUT_TYPES.has(field.input_type) && field.config
     ? resolveNumberConstraints(field.config as unknown as NumberConstraintsConfig, formValues ?? {})
@@ -107,6 +111,20 @@ export function DynamicPEInput({
           {field.input_label}
         </Label>
         {isRequired && <span className="text-red-500 text-xs">*</span>}
+        {isExpressionDefault && (
+          <TooltipProvider>
+            <Tooltip delayDuration={50}>
+              <TooltipTrigger>
+                <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded cursor-default">
+                  f(x)
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs font-mono text-xs">
+                {expressionLabel || field.default_value}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         {field.tooltip && (
           <TooltipProvider>
             <Tooltip delayDuration={50}>

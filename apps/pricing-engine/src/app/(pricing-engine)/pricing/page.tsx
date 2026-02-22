@@ -54,6 +54,7 @@ import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
 import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
+import { evaluateExpression } from "@/lib/expression-evaluator"
 import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
 import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
 import type { TableConfig } from "@/types/table-config"
@@ -1074,6 +1075,7 @@ export default function PricingEnginePage() {
           const defaults: Record<string, unknown> = {}
           for (const inp of rawInputs as PEInputDef[]) {
             if (!inp.default_value) continue
+            if (inp.default_value.includes("{")) continue
             const dv = inp.default_value
             if (inp.input_type === "date") {
               const m = dv.match(/^([+-])(\d+)([dmy])$/)
@@ -1149,6 +1151,17 @@ export default function PricingEnginePage() {
     return first.done ? null : first.value[1]
   }, [addressGroupIndex])
 
+  // Expression-based default values: maps input_code → expression string for defaults containing {input_id} references
+  const expressionDefaults = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const inp of peInputDefs) {
+      if (inp.default_value && inp.default_value.includes("{")) {
+        map.set(inp.input_code, inp.default_value)
+      }
+    }
+    return map
+  }, [peInputDefs])
+
   // Combined form values merging individual states + extras
   const formValues = useMemo<Record<string, unknown>>(() => {
     const known: Record<string, unknown> = {
@@ -1212,6 +1225,37 @@ export default function PricingEnginePage() {
     }
     return byId
   }, [formValues, codeToIdMap])
+
+  // Evaluate expression-based defaults from current form values
+  const computedDefaults = useMemo(() => {
+    const result: Record<string, string> = {}
+    for (const [code, expr] of expressionDefaults) {
+      if (touched[code]) continue
+      const val = evaluateExpression(expr, formValuesById)
+      if (val !== null) result[code] = String(val)
+    }
+    return result
+  }, [expressionDefaults, formValuesById, touched])
+
+  // Track which fields currently show an expression-computed default
+  const hasExpressionDefault = useMemo(() => {
+    const codes = new Set<string>()
+    for (const [code] of expressionDefaults) {
+      if (!touched[code] && computedDefaults[code] !== undefined) codes.add(code)
+    }
+    return codes
+  }, [expressionDefaults, touched, computedDefaults])
+
+  // Human-readable expression labels: replaces {input_id} with input labels
+  const expressionLabels = useMemo(() => {
+    const idToLabel = new Map<string, string>()
+    for (const inp of peInputDefs) idToLabel.set(String(inp.id), inp.input_label)
+    const labels: Record<string, string> = {}
+    for (const [code, expr] of expressionDefaults) {
+      labels[code] = expr.replace(/\{([^}]+)\}/g, (_m, id) => idToLabel.get(id) ?? id)
+    }
+    return labels
+  }, [peInputDefs, expressionDefaults])
 
   // Merged values keyed by both input_code AND input_id (for number constraint conditions that reference by ID)
   const formValuesMerged = useMemo(() => ({ ...formValues, ...formValuesById }), [formValues, formValuesById])
@@ -3186,10 +3230,12 @@ export default function PricingEnginePage() {
                                   <div key={String(field.id)} className={getDynWidthClass(field.layout_width)}>
                                     <DynamicPEInput
                                       field={field}
-                                      value={formValues[field.input_code]}
+                                      value={computedDefaults[field.input_code] ?? formValues[field.input_code]}
                                       onChange={(val) => updateValue(field.input_code, val)}
                                       onAddressSelect={(addrFields) => handleAddressSelect(field.input_code, addrFields)}
                                       isRequired={peRequiredCodes.has(field.input_code)}
+                                      isExpressionDefault={hasExpressionDefault.has(field.input_code)}
+                                      expressionLabel={expressionLabels[field.input_code]}
                                       touched={!!touched[field.input_code]}
                                       formValues={formValuesMerged}
                                       signalColor={signalColors[field.input_code] ?? null}

@@ -67,6 +67,7 @@ import { NumberConstraintsSheet } from "./number-constraints-sheet";
 import type { NumberConstraintsConfig } from "@/types/number-constraints";
 import { NUMERIC_INPUT_TYPES } from "@/types/number-constraints";
 import { SectionButtonsSheet } from "./section-buttons-sheet";
+import { ExpressionInput } from "./expression-input";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -887,6 +888,32 @@ export function PricingEngineLayoutSettings() {
       );
     }
 
+    if (NUMERIC_INPUT_TYPES.has(newInputType)) {
+      const numericInputs = inputs
+        .filter((i) => NUMERIC_INPUT_TYPES.has(i.input_type))
+        .map((i) => ({
+          id: i.id,
+          input_label: i.input_label,
+          input_type: i.input_type,
+          category: i.category,
+        }));
+      return (
+        <div className="space-y-1.5">
+          <Label className="text-xs">Default Value (optional)</Label>
+          <ExpressionInput
+            value={newDefaultValue}
+            onChange={setNewDefaultValue}
+            inputs={numericInputs}
+            placeholder="e.g. 0.00 or @input * 0.01"
+            className="min-h-8 text-sm"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Use @ to reference other numeric inputs. Supports + - * / ( ) and functions.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-1.5">
         <Label className="text-xs">Default Value (optional)</Label>
@@ -895,8 +922,6 @@ export function PricingEngineLayoutSettings() {
           value={newDefaultValue}
           onChange={(e) => setNewDefaultValue(e.target.value)}
           className="h-8 text-sm"
-          type={newInputType === "number" || newInputType === "currency" || newInputType === "percentage" ? "number" : "text"}
-          inputMode={newInputType === "number" || newInputType === "currency" || newInputType === "percentage" ? "decimal" : undefined}
         />
       </div>
     );
