@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select"
 import { useAuth } from "@clerk/nextjs"
-import { Copy, Menu, Pencil, Trash2, MessageSquare, Loader2, Mic, Phone, PhoneOff, X } from "lucide-react"
+import { Check, Copy, Menu, Pencil, Trash2, MessageSquare, Loader2, Mic, Phone, PhoneOff, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Sheet, SheetContent } from "@repo/ui/shadcn/sheet"
 import ReactMarkdown from "react-markdown"
@@ -61,6 +61,7 @@ export default function AIAgentPage() {
   const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
   const [keyboardOffset, setKeyboardOffset] = React.useState<number>(0)
   const [voiceMode, setVoiceMode] = React.useState(false)
+  const [copiedId, setCopiedId] = React.useState<string | null>(null)
 
   // Typewriter animation state
   const animatedIdsRef = React.useRef<Set<string>>(new Set())
@@ -79,9 +80,7 @@ export default function AIAgentPage() {
     if (!selectedChatId) return
     const chat = chats.find((c) => c.id === selectedChatId)
     if (!chat) return
-    if (chat.program_id) {
-      setSelectedProgramId(chat.program_id)
-    }
+    setSelectedProgramId(chat.program_id || "all")
   }, [selectedChatId, chats])
 
   // Load messages for selected chat using SWR
@@ -152,10 +151,10 @@ export default function AIAgentPage() {
     }
   }, [messages])
 
-  // Auto-select first program if current selection is invalid
+  // Auto-select "all" if current selection is invalid
   React.useEffect(() => {
-    if (!programs.find((p) => p.id === selectedProgramId)) {
-      setSelectedProgramId(programs[0]?.id)
+    if (selectedProgramId !== "all" && !programs.find((p) => p.id === selectedProgramId)) {
+      setSelectedProgramId("all")
     }
   }, [programs, selectedProgramId])
 
@@ -192,7 +191,7 @@ export default function AIAgentPage() {
       const res = await fetch("/api/ai/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "New chat", program_id: selectedProgramId }),
+        body: JSON.stringify({ name: "New chat", program_id: selectedProgramId === "all" ? null : selectedProgramId }),
       })
       const json = (await res.json()) as { ok: boolean; chat?: Chat }
       if (json.ok && json.chat) {
@@ -208,12 +207,7 @@ export default function AIAgentPage() {
     }
   }
 
-  async function handleSend(message: PromptInputMessage) {
-    if (!message.text.trim() || !selectedChatId) return
-    const prompt = message.text
-    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
-    setMessages((prev) => [...prev, userMessage])
-
+  function bumpChatList() {
     mutate("/api/ai/chats", (data: { items: Chat[] } | undefined) => {
       if (!data) return data
       const nowIso = new Date().toISOString()
@@ -223,6 +217,14 @@ export default function AIAgentPage() {
       updated.sort((a, b) => new Date(b.last_used_at ?? b.created_at).getTime() - new Date(a.last_used_at ?? a.created_at).getTime())
       return { items: updated }
     }, false)
+  }
+
+  async function handleSend(message: PromptInputMessage) {
+    if (!message.text.trim() || !selectedChatId) return
+    const prompt = message.text
+    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
+    setMessages((prev) => [...prev, userMessage])
+    bumpChatList()
 
     setIsThinking(true)
     const thinkingId = `thinking-${Date.now()}`
@@ -256,6 +258,73 @@ export default function AIAgentPage() {
     } finally {
       setIsThinking(false)
     }
+  }
+
+  async function handleSendAll(message: PromptInputMessage) {
+    if (!message.text.trim() || !selectedChatId) return
+    const prompt = message.text
+    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
+    setMessages((prev) => [...prev, userMessage])
+    bumpChatList()
+
+    setIsThinking(true)
+    const assistantId = crypto.randomUUID()
+    animatedIdsRef.current.add(assistantId)
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }])
+
+    try {
+      const res = await fetch("/api/ai/send-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedChatId, prompt }),
+      })
+
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "")
+        throw new Error(errText || "Failed to get response")
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        const snapshot = accumulated
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, content: snapshot } : m)),
+        )
+      }
+
+      if (!accumulated.trim()) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: "Sorry, I couldn't generate a response." }
+              : m,
+          ),
+        )
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: "There was a problem generating a response." }
+            : m,
+        ),
+      )
+    } finally {
+      setIsThinking(false)
+    }
+  }
+
+  async function handleSubmit(message: PromptInputMessage) {
+    if (selectedProgramId === "all") {
+      return handleSendAll(message)
+    }
+    return handleSend(message)
   }
 
   async function handleRenameChat(chatId: string, newName: string) {
@@ -480,11 +549,12 @@ export default function AIAgentPage() {
             </div>
             <div className="ml-auto flex items-center gap-2 min-w-0 overflow-hidden flex-1 justify-end">
               <div className="min-w-0 flex-1 md:flex-none md:w-[220px]">
-                <Select value={selectedProgramId} onValueChange={(v) => { setSelectedProgramId(v); persistChatSelections({ program_id: v }) }}>
+                <Select value={selectedProgramId} onValueChange={(v) => { setSelectedProgramId(v); persistChatSelections({ program_id: v === "all" ? null : v }) }}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Programs" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Programs</SelectItem>
                     {programs.map((p) => {
                         const isBroker = orgRole === "org:broker" || orgRole === "broker"
                         const label = isBroker ? p.external_name || p.internal_name : p.internal_name || p.external_name
@@ -537,10 +607,12 @@ export default function AIAgentPage() {
                       {messages.map((m) => (
                         <Message key={m.id} from={m.role}>
                           <MessageContent>
-                            {m.id.startsWith("thinking-") ? (
+                            {m.id.startsWith("thinking-") || (m.role === "assistant" && !m.content) ? (
                               <div className="flex items-center gap-2">
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                <span className="text-muted-foreground">Thinking...</span>
+                                <span className="text-muted-foreground">
+                                  {selectedProgramId === "all" && !m.id.startsWith("thinking-") ? "Analyzing all programs…" : "Thinking..."}
+                                </span>
                               </div>
                             ) : (
                               <div
@@ -554,22 +626,27 @@ export default function AIAgentPage() {
                               </div>
                             )}
                           </MessageContent>
-                          {!m.id.startsWith("thinking-") && m.content && (
+                          {!m.id.startsWith("thinking-") && m.content?.trim() && (
                             <MessageActions className={m.role === "user" ? "justify-end" : ""}>
                               <button
                                 type="button"
                                 onClick={async () => {
                                   try {
                                     await navigator.clipboard.writeText(m.content)
-                                    toast({ title: "Copied to clipboard" })
+                                    setCopiedId(m.id)
+                                    setTimeout(() => setCopiedId((prev) => (prev === m.id ? null : prev)), 2000)
                                   } catch {
-                                    toast({ title: "Copy failed", variant: "destructive" })
+                                    // silent fail
                                   }
                                 }}
                                 aria-label="Copy message"
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-background text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
                               >
-                                <Copy className="h-4 w-4" />
+                                {copiedId === m.id ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
                               </button>
                             </MessageActions>
                           )}
@@ -661,7 +738,7 @@ export default function AIAgentPage() {
                   </div>
                 </div>
               ) : (
-                <PromptInput onSubmit={handleSend}>
+                <PromptInput onSubmit={handleSubmit}>
                   <PromptInputTextarea placeholder="Ask your AI Agent…" />
                   <PromptInputFooter>
                     <div>

@@ -109,7 +109,7 @@ export async function writeScenarioInputs(
     if (pe.input_type === "date" && typeof val === "string" && val) {
       try { row.value_date = val } catch { row.value_text = String(val) }
     } else if (pe.input_type === "boolean") {
-      row.value_bool = val === "yes" || val === "Yes" || val === true
+      row.value_bool = val === "yes" || val === "Yes" || val === true || val === "true"
     } else if (pe.input_type === "table" || pe.input_type === "tags") {
       row.value_array = Array.isArray(val) ? JSON.stringify(val) : null
     } else {
@@ -280,7 +280,24 @@ export async function readScenarioInputs(
     let value: unknown
     if (row.value_date) value = row.value_date
     else if (row.value_bool !== null && row.value_bool !== undefined) value = row.value_bool
-    else if (row.value_array) value = typeof row.value_array === "string" ? JSON.parse(row.value_array) : row.value_array
+    else if (row.value_array) {
+      const parsed = typeof row.value_array === "string" ? JSON.parse(row.value_array) : row.value_array
+      if (Array.isArray(parsed)) {
+        value = parsed.map((item: Record<string, unknown>) => {
+          if (item && typeof item === "object" && ("gross" in item || "market" in item)) {
+            const { gross, market, ...rest } = item as Record<string, unknown>
+            return {
+              ...rest,
+              ...("gross" in item && !("gross_rent" in item) ? { gross_rent: gross } : {}),
+              ...("market" in item && !("market_rent" in item) ? { market_rent: market } : {}),
+            }
+          }
+          return item
+        })
+      } else {
+        value = parsed
+      }
+    }
     else if (row.value_numeric !== null && row.value_numeric !== undefined) value = row.value_numeric
     else value = row.value_text
 

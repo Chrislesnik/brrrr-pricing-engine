@@ -1930,15 +1930,24 @@ export default function PricingEnginePage() {
     if (propertyType === "condo") {
       payload["warrantability"] = warrantability ?? ""
     }
-    // Always include unit data - slice to visible rows based on numUnits
-    const visibleUnits = unitData.slice(0, numUnits ?? 0)
-    if (visibleUnits.length > 0) {
-      const units = visibleUnits.map((u) => ({
-        leased: u.leased,
-        gross: u.gross,
-        market: u.market,
-      }))
-      payload["unit_data"] = units
+    // Include unit data from ConfigurableGrid (extraFormValues) or legacy unitData state.
+    // Always emit as "leased_units" (canonical DB key) and "unit_data" (webhook compat).
+    const gridUnits = extraFormValues["leased_units"] as Record<string, unknown>[] | undefined
+    if (gridUnits && gridUnits.length > 0) {
+      const sliced = gridUnits.slice(0, numUnits ?? gridUnits.length)
+      payload["leased_units"] = sliced
+      payload["unit_data"] = sliced
+    } else {
+      const visibleUnits = unitData.slice(0, numUnits ?? 0)
+      if (visibleUnits.length > 0) {
+        const mapped = visibleUnits.map((u) => ({
+          leased: u.leased,
+          gross_rent: u.gross,
+          market_rent: u.market,
+        }))
+        payload["leased_units"] = mapped
+        payload["unit_data"] = mapped
+      }
     }
     // Merge any dynamically-added inputs not in the hardcoded set
     for (const [code, val] of Object.entries(extraFormValues)) {
@@ -2332,17 +2341,26 @@ export default function PricingEnginePage() {
   const areUnitRowsVisible = isDscr && (numUnits ?? 0) > 0
   const unitsComplete = useMemo(() => {
     if (!areUnitRowsVisible) return true
-    // Only validate the visible rows (first numUnits), not stale rows in unitData
-    const visibleRows = unitData.slice(0, numUnits ?? 0)
+    const count = numUnits ?? 0
+    // Prefer ConfigurableGrid data from extraFormValues, fall back to legacy unitData
+    const gridUnits = extraFormValues["leased_units"] as Record<string, unknown>[] | undefined
+    if (gridUnits && gridUnits.length > 0) {
+      const visible = gridUnits.slice(0, count)
+      return visible.every((u) => {
+        const hasLeased = u.leased != null
+        const hasGross = u.gross_rent != null && u.gross_rent !== ""
+        const hasMarket = u.market_rent != null && u.market_rent !== ""
+        return hasLeased && hasGross && hasMarket
+      })
+    }
+    const visibleRows = unitData.slice(0, count)
     return visibleRows.every((u) => {
-      // Leased: accept any value (yes or no)
       const hasLeased = u.leased != null
-      // Gross/Market: accept any non-null/undefined value (including "0", "0.00")
       const hasGross = u.gross != null && u.gross !== ""
       const hasMarket = u.market != null && u.market !== ""
       return hasLeased && hasGross && hasMarket
     })
-  }, [areUnitRowsVisible, unitData, numUnits])
+  }, [areUnitRowsVisible, unitData, numUnits, extraFormValues])
   // Returns array of missing required field labels (driven entirely by logic engine rules)
   const missingFields = useMemo(() => {
     const missing: string[] = []
@@ -2501,12 +2519,11 @@ export default function PricingEnginePage() {
     if ("flood_premium" in payload) setFloodPremium(String(payload["flood_premium"] ?? ""))
     if ("mortgage_debt" in payload) setMortgageDebtValue(String(payload["mortgage_debt"] ?? ""))
     if ("tax_escrow_months" in payload) setTaxEscrowMonths(String(payload["tax_escrow_months"] ?? ""))
-    // Units (leased/gross/market) from scenario inputs - supports legacy field names as fallbacks
-    const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
+    // Units from scenario inputs - normalize to new config keys (gross_rent, market_rent)
+    const unitsFromPayload = (payload["leased_units"] ?? payload["units"] ?? payload["unit_data"]) as unknown
     if (Array.isArray(unitsFromPayload)) {
       const normalized = unitsFromPayload.map(
-        (u: { leased?: string | boolean | null; gross?: string | number | null; market?: string | number | null; gross_rent?: string | number | null; market_rent?: string | number | null }) => {
-          // Normalize leased value to lowercase "yes" or "no"
+        (u: Record<string, unknown>) => {
           let normalizedLeased: "yes" | "no" | undefined = undefined
           if (u?.leased != null) {
             const leasedStr = String(u.leased).toLowerCase()
@@ -2516,17 +2533,23 @@ export default function PricingEnginePage() {
               normalizedLeased = "no"
             }
           }
-          // Support legacy gross_rent/market_rent field names as fallbacks
-          const grossVal = u?.gross ?? u?.gross_rent
-          const marketVal = u?.market ?? u?.market_rent
+          const grossVal = u?.gross_rent ?? u?.gross
+          const marketVal = u?.market_rent ?? u?.market
           return {
-            leased: normalizedLeased,
-            gross: grossVal != null ? String(grossVal) : "",
-            market: marketVal != null ? String(marketVal) : "",
+            leased: normalizedLeased as string | undefined,
+            gross_rent: grossVal != null ? String(grossVal) : "",
+            market_rent: marketVal != null ? String(marketVal) : "",
           }
         }
       )
-      hydrateUnitsRef.current = normalized
+      // Populate extraFormValues for ConfigurableGrid (new keys)
+      setExtraFormValues((prev) => ({ ...prev, leased_units: normalized }))
+      // Also populate hydrateUnitsRef for the legacy LeasedUnitsGrid fallback
+      hydrateUnitsRef.current = normalized.map((u) => ({
+        leased: u.leased as "yes" | "no" | undefined,
+        gross: u.gross_rent,
+        market: u.market_rent,
+      }))
       if (normalized.length > 0) {
         setNumUnits(normalized.length)
       }
@@ -2608,7 +2631,7 @@ export default function PricingEnginePage() {
       "loan_amount", "admin_fee", "lender_admin_fee", "payoff_amount", "aiv", "arv",
       "rehab_budget", "rehab_completed", "rehab_holdback", "emd", "taxes_annual",
       "hoi_annual", "flood_annual", "hoa_annual", "hoi_premium", "flood_premium",
-      "mortgage_debt", "tax_escrow_months", "units", "unit_data", "borrower_type",
+      "mortgage_debt", "tax_escrow_months", "units", "unit_data", "leased_units", "borrower_type",
       "citizenship", "fico", "borrower_name", "borrower_entity_id", "guarantors",
       "guarantor_borrower_ids", "rural", "uw_exception", "section8",
       "lender_orig_percent", "lender_origination", "broker_orig_percent",
