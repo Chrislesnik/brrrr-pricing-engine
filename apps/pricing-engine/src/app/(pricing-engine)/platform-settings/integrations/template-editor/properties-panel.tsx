@@ -133,21 +133,11 @@ function SpacingInputs({
   onToggleLink: () => void
   onChange: (idx: number, val: string) => void
 }) {
-  const sides = ["Top", "Right", "Bottom", "Left"] as const
+  const placeholders = ["T", "R", "B", "L"] as const
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">{label}</Label>
-        <button
-          type="button"
-          onClick={onToggleLink}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-          title={linked ? "Unlink sides" : "Link all sides"}
-        >
-          {linked ? <Link className="h-3.5 w-3.5" /> : <Unlink className="h-3.5 w-3.5" />}
-        </button>
-      </div>
+    <div className="flex items-center gap-1.5">
+      <Label className="text-xs text-muted-foreground w-12 shrink-0">{label}</Label>
       {linked ? (
         <Input
           type="number"
@@ -156,28 +146,34 @@ function SpacingInputs({
             const v = e.target.value ? `${e.target.value}px` : "0"
             for (let i = 0; i < 4; i++) onChange(i, v)
           }}
-          className="h-8 text-xs"
+          className="h-7 text-xs flex-1 min-w-0"
           placeholder="0"
         />
       ) : (
-        <div className="grid grid-cols-2 gap-1.5">
-          {sides.map((side, i) => (
-            <div key={side} className="space-y-0.5">
-              <span className="text-[10px] text-muted-foreground">{side}</span>
-              <Input
-                type="number"
-                value={parseStyleValue(values[i]).num}
-                onChange={(e) => {
-                  const v = e.target.value ? `${e.target.value}px` : "0"
-                  onChange(i, v)
-                }}
-                className="h-7 text-xs"
-                placeholder="0"
-              />
-            </div>
+        <div className="flex gap-1 flex-1 min-w-0">
+          {placeholders.map((ph, i) => (
+            <Input
+              key={ph}
+              type="number"
+              value={parseStyleValue(values[i]).num}
+              onChange={(e) => {
+                const v = e.target.value ? `${e.target.value}px` : "0"
+                onChange(i, v)
+              }}
+              className="h-7 text-xs flex-1 min-w-0 px-1.5 text-center"
+              placeholder={ph}
+            />
           ))}
         </div>
       )}
+      <button
+        type="button"
+        onClick={onToggleLink}
+        className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+        title={linked ? "Unlink sides" : "Link all sides"}
+      >
+        {linked ? <Link className="h-3.5 w-3.5" /> : <Unlink className="h-3.5 w-3.5" />}
+      </button>
     </div>
   )
 }
@@ -319,6 +315,8 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
 
   const showTypography = isTextComponent(selected)
   const isQrCode = componentType === "qr-code"
+  const isDataVariable = componentType === "data-variable"
+  const isInlineOnly = isDataVariable
   const stringVariables = variables.filter(v => v.type === "String")
 
   // Parse current values
@@ -452,7 +450,7 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
             )}
 
             {/* Layout */}
-            <AccordionItem value="layout">
+            {!isInlineOnly && <AccordionItem value="layout">
               <AccordionTrigger className="py-2 text-xs font-medium">
                 Layout
               </AccordionTrigger>
@@ -547,10 +545,10 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                   </>
                 )}
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>}
 
             {/* Size */}
-            <AccordionItem value="size">
+            {!isInlineOnly && <AccordionItem value="size">
               <AccordionTrigger className="py-2 text-xs font-medium">
                 Size
               </AccordionTrigger>
@@ -580,10 +578,10 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                   />
                 </div>
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>}
 
             {/* Space */}
-            <AccordionItem value="space">
+            {!isInlineOnly && <AccordionItem value="space">
               <AccordionTrigger className="py-2 text-xs font-medium">
                 Space
               </AccordionTrigger>
@@ -622,10 +620,10 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                   }}
                 />
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>}
 
-            {/* Typography (only for text components) */}
-            {showTypography && (
+            {/* Typography (for text components and inline data-variables) */}
+            {(showTypography || isDataVariable) && (
               <AccordionItem value="typography">
                 <AccordionTrigger className="py-2 text-xs font-medium">
                   Typography
@@ -640,13 +638,44 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="Default" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[300px]">
                         <SelectItem value="Arial, sans-serif">Arial</SelectItem>
                         <SelectItem value="Helvetica, sans-serif">Helvetica</SelectItem>
+                        <SelectItem value="Inter, sans-serif">Inter</SelectItem>
+                        <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
+                        <SelectItem value="'Open Sans', sans-serif">Open Sans</SelectItem>
+                        <SelectItem value="Lato, sans-serif">Lato</SelectItem>
+                        <SelectItem value="Montserrat, sans-serif">Montserrat</SelectItem>
+                        <SelectItem value="Poppins, sans-serif">Poppins</SelectItem>
+                        <SelectItem value="Nunito, sans-serif">Nunito</SelectItem>
+                        <SelectItem value="Raleway, sans-serif">Raleway</SelectItem>
+                        <SelectItem value="'Source Sans 3', sans-serif">Source Sans 3</SelectItem>
+                        <SelectItem value="'Work Sans', sans-serif">Work Sans</SelectItem>
+                        <SelectItem value="'DM Sans', sans-serif">DM Sans</SelectItem>
+                        <SelectItem value="'Plus Jakarta Sans', sans-serif">Plus Jakarta Sans</SelectItem>
+                        <SelectItem value="Outfit, sans-serif">Outfit</SelectItem>
+                        <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
+                        <Separator className="my-1" />
                         <SelectItem value="Georgia, serif">Georgia</SelectItem>
                         <SelectItem value="'Times New Roman', serif">Times New Roman</SelectItem>
+                        <SelectItem value="'Playfair Display', serif">Playfair Display</SelectItem>
+                        <SelectItem value="Merriweather, serif">Merriweather</SelectItem>
+                        <SelectItem value="Lora, serif">Lora</SelectItem>
+                        <SelectItem value="'PT Serif', serif">PT Serif</SelectItem>
+                        <SelectItem value="'Libre Baskerville', serif">Libre Baskerville</SelectItem>
+                        <SelectItem value="'EB Garamond', serif">EB Garamond</SelectItem>
+                        <Separator className="my-1" />
                         <SelectItem value="'Courier New', monospace">Courier New</SelectItem>
-                        <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
+                        <SelectItem value="'Fira Code', monospace">Fira Code</SelectItem>
+                        <SelectItem value="'JetBrains Mono', monospace">JetBrains Mono</SelectItem>
+                        <SelectItem value="'Source Code Pro', monospace">Source Code Pro</SelectItem>
+                        <SelectItem value="'IBM Plex Mono', monospace">IBM Plex Mono</SelectItem>
+                        <SelectItem value="'Roboto Mono', monospace">Roboto Mono</SelectItem>
+                        <Separator className="my-1" />
+                        <SelectItem value="Oswald, sans-serif">Oswald</SelectItem>
+                        <SelectItem value="'Bebas Neue', sans-serif">Bebas Neue</SelectItem>
+                        <SelectItem value="Anton, sans-serif">Anton</SelectItem>
+                        <Separator className="my-1" />
                         <SelectItem value="system-ui, sans-serif">System UI</SelectItem>
                       </SelectContent>
                     </Select>
@@ -747,7 +776,7 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
             )}
 
             {/* Background */}
-            <AccordionItem value="background">
+            {!isInlineOnly && <AccordionItem value="background">
               <AccordionTrigger className="py-2 text-xs font-medium">
                 Background
               </AccordionTrigger>
@@ -758,10 +787,10 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                   onChange={(v) => setStyle("background-color", v)}
                 />
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>}
 
             {/* Border */}
-            <AccordionItem value="border">
+            {!isInlineOnly && <AccordionItem value="border">
               <AccordionTrigger className="py-2 text-xs font-medium">
                 Border
               </AccordionTrigger>
@@ -825,7 +854,7 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                   onChange={(v) => setStyle("border-color", v)}
                 />
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>}
           </Accordion>
         </div>
       </ScrollArea>

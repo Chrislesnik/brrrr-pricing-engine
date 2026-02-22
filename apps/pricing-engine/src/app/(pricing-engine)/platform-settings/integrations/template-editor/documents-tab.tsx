@@ -56,8 +56,11 @@ const grapejsThemeStyles = `
   }
 
   #headlessui-portal-root {
-    position: fixed !important;
     z-index: 99999 !important;
+    pointer-events: none !important;
+  }
+  #headlessui-portal-root > * {
+    pointer-events: auto !important;
   }
   .gs-cmp-modal-wrapper {
     position: fixed !important;

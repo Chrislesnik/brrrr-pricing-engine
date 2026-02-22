@@ -45,6 +45,7 @@ function qrCodePlugin(editor: any) {
           "data-qr-mode": "static",
           "data-qr-variable": "",
         },
+        style: { display: "block" },
         traits: [
           { type: "text", name: "data-qr-data" },
           { type: "text", name: "data-qr-size" },
@@ -518,7 +519,7 @@ export function StudioEditorWrapper({
           editorRef.current = editor
           onEditorReady?.(editor)
 
-          editor.on("component:selected", () => {
+          editor.on("component:selected", (component: any) => {
             setHasSelection(true)
             const findTarget = (retries = 15) => {
               const el = document.querySelector(".custom-properties-portal")
@@ -529,6 +530,11 @@ export function StudioEditorWrapper({
               }
             }
             requestAnimationFrame(() => findTarget())
+
+            // Auto-activate RTE on text components for inline editing on single click
+            if (component?.get?.("editable") || component?.get?.("type") === "text") {
+              setTimeout(() => component.trigger("active"), 50)
+            }
           })
           editor.on("component:deselected", () => {
             setHasSelection(false)
@@ -635,11 +641,18 @@ export function StudioEditorWrapper({
                 category: "Variables",
                 select: true,
                 content: {
-                  type: "data-variable",
-                  dataResolver: {
-                    path: resolverPath,
-                    defaultValue: variable.name,
-                  },
+                  type: "text",
+                  tagName: "p",
+                  editable: true,
+                  components: [
+                    {
+                      type: "data-variable",
+                      dataResolver: {
+                        path: resolverPath,
+                        defaultValue: variable.name,
+                      },
+                    },
+                  ],
                 },
               })
             } else {
@@ -647,7 +660,7 @@ export function StudioEditorWrapper({
                 label: variable.name,
                 category: "Variables",
                 select: true,
-                content: `<span style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${variable.name}}}</span>`,
+                content: `<p><span style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${variable.name}}}</span></p>`,
               })
             }
           })
@@ -704,6 +717,22 @@ export function StudioEditorWrapper({
             setTimeout(() => { skipNextModal = false }, 500)
           })
 
+          // Double-click on empty canvas space creates a new text paragraph and activates RTE
+          editor.on("canvas:dblclick", (event: any) => {
+            const target = event.target
+            const canvasDoc = editor.Canvas.getDocument()
+            const wrapperEl = editor.DomComponents.getWrapper()?.getEl()
+
+            if (target === wrapperEl || target === canvasDoc?.body) {
+              const wrapper = editor.DomComponents.getWrapper()
+              const newText = wrapper.append({ type: "text", tagName: "p", editable: true, content: "<br>" })[0]
+              if (newText) {
+                editor.select(newText)
+                setTimeout(() => newText.trigger("active"), 50)
+              }
+            }
+          })
+
           const injectVariableStyles = () => {
             try {
               const canvasDoc = editor.Canvas.getDocument()
@@ -755,6 +784,7 @@ export function StudioEditorWrapper({
 
           setTimeout(injectVariableStyles, 500)
           editor.on("canvas:frame:load", () => setTimeout(injectVariableStyles, 300))
+
         }}
       />
       {hasSelection && portalTarget && editorRef.current &&
