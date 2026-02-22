@@ -65,7 +65,7 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
             stageName: t.deal_stages?.name ?? "",
             buttonEnabled: tmpl.button_enabled === true,
             buttonLabel: tmpl.button_label ?? null,
-            buttonActionId: tmpl.button_action_id ?? null,
+            buttonActionId: tmpl.button_automation_id ?? null,
             assignees: (t.assignees ?? []) as PipelineTaskAssignee[],
           };
         });
@@ -123,7 +123,7 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
     async (task: PipelineTask): Promise<boolean> => {
       if (!task.buttonActionId) return false;
       try {
-        const actionRes = await fetch(`/api/actions/by-id/${task.buttonActionId}`);
+        const actionRes = await fetch(`/api/automations/by-id/${task.buttonActionId}`);
         if (!actionRes.ok) {
           toast.error("Failed to load action");
           return false;

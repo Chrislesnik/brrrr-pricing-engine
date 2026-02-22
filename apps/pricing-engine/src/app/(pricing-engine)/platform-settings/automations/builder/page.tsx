@@ -29,10 +29,10 @@ import {
 } from "@/components/workflow-builder/lib/workflow-store";
 import { api } from "@/components/workflow-builder/lib/api-client";
 
-function ActionBuilderInner() {
+function AutomationBuilderInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const actionId = searchParams.get("action");
+  const automationId = searchParams.get("automation");
 
   const setNodes = useSetAtom(nodesAtom);
   const setEdges = useSetAtom(edgesAtom);
@@ -41,7 +41,7 @@ function ActionBuilderInner() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useAtom(hasUnsavedChangesAtom);
   const nodes = useAtomValue(nodesAtom);
   const edges = useAtomValue(edgesAtom);
-  const actionName = useAtomValue(currentWorkflowNameAtom);
+  const automationName = useAtomValue(currentWorkflowNameAtom);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,16 +73,16 @@ function ActionBuilderInner() {
 
   // Load action data
   useEffect(() => {
-    if (!actionId) {
+    if (!automationId) {
       setLoading(false);
       return;
     }
 
-    const loadAction = async () => {
+    const loadAutomation = async () => {
       try {
-        const workflow = await api.workflow.getById(actionId);
-        setCurrentWorkflowId(actionId);
-        setCurrentWorkflowName(workflow.name || "Untitled Action");
+        const workflow = await api.workflow.getById(automationId);
+        setCurrentWorkflowId(automationId);
+        setCurrentWorkflowName(workflow.name || "Untitled Automation");
         if (workflow.nodes?.length) {
           setNodes(workflow.nodes);
         } else {
@@ -106,28 +106,28 @@ function ActionBuilderInner() {
           setEdges(workflow.edges);
         }
       } catch (err) {
-        console.error("Failed to load action:", err);
+        console.error("Failed to load automation:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadAction();
-  }, [actionId, setNodes, setEdges, setCurrentWorkflowId, setCurrentWorkflowName]);
+    loadAutomation();
+  }, [automationId, setNodes, setEdges, setCurrentWorkflowId, setCurrentWorkflowName]);
 
   // Save
   const handleSave = useCallback(async () => {
-    if (!actionId) return;
+    if (!automationId) return;
     setSaving(true);
     try {
-      await api.workflow.update(actionId, { nodes, edges });
+      await api.workflow.update(automationId, { nodes, edges });
       setHasUnsavedChanges(false);
     } catch (err) {
       console.error("Failed to save:", err);
     } finally {
       setSaving(false);
     }
-  }, [actionId, nodes, edges, setHasUnsavedChanges]);
+  }, [automationId, nodes, edges, setHasUnsavedChanges]);
 
   // Save & Exit
   const handleSaveAndExit = useCallback(async () => {
@@ -143,7 +143,7 @@ function ActionBuilderInner() {
     );
   }
 
-  if (!actionId) {
+  if (!automationId) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <p className="text-muted-foreground">No action specified.</p>
@@ -170,7 +170,7 @@ function ActionBuilderInner() {
           </Button>
           <div className="h-5 w-px bg-border" />
           <div>
-            <h3 className="text-sm font-medium">{actionName || "Untitled Action"}</h3>
+            <h3 className="text-sm font-medium">{automationName || "Untitled Automation"}</h3>
             <p className="text-xs text-muted-foreground">
               Workflow Builder
               {hasUnsavedChanges && (
@@ -241,12 +241,12 @@ function ActionBuilderInner() {
   );
 }
 
-export default function ActionBuilderPage() {
+export default function AutomationBuilderPage() {
   return (
     <JotaiProvider>
       <ReactFlowProvider>
         <OverlayProvider>
-          <ActionBuilderInner />
+          <AutomationBuilderInner />
         </OverlayProvider>
       </ReactFlowProvider>
     </JotaiProvider>

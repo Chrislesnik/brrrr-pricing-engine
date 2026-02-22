@@ -41,7 +41,7 @@ interface TaskTemplate {
   due_offset_days: number | null;
   is_active: boolean;
   button_enabled?: boolean;
-  button_action_id?: number | null;
+  button_automation_id?: number | null;
   button_label?: string | null;
 }
 
@@ -95,7 +95,7 @@ export function TaskSettingsSheet({
   useEffect(() => {
     if (task) {
       setButtonEnabled(task.button_enabled ?? false);
-      setButtonActionId(task.button_action_id ? String(task.button_action_id) : "");
+      setButtonActionId(task.button_automation_id ? String(task.button_automation_id) : "");
       setButtonLabel(task.button_label ?? "");
       setIsActive(task.is_active);
     }
@@ -111,7 +111,7 @@ export function TaskSettingsSheet({
       try {
         const [rolesRes, actionsRes, assignedRes] = await Promise.all([
           fetch("/api/deal-role-types"),
-          fetch("/api/actions"),
+          fetch("/api/automations"),
           fetch(`/api/task-templates/${task.id}/roles`),
         ]);
 
@@ -160,7 +160,7 @@ export function TaskSettingsSheet({
           id: task.id,
           is_active: isActive,
           button_enabled: buttonEnabled,
-          button_action_id: buttonEnabled && buttonActionId ? Number(buttonActionId) : null,
+          button_automation_id: buttonEnabled && buttonActionId ? Number(buttonActionId) : null,
           button_label: buttonEnabled ? buttonLabel.trim() || null : null,
           assigned_role_ids: selectedRoleIds,
         }),

@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 /**
- * GET /api/actions
+ * GET /api/automations
  * List all actions ordered by created_at desc.
  */
 export async function GET(_request: NextRequest) {
@@ -14,18 +14,18 @@ export async function GET(_request: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .select("id, uuid, name, description, is_active, created_at, updated_at, trigger_type, webhook_type")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("[GET /api/actions]", error);
+      console.error("[GET /api/automations]", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ actions: data ?? [] });
+    return NextResponse.json({ automations: data ?? [] });
   } catch (err) {
-    console.error("[GET /api/actions]", err);
+    console.error("[GET /api/automations]", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -34,7 +34,7 @@ export async function GET(_request: NextRequest) {
 }
 
 /**
- * POST /api/actions
+ * POST /api/automations
  * Create a new action.
  * Body: { name, description? }
  */
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .insert({
         name: name.trim(),
         description: description?.trim() || null,
@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("[POST /api/actions]", error);
+      console.error("[POST /api/automations]", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ action: data }, { status: 201 });
+    return NextResponse.json({ automation: data }, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/actions]", err);
+    console.error("[POST /api/automations]", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

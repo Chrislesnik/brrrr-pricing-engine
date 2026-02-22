@@ -34,7 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   try {
     const { data: action, error: actionErr } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .select("uuid, name, workflow_data")
       .eq("uuid", workflowId)
       .is("archived_at", null)

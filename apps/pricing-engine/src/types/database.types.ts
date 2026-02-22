@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      actions: {
+      automations: {
         Row: {
           archived_at: string | null
           archived_by: string | null
@@ -6533,7 +6533,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
-          button_action_id: number | null
+          button_automation_id: number | null
           button_enabled: boolean
           button_label: string | null
           code: string
@@ -6553,7 +6553,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
-          button_action_id?: number | null
+          button_automation_id?: number | null
           button_enabled?: boolean
           button_label?: string | null
           code: string
@@ -6573,7 +6573,7 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_by?: string | null
-          button_action_id?: number | null
+          button_automation_id?: number | null
           button_enabled?: boolean
           button_label?: string | null
           code?: string
@@ -6592,10 +6592,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "task_templates_button_action_id_fkey"
-            columns: ["button_action_id"]
+            foreignKeyName: "task_templates_button_automation_id_fkey"
+            columns: ["button_automation_id"]
             isOneToOne: false
-            referencedRelation: "actions"
+            referencedRelation: "automations"
             referencedColumns: ["id"]
           },
           {

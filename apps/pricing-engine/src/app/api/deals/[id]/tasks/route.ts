@@ -92,7 +92,7 @@ export async function GET(
         task_statuses (id, code, name, color),
         task_priorities (id, code, name, color),
         deal_stages (id, code, name, color, display_order),
-        task_templates (button_enabled, button_action_id, button_label)
+        task_templates (button_enabled, button_automation_id, button_label)
       `)
       .eq("deal_id", dealId)
       .order("display_order", { ascending: true })

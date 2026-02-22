@@ -52,7 +52,7 @@ import {
 import { TaskLogicBuilderSheet } from "./task-logic-builder-sheet";
 import { TaskSettingsSheet } from "./task-settings-sheet";
 import { StepperBuilderSheet } from "./stepper-builder-sheet";
-// ActionsSettings now rendered directly by DealsSettings wrapper
+// AutomationsSettings now rendered directly by DealsSettings wrapper
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */

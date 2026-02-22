@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { restoreRecord } from "@/lib/archive-helpers";
 
 /**
- * GET /api/actions/[id]
+ * GET /api/automations/[id]
  * Get a single action by uuid.
  */
 export async function GET(
@@ -20,18 +20,18 @@ export async function GET(
     const { id } = await params;
 
     const { data, error } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .select("*")
       .eq("uuid", id)
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ error: "Action not found" }, { status: 404 });
+      return NextResponse.json({ error: "Automation not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ action: data });
+    return NextResponse.json({ automation: data });
   } catch (err) {
-    console.error("[GET /api/actions/[id]]", err);
+    console.error("[GET /api/automations/[id]]", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -40,7 +40,7 @@ export async function GET(
 }
 
 /**
- * PATCH /api/actions/[id]
+ * PATCH /api/automations/[id]
  * Update an action by uuid.
  * Body: { name?, description?, workflow_data?, is_active? }
  */
@@ -78,20 +78,20 @@ export async function PATCH(
     }
 
     const { data, error } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .update(updatePayload)
       .eq("uuid", id)
       .select("*")
       .single();
 
     if (error) {
-      console.error("[PATCH /api/actions/[id]]", error);
+      console.error("[PATCH /api/automations/[id]]", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ action: data });
+    return NextResponse.json({ automation: data });
   } catch (err) {
-    console.error("[PATCH /api/actions/[id]]", err);
+    console.error("[PATCH /api/automations/[id]]", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -100,7 +100,7 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/actions/[id]
+ * DELETE /api/automations/[id]
  * Archive an action by uuid (soft delete).
  */
 export async function DELETE(
@@ -119,7 +119,7 @@ export async function DELETE(
     const url = new URL(_request.url);
     if (url.searchParams.get("action") === "restore") {
       // Need to find by uuid first
-      const { data: row } = await supabaseAdmin.from("actions").select("id").eq("uuid", id).single();
+      const { data: row } = await supabaseAdmin.from("automations").select("id").eq("uuid", id).single();
       if (row) {
         const { error } = await restoreRecord("actions", row.id);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -130,18 +130,18 @@ export async function DELETE(
     // Archive instead of delete (actions uses uuid as the route param)
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .update({ archived_at: now, archived_by: userId })
       .eq("uuid", id);
 
     if (error) {
-      console.error("[DELETE /api/actions/[id]]", error);
+      console.error("[DELETE /api/automations/[id]]", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[DELETE /api/actions/[id]]", err);
+    console.error("[DELETE /api/automations/[id]]", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

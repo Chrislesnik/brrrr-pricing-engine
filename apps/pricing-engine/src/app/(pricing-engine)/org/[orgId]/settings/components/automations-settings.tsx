@@ -35,7 +35,7 @@ import {
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-interface Action {
+interface Automation {
   id: number;
   uuid: string;
   name: string;
@@ -49,12 +49,12 @@ interface Action {
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function ActionsSettings() {
+export function AutomationsSettings() {
   const router = useRouter();
-  const [actions, setActions] = useState<Action[]>([]);
+  const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // New action dialog
+  // New automation dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -69,23 +69,23 @@ export function ActionsSettings() {
 
   /* ---- Fetch ---- */
 
-  const fetchActions = useCallback(async () => {
+  const fetchAutomations = useCallback(async () => {
     try {
-      const res = await fetch("/api/actions");
+      const res = await fetch("/api/automations");
       if (res.ok) {
         const data = await res.json();
-        setActions(data.actions ?? []);
+        setAutomations(data.automations ?? []);
       }
     } catch (err) {
-      console.error("Failed to fetch actions:", err);
+      console.error("Failed to fetch automations:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchActions();
-  }, [fetchActions]);
+    fetchAutomations();
+  }, [fetchAutomations]);
 
   /* ---- Create ---- */
 
@@ -93,7 +93,7 @@ export function ActionsSettings() {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch("/api/actions", {
+      const res = await fetch("/api/automations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -108,11 +108,11 @@ export function ActionsSettings() {
         setNewDescription("");
         // Navigate to the builder
         router.push(
-          `/platform-settings/actions/builder?action=${data.action.uuid}`
+          `/platform-settings/automations/builder?automation=${data.automation.uuid}`
         );
       }
     } catch (err) {
-      console.error("Failed to create action:", err);
+      console.error("Failed to create automation:", err);
     } finally {
       setCreating(false);
     }
@@ -123,18 +123,18 @@ export function ActionsSettings() {
   const handleDelete = async () => {
     if (!deleteDialog.uuid) return;
     try {
-      await fetch(`/api/actions/${deleteDialog.uuid}`, { method: "DELETE" });
+      await fetch(`/api/automations/${deleteDialog.uuid}`, { method: "DELETE" });
       setDeleteDialog({ open: false, uuid: "", name: "" });
-      await fetchActions();
+      await fetchAutomations();
     } catch (err) {
-      console.error("Failed to delete action:", err);
+      console.error("Failed to delete automation:", err);
     }
   };
 
   /* ---- Navigate to builder ---- */
 
   const openBuilder = (uuid: string) => {
-    router.push(`/platform-settings/actions/builder?action=${uuid}`);
+    router.push(`/platform-settings/automations/builder?automation=${uuid}`);
   };
 
   /* ---- Helpers ---- */
@@ -163,31 +163,31 @@ export function ActionsSettings() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Actions</h2>
+          <h2 className="text-xl font-semibold">Automations</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Create workflow automations that can be attached to tasks.
           </p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4 mr-1.5" />
-          New Action
+          New Automation
         </Button>
       </div>
 
-      {/* Actions list */}
-      {actions.length === 0 ? (
+      {/* Automations list */}
+      {automations.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
           <Workflow className="size-10 mx-auto mb-3 opacity-40" />
-          <p className="text-sm font-medium">No actions yet</p>
+          <p className="text-sm font-medium">No automations yet</p>
           <p className="text-xs mt-1">
-            Create your first workflow action to get started.
+            Create your first automation to get started.
           </p>
         </div>
       ) : (
         <div className="rounded-lg border divide-y">
-          {actions.map((action) => (
+          {automations.map((automation) => (
             <div
-              key={action.uuid}
+              key={automation.uuid}
               className="flex items-center gap-4 px-4 py-3 hover:bg-accent/30 transition-colors group"
             >
               <div className="flex items-center justify-center size-8 rounded-md bg-primary/10 text-primary shrink-0">
@@ -196,14 +196,14 @@ export function ActionsSettings() {
               <div className="flex-1 min-w-0">
                 <button
                   type="button"
-                  onClick={() => openBuilder(action.uuid)}
+                  onClick={() => openBuilder(automation.uuid)}
                   className="text-sm font-medium hover:underline text-left truncate block"
                 >
-                  {action.name}
+                  {automation.name}
                 </button>
-                {action.description && (
+                {automation.description && (
                   <p className="text-xs text-muted-foreground truncate">
-                    {action.description}
+                    {automation.description}
                   </p>
                 )}
               </div>
@@ -212,7 +212,7 @@ export function ActionsSettings() {
                   variant="ghost"
                   size="icon"
                   className="size-7 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
-                  onClick={() => openBuilder(action.uuid)}
+                  onClick={() => openBuilder(automation.uuid)}
                 >
                   <Pencil className="size-3.5" />
                 </Button>
@@ -223,8 +223,8 @@ export function ActionsSettings() {
                   onClick={() =>
                     setDeleteDialog({
                       open: true,
-                      uuid: action.uuid,
-                      name: action.name,
+                      uuid: automation.uuid,
+                      name: automation.name,
                     })
                   }
                 >
@@ -232,20 +232,20 @@ export function ActionsSettings() {
                 </Button>
               </div>
               <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                {formatDate(action.created_at)}
+                {formatDate(automation.created_at)}
               </span>
             </div>
           ))}
         </div>
       )}
 
-      {/* New Action Dialog */}
+      {/* New Automation Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New Action</DialogTitle>
+            <DialogTitle>New Automation</DialogTitle>
             <DialogDescription>
-              Create a new workflow action. You&apos;ll be taken to the visual
+              Create a new automation. You&apos;ll be taken to the visual
               builder to design the flow.
             </DialogDescription>
           </DialogHeader>
@@ -301,7 +301,7 @@ export function ActionsSettings() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive Action</AlertDialogTitle>
+            <AlertDialogTitle>Archive Automation</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to archive{" "}
               <span className="font-medium text-foreground">

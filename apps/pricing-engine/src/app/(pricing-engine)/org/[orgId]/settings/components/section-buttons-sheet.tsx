@@ -126,7 +126,7 @@ export function SectionButtonsSheet({
 
   const fetchActions = useCallback(async () => {
     try {
-      const res = await fetch("/api/actions");
+      const res = await fetch("/api/automations");
       if (res.ok) {
         const data = await res.json();
         const all = (data?.actions ?? []) as WorkflowAction[];
@@ -151,7 +151,7 @@ export function SectionButtonsSheet({
     if (actionDetailsFetchedRef.current.has(uuid)) return;
     actionDetailsFetchedRef.current.add(uuid);
     try {
-      const res = await fetch(`/api/actions/${uuid}`);
+      const res = await fetch(`/api/automations/${uuid}`);
       if (res.ok) {
         const data = await res.json();
         const detail = data.action as ActionDetail;
@@ -526,7 +526,7 @@ function ButtonActionsEditor({
   return (
     <div className="space-y-2">
       <Label className="text-xs">
-        Attached Actions{" "}
+        Attached Automations{" "}
         {actions.length > 0 && (
           <span className="text-muted-foreground font-normal">
             ({actions.length})
@@ -560,7 +560,7 @@ function ButtonActionsEditor({
 
       {availableActions.length === 0 ? (
         <p className="text-[10px] text-muted-foreground">
-          No pricing engine manual actions available. Create one in Actions
+          No pricing engine manual automations available. Create one in Automations
           settings.
         </p>
       ) : (

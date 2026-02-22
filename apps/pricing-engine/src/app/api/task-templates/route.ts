@@ -132,7 +132,7 @@ export async function PATCH(request: NextRequest) {
     if (body.id && !Array.isArray(body.reorder)) {
       const {
         id, name, description, default_status_id, default_priority_id,
-        due_offset_days, is_active, button_enabled, button_action_id,
+        due_offset_days, is_active, button_enabled, button_automation_id,
         button_label, assigned_role_ids,
       } = body;
       const updatePayload: Record<string, unknown> = {};
@@ -150,8 +150,8 @@ export async function PATCH(request: NextRequest) {
         updatePayload.is_active = is_active;
       if (button_enabled !== undefined)
         updatePayload.button_enabled = button_enabled;
-      if (button_action_id !== undefined)
-        updatePayload.button_action_id = button_action_id;
+      if (button_automation_id !== undefined)
+        updatePayload.button_automation_id = button_automation_id;
       if (button_label !== undefined)
         updatePayload.button_label = button_label?.trim() || null;
 

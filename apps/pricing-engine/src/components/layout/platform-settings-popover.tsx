@@ -58,7 +58,7 @@ const ORG_SETTINGS_ITEMS = [
   },
   { id: "pricing-engine", label: "Pricing Engine", icon: Calculator, path: "?tab=pricing-engine" },
   { id: "deals", label: "Deals", icon: Briefcase, path: "?tab=deals" },
-  { id: "actions", label: "Actions", icon: Workflow, path: "?tab=actions" },
+  { id: "automations", label: "Automations", icon: Workflow, path: "?tab=automations" },
   { id: "integrations", label: "Integrations", icon: Plug, path: "?tab=integrations" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;

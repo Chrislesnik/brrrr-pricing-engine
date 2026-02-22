@@ -125,7 +125,7 @@ const THEME_FALLBACKS = {
   dark: {
     background: "#0f0f0f", foreground: "#fafafa", primary: "#f8fafc",
     "primary-foreground": "#0f172a", secondary: "#1f1f1f", muted: "#1f1f1f",
-    "muted-foreground": "#a6a6a6", accent: "#1f1f1f", border: "#333333",
+    "muted-foreground": "#a6a6a6", accent: "#2a2a2a", border: "#333333",
     sidebar: "#0f0f0f",
   },
 } as const

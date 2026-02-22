@@ -90,6 +90,57 @@ const grapejsThemeStyles = `
     pointer-events: auto !important;
   }
 
+  /* Dark mode: ensure canvas component spots (hover/selection outlines) are visible */
+  .dark .gs-studio-root [class*="gs-canvas-spot"],
+  .dark .gs-studio-root [class*="gs-spot"],
+  .dark .gs-studio-root [class*="Spot"] {
+    border-color: hsl(var(--primary)) !important;
+    outline-color: hsl(var(--primary)) !important;
+  }
+  .dark .gs-studio-root [class*="gs-canvas-spot__highlight"],
+  .dark .gs-studio-root [class*="highlight"] {
+    border-color: hsl(var(--primary) / 0.6) !important;
+    background-color: hsl(var(--primary) / 0.05) !important;
+  }
+  .dark .gs-studio-root [class*="gs-canvas-spot__select"],
+  .dark .gs-studio-root [class*="selected"] {
+    border-color: hsl(var(--primary)) !important;
+  }
+  .dark .gs-studio-root [class*="gs-canvas-spot__hover"] {
+    border-color: hsl(var(--primary) / 0.5) !important;
+  }
+  .dark .gs-studio-root [class*="gs-canvas-spot__spacing"] {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  /* Dark mode: component toolbar and badges visible above canvas */
+  .dark [class*="gs-cmp-toolbar"],
+  .dark [class*="gs-canvas-spot"] [class*="toolbar"],
+  .dark .gs-studio-root [class*="toolbar"]:not(.gs-preview-mode *) {
+    background-color: #1a1a1a !important;
+    border: 1px solid #555 !important;
+    color: #fafafa !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+  }
+  .dark [class*="gs-cmp-toolbar"] button,
+  .dark [class*="gs-cmp-toolbar"] [role="button"],
+  .dark .gs-studio-root [class*="toolbar"] button:not(.gs-preview-mode *) {
+    color: #fafafa !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .dark [class*="gs-cmp-toolbar"] button:hover,
+  .dark [class*="gs-cmp-toolbar"] [role="button"]:hover {
+    background-color: #444 !important;
+  }
+  .dark [class*="gs-cmp-badge"],
+  .dark [class*="gs-canvas-spot"] [class*="badge"],
+  .dark .gs-studio-root [class*="badge"]:not(.gs-preview-mode *) {
+    background-color: #1a1a1a !important;
+    color: #fafafa !important;
+    border: 1px solid #555 !important;
+  }
+
   /* Ensure sidebar panels are scrollable */
   .blocks-panel-left,
   .right-sidebar-panel {

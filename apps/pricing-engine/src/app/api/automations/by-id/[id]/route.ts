@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 /**
- * GET /api/actions/by-id/[id]
+ * GET /api/automations/by-id/[id]
  * Lightweight endpoint that looks up an action by its numeric id
  * and returns uuid + workflow_data (needed to execute from task buttons).
  */
@@ -20,22 +20,22 @@ export async function GET(
     const { id } = await params;
     const numericId = Number(id);
     if (isNaN(numericId)) {
-      return NextResponse.json({ error: "Invalid action ID" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid automation ID" }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .select("id, uuid, name, workflow_data")
       .eq("id", numericId)
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ error: "Action not found" }, { status: 404 });
+      return NextResponse.json({ error: "Automation not found" }, { status: 404 });
     }
 
     return NextResponse.json(data);
   } catch (err) {
-    console.error("[GET /api/actions/by-id/[id]]", err);
+    console.error("[GET /api/automations/by-id/[id]]", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

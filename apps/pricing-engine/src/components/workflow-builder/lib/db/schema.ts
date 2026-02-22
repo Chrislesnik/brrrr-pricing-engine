@@ -1,6 +1,6 @@
 /**
  * DB schema stub - satisfies imports from workflow-runs.tsx etc.
- * In our app, workflow data is stored in the Supabase actions table.
+ * In our app, workflow data is stored in the Supabase automations table.
  */
 
 // Stub table references used by workflow-runs

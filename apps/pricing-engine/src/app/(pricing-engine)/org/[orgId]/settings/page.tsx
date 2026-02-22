@@ -28,10 +28,10 @@ import { DomainsSettings } from "./components/domains-settings";
 import { PricingEngineSettings } from "./components/pricing-engine-settings";
 import { ThemesSettings } from "./components/themes-settings";
 import { DealsSettings } from "./components/deals-settings";
-import { ActionsSettings } from "./components/actions-settings";
+import { AutomationsSettings } from "./components/automations-settings";
 import { IntegrationsSettings } from "./components/integrations-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "actions" | "integrations";
+type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "automations" | "integrations";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -87,8 +87,8 @@ const settingsNavItems: NavItem[] = [
     description: "Manage deal inputs, documents, and tasks",
   },
   {
-    id: "actions",
-    label: "Actions",
+    id: "automations",
+    label: "Automations",
     icon: Workflow,
     description: "Manage workflow automations",
   },
@@ -271,7 +271,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "pricing-engine" && <PricingEngineSettings />}
             {activeTab === "themes" && <ThemesSettings />}
             {activeTab === "deals" && <DealsSettings />}
-            {activeTab === "actions" && <ActionsSettings />}
+            {activeTab === "automations" && <AutomationsSettings />}
             {activeTab === "integrations" && <IntegrationsSettings />}
           </div>
         </div>
