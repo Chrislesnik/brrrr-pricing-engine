@@ -1,7 +1,6 @@
 "use client"
 
 import useSWR from "swr"
-import { UserPrimaryActions } from "@/app/(pricing-engine)/users/components/user-primary-actions"
 import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
@@ -26,7 +25,6 @@ export default function PipelinePage() {
           <h2 className="flex-none text-xl font-bold tracking-tight">
             Scenarios
           </h2>
-          <UserPrimaryActions />
         </div>
       </div>
       <div className="flex-1 min-w-0 overflow-hidden">

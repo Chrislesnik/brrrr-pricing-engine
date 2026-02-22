@@ -2,7 +2,7 @@
 
 import { useDirection } from "@radix-ui/react-direction";
 import type { Table } from "@tanstack/react-table";
-import { Check, Settings2 } from "lucide-react";
+import { Check, ChevronDown, Columns2 } from "lucide-react";
 import * as React from "react";
 import { Button } from "@repo/ui/shadcn/button";
 import {
@@ -57,8 +57,9 @@ export function DataGridViewMenu<TData>({
           className="ms-auto hidden h-8 font-normal lg:flex"
           disabled={disabled}
         >
-          <Settings2 className="text-muted-foreground" />
-          View
+          <Columns2 className="w-4 h-4 mr-2" />
+          <span className="text-xs font-medium">Customize Columns</span>
+          <ChevronDown className="w-4 h-4 ml-2" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

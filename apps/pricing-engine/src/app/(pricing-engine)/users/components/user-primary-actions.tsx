@@ -1,15 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { IconUserPlus } from "@tabler/icons-react"
+import { Plus } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 
 export function UserPrimaryActions() {
   return (
     <div className="flex justify-end gap-2">
-      <Button className="space-x-1" asChild>
+      <Button size="sm" className="h-8" asChild>
         <Link href="/pricing">
-          <span>New Loan</span> <IconUserPlus size={18} />
+          <Plus className="mr-2 h-4 w-4" />
+          New Loan
         </Link>
       </Button>
     </div>

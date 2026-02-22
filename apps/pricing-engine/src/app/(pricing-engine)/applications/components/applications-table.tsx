@@ -35,7 +35,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, Settings2, Trash2, Upload } from "lucide-react"
+import { ChevronDown, Columns2, Settings2, Trash2, Upload } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
 import { Button } from "@repo/ui/shadcn/button"
@@ -484,15 +484,16 @@ export function ApplicationsTable({ data }: Props) {
 
   return (
     <DndContext collisionDetection={closestCenter} modifiers={[restrictToHorizontalAxis]} onDragEnd={handleDragEnd} sensors={sensors}>
-    <div className="w-full rounded-lg border">
-      <div className="border-b">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">Applications</span>
-          <div className="flex flex-wrap items-center gap-3">
-            <Filter column={table.getColumn("search")!} />
-            <ColumnVisibilityToggle table={table} />
-          </div>
+    <div className="w-full">
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <Filter column={table.getColumn("search")!} />
         </div>
+        <div className="flex items-center gap-3">
+          <ColumnVisibilityToggle table={table} />
+        </div>
+      </div>
+      <div className="rounded-md border overflow-x-auto">
         {/* Desktop table */}
         <div className="hidden md:block">
           <Table>
@@ -692,7 +693,6 @@ export function ApplicationsTable({ data }: Props) {
           </div>
         </div>
       </div>
-
       <DealsStylePagination table={table} />
       <Dialog
         open={!!uploadContext}
@@ -852,9 +852,10 @@ function ColumnVisibilityToggle<TData>({
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8">
-          <Settings2 className="mr-2 h-4 w-4" />
-          View
+        <Button variant="outline" size="sm" className="h-8 bg-background">
+          <Columns2 className="w-4 h-4 mr-2" />
+          <span className="text-xs font-medium">Customize Columns</span>
+          <ChevronDown className="w-4 h-4 ml-2" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[150px]">

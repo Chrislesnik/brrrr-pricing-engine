@@ -1,7 +1,7 @@
 "use client"
 
-import { MixerHorizontalIcon } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
+import { ChevronDown, Columns2 } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import {
   DropdownMenu,
@@ -48,8 +48,9 @@ export function DataTableViewOptions<TData>({ table }: Props<TData>) {
           size="sm"
           className="ml-auto hidden h-8 lg:flex"
         >
-          <MixerHorizontalIcon className="mr-2 h-4 w-4" />
-          View
+          <Columns2 className="w-4 h-4 mr-2" />
+          <span className="text-xs font-medium">Customize Columns</span>
+          <ChevronDown className="w-4 h-4 ml-2" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[150px]">

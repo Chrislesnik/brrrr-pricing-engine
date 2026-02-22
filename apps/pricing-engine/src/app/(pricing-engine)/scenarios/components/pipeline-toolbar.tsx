@@ -1,7 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { Cross2Icon } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
+import { Plus } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
 import { DataTableViewOptions } from "../../users/components/data-table-view-options"
@@ -103,8 +105,14 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           </Button>
         )}
       </div>
-      <div className="flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center gap-2">
         <DataTableViewOptions table={table} />
+        <Button size="sm" className="h-8" asChild>
+          <Link href="/pricing">
+            <Plus className="mr-2 h-4 w-4" />
+            New Loan
+          </Link>
+        </Button>
       </div>
     </div>
   )
