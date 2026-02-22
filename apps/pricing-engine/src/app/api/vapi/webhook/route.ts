@@ -1,18 +1,123 @@
 import { NextResponse } from "next/server"
+import { generateText } from "ai"
+import { createAnthropic } from "@ai-sdk/anthropic"
 import { getVoiceContext } from "../context"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { cleanAiResponse } from "@/lib/clean-ai-response"
 
 export const runtime = "nodejs"
+export const maxDuration = 120
+
+function parseWebhookJson(raw: string): string {
+  if (!raw.trim()) return ""
+  try {
+    const json = JSON.parse(raw) as unknown
+    if (Array.isArray(json)) return String((json[0] as any)?.response ?? "")
+    if (json && typeof json === "object") return String((json as any)?.response ?? "")
+    if (typeof json === "string") return json
+  } catch {
+    return raw
+  }
+  return ""
+}
+
+async function handleAllPrograms(question: string, sessionId: string, orgUuid: string | null): Promise<string> {
+  const { data: programRows } = await supabaseAdmin
+    .from("programs")
+    .select("id, internal_name, external_name")
+    .eq("status", "active")
+    .order("internal_name", { ascending: true })
+
+  const programs = (programRows ?? []).map((p) => ({
+    id: p.id as string,
+    internal_name: (p.internal_name as string) ?? "",
+    external_name: (p.external_name as string) ?? "",
+  }))
+
+  let isBroker = false
+  if (orgUuid) {
+    const { data: org } = await supabaseAdmin
+      .from("organizations")
+      .select("is_internal_yn")
+      .eq("id", orgUuid)
+      .maybeSingle()
+    isBroker = org?.is_internal_yn === false
+  }
+
+  if (isBroker && orgUuid) {
+    const { data: settings } = await supabaseAdmin
+      .from("custom_broker_settings")
+      .select("program_visibility")
+      .eq("broker_org_id", orgUuid)
+      .maybeSingle()
+    const visibility = (settings?.program_visibility ?? {}) as Record<string, boolean>
+    const filtered = programs.filter((p) => visibility[p.id] === true)
+    programs.length = 0
+    programs.push(...filtered)
+  }
+
+  if (programs.length === 0) return "No programs are currently available."
+
+  const nameMap = new Map<string, string>()
+  for (const p of programs) {
+    nameMap.set(p.id, isBroker ? p.external_name || p.internal_name : p.internal_name || p.external_name)
+  }
+
+  const webhookUrl =
+    process.env.N8N_AI_CHAT_WEBHOOK_URL ||
+    "https://n8n.axora.info/webhook/f567d7d1-8d33-4ac5-a7d8-ba6cfd6d720e"
+
+  const results = await Promise.allSettled(
+    programs.map(async (p) => {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ sessionId, program_id: p.id, prompt: question }),
+      })
+      return { programId: p.id, raw: await res.text() }
+    }),
+  )
+
+  const sections: string[] = []
+  for (let i = 0; i < programs.length; i++) {
+    const displayName = nameMap.get(programs[i].id) ?? "Unknown"
+    const r = results[i]
+    let text = ""
+    if (r.status === "fulfilled") text = cleanAiResponse(parseWebhookJson(r.value.raw))
+    if (!text.trim()) text = "This program did not return a response."
+    sections.push(`--- ${displayName} ---\n${text}`)
+  }
+
+  const allowedNames = programs.map((p) => nameMap.get(p.id)!).join(", ")
+
+  const systemPrompt = `You are a lending guidelines voice assistant. The only program names you may use are: ${allowedNames}. Never reveal any other name.
+
+HOW TO RESPOND:
+- Give ONE single best answer. Pick the most relevant or most favorable response from all programs and say which program it comes from.
+- Do NOT list each program separately. The user wants one concise answer, not a breakdown.
+- Only mention a second program if its answer is meaningfully different and relevant. Keep it brief.
+- If the user explicitly asks to compare all programs, only then give a per-program breakdown.
+- Report EXACTLY what the program says. Never fabricate or average values.
+
+Keep answers concise and suitable for voice — short sentences, no markdown.`
+
+  const userContent = `The user asked: "${question}"\n\n${sections.join("\n\n")}`
+
+  const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const { text } = await generateText({
+    model: anthropic("claude-sonnet-4-20250514"),
+    system: systemPrompt,
+    messages: [{ role: "user", content: userContent }],
+  })
+
+  return text.trim() || "Sorry, I couldn't generate a response."
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
     const message = body.message
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:entry',message:'webhook hit',data:{type:message?.type,keys:Object.keys(message??{})},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (message?.type === "tool-calls") {
       const toolCallList = message.toolCallList ?? []
@@ -23,76 +128,45 @@ export async function POST(req: Request) {
         const toolArgs = tc.function?.arguments ?? tc.parameters ?? {}
         const toolCallId = tc.id
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:tool-call',message:'processing tool call',data:{toolName,toolCallId,toolArgs},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-
         if (toolName === "query_guidelines") {
           const question = String(toolArgs?.question ?? "")
           const ctx = getVoiceContext()
           const programId = ctx.programId
           const sessionId = ctx.sessionId
-
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:question',message:'extracted question',data:{question,sessionId,programId},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
-
-          const webhookUrl =
-            process.env.N8N_AI_CHAT_WEBHOOK_URL ||
-            "https://n8n.axora.info/webhook/f567d7d1-8d33-4ac5-a7d8-ba6cfd6d720e"
+          const isAllPrograms = !programId || programId === "all"
 
           let answer = ""
-          try {
-            const n8nPayload = {
-              sessionId,
-              program_id: programId,
-              prompt: question,
+
+          if (isAllPrograms) {
+            try {
+              answer = await handleAllPrograms(question, sessionId, ctx.orgUuid)
+            } catch {
+              answer = "Sorry, I could not retrieve the information right now."
+            }
+          } else {
+            const webhookUrl =
+              process.env.N8N_AI_CHAT_WEBHOOK_URL ||
+              "https://n8n.axora.info/webhook/f567d7d1-8d33-4ac5-a7d8-ba6cfd6d720e"
+
+            try {
+              const res = await fetch(webhookUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+                body: JSON.stringify({ sessionId, program_id: programId, prompt: question }),
+              })
+              answer = parseWebhookJson(await res.text())
+            } catch {
+              answer = "Sorry, I could not retrieve the information right now."
             }
 
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:n8n-request',message:'sending to n8n',data:{webhookUrl,n8nPayload},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
-
-            const res = await fetch(webhookUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              cache: "no-store",
-              body: JSON.stringify(n8nPayload),
-            })
-
-            const rawText = await res.text()
-
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:n8n-response',message:'n8n responded',data:{status:res.status,statusText:res.statusText,bodyLength:rawText.length,bodyPreview:rawText.slice(0,500)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
-
-            if (rawText.trim()) {
-              try {
-                const json = JSON.parse(rawText) as unknown
-                if (Array.isArray(json)) {
-                  answer = String((json[0] as Record<string, unknown>)?.response ?? "")
-                } else if (json && typeof json === "object") {
-                  answer = String((json as Record<string, unknown>)?.response ?? "")
-                } else if (typeof json === "string") {
-                  answer = json
-                }
-              } catch {
-                answer = rawText
-              }
-            }
-          } catch (err) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:n8n-error',message:'n8n fetch failed',data:{error:String(err)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
-            answer = "Sorry, I could not retrieve the information right now."
+            answer = cleanAiResponse(answer)
           }
 
-          answer = cleanAiResponse(answer)
           if (!answer.trim()) {
             answer = "Sorry, I couldn't generate a response."
           }
 
-          // Persist user question + AI answer to the chat, matching /api/ai/send behavior
           if (sessionId && sessionId !== "voice-session" && question.trim() && ctx.userId && ctx.orgUuid) {
             try {
               await supabaseAdmin.from("ai_chat_messages").insert([
@@ -104,13 +178,9 @@ export async function POST(req: Request) {
                 .update({ last_used_at: new Date().toISOString() })
                 .eq("id", sessionId)
             } catch {
-              // non-fatal -- don't block the response to Vapi
+              // non-fatal
             }
           }
-
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:result',message:'returning result to vapi',data:{toolCallId,answerPreview:answer.slice(0,200)},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
 
           results.push({
             name: "query_guidelines",
@@ -132,9 +202,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error"
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/3a0e0fc4-bf2e-468f-ad62-2c613d6d0bdc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'vapi/webhook/route.ts:catch',message:'webhook error',data:{error:msg},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

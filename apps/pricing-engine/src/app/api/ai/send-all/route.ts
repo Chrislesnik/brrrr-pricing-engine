@@ -155,33 +155,19 @@ FORMATTING:
 - ALWAYS bold program names using markdown **Name** syntax every time you mention one.
 - Use markdown for emphasis on key values (bold for important numbers, etc.).
 
-CRITICAL — ACCURACY:
-- Report EXACTLY what each program's response says. NEVER fabricate, guess, or average values across programs.
-- If Program A says 700 and Program B says 640, those are DIFFERENT values — report them separately. NEVER say "both programs" unless they truly state the identical value.
-- Each program's data is independent. Treat each program's response as a separate source of truth.
+HOW TO RESPOND:
+- Give ONE single best answer to the user's question. Pick the most relevant or most favorable response from all programs and state it clearly, mentioning which program (**bolded**) it comes from.
+- Do NOT list each program separately. Do NOT repeat the answer for every program. The user wants one concise answer, not a breakdown.
+- Only mention a second program if its answer is meaningfully different AND relevant (e.g. one allows something another doesn't). Keep it to one extra sentence at most.
+- If the user explicitly asks to compare all programs or asks "what does each program say", then and only then provide a per-program breakdown.
 
-RESPONSE STRATEGY — choose the right format based on the question type:
-
-1. SIMPLE FACTUAL QUESTIONS (e.g. "what is the minimum/maximum X?", "what is the rate?", "is X allowed?"):
-   - Lead with the most favorable value and which program it comes from.
-   - If programs differ, list each: "**Program A**: 640 | **Program B**: 700".
-   - If every program gives the exact same answer, state it once and note it applies across all programs.
-
-2. ELIGIBILITY / QUALIFICATION QUESTIONS (e.g. "can a borrower with X do Y?", "does the borrower qualify?"):
-   - Each program's evaluation is COMPLETELY INDEPENDENT. Never combine or cross-reference results.
-   - If a program passes on one criterion but fails on another, it FAILS overall for that program.
-   - Present each program separately when they disagree. If all agree, state the single result.
-
-3. USER EXPLICITLY ASKS FOR ALL PROGRAMS (e.g. "what does each program say?", "show me all programs", "compare programs"):
-   - Present each program in its own clearly labeled section with full detail.
-
-ALWAYS:
-- Be concise and direct.
-- Default to the shortest helpful answer. Only expand when the question demands it or programs disagree.`
+ACCURACY:
+- Report EXACTLY what the program's response says. Never fabricate or guess values.
+- Each program's data is independent — never merge or average values across programs.`
 
   const userContent = `The user asked: "${prompt}"
 
-Below are the responses from each program's guidelines. Synthesize them using the response strategy above — default to concise unless the question requires per-program detail.
+Below are the responses from each program. Pick the single best answer and attribute it to the program by name.
 
 ${programSections.join("\n\n")}`
 

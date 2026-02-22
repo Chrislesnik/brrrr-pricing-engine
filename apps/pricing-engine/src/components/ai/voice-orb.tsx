@@ -16,7 +16,7 @@ interface VoiceOrbProps {
 const noise = createNoise3D()
 
 const COLOR_DEFAULT = new THREE.Color(0xffffff)
-const COLOR_SEARCHING = new THREE.Color(0x3b82f6)
+const COLOR_SEARCHING = new THREE.Color(0x1d4ed8)
 
 export function VoiceOrb({ volumeLevel, isSessionActive, isSpeaking = false, isSearching = false, onClick, size = 300 }: VoiceOrbProps) {
   const containerRef = useRef<HTMLDivElement>(null)
