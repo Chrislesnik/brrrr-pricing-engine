@@ -27,6 +27,7 @@ import {
   IconTrash,
   IconAsterisk,
   IconLoader2,
+  IconRoute,
 } from "@tabler/icons-react"
 import { Switch } from "@/components/ui/switch"
 import { Variable, VariableType, typeColorConfig, getTypeColors } from "./variable-types"
@@ -131,6 +132,29 @@ function RequiredToggle({
   )
 }
 
+function PathInput({
+  pathMap,
+  onPathChange,
+}: {
+  pathMap: Record<string, string>
+  onPathChange: (id: string, path: string) => void
+}) {
+  const itemData = useKeyValueItemContext("PathInput")
+  const currentPath = pathMap[itemData.id] ?? ""
+
+  return (
+    <div className="flex w-full items-center gap-1.5 pl-1">
+      <IconRoute className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+      <input
+        value={currentPath}
+        onChange={(e) => onPathChange(itemData.id, e.target.value)}
+        placeholder="Data path (e.g. borrower_name)"
+        className="flex h-7 w-full rounded-md border border-input/50 bg-muted/30 px-2 py-1 text-xs font-mono text-muted-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring focus:border-input"
+      />
+    </div>
+  )
+}
+
 export function VariableEditorModal({
   open,
   onOpenChange,
@@ -141,6 +165,7 @@ export function VariableEditorModal({
   const [searchQuery, setSearchQuery] = useState("")
   const [localVariables, setLocalVariables] = useState<Variable[]>(variables)
   const [requiredMap, setRequiredMap] = useState<Record<string, boolean>>({})
+  const [pathMap, setPathMap] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -148,16 +173,23 @@ export function VariableEditorModal({
     if (newOpen) {
       setLocalVariables(variables)
       const initialRequired: Record<string, boolean> = {}
+      const initialPaths: Record<string, string> = {}
       variables.forEach(v => {
         initialRequired[v.id] = v.required ?? false
+        initialPaths[v.id] = v.path ?? ""
       })
       setRequiredMap(initialRequired)
+      setPathMap(initialPaths)
     }
     onOpenChange(newOpen)
   }
 
   const handleRequiredChange = useCallback((id: string, required: boolean) => {
     setRequiredMap(prev => ({ ...prev, [id]: required }))
+  }, [])
+
+  const handlePathChange = useCallback((id: string, path: string) => {
+    setPathMap(prev => ({ ...prev, [id]: path }))
   }, [])
 
   const keyValueItems = useMemo<KeyValueItemData[]>(() =>
@@ -171,14 +203,15 @@ export function VariableEditorModal({
         id: i.id,
         name: i.key,
         type: i.value as VariableType,
-        required: requiredMap[i.id] ?? false
+        required: requiredMap[i.id] ?? false,
+        path: pathMap[i.id] ?? undefined,
       }))
-      const prevWithoutRequired = prev.map(v => ({ id: v.id, name: v.name, type: v.type }))
-      const newWithoutRequired = newVariables.map(v => ({ id: v.id, name: v.name, type: v.type }))
-      if (JSON.stringify(prevWithoutRequired) === JSON.stringify(newWithoutRequired)) return prev
+      const prevCore = prev.map(v => ({ id: v.id, name: v.name, type: v.type }))
+      const newCore = newVariables.map(v => ({ id: v.id, name: v.name, type: v.type }))
+      if (JSON.stringify(prevCore) === JSON.stringify(newCore)) return prev
       return newVariables
     })
-  }, [requiredMap])
+  }, [requiredMap, pathMap])
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return
@@ -222,9 +255,10 @@ export function VariableEditorModal({
       return
     }
 
-    const variablesWithRequired = localVariables.map(v => ({
+    const variablesWithMeta = localVariables.map(v => ({
       ...v,
-      required: requiredMap[v.id] ?? false
+      required: requiredMap[v.id] ?? false,
+      path: pathMap[v.id] || undefined,
     }))
 
     if (templateId) {
@@ -234,7 +268,7 @@ export function VariableEditorModal({
         const res = await fetch(`/api/document-templates/${templateId}/variables`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ variables: variablesWithRequired }),
+          body: JSON.stringify({ variables: variablesWithMeta }),
         })
         
         if (!res.ok) {
@@ -243,7 +277,7 @@ export function VariableEditorModal({
         }
         
         const data = await res.json()
-        onVariablesChange(data.variables || variablesWithRequired)
+        onVariablesChange(data.variables || variablesWithMeta)
         onOpenChange(false)
       } catch (e) {
         setSaveError(e instanceof Error ? e.message : "Failed to save variables")
@@ -251,7 +285,7 @@ export function VariableEditorModal({
         setSaving(false)
       }
     } else {
-      onVariablesChange(variablesWithRequired)
+      onVariablesChange(variablesWithMeta)
       onOpenChange(false)
     }
   }
@@ -324,14 +358,18 @@ export function VariableEditorModal({
               className="p-2"
             >
               <KeyValueList>
-                <KeyValueItem className="flex items-center gap-2">
-                  <KeyValueKeyInput className="flex-1" />
+                <KeyValueItem className="flex flex-wrap items-center gap-2">
+                  <KeyValueKeyInput className="flex-1 min-w-[120px]" />
                   <VariableTypeSelect variableTypes={variableTypes} />
                   <RequiredToggle 
                     requiredMap={requiredMap} 
                     onRequiredChange={handleRequiredChange} 
                   />
                   <KeyValueRemove className="shrink-0" />
+                  <PathInput
+                    pathMap={pathMap}
+                    onPathChange={handlePathChange}
+                  />
                 </KeyValueItem>
               </KeyValueList>
               <KeyValueAdd className="w-full" />

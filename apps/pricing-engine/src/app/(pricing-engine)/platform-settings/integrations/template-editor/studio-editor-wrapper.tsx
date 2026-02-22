@@ -551,47 +551,42 @@ export function StudioEditorWrapper({
             // data-variable type may not exist yet
           }
 
-          // Register each variable as a draggable block with a visible placeholder span.
-          // On drop, the component:add listener swaps it to a data-variable component.
+          // Register each variable as a draggable block.
+          let skipNextModal = false
+          const hasDataVariable = !!editor.Components.getType("data-variable")
+
           variables.forEach(variable => {
-            editor.Blocks.add(`variable-${variable.name}`, {
-              label: variable.name,
-              category: "Variables",
-              content: `<span data-var-field="${variable.name}" style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${variable.name}}}</span>`,
-            })
+            const resolverPath = variable.path || variable.name
+
+            if (hasDataVariable) {
+              editor.Blocks.add(`variable-${variable.name}`, {
+                label: variable.name,
+                category: "Variables",
+                select: true,
+                content: {
+                  type: "data-variable",
+                  dataResolver: {
+                    path: resolverPath,
+                    defaultValue: variable.name,
+                  },
+                },
+              })
+            } else {
+              editor.Blocks.add(`variable-${variable.name}`, {
+                label: variable.name,
+                category: "Variables",
+                select: true,
+                content: `<span style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${variable.name}}}</span>`,
+              })
+            }
           })
 
-          // When a placeholder span is dropped, replace it with a real data-variable component
-          let skipNextModal = false
-
-          editor.on("component:add", (component: any) => {
-            const varName = component.getAttributes?.()?.["data-var-field"]
-            if (!varName) return
-
-            setTimeout(() => {
-              const parent = component.parent()
-              if (!parent) return
-              const idx = component.index()
-              component.remove()
-
+          // Skip the data-variable config modal when dropping from the blocks panel
+          editor.on("block:drag:start", (block: any) => {
+            const blockId = block?.getId?.() || block?.get?.("id") || ""
+            if (blockId.startsWith("variable-")) {
               skipNextModal = true
-
-              if (editor.Components.getType("data-variable")) {
-                const resolver = JSON.stringify({
-                  path: `globalData.${varName}.data.data`,
-                  defaultValue: varName,
-                })
-                parent.append(
-                  `<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`,
-                  { at: idx }
-                )
-              } else {
-                parent.append(
-                  `<span style="display:inline-block;padding:2px 6px;background:#fef3c7;border-radius:4px;font-family:monospace;font-size:13px;color:#92400e">{{${varName}}}</span>`,
-                  { at: idx }
-                )
-              }
-            }, 0)
+            }
           })
 
           // QR Code custom component type
@@ -700,6 +695,7 @@ export function StudioEditorWrapper({
 
           editor.on("block:drag:stop", () => {
             setTimeout(() => editor.refresh(), 50)
+            setTimeout(() => { skipNextModal = false }, 500)
           })
 
           const injectVariableStyles = () => {

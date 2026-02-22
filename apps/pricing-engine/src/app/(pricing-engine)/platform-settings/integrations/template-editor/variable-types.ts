@@ -6,6 +6,7 @@ export interface Variable {
   name: string
   type: VariableType
   required?: boolean
+  path?: string
 }
 
 // Shared color configuration for variable types

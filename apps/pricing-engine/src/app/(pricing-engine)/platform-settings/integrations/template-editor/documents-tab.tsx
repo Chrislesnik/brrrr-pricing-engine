@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe } from "@tabler/icons-react"
+import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe, IconDeviceFloppy, IconCheck } from "@tabler/icons-react"
 import { Variable, defaultVariables, variablesToGlobalData } from "./variable-types"
 import { VariableEditorModal } from "./variable-editor-modal"
 import { TemplateGallery } from "./template-gallery"
@@ -247,9 +247,7 @@ export function DocumentsTab() {
         }
 
         const resolver = comp.get("dataResolver") || {}
-        const path = resolver.path || ""
-        const pathMatch = path.match(/globalData\.([^.]+)\./)
-        const varName = pathMatch?.[1] || ""
+        const varName = resolver.defaultValue || resolver.path || ""
         const testValue = values[varName]?.trim()
         if (!testValue) return
 
@@ -274,13 +272,17 @@ export function DocumentsTab() {
     if (!editor) return
     const selected = editor.getSelected() || editor.getWrapper()
     if (selected) {
-      const resolver = JSON.stringify({
-        path: `globalData.${variableName}.data`,
-        defaultValue: variableName,
+      const variable = variables.find(v => v.name === variableName)
+      const resolverPath = variable?.path || variableName
+      selected.append({
+        type: "data-variable",
+        dataResolver: {
+          path: resolverPath,
+          defaultValue: variableName,
+        },
       })
-      selected.append(`<data-variable data-gjs-data-resolver='${resolver}'></data-variable>`)
     }
-  }, [])
+  }, [variables])
 
   const variableOptions = useMemo(() => 
     variables.map(variable => ({
@@ -360,6 +362,9 @@ export function DocumentsTab() {
     router.push("/platform-settings/integrations/template-editor?tab=documents")
   }, [router])
 
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
   const handleEditorSave = useCallback(async (html: string, projectData: object) => {
     const id = currentTemplate?.id ?? templateId
     if (!id || id.startsWith("new-")) return
@@ -376,6 +381,35 @@ export function DocumentsTab() {
       console.error("Failed to persist template:", e)
     }
   }, [currentTemplate?.id, templateId])
+
+  const handleManualSave = useCallback(async () => {
+    const editor = editorRef.current
+    if (!editor) return
+    setSaving(true)
+    setSaveSuccess(false)
+    try {
+      await editor.store()
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    } catch (e) {
+      console.error("Failed to save template:", e)
+    } finally {
+      setSaving(false)
+    }
+  }, [])
+
+  const handleSaveAndExit = useCallback(async () => {
+    const editor = editorRef.current
+    if (!editor) return
+    setSaving(true)
+    try {
+      await editor.store()
+      router.push("/platform-settings/integrations/template-editor?tab=documents")
+    } catch (e) {
+      console.error("Failed to save template:", e)
+      setSaving(false)
+    }
+  }, [router])
 
   const editorTemplate = useMemo(() => {
     if (currentTemplate) return currentTemplate
@@ -499,6 +533,32 @@ export function DocumentsTab() {
           >
             <IconDatabase className="h-4 w-4 mr-2" />
             Edit Variables
+          </Button>
+          <div className="w-px h-6 bg-border" />
+          <Button
+            variant="outline"
+            onClick={handleManualSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <IconLoader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : saveSuccess ? (
+              <IconCheck className="h-4 w-4 mr-1.5 text-green-600" />
+            ) : (
+              <IconDeviceFloppy className="h-4 w-4 mr-1.5" />
+            )}
+            {saveSuccess ? "Saved" : "Save"}
+          </Button>
+          <Button
+            onClick={handleSaveAndExit}
+            disabled={saving}
+          >
+            {saving ? (
+              <IconLoader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <IconDeviceFloppy className="h-4 w-4 mr-1.5" />
+            )}
+            Save & Exit
           </Button>
         </div>
       </div>
