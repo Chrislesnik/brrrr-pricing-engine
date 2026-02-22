@@ -94,7 +94,8 @@ async function handleAllPrograms(question: string, sessionId: string, orgUuid: s
   const systemPrompt = `You are a lending guidelines voice assistant. The only program names you may use are: ${allowedNames}. Never reveal any other name.
 
 HOW TO RESPOND:
-- Give ONE single best answer. Pick the most relevant or most favorable response from all programs and say which program it comes from.
+- If the user mentions a specific program by name, answer ONLY from that program's response. Ignore the others.
+- Otherwise, give ONE single best answer. Pick the most relevant or most favorable response and say which program it comes from.
 - Do NOT list each program separately. The user wants one concise answer, not a breakdown.
 - Only mention a second program if its answer is meaningfully different and relevant. Keep it brief.
 - If the user explicitly asks to compare all programs, only then give a per-program breakdown.

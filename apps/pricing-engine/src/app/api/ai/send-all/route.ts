@@ -156,7 +156,8 @@ FORMATTING:
 - Use markdown for emphasis on key values (bold for important numbers, etc.).
 
 HOW TO RESPOND:
-- Give ONE single best answer to the user's question. Pick the most relevant or most favorable response from all programs and state it clearly, mentioning which program (**bolded**) it comes from.
+- If the user mentions a specific program by name (e.g. "${allowedNames.split(", ")[0]}"), answer ONLY from that program's response. Ignore the other programs entirely.
+- Otherwise, give ONE single best answer. Pick the most relevant or most favorable response from all programs and state it clearly, mentioning which program (**bolded**) it comes from.
 - Do NOT list each program separately. Do NOT repeat the answer for every program. The user wants one concise answer, not a breakdown.
 - Only mention a second program if its answer is meaningfully different AND relevant (e.g. one allows something another doesn't). Keep it to one extra sentence at most.
 - If the user explicitly asks to compare all programs or asks "what does each program say", then and only then provide a per-program breakdown.
