@@ -226,17 +226,15 @@ export function DocumentsTab() {
     if (!editorRef.current) return
     const editor = editorRef.current
     try {
-      // Use GrapesJS component API to find all data-variable components
       const wrapper = editor.DomComponents.getWrapper()
-      const varComponents = wrapper.findType("data-variable")
-
       const hasAnyValue = Object.values(values).some(v => v.trim())
 
+      // Update data-variable text components
+      const varComponents = wrapper.findType("data-variable")
       varComponents.forEach((comp: any) => {
         const el = comp.getEl()
         if (!el) return
 
-        // If all values are empty (clear), restore original tags
         if (!hasAnyValue && el.hasAttribute("data-preview-active")) {
           el.innerHTML = el.getAttribute("data-preview-original") || ""
           el.style.cssText = el.getAttribute("data-preview-original-style") || ""
@@ -251,7 +249,6 @@ export function DocumentsTab() {
         const testValue = values[varName]?.trim()
         if (!testValue) return
 
-        // Save original state for restoration
         if (!el.hasAttribute("data-preview-original")) {
           el.setAttribute("data-preview-original", el.innerHTML)
           el.setAttribute("data-preview-original-style", el.getAttribute("style") || "")
@@ -259,6 +256,23 @@ export function DocumentsTab() {
         el.setAttribute("data-preview-active", "true")
         el.textContent = testValue
         el.style.cssText = "display:inline !important;background:none !important;border:none !important;padding:0 !important;font-size:inherit !important;font-weight:inherit !important;font-family:inherit !important;color:inherit !important;line-height:inherit !important;white-space:normal !important;border-radius:0 !important;vertical-align:baseline !important;"
+      })
+
+      // Update QR code components bound to a variable
+      const qrComponents = wrapper.findType("qr-code")
+      qrComponents.forEach((comp: any) => {
+        const attrs = comp.getAttributes?.() || {}
+        if (attrs["data-qr-mode"] !== "variable") return
+        const varName = attrs["data-qr-variable"] || ""
+        if (!varName) return
+
+        const testValue = values[varName]?.trim()
+        const size = attrs["data-qr-size"] || "150"
+        const qrData = testValue || `{{${varName}}}`
+        const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(qrData)}`
+        comp.addAttributes({ src })
+        const el = comp.getEl()
+        if (el) el.setAttribute("src", src)
       })
     } catch (e) {
       console.warn("Failed to apply preview values:", e)
