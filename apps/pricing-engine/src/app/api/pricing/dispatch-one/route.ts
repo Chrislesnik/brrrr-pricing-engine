@@ -55,12 +55,12 @@ export async function POST(req: NextRequest) {
     console.log("[dispatch-one] Auth:", { orgId, userId })
 
     const json = (await req.json().catch(() => null)) as {
-      loanType?: string
       programId?: string
+      inputValuesById?: Record<string, unknown>
       data?: Record<string, unknown>
     } | null
-    console.log("[dispatch-one] Payload:", { loanType: json?.loanType, programId: json?.programId, hasData: !!json?.data })
-    if (!json?.loanType || !json?.programId || !json?.data) {
+    console.log("[dispatch-one] Payload:", { programId: json?.programId, hasData: !!json?.data, hasInputValuesById: !!json?.inputValuesById })
+    if (!json?.programId || !json?.data) {
       console.log("[dispatch-one] Missing payload, returning 400")
       return new NextResponse("Missing payload", { status: 400 })
     }
@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
       const condMap = await fetchProgramConditions([match.id])
       const entry = condMap.get(match.id)
       if (entry && entry.conditions.length > 0) {
-        const passes = evaluateProgramConditions(entry.conditions, entry.logic_type, json.data ?? {})
+        const conditionValues = json.inputValuesById ?? json.data ?? {}
+        const passes = evaluateProgramConditions(entry.conditions, entry.logic_type, conditionValues)
         if (!passes) {
           console.log("[dispatch-one] Program conditions not met, skipping")
           return NextResponse.json({

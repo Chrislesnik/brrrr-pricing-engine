@@ -762,32 +762,6 @@ export default function PricingEnginePage() {
   const [initialLoanAmount, setInitialLoanAmount] = useState<string>("")
   const [rehabHoldback, setRehabHoldback] = useState<string>("")
 
-  // Prefetch program catalog for current loan type so we can map IDs to names
-  useEffect(() => {
-    let active = true
-    if (!loanType) return
-    ;(async () => {
-      try {
-        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        const res = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
-          method: "GET",
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
-        })
-        if (!res.ok) return
-        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
-        if (!active) return
-        const ph = Array.isArray(pj?.programs) ? pj.programs : []
-        setProgramPlaceholders(ph)
-      } catch {
-        // ignore
-      }
-    })()
-    return () => {
-      active = false
-    }
-  }, [loanType])
-
   // Address fields (hooked to Google Places)
   const [street, setStreet] = useState<string>("")
   const [apt, setApt] = useState<string>("")
@@ -1257,6 +1231,35 @@ export default function PricingEnginePage() {
     }
     return byId
   }, [formValues, codeToIdMap])
+
+  // Stable serialized key for formValuesById to avoid excessive refetches
+  const formValuesByIdKey = useMemo(() => {
+    try { return JSON.stringify(formValuesById) } catch { return "" }
+  }, [formValuesById])
+
+  // Prefetch program catalog filtered by current input values via program conditions
+  useEffect(() => {
+    let active = true
+    if (!formValuesByIdKey) return
+    ;(async () => {
+      try {
+        const res = await fetch("/api/pricing/programs", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+          body: JSON.stringify({ inputValues: formValuesById }),
+        })
+        if (!res.ok) return
+        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
+        if (!active) return
+        const ph = Array.isArray(pj?.programs) ? pj.programs : []
+        setProgramPlaceholders(ph)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => { active = false }
+  }, [formValuesByIdKey])
 
   // Evaluate expression-based defaults from current form values
   const computedDefaults = useMemo(() => {
@@ -1978,25 +1981,18 @@ export default function PricingEnginePage() {
 
   async function handleCalculate() {
     try {
-      // Clear any previously selected row so a fresh calculation doesn't preselect anything
       setSelectedMainRow(null)
       setResultsStale(false)
-      if (!loanType) {
-        toast({ title: "Missing loan type", description: "Select a Loan Type before calculating.", variant: "destructive" })
-        return
-      }
-      // show results container with loader
       setProgramResults([])
       setProgramPlaceholders([])
       setIsDispatching(true)
-      // Prefetch programs to render per-program loaders
       let placeholdersLocal: Array<{ id?: string; internal_name?: string; external_name?: string }> = []
       try {
-        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
-          method: "GET",
+        const pre = await fetch("/api/pricing/programs", {
+          method: "POST",
           cache: "no-store",
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+          body: JSON.stringify({ inputValues: formValuesById }),
         })
         if (pre.ok) {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
@@ -2075,7 +2071,7 @@ export default function PricingEnginePage() {
                 "Pragma": "no-cache",
                 "X-Client-Request-Id": `${nonce}-${idx}`,
               },
-              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: { ...payload, organization_member_id: memberIdLocal ?? null } }),
+              body: JSON.stringify({ programId: p.id ?? p.internal_name ?? p.external_name, inputValuesById: formValuesById, data: { ...payload, organization_member_id: memberIdLocal ?? null } }),
             })
             const single = (await res.json().catch(() => ({}))) as ProgramResult
             // place result in its slot (do not reorder to preserve container positions)
