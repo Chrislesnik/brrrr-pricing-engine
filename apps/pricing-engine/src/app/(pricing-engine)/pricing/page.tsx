@@ -2347,78 +2347,22 @@ export default function PricingEnginePage() {
       return hasLeased && hasGross && hasMarket
     })
   }, [areUnitRowsVisible, unitData, numUnits])
-  // Returns array of missing required field labels (only checks VISIBLE fields)
+  // Returns array of missing required field labels (driven entirely by logic engine rules)
   const missingFields = useMemo(() => {
     const missing: string[] = []
     const has = (v: unknown) => !(v === undefined || v === null || v === "")
 
-    // Always required
-    if (!has(loanType)) missing.push("Loan Type")
-    if (!has(transactionType)) missing.push("Transaction Type")
-    if (!has(borrowerType)) missing.push("Borrower Type")
-    if (!has(citizenship)) missing.push("Citizenship")
-    if (!has(stateCode)) missing.push("State")
-    if (!has(propertyType)) missing.push("Property Type")
-    if (!has(aiv)) missing.push("AIV")
-
-    // Conditionally required (only when visible)
-    if (isBridge && !has(bridgeType)) missing.push("Bridge Type")
-    if (isBridge && !has(term)) missing.push("Term")
-    if (isFicoRequired && !has(fico)) missing.push("FICO Score")
-    if (isDscr && !has(annualTaxes)) missing.push("Annual Taxes")
-    if (isDscr && !has(annualHoi)) missing.push("Annual HOI")
-    if (isDscr && !has(loanStructureType)) missing.push("Loan Structure")
-    if (isDscr && !has(ppp)) missing.push("Prepay Penalty")
-    if (isPurchase && !has(purchasePrice)) missing.push("Purchase Price")
-    if (rehabSectionVisible && !has(rehabBudget)) missing.push("Rehab Budget")
-    if (rehabSectionVisible && !has(arv)) missing.push("ARV")
-    if (rehabPathVisible && !has(initialLoanAmount)) missing.push("Initial Loan Amount")
-    if (loanAmountPathVisible && !has(loanAmount)) missing.push("Loan Amount")
-
-    // Check logic engine required fields
     for (const code of peRequiredCodes) {
       if (peHiddenCodes.has(code)) continue
-      if (!has(formValues[code])) {
+      const val = formValues[code]
+      if (!has(val)) {
         const def = peInputDefs.find((d) => d.input_code === code)
-        if (def && !missing.includes(def.input_label)) {
-          missing.push(def.input_label)
-        }
+        if (def) missing.push(def.input_label)
       }
     }
 
     return missing
-  }, [
-    loanType,
-    transactionType,
-    borrowerType,
-    citizenship,
-    stateCode,
-    propertyType,
-    aiv,
-    isBridge,
-    bridgeType,
-    term,
-    isFicoRequired,
-    fico,
-    isDscr,
-    annualTaxes,
-    annualHoi,
-    loanStructureType,
-    ppp,
-    isPurchase,
-    purchasePrice,
-    rehabSectionVisible,
-    rehabBudget,
-    arv,
-    rehabPathVisible,
-    initialLoanAmount,
-    loanAmountPathVisible,
-    loanAmount,
-    peRequiredCodes,
-    peHiddenCodes,
-    formValues,
-    peInputDefs,
-  ])
+  }, [peRequiredCodes, peHiddenCodes, formValues, peInputDefs])
 
   const canCalculate = missingFields.length === 0
 
