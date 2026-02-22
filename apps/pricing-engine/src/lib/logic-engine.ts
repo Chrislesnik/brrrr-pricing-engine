@@ -106,9 +106,9 @@ export function evaluateOperator(
 
     // Boolean
     case "is_true":
-      return fieldValue === true || fStr === "true";
+      return fieldValue === true || fStr === "true" || fStr === "yes";
     case "is_false":
-      return fieldValue === false || fStr === "false";
+      return fieldValue === false || fStr === "false" || fStr === "no";
 
     default:
       return false;

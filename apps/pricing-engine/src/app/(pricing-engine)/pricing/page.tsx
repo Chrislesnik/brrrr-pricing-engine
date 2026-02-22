@@ -1217,7 +1217,7 @@ export default function PricingEnginePage() {
       bridge_term: term,
       purchase_price: purchasePrice, rehab_completed_amount: rehabCompleted,
       payoff_amount: payoffAmount, as_is_value: aiv,
-      request_max_leverage: requestMaxLeverage ? "Yes" : "No",
+      request_max_leverage: requestMaxLeverage ? "true" : "false",
       initial_loan_amount: initialLoanAmount, rehab_holdback: rehabHoldback,
       loan_amount: loanAmount,
       lender_origination: lenderOrig, lender_admin_fee: adminFee,
@@ -1377,7 +1377,7 @@ export default function PricingEnginePage() {
       case "rehab_completed_amount": setRehabCompleted(String(value ?? "")); return
       case "payoff_amount": setPayoffAmount(String(value ?? "")); return
       case "as_is_value": setAiv(String(value ?? "")); return
-      case "request_max_leverage": setRequestMaxLeverage(value === "Yes" || value === true); return
+      case "request_max_leverage": setRequestMaxLeverage(value === "true" || value === true || value === "Yes"); return
       case "initial_loan_amount": setInitialLoanAmount(String(value ?? "")); return
       case "rehab_holdback": setRehabHoldback(String(value ?? "")); return
       case "loan_amount": setLoanAmount(String(value ?? "")); return

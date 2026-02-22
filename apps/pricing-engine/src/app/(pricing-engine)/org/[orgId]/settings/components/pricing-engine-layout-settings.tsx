@@ -791,8 +791,8 @@ export function PricingEngineLayoutSettings() {
               <SelectValue placeholder="None" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="true">Yes</SelectItem>
-              <SelectItem value="false">No</SelectItem>
+              <SelectItem value="true">True</SelectItem>
+              <SelectItem value="false">False</SelectItem>
             </SelectContent>
           </Select>
           {newDefaultValue && (

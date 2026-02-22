@@ -396,7 +396,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
       case "date":
         return formatDate(rawValue);
       case "boolean":
-        return rawValue === true ? "Yes" : rawValue === false ? "No" : "—";
+        return rawValue === true || rawValue === "true" || rawValue === "Yes" ? "Yes" : rawValue === false || rawValue === "false" || rawValue === "No" ? "No" : "—";
       case "dropdown":
         return formatEnum(rawValue);
       case "text":
