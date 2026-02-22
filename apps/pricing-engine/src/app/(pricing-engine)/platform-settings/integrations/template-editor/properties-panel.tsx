@@ -133,11 +133,21 @@ function SpacingInputs({
   onToggleLink: () => void
   onChange: (idx: number, val: string) => void
 }) {
-  const placeholders = ["T", "R", "B", "L"] as const
+  const sides = ["Top", "Right", "Bottom", "Left"] as const
 
   return (
-    <div className="flex items-center gap-1.5">
-      <Label className="text-xs text-muted-foreground w-12 shrink-0">{label}</Label>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <button
+          type="button"
+          onClick={onToggleLink}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          title={linked ? "Unlink sides" : "Link all sides"}
+        >
+          {linked ? <Link className="h-3.5 w-3.5" /> : <Unlink className="h-3.5 w-3.5" />}
+        </button>
+      </div>
       {linked ? (
         <Input
           type="number"
@@ -146,34 +156,28 @@ function SpacingInputs({
             const v = e.target.value ? `${e.target.value}px` : "0"
             for (let i = 0; i < 4; i++) onChange(i, v)
           }}
-          className="h-7 text-xs flex-1 min-w-0"
+          className="h-8 text-xs"
           placeholder="0"
         />
       ) : (
-        <div className="flex gap-1 flex-1 min-w-0">
-          {placeholders.map((ph, i) => (
-            <Input
-              key={ph}
-              type="number"
-              value={parseStyleValue(values[i]).num}
-              onChange={(e) => {
-                const v = e.target.value ? `${e.target.value}px` : "0"
-                onChange(i, v)
-              }}
-              className="h-7 text-xs flex-1 min-w-0 px-1.5 text-center"
-              placeholder={ph}
-            />
+        <div className="grid grid-cols-2 gap-2">
+          {sides.map((side, i) => (
+            <div key={side} className="space-y-1">
+              <span className="text-[10px] text-muted-foreground">{side}</span>
+              <Input
+                type="number"
+                value={parseStyleValue(values[i]).num}
+                onChange={(e) => {
+                  const v = e.target.value ? `${e.target.value}px` : "0"
+                  onChange(i, v)
+                }}
+                className="h-8 text-xs"
+                placeholder="0"
+              />
+            </div>
           ))}
         </div>
       )}
-      <button
-        type="button"
-        onClick={onToggleLink}
-        className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        title={linked ? "Unlink sides" : "Link all sides"}
-      >
-        {linked ? <Link className="h-3.5 w-3.5" /> : <Unlink className="h-3.5 w-3.5" />}
-      </button>
     </div>
   )
 }
@@ -211,6 +215,32 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
     for (const [k, v] of Object.entries(raw)) {
       if (typeof v === "string") flat[k] = v
     }
+
+    // Merge computed styles from the canvas DOM element for box-model
+    // properties that may come from plugin defaults or CSS classes
+    const el = selected.getEl?.()
+    if (el) {
+      try {
+        const canvasWin = el.ownerDocument?.defaultView
+        if (canvasWin) {
+          const computed = canvasWin.getComputedStyle(el)
+          const boxProps = [
+            "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
+            "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
+            "width", "height", "display",
+          ]
+          for (const prop of boxProps) {
+            if (!flat[prop]) {
+              const val = computed.getPropertyValue(prop)
+              if (val) flat[prop] = val
+            }
+          }
+        }
+      } catch {
+        // Canvas element may not be accessible yet
+      }
+    }
+
     setStyles(flat)
     const type = selected.get?.("type") || ""
     setComponentType(type)

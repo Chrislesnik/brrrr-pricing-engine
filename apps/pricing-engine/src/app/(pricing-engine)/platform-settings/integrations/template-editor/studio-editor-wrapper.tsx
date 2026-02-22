@@ -644,6 +644,7 @@ export function StudioEditorWrapper({
                   type: "text",
                   tagName: "p",
                   editable: true,
+                  style: { margin: "0", padding: "0" },
                   components: [
                     {
                       type: "data-variable",
@@ -725,7 +726,7 @@ export function StudioEditorWrapper({
 
             if (target === wrapperEl || target === canvasDoc?.body) {
               const wrapper = editor.DomComponents.getWrapper()
-              const newText = wrapper.append({ type: "text", tagName: "p", editable: true, content: "<br>" })[0]
+              const newText = wrapper.append({ type: "text", tagName: "p", editable: true, style: { margin: "0", padding: "0" }, content: "<br>" })[0]
               if (newText) {
                 editor.select(newText)
                 setTimeout(() => newText.trigger("active"), 50)
