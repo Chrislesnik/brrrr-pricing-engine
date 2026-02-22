@@ -4114,7 +4114,6 @@ export type Database = {
           name: string
           path: string | null
           position: number
-          required: boolean
           template_id: string
           updated_at: string
           variable_type: string
@@ -4125,7 +4124,6 @@ export type Database = {
           name: string
           path?: string | null
           position?: number
-          required?: boolean
           template_id: string
           updated_at?: string
           variable_type: string
@@ -4136,7 +4134,6 @@ export type Database = {
           name?: string
           path?: string | null
           position?: number
-          required?: boolean
           template_id?: string
           updated_at?: string
           variable_type?: string

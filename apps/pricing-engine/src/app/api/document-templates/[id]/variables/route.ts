@@ -33,7 +33,7 @@ export async function GET(
 
     const { data: variables, error } = await supabaseAdmin
       .from("document_template_variables")
-      .select("id, name, variable_type, required, position, path, created_at, updated_at")
+      .select("id, name, variable_type, position, path, created_at, updated_at")
       .eq("template_id", templateId)
       .order("position", { ascending: true })
 
@@ -43,7 +43,6 @@ export async function GET(
       id: v.id,
       name: v.name,
       type: v.variable_type,
-      required: v.required,
       position: v.position,
       path: v.path ?? undefined,
     }))
@@ -97,11 +96,10 @@ export async function PUT(
     if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
 
     if (variables.length > 0) {
-      const variablesToInsert = variables.map((v: { name: string; type: string; required?: boolean; path?: string }, index: number) => ({
+      const variablesToInsert = variables.map((v: { name: string; type: string; path?: string }, index: number) => ({
         template_id: templateId,
         name: v.name,
         variable_type: v.type,
-        required: v.required ?? false,
         position: index,
         path: v.path ?? null,
       }))
@@ -115,7 +113,7 @@ export async function PUT(
 
     const { data: updatedVariables, error: fetchError } = await supabaseAdmin
       .from("document_template_variables")
-      .select("id, name, variable_type, required, position, path")
+      .select("id, name, variable_type, position, path")
       .eq("template_id", templateId)
       .order("position", { ascending: true })
 
@@ -125,7 +123,6 @@ export async function PUT(
       id: v.id,
       name: v.name,
       type: v.variable_type,
-      required: v.required,
       position: v.position,
       path: v.path ?? undefined,
     }))
@@ -155,7 +152,7 @@ export async function POST(
 
     const { id: templateId } = await params
     const body = await req.json()
-    const { name, type, required = false, path = null } = body
+    const { name, type, path = null } = body
 
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -190,7 +187,6 @@ export async function POST(
         template_id: templateId,
         name,
         variable_type: type,
-        required,
         position: newPosition,
         path: path ?? null,
       })
@@ -204,7 +200,6 @@ export async function POST(
         id: newVariable.id,
         name: newVariable.name,
         type: newVariable.variable_type,
-        required: newVariable.required,
         position: newVariable.position,
         path: newVariable.path ?? undefined,
       }

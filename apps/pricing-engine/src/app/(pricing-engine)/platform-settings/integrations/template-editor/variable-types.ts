@@ -5,7 +5,6 @@ export interface Variable {
   id: string
   name: string
   type: VariableType
-  required?: boolean
   path?: string
 }
 

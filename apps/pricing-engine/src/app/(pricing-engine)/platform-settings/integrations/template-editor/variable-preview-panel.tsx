@@ -123,9 +123,6 @@ export function VariablePreviewPanel({
                   className="text-xs font-medium text-muted-foreground flex items-center gap-1"
                 >
                   <span className="font-mono">{variable.name}</span>
-                  {variable.required && (
-                    <span className="text-destructive">*</span>
-                  )}
                   <span className={cn(
                     "ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded",
                     getTypeColors(variable.type).bg,

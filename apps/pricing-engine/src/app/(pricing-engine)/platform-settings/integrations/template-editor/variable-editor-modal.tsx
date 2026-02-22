@@ -25,11 +25,9 @@ import {
   IconDownload,
   IconTypography,
   IconTrash,
-  IconAsterisk,
   IconLoader2,
   IconRoute,
 } from "@tabler/icons-react"
-import { Switch } from "@/components/ui/switch"
 import { Variable, VariableType, typeColorConfig, getTypeColors } from "./variable-types"
 import {
   KeyValue,
@@ -107,31 +105,6 @@ function VariableTypeSelect({ variableTypes }: { variableTypes: VariableType[] }
   )
 }
 
-function RequiredToggle({ 
-  requiredMap, 
-  onRequiredChange 
-}: { 
-  requiredMap: Record<string, boolean>
-  onRequiredChange: (id: string, required: boolean) => void 
-}) {
-  const itemData = useKeyValueItemContext("RequiredToggle")
-  const isRequired = requiredMap[itemData.id] ?? false
-
-  return (
-    <div className="flex items-center gap-1.5 shrink-0" title={isRequired ? "Required variable" : "Optional variable"}>
-      <IconAsterisk className={cn(
-        "h-3 w-3 transition-colors",
-        isRequired ? "text-destructive" : "text-muted-foreground/30"
-      )} />
-      <Switch
-        checked={isRequired}
-        onCheckedChange={(checked) => onRequiredChange(itemData.id, checked)}
-        className="data-[state=checked]:bg-destructive h-4 w-7"
-      />
-    </div>
-  )
-}
-
 function PathInput({
   pathMap,
   onPathChange,
@@ -164,7 +137,6 @@ export function VariableEditorModal({
 }: VariableEditorModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [localVariables, setLocalVariables] = useState<Variable[]>(variables)
-  const [requiredMap, setRequiredMap] = useState<Record<string, boolean>>({})
   const [pathMap, setPathMap] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -172,21 +144,14 @@ export function VariableEditorModal({
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setLocalVariables(variables)
-      const initialRequired: Record<string, boolean> = {}
       const initialPaths: Record<string, string> = {}
       variables.forEach(v => {
-        initialRequired[v.id] = v.required ?? false
         initialPaths[v.id] = v.path ?? ""
       })
-      setRequiredMap(initialRequired)
       setPathMap(initialPaths)
     }
     onOpenChange(newOpen)
   }
-
-  const handleRequiredChange = useCallback((id: string, required: boolean) => {
-    setRequiredMap(prev => ({ ...prev, [id]: required }))
-  }, [])
 
   const handlePathChange = useCallback((id: string, path: string) => {
     setPathMap(prev => ({ ...prev, [id]: path }))
@@ -203,7 +168,6 @@ export function VariableEditorModal({
         id: i.id,
         name: i.key,
         type: i.value as VariableType,
-        required: requiredMap[i.id] ?? false,
         path: pathMap[i.id] ?? undefined,
       }))
       const prevCore = prev.map(v => ({ id: v.id, name: v.name, type: v.type }))
@@ -211,7 +175,7 @@ export function VariableEditorModal({
       if (JSON.stringify(prevCore) === JSON.stringify(newCore)) return prev
       return newVariables
     })
-  }, [requiredMap, pathMap])
+  }, [pathMap])
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return
@@ -257,7 +221,6 @@ export function VariableEditorModal({
 
     const variablesWithMeta = localVariables.map(v => ({
       ...v,
-      required: requiredMap[v.id] ?? false,
       path: pathMap[v.id] || undefined,
     }))
 
@@ -361,10 +324,6 @@ export function VariableEditorModal({
                 <KeyValueItem className="flex flex-wrap items-center gap-2">
                   <KeyValueKeyInput className="flex-1 min-w-[120px]" />
                   <VariableTypeSelect variableTypes={variableTypes} />
-                  <RequiredToggle 
-                    requiredMap={requiredMap} 
-                    onRequiredChange={handleRequiredChange} 
-                  />
                   <KeyValueRemove className="shrink-0" />
                   <PathInput
                     pathMap={pathMap}
