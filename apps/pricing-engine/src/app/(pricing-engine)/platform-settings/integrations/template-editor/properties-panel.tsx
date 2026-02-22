@@ -30,6 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ColorInput } from "@/components/color-input"
+import type { Variable } from "./variable-types"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -187,14 +188,16 @@ function SpacingInputs({
 
 interface PropertiesPanelProps {
   editor: any
+  variables?: Variable[]
 }
 
-export function PropertiesPanel({ editor }: PropertiesPanelProps) {
+export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps) {
   const [styles, setStyles] = useState<Record<string, string>>({})
   const [componentType, setComponentType] = useState("")
   const [componentName, setComponentName] = useState("")
   const [paddingLinked, setPaddingLinked] = useState(true)
   const [marginLinked, setMarginLinked] = useState(true)
+  const [qrAttrs, setQrAttrs] = useState<Record<string, string>>({})
   const suppressSync = useRef(false)
 
   const readStyles = useCallback(() => {
@@ -204,6 +207,7 @@ export function PropertiesPanel({ editor }: PropertiesPanelProps) {
       setStyles({})
       setComponentType("")
       setComponentName("")
+      setQrAttrs({})
       return
     }
     const raw = selected.getStyle() || {}
@@ -212,13 +216,25 @@ export function PropertiesPanel({ editor }: PropertiesPanelProps) {
       if (typeof v === "string") flat[k] = v
     }
     setStyles(flat)
-    setComponentType(selected.get?.("type") || "")
+    const type = selected.get?.("type") || ""
+    setComponentType(type)
     setComponentName(
       selected.getName?.() ||
       selected.get?.("tagName") ||
       selected.get?.("type") ||
       "Element"
     )
+    if (type === "qr-code") {
+      const attrs = selected.getAttributes?.() || {}
+      setQrAttrs({
+        "data-qr-data": attrs["data-qr-data"] || "",
+        "data-qr-size": attrs["data-qr-size"] || "150",
+        "data-qr-mode": attrs["data-qr-mode"] || "static",
+        "data-qr-variable": attrs["data-qr-variable"] || "",
+      })
+    } else {
+      setQrAttrs({})
+    }
   }, [editor])
 
   useEffect(() => {
@@ -277,6 +293,17 @@ export function PropertiesPanel({ editor }: PropertiesPanelProps) {
     [editor]
   )
 
+  const setQrAttr = useCallback(
+    (attr: string, value: string) => {
+      if (!editor) return
+      const selected = editor.getSelected?.()
+      if (!selected) return
+      selected.addAttributes({ [attr]: value })
+      setQrAttrs((prev) => ({ ...prev, [attr]: value }))
+    },
+    [editor]
+  )
+
   const handleClose = useCallback(() => {
     if (!editor) return
     editor.select(null)
@@ -291,6 +318,8 @@ export function PropertiesPanel({ editor }: PropertiesPanelProps) {
   if (!selected) return null
 
   const showTypography = isTextComponent(selected)
+  const isQrCode = componentType === "qr-code"
+  const stringVariables = variables.filter(v => v.type === "String")
 
   // Parse current values
   const width = parseStyleValue(styles["width"])
@@ -335,9 +364,93 @@ export function PropertiesPanel({ editor }: PropertiesPanelProps) {
         <div className="px-3 py-2">
           <Accordion
             type="multiple"
-            defaultValue={["layout", "size", "space", "typography", "background", "border"]}
+            defaultValue={["qrcode", "layout", "size", "space", "typography", "background", "border"]}
             className="w-full"
           >
+            {/* QR Code settings */}
+            {isQrCode && (
+              <AccordionItem value="qrcode">
+                <AccordionTrigger className="py-2 text-xs font-medium">
+                  QR Code
+                </AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Source</Label>
+                    <ToggleGroup
+                      type="single"
+                      value={qrAttrs["data-qr-mode"] || "static"}
+                      onValueChange={(v) => {
+                        if (v) setQrAttr("data-qr-mode", v)
+                      }}
+                      className="justify-start w-full"
+                      size="sm"
+                    >
+                      <ToggleGroupItem value="static" className="flex-1 h-8 text-xs">
+                        Static URL
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="variable" className="flex-1 h-8 text-xs">
+                        Variable
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
+                  {(qrAttrs["data-qr-mode"] || "static") === "static" ? (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">URL</Label>
+                      <Input
+                        type="text"
+                        value={qrAttrs["data-qr-data"] || ""}
+                        onChange={(e) => setQrAttr("data-qr-data", e.target.value)}
+                        className="h-8 text-xs font-mono"
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Variable</Label>
+                      {stringVariables.length > 0 ? (
+                        <Select
+                          value={qrAttrs["data-qr-variable"] || ""}
+                          onValueChange={(v) => setQrAttr("data-qr-variable", v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Select a variable" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stringVariables.map((v) => (
+                              <SelectItem key={v.id} value={v.name}>
+                                {v.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          No String variables defined. Add one via Edit Variables.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Size (px)</Label>
+                    <Input
+                      type="number"
+                      value={qrAttrs["data-qr-size"] || "150"}
+                      onChange={(e) => setQrAttr("data-qr-size", e.target.value || "150")}
+                      className="h-8 text-xs"
+                      placeholder="150"
+                      min={50}
+                      max={500}
+                      step={10}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
             {/* Layout */}
             <AccordionItem value="layout">
               <AccordionTrigger className="py-2 text-xs font-medium">

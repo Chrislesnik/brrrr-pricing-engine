@@ -19,6 +19,76 @@ import { Variable, typeColorConfig, VariableType } from "./variable-types"
 
 const GRAPEJS_STYLE_ID = "grapesjs-scoped-styles"
 
+const QR_CODE_BLOCK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><rect width="80" height="80" x="336" y="336" rx="8" ry="8"/><rect width="64" height="64" x="272" y="272" rx="8" ry="8"/><rect width="64" height="64" x="416" y="416" rx="8" ry="8"/><rect width="48" height="48" x="432" y="272" rx="8" ry="8"/><rect width="48" height="48" x="272" y="432" rx="8" ry="8"/><path d="M448 32H304a32 32 0 0 0-32 32v144a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V64a32 32 0 0 0-32-32m-32 136a8 8 0 0 1-8 8h-64a8 8 0 0 1-8-8v-64a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8ZM208 32H64a32 32 0 0 0-32 32v144a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V64a32 32 0 0 0-32-32m-32 136a8 8 0 0 1-8 8h-64a8 8 0 0 1-8-8v-64a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8Zm32 104H64a32 32 0 0 0-32 32v144a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V304a32 32 0 0 0-32-32m-32 136a8 8 0 0 1-8 8h-64a8 8 0 0 1-8-8v-64a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8Z"/></svg>`
+
+function qrCodePlugin(editor: any) {
+  function buildQrSrc(attrs: Record<string, string>) {
+    const mode = attrs["data-qr-mode"] || "static"
+    const size = attrs["data-qr-size"] || "150"
+    let qrData: string
+    if (mode === "variable" && attrs["data-qr-variable"]) {
+      qrData = `{{${attrs["data-qr-variable"]}}}`
+    } else {
+      qrData = attrs["data-qr-data"] || "https://example.com"
+    }
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(qrData)}`
+  }
+
+  editor.Components.addType("qr-code", {
+    model: {
+      defaults: {
+        tagName: "img",
+        attributes: {
+          "data-gjs-type": "qr-code",
+          "data-qr-data": "https://example.com",
+          "data-qr-size": "150",
+          "data-qr-mode": "static",
+          "data-qr-variable": "",
+        },
+        traits: [
+          { type: "text", name: "data-qr-data" },
+          { type: "text", name: "data-qr-size" },
+          { type: "text", name: "data-qr-mode" },
+          { type: "text", name: "data-qr-variable" },
+        ],
+        stylable: ["width", "height", "margin", "padding"],
+        resizable: true,
+        droppable: false,
+      },
+      init() {
+        this.on("change:attributes:data-qr-data", this.updateQrSrc)
+        this.on("change:attributes:data-qr-size", this.updateQrSrc)
+        this.on("change:attributes:data-qr-mode", this.updateQrSrc)
+        this.on("change:attributes:data-qr-variable", this.updateQrSrc)
+        this.updateQrSrc()
+      },
+      updateQrSrc() {
+        const src = buildQrSrc(this.getAttributes())
+        this.set("src", src)
+        this.addAttributes({ src })
+      },
+    },
+    view: {
+      onRender() {
+        const attrs = this.model.getAttributes()
+        const src = buildQrSrc(attrs)
+        const size = attrs["data-qr-size"] || "150"
+        this.el.setAttribute("src", src)
+        this.el.setAttribute("width", size)
+        this.el.setAttribute("height", size)
+        this.el.setAttribute("alt", "QR Code")
+      },
+    },
+  })
+
+  editor.Blocks.add("qr-code", {
+    label: "QR Code",
+    category: "Extra",
+    media: QR_CODE_BLOCK_SVG,
+    content: { type: "qr-code" },
+  })
+}
+
 // Suppress React 19 ref warning from @grapesjs/studio-sdk until library updates
 if (typeof window !== "undefined") {
   const originalConsoleError = console.error
@@ -426,6 +496,7 @@ export function StudioEditorWrapper({
                 })]
               : []),
             flexComponent,
+            qrCodePlugin,
             ...(aiChat?.init
               ? [aiChat.init({ chatApi: "/api/ai-chat" })]
               : []),
@@ -589,71 +660,6 @@ export function StudioEditorWrapper({
             }
           })
 
-          // QR Code custom component type
-          editor.Components.addType("qr-code", {
-            model: {
-              defaults: {
-                tagName: "img",
-                attributes: {
-                  "data-gjs-type": "qr-code",
-                  "data-qr-data": "https://example.com",
-                  "data-qr-size": "150",
-                },
-                traits: [
-                  {
-                    type: "text",
-                    name: "data-qr-data",
-                    label: "QR Data",
-                    placeholder: "URL or text to encode",
-                  },
-                  {
-                    type: "number",
-                    name: "data-qr-size",
-                    label: "Size (px)",
-                    min: 50,
-                    max: 500,
-                    step: 10,
-                  },
-                ],
-                stylable: ["width", "height", "margin", "padding"],
-                resizable: true,
-                droppable: false,
-              },
-              init() {
-                this.on("change:attributes:data-qr-data", this.updateQrSrc)
-                this.on("change:attributes:data-qr-size", this.updateQrSrc)
-                this.updateQrSrc()
-              },
-              updateQrSrc() {
-                const attrs = this.getAttributes()
-                const data = encodeURIComponent(attrs["data-qr-data"] || "https://example.com")
-                const size = attrs["data-qr-size"] || "150"
-                this.set("src", `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${data}`)
-                this.addAttributes({ src: `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${data}` })
-              },
-            },
-            view: {
-              onRender() {
-                const model = this.model
-                const attrs = model.getAttributes()
-                const data = encodeURIComponent(attrs["data-qr-data"] || "https://example.com")
-                const size = attrs["data-qr-size"] || "150"
-                const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${data}`
-                this.el.setAttribute("src", src)
-                this.el.setAttribute("width", size)
-                this.el.setAttribute("height", size)
-                this.el.setAttribute("alt", "QR Code")
-              },
-            },
-          })
-
-          editor.Blocks.add("qr-code", {
-            label: "QR Code",
-            category: "Extra",
-            media: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><rect width="80" height="80" x="336" y="336" rx="8" ry="8"/><rect width="64" height="64" x="272" y="272" rx="8" ry="8"/><rect width="64" height="64" x="416" y="416" rx="8" ry="8"/><rect width="48" height="48" x="432" y="272" rx="8" ry="8"/><rect width="48" height="48" x="272" y="432" rx="8" ry="8"/><path d="M448 32H304a32 32 0 0 0-32 32v144a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V64a32 32 0 0 0-32-32m-32 136a8 8 0 0 1-8 8h-64a8 8 0 0 1-8-8v-64a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8ZM208 32H64a32 32 0 0 0-32 32v144a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V64a32 32 0 0 0-32-32m-32 136a8 8 0 0 1-8 8h-64a8 8 0 0 1-8-8v-64a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8Zm32 104H64a32 32 0 0 0-32 32v144a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V304a32 32 0 0 0-32-32m-32 136a8 8 0 0 1-8 8h-64a8 8 0 0 1-8-8v-64a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8Z"/></svg>`,
-            content: { type: "qr-code" },
-          })
-
           // Auto-close the "Edit variable" modal since path is already set
           editor.on("modal:open", () => {
             if (skipNextModal) {
@@ -753,7 +759,7 @@ export function StudioEditorWrapper({
       />
       {hasSelection && portalTarget && editorRef.current &&
         createPortal(
-          <PropertiesPanel editor={editorRef.current} />,
+          <PropertiesPanel editor={editorRef.current} variables={variables} />,
           portalTarget
         )
       }
