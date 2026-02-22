@@ -24,22 +24,24 @@ export default function EntitiesPage() {
   }
 
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Entities Pipeline
-          </h2>
+    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Entities</h1>
+        <p className="text-muted-foreground">
+          Manage borrowing entities and their ownership structure.
+        </p>
+      </div>
+      <EntitiesTable
+        data={entities}
+        initialOwnersMap={ownersMap}
+        actionButton={
           <ApplicantsPrimaryActions
             label="New Entity"
             href="/applicants/entities/new"
             type="entity"
           />
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <EntitiesTable data={entities} initialOwnersMap={ownersMap} />
-      </div>
-    </>
+        }
+      />
+    </div>
   )
 }

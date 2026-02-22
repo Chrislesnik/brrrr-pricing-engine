@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   ColumnDef,
   ColumnOrderState,
@@ -10,6 +10,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   SortingState,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
 import {
@@ -28,11 +29,17 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, Loader2, Search } from "lucide-react";
+import { ChevronDown, Columns2, Loader2, Search } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu";
 import { Input } from "@repo/ui/shadcn/input";
 import {
   Table,
@@ -254,12 +261,13 @@ function ExpandedContent({ order }: { order: AppraisalOrder }) {
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function AppraisalsTable() {
+export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNode }) {
   const [data, setData] = useState<AppraisalOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [rowSelection, setRowSelection] = useState({});
 
@@ -298,10 +306,11 @@ export function AppraisalsTable() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, columnOrder, rowSelection },
+    state: { sorting, globalFilter, columnOrder, columnVisibility, rowSelection },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
@@ -349,19 +358,48 @@ export function AppraisalsTable() {
       onDragEnd={handleDragEnd}
       sensors={sensors}
     >
-      <div className="flex items-center gap-2 pb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by AMC, address, file #..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8"
-          />
+      <div className="w-full">
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by AMC, address, file #..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-8 max-w-sm"
+            />
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 bg-background">
+                <Columns2 className="w-4 h-4 mr-2" />
+                <span className="text-xs font-medium">Customize Columns</span>
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                  >
+                    {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {actionButton}
         </div>
       </div>
 
-      <div className="rounded-lg border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -467,6 +505,7 @@ export function AppraisalsTable() {
       </div>
 
       <DealsStylePagination table={table} />
+      </div>
     </DndContext>
   );
 }

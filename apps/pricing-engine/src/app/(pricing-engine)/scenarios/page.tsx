@@ -19,17 +19,14 @@ export default function PipelinePage() {
   }
 
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Scenarios
-          </h2>
-        </div>
+    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Scenarios</h1>
+        <p className="text-muted-foreground">
+          Manage and compare your loan pricing scenarios.
+        </p>
       </div>
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <PipelineTable data={loans} columns={pipelineColumns} />
-      </div>
-    </>
+      <PipelineTable data={loans} columns={pipelineColumns} />
+    </div>
   )
 }

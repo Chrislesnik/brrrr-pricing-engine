@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useMemo, useState } from "react"
+import React, { Fragment, useCallback, useMemo, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -12,6 +12,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table"
 import {
@@ -30,7 +31,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, MoreHorizontal, Settings, UserPlus, Archive } from "lucide-react"
+import { ChevronDown, Columns2, MoreHorizontal, Plus, Search, Settings, UserPlus, Archive } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
@@ -39,6 +40,7 @@ import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -142,8 +144,9 @@ function ActionsCell({
   )
 }
 
-export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged, onInviteMembers }: Props) {
+export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged, onInviteMembers, actionButton }: Props & { actionButton?: React.ReactNode }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -366,11 +369,13 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
     columns,
     state: {
       columnFilters,
+      columnVisibility,
       pagination,
       columnOrder,
       rowSelection,
     },
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange: setColumnOrder,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
@@ -391,12 +396,46 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
       sensors={sensors}
     >
     <div className="w-full">
-      <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 py-3">
-        <span className="font-medium">Organizations</span>
-        <Filter column={table.getColumn("name")!} />
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search organizations..."
+              value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+              onChange={(e) => table.getColumn("name")?.setFilterValue(e.target.value)}
+              className="pl-8 max-w-sm"
+            />
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 bg-background">
+                <Columns2 className="w-4 h-4 mr-2" />
+                <span className="text-xs font-medium">Customize Columns</span>
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                  >
+                    {col.id.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {actionButton}
+        </div>
       </div>
-      <div className="rounded-lg border">
-      <div className="border-b">
+      <div className="rounded-md border overflow-x-auto">
         {/* Desktop table */}
         <div className="hidden md:block">
           <Table>
@@ -623,8 +662,6 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
             )}
           </div>
         </div>
-      </div>
-
       </div>
       <DealsStylePagination table={table} />
 

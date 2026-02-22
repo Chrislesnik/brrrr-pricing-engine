@@ -19,19 +19,21 @@ function CreditPageContent() {
     <div className="flex flex-1 flex-col overflow-auto p-4 pr-5">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Credit Reports</h1>
-              <p className="text-muted-foreground">
-                View credit reports and scores for borrowers.
-              </p>
-            </div>
-            <Button onClick={() => setRunSheetOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Run Credit
-            </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Credit Reports</h1>
+            <p className="text-muted-foreground">
+              View credit reports and scores for borrowers.
+            </p>
           </div>
-          <CreditTable key={refreshKey} />
+          <CreditTable
+            key={refreshKey}
+            actionButton={
+              <Button size="sm" className="h-8" onClick={() => setRunSheetOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Run Credit
+              </Button>
+            }
+          />
         </div>
       </div>
       <RunCreditSheet

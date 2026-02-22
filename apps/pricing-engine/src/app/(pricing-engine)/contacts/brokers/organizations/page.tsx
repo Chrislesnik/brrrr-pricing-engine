@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react"
 import useSWR from "swr"
-import { UserPlus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import { BrokerCompaniesTable } from "../../components/broker-companies-table"
 import { DefaultBrokerSettingsDialog } from "../components/default-broker-settings-dialog"
@@ -70,27 +70,27 @@ export default function BrokerOrganizationsPage() {
   }
 
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Broker Organizations
-          </h2>
-          <div className="flex items-center gap-2">
-            <DefaultBrokerSettingsDialog />
-            <Button
-              className="space-x-1"
-              onClick={() => setShowInviteDialog(true)}
-            >
-              <span>Invite Members</span>
-              <UserPlus size={18} />
-            </Button>
-          </div>
+    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Broker Organizations</h1>
+          <p className="text-muted-foreground">
+            Manage broker companies, members, and their settings.
+          </p>
         </div>
+        <DefaultBrokerSettingsDialog />
       </div>
-      <div className="flex-1 min-w-0">
-        <BrokerCompaniesTable data={organizations} initialMembersMap={membersMap} onSettingsChanged={() => mutate()} />
-      </div>
+      <BrokerCompaniesTable
+        data={organizations}
+        initialMembersMap={membersMap}
+        onSettingsChanged={() => mutate()}
+        actionButton={
+          <Button size="sm" className="h-8" onClick={() => setShowInviteDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Invite Members
+          </Button>
+        }
+      />
 
       <InviteMemberDialog
         open={showInviteDialog}
@@ -100,6 +100,6 @@ export default function BrokerOrganizationsPage() {
         preSelectedOrgId={inviteTargetOrgId}
         orgReadOnly={orgReadOnly}
       />
-    </>
+    </div>
   )
 }

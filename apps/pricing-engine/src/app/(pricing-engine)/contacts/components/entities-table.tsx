@@ -11,6 +11,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table"
 import {
@@ -29,10 +30,16 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Columns2, Search } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
@@ -96,8 +103,9 @@ function formatDate(ymd: string | null | undefined) {
   return `${String(d).padStart(2, "0")} ${mon}, ${y}`
 }
 
-export function EntitiesTable({ data, initialOwnersMap }: Props) {
+export function EntitiesTable({ data, initialOwnersMap, actionButton }: Props & { actionButton?: ReactNode }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -367,10 +375,12 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
     columns,
     state: {
       columnFilters,
+      columnVisibility,
       pagination,
       columnOrder,
       rowSelection,
     },
+    onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
     onColumnOrderChange: setColumnOrder,
     onRowSelectionChange: setRowSelection,
@@ -392,12 +402,46 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
       sensors={sensors}
     >
       <div className="w-full">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 py-3">
-          <span className="font-medium">Entities</span>
-          <Filter column={table.getColumn("display_id")!} />
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search entities..."
+                value={(table.getColumn("display_id")?.getFilterValue() as string) ?? ""}
+                onChange={(e) => table.getColumn("display_id")?.setFilterValue(e.target.value)}
+                className="pl-8 max-w-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 bg-background">
+                  <Columns2 className="w-4 h-4 mr-2" />
+                  <span className="text-xs font-medium">Customize Columns</span>
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                {table
+                  .getAllColumns()
+                  .filter((col) => col.getCanHide())
+                  .map((col) => (
+                    <DropdownMenuCheckboxItem
+                      key={col.id}
+                      checked={col.getIsVisible()}
+                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                    >
+                      {col.id.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {actionButton}
+          </div>
         </div>
-        <div className="rounded-lg border">
-        <div className="border-b">
+        <div className="rounded-md border overflow-x-auto">
           {/* Desktop table */}
           <div className="hidden md:block">
             <Table>
@@ -626,8 +670,6 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
             )}
           </div>
         </div>
-      </div>
-
       </div>
       <DealsStylePagination table={table} />
       </div>

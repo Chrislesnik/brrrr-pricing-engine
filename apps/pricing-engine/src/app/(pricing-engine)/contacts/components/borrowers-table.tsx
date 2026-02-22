@@ -11,6 +11,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
+  VisibilityState,
   useReactTable,
   type Row,
 } from "@tanstack/react-table"
@@ -30,7 +31,15 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
+import { ChevronDown, Columns2, Search } from "lucide-react"
+import { Button } from "@repo/ui/shadcn/button"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
@@ -91,9 +100,10 @@ function formatDate(ymd: string | null | undefined): string {
   return `${String(d).padStart(2, "0")} ${mon}, ${y}`
 }
 
-export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
+export function BorrowersTable({ data, actionButton }: { data: BorrowerRow[]; actionButton?: React.ReactNode }) {
   const pageSize = 10
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize,
@@ -241,8 +251,9 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
   const table = useReactTable({
     data,
     columns,
-    state: { columnFilters, pagination, columnOrder, rowSelection },
+    state: { columnFilters, columnVisibility, pagination, columnOrder, rowSelection },
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
     onColumnOrderChange: setColumnOrder,
     onRowSelectionChange: setRowSelection,
@@ -263,25 +274,50 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
       sensors={sensors}
     >
       <div className="w-full">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 py-3">
-          <span className="font-medium">Borrowers</span>
-          <div className="flex items-center gap-3">
-            <Label htmlFor="borrowers-search" className="sr-only">
-              Search borrowers
-            </Label>
-            <Input
-              id="borrowers-search"
-              placeholder="Search borrowers"
-              value={(searchColumn?.getFilterValue() as string) ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                searchColumn?.setFilterValue(e.target.value)
-              }
-              className="h-9 w-64"
-            />
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="borrowers-search" className="sr-only">Search borrowers</Label>
+              <Input
+                id="borrowers-search"
+                placeholder="Search borrowers..."
+                value={(searchColumn?.getFilterValue() as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  searchColumn?.setFilterValue(e.target.value)
+                }
+                className="pl-8 max-w-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 bg-background">
+                  <Columns2 className="w-4 h-4 mr-2" />
+                  <span className="text-xs font-medium">Customize Columns</span>
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                {table
+                  .getAllColumns()
+                  .filter((col) => col.getCanHide())
+                  .map((col) => (
+                    <DropdownMenuCheckboxItem
+                      key={col.id}
+                      checked={col.getIsVisible()}
+                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                    >
+                      {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {actionButton}
           </div>
         </div>
-        <div className="rounded-lg border">
-        <div className="border-b">
+        <div className="rounded-md border overflow-x-auto">
           {/* Desktop table */}
           <div className="hidden md:block">
             <Table>
@@ -391,8 +427,6 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
             </div>
           </div>
         </div>
-
-      </div>
       <DealsStylePagination table={table} />
       </div>
     </DndContext>

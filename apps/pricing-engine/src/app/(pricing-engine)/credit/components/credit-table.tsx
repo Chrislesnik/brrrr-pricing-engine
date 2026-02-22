@@ -379,7 +379,7 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function CreditTable() {
+export function CreditTable({ actionButton }: { actionButton?: React.ReactNode }) {
   const [data, setData] = useState<CreditReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -532,6 +532,7 @@ export function CreditTable() {
                   ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            {actionButton}
           </div>
         </div>
 

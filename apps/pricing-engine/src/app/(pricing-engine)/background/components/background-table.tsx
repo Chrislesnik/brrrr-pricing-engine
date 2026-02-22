@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
   ColumnOrderState,
@@ -10,6 +10,7 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   SortingState,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
 import {
@@ -28,7 +29,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Loader2, Search, MoreHorizontal, Download, Archive } from "lucide-react";
+import { ChevronDown, Columns2, Loader2, Search, MoreHorizontal, Download, Archive } from "lucide-react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
@@ -42,6 +43,7 @@ import {
 } from "@repo/ui/shadcn/table";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -312,12 +314,13 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundRepor
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function BackgroundTable() {
+export function BackgroundTable({ actionButton }: { actionButton?: React.ReactNode }) {
   const [data, setData] = useState<BackgroundReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [selectedReport, setSelectedReport] = useState<BackgroundReport | null>(null);
   const [rowSelection, setRowSelection] = useState({});
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
@@ -370,10 +373,11 @@ export function BackgroundTable() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, columnOrder, rowSelection },
+    state: { sorting, globalFilter, columnOrder, columnVisibility, rowSelection },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
@@ -406,21 +410,48 @@ export function BackgroundTable() {
       onDragEnd={handleDragEnd}
       sensors={sensors}
     >
-      {/* Search */}
-      <div className="flex items-center gap-2 pb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, type..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8"
-          />
+      <div className="w-full">
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, type..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-8 max-w-sm"
+            />
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 bg-background">
+                <Columns2 className="w-4 h-4 mr-2" />
+                <span className="text-xs font-medium">Customize Columns</span>
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                  >
+                    {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {actionButton}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-x-auto">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -496,6 +527,7 @@ export function BackgroundTable() {
           if (!open) setSelectedReport(null);
         }}
       />
+      </div>
     </DndContext>
   );
 }
