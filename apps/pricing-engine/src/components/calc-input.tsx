@@ -88,67 +88,64 @@ export function CalcInput({ id, value, onValueChange, className, highlighted, ..
 	}
 
 	return (
-		<Input
-			id={id}
-			value={calcMode ? `=${expr}` : formatWithCommas(value)}
-			onChange={(e) => {
-				if (!calcMode) {
-					const raw = sanitizeCurrencyRaw(e.target.value)
-					onValueChange(raw)
-					return
-				}
-				const v = e.target.value
-				// Leaving calc mode if '=' removed
-				if (!v.startsWith("=")) {
-					setCalcMode(false)
-					setExpr("")
-					const raw = sanitizeCurrencyRaw(v)
-					onValueChange(raw)
-				} else {
-					setExpr(v.slice(1))
-				}
-			}}
-			onKeyDown={(e) => {
-				if (!calcMode && e.key === "=") {
-					e.preventDefault()
-					setCalcMode(true)
-					setExpr("")
-					return
-				}
-				if (calcMode && (e.key === "Enter" || e.key === "Return")) {
-					e.preventDefault()
-					resolveExpression()
-				}
-				if (calcMode && e.key === "Escape") {
-					e.preventDefault()
-					setCalcMode(false)
-					setExpr("")
-				}
-			}}
-			onBlur={() => {
-				if (calcMode) return
-				if (!value) return
-				// Ensure we clamp to 2 decimals on blur, padding if needed
-				const num = Number(value)
-				if (!Number.isNaN(num) && Number.isFinite(num)) {
-					const fixed = num.toFixed(2)
-					onValueChange(sanitizeCurrencyRaw(fixed))
-				}
-			}}
-			className={cn(
-				// Remove ring on normal focus, only show ring for calc mode or highlighted
-				!calcMode && !highlighted ? "focus-visible:ring-0 focus-visible:border-neutral-400" : "",
-			calcMode
-				? "ring-2 ring-purple-500 border-purple-500 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:border-purple-500"
-				: "",
-				!calcMode && highlighted ? "ring-1 ring-warning border-warning" : "",
-				className
-			)}
-			inputMode="decimal"
-			pattern="^[0-9]*\\.?[0-9]{0,2}$"
-			aria-label="Currency amount"
-			{...rest}
-		/>
+		<div className={cn("w-full", calcMode && "rounded-md ring-2 ring-purple-500")}>
+			<Input
+				id={id}
+				value={calcMode ? `=${expr}` : formatWithCommas(value)}
+				onChange={(e) => {
+					if (!calcMode) {
+						const raw = sanitizeCurrencyRaw(e.target.value)
+						onValueChange(raw)
+						return
+					}
+					const v = e.target.value
+					if (!v.startsWith("=")) {
+						setCalcMode(false)
+						setExpr("")
+						const raw = sanitizeCurrencyRaw(v)
+						onValueChange(raw)
+					} else {
+						setExpr(v.slice(1))
+					}
+				}}
+				onKeyDown={(e) => {
+					if (!calcMode && e.key === "=") {
+						e.preventDefault()
+						setCalcMode(true)
+						setExpr("")
+						return
+					}
+					if (calcMode && (e.key === "Enter" || e.key === "Return")) {
+						e.preventDefault()
+						resolveExpression()
+					}
+					if (calcMode && e.key === "Escape") {
+						e.preventDefault()
+						setCalcMode(false)
+						setExpr("")
+					}
+				}}
+				onBlur={() => {
+					if (calcMode) return
+					if (!value) return
+					const num = Number(value)
+					if (!Number.isNaN(num) && Number.isFinite(num)) {
+						const fixed = num.toFixed(2)
+						onValueChange(sanitizeCurrencyRaw(fixed))
+					}
+				}}
+				className={cn(
+					calcMode ? "border-transparent focus-visible:ring-0 focus-visible:border-transparent" : "",
+					!calcMode && !highlighted ? "focus-visible:ring-0 focus-visible:border-neutral-400" : "",
+					!calcMode && highlighted ? "ring-1 ring-warning border-warning" : "",
+					className,
+				)}
+				inputMode="decimal"
+				pattern="^[0-9]*\\.?[0-9]{0,2}$"
+				aria-label="Currency amount"
+				{...rest}
+			/>
+		</div>
 	)
 }
 
