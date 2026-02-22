@@ -1050,6 +1050,7 @@ export default function PricingEnginePage() {
   const [openAccordionSections, setOpenAccordionSections] = useState<string[]>([])
   const [extraFormValues, setExtraFormValues] = useState<Record<string, unknown>>({})
   const [sectionButtons, setSectionButtons] = useState<SectionButton[]>([])
+  const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, { id: string; label: string }[]>>({})
 
   useEffect(() => {
     let active = true
@@ -1115,6 +1116,37 @@ export default function PricingEnginePage() {
     })()
     return () => { active = false }
   }, [initialLoanId])
+
+  // Fetch linked records for inputs with linked_table
+  useEffect(() => {
+    const linkedInputs = peInputDefs.filter((inp) => inp.linked_table)
+    if (linkedInputs.length === 0) return
+    let cancelled = false
+    const tableColumnPairs = new Map<string, string | null>()
+    for (const inp of linkedInputs) {
+      if (!tableColumnPairs.has(inp.linked_table!)) {
+        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null)
+      }
+    }
+    ;(async () => {
+      const results: Record<string, { id: string; label: string }[]> = {}
+      await Promise.all(
+        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
+          try {
+            const params = new URLSearchParams({ table })
+            if (column) params.set("expression", column)
+            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
+            const data = await res.json()
+            if (!cancelled && Array.isArray(data.records)) {
+              results[table] = data.records
+            }
+          } catch { /* ignore */ }
+        }),
+      )
+      if (!cancelled) setLinkedRecordsByTable(results)
+    })()
+    return () => { cancelled = true }
+  }, [peInputDefs])
 
   // Map input_code → input_id for the logic engine
   const codeToIdMap = useMemo(() => {
@@ -3239,6 +3271,7 @@ export default function PricingEnginePage() {
                                       touched={!!touched[field.input_code]}
                                       formValues={formValuesMerged}
                                       signalColor={signalColors[field.input_code] ?? null}
+                                      linkedRecords={field.linked_table ? linkedRecordsByTable[field.linked_table] : undefined}
                                     />
                                   </div>
                                 )

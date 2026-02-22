@@ -228,13 +228,6 @@ export function InputsSettings() {
     return () => { cancelled = true; };
   }, [newLinkedTable]);
 
-  // When a linked table is selected, always set input type to "dropdown"
-  useEffect(() => {
-    if (newLinkedTable) {
-      setNewInputType("dropdown");
-    }
-  }, [newLinkedTable]);
-
   // Native drag-and-drop for reordering dropdown option tags
   const dragTagIdx = useRef<number | null>(null);
 
@@ -921,7 +914,6 @@ export function InputsSettings() {
                             <Select
                               value={newInputType}
                               onValueChange={setNewInputType}
-                              disabled={!!newLinkedTable}
                             >
                               <SelectTrigger className="h-8 text-sm">
                                 <SelectValue placeholder="Select type..." />
@@ -934,9 +926,6 @@ export function InputsSettings() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            {newLinkedTable && (
-                              <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
-                            )}
                           </div>
 
                           {newInputType === "boolean" && (
@@ -1283,7 +1272,6 @@ export function InputsSettings() {
                         <Select
                           value={newInputType}
                           onValueChange={setNewInputType}
-                          disabled={!!newLinkedTable}
                         >
                           <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Select type..." />
@@ -1296,9 +1284,6 @@ export function InputsSettings() {
                             ))}
                           </SelectContent>
                         </Select>
-                        {newLinkedTable && (
-                          <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
-                        )}
                       </div>
 
                       {newInputType === "boolean" && (

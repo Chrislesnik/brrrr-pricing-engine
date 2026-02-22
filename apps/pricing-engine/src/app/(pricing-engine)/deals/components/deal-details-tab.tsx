@@ -27,6 +27,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
+import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -406,10 +407,10 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
 
   /** Render an edit control based on input_type */
   const renderEditControl = (field: InputField, rawValue: unknown) => {
-    // For linked inputs: render a dropdown of records from the linked table
+    // For linked inputs: render a searchable text input with autocomplete from linked records
     if (field.linked_table) {
       const records = linkedRecordsByTable[field.linked_table] ?? [];
-      const selectedPk = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
+      const currentVal = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
 
       if (loadingLinkedRecords) {
         return (
@@ -420,34 +421,14 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         );
       }
 
-      if (records.length === 0) {
-        return (
-          <div className="text-xs text-muted-foreground py-2 flex items-center gap-1">
-            <Link2 className="size-3" />
-            No {field.linked_table.replace(/_/g, " ")} found
-          </div>
-        );
-      }
-
       return (
-        <Select
-          value={selectedPk || undefined}
-          onValueChange={(val) => updateValue(field.id, val)}
-        >
-          <SelectTrigger className="text-sm">
-            <div className="flex items-center gap-1.5">
-              <Link2 className="size-3 text-indigo-500 shrink-0" />
-              <SelectValue placeholder={`Select ${field.linked_table.replace(/_/g, " ")}...`} />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            {records.map((rec) => (
-              <SelectItem key={rec.id} value={rec.id}>
-                {rec.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <LinkedAutocompleteInput
+          value={currentVal}
+          onChange={(val) => updateValue(field.id, val)}
+          records={records}
+          placeholder={`Search ${field.linked_table.replace(/_/g, " ")}...`}
+          className="text-sm"
+        />
       );
     }
 

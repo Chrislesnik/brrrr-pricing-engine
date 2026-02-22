@@ -270,13 +270,6 @@ export function PricingEngineLayoutSettings() {
     return () => { cancelled = true; };
   }, [newLinkedTable]);
 
-  // When a linked table is selected, set input type to "dropdown"
-  useEffect(() => {
-    if (newLinkedTable) {
-      setNewInputType("dropdown");
-    }
-  }, [newLinkedTable]);
-
   const dragTagIdx = useRef<number | null>(null);
 
   // Delete confirmation state
@@ -1245,7 +1238,6 @@ export function PricingEngineLayoutSettings() {
                             <Select
                               value={newInputType}
                               onValueChange={setNewInputType}
-                              disabled={!!newLinkedTable}
                             >
                               <SelectTrigger className="h-8 text-sm">
                                 <SelectValue placeholder="Select type..." />
@@ -1258,9 +1250,6 @@ export function PricingEngineLayoutSettings() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            {newLinkedTable && (
-                              <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
-                            )}
                           </div>
 
                           {newInputType === "boolean" && (
@@ -1582,7 +1571,6 @@ export function PricingEngineLayoutSettings() {
                         <Select
                           value={newInputType}
                           onValueChange={setNewInputType}
-                          disabled={!!newLinkedTable}
                         >
                           <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Select type..." />
@@ -1595,9 +1583,6 @@ export function PricingEngineLayoutSettings() {
                             ))}
                           </SelectContent>
                         </Select>
-                        {newLinkedTable && (
-                          <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
-                        )}
                       </div>
 
                       {newInputType === "boolean" && (

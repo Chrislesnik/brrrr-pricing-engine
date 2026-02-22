@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { IconInfoCircle } from "@tabler/icons-react"
 import { MinusIcon, PlusIcon, SearchIcon } from "lucide-react"
 import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
@@ -27,6 +27,7 @@ import { resolveNumberConstraints } from "@/lib/resolve-number-constraints"
 import type { NumberConstraintsConfig } from "@/types/number-constraints"
 import { NUMERIC_INPUT_TYPES } from "@/types/number-constraints"
 import { AddressAutocomplete } from "@/components/address-autocomplete"
+import { LinkedAutocompleteInput, type LinkedRecord } from "@/components/linked-autocomplete-input"
 
 export interface PEInputField {
   id: string | number
@@ -38,6 +39,8 @@ export interface PEInputField {
   placeholder?: string | null
   default_value?: string | null
   config?: Record<string, unknown> | null
+  linked_table?: string | null
+  linked_column?: string | null
   layout_row: number
   layout_width: string
 }
@@ -63,6 +66,7 @@ interface DynamicPEInputProps {
   touched?: boolean
   formValues?: Record<string, unknown>
   signalColor?: string | null
+  linkedRecords?: LinkedRecord[]
 }
 
 export function DynamicPEInput({
@@ -77,6 +81,7 @@ export function DynamicPEInput({
   touched,
   formValues,
   signalColor,
+  linkedRecords,
 }: DynamicPEInputProps) {
   const id = `pe-${field.input_code}`
   const placeholder = field.placeholder ?? ""
@@ -153,6 +158,7 @@ export function DynamicPEInput({
           minValue={constraints?.min}
           maxValue={constraints?.max}
           stepValue={constraints?.step}
+          linkedRecords={linkedRecords}
         />
       </div>
     </div>
@@ -171,6 +177,7 @@ function InputControl({
   minValue,
   maxValue,
   stepValue,
+  linkedRecords,
 }: {
   field: PEInputField
   id: string
@@ -183,17 +190,26 @@ function InputControl({
   minValue?: number | null
   maxValue?: number | null
   stepValue?: number | null
+  linkedRecords?: LinkedRecord[]
 }) {
+  const hasLinkedRecords = field.linked_table && linkedRecords && linkedRecords.length > 0
+
+  // When showing a default, render the value as a placeholder so the user can just start typing
+  const rawVal = String(value ?? "")
+  const effectiveValue = isDefault ? "" : rawVal
+  const effectivePlaceholder = isDefault ? rawVal || placeholder : placeholder
+  const computedClass = isComputed ? "bg-blue-50 dark:bg-blue-950/30" : undefined
+
   switch (field.input_type) {
     case "text":
       if (field.config?.address_role === "street") {
         return (
           <AddressAutocomplete
             id={id}
-            value={String(value ?? "")}
+            value={effectiveValue}
             displayValue="street"
-            placeholder={placeholder || "Start typing an address..."}
-            className={cn(isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}
+            placeholder={effectivePlaceholder || "Start typing an address..."}
+            className={cn(computedClass)}
             onChange={(addr) => {
               onChange(addr.address_line1 ?? addr.raw)
               onAddressSelect?.({
@@ -208,24 +224,48 @@ function InputControl({
           />
         )
       }
+      if (hasLinkedRecords) {
+        return (
+          <LinkedAutocompleteInput
+            id={id}
+            value={effectiveValue}
+            onChange={(v) => onChange(v)}
+            records={linkedRecords!}
+            placeholder={effectivePlaceholder || "Type to search..."}
+            className={cn(computedClass)}
+          />
+        )
+      }
       return (
         <Input
           id={id}
-          value={String(value ?? "")}
+          value={effectiveValue}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={cn(isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}
+          placeholder={effectivePlaceholder}
+          className={cn(computedClass)}
         />
       )
 
     case "dropdown":
+      if (hasLinkedRecords) {
+        return (
+          <LinkedAutocompleteInput
+            id={id}
+            value={effectiveValue}
+            onChange={(v) => onChange(v)}
+            records={linkedRecords!}
+            placeholder={effectivePlaceholder || "Type to search..."}
+            className={cn(computedClass)}
+          />
+        )
+      }
       return (
         <Select
-          value={String(value ?? "")}
+          value={isDefault ? "" : String(value ?? "")}
           onValueChange={(v) => onChange(v)}
         >
-          <SelectTrigger id={id} className={cn(isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}>
-            <SelectValue placeholder={placeholder || "Select..."} />
+          <SelectTrigger id={id} className={cn(computedClass)}>
+            <SelectValue placeholder={effectivePlaceholder || "Select..."} />
           </SelectTrigger>
           <SelectContent>
             {(field.dropdown_options ?? []).map((opt) => (
@@ -238,7 +278,7 @@ function InputControl({
       )
 
     case "number":
-      return <NumberInput id={id} value={value} onChange={onChange} placeholder={placeholder} isDefault={isDefault} isComputed={isComputed} minValue={minValue} maxValue={maxValue} stepValue={stepValue} />
+      return <NumberInput id={id} value={isDefault ? undefined : value} onChange={onChange} placeholder={effectivePlaceholder} isDefault={isDefault} isComputed={isComputed} minValue={minValue} maxValue={maxValue} stepValue={stepValue} />
 
     case "currency":
     case "calc_currency":
@@ -247,8 +287,8 @@ function InputControl({
           <span className="pointer-events-none absolute left-3 text-sm text-muted-foreground z-10">$</span>
           <CalcInput
             id={id}
-            placeholder={placeholder || "0.00"}
-            value={String(value ?? "")}
+            placeholder={effectivePlaceholder || "0.00"}
+            value={effectiveValue}
             onValueChange={(v) => {
               const n = Number(v)
               if (v !== "" && Number.isFinite(n)) {
@@ -259,7 +299,7 @@ function InputControl({
               }
               onChange(v)
             }}
-            className={cn("pl-6 w-full", isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}
+            className={cn("pl-6 w-full", computedClass)}
           />
         </div>
       )
@@ -273,7 +313,7 @@ function InputControl({
             step={stepValue ?? 0.01}
             min={minValue ?? 0}
             max={maxValue ?? 100}
-            value={String(value ?? "")}
+            value={effectiveValue}
             onChange={(e) => {
               const v = e.target.value
               const n = Number(v)
@@ -285,8 +325,8 @@ function InputControl({
               }
               onChange(v)
             }}
-            placeholder={placeholder || "0.00"}
-            className={cn("pr-8", isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}
+            placeholder={effectivePlaceholder || "0.00"}
+            className={cn("pr-8", computedClass)}
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
             %
@@ -373,7 +413,7 @@ function InputControl({
     }
 
     case "tags":
-      return <TagsControl id={id} value={value} onChange={onChange} placeholder={placeholder} />
+      return <TagsControl id={id} value={isDefault ? [] : value} onChange={onChange} placeholder={effectivePlaceholder || placeholder} linkedRecords={hasLinkedRecords ? linkedRecords : undefined} />
 
     case "table":
       return (
@@ -383,13 +423,23 @@ function InputControl({
       )
 
     default:
+      if (hasLinkedRecords) {
+        return (
+          <LinkedAutocompleteInput
+            id={id}
+            value={effectiveValue}
+            onChange={(v) => onChange(v)}
+            records={linkedRecords!}
+            placeholder={effectivePlaceholder || "Type to search..."}
+          />
+        )
+      }
       return (
         <Input
           id={id}
-          value={String(value ?? "")}
+          value={effectiveValue}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={cn(isDefault && "text-muted-foreground")}
+          placeholder={effectivePlaceholder}
         />
       )
   }
@@ -434,10 +484,7 @@ function NumberInput({
         <AriaInput
           id={id}
           placeholder={placeholder}
-          className={cn(
-            "w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground",
-            isDefault && "text-muted-foreground"
-          )}
+          className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
         />
         <AriaButton
           slot="decrement"
@@ -479,7 +526,7 @@ function DatePickerControl({
         <DateInput
           value={validDate}
           onChange={(d) => onChange(d)}
-          className={cn(isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}
+          className={cn(isComputed && "bg-blue-50 dark:bg-blue-950/30")}
         />
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
@@ -503,47 +550,139 @@ function TagsControl({
   value,
   onChange,
   placeholder,
+  linkedRecords,
 }: {
   id: string
   value: unknown
   onChange: (val: unknown) => void
   placeholder: string
+  linkedRecords?: LinkedRecord[]
 }) {
   const [inputVal, setInputVal] = useState("")
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const pointerInMenuRef = useRef(false)
   const tags: string[] = Array.isArray(value) ? value.map(String) : typeof value === "string" && value ? [value] : []
 
+  const suggestions = useMemo(() => {
+    if (!linkedRecords || linkedRecords.length === 0) return []
+    const q = inputVal.trim().toLowerCase()
+    const tagSet = new Set(tags.map((t) => t.toLowerCase()))
+    return linkedRecords.filter(
+      (r) => !tagSet.has(r.label.toLowerCase()) && (!q || r.label.toLowerCase().includes(q)),
+    )
+  }, [linkedRecords, inputVal, tags])
+
+  const addTag = (label: string) => {
+    onChange([...tags, label])
+    setInputVal("")
+    setShowSuggestions(false)
+    setActiveIdx(-1)
+  }
+
+  const hasLinked = linkedRecords && linkedRecords.length > 0
+  const linkedLabelSet = useMemo(() => {
+    if (!hasLinked) return new Set<string>()
+    return new Set(linkedRecords!.map((r) => r.label.toLowerCase()))
+  }, [hasLinked, linkedRecords])
+
   return (
-    <TagsInput
-      value={tags}
-      onValueChange={(newValues) => onChange(newValues)}
-      className="w-full"
-    >
-      <TagsInputList className="min-h-9 px-3 py-1 overflow-x-auto overflow-y-hidden flex-nowrap">
-        <SearchIcon className="size-4 text-muted-foreground mr-1 shrink-0" />
-        {tags.map((tag, idx) => (
-          <TagsInputItem
-            key={`${tag}-${idx}`}
-            value={tag}
-            className="text-xs px-1.5 py-0.5 shrink-0"
-          >
-            {tag}
-          </TagsInputItem>
-        ))}
-        <TagsInputInput
-          id={id}
-          placeholder={tags.length === 0 ? (placeholder || "Type and press Enter") : ""}
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && inputVal.trim()) {
-              e.preventDefault()
-              onChange([...tags, inputVal.trim()])
-              setInputVal("")
-            }
-          }}
-          autoComplete="off"
-        />
-      </TagsInputList>
-    </TagsInput>
+    <div className="relative">
+      <TagsInput
+        value={tags}
+        onValueChange={(newValues) => onChange(newValues)}
+        className="w-full"
+      >
+        <TagsInputList className="min-h-9 px-3 py-1 overflow-x-auto overflow-y-hidden flex-nowrap">
+          <SearchIcon className="size-4 mr-1 shrink-0 text-muted-foreground" />
+          {tags.map((tag, idx) => {
+            const isLinked = linkedLabelSet.has(tag.toLowerCase())
+            return (
+              <TagsInputItem
+                key={`${tag}-${idx}`}
+                value={tag}
+                className={cn(
+                  "text-xs px-1.5 py-0.5 shrink-0",
+                  isLinked && "ring-2 ring-blue-500",
+                )}
+              >
+                {tag}
+              </TagsInputItem>
+            )
+          })}
+          <TagsInputInput
+            id={id}
+            placeholder={tags.length === 0 ? (placeholder || "Type and press Enter") : ""}
+            value={inputVal}
+            onChange={(e) => {
+              setInputVal(e.target.value)
+              if (linkedRecords && linkedRecords.length > 0) {
+                setShowSuggestions(true)
+                setActiveIdx(-1)
+              }
+            }}
+            onFocus={() => {
+              if (linkedRecords && linkedRecords.length > 0) setShowSuggestions(true)
+            }}
+            onBlur={() => {
+              setTimeout(() => {
+                if (!pointerInMenuRef.current) setShowSuggestions(false)
+              }, 0)
+            }}
+            onKeyDown={(e) => {
+              if (showSuggestions && suggestions.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault()
+                  setActiveIdx((idx) => Math.min(idx + 1, suggestions.length - 1))
+                  return
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault()
+                  setActiveIdx((idx) => Math.max(idx - 1, 0))
+                  return
+                }
+                if (e.key === "Enter" && activeIdx >= 0) {
+                  e.preventDefault()
+                  addTag(suggestions[activeIdx].label)
+                  return
+                }
+                if (e.key === "Escape") {
+                  setShowSuggestions(false)
+                  return
+                }
+              }
+              if (e.key === "Enter" && inputVal.trim()) {
+                e.preventDefault()
+                addTag(inputVal.trim())
+              }
+            }}
+            autoComplete="off"
+          />
+        </TagsInputList>
+      </TagsInput>
+      {showSuggestions && suggestions.length > 0 && (
+        <div
+          className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow max-h-48 overflow-y-auto"
+          role="listbox"
+          onMouseDown={() => (pointerInMenuRef.current = true)}
+          onMouseUp={() => (pointerInMenuRef.current = false)}
+        >
+          {suggestions.map((rec, idx) => (
+            <button
+              key={rec.id}
+              type="button"
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent",
+                idx === activeIdx && "bg-accent",
+              )}
+              onMouseEnter={() => setActiveIdx(idx)}
+              onClick={() => addTag(rec.label)}
+            >
+              <span className="truncate">{rec.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

@@ -35,6 +35,7 @@ import {
 } from "@repo/ui/shadcn/select"
 import { DatePickerField } from "@/components/date-picker-field"
 import { CalcInput } from "@/components/calc-input"
+import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input"
 import { Switch } from "@/components/ui/switch"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -480,52 +481,27 @@ function DynamicInput({
       )
 
     case "dropdown": {
-      // Linked table dropdown — options come from the database
       if (field.linked_table) {
-        if (loadingLinked) {
-          return (
-            <div className="space-y-2">
-              <Label>
-                {field.input_label}
-                {isRequired && <span className="ml-1 text-destructive">*</span>}
-              </Label>
-              <Select disabled>
-                <SelectTrigger className={computedClass}>
-                  <SelectValue placeholder="Loading..." />
-                </SelectTrigger>
-                <SelectContent />
-              </Select>
-            </div>
-          )
-        }
-
         return (
           <div className="space-y-2">
             <Label>
               {field.input_label}
               {isRequired && <span className="ml-1 text-destructive">*</span>}
             </Label>
-            <Select
-              value={stringVal || undefined}
-              onValueChange={(val) => onChange(val)}
-            >
-              <SelectTrigger className={computedClass}>
-                <SelectValue placeholder={`Select ${field.linked_table.replace(/_/g, " ")}...`} />
-              </SelectTrigger>
-              <SelectContent>
-                {linkedRecords.length === 0 ? (
-                  <SelectItem value="__empty" disabled>
-                    No records found
-                  </SelectItem>
-                ) : (
-                  linkedRecords.map((rec) => (
-                    <SelectItem key={rec.id} value={rec.id}>
-                      {rec.label}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            {loadingLinked ? (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
+                <Loader2 className="size-3 animate-spin" />
+                Loading...
+              </div>
+            ) : (
+              <LinkedAutocompleteInput
+                value={stringVal}
+                onChange={(val) => onChange(val)}
+                records={linkedRecords}
+                placeholder={`Search ${field.linked_table.replace(/_/g, " ")}...`}
+                className={computedClass}
+              />
+            )}
           </div>
         )
       }
