@@ -19,21 +19,45 @@ const AccordionItem = React.forwardRef<
 ))
 AccordionItem.displayName = "AccordionItem"
 
+type AccordionTriggerProps = React.ComponentPropsWithoutRef<
+  typeof AccordionPrimitive.Trigger
+> & {
+  /** Render the trigger as a <div> so it can contain nested <button> elements. */
+  asDiv?: boolean
+}
+
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  AccordionTriggerProps
+>(({ className, children, asDiv, ...props }, ref) => (
   <AccordionPrimitive.Header className="flex flex-1">
     <AccordionPrimitive.Trigger
       ref={ref}
-      className={cn(
+      {...(asDiv ? { asChild: true } : {})}
+      className={asDiv ? undefined : cn(
         "flex flex-1 items-center justify-between py-4 text-left text-sm font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
         className
       )}
       {...props}
     >
-      {children}
-      <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200" />
+      {asDiv ? (
+        <div
+          role="button"
+          tabIndex={0}
+          className={cn(
+            "flex flex-1 items-center justify-between py-4 text-left text-sm font-medium transition-all [&[data-state=open]_.accordion-chevron]:rotate-180 cursor-pointer",
+            className
+          )}
+        >
+          {children}
+          <ChevronDown className="accordion-chevron text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200" />
+        </div>
+      ) : (
+        <>
+          {children}
+          <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200" />
+        </>
+      )}
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
 ))

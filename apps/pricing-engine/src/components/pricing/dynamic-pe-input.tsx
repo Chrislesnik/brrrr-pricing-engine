@@ -19,6 +19,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CalcInput } from "@/components/calc-input"
 import { TagsInput, TagsInputList, TagsInputInput, TagsInputItem } from "@/components/ui/tags-input"
+import { Switch } from "@/components/ui/switch"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { resolveNumberConstraints } from "@/lib/resolve-number-constraints"
 import type { NumberConstraintsConfig } from "@/types/number-constraints"
@@ -239,7 +242,65 @@ function InputControl({
     case "date":
       return <DatePickerControl id={id} value={value} onChange={onChange} isDefault={isDefault} isComputed={isComputed} />
 
-    case "boolean":
+    case "boolean": {
+      const boolDisplay = (field.config?.boolean_display as string) ?? "dropdown"
+      const boolVal = value === "Yes" || value === true || value === "true"
+
+      if (boolDisplay === "switch") {
+        return (
+          <div className="flex h-9 items-center">
+            <div className="relative inline-grid h-8 grid-cols-[1fr_1fr] items-center text-sm font-medium">
+              <Switch
+                id={id}
+                checked={boolVal}
+                onCheckedChange={(checked) => onChange(checked ? "Yes" : "No")}
+                className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
+              />
+              <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
+                <span className="text-[10px] font-medium uppercase">No</span>
+              </span>
+              <span className="peer-data-[state=checked]:text-background pointer-events-none relative mr-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:-translate-x-full peer-data-[state=unchecked]:invisible peer-data-[state=checked]:rtl:translate-x-full">
+                <span className="text-[10px] font-medium uppercase">Yes</span>
+              </span>
+            </div>
+          </div>
+        )
+      }
+
+      if (boolDisplay === "radio") {
+        return (
+          <RadioGroup
+            value={boolVal ? "Yes" : "No"}
+            onValueChange={(v) => onChange(v)}
+            className="flex items-center gap-4 py-1"
+          >
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="Yes" id={`${id}-yes`} />
+              <Label htmlFor={`${id}-yes`} className="text-sm">Yes</Label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="No" id={`${id}-no`} />
+              <Label htmlFor={`${id}-no`} className="text-sm">No</Label>
+            </div>
+          </RadioGroup>
+        )
+      }
+
+      if (boolDisplay === "checkbox") {
+        return (
+          <div className="flex items-center gap-2 py-1">
+            <Checkbox
+              id={id}
+              checked={boolVal}
+              onCheckedChange={(checked) => onChange(checked ? "Yes" : "No")}
+            />
+            <Label htmlFor={id} className="text-sm">
+              Yes
+            </Label>
+          </div>
+        )
+      }
+
       return (
         <Select
           value={String(value ?? "")}
@@ -254,6 +315,7 @@ function InputControl({
           </SelectContent>
         </Select>
       )
+    }
 
     case "tags":
       return <TagsControl id={id} value={value} onChange={onChange} placeholder={placeholder} />

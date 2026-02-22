@@ -17,6 +17,7 @@ type ColorPickerProps = {
   onValueChange?: (value: string) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  inline?: boolean
   defaultFormat?: "rgba" | "hsla"
   children: React.ReactNode
   className?: string
@@ -27,6 +28,7 @@ function ColorPicker({
   onValueChange,
   open,
   onOpenChange,
+  inline,
   defaultFormat = "rgba",
   children,
   className,
@@ -40,6 +42,10 @@ function ColorPicker({
     }
   }, [value])
 
+  const openProps: Record<string, unknown> = {}
+  if (open !== undefined) openProps.open = open
+  if (onOpenChange) openProps.onOpenChange = (details: { open: boolean }) => onOpenChange(details.open)
+
   return (
     <ArkColorPicker.Root
       value={parsed}
@@ -50,14 +56,12 @@ function ColorPicker({
           onValueChange?.(details.valueAsString)
         }
       }}
-      open={open}
-      onOpenChange={(details) => onOpenChange?.(details.open)}
       defaultFormat={defaultFormat}
       className={className}
+      inline={inline}
+      {...openProps}
     >
-      <ArkColorPicker.Control className="flex items-center gap-2">
-        {children}
-      </ArkColorPicker.Control>
+      {children}
       <ArkColorPicker.HiddenInput />
     </ArkColorPicker.Root>
   )
@@ -100,6 +104,26 @@ const ColorPickerContent = React.forwardRef<
   </ArkColorPicker.Positioner>
 ))
 ColorPickerContent.displayName = "ColorPickerContent"
+
+function ColorPickerInlineContent({
+  className,
+  children,
+}: {
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <ArkColorPicker.Content
+      className={cn(
+        "w-full rounded-lg border bg-popover p-3 shadow-sm outline-none",
+        "flex flex-col gap-3",
+        className,
+      )}
+    >
+      {children}
+    </ArkColorPicker.Content>
+  )
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Area (2-D saturation / lightness canvas)                                   */
@@ -214,6 +238,7 @@ export {
   ColorPicker,
   ColorPickerTrigger,
   ColorPickerContent,
+  ColorPickerInlineContent,
   ColorPickerArea,
   ColorPickerHueSlider,
   ColorPickerAlphaSlider,

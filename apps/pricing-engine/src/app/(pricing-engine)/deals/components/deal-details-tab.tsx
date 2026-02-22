@@ -27,6 +27,10 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
+import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@repo/ui/shadcn/label";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -54,6 +58,7 @@ interface InputField {
   input_label: string;
   input_type: string;
   dropdown_options: string[] | null;
+  config?: Record<string, unknown> | null;
   starred: boolean;
   display_order: number;
   created_at: string;
@@ -574,7 +579,52 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
           </div>
         );
 
-      case "boolean":
+      case "boolean": {
+        const boolDisplay = (field.config?.boolean_display as string) ?? "dropdown";
+
+        if (boolDisplay === "switch") {
+          return (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={boolVal}
+                onCheckedChange={(checked) => updateValue(field.id, checked)}
+              />
+              <span className="text-sm text-muted-foreground">{boolVal ? "Yes" : "No"}</span>
+            </div>
+          );
+        }
+
+        if (boolDisplay === "radio") {
+          return (
+            <RadioGroup
+              value={boolVal ? "true" : "false"}
+              onValueChange={(val) => updateValue(field.id, val === "true")}
+              className="flex items-center gap-4"
+            >
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="true" id={`${field.id}-yes`} />
+                <Label htmlFor={`${field.id}-yes`} className="text-sm">Yes</Label>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="false" id={`${field.id}-no`} />
+                <Label htmlFor={`${field.id}-no`} className="text-sm">No</Label>
+              </div>
+            </RadioGroup>
+          );
+        }
+
+        if (boolDisplay === "checkbox") {
+          return (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={boolVal}
+                onCheckedChange={(checked) => updateValue(field.id, !!checked)}
+              />
+              <Label className="text-sm">Yes</Label>
+            </div>
+          );
+        }
+
         return (
           <Select
             value={boolVal ? "true" : "false"}
@@ -589,6 +639,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
             </SelectContent>
           </Select>
         );
+      }
 
       default:
         return (

@@ -1304,11 +1304,11 @@ export default function PricingEnginePage() {
 
   function getDynWidthClass(width: string): string {
     switch (width) {
-      case "100": return "w-full"
-      case "75": return "w-3/4"
-      case "50": return "w-1/2"
-      case "25": return "w-1/4"
-      default: return "w-1/2"
+      case "100": return "col-span-4"
+      case "75": return "col-span-3"
+      case "50": return "col-span-2"
+      case "25": return "col-span-1"
+      default: return "col-span-2"
     }
   }
 
@@ -3048,7 +3048,7 @@ export default function PricingEnginePage() {
 
                   return (
                     <AccordionItem key={cat.id} value={`pe-cat-${cat.id}`} className="border-b">
-                      <AccordionTrigger className="text-left text-base font-bold italic hover:no-underline">
+                      <AccordionTrigger asDiv className="text-left text-base font-bold italic hover:no-underline">
                         <div className="flex items-center gap-2 flex-1">
                           <span className="hover:underline">{cat.category}</span>
                           {catButtons.length > 0 && (
@@ -3076,7 +3076,7 @@ export default function PricingEnginePage() {
                       <AccordionContent>
                         <div className="space-y-3">
                           {rows.map((row) => (
-                            <div key={row.rowIndex} className="flex gap-4">
+                            <div key={row.rowIndex} className="grid grid-cols-4 gap-4">
                               {row.items.map((field) => {
                                 if (field.input_type === "table") {
                                   const tc = field.config as Record<string, unknown> | null | undefined
@@ -3085,8 +3085,6 @@ export default function PricingEnginePage() {
                                   if (hasTableConfig) {
                                     const tableConf = tc as unknown as TableConfig
                                     const linkedCode = tableConf.row_source.type === "input" ? tableConf.row_source.input_code : undefined
-                                    // Resolve row count from the linked input. Check formValues first,
-                                    // then extraFormValues, then the raw DynamicPEInput value for that code.
                                     let linkedVal: number | undefined
                                     if (linkedCode) {
                                       const raw = formValues[linkedCode] ?? extraFormValues[linkedCode]
@@ -3096,7 +3094,7 @@ export default function PricingEnginePage() {
                                     const tableData = (extraFormValues[field.input_code] as Record<string, unknown>[] | undefined) ?? []
 
                                     return (
-                                      <div key={String(field.id)} className="w-full">
+                                      <div key={String(field.id)} className="col-span-4">
                                         <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
                                         <ConfigurableGrid
                                           config={tableConf}
@@ -3109,7 +3107,7 @@ export default function PricingEnginePage() {
                                   }
 
                                   return (
-                                    <div key={String(field.id)} className="w-full">
+                                    <div key={String(field.id)} className="col-span-4">
                                       <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
                                       <LeasedUnitsGrid
                                         data={unitData}
@@ -3363,8 +3361,13 @@ function SectionActionButton({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
               })
-              if (!res.ok) throw new Error(`Failed (${res.status})`)
-              const data = await res.json()
+              if (!res.ok) {
+                const errBody = await res.text().catch(() => "")
+                let detail = ""
+                try { detail = JSON.parse(errBody)?.error ?? errBody } catch { detail = errBody }
+                throw new Error(detail || `Request failed (${res.status})`)
+              }
+              const data = await res.json().catch(() => ({}))
               if (data.inputs && typeof data.inputs === "object" && onApplyInputs) {
                 onApplyInputs(data.inputs as Record<string, unknown>, btn.signal_color ?? null)
               }
@@ -3373,11 +3376,16 @@ function SectionActionButton({
           )
           const anyFailed = results.some((r) => r.status === "rejected")
           if (anyFailed) {
-            toast({ title: "Partial failure", description: `Some actions for "${btn.label}" failed.`, variant: "destructive" })
+            const errors = results
+              .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+              .map((r) => r.reason?.message ?? "Unknown")
+            console.error(`[SectionActionButton] "${btn.label}" partial failure:`, errors)
+            toast({ title: "Action failed", description: errors.join("; "), variant: "destructive" })
           } else {
             toast({ title: "Sent", description: `${btn.label} executed successfully.` })
           }
         } catch (err) {
+          console.error(`[SectionActionButton] "${btn.label}" error:`, err)
           const message = err instanceof Error ? err.message : "Unknown error"
           toast({ title: "Action failed", description: message, variant: "destructive" })
         } finally {

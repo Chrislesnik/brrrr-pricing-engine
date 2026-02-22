@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/signature-requests/webhook",
   "/api/vapi/webhook",
+  "/api/workflows/:workflowId/webhook",
 ])
 
 const middleware = clerkMiddleware(async (auth, req) => {

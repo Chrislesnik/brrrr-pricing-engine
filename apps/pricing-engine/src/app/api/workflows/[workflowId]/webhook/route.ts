@@ -1,18 +1,36 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { getOrgUuidFromClerkId } from "@/lib/orgs";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { executeWorkflow } from "@/lib/workflow-executor";
+
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 type RouteContext = { params: Promise<{ workflowId: string }> };
 
 /**
  * POST /api/workflows/[workflowId]/webhook
  *
- * Public webhook endpoint. Receives a JSON payload, executes the workflow
+ * Webhook endpoint. Receives a JSON payload, executes the workflow
  * synchronously, and returns the HTTP response configured by a
  * "Respond to Webhook" node (or a default 200).
  */
 export async function POST(request: Request, context: RouteContext) {
   const { workflowId } = await context.params;
+
+  // Try to resolve authenticated user/org; fall back to nil UUID for external callers
+  let userId = NIL_UUID;
+  let orgUuid = NIL_UUID;
+  try {
+    const a = await auth();
+    if (a.userId) userId = a.userId;
+    if (a.orgId) {
+      const resolved = await getOrgUuidFromClerkId(a.orgId);
+      if (resolved) orgUuid = resolved;
+    }
+  } catch {
+    // Not authenticated — use nil UUID defaults
+  }
 
   try {
     const { data: action, error: actionErr } = await supabaseAdmin
@@ -40,8 +58,8 @@ export async function POST(request: Request, context: RouteContext) {
       .from("workflow_executions")
       .insert({
         workflow_id: workflowId,
-        user_id: "webhook",
-        organization_id: "webhook",
+        user_id: userId,
+        organization_id: orgUuid,
         status: "running",
         input: body,
         started_at: new Date().toISOString(),

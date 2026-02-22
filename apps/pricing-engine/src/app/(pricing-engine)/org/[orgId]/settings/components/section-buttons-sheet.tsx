@@ -21,12 +21,10 @@ import { Switch } from "@repo/ui/shadcn/switch";
 import {
   ColorPicker,
   ColorPickerArea,
-  ColorPickerContent,
+  ColorPickerInlineContent,
   ColorPickerEyeDropper,
   ColorPickerHueSlider,
   ColorPickerInput,
-  ColorPickerSwatch,
-  ColorPickerTrigger,
 } from "@repo/ui/shadcn/color-picker";
 import {
   Sheet,
@@ -743,6 +741,7 @@ function SignalColorPicker({
   onChange: (color: string | null) => void;
 }) {
   const [color, setColor] = useState(value || "#3b82f6");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleColorChange = useCallback(
     (newColor: string) => {
@@ -754,23 +753,39 @@ function SignalColorPicker({
 
   const onReset = useCallback(() => {
     onChange(null);
+    setPickerOpen(false);
   }, [onChange]);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <ColorPicker value={color} onValueChange={handleColorChange}>
-          <ColorPickerTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 h-8 text-xs"
-            >
-              <ColorPickerSwatch className="size-4" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 h-8 text-xs"
+          onClick={() => setPickerOpen((o) => !o)}
+        >
+          {pickerOpen ? (
+            "Close"
+          ) : (
+            <>
+              <span
+                className="size-4 rounded-sm border shadow-sm shrink-0"
+                style={{ backgroundColor: color }}
+              />
               Pick Color
-            </Button>
-          </ColorPickerTrigger>
-          <ColorPickerContent>
+            </>
+          )}
+        </Button>
+
+        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onReset}>
+          Reset
+        </Button>
+      </div>
+
+      {pickerOpen && (
+        <ColorPicker value={color} onValueChange={handleColorChange} inline>
+          <ColorPickerInlineContent>
             <ColorPickerArea />
             <div className="flex items-center gap-2">
               <ColorPickerEyeDropper />
@@ -779,13 +794,9 @@ function SignalColorPicker({
               </div>
             </div>
             <ColorPickerInput />
-          </ColorPickerContent>
+          </ColorPickerInlineContent>
         </ColorPicker>
-
-        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onReset}>
-          Reset
-        </Button>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {PRESET_COLORS.map((presetColor) => (

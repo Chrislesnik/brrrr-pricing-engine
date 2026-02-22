@@ -1161,6 +1161,27 @@ export function PricingEngineLayoutSettings() {
                             )}
                           </div>
 
+                          {newInputType === "boolean" && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Display As</Label>
+                              <Select
+                                value={newBooleanDisplay}
+                                onValueChange={setNewBooleanDisplay}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select display type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {BOOLEAN_DISPLAY_TYPES.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>
+                                      {t.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
                           {newInputType === "table" && (
                             <div className="space-y-1.5">
                               <Label className="text-xs">Table Configuration</Label>
@@ -1290,6 +1311,14 @@ export function PricingEngineLayoutSettings() {
                               >
                                 <Link2 className="size-2.5 mr-0.5" />
                                 {input.linked_table}
+                              </Badge>
+                            )}
+                            {input.input_type === "boolean" && (input.config as Record<string, unknown>)?.boolean_display && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
+                              <Badge
+                                className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                variant="secondary"
+                              >
+                                {String((input.config as Record<string, unknown>).boolean_display)}
                               </Badge>
                             )}
                             {input.config && !!(input.config as Record<string, unknown>).group && (
@@ -1447,6 +1476,27 @@ export function PricingEngineLayoutSettings() {
                           <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
                         )}
                       </div>
+
+                      {newInputType === "boolean" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Display As</Label>
+                          <Select
+                            value={newBooleanDisplay}
+                            onValueChange={setNewBooleanDisplay}
+                          >
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue placeholder="Select display type..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BOOLEAN_DISPLAY_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                       {newInputType === "table" && (
                         <div className="space-y-1.5">

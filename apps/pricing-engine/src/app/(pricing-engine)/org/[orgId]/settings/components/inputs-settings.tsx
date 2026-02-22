@@ -90,6 +90,7 @@ interface InputField {
   input_code: string;
   input_type: string;
   dropdown_options: string[] | null;
+  config: Record<string, unknown> | null;
   starred: boolean;
   display_order: number;
   created_at: string;
@@ -126,6 +127,13 @@ const TYPE_COLORS: Record<string, string> = {
   percentage: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
 };
 
+const BOOLEAN_DISPLAY_TYPES = [
+  { value: "dropdown", label: "Dropdown" },
+  { value: "switch", label: "Switch" },
+  { value: "radio", label: "Radio" },
+  { value: "checkbox", label: "Checkbox" },
+] as const;
+
 /* -------------------------------------------------------------------------- */
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
@@ -150,6 +158,9 @@ export function InputsSettings() {
 
   // Tooltip state
   const [newTooltip, setNewTooltip] = useState("");
+
+  // Boolean display type state
+  const [newBooleanDisplay, setNewBooleanDisplay] = useState("dropdown");
 
   // Database link state
   const [newLinkedTable, setNewLinkedTable] = useState<string>("");
@@ -484,6 +495,7 @@ export function InputsSettings() {
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
+          config: newInputType === "boolean" ? { boolean_display: newBooleanDisplay } : undefined,
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
@@ -526,6 +538,9 @@ export function InputsSettings() {
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
+          config: newInputType === "boolean"
+            ? { ...(input.config ?? {}), boolean_display: newBooleanDisplay }
+            : undefined,
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
@@ -571,6 +586,7 @@ export function InputsSettings() {
     setNewLinkedColumn("");
     setLinkableColumns([]);
     setNewTooltip("");
+    setNewBooleanDisplay("dropdown");
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -923,6 +939,27 @@ export function InputsSettings() {
                             )}
                           </div>
 
+                          {newInputType === "boolean" && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Display As</Label>
+                              <Select
+                                value={newBooleanDisplay}
+                                onValueChange={setNewBooleanDisplay}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select display type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {BOOLEAN_DISPLAY_TYPES.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>
+                                      {t.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
                           {/* Database Link */}
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
@@ -1127,6 +1164,14 @@ export function InputsSettings() {
                                 {input.linked_table}
                               </Badge>
                             )}
+                            {input.input_type === "boolean" && (input.config as Record<string, unknown>)?.boolean_display && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
+                              <Badge
+                                className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                variant="secondary"
+                              >
+                                {String((input.config as Record<string, unknown>).boolean_display)}
+                              </Badge>
+                            )}
                             <div className="ml-auto flex items-center gap-1 shrink-0">
                               {input.input_type === "dropdown" &&
                                 input.dropdown_options &&
@@ -1189,6 +1234,9 @@ export function InputsSettings() {
                                 setNewLinkedTable(input.linked_table ?? "");
                                 setNewLinkedColumn(input.linked_column ?? "");
                                 setNewTooltip(input.tooltip ?? "");
+                                if (input.input_type === "boolean" && input.config) {
+                                  setNewBooleanDisplay((input.config as Record<string, unknown>).boolean_display as string ?? "dropdown");
+                                }
                                 }}
                               >
                                 <Pencil className="size-3" />
@@ -1252,6 +1300,27 @@ export function InputsSettings() {
                           <p className="text-[10px] text-muted-foreground">Type is auto-set to Dropdown for linked inputs</p>
                         )}
                       </div>
+
+                      {newInputType === "boolean" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Display As</Label>
+                          <Select
+                            value={newBooleanDisplay}
+                            onValueChange={setNewBooleanDisplay}
+                          >
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue placeholder="Select display type..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BOOLEAN_DISPLAY_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                       {/* Database Link */}
                       <div className="space-y-1.5">
