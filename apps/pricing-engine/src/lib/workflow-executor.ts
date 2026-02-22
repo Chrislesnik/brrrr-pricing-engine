@@ -228,6 +228,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
   const outputs: NodeOutputs = {};
   const results: Record<string, ExecutionResult> = {};
+  let webhookResponse: { statusCode: number; body: unknown } | null = null;
 
   // Build graph maps
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -331,7 +332,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
         // Inject all upstream node outputs for data-aware nodes that need access to
         // upstream items ($input/$node for Code, or items for Filter/Split Out/Limit/Aggregate).
-        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches", "Set Fields"];
+        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches", "Set Fields", "Respond to Webhook"];
         if (DATA_AWARE_NODES.includes(actionType)) {
           const nodeOutputMap: Record<string, unknown> = {};
           const nodeItemsMap: Record<string, WorkflowItem[]> = {};
@@ -356,6 +357,12 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
           processedConfig._nodeItems = nodeItemsMap;
         }
 
+        // Inject webhookType from trigger config for Respond to Webhook nodes
+        if (actionType === "Respond to Webhook" && triggerNodes.length > 0) {
+          const triggerConfig = triggerNodes[0].data.config || {};
+          processedConfig._webhookType = triggerConfig.webhookType || "";
+        }
+
         // Execute the step
         const stepResult = await callPluginStep(actionType, processedConfig);
 
@@ -378,6 +385,15 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
           result = { success: false, error: errorMessage };
         } else {
           result = { success: true, data: stepResult };
+        }
+
+        // Capture webhook response from Respond to Webhook nodes
+        if (
+          stepResult &&
+          typeof stepResult === "object" &&
+          "_webhookResponse" in (stepResult as Record<string, unknown>)
+        ) {
+          webhookResponse = (stepResult as { _webhookResponse: { statusCode: number; body: unknown } })._webhookResponse;
         }
       } else {
         result = { success: false, error: `Unknown node type: ${node.data.type}` };
@@ -546,7 +562,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
       })
       .eq("id", executionId);
 
-    return { success: finalSuccess, results, outputs };
+    return { success: finalSuccess, results, outputs, webhookResponse };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[Executor] Fatal error:", errorMessage);
@@ -561,6 +577,6 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
       })
       .eq("id", executionId);
 
-    return { success: false, results, outputs, error: errorMessage };
+    return { success: false, results, outputs, error: errorMessage, webhookResponse };
   }
 }

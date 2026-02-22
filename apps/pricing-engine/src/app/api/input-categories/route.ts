@@ -100,6 +100,16 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    // Toggle default_open
+    if (body.id && typeof body.default_open === "boolean") {
+      const { error } = await supabaseAdmin
+        .from("input_categories")
+        .update({ default_open: body.default_open })
+        .eq("id", body.id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })

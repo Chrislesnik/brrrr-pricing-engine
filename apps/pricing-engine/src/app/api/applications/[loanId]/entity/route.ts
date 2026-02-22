@@ -29,31 +29,7 @@ export async function POST(
     const { error: appErr } = await supabaseAdmin.from("applications").update(update).eq("loan_id", loanId)
     if (appErr) return NextResponse.json({ error: appErr.message }, { status: 500 })
 
-    // Also update primary loan_scenario for the loan, if present (ids + borrower name only, no emails)
-    const { data: primaryScenario } = await supabaseAdmin
-      .from("loan_scenarios")
-      .select("id, inputs")
-      .eq("loan_id", loanId)
-      .eq("primary", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (primaryScenario?.id) {
-      const existingInputs = (primaryScenario.inputs as Record<string, unknown> | null) ?? {}
-      const inputsJson = { ...existingInputs }
-      if (body.borrower_name !== undefined) {
-        inputsJson["borrower_name"] = body.borrower_name
-      }
-      await supabaseAdmin
-        .from("loan_scenarios")
-        .update({
-          borrower_entity_id: body.entity_id ?? null,
-          inputs: inputsJson,
-        })
-        .eq("id", primaryScenario.id)
-
-    }
+    // Entity/borrower data is now stored in loan_scenario_inputs, not on the scenario row directly.
 
 
     return NextResponse.json({ ok: true })

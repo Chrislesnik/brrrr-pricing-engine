@@ -58,14 +58,13 @@ export async function addProgramAction(formData: FormData) {
     return { ok: false, error: "No active organization. Select or create one first." }
   }
 
-  const loanType = String(formData.get("loanType") || "").toLowerCase() as "dscr" | "bridge"
   const status = String(formData.get("status") || "active").toLowerCase() as "active" | "inactive"
   const internalName = String(formData.get("internalName") || "").trim()
   const externalName = String(formData.get("externalName") || "").trim()
   const webhookUrl = String(formData.get("webhookUrl") || "").trim()
   const files = formData.getAll("files") as File[]
 
-  if (!loanType || !internalName || !externalName) {
+  if (!internalName || !externalName) {
     return { ok: false, error: "Missing required fields" }
   }
 
@@ -77,7 +76,6 @@ export async function addProgramAction(formData: FormData) {
   const { data: inserted, error } = await supabaseAdmin
     .from("programs")
     .insert({
-      loan_type: loanType,
       internal_name: internalName,
       external_name: externalName,
       webhook_url: webhookUrl || null,
@@ -168,7 +166,6 @@ export async function updateProgramAction(formData: FormData) {
   }
 
   const id = String(formData.get("id") || "").trim()
-  const loanType = String(formData.get("loanType") || "").toLowerCase() as "dscr" | "bridge"
   const status = String(formData.get("status") || "active").toLowerCase() as "active" | "inactive"
   const internalName = String(formData.get("internalName") || "").trim()
   const externalName = String(formData.get("externalName") || "").trim()
@@ -185,7 +182,7 @@ export async function updateProgramAction(formData: FormData) {
   if (!id) {
     return { ok: false, error: "Missing id" }
   }
-  if (!loanType || !internalName || !externalName) {
+  if (!internalName || !externalName) {
     return { ok: false, error: "Missing required fields" }
   }
 
@@ -197,7 +194,6 @@ export async function updateProgramAction(formData: FormData) {
   const { error } = await supabaseAdmin
     .from("programs")
     .update({
-      loan_type: loanType,
       internal_name: internalName,
       external_name: externalName,
       webhook_url: webhookUrl || null,

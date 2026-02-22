@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { fetchProgramConditions, evaluateProgramConditions } from "@/lib/program-condition-evaluator"
 
 export const runtime = "nodejs"
 
@@ -73,9 +74,8 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from("programs")
       .select("id,internal_name,external_name,webhook_url")
-      .eq("loan_type", String(json.loanType).toLowerCase())
       .eq("status", "active")
-    console.log("[dispatch-one] Programs query result:", { count: data?.length, error: error?.message, programs: data })
+    console.log("[dispatch-one] Programs query result:", { count: data?.length, error: error?.message })
     if (error) return new NextResponse(error.message, { status: 500 })
 
     const match = (data ?? []).find((p) =>
@@ -83,7 +83,27 @@ export async function POST(req: NextRequest) {
         p.internal_name === json.programId ||
         p.external_name === json.programId
     )
-    console.log("[dispatch-one] Looking for programId:", json.programId, "Found match:", match ? { id: match.id, internal_name: match.internal_name, webhook_url: match.webhook_url } : null)
+    console.log("[dispatch-one] Looking for programId:", json.programId, "Found match:", match ? { id: match.id, internal_name: match.internal_name } : null)
+
+    if (match?.id) {
+      const condMap = await fetchProgramConditions([match.id])
+      const entry = condMap.get(match.id)
+      if (entry && entry.conditions.length > 0) {
+        const passes = evaluateProgramConditions(entry.conditions, entry.logic_type, json.data ?? {})
+        if (!passes) {
+          console.log("[dispatch-one] Program conditions not met, skipping")
+          return NextResponse.json({
+            id: match.id,
+            internal_name: match.internal_name,
+            external_name: match.external_name,
+            ok: false,
+            status: 0,
+            data: null,
+          })
+        }
+      }
+    }
+
     if (!match || !String(match.webhook_url || "").trim()) {
       console.log("[dispatch-one] No match or no webhook URL, returning early")
       return NextResponse.json({

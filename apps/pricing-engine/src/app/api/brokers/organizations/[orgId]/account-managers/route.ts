@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
 
+const ACCOUNT_EXECUTIVE_ROLE_TYPE_ID = 6
+
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ orgId: string }> }
@@ -16,37 +18,48 @@ export async function GET(
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
 
-    const { data, error } = await supabaseAdmin
-      .from("organization_account_managers")
-      .select("id, account_manager_id, created_at")
-      .eq("organization_id", brokerOrgId)
+    const { data: assignments, error } = await supabaseAdmin
+      .from("role_assignments")
+      .select("id, role_type_id, user_id, created_at")
+      .eq("resource_type", "broker_org")
+      .eq("resource_id", brokerOrgId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    const managerIds = (data ?? []).map((r) => r.account_manager_id as string)
-    let managers: { id: string; first_name: string | null; last_name: string | null; user_id: string | null }[] = []
-    if (managerIds.length > 0) {
-      const { data: members, error: memErr } = await supabaseAdmin
+    const userIds = (assignments ?? []).map((a) => a.user_id as string).filter(Boolean)
+    let membersMap = new Map<string, { first_name: string | null; last_name: string | null; member_id: string }>()
+
+    if (userIds.length > 0) {
+      const { data: members } = await supabaseAdmin
         .from("organization_members")
-        .select("id, first_name, last_name, user_id")
-        .in("id", managerIds)
-      if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 })
-      managers = (members ?? []).map((m) => ({
-        id: m.id as string,
-        first_name: (m.first_name as string) ?? null,
-        last_name: (m.last_name as string) ?? null,
-        user_id: (m.user_id as string) ?? null,
-      }))
+        .select("id, user_id, first_name, last_name")
+        .in("user_id", userIds)
+      for (const m of members ?? []) {
+        membersMap.set(m.user_id as string, {
+          first_name: (m.first_name as string) ?? null,
+          last_name: (m.last_name as string) ?? null,
+          member_id: m.id as string,
+        })
+      }
     }
 
-    const items = (data ?? []).map((row) => {
-      const mgr = managers.find((m) => m.id === row.account_manager_id)
+    const { data: roleTypes } = await supabaseAdmin
+      .from("deal_role_types")
+      .select("id, name")
+
+    const roleMap = new Map<number, string>()
+    for (const r of roleTypes ?? []) roleMap.set(r.id as number, r.name as string)
+
+    const items = (assignments ?? []).map((a) => {
+      const member = membersMap.get(a.user_id as string)
       return {
-        assignment_id: row.id,
-        account_manager_id: row.account_manager_id,
-        name: mgr ? [mgr.first_name, mgr.last_name].filter(Boolean).join(" ") || null : null,
-        user_id: mgr?.user_id ?? null,
-        created_at: row.created_at,
+        assignment_id: a.id,
+        account_manager_id: member?.member_id ?? null,
+        user_id: a.user_id,
+        role_type_id: a.role_type_id,
+        role_name: roleMap.get(a.role_type_id as number) ?? null,
+        name: member ? [member.first_name, member.last_name].filter(Boolean).join(" ") || null : null,
+        created_at: a.created_at,
       }
     })
 
@@ -70,19 +83,40 @@ export async function POST(
 
     const body = (await req.json().catch(() => ({}))) as {
       account_manager_id?: string
-    }
-    if (!body.account_manager_id) {
-      return NextResponse.json({ error: "account_manager_id is required" }, { status: 400 })
+      user_id?: string
+      role_type_id?: number
     }
 
+    // Support both legacy account_manager_id (org member id) and direct user_id
+    let targetUserId = body.user_id
+    if (!targetUserId && body.account_manager_id) {
+      const { data: mem } = await supabaseAdmin
+        .from("organization_members")
+        .select("user_id")
+        .eq("id", body.account_manager_id)
+        .maybeSingle()
+      targetUserId = (mem?.user_id as string) ?? undefined
+    }
+
+    if (!targetUserId) {
+      return NextResponse.json({ error: "user_id or account_manager_id is required" }, { status: 400 })
+    }
+
+    const roleTypeId = body.role_type_id ?? ACCOUNT_EXECUTIVE_ROLE_TYPE_ID
+
     const { data, error } = await supabaseAdmin
-      .from("organization_account_managers")
+      .from("role_assignments")
       .insert({
-        organization_id: brokerOrgId,
-        account_manager_id: body.account_manager_id,
+        resource_type: "broker_org",
+        resource_id: brokerOrgId,
+        role_type_id: roleTypeId,
+        user_id: targetUserId,
+        organization_id: orgUuid,
+        created_by: userId,
       })
       .select("id")
       .single()
+
     if (error) {
       if (error.code === "23505") {
         return NextResponse.json({ error: "Already assigned" }, { status: 409 })
@@ -114,10 +148,12 @@ export async function DELETE(
     }
 
     const { error } = await supabaseAdmin
-      .from("organization_account_managers")
+      .from("role_assignments")
       .delete()
       .eq("id", assignmentId)
-      .eq("organization_id", brokerOrgId)
+      .eq("resource_type", "broker_org")
+      .eq("resource_id", brokerOrgId)
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e) {

@@ -103,8 +103,17 @@ interface Condition {
   value_expression?: string;
 }
 
+type DocActionTargetType = "document" | "category";
+
+interface DocCategoryItem {
+  id: number;
+  name: string;
+}
+
 interface Action {
   document_type_id: number;
+  category_id?: number;
+  target_type: DocActionTargetType;
   value_type: DocActionValueType;
   value_visible?: boolean;
   value_required?: boolean;
@@ -217,10 +226,20 @@ function defaultCondition(): Condition {
 function defaultAction(filterDocTypeId?: number | null): Action {
   return {
     document_type_id: filterDocTypeId ?? 0,
+    target_type: "document",
     value_type: "visible",
     value_visible: true,
   };
 }
+
+const CATEGORY_ONLY_VALUE_TYPE_OPTIONS: {
+  value: "visible" | "not_visible";
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: "visible", label: "Visible", icon: Eye },
+  { value: "not_visible", label: "Not Visible", icon: EyeOff },
+];
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                  */
@@ -237,12 +256,12 @@ export function DocumentLogicBuilderSheet({
 }) {
   const [inputs, setInputs] = useState<InputField[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeItem[]>([]);
+  const [docCategories, setDocCategories] = useState<DocCategoryItem[]>([]);
   const [rules, setRules] = useState<LogicRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Fetch inputs metadata + document types when sheet opens
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -250,20 +269,24 @@ export function DocumentLogicBuilderSheet({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [inputsRes, docTypesRes] = await Promise.all([
+        const [inputsRes, docTypesRes, docCatsRes] = await Promise.all([
           fetch("/api/inputs"),
           fetch("/api/document-types"),
+          fetch("/api/document-categories"),
         ]);
         const inputsJson = await inputsRes.json().catch(() => []);
         const docTypesJson = await docTypesRes.json().catch(() => []);
+        const docCatsJson = await docCatsRes.json().catch(() => []);
         if (!cancelled) {
           setInputs(Array.isArray(inputsJson) ? inputsJson : []);
           setDocumentTypes(Array.isArray(docTypesJson) ? docTypesJson : []);
+          setDocCategories(Array.isArray(docCatsJson) ? docCatsJson : []);
         }
       } catch {
         if (!cancelled) {
           setInputs([]);
           setDocumentTypes([]);
+          setDocCategories([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -298,6 +321,7 @@ export function DocumentLogicBuilderSheet({
               })),
               actions: (r.actions ?? []).map((a: Action) => ({
                 ...a,
+                target_type: a.target_type || (a.category_id ? "category" : "document"),
                 value_type: a.value_type || "visible",
               })),
             }));
@@ -694,6 +718,7 @@ export function DocumentLogicBuilderSheet({
                               actionIndex={actionIndex}
                               ruleIndex={ruleIndex}
                               documentTypes={documentTypes}
+                              docCategories={docCategories}
                               filterDocumentTypeId={filterDocumentTypeId}
                               filteredDocTypeName={filteredDocTypeName}
                               updateAction={updateAction}
@@ -1251,6 +1276,7 @@ function DocActionRow({
   actionIndex,
   ruleIndex,
   documentTypes,
+  docCategories,
   filterDocumentTypeId,
   filteredDocTypeName,
   updateAction,
@@ -1261,6 +1287,7 @@ function DocActionRow({
   actionIndex: number;
   ruleIndex: number;
   documentTypes: DocumentTypeItem[];
+  docCategories: DocCategoryItem[];
   filterDocumentTypeId?: number | null;
   filteredDocTypeName: string | null;
   updateAction: (
@@ -1275,12 +1302,13 @@ function DocActionRow({
   ) => void;
   removeAction: (ruleIndex: number, actionIndex: number) => void;
 }) {
+  const isCategory = action.target_type === "category";
   const vt = action.value_type || "visible";
 
+  const activeOptions = isCategory ? CATEGORY_ONLY_VALUE_TYPE_OPTIONS : DOC_ACTION_VALUE_TYPE_OPTIONS;
   const valueTypeLabel =
-    DOC_ACTION_VALUE_TYPE_OPTIONS.find((o) => o.value === vt)?.label ?? "Visible";
+    activeOptions.find((o) => o.value === vt)?.label ?? "Visible";
 
-  // 3-dot popover for switching action value type (only 4 options)
   const threeDotButton = (
     <Popover>
       <PopoverTrigger asChild>
@@ -1294,7 +1322,7 @@ function DocActionRow({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 p-1" sideOffset={4}>
         <div className="flex flex-col">
-          {DOC_ACTION_VALUE_TYPE_OPTIONS.map((opt) => {
+          {activeOptions.map((opt) => {
             const Icon = opt.icon;
             const isActive = vt === opt.value;
             return (
@@ -1307,7 +1335,7 @@ function DocActionRow({
                     : "text-muted-foreground"
                 }`}
                 onClick={() =>
-                  setActionValueType(ruleIndex, actionIndex, opt.value)
+                  setActionValueType(ruleIndex, actionIndex, opt.value as DocActionValueType)
                 }
               >
                 <Icon className="size-3.5" />
@@ -1326,8 +1354,50 @@ function DocActionRow({
         Set
       </span>
 
-      {/* Document type dropdown – searchable */}
-      {filterDocumentTypeId && action.document_type_id === filterDocumentTypeId ? (
+      <Select
+        value={action.target_type || "document"}
+        onValueChange={(val) => {
+          const tt = val as DocActionTargetType;
+          updateAction(ruleIndex, actionIndex, {
+            target_type: tt,
+            document_type_id: tt === "category" ? 0 : action.document_type_id,
+            category_id: tt === "document" ? undefined : action.category_id,
+            value_type: "visible",
+            value_visible: true,
+            value_required: undefined,
+          });
+        }}
+      >
+        <SelectTrigger className="h-8 text-xs w-24 shrink-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="document">Document</SelectItem>
+          <SelectItem value="category">Category</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {isCategory ? (
+        <div className="flex-1">
+          <Select
+            value={action.category_id ? String(action.category_id) : undefined}
+            onValueChange={(val) =>
+              updateAction(ruleIndex, actionIndex, { category_id: Number(val) })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {docCategories.map((cat) => (
+                <SelectItem key={cat.id} value={String(cat.id)}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : filterDocumentTypeId && action.document_type_id === filterDocumentTypeId ? (
         <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
           <span className="truncate">{filteredDocTypeName}</span>
         </div>
@@ -1348,7 +1418,6 @@ function DocActionRow({
         to
       </span>
 
-      {/* Value type display – always locked since only visibility/required */}
       <div className="relative flex-1">
         <div className="h-8 flex items-center px-3 pr-8 rounded-md border bg-muted text-xs cursor-default select-none">
           {valueTypeLabel}
@@ -1356,7 +1425,6 @@ function DocActionRow({
         {threeDotButton}
       </div>
 
-      {/* Remove action */}
       <Button
         variant="ghost"
         size="icon"

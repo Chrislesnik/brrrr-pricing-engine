@@ -6,6 +6,16 @@ import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { nanoid } from "nanoid";
 import { Provider as JotaiProvider, useSetAtom, useAtom, useAtomValue } from "jotai";
 import { Button } from "@repo/ui/shadcn/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@repo/ui/shadcn/alert-dialog";
 import { ReactFlowProvider } from "@xyflow/react";
 import { OverlayProvider } from "@/components/workflow-builder/overlays/overlay-provider";
 import { OverlayContainer } from "@/components/workflow-builder/overlays/overlay-container";
@@ -35,6 +45,31 @@ function ActionBuilderInner() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const pendingNavRef = useRef<(() => void) | null>(null);
+
+  // Warn on browser tab close / refresh when there are unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  const guardedNavigate = useCallback(
+    (navigate: () => void) => {
+      if (hasUnsavedChanges) {
+        pendingNavRef.current = navigate;
+        setShowLeaveDialog(true);
+      } else {
+        navigate();
+      }
+    },
+    [hasUnsavedChanges]
+  );
 
   // Load action data
   useEffect(() => {
@@ -127,7 +162,7 @@ function ActionBuilderInner() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.back()}
+            onClick={() => guardedNavigate(() => router.back())}
             className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="size-4 mr-1" />
@@ -174,6 +209,34 @@ function ActionBuilderInner() {
 
       {/* Overlay renderer */}
       <OverlayContainer />
+
+      <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes that will be lost if you leave this page.
+              Are you sure you want to leave without saving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { pendingNavRef.current = null; }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const nav = pendingNavRef.current;
+                pendingNavRef.current = null;
+                setHasUnsavedChanges(false);
+                nav?.();
+              }}
+            >
+              Leave without saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

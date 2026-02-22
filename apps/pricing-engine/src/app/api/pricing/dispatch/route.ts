@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { filterProgramsByConditions } from "@/lib/program-condition-evaluator"
 
 export const runtime = "nodejs"
 
@@ -68,12 +69,15 @@ export async function POST(req: NextRequest) {
     // Resolve caller's organization_member_id (wait until available)
     const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
 
-    // fetch active program webhooks for this loan type
-    const { data, error } = await superFetchPrograms(json.loanType)
+    const { data, error } = await supabaseAdmin
+      .from("programs")
+      .select("id,internal_name,external_name,webhook_url")
+      .eq("status", "active")
     if (error) {
-      return new NextResponse(`Query error: ${error}`, { status: 500 })
+      return new NextResponse(`Query error: ${error.message}`, { status: 500 })
     }
-    const programs = (data ?? []).filter((p) => (p.webhook_url ?? "").trim() !== "")
+    const allActive = (data ?? []).filter((p) => (p.webhook_url ?? "").trim() !== "")
+    const programs = await filterProgramsByConditions(allActive, json.data ?? {})
 
     let delivered = 0
     const results: {
@@ -153,15 +157,6 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "unknown error"
     return new NextResponse(`Server error: ${msg}`, { status: 500 })
   }
-}
-
-async function superFetchPrograms(loanType: string) {
-  const { data, error } = await supabaseAdmin
-    .from("programs")
-    .select("internal_name,external_name,webhook_url")
-    .eq("loan_type", loanType.toLowerCase())
-    .eq("status", "active")
-  return { data, error: error?.message }
 }
 
 

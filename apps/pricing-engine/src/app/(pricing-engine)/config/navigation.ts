@@ -141,32 +141,35 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         url: ROUTES.pricingEngine.deals,
         icon: IconFilter,
         shortcut: ["D"],
-        items: [
-          {
-            title: "Applications",
-            url: ROUTES.applications,
-            icon: IconFolder,
-            shortcut: ["A"],
-          },
-          {
-            title: "Appraisals",
-            url: ROUTES.appraisals,
-            icon: TbHomeSearch,
-            shortcut: ["P"],
-          },
-          {
-            title: "Background",
-            url: ROUTES.background,
-            icon: FaUserShield,
-            shortcut: ["B"],
-          },
-          {
-            title: "Credit",
-            url: ROUTES.credit,
-            icon: CreditCard,
-            shortcut: ["C"],
-          },
-        ],
+      },
+    ],
+  },
+  {
+    title: "Loan Setup",
+    items: [
+      {
+        title: "Applications",
+        url: ROUTES.applications,
+        icon: IconFolder,
+        shortcut: ["A"],
+      },
+      {
+        title: "Appraisals",
+        url: ROUTES.appraisals,
+        icon: TbHomeSearch,
+        shortcut: ["P"],
+      },
+      {
+        title: "Background",
+        url: ROUTES.background,
+        icon: FaUserShield,
+        shortcut: ["B"],
+      },
+      {
+        title: "Credit",
+        url: ROUTES.credit,
+        icon: CreditCard,
+        shortcut: ["C"],
       },
     ],
   },

@@ -186,28 +186,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // Sync organization_account_managers for broker_org assignments
-    if (resource_type === "broker_org") {
-      try {
-        const { data: mem } = await supabaseAdmin
-          .from("organization_members")
-          .select("id")
-          .eq("organization_id", orgUuid)
-          .eq("user_id", targetUserId)
-          .maybeSingle();
-        if (mem?.id) {
-          await supabaseAdmin
-            .from("organization_account_managers")
-            .upsert(
-              { organization_id: resource_id, account_manager_id: mem.id },
-              { onConflict: "organization_id,account_manager_id" }
-            );
-        }
-      } catch {
-        // best-effort sync
-      }
-    }
-
     // Sync deal_users if resource is a deal or loan
     if (resource_type === "deal" || resource_type === "loan") {
       try {
@@ -222,24 +200,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Also keep legacy assigned_to columns in sync for backward compatibility
+    // Also keep legacy assigned_to columns in sync for backward compatibility (deals only; loans column removed)
     try {
-      if (resource_type === "loan") {
-        const { data: loan } = await supabaseAdmin
-          .from("loans")
-          .select("assigned_to_user_id")
-          .eq("id", resource_id)
-          .single();
-        const current = Array.isArray(loan?.assigned_to_user_id)
-          ? (loan.assigned_to_user_id as string[])
-          : [];
-        if (!current.includes(targetUserId)) {
-          await supabaseAdmin
-            .from("loans")
-            .update({ assigned_to_user_id: [...current, targetUserId] })
-            .eq("id", resource_id);
-        }
-      } else if (resource_type === "deal") {
+      if (resource_type === "deal") {
         const { data: deal } = await supabaseAdmin
           .from("deals")
           .select("assigned_to_user_id")

@@ -36,7 +36,6 @@ interface Props {
 
 export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
   const [open, setOpen] = useState(false)
-  const [loanType, setLoanType] = useState<"" | "dscr" | "bridge">("")
   const [status, setStatus] = useState<"active" | "inactive">("active")
   const [internalName, setInternalName] = useState("")
   const [externalName, setExternalName] = useState("")
@@ -46,13 +45,12 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
   const [filesToUpload, setFilesToUpload] = useState<File[]>([])
 
   const canAdd =
-    !!loanType && internalName.trim().length > 0 && externalName.trim().length > 0
+    internalName.trim().length > 0 && externalName.trim().length > 0
 
   const onSubmit = () => {
     if (!canAdd) return
     const fd = new FormData()
     if (orgId) fd.set("orgId", orgId)
-    fd.set("loanType", loanType)
     fd.set("status", status)
     fd.set("internalName", internalName.trim())
     fd.set("externalName", externalName.trim())
@@ -67,7 +65,6 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
         setError(res.error ?? "Failed to save")
         return
       }
-      setLoanType("")
       setStatus("active")
       setInternalName("")
       setExternalName("")
@@ -102,16 +99,6 @@ export function AddProgramDialog({ action, canCreate = true, orgId }: Props) {
           ) : null}
           <div className="flex-1 overflow-y-auto">
             <div className="grid gap-3 p-4">
-            <Label htmlFor="loanType">Loan Type</Label>
-            <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
-              <SelectTrigger id="loanType">
-                <SelectValue placeholder="Select loan type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dscr">DSCR</SelectItem>
-                <SelectItem value="bridge">Bridge</SelectItem>
-              </SelectContent>
-            </Select>
             <Label htmlFor="activeStatus">Active</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as "active" | "inactive")}>
               <SelectTrigger id="activeStatus">

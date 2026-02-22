@@ -159,12 +159,15 @@ export function ActionsSettings() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Create workflow automations that can be attached to tasks.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Actions</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Create workflow automations that can be attached to tasks.
+          </p>
+        </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4 mr-1.5" />
           New Action

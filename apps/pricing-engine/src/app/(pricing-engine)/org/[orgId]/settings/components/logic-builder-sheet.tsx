@@ -102,8 +102,17 @@ interface Condition {
   value_expression?: string;
 }
 
+type ActionTargetType = "input" | "category";
+
+interface CategoryItem {
+  id: number;
+  category: string;
+}
+
 interface Action {
   input_id: string;
+  category_id?: number;
+  target_type: ActionTargetType;
   value_type: ValueType;
   value_text: string;
   value_visible?: boolean;
@@ -222,10 +231,20 @@ function defaultCondition(): Condition {
 function defaultAction(filterInputId?: string | null): Action {
   return {
     input_id: filterInputId ?? "",
+    target_type: "input",
     value_type: "value",
     value_text: "",
   };
 }
+
+const CATEGORY_VALUE_TYPE_OPTIONS: {
+  value: "visible" | "not_visible";
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: "visible", label: "Visible", icon: Eye },
+  { value: "not_visible", label: "Not Visible", icon: EyeOff },
+];
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                  */
@@ -241,13 +260,13 @@ export function LogicBuilderSheet({
   filterInputId?: string | null;
 }) {
   const [inputs, setInputs] = useState<InputField[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [rules, setRules] = useState<LogicRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { refreshRules } = useLogicRules();
 
-  // Fetch inputs metadata when sheet opens
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -255,13 +274,21 @@ export function LogicBuilderSheet({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/inputs");
-        const json = await res.json().catch(() => []);
+        const [inputsRes, catsRes] = await Promise.all([
+          fetch("/api/inputs"),
+          fetch("/api/input-categories"),
+        ]);
+        const json = await inputsRes.json().catch(() => []);
+        const catsJson = await catsRes.json().catch(() => []);
         if (!cancelled) {
           setInputs(Array.isArray(json) ? json : []);
+          setCategories(Array.isArray(catsJson) ? catsJson : []);
         }
       } catch {
-        if (!cancelled) setInputs([]);
+        if (!cancelled) {
+          setInputs([]);
+          setCategories([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -296,6 +323,7 @@ export function LogicBuilderSheet({
               })),
               actions: (r.actions ?? []).map((a: Action) => ({
                 ...a,
+                target_type: a.target_type || (a.category_id ? "category" : "input"),
                 value_type: a.value_type || "value",
               })),
             }));
@@ -692,6 +720,7 @@ export function LogicBuilderSheet({
                               ruleIndex={ruleIndex}
                               inputs={inputs}
                               inputMap={inputMap}
+                              categories={categories}
                               filterInputId={filterInputId}
                               filteredInputLabel={filteredInputLabel}
                               updateAction={updateAction}
@@ -1180,6 +1209,7 @@ function ActionRow({
   ruleIndex,
   inputs,
   inputMap,
+  categories,
   filterInputId,
   filteredInputLabel,
   updateAction,
@@ -1191,6 +1221,7 @@ function ActionRow({
   ruleIndex: number;
   inputs: InputField[];
   inputMap: Map<string, InputField>;
+  categories: CategoryItem[];
   filterInputId?: string | null;
   filteredInputLabel: string | null;
   updateAction: (
@@ -1205,13 +1236,49 @@ function ActionRow({
   ) => void;
   removeAction: (ruleIndex: number, actionIndex: number) => void;
 }) {
-  const targetInput = action.input_id
+  const isCategory = action.target_type === "category";
+  const targetInput = !isCategory && action.input_id
     ? inputMap.get(action.input_id)
     : undefined;
 
-  const valueTypeLabel =
-    VALUE_TYPE_OPTIONS.find((o) => o.value === action.value_type)?.label ??
-    "Value";
+  const valueTypeLabel = isCategory
+    ? (CATEGORY_VALUE_TYPE_OPTIONS.find((o) => o.value === action.value_type)?.label ?? "Visible")
+    : (VALUE_TYPE_OPTIONS.find((o) => o.value === action.value_type)?.label ?? "Value");
+
+  const categoryThreeDot = (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors z-10"
+          title={`Type: ${valueTypeLabel}`}
+        >
+          <MoreVertical className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1" sideOffset={4}>
+        <div className="flex flex-col">
+          {CATEGORY_VALUE_TYPE_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const isActive = action.value_type === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                className={`flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-muted transition-colors w-full text-left ${
+                  isActive ? "bg-muted font-medium" : "text-muted-foreground"
+                }`}
+                onClick={() => setActionValueType(ruleIndex, actionIndex, opt.value)}
+              >
+                <Icon className="size-3.5" />
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 
   return (
     <div className="flex items-center gap-2">
@@ -1219,8 +1286,51 @@ function ActionRow({
         Set
       </span>
 
-      {/* Input dropdown – searchable */}
-      {filterInputId && action.input_id === filterInputId ? (
+      <Select
+        value={action.target_type || "input"}
+        onValueChange={(val) => {
+          const tt = val as ActionTargetType;
+          updateAction(ruleIndex, actionIndex, {
+            target_type: tt,
+            input_id: tt === "category" ? "" : action.input_id,
+            category_id: tt === "input" ? undefined : action.category_id,
+            value_type: tt === "category" ? "visible" : action.value_type,
+            value_text: tt === "category" ? "" : action.value_text,
+            value_field: tt === "category" ? undefined : action.value_field,
+            value_expression: tt === "category" ? undefined : action.value_expression,
+          });
+        }}
+      >
+        <SelectTrigger className="h-8 text-xs w-24 shrink-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="input">Input</SelectItem>
+          <SelectItem value="category">Section</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {isCategory ? (
+        <div className="flex-1">
+          <Select
+            value={action.category_id ? String(action.category_id) : undefined}
+            onValueChange={(val) =>
+              updateAction(ruleIndex, actionIndex, { category_id: Number(val) })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select section" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={String(cat.id)}>
+                  {cat.category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : filterInputId && action.input_id === filterInputId ? (
         <div className="h-8 flex items-center px-3 rounded-md border bg-muted text-xs flex-1 min-w-0">
           <span className="truncate">{filteredInputLabel}</span>
         </div>
@@ -1241,17 +1351,25 @@ function ActionRow({
         to
       </span>
 
-      {/* Value input with 3-dot value_type popover */}
-      <ActionValueInput
-        action={action}
-        actionIndex={actionIndex}
-        ruleIndex={ruleIndex}
-        targetInput={targetInput}
-        inputs={inputs}
-        updateAction={updateAction}
-        setActionValueType={setActionValueType}
-        valueTypeLabel={valueTypeLabel}
-      />
+      {isCategory ? (
+        <div className="relative flex-1">
+          <div className="h-8 flex items-center px-3 pr-8 rounded-md border bg-muted text-xs cursor-default select-none">
+            {valueTypeLabel}
+          </div>
+          {categoryThreeDot}
+        </div>
+      ) : (
+        <ActionValueInput
+          action={action}
+          actionIndex={actionIndex}
+          ruleIndex={ruleIndex}
+          targetInput={targetInput}
+          inputs={inputs}
+          updateAction={updateAction}
+          setActionValueType={setActionValueType}
+          valueTypeLabel={valueTypeLabel}
+        />
+      )}
 
       {/* Remove action */}
       <Button

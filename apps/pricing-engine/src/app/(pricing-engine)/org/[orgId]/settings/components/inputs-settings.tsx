@@ -15,6 +15,8 @@ import {
   Link2,
   Unlink,
   Settings,
+  PanelTopOpen,
+  PanelTopClose,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -61,6 +63,12 @@ import {
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -71,6 +79,7 @@ interface InputCategory {
   category: string;
   display_order: number;
   created_at: string;
+  default_open: boolean;
 }
 
 interface InputField {
@@ -86,6 +95,7 @@ interface InputField {
   created_at: string;
   linked_table?: string | null;
   linked_column?: string | null;
+  tooltip?: string | null;
 }
 
 /** Convert a snake_case table name to Title Case for display. */
@@ -137,6 +147,9 @@ export function InputsSettings() {
   const [newInputType, setNewInputType] = useState("");
   const [newDropdownOptions, setNewDropdownOptions] = useState<string[]>([]);
   const [savingInput, setSavingInput] = useState(false);
+
+  // Tooltip state
+  const [newTooltip, setNewTooltip] = useState("");
 
   // Database link state
   const [newLinkedTable, setNewLinkedTable] = useState<string>("");
@@ -473,6 +486,7 @@ export function InputsSettings() {
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
+          tooltip: newTooltip.trim() || null,
         }),
       });
       if (res.ok) {
@@ -514,6 +528,7 @@ export function InputsSettings() {
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
+          tooltip: newTooltip.trim() || null,
         }),
       });
       if (res.ok) {
@@ -555,6 +570,7 @@ export function InputsSettings() {
     setNewLinkedTable("");
     setNewLinkedColumn("");
     setLinkableColumns([]);
+    setNewTooltip("");
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -804,6 +820,44 @@ export function InputsSettings() {
                     </div>
                     {editingCategoryId !== cat.id && (
                       <div className="flex items-center gap-0.5">
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                style={{ color: cat.default_open ? "hsl(var(--chart-2))" : "hsl(var(--destructive))" }}
+                                onClick={async () => {
+                                  try {
+                                    await fetch("/api/input-categories", {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ id: cat.id, default_open: !cat.default_open }),
+                                    });
+                                    await fetchData();
+                                  } catch { /* ignore */ }
+                                }}
+                              >
+                                {cat.default_open ? <PanelTopOpen className="size-3.5" /> : <PanelTopClose className="size-3.5" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              {cat.default_open ? "Default: Open on new deals" : "Default: Closed on new deals"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setLogicBuilderInputId(null);
+                            setLogicBuilderOpen(true);
+                          }}
+                        >
+                          <Workflow className="size-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1000,6 +1054,15 @@ export function InputsSettings() {
                               </TagsInput>
                             </div>
                           )}
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Tooltip (optional)</Label>
+                            <Input
+                              placeholder="Help text shown on hover"
+                              value={newTooltip}
+                              onChange={(e) => setNewTooltip(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
                           <div className="flex items-center gap-2 pt-1">
                             <Button
                               size="sm"
@@ -1125,6 +1188,7 @@ export function InputsSettings() {
                                 );
                                 setNewLinkedTable(input.linked_table ?? "");
                                 setNewLinkedColumn(input.linked_column ?? "");
+                                setNewTooltip(input.tooltip ?? "");
                                 }}
                               >
                                 <Pencil className="size-3" />
@@ -1320,6 +1384,16 @@ export function InputsSettings() {
                           </TagsInput>
                         </div>
                       )}
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Tooltip (optional)</Label>
+                        <Input
+                          placeholder="Help text shown on hover"
+                          value={newTooltip}
+                          onChange={(e) => setNewTooltip(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
 
                       <div className="flex items-center gap-2 pt-1">
                         <Button

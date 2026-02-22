@@ -45,6 +45,7 @@ interface InputCategory {
   category: string
   display_order: number
   created_at: string
+  default_open?: boolean
 }
 
 interface InputField {
@@ -358,7 +359,7 @@ export function NewDealSheet({
             <div className="space-y-6 rounded-xl border bg-background/70 p-4 shadow-sm">
               <Accordion
                 type="multiple"
-                defaultValue={categories.map((c) => String(c.id))}
+                defaultValue={categories.filter((c) => c.default_open !== false).map((c) => String(c.id))}
                 className="w-full space-y-4"
               >
                 {inputsByCategory.map(({ category, fields }) => (

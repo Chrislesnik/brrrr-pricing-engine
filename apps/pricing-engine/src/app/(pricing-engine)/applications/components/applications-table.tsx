@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   PaginationState,
+  RowSelectionState,
   VisibilityState,
   flexRender,
   getCoreRowModel,
@@ -17,6 +19,22 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
 import { ChevronDown, Settings2, Trash2, Upload } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
@@ -66,12 +84,12 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { ApplicationRow } from "../data/fetch-applications"
 
 type AppRow = ApplicationRow & { progress?: number }
@@ -91,6 +109,7 @@ export function ApplicationsTable({ data }: Props) {
     pageIndex: 0,
     pageSize,
   })
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [linkedRows, setLinkedRows] = useState<Record<string, boolean>>({})
   const [statusFilter, setStatusFilter] = useState<string[]>([])
@@ -169,6 +188,27 @@ export function ApplicationsTable({ data }: Props) {
 
   const columns = useMemo<ColumnDef<AppRow>[]>(() => {
     return [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { className: "w-10 pl-3" },
+      },
       {
         id: "expand",
         header: "",
@@ -326,7 +366,7 @@ export function ApplicationsTable({ data }: Props) {
       },
       {
         header: () => <div className="w-full text-center">Actions</div>,
-        id: "actions",
+        id: "row_actions",
         cell: ({ row }) => (
           <div className="flex w-full items-center justify-center gap-2">
             <Button
@@ -363,6 +403,28 @@ export function ApplicationsTable({ data }: Props) {
     ]
   }, [expandedRows, linkedRows, statusFilter])
 
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
+
   const augmentedData = useMemo<AppRow[]>(
     () =>
       data.map((row) => {
@@ -396,10 +458,15 @@ export function ApplicationsTable({ data }: Props) {
     state: {
       columnFilters,
       columnVisibility,
+      columnOrder,
+      rowSelection,
       pagination,
     },
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -416,6 +483,7 @@ export function ApplicationsTable({ data }: Props) {
   })
 
   return (
+    <DndContext collisionDetection={closestCenter} modifiers={[restrictToHorizontalAxis]} onDragEnd={handleDragEnd} sensors={sensors}>
     <div className="w-full rounded-lg border">
       <div className="border-b">
         <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -430,22 +498,12 @@ export function ApplicationsTable({ data }: Props) {
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12 border-t">
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead
-                        key={header.id}
-                        className="text-muted-foreground first:pl-4 last:pr-4"
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    )
-                  })}
+                <TableRow key={headerGroup.id} className="h-12 border-t bg-muted">
+                  <SortableContext items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))} strategy={horizontalListSortingStrategy}>
+                    {headerGroup.headers.map((header) => (
+                      <DraggableTableHeader key={header.id} header={header} />
+                    ))}
+                  </SortableContext>
                 </TableRow>
               ))}
             </TableHeader>
@@ -467,17 +525,22 @@ export function ApplicationsTable({ data }: Props) {
                         }}
                         aria-expanded={isOpen}
                       >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className="h-14 first:pl-4 last:pr-4"
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
+                        {row.getVisibleCells().map((cell) => {
+                          const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                          const metaClassName = (cell.column.columnDef.meta as Record<string, unknown> | undefined)?.className as string | undefined
+                          return (
+                            <TableCell
+                              key={cell.id}
+                              className={cn("h-14 px-3", isPinned && "bg-background group-hover/row:bg-muted/50 data-[state=selected]:bg-muted !px-1", metaClassName)}
+                              style={isPinned ? { position: "sticky", right: 0, zIndex: 10, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" } : undefined}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          )
+                        })}
                       </TableRow>
                       <TableRow
                         className={cn(
@@ -630,7 +693,7 @@ export function ApplicationsTable({ data }: Props) {
         </div>
       </div>
 
-      <DataTablePagination table={table} />
+      <DealsStylePagination table={table} />
       <Dialog
         open={!!uploadContext}
         onOpenChange={(open) => {
@@ -672,6 +735,7 @@ export function ApplicationsTable({ data }: Props) {
         }
       `}</style>
     </div>
+    </DndContext>
   )
 }
 
@@ -799,7 +863,7 @@ function ColumnVisibilityToggle<TData>({
         {table
           .getAllColumns()
           .filter(
-            (column) => column.getCanHide() && column.id !== "search" && column.id !== "expand" && column.id !== "actions"
+            (column) => column.getCanHide() && column.id !== "search" && column.id !== "expand" && column.id !== "row_actions" && column.id !== "select"
           )
           .map((column) => (
             <DropdownMenuCheckboxItem

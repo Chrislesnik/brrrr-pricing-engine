@@ -44,6 +44,7 @@ interface InputCategory {
   category: string;
   display_order: number;
   created_at: string;
+  default_open?: boolean;
 }
 
 interface InputField {
@@ -616,9 +617,9 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     );
   }
 
-  const allCategoryIds = inputsByCategory.map(({ category }) =>
-    String(category.id)
-  );
+  const allCategoryIds = inputsByCategory
+    .filter(({ category }) => category.default_open !== false)
+    .map(({ category }) => String(category.id));
 
   /** Render a category column */
   const renderCategory = ({ category, fields }: { category: InputCategory; fields: InputField[] }) => {

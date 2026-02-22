@@ -15,7 +15,7 @@ export async function GET(_request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("actions")
-      .select("id, uuid, name, description, is_active, created_at, updated_at")
+      .select("id, uuid, name, description, is_active, created_at, updated_at, trigger_type, webhook_type")
       .order("created_at", { ascending: false });
 
     if (error) {

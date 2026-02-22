@@ -70,6 +70,24 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Create a corresponding order row so the priority system works
+    if (data?.id) {
+      const { data: maxOrder } = await supabaseAdmin
+        .from("document_type_ai_input_order")
+        .select("display_order")
+        .order("display_order", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      await supabaseAdmin
+        .from("document_type_ai_input_order")
+        .insert({
+          document_type_ai_input_id: data.id,
+          display_order: (maxOrder?.display_order ?? 0) + 1,
+        })
+    }
+
     return NextResponse.json(data)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
@@ -152,6 +170,12 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const id = body.id
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 })
+
+    // Remove the corresponding order row first
+    await supabaseAdmin
+      .from("document_type_ai_input_order")
+      .delete()
+      .eq("document_type_ai_input_id", id)
 
     const { error } = await supabaseAdmin
       .from("document_type_ai_input")

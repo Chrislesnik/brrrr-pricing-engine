@@ -39,7 +39,7 @@ import {
 const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
 
 type Chat = { id: string; name?: string; created_at: string; last_used_at: string; loan_type?: string; program_id?: string }
-type Program = { id: string; internal_name: string; external_name: string; loan_type: string }
+type Program = { id: string; internal_name: string; external_name: string }
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string }
 
 export default function AIAgentPage() {
@@ -55,7 +55,6 @@ export default function AIAgentPage() {
   const [isThinking, setIsThinking] = React.useState<boolean>(false)
   const { orgRole } = useAuth()
   const [selectedProgramId, setSelectedProgramId] = React.useState<string | undefined>(undefined)
-  const [loanType, setLoanType] = React.useState<"dscr" | "bridge">("dscr")
   const [selectedChatId, setSelectedChatId] = React.useState<string | undefined>(undefined)
   const [editingChatId, setEditingChatId] = React.useState<string | undefined>(undefined)
   const [editingName, setEditingName] = React.useState<string>("")
@@ -75,14 +74,11 @@ export default function AIAgentPage() {
     }
   }, [chats, selectedChatId])
 
-  // Restore loan_type and program_id when switching chats
+  // Restore program_id when switching chats
   React.useEffect(() => {
     if (!selectedChatId) return
     const chat = chats.find((c) => c.id === selectedChatId)
     if (!chat) return
-    if (chat.loan_type && (chat.loan_type === "dscr" || chat.loan_type === "bridge")) {
-      setLoanType(chat.loan_type)
-    }
     if (chat.program_id) {
       setSelectedProgramId(chat.program_id)
     }
@@ -156,20 +152,18 @@ export default function AIAgentPage() {
     }
   }, [messages])
 
-  // Keep selected program in sync with chosen loan type
+  // Auto-select first program if current selection is invalid
   React.useEffect(() => {
-    const filtered = programs.filter((p) => p.loan_type === loanType)
-    if (!filtered.find((p) => p.id === selectedProgramId)) {
-      setSelectedProgramId(filtered[0]?.id)
+    if (!programs.find((p) => p.id === selectedProgramId)) {
+      setSelectedProgramId(programs[0]?.id)
     }
-  }, [loanType, programs, selectedProgramId])
+  }, [programs, selectedProgramId])
 
-  // Persist loan_type / program_id to the current chat
+  // Persist program_id to the current chat
   const persistChatSelections = React.useCallback(
-    async (overrides?: { loan_type?: string; program_id?: string | null }) => {
+    async (overrides?: { program_id?: string | null }) => {
       if (!selectedChatId) return
       const payload: Record<string, unknown> = {}
-      if (overrides?.loan_type !== undefined) payload.loan_type = overrides.loan_type
       if (overrides?.program_id !== undefined) payload.program_id = overrides.program_id
       if (Object.keys(payload).length === 0) return
       try {
@@ -198,7 +192,7 @@ export default function AIAgentPage() {
       const res = await fetch("/api/ai/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "New chat", loan_type: loanType, program_id: selectedProgramId }),
+        body: JSON.stringify({ name: "New chat", program_id: selectedProgramId }),
       })
       const json = (await res.json()) as { ok: boolean; chat?: Chat }
       if (json.ok && json.chat) {
@@ -485,26 +479,13 @@ export default function AIAgentPage() {
               </h2>
             </div>
             <div className="ml-auto flex items-center gap-2 min-w-0 overflow-hidden flex-1 justify-end">
-              <div className="min-w-0 flex-1 md:flex-none md:w-[160px]">
-                <Select value={loanType} onValueChange={(v) => { setLoanType(v as "dscr" | "bridge"); persistChatSelections({ loan_type: v }) }}>
-                  <SelectTrigger className="h-8 w-full truncate">
-                    <SelectValue placeholder="Loan Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dscr">DSCR</SelectItem>
-                    <SelectItem value="bridge">Bridge</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="min-w-0 flex-1 md:flex-none md:w-[220px]">
                 <Select value={selectedProgramId} onValueChange={(v) => { setSelectedProgramId(v); persistChatSelections({ program_id: v }) }}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Programs" />
                   </SelectTrigger>
                   <SelectContent>
-                    {programs
-                      .filter((p) => p.loan_type === loanType)
-                      .map((p) => {
+                    {programs.map((p) => {
                         const isBroker = orgRole === "org:broker" || orgRole === "broker"
                         const label = isBroker ? p.external_name || p.internal_name : p.internal_name || p.external_name
                         return (

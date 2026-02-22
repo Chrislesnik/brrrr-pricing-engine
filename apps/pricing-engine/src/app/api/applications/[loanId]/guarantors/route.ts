@@ -44,16 +44,8 @@ export async function POST(
       .limit(1)
       .maybeSingle()
 
-    if (primaryScenario?.id) {
-      await supabaseAdmin
-        .from("loan_scenarios")
-        .update({
-          guarantor_borrower_ids: ids,
-          guarantor_names: names,
-          guarantor_emails: emails,
-        })
-        .eq("id", primaryScenario.id)
-    }
+    // Guarantor data is now stored in loan_scenario_inputs, not on the scenario row directly.
+    // The application guarantor sync is handled via the applications table.
 
     return NextResponse.json({ ok: true })
   } catch (e) {

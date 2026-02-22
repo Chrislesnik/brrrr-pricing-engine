@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("programs")
-      .select("id, loan_type, internal_name, external_name, status")
+      .select("id, internal_name, external_name, status")
       .eq("status", "active")
       .order("updated_at", { ascending: false })
     if (error) {
@@ -14,7 +14,6 @@ export async function GET() {
     const items = Array.isArray(data)
       ? data.map((p) => ({
           id: p.id as string,
-          loan_type: (p.loan_type as string) ?? "",
           internal_name: (p.internal_name as string) ?? "",
           external_name: (p.external_name as string) ?? "",
           status: (p.status as string) ?? "",

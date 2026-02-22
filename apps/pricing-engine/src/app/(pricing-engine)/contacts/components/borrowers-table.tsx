@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   PaginationState,
   flexRender,
   getCoreRowModel,
@@ -13,17 +14,35 @@ import {
   useReactTable,
   type Row,
 } from "@tanstack/react-table"
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { cn } from "@repo/lib/cn"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { Borrower } from "../data/types"
 import { BorrowerRowActions } from "./borrower-row-actions"
 
@@ -79,9 +98,34 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
     pageIndex: 0,
     pageSize,
   })
+  const [rowSelection, setRowSelection] = useState({})
 
   const columns = useMemo<ColumnDef<BorrowerRow>[]>(() => {
     return [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         id: "search",
         accessorFn: (row: BorrowerRow) =>
@@ -160,35 +204,66 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
         },
       },
       {
-        id: "actions",
+        id: "row_actions",
         header: "",
         cell: ({ row }: { row: Row<BorrowerRow> }) => (
           <BorrowerRowActions borrower={row.original} />
         ),
+        enableSorting: false,
+        enableHiding: false,
         meta: { className: "text-right w-10" },
       },
     ]
   }, [])
 
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
+
   const table = useReactTable({
     data,
     columns,
-    state: { columnFilters, pagination },
+    state: { columnFilters, pagination, columnOrder, rowSelection },
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
+    onColumnOrderChange: setColumnOrder,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    // Use row.id as the stable row identifier to preserve state across data updates
     getRowId: (row) => row.id,
   })
 
   const searchColumn = table.getColumn("search")
 
   return (
-    <div className="w-full rounded-lg border">
-      <div className="border-b">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+      <div className="w-full">
+        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 py-3">
           <span className="font-medium">Borrowers</span>
           <div className="flex items-center gap-3">
             <Label htmlFor="borrowers-search" className="sr-only">
@@ -205,100 +280,121 @@ export function BorrowersTable({ data }: { data: BorrowerRow[] }) {
             />
           </div>
         </div>
-        {/* Desktop table */}
-        <div className="hidden md:block">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12 border-t">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="text-muted-foreground first:pl-4 last:pr-4"
+        <div className="rounded-lg border">
+        <div className="border-b">
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="bg-muted">
+                    <SortableContext
+                      items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                      strategy={horizontalListSortingStrategy}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row: Row<BorrowerRow>) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className="h-14 first:pl-4 last:pr-4"
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
+                      {headerGroup.headers.map((header) => (
+                        <DraggableTableHeader
+                          key={header.id}
+                          header={header}
+                        />
+                      ))}
+                    </SortableContext>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="text-muted-foreground h-24 text-center"
-                  >
-                    No borrowers found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row: Row<BorrowerRow>) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                        const metaClassName = (cell.column.columnDef.meta as Record<string, unknown> | undefined)?.className as string | undefined
+                        return (
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              "h-14 first:pl-4 last:pr-4",
+                              isPinned && "bg-background !px-1",
+                              metaClassName
+                            )}
+                            style={
+                              isPinned
+                                ? {
+                                    position: "sticky",
+                                    right: 0,
+                                    zIndex: 10,
+                                    boxShadow:
+                                      "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                  }
+                                : undefined
+                            }
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        )
+                      })}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="text-muted-foreground h-24 text-center"
+                    >
+                      No borrowers found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-        {/* Mobile card view */}
-        <div className="md:hidden">
-          <div className="space-y-3 p-3">
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row: Row<BorrowerRow>) => {
-                const b = row.original
-                const fullName = `${b.first_name} ${b.last_name}`.trim()
-                return (
-                  <div key={row.id} className="rounded-lg border p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-[15px] font-semibold">{fullName}</div>
-                        <div className="text-sm text-muted-foreground">{b.display_id}</div>
+          {/* Mobile card view */}
+          <div className="md:hidden">
+            <div className="space-y-3 p-3">
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row: Row<BorrowerRow>) => {
+                  const b = row.original
+                  const fullName = `${b.first_name} ${b.last_name}`.trim()
+                  return (
+                    <div key={row.id} className="rounded-lg border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-[15px] font-semibold">{fullName}</div>
+                          <div className="text-sm text-muted-foreground">{b.display_id}</div>
+                        </div>
+                        <BorrowerRowActions borrower={b} />
                       </div>
-                      <BorrowerRowActions borrower={b} />
-                    </div>
-                    <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                      <div>{b.email ?? "—"}</div>
-                      <div>{formatPhone(b.primary_phone)}</div>
-                    </div>
-                    {b.fico_score && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">FICO</span>: {b.fico_score}
+                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        <div>{b.email ?? "—"}</div>
+                        <div>{formatPhone(b.primary_phone)}</div>
                       </div>
-                    )}
-                  </div>
-                )
-              })
-            ) : (
-              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
-                No borrowers found.
-              </div>
-            )}
+                      {b.fico_score && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">FICO</span>: {b.fico_score}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                  No borrowers found.
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <DataTablePagination table={table} />
-    </div>
+      </div>
+      <DealsStylePagination table={table} />
+      </div>
+    </DndContext>
   )
 }

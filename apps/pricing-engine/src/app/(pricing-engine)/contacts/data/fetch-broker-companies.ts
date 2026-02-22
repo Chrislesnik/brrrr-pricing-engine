@@ -32,27 +32,16 @@ export async function getExternalOrganizations(
 	organizations: BrokerOrgRow[]
 	membersMap: Record<string, OrgMemberRow[]>
 }> {
-	// Resolve current user's org member id for filtering
-	let orgMemberId: string | null = null
-	if (internalOrgUuid && currentUserId) {
-		const { data: mem } = await supabaseAdmin
-			.from("organization_members")
-			.select("id")
-			.eq("organization_id", internalOrgUuid)
-			.eq("user_id", currentUserId)
-			.maybeSingle()
-		orgMemberId = (mem?.id as string) ?? null
-	}
-
-	// If we have an org member, get their assigned broker org IDs
+	// Get assigned broker org IDs from role_assignments (source of truth)
 	let assignedOrgIds: string[] | null = null
-	if (orgMemberId) {
+	if (currentUserId) {
 		const { data: assignments } = await supabaseAdmin
-			.from("organization_account_managers")
-			.select("organization_id")
-			.eq("account_manager_id", orgMemberId)
+			.from("role_assignments")
+			.select("resource_id")
+			.eq("resource_type", "broker_org")
+			.eq("user_id", currentUserId)
 		if (assignments && assignments.length > 0) {
-			assignedOrgIds = assignments.map((a) => a.organization_id as string)
+			assignedOrgIds = assignments.map((a) => a.resource_id as string)
 		}
 	}
 

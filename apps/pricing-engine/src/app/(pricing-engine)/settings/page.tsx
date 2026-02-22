@@ -11,7 +11,6 @@ import { cn } from "@repo/lib/cn"
 
 interface ProgramRow {
   id: string
-  loan_type: "dscr" | "bridge" | string
   internal_name: string
   external_name: string
   webhook_url: string | null
@@ -30,7 +29,7 @@ export default async function SettingsProgramsPage() {
 
   const { data } = await supabaseAdmin
     .from("programs")
-    .select("id, loan_type, internal_name, external_name, webhook_url, status")
+    .select("id, internal_name, external_name, webhook_url, status")
     .order("updated_at", { ascending: false })
   const programs: ProgramRow[] = (data as ProgramRow[]) ?? []
 
@@ -51,10 +50,9 @@ export default async function SettingsProgramsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[12%]">ID</TableHead>
-              <TableHead className="w-[18%]">Loan Type</TableHead>
-              <TableHead className="w-[20%]">Internal Name</TableHead>
-              <TableHead className="w-[20%]">External Name</TableHead>
-              <TableHead className="w-[20%]">Webhook URL</TableHead>
+              <TableHead className="w-[22%]">Internal Name</TableHead>
+              <TableHead className="w-[22%]">External Name</TableHead>
+              <TableHead className="w-[24%]">Webhook URL</TableHead>
               <TableHead className="w-[10%]">Status</TableHead>
               <TableHead className="w-[4%]" />
             </TableRow>
@@ -63,7 +61,6 @@ export default async function SettingsProgramsPage() {
             {programs.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-mono text-xs">{p.id}</TableCell>
-                <TableCell className="uppercase">{p.loan_type}</TableCell>
                 <TableCell className="font-medium">{p.internal_name}</TableCell>
                 <TableCell>{p.external_name}</TableCell>
                 <TableCell className="truncate">{p.webhook_url ?? ""}</TableCell>

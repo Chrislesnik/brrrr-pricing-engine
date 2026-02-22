@@ -6,7 +6,7 @@ import {
   edgesAtom,
   selectedNodeAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
-import { ChevronRight, HelpCircle, Maximize2, Plus, Settings } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, ChevronsUpDown, HelpCircle, Maximize2, Plus, Settings, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
 import { AiGatewayConsentOverlay } from "@/components/workflow-builder/overlays/ai-gateway-consent-overlay";
@@ -53,6 +53,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/shadcn/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@repo/ui/shadcn/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
+import { cn } from "@/components/workflow-builder/lib/utils";
 import { ActionConfigRenderer } from "./action-config-renderer";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
 import { ConditionBuilderInline } from "@/components/workflow-builder/ui/condition-builder-inline";
@@ -671,6 +685,14 @@ function SystemActionFields({
     case "Loop Over Batches":
       return (
         <LoopBatchesFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Respond to Webhook":
+      return (
+        <RespondToWebhookFields
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
@@ -2331,7 +2353,7 @@ function SetFieldsFields({
         {fields.map((field, idx) => (
           <div
             key={idx}
-            className="rounded-md border p-3 space-y-2 bg-muted/30"
+            className="rounded-md border p-4 space-y-3 bg-muted/30"
           >
             {/* Row 1: Name + Type */}
             <div className="flex items-center gap-2">
@@ -2372,7 +2394,7 @@ function SetFieldsFields({
             </div>
 
             {/* Conditional toggle + collapsible section */}
-            <Collapsible defaultOpen={!!field.conditional}>
+            <Collapsible defaultOpen={!!field.conditional} className="space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -2535,6 +2557,287 @@ function SetFieldsFields({
   );
 }
 
+// ── Respond to Webhook config component ──
+
+type InputMappingRow = {
+  id: string;
+  inputId: string;
+  inputCode: string;
+  inputType: string;
+  value: string;
+};
+
+type WebhookInputOption = {
+  id: string;
+  input_label: string;
+  input_code: string;
+  input_type: string;
+};
+
+function WebhookInputSelector({
+  disabled,
+  inputs,
+  value,
+  onSelect,
+}: {
+  disabled?: boolean;
+  inputs: WebhookInputOption[];
+  value?: string;
+  onSelect: (input: WebhookInputOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = inputs.find((i) => i.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          <span className="truncate">
+            {selected ? selected.input_label : "Select input..."}
+          </span>
+          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" sideOffset={4}>
+        <Command>
+          <CommandInput placeholder="Search inputs..." />
+          <CommandList>
+            <CommandEmpty>No inputs found.</CommandEmpty>
+            <CommandGroup>
+              {inputs.map((inp) => (
+                <CommandItem
+                  key={inp.id}
+                  value={inp.input_label}
+                  className="px-2"
+                  onSelect={() => {
+                    onSelect(inp);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="truncate">{inp.input_label}</span>
+                  {value === inp.id && (
+                    <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function RespondToWebhookFields({
+  config,
+  disabled,
+  onUpdateConfig,
+}: {
+  config: Record<string, unknown>;
+  disabled: boolean;
+  onUpdateConfig: (key: string, value: string) => void;
+}) {
+  const nodes = useAtomValue(nodesAtom);
+  const [inputs, setInputs] = useState<WebhookInputOption[]>([]);
+
+  const triggerNode = nodes.find((n) => n.data.type === "trigger");
+  const webhookType = (triggerNode?.data.config?.webhookType as string) || "";
+  const isTriggerWebhook = (triggerNode?.data.config?.triggerType as string) === "Webhook";
+
+  const [mappings, setMappings] = useState<InputMappingRow[]>(() => {
+    try {
+      return config?.inputMappings
+        ? (JSON.parse(config.inputMappings as string) as InputMappingRow[])
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!webhookType) {
+      setInputs([]);
+      return;
+    }
+    const endpoint = webhookType === "deal" ? "/api/inputs" : "/api/pricing-engine-inputs";
+    fetch(endpoint)
+      .then((r) => r.json())
+      .then((data: WebhookInputOption[]) => {
+        if (Array.isArray(data)) setInputs(data);
+      })
+      .catch(() => {});
+  }, [webhookType]);
+
+  const persistMappings = useCallback(
+    (next: InputMappingRow[]) => {
+      setMappings(next);
+      onUpdateConfig("inputMappings", JSON.stringify(next));
+    },
+    [onUpdateConfig]
+  );
+
+  const addMapping = () => {
+    persistMappings([
+      ...mappings,
+      { id: crypto.randomUUID(), inputId: "", inputCode: "", inputType: "", value: "" },
+    ]);
+  };
+
+  const removeMapping = (id: string) => {
+    persistMappings(mappings.filter((m) => m.id !== id));
+  };
+
+  const updateMapping = (id: string, updates: Partial<InputMappingRow>) => {
+    persistMappings(
+      mappings.map((m) => (m.id === id ? { ...m, ...updates } : m))
+    );
+  };
+
+  if (!isTriggerWebhook) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          This action requires a <strong>Webhook</strong> trigger type.
+          Configure the trigger node as a Webhook first.
+        </span>
+      </div>
+    );
+  }
+
+  if (!webhookType) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          Set the <strong>Webhook Type</strong> (Deal or Pricing Engine) on the
+          trigger node to configure input mappings.
+        </span>
+      </div>
+    );
+  }
+
+  const isDeal = webhookType === "deal";
+  const recordLabel = isDeal ? "Deal ID" : "Scenario ID (Optional)";
+
+  return (
+    <div className="space-y-4">
+      {/* Record ID */}
+      <div className="space-y-2">
+        <Label className="ml-1">{recordLabel}</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="recordId"
+          onChange={(val) => onUpdateConfig("recordId", val)}
+          placeholder={`{{@Trigger.${isDeal ? "deal_id" : "scenario_id"}}}`}
+          value={(config?.recordId as string) || ""}
+        />
+        <p className="text-muted-foreground text-[10px]">
+          {isDeal
+            ? "The ID of the deal to write input values to."
+            : "If provided, values are saved to the scenario. If omitted, values are returned in the response only (useful when the scenario hasn\u2019t been saved yet)."}
+        </p>
+      </div>
+
+      {/* Input Mappings */}
+      <div className="space-y-2">
+        <Label className="ml-1">Input Mappings</Label>
+        {mappings.length === 0 && (
+          <p className="text-muted-foreground text-xs py-1">
+            No mappings configured. Add a mapping to write values to inputs.
+          </p>
+        )}
+        {mappings.map((mapping) => (
+          <div key={mapping.id} className="space-y-2 rounded-md border p-3">
+            <div className="flex items-start gap-2">
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Input</Label>
+                <WebhookInputSelector
+                  disabled={disabled}
+                  inputs={inputs}
+                  value={mapping.inputId}
+                  onSelect={(inp) =>
+                    updateMapping(mapping.id, {
+                      inputId: inp.id,
+                      inputCode: inp.input_code,
+                      inputType: inp.input_type,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex items-end pt-5">
+                <Button
+                  disabled={disabled}
+                  onClick={() => removeMapping(mapping.id)}
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Value</Label>
+              <TemplateBadgeInput
+                disabled={disabled}
+                id={`mapping-value-${mapping.id}`}
+                onChange={(val) => updateMapping(mapping.id, { value: val })}
+                placeholder="{{@NodeName.field}}"
+                value={mapping.value}
+              />
+            </div>
+          </div>
+        ))}
+        <Button
+          className="w-full"
+          disabled={disabled}
+          onClick={addMapping}
+          type="button"
+          variant="outline"
+          size="sm"
+        >
+          <Plus className="size-4 mr-1" />
+          Add Mapping
+        </Button>
+      </div>
+
+      {/* Response Config */}
+      <div className="space-y-2">
+        <Label className="ml-1">Response Status Code</Label>
+        <Input
+          disabled={disabled}
+          type="number"
+          onChange={(e) => onUpdateConfig("responseStatusCode", e.target.value)}
+          placeholder="200"
+          value={(config?.responseStatusCode as string) || "200"}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="ml-1">Response Body</Label>
+        <Textarea
+          disabled={disabled}
+          onChange={(e) => onUpdateConfig("responseBody", e.target.value)}
+          placeholder='{ "success": true }'
+          rows={4}
+          className="font-mono text-xs"
+          value={(config?.responseBody as string) || ""}
+        />
+        <p className="text-muted-foreground text-[10px]">
+          JSON body returned to the webhook caller. Supports template variables.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // System actions that don't have plugins
 const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "HTTP Request", label: "HTTP Request" },
@@ -2553,6 +2856,7 @@ const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
   { id: "Sort", label: "Sort" },
   { id: "Remove Duplicates", label: "Remove Duplicates" },
   { id: "Loop Over Batches", label: "Loop Over Batches" },
+  { id: "Respond to Webhook", label: "Respond to Webhook" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);

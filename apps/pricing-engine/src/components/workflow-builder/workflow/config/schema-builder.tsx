@@ -376,7 +376,7 @@ function InputSelector({
           <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[240px] p-0" align="start">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" sideOffset={4}>
         <Command>
           <CommandInput placeholder="Search inputs..." />
           <CommandList>
@@ -386,18 +386,16 @@ function InputSelector({
                 <CommandItem
                   key={inp.id}
                   value={inp.input_label}
+                  className="px-2"
                   onSelect={() => {
                     onSelect(inp.id);
                     setOpen(false);
                   }}
                 >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === inp.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
                   <span className="truncate">{inp.input_label}</span>
+                  {value === inp.id && (
+                    <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

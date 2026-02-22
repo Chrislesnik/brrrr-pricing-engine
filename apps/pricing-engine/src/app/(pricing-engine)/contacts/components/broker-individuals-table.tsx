@@ -4,7 +4,9 @@ import { Fragment, useMemo, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   PaginationState,
+  RowData,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -12,20 +14,44 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
+import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
+
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> {
+    className?: string
+  }
+}
+
 import type {
   BrokerIndividualRow,
   MemberOrgRow,
@@ -61,6 +87,7 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
     pageIndex: 0,
     pageSize,
   })
+  const [rowSelection, setRowSelection] = useState({})
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [orgsMap, setOrgsMap] = useState<
     Record<string, MemberOrgRow[] | null | undefined>
@@ -108,6 +135,32 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
 
   const columns = useMemo<ColumnDef<BrokerIndividualRow>[]>(() => {
     return [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { className: "w-10 pl-3" },
+      },
       {
         id: "expand",
         header: "",
@@ -202,14 +255,27 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
     ]
   }, [expandedRows])
 
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
   const table = useReactTable({
     data,
     columns,
     state: {
       columnFilters,
       pagination,
+      columnOrder,
+      rowSelection,
     },
     onColumnFiltersChange: setColumnFilters,
+    onColumnOrderChange: setColumnOrder,
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -219,32 +285,48 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
     getRowId: (row) => row.id,
   })
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
+
   return (
-    <div className="w-full rounded-lg border">
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+    <div className="w-full">
+      <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 py-3">
+        <span className="font-medium">Individuals</span>
+        <Filter column={table.getColumn("last_name")!} />
+      </div>
+      <div className="rounded-lg border">
       <div className="border-b">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">Individuals</span>
-          <Filter column={table.getColumn("last_name")!} />
-        </div>
         {/* Desktop table */}
         <div className="hidden md:block">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12 border-t">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="text-muted-foreground first:pl-4 last:pr-4"
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
+                <TableRow key={headerGroup.id} className="bg-muted">
+                  <SortableContext
+                    items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {headerGroup.headers.map((header) => (
+                      <DraggableTableHeader key={header.id} header={header} />
+                    ))}
+                  </SortableContext>
                 </TableRow>
               ))}
             </TableHeader>
@@ -270,17 +352,29 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
                         }}
                         aria-expanded={isOpen}
                       >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className="h-14 first:pl-4 last:pr-4"
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
+                        {row.getVisibleCells().map((cell) => {
+                          const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                          return (
+                            <TableCell
+                              key={cell.id}
+                              className={cn(
+                                "h-14 first:pl-4 last:pr-4",
+                                cell.column.columnDef.meta?.className ?? "",
+                                isPinned && "bg-background !px-1"
+                              )}
+                              style={
+                                isPinned
+                                  ? { position: "sticky", right: 0, zIndex: 10, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" }
+                                  : undefined
+                              }
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          )
+                        })}
                       </TableRow>
                       <TableRow className="bg-muted/30 border-0">
                         <TableCell colSpan={columns.length} className="p-0">
@@ -428,8 +522,10 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
         </div>
       </div>
 
-      <DataTablePagination table={table} />
     </div>
+    <DealsStylePagination table={table} />
+    </div>
+    </DndContext>
   )
 }
 

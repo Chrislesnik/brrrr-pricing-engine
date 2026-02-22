@@ -71,26 +71,6 @@ export async function DELETE(
     const resourceId = assignment.resource_id as string;
     const removedUserId = assignment.user_id as string;
 
-    if (resourceType === "broker_org") {
-      try {
-        const { data: mem } = await supabaseAdmin
-          .from("organization_members")
-          .select("id")
-          .eq("organization_id", orgUuid)
-          .eq("user_id", removedUserId)
-          .maybeSingle()
-        if (mem?.id) {
-          await supabaseAdmin
-            .from("organization_account_managers")
-            .delete()
-            .eq("organization_id", resourceId)
-            .eq("account_manager_id", mem.id)
-        }
-      } catch {
-        // best-effort sync
-      }
-    }
-
     if (resourceType === "deal" || resourceType === "loan") {
       // Check if user still has other role assignments on this resource
       const { data: remaining } = await supabaseAdmin
@@ -113,24 +93,9 @@ export async function DELETE(
           // best-effort
         }
 
-        // Update legacy assigned_to column
+        // Update legacy assigned_to column (deals only; loans column removed)
         try {
-          if (resourceType === "loan") {
-            const { data: loan } = await supabaseAdmin
-              .from("loans")
-              .select("assigned_to_user_id")
-              .eq("id", resourceId)
-              .single();
-            const current = Array.isArray(loan?.assigned_to_user_id)
-              ? (loan.assigned_to_user_id as string[])
-              : [];
-            await supabaseAdmin
-              .from("loans")
-              .update({
-                assigned_to_user_id: current.filter((uid) => uid !== removedUserId),
-              })
-              .eq("id", resourceId);
-          } else if (resourceType === "deal") {
+          if (resourceType === "deal") {
             const { data: deal } = await supabaseAdmin
               .from("deals")
               .select("assigned_to_user_id")

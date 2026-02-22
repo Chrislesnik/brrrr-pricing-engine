@@ -73,7 +73,7 @@ export function ProgramsList({
   onChange: (m: Record<string, boolean>) => void
 }) {
   const [items, setItems] = useState<
-    { id: string; internal_name: string; external_name: string; loan_type: string }[] | null
+    { id: string; internal_name: string; external_name: string }[] | null
   >(null)
   const [error, setError] = useState<string | null>(null)
   const visibilityMap = value
@@ -96,7 +96,6 @@ export function ProgramsList({
             id: String(p.id ?? ""),
             internal_name: String(p.internal_name ?? ""),
             external_name: String(p.external_name ?? ""),
-            loan_type: String(p.loan_type ?? ""),
           }))
         setItems(mapped)
       } catch (e) {
@@ -134,9 +133,8 @@ export function ProgramsList({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[70%]">Program</TableHead>
-          <TableHead className="w-[20%] text-left">Loan Type</TableHead>
-          <TableHead className="w-[10%] text-center">Visibility</TableHead>
+          <TableHead className="w-[80%]">Program</TableHead>
+          <TableHead className="w-[20%] text-center">Visibility</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -148,7 +146,6 @@ export function ProgramsList({
                 <div className="truncate text-muted-foreground text-xs">{p.external_name}</div>
               </div>
             </TableCell>
-            <TableCell className="uppercase">{p.loan_type}</TableCell>
             <TableCell>
               <div className="flex justify-center">
                 <Switch

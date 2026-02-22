@@ -26,6 +26,7 @@ export type Database = {
           trigger_type: string
           updated_at: string
           uuid: string
+          webhook_type: string | null
           workflow_data: Json | null
         }
         Insert: {
@@ -39,6 +40,7 @@ export type Database = {
           trigger_type?: string
           updated_at?: string
           uuid?: string
+          webhook_type?: string | null
           workflow_data?: Json | null
         }
         Update: {
@@ -52,6 +54,7 @@ export type Database = {
           trigger_type?: string
           updated_at?: string
           uuid?: string
+          webhook_type?: string | null
           workflow_data?: Json | null
         }
         Relationships: []
@@ -4917,6 +4920,7 @@ export type Database = {
           archived_by: string | null
           category: string | null
           category_id: number | null
+          config: Json | null
           created_at: string
           display_order: number
           dropdown_options: Json | null
@@ -4933,6 +4937,7 @@ export type Database = {
           archived_by?: string | null
           category?: string | null
           category_id?: number | null
+          config?: Json | null
           created_at?: string
           display_order?: number
           dropdown_options?: Json | null
@@ -4949,6 +4954,7 @@ export type Database = {
           archived_by?: string | null
           category?: string | null
           category_id?: number | null
+          config?: Json | null
           created_at?: string
           display_order?: number
           dropdown_options?: Json | null
@@ -5819,6 +5825,95 @@ export type Database = {
           metadata?: Json | null
         }
         Relationships: []
+      }
+      pricing_engine_input_categories: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          category: string | null
+          created_at: string
+          display_order: number
+          id: number
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          created_at?: string
+          display_order?: number
+          id?: number
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          created_at?: string
+          display_order?: number
+          id?: number
+        }
+        Relationships: []
+      }
+      pricing_engine_inputs: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          category: string | null
+          category_id: number | null
+          config: Json | null
+          created_at: string
+          display_order: number
+          dropdown_options: Json | null
+          id: number
+          input_code: string
+          input_label: string | null
+          input_type: string | null
+          linked_column: string | null
+          linked_table: string | null
+          starred: boolean
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          category_id?: number | null
+          config?: Json | null
+          created_at?: string
+          display_order?: number
+          dropdown_options?: Json | null
+          id?: number
+          input_code: string
+          input_label?: string | null
+          input_type?: string | null
+          linked_column?: string | null
+          linked_table?: string | null
+          starred?: boolean
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          category_id?: number | null
+          config?: Json | null
+          created_at?: string
+          display_order?: number
+          dropdown_options?: Json | null
+          id?: number
+          input_code?: string
+          input_label?: string | null
+          input_type?: string | null
+          linked_column?: string | null
+          linked_table?: string | null
+          starred?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_engine_inputs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_input_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       programs: {
         Row: {

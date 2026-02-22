@@ -1,8 +1,11 @@
 "use client";
 
+import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
+  ColumnOrderState,
+  VisibilityState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -11,25 +14,54 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { Loader2, Search, Download, MoreHorizontal, Archive } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import {
+  Loader2,
+  Search,
+  Download,
+  MoreHorizontal,
+  Archive,
+  Columns2,
+  ChevronDown,
+} from "lucide-react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Input } from "@repo/ui/shadcn/input";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
+import { cn } from "@repo/lib/cn";
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 import { ArchiveConfirmDialog } from "@/components/archive/archive-confirm-dialog";
 import { CreditDetailSheet } from "./credit-detail-sheet";
 
@@ -121,6 +153,20 @@ function ScoreWidget({ score }: { score: number | null }) {
   );
 }
 
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    report_id_col: "Report ID",
+    borrower: "Borrower",
+    status: "Status",
+    aggregator: "Aggregator",
+    transunion: "TransUnion",
+    experian: "Experian",
+    equifax: "Equifax",
+    report_date: "Report Date",
+  };
+  return map[columnId] ?? columnId.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Actions Cell                                                               */
 /* -------------------------------------------------------------------------- */
@@ -154,7 +200,7 @@ function ActionsCell({
 
   return (
     <>
-      <div className="flex justify-center">
+      <div className="flex justify-end" data-ignore-row-click>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
@@ -167,8 +213,8 @@ function ActionsCell({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            {report.download_url && (
-              <>
+            <DropdownMenuGroup>
+              {report.download_url && (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -178,19 +224,21 @@ function ActionsCell({
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem
-              className="text-red-600 focus:text-red-600"
-              onSelect={(e) => {
-                e.preventDefault();
-                setConfirmOpen(true);
-              }}
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              Archive
-            </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
+            {report.download_url && <DropdownMenuSeparator />}
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setConfirmOpen(true);
+                }}
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -211,32 +259,54 @@ function ActionsCell({
 
 function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[] {
   return [
-  {
-    id: "report_id_col",
-    accessorKey: "report_id",
-    header: "Report ID",
-    cell: ({ row }) => (
-      <span className="font-mono text-xs text-muted-foreground">
-        {row.original.report_id || row.original.id.slice(0, 12) + "..."}
-      </span>
-    ),
-  },
-  {
-    id: "borrower",
-    accessorFn: (row) => getBorrowerName(row),
-    header: "Borrower",
-    cell: ({ row }) => (
-      <span className="font-medium truncate">{getBorrowerName(row.original)}</span>
-    ),
-  },
-  {
-    id: "status",
-    accessorFn: (row) => getReportStatus(row).label,
-    header: () => <span className="w-full text-center block">Status</span>,
-    cell: ({ row }) => {
-      const { label, colorVar, bgVar } = getReportStatus(row.original);
-      return (
-        <div className="flex justify-center">
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+          className="translate-y-[2px]"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          className="translate-y-[2px]"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 40,
+    },
+    {
+      id: "report_id_col",
+      accessorKey: "report_id",
+      header: "Report ID",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-muted-foreground">
+          {row.original.report_id || row.original.id.slice(0, 12) + "..."}
+        </span>
+      ),
+    },
+    {
+      id: "borrower",
+      accessorFn: (row) => getBorrowerName(row),
+      header: "Borrower",
+      cell: ({ row }) => (
+        <span className="font-medium truncate">{getBorrowerName(row.original)}</span>
+      ),
+    },
+    {
+      id: "status",
+      accessorFn: (row) => getReportStatus(row).label,
+      header: "Status",
+      cell: ({ row }) => {
+        const { label, colorVar, bgVar } = getReportStatus(row.original);
+        return (
           <span
             className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
             style={{
@@ -246,62 +316,62 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
           >
             {label}
           </span>
-        </div>
-      );
+        );
+      },
     },
-  },
-  {
-    id: "aggregator",
-    accessorFn: (row) => row.aggregator_link?.aggregator || row.aggregator || "—",
-    header: () => <span className="w-full text-center block">Aggregator</span>,
-    cell: ({ row }) => {
-      const agg = row.original.aggregator_link?.aggregator || row.original.aggregator;
-      return (
-        <div className="flex justify-center">
-          {agg ? (
-            <Badge variant="secondary" className="text-xs capitalize">{agg}</Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
-        </div>
-      );
+    {
+      id: "aggregator",
+      accessorFn: (row) => row.aggregator_link?.aggregator || row.aggregator || "—",
+      header: "Aggregator",
+      cell: ({ row }) => {
+        const agg = row.original.aggregator_link?.aggregator || row.original.aggregator;
+        return agg ? (
+          <Badge variant="secondary" className="text-xs capitalize">{agg}</Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        );
+      },
     },
-  },
-  {
-    id: "transunion",
-    accessorKey: "transunion_score",
-    header: () => <span className="w-full text-center block">TU</span>,
-    cell: ({ row }) => <div className="flex justify-center"><ScoreWidget score={row.original.transunion_score} /></div>,
-  },
-  {
-    id: "experian",
-    accessorKey: "experian_score",
-    header: () => <span className="w-full text-center block">EX</span>,
-    cell: ({ row }) => <div className="flex justify-center"><ScoreWidget score={row.original.experian_score} /></div>,
-  },
-  {
-    id: "equifax",
-    accessorKey: "equifax_score",
-    header: () => <span className="w-full text-center block">EQ</span>,
-    cell: ({ row }) => <div className="flex justify-center"><ScoreWidget score={row.original.equifax_score} /></div>,
-  },
-  {
-    id: "report_date",
-    accessorKey: "report_date",
-    header: () => <span className="w-full text-center block">Report Date</span>,
-    cell: ({ row }) => (
-      <div className="flex justify-center">
+    {
+      id: "transunion",
+      accessorKey: "transunion_score",
+      header: "TU",
+      cell: ({ row }) => <ScoreWidget score={row.original.transunion_score} />,
+      enableSorting: true,
+    },
+    {
+      id: "experian",
+      accessorKey: "experian_score",
+      header: "EX",
+      cell: ({ row }) => <ScoreWidget score={row.original.experian_score} />,
+      enableSorting: true,
+    },
+    {
+      id: "equifax",
+      accessorKey: "equifax_score",
+      header: "EQ",
+      cell: ({ row }) => <ScoreWidget score={row.original.equifax_score} />,
+      enableSorting: true,
+    },
+    {
+      id: "report_date",
+      accessorKey: "report_date",
+      header: "Report Date",
+      cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatDate(row.original.report_date ?? row.original.created_at)}</span>
-      </div>
-    ),
-  },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) => (
-      <ActionsCell report={row.original} onArchived={onArchived} />
-    ),
-  },
+      ),
+      enableSorting: true,
+    },
+    {
+      id: "row_actions",
+      header: "",
+      cell: ({ row }) => (
+        <ActionsCell report={row.original} onArchived={onArchived} />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 60,
+    },
   ];
 }
 
@@ -315,6 +385,8 @@ export function CreditTable() {
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
   const [selectedReport, setSelectedReport] = useState<CreditReport | null>(null);
 
   const onArchived = useCallback((id: string) => {
@@ -322,6 +394,14 @@ export function CreditTable() {
   }, []);
 
   const columns = useMemo(() => getColumns(onArchived), [onArchived]);
+
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  );
 
   useEffect(() => {
     async function fetchReports() {
@@ -344,9 +424,13 @@ export function CreditTable() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, columnVisibility, rowSelection, columnOrder },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    onColumnOrderChange: setColumnOrder,
+    enableRowSelection: true,
     globalFilterFn: (row, _columnId, filterValue) => {
       const search = String(filterValue).toLowerCase();
       const name = getBorrowerName(row.original).toLowerCase();
@@ -357,13 +441,40 @@ export function CreditTable() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 20 } },
+    initialState: { pagination: { pageSize: 10 } },
   });
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return;
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id);
+      const oldIndex = currentOrder.indexOf(activeId);
+      const newIndex = currentOrder.indexOf(overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex));
+    }
+  }
+
+  const shouldIgnoreRowClick = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return !!target.closest("button, a, input, textarea, select, [data-ignore-row-click]");
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="w-full">
+        <div className="flex items-center justify-between py-4">
+          <div className="h-8 w-[250px] bg-muted animate-pulse rounded" />
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-[150px] bg-muted animate-pulse rounded" />
+          </div>
+        </div>
+        <div className="rounded-md border">
+          <div className="h-[400px] bg-muted animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -377,89 +488,122 @@ export function CreditTable() {
   }
 
   return (
-    <>
-      <div className="flex items-center gap-2 pb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by borrower name or report ID..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="cursor-pointer select-none"
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  No credit reports found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => setSelectedReport(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+      <div className="w-full">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by borrower or report ID..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="pl-8 max-w-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 bg-background">
+                  <Columns2 className="w-4 h-4 mr-2" />
+                  <span className="text-xs font-medium">Customize Columns</span>
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                {table
+                  .getAllColumns()
+                  .filter((col) => col.getCanHide())
+                  .map((col) => (
+                    <DropdownMenuCheckboxItem
+                      key={col.id}
+                      checked={col.getIsVisible()}
+                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                    >
+                      {formatColumnName(col.id)}
+                    </DropdownMenuCheckboxItem>
                   ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between pt-4">
-          <p className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-      )}
+
+        {/* Table */}
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="bg-muted">
+                  <SortableContext
+                    items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {headerGroup.headers.map((header) => (
+                      <DraggableTableHeader key={header.id} header={header} />
+                    ))}
+                  </SortableContext>
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                    No credit reports found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      if (shouldIgnoreRowClick(e.target)) return;
+                      setSelectedReport(row.original);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isPinned = PINNED_RIGHT_SET.has(cell.column.id);
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            "text-left",
+                            isPinned && "bg-background !px-1"
+                          )}
+                          style={
+                            isPinned
+                              ? {
+                                  position: "sticky",
+                                  right: 0,
+                                  zIndex: 10,
+                                  boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                }
+                              : undefined
+                          }
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <DealsStylePagination table={table} />
+      </div>
 
       <CreditDetailSheet
         report={selectedReport}
@@ -468,6 +612,6 @@ export function CreditTable() {
           if (!open) setSelectedReport(null);
         }}
       />
-    </>
+    </DndContext>
   );
 }

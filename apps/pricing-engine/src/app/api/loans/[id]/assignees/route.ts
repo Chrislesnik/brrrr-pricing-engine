@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const { data, error } = await supabaseAdmin
       .from("loans")
-      .select("assigned_to_user_id, organization_id, primary_user_id")
+      .select("organization_id, primary_user_id")
       .eq("id", id)
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -24,7 +24,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     if (orgUuid && data.organization_id && data.organization_id !== orgUuid) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-    const ids = Array.isArray(data.assigned_to_user_id) ? (data.assigned_to_user_id as string[]) : []
+    // Read from role_assignments
+    const { data: assignments } = await supabaseAdmin
+      .from("role_assignments")
+      .select("user_id")
+      .eq("resource_type", "loan")
+      .eq("resource_id", id)
+    const ids = (assignments ?? []).map((a) => a.user_id as string)
     return NextResponse.json({ userIds: ids, primaryUserId: data.primary_user_id ?? null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
@@ -44,15 +50,13 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
     const userIds = body.userIds.filter((v) => typeof v === "string")
 
-    // Get previous state for diff calculation
-    const { data: loan } = await supabaseAdmin
-      .from("loans")
-      .select("assigned_to_user_id")
-      .eq("id", id)
-      .single()
-    const previousIds = new Set<string>(
-      Array.isArray(loan?.assigned_to_user_id) ? (loan.assigned_to_user_id as string[]) : []
-    )
+    // Get previous state from role_assignments for diff calculation
+    const { data: prevAssignments } = await supabaseAdmin
+      .from("role_assignments")
+      .select("user_id")
+      .eq("resource_type", "loan")
+      .eq("resource_id", id)
+    const previousIds = new Set<string>((prevAssignments ?? []).map((a) => a.user_id as string))
     const newIds = new Set<string>(userIds)
 
     // Calculate diff
@@ -75,11 +79,34 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       }
     }
 
-    const { error } = await supabaseAdmin
-      .from("loans")
-      .update({ assigned_to_user_id: userIds })
-      .eq("id", id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // Write to role_assignments: delete removed, insert added
+    if (removed.length > 0) {
+      await supabaseAdmin
+        .from("role_assignments")
+        .delete()
+        .eq("resource_type", "loan")
+        .eq("resource_id", id)
+        .in("user_id", removed)
+    }
+    if (added.length > 0) {
+      // Get a default role_type_id for loan assignments
+      const { data: roleType } = await supabaseAdmin
+        .from("deal_role_types")
+        .select("id")
+        .limit(1)
+        .maybeSingle()
+      const roleTypeId = roleType?.id ?? 1
+      await supabaseAdmin.from("role_assignments").insert(
+        added.map((uid) => ({
+          resource_type: "loan",
+          resource_id: id,
+          role_type_id: roleTypeId,
+          user_id: uid,
+          organization_id: orgUuid,
+          created_by: userId,
+        }))
+      )
+    }
 
     // Sync deal_users table (for deal chat @mention filtering)
     try {

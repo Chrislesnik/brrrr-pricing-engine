@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import { SearchIcon, LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
 import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
 import html2canvas from "html2canvas"
@@ -52,7 +52,12 @@ import { cn } from "@/lib/utils"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
+import { DynamicPEInput, type PEInputField } from "@/components/pricing/dynamic-pe-input"
+import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
 import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
+import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
+import type { TableConfig } from "@/types/table-config"
+import type { SectionButton } from "@/types/section-buttons"
 import DSCRTermSheet, { type DSCRTermSheetProps, type DSCRTermSheetData } from "@/components/DSCRTermSheet"
 import BridgeTermSheet from "@/components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -942,17 +947,17 @@ export default function PricingEnginePage() {
   )
   const defaultsAppliedRef = useRef<boolean>(false)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
-  const [reAuto, setReAuto] = useState<Record<string, boolean>>({})
-  function markReAuto(keys: string[]) {
-    if (!Array.isArray(keys) || keys.length === 0) return
-    setReAuto((prev) => {
-      const next: Record<string, boolean> = { ...prev }
-      for (const k of keys) next[k] = true
+  const [signalColors, setSignalColors] = useState<Record<string, string>>({})
+  function markSignalColors(keys: string[], color: string) {
+    if (!Array.isArray(keys) || keys.length === 0 || !color) return
+    setSignalColors((prev) => {
+      const next: Record<string, string> = { ...prev }
+      for (const k of keys) next[k] = color
       return next
     })
   }
-  function clearReAuto(key: string) {
-    setReAuto((prev) => {
+  function clearSignalColor(key: string) {
+    setSignalColors((prev) => {
       if (!prev[key]) return prev
       const next = { ...prev }
       delete next[key]
@@ -1032,6 +1037,280 @@ export default function PricingEnginePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loanType])
+
+  /* -------------------------------------------------------------------------- */
+  /*  Dynamic PE inputs infrastructure                                           */
+  /* -------------------------------------------------------------------------- */
+  interface PECategory { id: number; category: string; display_order: number; default_open: boolean; config?: Record<string, unknown> | null }
+  interface PEInputDef extends PEInputField { category_id: number; display_order: number; config?: Record<string, unknown> | null }
+  const [peCategories, setPeCategories] = useState<PECategory[]>([])
+  const [peInputDefs, setPeInputDefs] = useState<PEInputDef[]>([])
+  const [peLoaded, setPeLoaded] = useState(false)
+  const [openAccordionSections, setOpenAccordionSections] = useState<string[]>([])
+  const [extraFormValues, setExtraFormValues] = useState<Record<string, unknown>>({})
+  const [sectionButtons, setSectionButtons] = useState<SectionButton[]>([])
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const [catsRes, inputsRes, btnsRes] = await Promise.all([
+          fetch("/api/pricing-engine-input-categories"),
+          fetch("/api/pricing-engine-inputs"),
+          fetch("/api/pe-section-buttons"),
+        ])
+        if (!active) return
+        if (catsRes.ok) {
+          const cats = await catsRes.json() as PECategory[]
+          setPeCategories(cats)
+          setOpenAccordionSections(
+            cats.filter((c) => c.default_open !== false).map((c) => `pe-cat-${c.id}`)
+          )
+        }
+        if (inputsRes.ok) {
+          const rawInputs = await inputsRes.json()
+          setPeInputDefs(rawInputs)
+          // Initialize defaults from DB for inputs not yet set
+          const defaults: Record<string, unknown> = {}
+          for (const inp of rawInputs as PEInputDef[]) {
+            if (!inp.default_value) continue
+            const dv = inp.default_value
+            if (inp.input_type === "date") {
+              const m = dv.match(/^([+-])(\d+)([dmy])$/)
+              if (m) {
+                const sign = m[1] === "+" ? 1 : -1
+                const amount = Number(m[2]) * sign
+                const unit = m[3]
+                const d = new Date()
+                if (unit === "d") d.setDate(d.getDate() + amount)
+                else if (unit === "m") d.setMonth(d.getMonth() + amount)
+                else if (unit === "y") d.setFullYear(d.getFullYear() + amount)
+                defaults[inp.input_code] = d
+              }
+            } else {
+              defaults[inp.input_code] = dv
+            }
+          }
+          if (Object.keys(defaults).length > 0 && !initialLoanId) {
+            setExtraFormValues((prev) => {
+              const merged = { ...defaults }
+              for (const [k, v] of Object.entries(prev)) {
+                if (v !== undefined && v !== null && v !== "") merged[k] = v
+              }
+              return merged
+            })
+          }
+        }
+        if (btnsRes.ok) {
+          const btns = await btnsRes.json()
+          if (Array.isArray(btns)) setSectionButtons(btns)
+        }
+        setPeLoaded(true)
+      } catch (err) {
+        console.error("Failed to fetch PE input definitions:", err)
+        setPeLoaded(true)
+      }
+    })()
+    return () => { active = false }
+  }, [initialLoanId])
+
+  // Map input_code → input_id for the logic engine
+  const codeToIdMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const inp of peInputDefs) m.set(inp.input_code, String(inp.id))
+    return m
+  }, [peInputDefs])
+  const idToCodeMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const inp of peInputDefs) m.set(String(inp.id), inp.input_code)
+    return m
+  }, [peInputDefs])
+
+  // Combined form values merging individual states + extras
+  const formValues = useMemo<Record<string, unknown>>(() => {
+    const known: Record<string, unknown> = {
+      loan_type: loanType, transaction_type: transactionType, bridge_type: bridgeType,
+      borrower_type: borrowerType, citizenship: citizenship, first_time_homebuyer: fthb,
+      mortgage_debt: mortgageDebtValue, fico_score: fico,
+      rentals_owned: rentalsOwned, number_of_flips: numFlips, number_of_gunc: numGunc,
+      other_experience: otherExp,
+      address_street: street, address_apt: apt, address_city: city,
+      address_state: stateCode, address_zip: zip, address_county: county,
+      property_type: propertyType, warrantability: warrantability,
+      number_of_units: numUnits != null ? String(numUnits) : "",
+      sq_footage: glaSqFt, rural: rural, short_term_rental: strValue,
+      declining_market: decliningMarket,
+      annual_taxes: annualTaxes, annual_hoi: annualHoi, annual_flood: annualFlood,
+      annual_hoa: annualHoa, annual_management: annualMgmt,
+      gla_expansion: glaExpansion, change_of_use: changeOfUse,
+      rehab_budget: rehabBudget, arv: arv,
+      projected_closing_date: closingDate, acquisition_date: acquisitionDate,
+      loan_structure_type: loanStructureType, pre_payment_penalty: ppp,
+      bridge_term: term,
+      purchase_price: purchasePrice, rehab_completed_amount: rehabCompleted,
+      payoff_amount: payoffAmount, as_is_value: aiv,
+      request_max_leverage: requestMaxLeverage ? "Yes" : "No",
+      initial_loan_amount: initialLoanAmount, rehab_holdback: rehabHoldback,
+      loan_amount: loanAmount,
+      lender_origination: lenderOrig, lender_admin_fee: adminFee,
+      broker_origination: brokerOrig, broker_admin_fee: brokerAdminFee,
+      borrower_name: borrowerName,
+      guarantors: guarantorTags.map((t) => t.name),
+      uw_exception: uwException, section_8: section8,
+      hoi_effective: hoiEffective, flood_effective: floodEffective,
+      title_recording_fee: titleRecordingFee, assignment_fee: assignmentFee,
+      seller_concessions: sellerConcessions, tax_escrow_months: taxEscrowMonths,
+      hoi_premium: hoiPremium, flood_premium: floodPremium, emd: emd,
+    }
+    return { ...known, ...extraFormValues }
+  }, [
+    loanType, transactionType, bridgeType, borrowerType, citizenship, fthb,
+    mortgageDebtValue, fico, rentalsOwned, numFlips, numGunc, otherExp,
+    street, apt, city, stateCode, zip, county,
+    propertyType, warrantability, numUnits, glaSqFt, rural, strValue, decliningMarket,
+    annualTaxes, annualHoi, annualFlood, annualHoa, annualMgmt,
+    glaExpansion, changeOfUse, rehabBudget, arv,
+    closingDate, acquisitionDate, loanStructureType, ppp, term,
+    purchasePrice, rehabCompleted, payoffAmount, aiv,
+    requestMaxLeverage, initialLoanAmount, rehabHoldback, loanAmount,
+    lenderOrig, adminFee, brokerOrig, brokerAdminFee,
+    borrowerName, guarantorTags, uwException, section8,
+    hoiEffective, floodEffective, titleRecordingFee, assignmentFee,
+    sellerConcessions, taxEscrowMonths, hoiPremium, floodPremium, emd,
+    extraFormValues,
+  ])
+
+  // Values keyed by input_id for the logic engine
+  const formValuesById = useMemo(() => {
+    const byId: Record<string, unknown> = {}
+    for (const [code, val] of Object.entries(formValues)) {
+      const id = codeToIdMap.get(code)
+      if (id) byId[id] = val
+    }
+    return byId
+  }, [formValues, codeToIdMap])
+
+  // Merged values keyed by both input_code AND input_id (for number constraint conditions that reference by ID)
+  const formValuesMerged = useMemo(() => ({ ...formValues, ...formValuesById }), [formValues, formValuesById])
+
+  // Logic engine
+  const peLogicResult = usePELogicEngine(formValuesById)
+  const peHiddenCodes = useMemo(() => {
+    const codes = new Set<string>()
+    for (const id of peLogicResult.hiddenFields) {
+      const code = idToCodeMap.get(id)
+      if (code) codes.add(code)
+    }
+    return codes
+  }, [peLogicResult.hiddenFields, idToCodeMap])
+  const peRequiredCodes = useMemo(() => {
+    const codes = new Set<string>()
+    for (const id of peLogicResult.requiredFields) {
+      const code = idToCodeMap.get(id)
+      if (code) codes.add(code)
+    }
+    return codes
+  }, [peLogicResult.requiredFields, idToCodeMap])
+
+  // Route dynamic input changes to individual state setters
+  const updateValue = useCallback((code: string, value: unknown) => {
+    setTouched((prev) => ({ ...prev, [code]: true }))
+    clearSignalColor(code)
+    // Always mirror in extraFormValues so ConfigurableGrid row_source lookups work
+    setExtraFormValues((prev) => ({ ...prev, [code]: value }))
+    switch (code) {
+      case "loan_type": setLoanType(value as string | undefined); return
+      case "transaction_type": setTransactionType(value as string | undefined); return
+      case "bridge_type": setBridgeType(value as string | undefined); return
+      case "borrower_type": setBorrowerType(value as string | undefined); return
+      case "citizenship": setCitizenship(value as string | undefined); return
+      case "first_time_homebuyer": setFthb(value as string | undefined); return
+      case "mortgage_debt": setMortgageDebtValue(String(value ?? "")); return
+      case "fico_score": setFico(String(value ?? "")); return
+      case "rentals_owned": setRentalsOwned(String(value ?? "")); return
+      case "number_of_flips": setNumFlips(String(value ?? "")); return
+      case "number_of_gunc": setNumGunc(String(value ?? "")); return
+      case "other_experience": setOtherExp(value as string | undefined); return
+      case "address_street": setStreet(String(value ?? "")); return
+      case "address_apt": setApt(String(value ?? "")); return
+      case "address_city": setCity(String(value ?? "")); return
+      case "address_state": setStateCode(value as string | undefined); return
+      case "address_zip": setZip(String(value ?? "")); return
+      case "address_county": setCounty(String(value ?? "")); return
+      case "property_type": setPropertyType(value as string | undefined); return
+      case "warrantability": setWarrantability(value as string | undefined); return
+      case "number_of_units": { const n = Number(value); setNumUnits(Number.isFinite(n) ? n : undefined); return }
+      case "sq_footage": setGlaSqFt(String(value ?? "")); return
+      case "rural": setRural(value as string | undefined); return
+      case "short_term_rental": setStrValue(value as string | undefined); return
+      case "declining_market": setDecliningMarket(value as string | undefined); return
+      case "annual_taxes": setAnnualTaxes(String(value ?? "")); return
+      case "annual_hoi": setAnnualHoi(String(value ?? "")); return
+      case "annual_flood": setAnnualFlood(String(value ?? "")); return
+      case "annual_hoa": setAnnualHoa(String(value ?? "")); return
+      case "annual_management": setAnnualMgmt(String(value ?? "")); return
+      case "gla_expansion": setGlaExpansion(value as string | undefined); return
+      case "change_of_use": setChangeOfUse(value as string | undefined); return
+      case "rehab_budget": setRehabBudget(String(value ?? "")); return
+      case "arv": setArv(String(value ?? "")); return
+      case "projected_closing_date": setClosingDate(value as Date | undefined); return
+      case "acquisition_date": setAcquisitionDate(value as Date | undefined); return
+      case "loan_structure_type": setLoanStructureType(value as string | undefined); return
+      case "pre_payment_penalty": setPpp(value as string | undefined); return
+      case "bridge_term": setTerm(value as string | undefined); return
+      case "purchase_price": setPurchasePrice(String(value ?? "")); return
+      case "rehab_completed_amount": setRehabCompleted(String(value ?? "")); return
+      case "payoff_amount": setPayoffAmount(String(value ?? "")); return
+      case "as_is_value": setAiv(String(value ?? "")); return
+      case "request_max_leverage": setRequestMaxLeverage(value === "Yes" || value === true); return
+      case "initial_loan_amount": setInitialLoanAmount(String(value ?? "")); return
+      case "rehab_holdback": setRehabHoldback(String(value ?? "")); return
+      case "loan_amount": setLoanAmount(String(value ?? "")); return
+      case "lender_origination": setLenderOrig(String(value ?? "")); return
+      case "lender_admin_fee": setAdminFee(String(value ?? "")); return
+      case "broker_origination": setBrokerOrig(String(value ?? "")); return
+      case "broker_admin_fee": setBrokerAdminFee(String(value ?? "")); return
+      case "borrower_name": setBorrowerName(String(value ?? "")); return
+      case "guarantors": setGuarantorTags(Array.isArray(value) ? value.map((v: unknown) => typeof v === "string" ? { name: v } : v as { name: string; id?: string }) : []); return
+      case "uw_exception": setUwException(value as string | undefined); return
+      case "section_8": setSection8(value as string | undefined); return
+      case "hoi_effective": setHoiEffective(value as Date | undefined); return
+      case "flood_effective": setFloodEffective(value as Date | undefined); return
+      case "title_recording_fee": setTitleRecordingFee(String(value ?? "")); return
+      case "assignment_fee": setAssignmentFee(String(value ?? "")); return
+      case "seller_concessions": setSellerConcessions(String(value ?? "")); return
+      case "tax_escrow_months": setTaxEscrowMonths(String(value ?? "")); return
+      case "hoi_premium": setHoiPremium(String(value ?? "")); return
+      case "flood_premium": setFloodPremium(String(value ?? "")); return
+      case "emd": setEmd(String(value ?? "")); return
+      default:
+        setExtraFormValues((prev) => ({ ...prev, [code]: value }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Build layout rows for a category
+  type DynLayoutRow = { rowIndex: number; items: PEInputDef[] }
+  function buildDynRows(catInputs: PEInputDef[]): DynLayoutRow[] {
+    const sorted = [...catInputs].sort((a, b) => a.layout_row - b.layout_row || a.display_order - b.display_order)
+    const rowMap = new Map<number, PEInputDef[]>()
+    for (const inp of sorted) {
+      const existing = rowMap.get(inp.layout_row) ?? []
+      existing.push(inp)
+      rowMap.set(inp.layout_row, existing)
+    }
+    return [...rowMap.keys()].sort((a, b) => a - b).map((k) => ({ rowIndex: k, items: rowMap.get(k)! }))
+  }
+
+  function getDynWidthClass(width: string): string {
+    switch (width) {
+      case "100": return "w-full"
+      case "75": return "w-3/4"
+      case "50": return "w-1/2"
+      case "25": return "w-1/4"
+      default: return "w-1/2"
+    }
+  }
 
   // Keep calendar month in sync with typed/selected dates
   useEffect(() => {
@@ -1518,6 +1797,12 @@ export default function PricingEnginePage() {
       }))
       payload["unit_data"] = units
     }
+    // Merge any dynamically-added inputs not in the hardcoded set
+    for (const [code, val] of Object.entries(extraFormValues)) {
+      if (!(code in payload) && val !== undefined && val !== null) {
+        payload[code] = val instanceof Date ? formatDateOnly(val) : val
+      }
+    }
     return payload
   }
 
@@ -1950,6 +2235,17 @@ export default function PricingEnginePage() {
     if (rehabPathVisible && !has(initialLoanAmount)) missing.push("Initial Loan Amount")
     if (loanAmountPathVisible && !has(loanAmount)) missing.push("Loan Amount")
 
+    // Check logic engine required fields
+    for (const code of peRequiredCodes) {
+      if (peHiddenCodes.has(code)) continue
+      if (!has(formValues[code])) {
+        const def = peInputDefs.find((d) => d.input_code === code)
+        if (def && !missing.includes(def.input_label)) {
+          missing.push(def.input_label)
+        }
+      }
+    }
+
     return missing
   }, [
     loanType,
@@ -1978,6 +2274,10 @@ export default function PricingEnginePage() {
     initialLoanAmount,
     loanAmountPathVisible,
     loanAmount,
+    peRequiredCodes,
+    peHiddenCodes,
+    formValues,
+    peInputDefs,
   ])
 
   const canCalculate = missingFields.length === 0
@@ -2220,6 +2520,34 @@ export default function PricingEnginePage() {
     if ("num_gunc" in payload) setNumGunc(String(payload["num_gunc"] ?? ""))
     if ("other_exp" in payload) setOtherExp((payload["other_exp"] as string) ?? undefined)
     if ("warrantability" in payload) setWarrantability((payload["warrantability"] as string) ?? undefined)
+
+    // Hydrate extraFormValues for any keys not handled by individual setters above
+    const knownKeys = new Set([
+      "address", "loan_type", "transaction_type", "property_type", "num_units",
+      "max_leverage_requested", "request_max_leverage", "gla_sq_ft", "purchase_price",
+      "loan_amount", "admin_fee", "lender_admin_fee", "payoff_amount", "aiv", "arv",
+      "rehab_budget", "rehab_completed", "rehab_holdback", "emd", "taxes_annual",
+      "hoi_annual", "flood_annual", "hoa_annual", "hoi_premium", "flood_premium",
+      "mortgage_debt", "tax_escrow_months", "units", "unit_data", "borrower_type",
+      "citizenship", "fico", "borrower_name", "borrower_entity_id", "guarantors",
+      "guarantor_borrower_ids", "rural", "uw_exception", "section8",
+      "lender_orig_percent", "lender_origination", "broker_orig_percent",
+      "title_recording_fee", "seller_concessions", "acquisition_date", "acq_date",
+      "acq-date", "projected_note_date", "note_date", "closing_date",
+      "hoi_effective_date", "flood_effective_date", "bridge_type", "fthb",
+      "loan_structure_type", "ppp", "str", "declining_market", "rentals_owned",
+      "num_flips", "num_gunc", "other_exp", "warrantability", "mgmt_annual",
+      "broker_admin_fee", "assignment_fee",
+    ])
+    const extras: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(payload)) {
+      if (!knownKeys.has(k) && v !== undefined && v !== null) {
+        extras[k] = v
+      }
+    }
+    if (Object.keys(extras).length > 0) {
+      setExtraFormValues((prev) => ({ ...prev, ...extras }))
+    }
   }
 
   // When scenario is selected, load inputs/selected and hydrate UI
@@ -2702,1796 +3030,117 @@ export default function PricingEnginePage() {
               <div ref={inputsAreaRef} className="p-3 pb-4">
                 <Accordion
                 type="multiple"
-                defaultValue={[
-                  "loan-details",
-                  "borrowers",
-                  "subject",
-                  "loan-structure",
-                  // include conditional sections so if rendered, they start opened
-                  "experience",
-                  "rehab-details",
-                  "income",
-                ]}
+                value={openAccordionSections}
+                onValueChange={setOpenAccordionSections}
                 className="w-full"
               >
-                <AccordionItem value="loan-details" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Loan Details
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="loan-type">
-                          Loan Type <span className="text-red-600">*</span>
-                        </Label>
-                        <Select value={loanType} onValueChange={setLoanType}>
-                          <SelectTrigger id="loan-type" className="h-9 w-full">
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="dscr">DSCR</SelectItem>
-                            <SelectItem value="bridge">Bridge</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="transaction-type">
-                          Transaction Type <span className="text-red-600">*</span>
-                        </Label>
-                        <Select
-                          value={transactionType}
-                          onValueChange={setTransactionType}
-                        >
-                          <SelectTrigger id="transaction-type" className="h-9 w-full">
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="purchase">Purchase</SelectItem>
-                            <SelectItem value="delayed-purchase">Delayed Purchase</SelectItem>
-                            <SelectItem value="rt-refi">Refinance Rate/Term</SelectItem>
-                            <SelectItem value="co-refi">Refinance Cash Out</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {loanType === "bridge" && (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="bridge-type">
-                            Bridge Type <span className="text-red-600">*</span>
-                          </Label>
-                          <Select value={bridgeType} onValueChange={setBridgeType}>
-                            <SelectTrigger id="bridge-type" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="bridge">Bridge</SelectItem>
-                              <SelectItem value="bridge-rehab">Bridge + Rehab</SelectItem>
-                              <SelectItem value="ground-up">Ground Up</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                {peCategories.map((cat) => {
+                  const catInputs = peInputDefs.filter(
+                    (inp) => inp.category_id === cat.id && !inp.input_code?.startsWith("__")
+                  )
+                  const visibleInputs = catInputs.filter(
+                    (inp) => !peHiddenCodes.has(inp.input_code)
+                  )
+                  if (visibleInputs.length === 0) return null
+                  const rows = buildDynRows(visibleInputs)
 
-                
-                <AccordionItem value="borrowers" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Borrowers &amp; Guarantors
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="borrower-type">
-                          Borrower Type <span className="text-red-600">*</span>
-                        </Label>
-                        <Select
-                          value={borrowerType}
-                          onValueChange={(v) => {
-                            setBorrowerType(v)
-                            setTouched((t) => ({ ...t, borrowerType: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="borrower-type"
-                            className={`h-9 w-full ${!touched.borrowerType && borrowerType === DEFAULTS.borrowerType ? "text-muted-foreground" : ""}`}
-                          >
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="entity">Entity</SelectItem>
-                            <SelectItem value="individual">Individual</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="citizenship">
-                          Citizenship <span className="text-red-600">*</span>
-                        </Label>
-                        <Select
-                          value={citizenship}
-                          onValueChange={(v) => {
-                            setCitizenship(v)
-                            setTouched((t) => ({ ...t, citizenship: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="citizenship"
-                            className={`h-9 w-full ${!touched.citizenship && citizenship === DEFAULTS.citizenship ? "text-muted-foreground" : ""}`}
-                          >
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="us">U.S. Citizen</SelectItem>
-                            <SelectItem value="pr">Permanent Resident</SelectItem>
-                            <SelectItem value="npr">Non-Permanent Resident</SelectItem>
-                            <SelectItem value="fn">Foreign National</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {loanType === "dscr" && (
-                        <>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="fthb">First Time Homebuyer</Label>
-                            <Select
-                              value={fthb}
-                              onValueChange={(v) => {
-                                setFthb(v)
-                                setTouched((t) => ({ ...t, fthb: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="fthb"
-                                className={`h-9 w-full ${!touched.fthb && fthb === DEFAULTS.fthb ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes</SelectItem>
-                                <SelectItem value="no">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="mortgage-debt">Mortgage Debt</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Mortgage Debt shown on guarantor(s) credit report</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="mortgage-debt"
-                                placeholder="0.00"
-                                className={`pl-6 ${!touched.mortgageDebt && mortgageDebtValue === DEFAULTS.mortgageDebtValue ? "text-muted-foreground" : ""}`}
-                                value={mortgageDebtValue}
-                                onValueChange={(v) => {
-                                  setMortgageDebtValue(v)
-                                  setTouched((t) => ({ ...t, mortgageDebt: true }))
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="fico">
-                            FICO Score{isFicoRequired ? <span className="text-red-600"> *</span> : null}
-                          </Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Middle score when 3 tradelines available, or lower score if only 2 are available</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <NumberField
-                          value={fico ? Number(fico) : undefined}
-                          onChange={(val) => setFico(String(val))}
-                          minValue={300}
-                          maxValue={850}
-                          className="w-full"
-                        >
-                          <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                            <AriaInput
-                              id="fico"
-                              placeholder="700"
-                              className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                            />
-                            <AriaButton
-                              slot="decrement"
-                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                            >
-                              <MinusIcon className="size-4" />
-                              <span className="sr-only">Decrease FICO</span>
-                            </AriaButton>
-                            <AriaButton
-                              slot="increment"
-                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                            >
-                              <PlusIcon className="size-4" />
-                              <span className="sr-only">Increase FICO</span>
-                            </AriaButton>
-                          </Group>
-                        </NumberField>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                  const catButtons = sectionButtons.filter((b) => b.category_id === cat.id)
 
-                {loanType === "bridge" && (
-                  <AccordionItem value="experience" className="border-b">
-                    <AccordionTrigger className="text-left text-base font-bold italic">
-                      Experience
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="rentals-owned">Rentals Owned</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Properties owned (fix & holds should be included under '# of Flips')</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <NumberField
-                            value={rentalsOwned ? Number(rentalsOwned) : undefined}
-                            onChange={(val) => setRentalsOwned(String(val))}
-                            minValue={0}
-                            className="w-full"
-                          >
-                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                              <AriaInput
-                                id="rentals-owned"
-                                placeholder="0"
-                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                              />
-                              <AriaButton
-                                slot="decrement"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <MinusIcon className="size-4" />
-                                <span className="sr-only">Decrease Rentals Owned</span>
-                              </AriaButton>
-                              <AriaButton
-                                slot="increment"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <PlusIcon className="size-4" />
-                                <span className="sr-only">Increase Rentals Owned</span>
-                              </AriaButton>
-                            </Group>
-                          </NumberField>
-                        </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="num-flips"># of Flips</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Flips exited in trailing 36 months</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <NumberField
-                            value={numFlips ? Number(numFlips) : undefined}
-                            onChange={(val) => setNumFlips(String(val))}
-                            minValue={0}
-                            className="w-full"
-                          >
-                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                              <AriaInput
-                                id="num-flips"
-                                placeholder="0"
-                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                              />
-                              <AriaButton
-                                slot="decrement"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <MinusIcon className="size-4" />
-                                <span className="sr-only">Decrease Flips</span>
-                              </AriaButton>
-                              <AriaButton
-                                slot="increment"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <PlusIcon className="size-4" />
-                                <span className="sr-only">Increase Flips</span>
-                              </AriaButton>
-                            </Group>
-                          </NumberField>
-                        </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="num-gunc"># of GUNC</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Ground Up projects exited in trailing 36 months</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <NumberField
-                            value={numGunc ? Number(numGunc) : undefined}
-                            onChange={(val) => setNumGunc(String(val))}
-                            minValue={0}
-                            className="w-full"
-                          >
-                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                              <AriaInput
-                                id="num-gunc"
-                                placeholder="0"
-                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                              />
-                              <AriaButton
-                                slot="decrement"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <MinusIcon className="size-4" />
-                                <span className="sr-only">Decrease GUNC</span>
-                              </AriaButton>
-                              <AriaButton
-                                slot="increment"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <PlusIcon className="size-4" />
-                                <span className="sr-only">Increase GUNC</span>
-                              </AriaButton>
-                            </Group>
-                          </NumberField>
-                        </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="other-exp">Other</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Other real estate experience</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <Select value={otherExp} onValueChange={setOtherExp}>
-                            <SelectTrigger id="other-exp" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-
-                <AccordionItem value="subject" className="border-b">
-                  <div className="flex items-center gap-2 pr-2 pl-1">
-                    <AccordionTrigger className="flex-1 text-left text-base font-bold italic hover:no-underline">
-                      <div className="flex items-center gap-3">
-                        <span>Subject Property</span>
-                      </div>
-                    </AccordionTrigger>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className={cn(
-                          "h-7 not-italic",
-                          hasBasicAddress && !reApiClicked && !sendingReApi &&
-                            "border border-primary/50 animate-attention-glow"
-                        )}
-                        onClick={(e) => { setReApiClicked(true); handleSendToReApi(e); }}
-                        disabled={!hasBasicAddress || sendingReApi}
-                        aria-disabled={sendingReApi || !hasBasicAddress}
-                      >
-                        {sendingReApi ? "Sending..." : "Property Data"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className={cn(
-                          "h-7 not-italic",
-                          hasBasicAddress && !mapsClicked &&
-                            "border border-primary/50 animate-attention-glow"
-                        )}
-                        onClick={(e) => { setMapsClicked(true); handleOpenMapsModal(e); }}
-                        disabled={!hasBasicAddress}
-                      >
-                        Google Maps
-                      </Button>
-                    </div>
-                  </div>
-                  <AccordionContent>
-                    <div className="grid gap-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1 sm:col-span-2">
-                          <Label htmlFor="street">Street</Label>
-                          <div className="relative">
-                            <Input
-                              id="street"
-                              placeholder="123 Main St"
-                              ref={streetInputRef}
-                              value={street}
-                              onChange={(e) => setStreet(e.target.value)}
-                              onFocus={() => predictions.length && setShowPredictions(true)}
-                              onKeyDown={(e) => {
-                                if (!showPredictions || predictions.length === 0) return
-                                if (e.key === "ArrowDown") {
-                                  e.preventDefault()
-                                  setActivePredictionIdx((idx) =>
-                                    Math.min(idx + 1, predictions.length - 1),
-                                  )
-                                } else if (e.key === "ArrowUp") {
-                                  e.preventDefault()
-                                  setActivePredictionIdx((idx) => Math.max(idx - 1, 0))
-                                } else if (e.key === "Enter") {
-                                  if (activePredictionIdx >= 0) {
-                                    e.preventDefault()
-                                    const p = predictions[activePredictionIdx]
-                                    applyPlaceById(p.place_id)
-                                  }
-                                } else if (e.key === "Escape") {
-                                  setShowPredictions(false)
-                                }
-                              }}
-                              onBlur={() => {
-                                // If the blur was caused by clicking inside the menu, don't close yet
-                                setTimeout(() => {
-                                  if (!pointerInMenuRef.current) {
-                                    setShowPredictions(false)
-                                  }
-                                }, 0)
-                              }}
-                              autoComplete="off"
-                            />
-                            {showPredictions && predictions.length > 0 && (
-                              <div
-                                ref={predictionsMenuRef}
-                                className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow"
-                                role="listbox"
-                                onMouseDown={() => {
-                                  // Mark that the pointer is interacting within the menu (used by onBlur)
-                                  pointerInMenuRef.current = true
-                                }}
-                                onMouseUp={() => {
-                                  // Reset after click completes
-                                  pointerInMenuRef.current = false
-                                }}
-                              >
-                                {predictions.map((p, idx) => (
-                                  <button
-                                    key={p.place_id}
-                                    type="button"
-                                    className={`flex w-full items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
-                                      idx === activePredictionIdx ? "bg-accent" : ""
-                                    }`}
-                                    onMouseEnter={() => setActivePredictionIdx(idx)}
-                                    onClick={() => {
-                                      applyPlaceById(p.place_id)
-                                    }}
-                                  >
-                                    <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <div className="flex min-w-0 flex-col">
-                                      <span className="truncate text-sm font-medium">
-                                        {p.structured_formatting?.main_text ?? p.description}
-                                      </span>
-                                      <span className="truncate text-xs text-muted-foreground">
-                                        {p.structured_formatting?.secondary_text ?? ""}
-                                      </span>
-                                    </div>
-                                  </button>
-                                ))}
-                                <div className="border-t px-2 py-1 text-right text-[10px] uppercase tracking-wide text-muted-foreground">
-                                  Powered by Google
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="apt">Apt #</Label>
-                          <Input
-                            id="apt"
-                            placeholder="Unit/Apt"
-                            value={apt}
-                            onChange={(e) => setApt(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="city">City</Label>
-                          <Input
-                            id="city"
-                            placeholder="City"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="state">
-                            State <span className="text-red-600">*</span>
-                          </Label>
-                          <Select value={stateCode} onValueChange={setStateCode}>
-                            <SelectTrigger id="state" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {states.map((st) => (
-                                <SelectItem key={st} value={st}>
-                                  {st}
-                                </SelectItem>
+                  return (
+                    <AccordionItem key={cat.id} value={`pe-cat-${cat.id}`} className="border-b">
+                      <AccordionTrigger className="text-left text-base font-bold italic hover:no-underline">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="hover:underline">{cat.category}</span>
+                          {catButtons.length > 0 && (
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {catButtons.map((btn) => (
+                                <SectionActionButton
+                                  key={btn.id}
+                                  btn={btn}
+                                  onGoogleMaps={handleOpenMapsModal}
+                                  buildPayload={buildPayload}
+                                  onApplyInputs={(inputs, color) => {
+                                    const codes: string[] = []
+                                    for (const [code, val] of Object.entries(inputs)) {
+                                      updateValue(code, val)
+                                      if (color) codes.push(code)
+                                    }
+                                    if (color && codes.length > 0) markSignalColors(codes, color)
+                                  }}
+                                />
                               ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="zip">Zip Code</Label>
-                          <Input
-                            id="zip"
-                            inputMode="numeric"
-                            maxLength={5}
-                            pattern="[0-9]*"
-                            placeholder="12345"
-                            value={zip}
-                            onChange={(e) => setZip(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="county">County</Label>
-                          <Input
-                            id="county"
-                            placeholder="County"
-                            value={county}
-                            onChange={(e) => setCounty(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1">
-                        <Label htmlFor="property-type">
-                          Property Type <span className="text-red-600">*</span>
-                        </Label>
-                          <Select
-                            value={propertyType}
-                            onValueChange={(v) => {
-                              clearReAuto("propertyType")
-                              setPropertyType(v)
-                            }}
-                          >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-1 ring-warning border-warning" : ""}`}>
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="single">Single Family</SelectItem>
-                              <SelectItem value="pud">Townhome/PUD</SelectItem>
-                              <SelectItem value="condo">Condominium</SelectItem>
-                              <SelectItem value="mf2_4">Multifamily 2-4 Units</SelectItem>
-                              <SelectItem value="mf5_10">Multifamily 5-10 Units</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {propertyType === "condo" ? (
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="warrantability">Warrantability</Label>
-                            <Select value={warrantability} onValueChange={setWarrantability}>
-                              <SelectTrigger id="warrantability" className="h-9 w-full">
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="warrantable">Warrantable</SelectItem>
-                                <SelectItem value="non-warrantable">Non-Warrantable</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ) : null}
-
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="num-units">Number of Units</Label>
-                          <Select
-                            disabled={unitOptions.length === 0}
-                            value={numUnits ? String(numUnits) : undefined}
-                            onValueChange={(v) => {
-                              clearReAuto("numUnits")
-                              setNumUnits(parseInt(v))
-                            }}
-                          >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-1 ring-warning border-warning" : ""}`}>
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {unitOptions.map((n) => (
-                                <SelectItem key={n} value={String(n)}>
-                                  {n}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <Label htmlFor="gla">GLA Sq Ft</Label>
-                            <TooltipProvider>
-                              <Tooltip delayDuration={50}>
-                                <TooltipTrigger>
-                                  <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                  <span className="sr-only">More Info</span>
-                                </TooltipTrigger>
-                                <TooltipContent>Gross Living Area Square Footage of subject property</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                          <Input
-                            id="gla"
-                            inputMode="numeric"
-                            placeholder="0"
-                            value={glaSqFt}
-                            onChange={(e) => {
-                              clearReAuto("glaSqFt")
-                              setGlaSqFt(e.target.value)
-                            }}
-                            className={`${reAuto.glaSqFt ? "ring-1 ring-warning border-warning" : ""}`}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="rural">Rural</Label>
-                        <Select
-                          value={rural}
-                          onValueChange={(v) => {
-                            setRural(v)
-                            setTouched((t) => ({ ...t, rural: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="rural"
-                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "ring-1 ring-warning border-warning" : ""}`}
-                          >
-                              <SelectValue placeholder="No" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {loanType === "dscr" && (
-                          <>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="str">Short-Term Rental</Label>
-                            <Select
-                              value={strValue}
-                              onValueChange={(v) => {
-                                setStrValue(v)
-                                setTouched((t) => ({ ...t, strValue: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="str"
-                                className={`h-9 w-full ${!touched.strValue && strValue === DEFAULTS.strValue ? "text-muted-foreground" : ""}`}
-                              >
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="yes">Yes</SelectItem>
-                                  <SelectItem value="no">No</SelectItem>
-                                </SelectContent>
-                              </Select>
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="declining-market">Declining Market</Label>
-                            <Select
-                              value={decliningMarket}
-                              onValueChange={(v) => {
-                                setDecliningMarket(v)
-                                setTouched((t) => ({ ...t, decliningMarket: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="declining-market"
-                                className={`h-9 w-full ${!touched.decliningMarket && decliningMarket === DEFAULTS.decliningMarket ? "text-muted-foreground" : ""}`}
-                              >
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="yes">Yes</SelectItem>
-                                  <SelectItem value="no">No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {loanType === "bridge" &&
-                  (bridgeType === "bridge-rehab" || bridgeType === "ground-up") && (
-                    <AccordionItem value="rehab-details" className="border-b">
-                      <AccordionTrigger className="text-left text-base font-bold italic">
-                        Rehab Details
+                          )}
+                        </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="gla-expansion">{">20% GLA Expansion"}</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Rehab includes expanding the gross living area square footage by over 20% of current</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                        <div className="space-y-3">
+                          {rows.map((row) => (
+                            <div key={row.rowIndex} className="flex gap-4">
+                              {row.items.map((field) => {
+                                if (field.input_type === "table") {
+                                  const tc = field.config as Record<string, unknown> | null | undefined
+                                  const hasTableConfig = tc && Array.isArray(tc.columns) && (tc.columns as unknown[]).length > 0
+
+                                  if (hasTableConfig) {
+                                    const tableConf = tc as unknown as TableConfig
+                                    const linkedCode = tableConf.row_source.type === "input" ? tableConf.row_source.input_code : undefined
+                                    // Resolve row count from the linked input. Check formValues first,
+                                    // then extraFormValues, then the raw DynamicPEInput value for that code.
+                                    let linkedVal: number | undefined
+                                    if (linkedCode) {
+                                      const raw = formValues[linkedCode] ?? extraFormValues[linkedCode]
+                                      const n = raw !== undefined && raw !== null && raw !== "" ? Number(raw) : NaN
+                                      linkedVal = Number.isFinite(n) && n > 0 ? n : 0
+                                    }
+                                    const tableData = (extraFormValues[field.input_code] as Record<string, unknown>[] | undefined) ?? []
+
+                                    return (
+                                      <div key={String(field.id)} className="w-full">
+                                        <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
+                                        <ConfigurableGrid
+                                          config={tableConf}
+                                          data={tableData}
+                                          onDataChange={(next) => setExtraFormValues((prev) => ({ ...prev, [field.input_code]: next }))}
+                                          rowCount={linkedVal}
+                                        />
+                                      </div>
+                                    )
+                                  }
+
+                                  return (
+                                    <div key={String(field.id)} className="w-full">
+                                      <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
+                                      <LeasedUnitsGrid
+                                        data={unitData}
+                                        onDataChange={setUnitData}
+                                      />
+                                    </div>
+                                  )
+                                }
+                                return (
+                                  <div key={String(field.id)} className={getDynWidthClass(field.layout_width)}>
+                                    <DynamicPEInput
+                                      field={field}
+                                      value={formValues[field.input_code]}
+                                      onChange={(val) => updateValue(field.input_code, val)}
+                                      isRequired={peRequiredCodes.has(field.input_code)}
+                                      touched={!!touched[field.input_code]}
+                                      formValues={formValuesMerged}
+                                      signalColor={signalColors[field.input_code] ?? null}
+                                    />
+                                  </div>
+                                )
+                              })}
                             </div>
-                            <Select
-                              value={glaExpansion}
-                              onValueChange={(v) => {
-                                setGlaExpansion(v)
-                                setTouched((t) => ({ ...t, glaExpansion: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="gla-expansion"
-                                className={`h-9 w-full ${!touched.glaExpansion && glaExpansion === DEFAULTS.glaExpansion ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="No" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes</SelectItem>
-                                <SelectItem value="no">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="change-of-use">Change of Use</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Change of property use (ex. converting Single Family to Duplex)</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <Select
-                              value={changeOfUse}
-                              onValueChange={(v) => {
-                                setChangeOfUse(v)
-                                setTouched((t) => ({ ...t, changeOfUse: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="change-of-use"
-                                className={`h-9 w-full ${!touched.changeOfUse && changeOfUse === DEFAULTS.changeOfUse ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="No" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes</SelectItem>
-                                <SelectItem value="no">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="rehab-budget">Rehab Budget <span className="text-red-600">*</span></Label>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="rehab-budget"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={rehabBudget}
-                                onValueChange={setRehabBudget}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="arv">ARV <span className="text-red-600">*</span></Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>After-Repair Value</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="arv"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={arv}
-                                onValueChange={setArv}
-                              />
-                            </div>
-                          </div>
+                          ))}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  )}
-
-                {loanType === "dscr" && (
-                  <AccordionItem value="income" className="border-b">
-                    <AccordionTrigger className="text-left text-base font-bold italic">
-                      Income &amp; Expenses
-                    </AccordionTrigger>
-                    <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-taxes">
-                          Annual Taxes <span className="text-red-600">*</span>
-                        </Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-taxes"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={annualTaxes}
-                            highlighted={!!reAuto.annualTaxes}
-                            onValueChange={(v) => {
-                              clearReAuto("annualTaxes")
-                              setAnnualTaxes(v)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="annual-hoi">
-                            Annual Homeowner's Ins. <span className="text-red-600">*</span>
-                          </Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Property's annual homeowner's insurance cost</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-hoi"
-                            placeholder="0.00"
-                            className={`pl-6`}
-                            value={annualHoi}
-                            onValueChange={setAnnualHoi}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-flood">Annual Flood</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-flood"
-                            placeholder="0.00"
-                            className={`pl-6 ${!touched.annualFlood && annualFlood === DEFAULTS.annualFlood ? "text-muted-foreground" : ""}`}
-                            value={annualFlood}
-                            onValueChange={(v) => {
-                              setAnnualFlood(v)
-                              setTouched((t) => ({ ...t, annualFlood: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-hoa">Annual HOA</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-hoa"
-                            placeholder="0.00"
-                            className={`pl-6 ${!touched.annualHoa && annualHoa === DEFAULTS.annualHoa ? "text-muted-foreground" : ""}`}
-                            value={annualHoa}
-                            onValueChange={(v) => {
-                              setAnnualHoa(v)
-                              setTouched((t) => ({ ...t, annualHoa: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-mgmt">Annual Management</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-mgmt"
-                            placeholder="0.00"
-                            className={`pl-6 ${!touched.annualMgmt && annualMgmt === DEFAULTS.annualMgmt ? "text-muted-foreground" : ""}`}
-                            value={annualMgmt}
-                            onValueChange={(v) => {
-                              setAnnualMgmt(v)
-                              setTouched((t) => ({ ...t, annualMgmt: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <LeasedUnitsGrid
-                        key={`units-${selectedScenarioId ?? "new"}`}
-                        data={unitData}
-                        onDataChange={setUnitData}
-                      />
-                    </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-
-                <AccordionItem value="loan-structure" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Loan Structure
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                          <Label htmlFor="proj-close">Projected Closing Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <DateInput
-                              value={closingDate}
-                              onChange={(d) => {
-                                setClosingDate(d)
-                                setTouched((t) => ({ ...t, closingDate: true }))
-                              }}
-                              className={`${!touched.closingDate && closingDate && _isSameDay(closingDate, DEFAULTS.closingDate) ? "text-muted-foreground" : ""}`}
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={closingDate}
-                              month={closingCalMonth}
-                              onMonthChange={setClosingCalMonth}
-                              onSelect={(d) => d && setClosingDate(d)}
-                              disabled={{ before: new Date() }}
-                              captionLayout="label"
-                              className="rounded-md border min-w-[264px]"
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      {transactionType !== "purchase" ? (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="acq-date">Acquisition Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <DateInput
-                                value={acquisitionDate}
-                                onChange={(d) => {
-                                  clearReAuto("acquisitionDate")
-                                  setAcquisitionDate(d)
-                                }}
-                                className={`${reAuto.acquisitionDate ? "ring-1 ring-warning border-warning" : ""}`}
-                              />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={acquisitionDate}
-                                month={acqCalMonth}
-                                onMonthChange={setAcqCalMonth}
-                                onSelect={(d) => d && setAcquisitionDate(d)}
-                                captionLayout="dropdown"
-                                className="rounded-md border min-w-[264px]"
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      ) : null}
-                      {loanType === "dscr" && (
-                        <>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="loan-structure-type">
-                              Loan Structure <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={loanStructureType}
-                              onValueChange={(v) => {
-                                setLoanStructureType(v)
-                                setTouched((t) => ({ ...t, loanStructureType: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="loan-structure-type"
-                                className={`h-9 w-full ${!touched.loanStructureType && loanStructureType === DEFAULTS.loanStructureType ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="fixed-30">30 Year Fixed</SelectItem>
-                                <SelectItem value="io">Interest Only</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="ppp">
-                              Pre-Payment Penalty <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={ppp}
-                              onValueChange={(v) => {
-                                setPpp(v)
-                                setTouched((t) => ({ ...t, ppp: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="ppp"
-                                className={`h-9 w-full ${!touched.ppp && ppp === DEFAULTS.ppp ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="5-4-3-2-1">5-4-3-2-1</SelectItem>
-                                <SelectItem value="4-3-2-1">4-3-2-1</SelectItem>
-                                <SelectItem value="3-2-1">3-2-1</SelectItem>
-                                <SelectItem value="2-1">2-1</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                <SelectItem value="none">None</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </>
-                      )}
-                      {loanType === "bridge" && (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="term">
-                            Term <span className="text-red-600">*</span>
-                          </Label>
-                          <Select
-                            value={term}
-                            onValueChange={(v) => {
-                              setTerm(v)
-                              setTouched((t) => ({ ...t, term: true }))
-                            }}
-                          >
-                            <SelectTrigger id="term" className={`h-9 w-full ${!touched.term && term === "12" ? "text-muted-foreground" : ""}`}>
-                              <SelectValue placeholder="12 months" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="12">12 months</SelectItem>
-                              <SelectItem value="15">15 months</SelectItem>
-                              <SelectItem value="18">18 months</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="purchase-price">
-                          Purchase Price
-                          {isPurchase ? <span className="text-red-600"> *</span> : null}
-                        </Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="purchase-price"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={purchasePrice}
-                            highlighted={!!reAuto.purchasePrice}
-                            onValueChange={(v) => {
-                              clearReAuto("purchasePrice")
-                              setPurchasePrice(v)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {transactionType !== "purchase" ? (
-                        <>
-                          {loanType === "dscr" && (
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="rehab-completed">Rehab Completed</Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <CalcInput
-                                  id="rehab-completed"
-                                  placeholder="0.00"
-                                  className="pl-6"
-                                  value={rehabCompleted}
-                                  onValueChange={setRehabCompleted}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="payoff-amount">Payoff Amount</Label>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="payoff-amount"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={payoffAmount}
-                                onValueChange={setPayoffAmount}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="aiv">
-                          As-Is Value<span className="text-red-600"> *</span>
-                        </Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="aiv"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={aiv}
-                            onValueChange={setAiv}
-                            required
-                            aria-required="true"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="max-lev">Request Max Leverage</Label>
-                        <div className="flex h-9 items-center">
-                          <div className="relative inline-grid h-8 grid-cols-[1fr_1fr] items-center text-sm font-medium">
-                            <Switch
-                              id="max-lev"
-                              checked={requestMaxLeverage}
-                              onCheckedChange={setRequestMaxLeverage}
-                              className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
-                            />
-                            <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
-                              <span className="text-[10px] font-medium uppercase">No</span>
-                            </span>
-                            <span className="peer-data-[state=checked]:text-background pointer-events-none relative mr-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:-translate-x-full peer-data-[state=unchecked]:invisible peer-data-[state=checked]:rtl:translate-x-full">
-                              <span className="text-[10px] font-medium uppercase">Yes</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {!requestMaxLeverage ? (
-                        loanType === "bridge" &&
-                        (bridgeType === "bridge-rehab" || bridgeType === "ground-up") ? (
-                          <>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="initial-loan-amount">
-                                Initial Loan Amount <span className="text-red-600">*</span>
-                              </Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <CalcInput
-                                  id="initial-loan-amount"
-                                  placeholder="0.00"
-                                  className="pl-6"
-                                  value={initialLoanAmount}
-                                  onValueChange={setInitialLoanAmount}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="rehab-holdback">Rehab Holdback</Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <CalcInput
-                                  id="rehab-holdback"
-                                  placeholder="0.00"
-                                  className="pl-6"
-                                  value={rehabHoldback}
-                                  onValueChange={setRehabHoldback}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="total-loan-amount">Total Loan Amount</Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <Input
-                                  id="total-loan-amount"
-                                  readOnly
-                                  value={(() => {
-                                    const toNum = (v: string | number | undefined) =>
-                                      Number(String(v ?? "0").toString().replace(/[^0-9.-]/g, "")) || 0
-                                    const a = toNum(initialLoanAmount)
-                                    const b = toNum(rehabHoldback)
-                                    const total = a + b
-                                    return total.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })
-                                  })()}
-                                  className="pl-6"
-                                />
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="loan-amount">
-                              Loan Amount <span className="text-red-600">*</span>
-                            </Label>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="loan-amount"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={loanAmount}
-                                onValueChange={setLoanAmount}
-                              />
-                            </div>
-                          </div>
-                        )
-                      ) : null}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="lender-orig">Lender Origination</Label>
-                        <div className="relative">
-                          <Input
-                            id="lender-orig"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            className="pr-6"
-                            value={lenderOrig}
-                            pattern="^\\d{0,3}(\\.\\d*)?$"
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              // allow empty to let users clear the field
-                              if (raw === "") return setLenderOrig("")
-                              // keep digits and a single decimal point
-                              let v = raw.replace(/[^\d.]/g, "")
-                              const firstDot = v.indexOf(".")
-                              if (firstDot !== -1) {
-                                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "")
-                              }
-                              if (v.startsWith(".")) v = "0" + v
-                              // clamp to 100
-                              const num = Number(v)
-                              if (!Number.isNaN(num) && num > 100) {
-                                v = "100"
-                              }
-                              setLenderOrig(v)
-                              setTouched((t) => ({ ...t, lenderOrig: true }))
-                            }}
-                            readOnly={isBroker}
-                            disabled={isBroker}
-                          />
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            %
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="admin-fee">Lender Admin Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="admin-fee"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={adminFee}
-                            onValueChange={(v) => {
-                              setAdminFee(v)
-                              setTouched((t) => ({ ...t, adminFee: true }))
-                            }}
-                            readOnly={isBroker}
-                            disabled={isBroker}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="broker-orig">Broker Origination</Label>
-                        <div className="relative">
-                          <Input
-                            id="broker-orig"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            className="pr-6"
-                            value={brokerOrig}
-                            pattern="^\\d{0,3}(\\.\\d*)?$"
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              if (raw === "") return setBrokerOrig("")
-                              let v = raw.replace(/[^\d.]/g, "")
-                              const firstDot = v.indexOf(".")
-                              if (firstDot !== -1) {
-                                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "")
-                              }
-                              if (v.startsWith(".")) v = "0" + v
-                              const num = Number(v)
-                              if (!Number.isNaN(num) && num > 100) {
-                                v = "100"
-                              }
-                              setBrokerOrig(v)
-                            }}
-                          />
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            %
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="broker-admin-fee">Broker Admin Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="broker-admin-fee"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={brokerAdminFee}
-                            onValueChange={setBrokerAdminFee}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="additional-details" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Additional Details
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="borrower-name">Borrower Name</Label>
-                        <div className="relative">
-                          <div className="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center pl-3 peer-disabled:opacity-50">
-                            <SearchIcon className="size-4" />
-                            <span className="sr-only">Search</span>
-                          </div>
-                          <Input
-                            id="borrower-name"
-                            placeholder={borrowerName || DEFAULTS.borrowerName}
-                            value={!touched.borrowerName ? "" : borrowerName}
-                            onChange={(e) => {
-                              const v = e.target.value
-                              setBorrowerName(v)
-                              setTouched((t) => ({ ...t, borrowerName: true }))
-                              setEntityQuery(v)
-                              setShowEntitySuggestions(true)
-                              setSelectedEntityId(undefined)
-                              setHasSessionEntity(false)
-                            }}
-                            onFocus={() => {
-                              const seed = (borrowerName ?? "").trim()
-                              setEntityQuery(seed.length > 0 ? seed : "*")
-                              setShowEntitySuggestions(true)
-                            }}
-                            onBlur={() => {
-                              // Delay to allow clicking on suggestions before closing
-                              setTimeout(() => setShowEntitySuggestions(false), 150)
-                            }}
-                            className={`peer pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none ${selectedEntityId && hasSessionEntity ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
-                            autoComplete="off"
-                          />
-                          {entityLoading && (
-                            <div className="text-muted-foreground pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center pr-3 peer-disabled:opacity-50">
-                              <LoaderCircleIcon className="size-4 animate-spin" />
-                              <span className="sr-only">Loading...</span>
-                            </div>
-                          )}
-                          {showEntitySuggestions && entitySuggestions.length > 0 && (
-                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                              <ul className="max-h-56 overflow-auto">
-                                {entitySuggestions.map((opt) => (
-                                  <li key={opt.id}>
-                                    <button
-                                      type="button"
-                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault() // Prevent blur from firing
-                                        setBorrowerName(opt.name)
-                                        setTouched((t) => ({ ...t, borrowerName: true }))
-                                        setShowEntitySuggestions(false)
-                                        setSelectedEntityId(opt.id)
-                                        setHasSessionEntity(true)
-                                      }}
-                                    >
-                                      {opt.display}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="guarantors">Guarantor(s)</Label>
-                        <div className="relative">
-                          <TagsInput
-                            value={guarantorTags.map((t) => t.name)}
-                            onValueChange={(newValues) => {
-                              // Prevent exceeding 4 guarantor limit
-                              if (newValues.length > 4) return
-                              // Keep only tags whose names are still in the new values
-                              setGuarantorTags((prev) => prev.filter((t) => newValues.includes(t.name)))
-                            }}
-                            className="w-full"
-                          >
-                            <TagsInputList className="min-h-9 max-h-9 px-3 py-1 overflow-x-auto overflow-y-hidden flex-nowrap">
-                              <SearchIcon className="size-4 text-muted-foreground mr-1 shrink-0" />
-                              {guarantorTags.map((tag, idx) => (
-                                <TagsInputItem
-                                  key={`${tag.name}-${idx}`}
-                                  value={tag.name}
-                                  className={`text-xs px-1.5 py-0.5 shrink-0 ${tag.id ? "border-blue-500 ring-1 ring-blue-500" : ""}`}
-                                >
-                                  {tag.name}
-                                </TagsInputItem>
-                              ))}
-                              <TagsInputInput
-                                id="guarantors"
-                                placeholder={
-                                  guarantorTags.length >= 4
-                                    ? "Max 4 guarantors"
-                                    : guarantorTags.length === 0
-                                      ? DEFAULTS.guarantorPlaceholder
-                                      : ""
-                                }
-                                disabled={guarantorTags.length >= 4}
-                                value={guarantorQuery}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  setGuarantorQuery(v)
-                                  if (v.trim().length > 0) {
-                                    setShowGuarantorSuggestions(true)
-                                  } else {
-                                    setShowGuarantorSuggestions(false)
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && guarantorQuery.trim()) {
-                                    e.preventDefault()
-                                    // Prevent exceeding 4 guarantor limit
-                                    if (guarantorTags.length >= 4) return
-                                    // Add as unlinked tag
-                                    setGuarantorTags((prev) => [...prev, { name: guarantorQuery.trim() }])
-                                    setGuarantorQuery("")
-                                    setShowGuarantorSuggestions(false)
-                                  }
-                                }}
-                                onFocus={() => {
-                                  if (guarantorQuery.trim().length > 0) {
-                                    setShowGuarantorSuggestions(true)
-                                  }
-                                }}
-                                onBlur={() => {
-                                  // Delay to allow clicking on suggestions before closing
-                                  setTimeout(() => setShowGuarantorSuggestions(false), 150)
-                                }}
-                                autoComplete="off"
-                              />
-                              {guarantorLoading && (
-                                <LoaderCircleIcon className="size-4 animate-spin text-muted-foreground shrink-0" />
-                              )}
-                            </TagsInputList>
-                          </TagsInput>
-                          {showGuarantorSuggestions && guarantorSuggestions.filter((s) => !guarantorTags.some((t) => t.id === s.id)).length > 0 && (
-                            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                              <ul className="max-h-56 overflow-auto">
-                                {guarantorSuggestions.filter((s) => !guarantorTags.some((t) => t.id === s.id)).map((opt) => (
-                                  <li key={opt.id}>
-                                    <button
-                                      type="button"
-                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault() // Prevent blur from firing
-                                        // Prevent exceeding 4 guarantor limit
-                                        if (guarantorTags.length >= 4) return
-                                        // Add as linked tag with borrower ID
-                                        setGuarantorTags((prev) => [...prev, { name: opt.name, id: opt.id }])
-                                        setGuarantorQuery("")
-                                        setShowGuarantorSuggestions(false)
-                                      }}
-                                    >
-                                      {opt.display}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="uw-exception">UW Exception</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Underwriting Exception</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                        <Select
-                          value={uwException}
-                          onValueChange={(v) => {
-                            setUwException(v)
-                            setTouched((t) => ({ ...t, uwException: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="uw-exception"
-                            className={`h-9 w-full ${!touched.uwException && uwException === DEFAULTS.uwException ? "text-muted-foreground" : ""}`}
-                          >
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="yes">Yes</SelectItem>
-                            <SelectItem value="no">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {isDscr && (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="section-8">Section 8</Label>
-                          <Select
-                            value={section8}
-                            onValueChange={(v) => {
-                              setSection8(v)
-                              setTouched((t) => ({ ...t, section8: true }))
-                            }}
-                          >
-                            <SelectTrigger
-                              id="section-8"
-                              className={`h-9 w-full ${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
-                            >
-                              <SelectValue
-                                placeholder="No"
-                                className={`${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="hoi-effective">HOI Effective</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <DateInput
-                              value={hoiEffective}
-                              onChange={(d) => {
-                                setHoiEffective(d)
-                                setTouched((t) => ({ ...t, hoiEffective: true }))
-                              }}
-                              className={`${!touched.hoiEffective && hoiEffective && _isSameDay(hoiEffective, DEFAULTS.hoiEffective) ? "text-muted-foreground" : ""}`}
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={hoiEffective}
-                              month={hoiCalMonth}
-                              onMonthChange={setHoiCalMonth}
-                              onSelect={(d) => d && setHoiEffective(d)}
-                              captionLayout="dropdown"
-                              className="rounded-md border min-w-[264px]"
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="flood-effective">Flood Effective</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <DateInput
-                              value={floodEffective}
-                              onChange={(d) => {
-                                setFloodEffective(d)
-                                setTouched((t) => ({ ...t, floodEffective: true }))
-                              }}
-                              className={`${!touched.floodEffective && floodEffective && _isSameDay(floodEffective, DEFAULTS.floodEffective) ? "text-muted-foreground" : ""}`}
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={floodEffective}
-                              month={floodCalMonth}
-                              onMonthChange={setFloodCalMonth}
-                              onSelect={(d) => d && setFloodEffective(d)}
-                              captionLayout="dropdown"
-                              className="rounded-md border min-w-[264px]"
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="title-recording">Title &amp; Recording Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="title-recording"
-                            placeholder={computedTitleRecording || "0.00"}
-                            className={`pl-6 ${!touched.titleRecordingFee && titleRecordingFee === computedTitleRecording ? "text-muted-foreground" : ""}`}
-                            value={titleRecordingFee}
-                            onValueChange={(v) => {
-                              setTitleRecordingFee(v)
-                              setTouched((t) => ({ ...t, titleRecordingFee: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="assignment-fee">Assignment Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="assignment-fee"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={assignmentFee}
-                            onValueChange={setAssignmentFee}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="seller-concessions">Seller Concessions</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="seller-concessions"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={sellerConcessions}
-                            onValueChange={setSellerConcessions}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="tax-escrow">Tax Escrow (months)</Label>
-                        <Input
-                          id="tax-escrow"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={taxEscrowMonths}
-                          onChange={(e) => {
-                            setTaxEscrowMonths(e.target.value)
-                            setTouched((t) => ({ ...t, taxEscrowMonths: true }))
-                          }}
-                          className={`${!touched.taxEscrowMonths && taxEscrowMonths === (loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths) ? "text-muted-foreground" : ""}`}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="hoi-premium">HOI Premium</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="hoi-premium"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={hoiPremium}
-                            onValueChange={setHoiPremium}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="flood-premium">Flood Premium</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="flood-premium"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={floodPremium}
-                            onValueChange={setFloodPremium}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="emd">EMD</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="emd"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={emd}
-                            onValueChange={setEmd}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                </Accordion>
+                  )
+                })}
+              </Accordion>
+              {/* Old hardcoded AccordionItems removed - replaced by dynamic rendering above */}
               </div>
             </ScrollArea>
 
@@ -4648,8 +3297,102 @@ export default function PricingEnginePage() {
 }
 
 
+// ---------- Section Action Button ----------
+
+function SectionActionButton({
+  btn,
+  onGoogleMaps,
+  buildPayload,
+  onApplyInputs,
+}: {
+  btn: SectionButton
+  onGoogleMaps: (e?: React.MouseEvent) => void
+  buildPayload: () => Record<string, unknown>
+  onApplyInputs?: (inputs: Record<string, unknown>, signalColor: string | null) => void
+}) {
+  const [loading, setLoading] = React.useState(false)
+  const [clicked, setClicked] = React.useState(false)
+
+  const isGoogleMaps = btn.actions.some((a) => a.action_type === "google_maps")
+
+  if (isGoogleMaps) {
+    return (
+      <Button
+        size="sm"
+        variant="secondary"
+        className={cn(
+          "h-7 not-italic",
+          !clicked && "border border-primary/50 animate-attention-glow",
+        )}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setClicked(true)
+          onGoogleMaps(e)
+        }}
+      >
+        {btn.label}
+      </Button>
+    )
+  }
+
+  const workflowActions = btn.actions.filter((a) => a.action_type === "workflow" && a.action_uuid)
+
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      className={cn(
+        "h-7 not-italic",
+        !clicked && !loading && workflowActions.length > 0 &&
+          "border border-primary/50 animate-attention-glow",
+      )}
+      disabled={loading || workflowActions.length === 0}
+      onClick={async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (loading || workflowActions.length === 0) return
+        setClicked(true)
+        setLoading(true)
+        try {
+          const payload = buildPayload()
+          const results = await Promise.allSettled(
+            workflowActions.map(async (a) => {
+              const res = await fetch(`/api/workflows/${a.action_uuid}/webhook`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              })
+              if (!res.ok) throw new Error(`Failed (${res.status})`)
+              const data = await res.json()
+              if (data.inputs && typeof data.inputs === "object" && onApplyInputs) {
+                onApplyInputs(data.inputs as Record<string, unknown>, btn.signal_color ?? null)
+              }
+              return data
+            })
+          )
+          const anyFailed = results.some((r) => r.status === "rejected")
+          if (anyFailed) {
+            toast({ title: "Partial failure", description: `Some actions for "${btn.label}" failed.`, variant: "destructive" })
+          } else {
+            toast({ title: "Sent", description: `${btn.label} executed successfully.` })
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error"
+          toast({ title: "Action failed", description: message, variant: "destructive" })
+        } finally {
+          setLoading(false)
+        }
+      }}
+    >
+      {loading ? <LoaderCircleIcon className="size-3.5 animate-spin" /> : null}
+      {btn.label}
+    </Button>
+  )
+}
+
+
 // ---------- Results UI ----------
-import * as React from "react"
 type ProgramResponseData = {
   pass?: boolean
   highlight_display?: number

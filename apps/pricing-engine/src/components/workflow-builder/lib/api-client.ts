@@ -352,6 +352,14 @@ export const workflowApi = {
       };
     }
 
+    const triggerNode = (workflow.nodes ?? []).find(
+      (n) => n.data.type === "trigger"
+    );
+    if (triggerNode) {
+      const wt = triggerNode.data.config?.webhookType as string | undefined;
+      payload.webhook_type = wt || null;
+    }
+
     const res = await apiCall<{ action: {
       uuid: string;
       name: string;

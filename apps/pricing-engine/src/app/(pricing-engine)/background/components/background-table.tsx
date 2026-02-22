@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
+  ColumnOrderState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -11,15 +12,31 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Loader2, Search, MoreHorizontal, Download, Archive } from "lucide-react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Input } from "@repo/ui/shadcn/input";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
@@ -32,6 +49,8 @@ import {
 } from "@repo/ui/shadcn/dropdown-menu";
 import { cn } from "@repo/lib/cn";
 import { ArchiveConfirmDialog } from "@/components/archive/archive-confirm-dialog";
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 import { BackgroundDetailSheet } from "./background-detail-sheet";
 
 /* -------------------------------------------------------------------------- */
@@ -195,6 +214,33 @@ function ActionsCell({
 function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundReport>[] {
   return [
     {
+      id: "select",
+      header: ({ table }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
+    },
+    {
       id: "name",
       accessorFn: (row) => getDisplayName(row),
       header: "Name",
@@ -250,8 +296,11 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundRepor
       ),
     },
     {
-      id: "actions",
+      id: "row_actions",
       header: "",
+      enableSorting: false,
+      enableHiding: false,
+      size: 80,
       cell: ({ row }) => (
         <ActionsCell report={row.original} onArchived={onArchived} />
       ),
@@ -270,6 +319,28 @@ export function BackgroundTable() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [selectedReport, setSelectedReport] = useState<BackgroundReport | null>(null);
+  const [rowSelection, setRowSelection] = useState({});
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, {})
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return;
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id);
+      const oldIndex = currentOrder.indexOf(activeId);
+      const newIndex = currentOrder.indexOf(overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex));
+    }
+  }
 
   const onArchived = useCallback((id: string) => {
     setData((prev) => prev.filter((r) => r.id !== id));
@@ -299,9 +370,12 @@ export function BackgroundTable() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, columnOrder, rowSelection },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -326,7 +400,12 @@ export function BackgroundTable() {
   }
 
   return (
-    <>
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
       {/* Search */}
       <div className="flex items-center gap-2 pb-4">
         <div className="relative flex-1 max-w-sm">
@@ -341,22 +420,22 @@ export function BackgroundTable() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border">
+      <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="cursor-pointer select-none"
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+              <TableRow key={headerGroup.id} className="bg-muted">
+                <SortableContext
+                  items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {headerGroup.headers.map((header) => (
+                    <DraggableTableHeader
+                      key={header.id}
+                      header={header}
+                    />
+                  ))}
+                </SortableContext>
               </TableRow>
             ))}
           </TableHeader>
@@ -372,13 +451,33 @@ export function BackgroundTable() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  data-state={row.getIsSelected() && "selected"}
                   onClick={() => setSelectedReport(row.original)}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const isPinned = PINNED_RIGHT_SET.has(cell.column.id);
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "text-left",
+                          isPinned && "bg-background !px-1"
+                        )}
+                        style={
+                          isPinned
+                            ? {
+                                position: "sticky",
+                                right: 0,
+                                zIndex: 10,
+                                boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                              }
+                            : undefined
+                        }
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             )}
@@ -387,31 +486,7 @@ export function BackgroundTable() {
       </div>
 
       {/* Pagination */}
-      {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between pt-4">
-          <p className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      <DealsStylePagination table={table} />
 
       {/* Detail Sheet */}
       <BackgroundDetailSheet
@@ -421,6 +496,6 @@ export function BackgroundTable() {
           if (!open) setSelectedReport(null);
         }}
       />
-    </>
+    </DndContext>
   );
 }

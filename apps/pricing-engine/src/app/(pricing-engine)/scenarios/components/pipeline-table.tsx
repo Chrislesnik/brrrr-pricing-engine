@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   RowData,
   SortingState,
   VisibilityState,
@@ -17,15 +18,31 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { cn } from "@repo/lib/cn"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { LoanRow } from "../data/fetch-loans"
 import { PipelineToolbar } from "./pipeline-toolbar"
 import { Badge } from "@repo/ui/shadcn/badge"
@@ -82,6 +99,27 @@ export function PipelineTable({ columns, data }: Props) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
 
   // Persist table "view" (visibility, filters, sorting) across sessions
   const STORAGE_KEY = "pipeline.table.view.v1"
@@ -176,23 +214,30 @@ export function PipelineTable({ columns, data }: Props) {
       columnVisibility,
       rowSelection,
       columnFilters,
+      columnOrder,
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    // Use row.id as the stable row identifier to preserve state across data updates
     getRowId: (row) => row.id,
   })
 
   return (
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
     <div className="space-y-4 w-full min-w-0 overflow-hidden">
       <PipelineToolbar table={table} />
       {/* Desktop/tablet view */}
@@ -200,26 +245,15 @@ export function PipelineTable({ columns, data }: Props) {
         <Table className="min-w-[1000px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className={cn(
-                        "px-3 text-[13px] font-medium text-muted-foreground whitespace-nowrap",
-                        header.column.columnDef.meta?.className ?? ""
-                      )}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
+              <TableRow key={headerGroup.id} className="bg-muted">
+                <SortableContext
+                  items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {headerGroup.headers.map((header) => (
+                    <DraggableTableHeader key={header.id} header={header} />
+                  ))}
+                </SortableContext>
               </TableRow>
             ))}
           </TableHeader>
@@ -229,21 +263,31 @@ export function PipelineTable({ columns, data }: Props) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className="cursor-pointer"
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        "px-3 whitespace-nowrap",
-                        cell.column.columnDef.meta?.className ?? ""
-                      )}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "px-3 whitespace-nowrap text-left",
+                          cell.column.columnDef.meta?.className ?? "",
+                          isPinned && "bg-background !px-1"
+                        )}
+                        style={
+                          isPinned
+                            ? { position: "sticky", right: 0, zIndex: 10, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" }
+                            : undefined
+                        }
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : (
@@ -313,8 +357,9 @@ export function PipelineTable({ columns, data }: Props) {
           )}
         </div>
       </div>
-      <DataTablePagination table={table} />
+      <DealsStylePagination table={table} />
     </div>
+    </DndContext>
   )
 }
 

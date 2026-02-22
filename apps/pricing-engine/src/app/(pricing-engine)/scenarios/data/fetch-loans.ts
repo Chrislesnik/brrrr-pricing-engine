@@ -31,7 +31,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   // 1) Fetch loans scoped to organization
   const { data: loansRaw, error: loansError } = await supabaseAdmin
     .from("loans")
-    .select("id,display_id,status,assigned_to_user_id,organization_id,created_at,updated_at,archived_at")
+    .select("id,display_id,status,organization_id,created_at,updated_at,archived_at")
     .eq("organization_id", orgUuid)
     .order("updated_at", { ascending: false })
 
@@ -46,14 +46,20 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   const userRole = await getUserRoleInOrg(orgUuid, userId)
   const hasFullAccess = isPrivilegedRole(userRole)
 
-  // Filter by assignment to current user (assigned_to_user_id is a jsonb array of Clerk user IDs)
+  // Filter by role_assignments for non-admin users
   // Admin/owner: skip filtering and show all loans
-  const loans = hasFullAccess
-    ? (loansRaw ?? [])
-    : (loansRaw ?? []).filter((l) => {
-        const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
-        return arr.includes(userId)
-      })
+  let loans = loansRaw ?? []
+  if (!hasFullAccess) {
+    const loanIdsAll = loans.map((l) => l.id as string)
+    const { data: myAssignments } = await supabaseAdmin
+      .from("role_assignments")
+      .select("resource_id")
+      .eq("resource_type", "loan")
+      .eq("user_id", userId)
+      .in("resource_id", loanIdsAll)
+    const myLoanIds = new Set((myAssignments ?? []).map((a) => a.resource_id as string))
+    loans = loans.filter((l) => myLoanIds.has(l.id as string))
+  }
   if (loans.length === 0) return []
 
   const loanIds = loans.map((l) => l.id as string)
@@ -62,38 +68,96 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   // marked primary, fall back to the most recently created scenario per loan.
   const { data: scenarios, error: scenariosError } = await supabaseAdmin
     .from("loan_scenarios")
-    .select("loan_id, inputs, selected, primary, created_at")
+    .select("id, loan_id, primary, created_at, selected_rate_option_id")
     .in("loan_id", loanIds)
     .order("primary", { ascending: false })
     .order("created_at", { ascending: false })
-
 
   if (scenariosError) {
     logError("Error fetching loan scenarios:", scenariosError.message)
   }
 
   type ScenarioRow = {
+    id: string
     loan_id: string
-     
     inputs?: Record<string, any>
-     
     selected?: Record<string, any> | null
     primary?: boolean | null
     created_at?: string
   }
   const loanIdToScenario = new Map<string, ScenarioRow>()
-  for (const s of (scenarios ?? []) as ScenarioRow[]) {
-    const lid = s.loan_id as string
-    // Because we ordered by primary DESC then created_at DESC, the first
-    // scenario encountered for a loan is the one we want to display.
+  for (const s of (scenarios ?? []) as Array<{ id: string; loan_id: string; primary?: boolean; created_at?: string; selected_rate_option_id?: number }>) {
+    const lid = s.loan_id
     if (!loanIdToScenario.has(lid)) {
       loanIdToScenario.set(lid, {
+        id: s.id,
         loan_id: lid,
-        inputs: (s.inputs as Record<string, unknown>) ?? {},
-        selected: (s.selected as Record<string, unknown>) ?? {},
-        primary: (s as any)?.primary ?? null,
-        created_at: (s as any)?.created_at as string | undefined,
+        inputs: {},
+        selected: {},
+        primary: s.primary ?? null,
+        created_at: s.created_at,
       })
+    }
+  }
+
+  // Batch-load inputs for the selected scenarios
+  const scenarioIds = [...loanIdToScenario.values()].map((s) => s.id)
+  if (scenarioIds.length > 0) {
+    const { data: allInputRows } = await supabaseAdmin
+      .from("loan_scenario_inputs")
+      .select("loan_scenario_id, pricing_engine_input_id, value_text, value_date, value_array, value_bool")
+      .in("loan_scenario_id", scenarioIds)
+
+    // Fetch PE input code map
+    const { data: peInputs } = await supabaseAdmin
+      .from("pricing_engine_inputs")
+      .select("id, input_code")
+      .is("archived_at", null)
+    const idToCode = new Map<number, string>()
+    for (const inp of peInputs ?? []) idToCode.set(inp.id as number, inp.input_code as string)
+
+    // Group by scenario and reconstruct inputs
+    for (const row of allInputRows ?? []) {
+      const sid = row.loan_scenario_id as string
+      const scenario = [...loanIdToScenario.values()].find((s) => s.id === sid)
+      if (!scenario) continue
+      const code = idToCode.get(row.pricing_engine_input_id as number)
+      if (!code) continue
+      const val = row.value_date ?? row.value_array ?? (row.value_bool !== null ? row.value_bool : row.value_text)
+      if (code.startsWith("address_")) {
+        if (!scenario.inputs!.address) scenario.inputs!.address = {}
+        ;(scenario.inputs!.address as Record<string, unknown>)[code.replace("address_", "")] = val
+      } else {
+        scenario.inputs![code] = val
+      }
+    }
+
+    // Load selected rate options for scenarios that have them
+    const scenariosWithSelection = [...loanIdToScenario.values()].filter(
+      (s) => (scenarios ?? []).find((sc: any) => sc.id === s.id)?.selected_rate_option_id
+    )
+    for (const s of scenariosWithSelection) {
+      const sc = (scenarios ?? []).find((sc: any) => sc.id === s.id) as any
+      if (!sc?.selected_rate_option_id) continue
+      const { data: rateOpt } = await supabaseAdmin
+        .from("scenario_rate_options")
+        .select("*, scenario_program_results!inner(program_id, program_name, loan_amount, ltv)")
+        .eq("id", sc.selected_rate_option_id)
+        .single()
+      if (rateOpt) {
+        const result = rateOpt.scenario_program_results as Record<string, unknown>
+        s.selected = {
+          program_id: result?.program_id ?? null,
+          program_name: result?.program_name ?? null,
+          row_index: rateOpt.row_index,
+          loanPrice: rateOpt.loan_price,
+          interestRate: rateOpt.interest_rate,
+          loanAmount: (result?.loan_amount as string) ?? rateOpt.total_loan_amount ?? null,
+          ltv: (result?.ltv as string) ?? null,
+          pitia: rateOpt.pitia,
+          dscr: rateOpt.dscr,
+        }
+      }
     }
   }
 
@@ -121,11 +185,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
   for (const ra of roleAssignmentsRaw ?? []) {
     allAssignedUserIds.add(ra.user_id as string)
   }
-  // Fallback: also include legacy assigned_to_user_id in case role_assignments is empty
-  for (const l of loans) {
-    const arr = Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : []
-    for (const uid of arr) allAssignedUserIds.add(uid)
-  }
+  
 
   // Fetch organization members to resolve user names
   const { data: members, error: membersError } = await supabaseAdmin
@@ -165,11 +225,8 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     const scenario = loanIdToScenario.get(l.id as string)
     const inputs = (scenario?.inputs as Record<string, unknown>) ?? {}
     const selected = (scenario?.selected as Record<string, unknown>) ?? {}
-    // Prefer role_assignments, fallback to legacy column
     const raUserIds = loanToUserIds.get(l.id as string)
-    const assignedToUserIds = raUserIds && raUserIds.size > 0
-      ? [...raUserIds]
-      : (Array.isArray(l.assigned_to_user_id) ? (l.assigned_to_user_id as string[]) : [])
+    const assignedToUserIds = raUserIds ? [...raUserIds] : []
     const assignedToNames = assignedToUserIds.map((id) => userIdToName.get(id) ?? id)
     const assignedToDisplay = assignedToNames.length ? assignedToNames.join(", ") : null
 

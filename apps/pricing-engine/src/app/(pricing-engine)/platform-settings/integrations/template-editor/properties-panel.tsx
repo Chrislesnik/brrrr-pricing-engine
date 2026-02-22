@@ -282,7 +282,12 @@ export function PropertiesPanel({ editor }: PropertiesPanelProps) {
     editor.select(null)
   }, [editor])
 
-  const selected = editor?.getSelected?.()
+  let selected: ReturnType<NonNullable<typeof editor>["getSelected"]> | undefined
+  try {
+    selected = editor?.getSelected?.()
+  } catch {
+    // editor internal state may be inconsistent during initialization
+  }
   if (!selected) return null
 
   const showTypography = isTextComponent(selected)

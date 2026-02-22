@@ -23,6 +23,8 @@ export type ArchivableTable =
   | "task_templates"
   | "actions"
   | "programs"
+  | "pricing_engine_inputs"
+  | "pricing_engine_input_categories"
   | "document_templates"
   // Tier 3: Settings/Config
   | "integration_setup"

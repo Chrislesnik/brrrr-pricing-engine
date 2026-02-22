@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   PaginationState,
   flexRender,
   getCoreRowModel,
@@ -12,20 +13,37 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
+import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { EntityProfile } from "../data/types"
 import { EntityRowActions } from "./entity-row-actions"
 
@@ -85,6 +103,7 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
     pageIndex: 0,
     pageSize,
   })
+  const [rowSelection, setRowSelection] = useState({})
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [ownersMap, setOwnersMap] = useState<
     Record<string, EntityOwner[] | null | undefined>
@@ -181,6 +200,30 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
   const columns = useMemo<ColumnDef<EntityRow>[]>(() => {
     return [
       {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
         id: "expand",
         header: "",
         cell: ({ row }) => {
@@ -275,7 +318,6 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
           const rawNames = Array.isArray(row.original.assigned_to_names)
             ? row.original.assigned_to_names
             : []
-          // Deduplicate names
           const names = [...new Set(rawNames)]
           return (
             <span className="text-muted-foreground text-sm">
@@ -286,7 +328,7 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
       },
       {
         header: () => <div className="w-full text-center">Actions</div>,
-        id: "actions",
+        id: "row_actions",
         cell: ({ row }) => (
           <div className="flex w-full items-center justify-center">
             <EntityRowActions entity={row.original} />
@@ -298,84 +340,134 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
     ]
   }, [expandedRows])
 
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
+
   const table = useReactTable({
     data,
     columns,
     state: {
       columnFilters,
       pagination,
+      columnOrder,
+      rowSelection,
     },
     onColumnFiltersChange: setColumnFilters,
+    onColumnOrderChange: setColumnOrder,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
-    // Use row.id as the stable row identifier to preserve state across data updates
     getRowId: (row) => row.id,
   })
 
   return (
-    <div className="w-full rounded-lg border">
-      <div className="border-b">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+      <div className="w-full">
+        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 py-3">
           <span className="font-medium">Entities</span>
           <Filter column={table.getColumn("display_id")!} />
         </div>
-        {/* Desktop table */}
-        <div className="hidden md:block">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12 border-t">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="text-muted-foreground first:pl-4 last:pr-4"
+        <div className="rounded-lg border">
+        <div className="border-b">
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="bg-muted">
+                    <SortableContext
+                      items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                      strategy={horizontalListSortingStrategy}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => {
-                  const isOpen = !!expandedRows[row.id]
-                  return (
-                    <Fragment key={row.id}>
-                      <TableRow
-                        data-state={row.getIsSelected() && "selected"}
-                        className="cursor-pointer"
-                        onClick={(e) => {
-                          if (isAnyDialogOpen()) return
-                          const interactive = (e.target as HTMLElement).closest(
-                            "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
-                          )
-                          if (interactive) return
-                          toggleRow(row.id, row.original.id)
-                        }}
-                        aria-expanded={isOpen}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className="h-14 first:pl-4 last:pr-4"
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
+                      {headerGroup.headers.map((header) => (
+                        <DraggableTableHeader
+                          key={header.id}
+                          header={header}
+                        />
+                      ))}
+                    </SortableContext>
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => {
+                    const isOpen = !!expandedRows[row.id]
+                    return (
+                      <Fragment key={row.id}>
+                        <TableRow
+                          data-state={row.getIsSelected() && "selected"}
+                          className="cursor-pointer"
+                          onClick={(e) => {
+                            if (isAnyDialogOpen()) return
+                            const interactive = (e.target as HTMLElement).closest(
+                              "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
+                            )
+                            if (interactive) return
+                            toggleRow(row.id, row.original.id)
+                          }}
+                          aria-expanded={isOpen}
+                        >
+                          {row.getVisibleCells().map((cell) => {
+                            const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                            const metaClassName = (cell.column.columnDef.meta as Record<string, unknown> | undefined)?.className as string | undefined
+                            return (
+                              <TableCell
+                                key={cell.id}
+                                className={cn(
+                                  "h-14 first:pl-4 last:pr-4",
+                                  isPinned && "bg-background !px-1",
+                                  metaClassName
+                                )}
+                                style={
+                                  isPinned
+                                    ? {
+                                        position: "sticky",
+                                        right: 0,
+                                        zIndex: 10,
+                                        boxShadow:
+                                          "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                      }
+                                    : undefined
+                                }
+                              >
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
+                              </TableCell>
+                            )
+                          })}
+                        </TableRow>
                       <TableRow className="bg-muted/30 border-0">
                         <TableCell colSpan={columns.length} className="p-0">
                           <div
@@ -536,8 +628,10 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
         </div>
       </div>
 
-      <DataTablePagination table={table} />
-    </div>
+      </div>
+      <DealsStylePagination table={table} />
+      </div>
+    </DndContext>
   )
 }
 

@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import {
   ColumnDef,
+  ColumnOrderState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -11,19 +12,37 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { ChevronDown, Loader2, Search } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Input } from "@repo/ui/shadcn/input";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -110,9 +129,36 @@ const STATUS_COLORS: Record<string, string> = {
 function buildColumns(): ColumnDef<AppraisalOrder>[] {
   return [
     {
+      id: "select",
+      header: ({ table }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
+    },
+    {
       id: "expand",
       header: "",
-      cell: () => null, // rendered manually in the row
+      cell: () => null,
       enableSorting: false,
       enableHiding: false,
     },
@@ -215,8 +261,17 @@ export function AppraisalsTable() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [rowSelection, setRowSelection] = useState({});
 
   const columns = buildColumns();
+
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  );
 
   useEffect(() => {
     async function fetchOrders() {
@@ -243,9 +298,12 @@ export function AppraisalsTable() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, columnOrder, rowSelection },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -253,6 +311,20 @@ export function AppraisalsTable() {
     getRowId: (row) => String(row.id),
     initialState: { pagination: { pageSize: 20 } },
   });
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return;
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id);
+      const oldIndex = currentOrder.indexOf(activeId);
+      const newIndex = currentOrder.indexOf(overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex));
+    }
+  }
 
   if (loading) {
     return (
@@ -271,7 +343,12 @@ export function AppraisalsTable() {
   }
 
   return (
-    <>
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
       <div className="flex items-center gap-2 pb-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -288,21 +365,15 @@ export function AppraisalsTable() {
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      header.column.getCanSort() && "cursor-pointer select-none",
-                      header.id === "expand" && "w-12 pl-3"
-                    )}
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+              <TableRow key={headerGroup.id} className="bg-muted">
+                <SortableContext
+                  items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {headerGroup.headers.map((header) => (
+                    <DraggableTableHeader key={header.id} header={header} />
+                  ))}
+                </SortableContext>
               </TableRow>
             ))}
           </TableHeader>
@@ -330,6 +401,7 @@ export function AppraisalsTable() {
                       aria-expanded={isOpen}
                     >
                       {row.getVisibleCells().map((cell) => {
+                        const isPinned = PINNED_RIGHT_SET.has(cell.column.id);
                         if (cell.column.id === "expand") {
                           return (
                             <TableCell key={cell.id} className="w-12 pl-3">
@@ -352,7 +424,23 @@ export function AppraisalsTable() {
                           );
                         }
                         return (
-                          <TableCell key={cell.id}>
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              "text-left",
+                              isPinned && "bg-background !px-1"
+                            )}
+                            style={
+                              isPinned
+                                ? {
+                                    position: "sticky",
+                                    right: 0,
+                                    zIndex: 10,
+                                    boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                  }
+                                : undefined
+                            }
+                          >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>
                         );
@@ -378,21 +466,7 @@ export function AppraisalsTable() {
         </Table>
       </div>
 
-      {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between pt-4">
-          <p className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-    </>
+      <DealsStylePagination table={table} />
+    </DndContext>
   );
 }

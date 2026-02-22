@@ -102,13 +102,18 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Update each order row
+    // Upsert each order row (creates missing rows for new ai_input entries)
     const errors: string[] = [];
     for (const item of reorder) {
       const { error } = await supabaseAdmin
         .from("document_type_ai_input_order")
-        .update({ display_order: item.display_order })
-        .eq("document_type_ai_input_id", item.document_type_ai_input_id);
+        .upsert(
+          {
+            document_type_ai_input_id: item.document_type_ai_input_id,
+            display_order: item.display_order,
+          },
+          { onConflict: "document_type_ai_input_id" }
+        );
 
       if (error) {
         errors.push(

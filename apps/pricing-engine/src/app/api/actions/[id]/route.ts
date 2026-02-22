@@ -67,6 +67,8 @@ export async function PATCH(
       updatePayload.workflow_data = body.workflow_data;
     if (body.is_active !== undefined)
       updatePayload.is_active = body.is_active;
+    if (body.webhook_type !== undefined)
+      updatePayload.webhook_type = body.webhook_type;
 
     if (Object.keys(updatePayload).length === 0) {
       return NextResponse.json(

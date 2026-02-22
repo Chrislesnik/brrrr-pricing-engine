@@ -14,10 +14,9 @@ import {
   ShieldCheck,
   Palette,
   Loader2,
-  LayoutGrid,
-  TextCursorInput,
-  FileText,
-  ListChecks,
+  Calculator,
+  Briefcase,
+  Workflow,
   Plug,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
@@ -26,14 +25,13 @@ import { cn } from "@repo/lib/cn";
 import { GeneralSettings } from "./components/general-settings";
 import { MembersSettings } from "./components/members-settings";
 import { DomainsSettings } from "./components/domains-settings";
-import { ProgramsSettings } from "./components/programs-settings";
+import { PricingEngineSettings } from "./components/pricing-engine-settings";
 import { ThemesSettings } from "./components/themes-settings";
-import { InputsSettings } from "./components/inputs-settings";
-import { DocumentsSettings } from "./components/documents-settings";
-import { TasksSettings } from "./components/tasks-settings";
+import { DealsSettings } from "./components/deals-settings";
+import { ActionsSettings } from "./components/actions-settings";
 import { IntegrationsSettings } from "./components/integrations-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "programs" | "themes" | "inputs" | "documents" | "tasks" | "integrations";
+type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "actions" | "integrations";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -77,28 +75,22 @@ const settingsNavItems: NavItem[] = [
     href: "policies",
   },
   {
-    id: "programs",
-    label: "Programs",
-    icon: LayoutGrid,
-    description: "Manage loan programs",
+    id: "pricing-engine",
+    label: "Pricing Engine",
+    icon: Calculator,
+    description: "Manage pricing engine",
   },
   {
-    id: "inputs",
-    label: "Inputs",
-    icon: TextCursorInput,
-    description: "Manage deal input fields",
+    id: "deals",
+    label: "Deals",
+    icon: Briefcase,
+    description: "Manage deal inputs, documents, and tasks",
   },
   {
-    id: "documents",
-    label: "Documents",
-    icon: FileText,
-    description: "Manage document requirements",
-  },
-  {
-    id: "tasks",
-    label: "Tasks & Actions",
-    icon: ListChecks,
-    description: "Manage task templates and actions",
+    id: "actions",
+    label: "Actions",
+    icon: Workflow,
+    description: "Manage workflow automations",
   },
   {
     id: "integrations",
@@ -276,11 +268,10 @@ export default function OrganizationSettingsPage() {
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
-            {activeTab === "programs" && <ProgramsSettings />}
+            {activeTab === "pricing-engine" && <PricingEngineSettings />}
             {activeTab === "themes" && <ThemesSettings />}
-            {activeTab === "inputs" && <InputsSettings />}
-            {activeTab === "documents" && <DocumentsSettings />}
-            {activeTab === "tasks" && <TasksSettings />}
+            {activeTab === "deals" && <DealsSettings />}
+            {activeTab === "actions" && <ActionsSettings />}
             {activeTab === "integrations" && <IntegrationsSettings />}
           </div>
         </div>

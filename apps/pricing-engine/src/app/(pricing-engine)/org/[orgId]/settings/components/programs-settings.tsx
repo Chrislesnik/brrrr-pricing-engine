@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table";
 import { Badge } from "@repo/ui/shadcn/badge";
+import { Button } from "@repo/ui/shadcn/button";
 import { cn } from "@repo/lib/cn";
 import { AddProgramDialog } from "../../../../settings/components/add-program-dialog";
 import { ProgramRowActions } from "../../../../settings/components/program-row-actions";
@@ -19,12 +20,12 @@ import {
   updateProgramAction,
   deleteProgramAction,
 } from "../../../../settings/programs-actions";
-import { Loader2, Copy, Check } from "lucide-react";
+import { Loader2, Copy, Check, Settings2 } from "lucide-react";
 import { useCallback } from "react";
+import { ProgramConditionSheet } from "./program-condition-sheet";
 
 interface ProgramRow {
   id: string;
-  loan_type: "dscr" | "bridge" | string;
   internal_name: string;
   external_name: string;
   webhook_url: string | null;
@@ -66,6 +67,9 @@ export function ProgramsSettings() {
   const [programs, setPrograms] = useState<ProgramRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
+  const [conditionSheetOpen, setConditionSheetOpen] = useState(false);
+  const [conditionProgramId, setConditionProgramId] = useState<string>("");
+  const [conditionProgramName, setConditionProgramName] = useState<string>("");
 
   useEffect(() => {
     async function checkAccessAndFetch() {
@@ -141,16 +145,14 @@ export function ProgramsSettings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Programs</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage your loan programs.
-        </p>
-      </div>
-
-      <div className="flex w-full flex-col gap-4">
-        <div className="flex w-full justify-end">
-          <AddProgramDialog
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Programs</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage your loan programs.
+          </p>
+        </div>
+        <AddProgramDialog
             action={async (formData) => {
               const result = await addProgramAction(formData);
               if (!("error" in result)) {
@@ -161,16 +163,17 @@ export function ProgramsSettings() {
             canCreate={!!orgId}
             orgId={orgId ?? null}
           />
-        </div>
+      </div>
 
+      <div className="flex w-full flex-col gap-4">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[12%]">ID</TableHead>
-              <TableHead className="w-[18%]">Loan Type</TableHead>
+              <TableHead className="w-[10%]">ID</TableHead>
               <TableHead className="w-[20%]">Internal Name</TableHead>
-              <TableHead className="w-[20%]">External Name</TableHead>
-              <TableHead className="w-[20%]">Webhook URL</TableHead>
+              <TableHead className="w-[18%]">External Name</TableHead>
+              <TableHead className="w-[22%]">Webhook URL</TableHead>
+              <TableHead className="w-[10%]">Conditions</TableHead>
               <TableHead className="w-[10%]">Status</TableHead>
               <TableHead className="w-[4%]" />
             </TableRow>
@@ -181,7 +184,6 @@ export function ProgramsSettings() {
                 <TableCell className="max-w-[120px]">
                   <CopyButton value={p.id} label={p.id.slice(0, 8) + "..."} />
                 </TableCell>
-                <TableCell className="uppercase">{p.loan_type}</TableCell>
                 <TableCell className="font-medium">{p.internal_name}</TableCell>
                 <TableCell>{p.external_name}</TableCell>
                 <TableCell className="max-w-[250px]">
@@ -190,6 +192,21 @@ export function ProgramsSettings() {
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => {
+                      setConditionProgramId(p.id);
+                      setConditionProgramName(p.internal_name);
+                      setConditionSheetOpen(true);
+                    }}
+                  >
+                    <Settings2 className="size-3.5" />
+                    Edit
+                  </Button>
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -232,6 +249,15 @@ export function ProgramsSettings() {
           </TableBody>
         </Table>
       </div>
+
+      {conditionProgramId && (
+        <ProgramConditionSheet
+          open={conditionSheetOpen}
+          onOpenChange={setConditionSheetOpen}
+          programId={conditionProgramId}
+          programName={conditionProgramName}
+        />
+      )}
     </div>
   );
 }
