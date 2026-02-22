@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Check,
   GripVertical,
+  MapPin,
   Pencil,
   Plus,
   Star,
@@ -141,6 +142,15 @@ const BOOLEAN_DISPLAY_TYPES = [
   { value: "checkbox", label: "Checkbox" },
 ] as const;
 
+const ADDRESS_ROLES = [
+  { value: "street", label: "Street (Autocomplete)" },
+  { value: "city", label: "City" },
+  { value: "state", label: "State" },
+  { value: "zip", label: "Zip" },
+  { value: "county", label: "County" },
+  { value: "apt", label: "Apt / Unit" },
+] as const;
+
 /* -------------------------------------------------------------------------- */
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
@@ -170,6 +180,10 @@ export function PricingEngineLayoutSettings() {
 
   // Boolean display type state
   const [newBooleanDisplay, setNewBooleanDisplay] = useState("dropdown");
+
+  // Address config state
+  const [newAddressRole, setNewAddressRole] = useState("");
+  const [newAddressGroup, setNewAddressGroup] = useState("property");
 
   // Database link state
   const [newLinkedTable, setNewLinkedTable] = useState<string>("");
@@ -405,13 +419,21 @@ export function PricingEngineLayoutSettings() {
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: TYPES_WITH_OPTIONS.has(newInputType) ? newDropdownOptions : null,
-          config: newInputType === "table" && pendingTableConfig
-            ? pendingTableConfig
-            : NUMERIC_INPUT_TYPES.has(newInputType) && pendingNumberConfig
-              ? pendingNumberConfig
-              : newInputType === "boolean"
-                ? { boolean_display: newBooleanDisplay }
-                : undefined,
+          config: (() => {
+            const c: Record<string, unknown> = {};
+            if (newInputType === "table" && pendingTableConfig) {
+              Object.assign(c, pendingTableConfig);
+            } else if (NUMERIC_INPUT_TYPES.has(newInputType) && pendingNumberConfig) {
+              Object.assign(c, pendingNumberConfig);
+            } else if (newInputType === "boolean") {
+              c.boolean_display = newBooleanDisplay;
+            }
+            if (newAddressRole) {
+              c.address_role = newAddressRole;
+              c.address_group = newAddressGroup || "property";
+            }
+            return Object.keys(c).length > 0 ? c : undefined;
+          })(),
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
@@ -448,13 +470,23 @@ export function PricingEngineLayoutSettings() {
     if (!newInputLabel.trim() || !newInputType) return;
     setSavingInput(true);
     try {
-      const configPayload = newInputType === "table"
-        ? (pendingTableConfig ?? (input.config as unknown as TableConfig | undefined) ?? undefined)
-        : NUMERIC_INPUT_TYPES.has(newInputType)
-          ? (pendingNumberConfig ?? (input.config as unknown as NumberConstraintsConfig | undefined) ?? undefined)
-          : newInputType === "boolean"
-            ? { ...(input.config ?? {}), boolean_display: newBooleanDisplay }
-            : undefined;
+      const configPayload = (() => {
+        let base: Record<string, unknown> = {};
+        if (newInputType === "table") {
+          base = ((pendingTableConfig ?? (input.config as unknown as TableConfig | undefined)) ?? {}) as unknown as Record<string, unknown>;
+        } else if (NUMERIC_INPUT_TYPES.has(newInputType)) {
+          base = ((pendingNumberConfig ?? (input.config as unknown as NumberConstraintsConfig | undefined)) ?? {}) as unknown as Record<string, unknown>;
+        } else if (newInputType === "boolean") {
+          base = { ...(input.config ?? {}), boolean_display: newBooleanDisplay };
+        }
+        if (newAddressRole) {
+          base.address_role = newAddressRole;
+          base.address_group = newAddressGroup || "property";
+        }
+        const hadAddress = !!(input.config as Record<string, unknown> | undefined)?.address_role;
+        const needsClear = hadAddress && !newAddressRole;
+        return Object.keys(base).length > 0 || needsClear ? base : undefined;
+      })();
       const res = await fetch("/api/pricing-engine-inputs", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -513,6 +545,8 @@ export function PricingEngineLayoutSettings() {
     setNewPlaceholder("");
     setNewDefaultValue("");
     setNewBooleanDisplay("dropdown");
+    setNewAddressRole("");
+    setNewAddressGroup("property");
     setPendingTableConfig(null);
     setPendingNumberConfig(null);
   };
@@ -864,6 +898,49 @@ export function PricingEngineLayoutSettings() {
           type={newInputType === "number" || newInputType === "currency" || newInputType === "percentage" ? "number" : "text"}
           inputMode={newInputType === "number" || newInputType === "currency" || newInputType === "percentage" ? "decimal" : undefined}
         />
+      </div>
+    );
+  };
+
+  const renderAddressConfig = () => {
+    if (newInputType !== "text" && newInputType !== "dropdown") return null;
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-xs flex items-center gap-1">
+          <MapPin className="size-3" />
+          Address Configuration
+        </Label>
+        <Select
+          value={newAddressRole || "none"}
+          onValueChange={(v) => setNewAddressRole(v === "none" ? "" : v)}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Not an address field" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Not an address field</SelectItem>
+            {ADDRESS_ROLES.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {newAddressRole && (
+          <div className="space-y-1.5 pt-1">
+            <Label className="text-[10px] text-muted-foreground">Address Group</Label>
+            <Input
+              placeholder="property"
+              value={newAddressGroup}
+              onChange={(e) => setNewAddressGroup(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Fields in the same group auto-populate together.
+              {newAddressRole === "street" && " This field will show Google Places autocomplete."}
+            </p>
+          </div>
+        )}
       </div>
     );
   };
@@ -1231,6 +1308,8 @@ export function PricingEngineLayoutSettings() {
                             </div>
                           )}
 
+                          {renderAddressConfig()}
+
                           {newInputType !== "table" && renderDatabaseLink()}
                           {renderOptionsEditor()}
 
@@ -1319,6 +1398,18 @@ export function PricingEngineLayoutSettings() {
                                 variant="secondary"
                               >
                                 {String((input.config as Record<string, unknown>).boolean_display)}
+                              </Badge>
+                            )}
+                            {input.config && (input.config as Record<string, unknown>).address_role && (
+                              <Badge
+                                className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
+                                variant="secondary"
+                              >
+                                <MapPin className="size-2.5 mr-0.5" />
+                                {String((input.config as Record<string, unknown>).address_role)}
+                                {(input.config as Record<string, unknown>).address_group && (input.config as Record<string, unknown>).address_group !== "property"
+                                  ? ` (${(input.config as Record<string, unknown>).address_group})`
+                                  : ""}
                               </Badge>
                             )}
                             {input.config && !!(input.config as Record<string, unknown>).group && (
@@ -1412,6 +1503,13 @@ export function PricingEngineLayoutSettings() {
                                   if (input.input_type === "boolean" && input.config) {
                                     const bc = input.config as Record<string, unknown>;
                                     setNewBooleanDisplay((bc.boolean_display as string) ?? "dropdown");
+                                  }
+                                  if (input.config) {
+                                    const ac = input.config as Record<string, unknown>;
+                                    if (ac.address_role) {
+                                      setNewAddressRole(String(ac.address_role));
+                                      setNewAddressGroup(String(ac.address_group ?? "property"));
+                                    }
                                   }
                                 }}
                               >
@@ -1543,6 +1641,8 @@ export function PricingEngineLayoutSettings() {
                           </Button>
                         </div>
                       )}
+
+                      {renderAddressConfig()}
 
                       {newInputType !== "table" && renderDatabaseLink()}
                       {renderOptionsEditor()}

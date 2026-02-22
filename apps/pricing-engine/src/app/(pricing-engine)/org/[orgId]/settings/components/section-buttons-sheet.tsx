@@ -79,6 +79,7 @@ interface PEInput {
   input_code: string;
   input_type: string;
   category?: string;
+  config?: Record<string, unknown> | null;
 }
 
 interface SectionButtonsSheetProps {
@@ -409,10 +410,19 @@ export function SectionButtonsSheet({
                       )}
 
                       {isGoogleMaps ? (
-                        <p className="text-xs text-muted-foreground">
-                          This button opens Google Maps. No additional actions
-                          can be attached.
-                        </p>
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            This button opens Google Maps for the subject
+                            property address.
+                          </p>
+                          <GoogleMapsRequiredInputs
+                            peInputs={peInputs}
+                            requiredInputs={btn.required_inputs ?? []}
+                            onUpdate={(next) =>
+                              updateButtonRequiredInputs(btn.id, next)
+                            }
+                          />
+                        </>
                       ) : (
                         <>
                           <ButtonActionsEditor
@@ -708,6 +718,102 @@ function ButtonRequiredInputs({
               <Switch
                 checked={isRequired}
                 onCheckedChange={() => toggleRequired(inputId)}
+                className="shrink-0"
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Required Inputs for Google Maps (address-role inputs)                       */
+/* -------------------------------------------------------------------------- */
+
+const ADDRESS_ROLE_LABELS: Record<string, string> = {
+  street: "Street",
+  city: "City",
+  state: "State",
+  zip: "Zip",
+  county: "County",
+  apt: "Apt / Unit",
+};
+
+function GoogleMapsRequiredInputs({
+  peInputs,
+  requiredInputs,
+  onUpdate,
+}: {
+  peInputs: PEInput[];
+  requiredInputs: string[];
+  onUpdate: (requiredInputs: string[]) => void;
+}) {
+  const addressInputs = useMemo(() => {
+    return peInputs
+      .filter((inp) => inp.config?.address_role)
+      .sort((a, b) => {
+        const order = ["street", "apt", "city", "state", "zip", "county"];
+        const ai = order.indexOf(String(a.config?.address_role));
+        const bi = order.indexOf(String(b.config?.address_role));
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+  }, [peInputs]);
+
+  const toggleRequired = (inputId: string) => {
+    const isRequired = requiredInputs.includes(inputId);
+    if (isRequired) {
+      onUpdate(requiredInputs.filter((id) => id !== inputId));
+    } else {
+      onUpdate([...requiredInputs, inputId]);
+    }
+  };
+
+  if (addressInputs.length === 0) {
+    return (
+      <p className="text-[10px] text-muted-foreground">
+        No inputs with address configuration found. Configure address roles in
+        the input builder to enable required-input validation.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">
+        Required Inputs{" "}
+        <span className="text-muted-foreground font-normal">
+          ({requiredInputs.length} of {addressInputs.length})
+        </span>
+      </Label>
+      <p className="text-[10px] text-muted-foreground">
+        Toggle which address fields must be filled before opening Google Maps.
+      </p>
+
+      <div className="space-y-1">
+        {addressInputs.map((inp) => {
+          const role = String(inp.config?.address_role ?? "");
+          const roleLabel = ADDRESS_ROLE_LABELS[role] ?? role;
+          const isRequired = requiredInputs.includes(inp.id);
+
+          return (
+            <div
+              key={inp.id}
+              className="flex items-center justify-between gap-2 rounded border bg-muted/30 px-2 py-1.5"
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-xs truncate block">
+                  {inp.input_label}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {roleLabel}
+                  {inp.config?.address_role === "street" && " (autocomplete)"}
+                </span>
+              </div>
+              <Switch
+                checked={isRequired}
+                onCheckedChange={() => toggleRequired(inp.id)}
                 className="shrink-0"
               />
             </div>

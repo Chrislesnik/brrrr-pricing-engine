@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
-import { DynamicPEInput, type PEInputField } from "@/components/pricing/dynamic-pe-input"
+import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
 import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
 import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
 import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
@@ -1126,6 +1126,29 @@ export default function PricingEnginePage() {
     return m
   }, [peInputDefs])
 
+  // Address group index: maps address_group name → { role → input_code }
+  const addressGroupIndex = useMemo(() => {
+    const groups = new Map<string, Map<string, string>>()
+    for (const inp of peInputDefs) {
+      const role = inp.config?.address_role as string | undefined
+      const group = inp.config?.address_group as string | undefined
+      if (!role || !group) continue
+      let roleMap = groups.get(group)
+      if (!roleMap) {
+        roleMap = new Map<string, string>()
+        groups.set(group, roleMap)
+      }
+      roleMap.set(role, inp.input_code)
+    }
+    return groups
+  }, [peInputDefs])
+
+  // First address group (used for auto-detecting Google Maps address)
+  const primaryAddressGroup = useMemo(() => {
+    const first = addressGroupIndex.entries().next()
+    return first.done ? null : first.value[1]
+  }, [addressGroupIndex])
+
   // Combined form values merging individual states + extras
   const formValues = useMemo<Record<string, unknown>>(() => {
     const known: Record<string, unknown> = {
@@ -1192,6 +1215,22 @@ export default function PricingEnginePage() {
 
   // Merged values keyed by both input_code AND input_id (for number constraint conditions that reference by ID)
   const formValuesMerged = useMemo(() => ({ ...formValues, ...formValuesById }), [formValues, formValuesById])
+
+  // Config-based full address for Google Maps (auto-detects from address_role config, falls back to hardcoded)
+  const resolvedFullAddress = useMemo(() => {
+    if (primaryAddressGroup) {
+      const roleOrder: string[] = ["street", "apt", "city", "state", "zip"]
+      const parts = roleOrder
+        .map((role) => {
+          const code = primaryAddressGroup.get(role)
+          return code ? formValues[code] : undefined
+        })
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter(Boolean)
+      if (parts.length > 0) return parts.join(", ")
+    }
+    return fullAddress
+  }, [primaryAddressGroup, formValues, fullAddress])
 
   // Logic engine
   const peLogicResult = usePELogicEngine(formValuesById)
@@ -1288,6 +1327,31 @@ export default function PricingEnginePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const handleAddressSelect = useCallback(
+    (sourceInputCode: string, fields: AddressFields) => {
+      const sourceDef = peInputDefs.find((d) => d.input_code === sourceInputCode)
+      const group = sourceDef?.config?.address_group as string | undefined
+      if (!group) return
+      const roleMap = addressGroupIndex.get(group)
+      if (!roleMap) return
+      const mapping: [keyof AddressFields, string][] = [
+        ["street", "street"],
+        ["apt", "apt"],
+        ["city", "city"],
+        ["state", "state"],
+        ["zip", "zip"],
+        ["county", "county"],
+      ]
+      for (const [addrKey, role] of mapping) {
+        const code = roleMap.get(role)
+        if (!code || code === sourceInputCode) continue
+        const val = fields[addrKey]
+        if (val !== undefined && val !== "") updateValue(code, val)
+      }
+    },
+    [peInputDefs, addressGroupIndex, updateValue],
+  )
 
   // Build layout rows for a category
   type DynLayoutRow = { rowIndex: number; items: PEInputDef[] }
@@ -1397,7 +1461,7 @@ export default function PricingEnginePage() {
       setMapsLoading(false)
       return
     }
-    if (!fullAddress) {
+    if (!resolvedFullAddress) {
       setMapsError("Enter street, city, state, and zip to preview")
       setMapsCenter(null)
       setMapsLoading(false)
@@ -1416,7 +1480,7 @@ export default function PricingEnginePage() {
     setMapsLoading(true)
     setMapsError(null)
     const geocoder = new g.Geocoder()
-    geocoder.geocode({ address: fullAddress }, (results: Array<any> | null, status: string) => {
+    geocoder.geocode({ address: resolvedFullAddress }, (results: Array<any> | null, status: string) => {
       if (status === "OK" && results?.[0]?.geometry?.location) {
         const loc = results[0].geometry.location
         setMapsCenter({ lat: loc.lat(), lng: loc.lng() })
@@ -1426,7 +1490,7 @@ export default function PricingEnginePage() {
       }
       setMapsLoading(false)
     })
-  }, [fullAddress, mapsApiKey, mapsLoadError, mapsModalOpen, gmapsReady])
+  }, [resolvedFullAddress, mapsApiKey, mapsLoadError, mapsModalOpen, gmapsReady])
 
   useEffect(() => {
     setStreetViewPosition(null)
@@ -3059,6 +3123,8 @@ export default function PricingEnginePage() {
                                   btn={btn}
                                   onGoogleMaps={handleOpenMapsModal}
                                   buildPayload={buildPayload}
+                                  formValues={formValues}
+                                  codeToIdMap={codeToIdMap}
                                   onApplyInputs={(inputs, color) => {
                                     const codes: string[] = []
                                     for (const [code, val] of Object.entries(inputs)) {
@@ -3122,6 +3188,7 @@ export default function PricingEnginePage() {
                                       field={field}
                                       value={formValues[field.input_code]}
                                       onChange={(val) => updateValue(field.input_code, val)}
+                                      onAddressSelect={(addrFields) => handleAddressSelect(field.input_code, addrFields)}
                                       isRequired={peRequiredCodes.has(field.input_code)}
                                       touched={!!touched[field.input_code]}
                                       formValues={formValuesMerged}
@@ -3222,7 +3289,7 @@ export default function PricingEnginePage() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground">
-              {fullAddress || "Enter street, city, state, and zip to preview the subject property."}
+              {resolvedFullAddress || "Enter street, city, state, and zip to preview the subject property."}
             </div>
             <div className="inline-flex gap-1">
               <Button
@@ -3302,26 +3369,54 @@ function SectionActionButton({
   onGoogleMaps,
   buildPayload,
   onApplyInputs,
+  formValues,
+  codeToIdMap,
 }: {
   btn: SectionButton
   onGoogleMaps: (e?: React.MouseEvent) => void
   buildPayload: () => Record<string, unknown>
   onApplyInputs?: (inputs: Record<string, unknown>, signalColor: string | null) => void
+  formValues?: Record<string, unknown>
+  codeToIdMap?: Map<string, string>
 }) {
   const [loading, setLoading] = React.useState(false)
   const [clicked, setClicked] = React.useState(false)
 
+  // Sync glow animation across all buttons by anchoring to wall-clock time
+  const glowSyncDelay = React.useMemo(() => {
+    const periodMs = 3500
+    const offset = Date.now() % periodMs
+    return `-${offset}ms`
+  }, [])
+
   const isGoogleMaps = btn.actions.some((a) => a.action_type === "google_maps")
 
+  const requiredSatisfied = React.useMemo(() => {
+    const required = btn.required_inputs ?? []
+    if (required.length === 0) return true
+    if (!formValues || !codeToIdMap) return true
+    const idToCode = new Map<string, string>()
+    for (const [code, id] of codeToIdMap.entries()) idToCode.set(id, code)
+    return required.every((inputId) => {
+      const code = idToCode.get(inputId)
+      if (!code) return true
+      const val = formValues[code]
+      return val !== undefined && val !== null && val !== ""
+    })
+  }, [btn.required_inputs, formValues, codeToIdMap])
+
   if (isGoogleMaps) {
+    const glowing = !clicked && requiredSatisfied
     return (
       <Button
         size="sm"
         variant="secondary"
+        disabled={!requiredSatisfied}
         className={cn(
           "h-7 not-italic",
-          !clicked && "border border-primary/50 animate-attention-glow",
+          glowing && "border border-primary/50 animate-attention-glow",
         )}
+        style={glowing ? { animationDelay: glowSyncDelay } : undefined}
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -3335,6 +3430,8 @@ function SectionActionButton({
   }
 
   const workflowActions = btn.actions.filter((a) => a.action_type === "workflow" && a.action_uuid)
+  const canRun = workflowActions.length > 0 && requiredSatisfied
+  const glowing = !clicked && !loading && canRun
 
   return (
     <Button
@@ -3342,14 +3439,14 @@ function SectionActionButton({
       variant="secondary"
       className={cn(
         "h-7 not-italic",
-        !clicked && !loading && workflowActions.length > 0 &&
-          "border border-primary/50 animate-attention-glow",
+        glowing && "border border-primary/50 animate-attention-glow",
       )}
-      disabled={loading || workflowActions.length === 0}
+      style={glowing ? { animationDelay: glowSyncDelay } : undefined}
+      disabled={loading || !canRun}
       onClick={async (e) => {
         e.preventDefault()
         e.stopPropagation()
-        if (loading || workflowActions.length === 0) return
+        if (loading || !canRun) return
         setClicked(true)
         setLoading(true)
         try {

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils"
 import { resolveNumberConstraints } from "@/lib/resolve-number-constraints"
 import type { NumberConstraintsConfig } from "@/types/number-constraints"
 import { NUMERIC_INPUT_TYPES } from "@/types/number-constraints"
+import { AddressAutocomplete } from "@/components/address-autocomplete"
 
 export interface PEInputField {
   id: string | number
@@ -41,10 +42,20 @@ export interface PEInputField {
   layout_width: string
 }
 
+export interface AddressFields {
+  street?: string
+  apt?: string
+  city?: string
+  state?: string
+  zip?: string
+  county?: string
+}
+
 interface DynamicPEInputProps {
   field: PEInputField
   value: unknown
   onChange: (val: unknown) => void
+  onAddressSelect?: (fields: AddressFields) => void
   isRequired?: boolean
   isComputed?: boolean
   touched?: boolean
@@ -56,6 +67,7 @@ export function DynamicPEInput({
   field,
   value,
   onChange,
+  onAddressSelect,
   isRequired,
   isComputed,
   touched,
@@ -116,6 +128,7 @@ export function DynamicPEInput({
           id={id}
           value={value}
           onChange={onChange}
+          onAddressSelect={onAddressSelect}
           placeholder={placeholder}
           isDefault={isDefault}
           isComputed={isComputed}
@@ -133,6 +146,7 @@ function InputControl({
   id,
   value,
   onChange,
+  onAddressSelect,
   placeholder,
   isDefault,
   isComputed,
@@ -144,6 +158,7 @@ function InputControl({
   id: string
   value: unknown
   onChange: (val: unknown) => void
+  onAddressSelect?: (fields: AddressFields) => void
   placeholder: string
   isDefault: boolean
   isComputed?: boolean
@@ -153,6 +168,28 @@ function InputControl({
 }) {
   switch (field.input_type) {
     case "text":
+      if (field.config?.address_role === "street") {
+        return (
+          <AddressAutocomplete
+            id={id}
+            value={String(value ?? "")}
+            displayValue="street"
+            placeholder={placeholder || "Start typing an address..."}
+            className={cn(isDefault && "text-muted-foreground", isComputed && "bg-blue-50 dark:bg-blue-950/30")}
+            onChange={(addr) => {
+              onChange(addr.address_line1 ?? addr.raw)
+              onAddressSelect?.({
+                street: addr.address_line1,
+                apt: addr.address_line2,
+                city: addr.city,
+                state: addr.state,
+                zip: addr.zip,
+                county: addr.county,
+              })
+            }}
+          />
+        )
+      }
       return (
         <Input
           id={id}
