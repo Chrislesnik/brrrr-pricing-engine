@@ -91,8 +91,12 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   const [selectedAmcId, setSelectedAmcId] = useState<string>("");
 
   // Order Details
-  const [lender, setLender] = useState("DSCR Loan Funder LLC");
-  const [investor, setInvestor] = useState("DSCR Loan Funder LLC");
+  const [lenders, setLenders] = useState<string[]>([]);
+  const [lender, setLender] = useState("");
+  const [lenderSearchOpen, setLenderSearchOpen] = useState(false);
+  const [investors, setInvestors] = useState<string[]>([]);
+  const [investor, setInvestor] = useState("");
+  const [investorSearchOpen, setInvestorSearchOpen] = useState(false);
   const [transactionTypes, setTransactionTypes] = useState<string[]>([]);
   const [transactionType, setTransactionType] = useState("");
   const [transactionTypeSearchOpen, setTransactionTypeSearchOpen] = useState(false);
@@ -179,9 +183,13 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
     fetchData();
   }, [open]);
 
-  // Fetch products, transaction types, and loan types when AMC changes
+  // Fetch AMC-dependent dropdown options when AMC changes
   useEffect(() => {
     if (!selectedAmcId) {
+      setLenders([]);
+      setLender("");
+      setInvestors([]);
+      setInvestor("");
       setProducts([]);
       setProduct("");
       setTransactionTypes([]);
@@ -194,6 +202,10 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
     const amc = amcs.find((a) => a.id === selectedAmcId);
     const settingsId = amc?.integration_settings_id;
     if (!settingsId) {
+      setLenders([]);
+      setLender("");
+      setInvestors([]);
+      setInvestor("");
       setProducts([]);
       setProduct("");
       setTransactionTypes([]);
@@ -206,10 +218,12 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
     let cancelled = false;
     async function loadAmcOptions() {
       try {
-        const [prodRes, ttRes, ltRes] = await Promise.all([
+        const [prodRes, ttRes, ltRes, lnRes, invRes] = await Promise.all([
           fetch(`/api/appraisal-products?settingsId=${settingsId}`),
           fetch(`/api/appraisal-transaction-types?settingsId=${settingsId}`),
           fetch(`/api/appraisal-loan-types?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-lenders?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-investors?settingsId=${settingsId}`),
         ]);
         if (cancelled) return;
         if (prodRes.ok) {
@@ -227,6 +241,16 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
           setLoanTypes(json.loanTypes ?? []);
           setLoanType("");
           setLoanTypeOther("");
+        }
+        if (lnRes.ok) {
+          const json = await lnRes.json();
+          setLenders(json.lenders ?? []);
+          setLender("");
+        }
+        if (invRes.ok) {
+          const json = await invRes.json();
+          setInvestors(json.investors ?? []);
+          setInvestor("");
         }
       } catch { /* ignore */ }
     }
@@ -254,8 +278,10 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   // Reset
   const resetForm = useCallback(() => {
     setSelectedAmcId("");
-    setLender("DSCR Loan Funder LLC");
-    setInvestor("DSCR Loan Funder LLC");
+    setLenders([]);
+    setLender("");
+    setInvestors([]);
+    setInvestor("");
     setTransactionType("");
     setLoanType("");
     setLoanTypeOther("");
@@ -355,21 +381,67 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Lender/Client on Report</Label>
-                  <Select value={lender} onValueChange={setLender}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select Lender" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DSCR Loan Funder LLC">DSCR Loan Funder LLC</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={lenderSearchOpen} onOpenChange={setLenderSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || lenders.length === 0}>
+                        <span className={cn("truncate", !lender && "text-muted-foreground")}>
+                          {lender || (selectedAmcId ? "Select lender..." : "Select AMC first")}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search lenders..." />
+                        <CommandList>
+                          <CommandEmpty>No lenders found.</CommandEmpty>
+                          <CommandGroup>
+                            {lenders.map((l) => (
+                              <CommandItem
+                                key={l}
+                                value={l}
+                                onSelect={() => { setLender(l); setLenderSearchOpen(false); }}
+                              >
+                                <span className="text-sm">{l}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label className="text-xs">Investor Name</Label>
-                  <Select value={investor} onValueChange={setInvestor}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select Investor" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DSCR Loan Funder LLC">DSCR Loan Funder LLC</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={investorSearchOpen} onOpenChange={setInvestorSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || investors.length === 0}>
+                        <span className={cn("truncate", !investor && "text-muted-foreground")}>
+                          {investor || (selectedAmcId ? "Select investor..." : "Select AMC first")}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search investors..." />
+                        <CommandList>
+                          <CommandEmpty>No investors found.</CommandEmpty>
+                          <CommandGroup>
+                            {investors.map((inv) => (
+                              <CommandItem
+                                key={inv}
+                                value={inv}
+                                onSelect={() => { setInvestor(inv); setInvestorSearchOpen(false); }}
+                              >
+                                <span className="text-sm">{inv}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
