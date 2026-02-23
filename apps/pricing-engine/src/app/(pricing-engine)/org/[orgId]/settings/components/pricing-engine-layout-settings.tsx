@@ -66,6 +66,8 @@ import type { TableConfig } from "@/types/table-config";
 import { NumberConstraintsSheet } from "./number-constraints-sheet";
 import type { NumberConstraintsConfig } from "@/types/number-constraints";
 import { NUMERIC_INPUT_TYPES } from "@/types/number-constraints";
+import { DateConfigSheet, summarizeDateConfig } from "./date-config-sheet";
+import type { DateConfig } from "@/types/date-config";
 import { SectionButtonsSheet } from "./section-buttons-sheet";
 import { ExpressionInput } from "./expression-input";
 
@@ -215,6 +217,11 @@ export function PricingEngineLayoutSettings() {
   const [numberConstraintsOpen, setNumberConstraintsOpen] = useState(false);
   const [numberConstraintsInputId, setNumberConstraintsInputId] = useState<string | null>(null);
   const [pendingNumberConfig, setPendingNumberConfig] = useState<NumberConstraintsConfig | null>(null);
+
+  // Date config sheet state
+  const [dateConfigOpen, setDateConfigOpen] = useState(false);
+  const [dateConfigInputId, setDateConfigInputId] = useState<string | null>(null);
+  const [pendingDateConfig, setPendingDateConfig] = useState<DateConfig | null>(null);
 
   // Section buttons sheet state
   const [sectionButtonsOpen, setSectionButtonsOpen] = useState(false);
@@ -419,6 +426,8 @@ export function PricingEngineLayoutSettings() {
               Object.assign(c, pendingTableConfig);
             } else if (NUMERIC_INPUT_TYPES.has(newInputType) && pendingNumberConfig) {
               Object.assign(c, pendingNumberConfig);
+            } else if (newInputType === "date" && pendingDateConfig) {
+              Object.assign(c, pendingDateConfig);
             } else if (newInputType === "boolean") {
               c.boolean_display = newBooleanDisplay;
             }
@@ -470,6 +479,8 @@ export function PricingEngineLayoutSettings() {
           base = ((pendingTableConfig ?? (input.config as unknown as TableConfig | undefined)) ?? {}) as unknown as Record<string, unknown>;
         } else if (NUMERIC_INPUT_TYPES.has(newInputType)) {
           base = ((pendingNumberConfig ?? (input.config as unknown as NumberConstraintsConfig | undefined)) ?? {}) as unknown as Record<string, unknown>;
+        } else if (newInputType === "date") {
+          base = ((pendingDateConfig ?? (input.config as unknown as DateConfig | undefined)) ?? {}) as unknown as Record<string, unknown>;
         } else if (newInputType === "boolean") {
           base = { ...(input.config ?? {}), boolean_display: newBooleanDisplay };
         }
@@ -543,6 +554,7 @@ export function PricingEngineLayoutSettings() {
     setNewAddressGroup("property");
     setPendingTableConfig(null);
     setPendingNumberConfig(null);
+    setPendingDateConfig(null);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -1322,6 +1334,26 @@ export function PricingEngineLayoutSettings() {
                             </div>
                           )}
 
+                          {newInputType === "date" && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Date Settings</Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-8 text-xs"
+                                onClick={() => {
+                                  setDateConfigInputId(input.id);
+                                  setDateConfigOpen(true);
+                                }}
+                              >
+                                Configure Date Settings
+                                {summarizeDateConfig(
+                                  pendingDateConfig ?? (input.config as unknown as DateConfig | undefined),
+                                )}
+                              </Button>
+                            </div>
+                          )}
+
                           {renderAddressConfig()}
 
                           {newInputType !== "table" && renderDatabaseLink()}
@@ -1652,6 +1684,24 @@ export function PricingEngineLayoutSettings() {
                         </div>
                       )}
 
+                      {newInputType === "date" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Date Settings</Label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-8 text-xs"
+                            onClick={() => {
+                              setDateConfigInputId(null);
+                              setDateConfigOpen(true);
+                            }}
+                          >
+                            Configure Date Settings
+                            {summarizeDateConfig(pendingDateConfig)}
+                          </Button>
+                        </div>
+                      )}
+
                       {renderAddressConfig()}
 
                       {newInputType !== "table" && renderDatabaseLink()}
@@ -1817,6 +1867,46 @@ export function PricingEngineLayoutSettings() {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ id: numberConstraintsInputId, config: cfg }),
+            }).then(() => fetchData()).catch(console.error);
+          }
+        }}
+      />
+
+      {/* Date Config Sheet */}
+      <DateConfigSheet
+        open={dateConfigOpen}
+        onOpenChange={setDateConfigOpen}
+        inputLabel={
+          dateConfigInputId
+            ? inputs.find((i) => i.id === dateConfigInputId)?.input_label ?? "Input"
+            : newInputLabel || "Input"
+        }
+        initialConfig={
+          pendingDateConfig ??
+          (dateConfigInputId
+            ? (() => {
+                const inp = inputs.find((i) => i.id === dateConfigInputId);
+                const c = inp?.config as Record<string, unknown> | undefined;
+                return c && (c.calendar_style !== undefined || c.min_date !== undefined || c.max_date !== undefined)
+                  ? (c as unknown as DateConfig)
+                  : null;
+              })()
+            : null)
+        }
+        onSave={(cfg) => {
+          setPendingDateConfig(cfg);
+          if (dateConfigInputId) {
+            setInputs((prev) =>
+              prev.map((inp) =>
+                inp.id === dateConfigInputId
+                  ? { ...inp, config: cfg as unknown as Record<string, unknown> }
+                  : inp,
+              ),
+            );
+            fetch("/api/pricing-engine-inputs", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: dateConfigInputId, config: cfg }),
             }).then(() => fetchData()).catch(console.error);
           }
         }}

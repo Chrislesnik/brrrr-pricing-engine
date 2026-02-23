@@ -36,6 +36,7 @@ import {
 import { cn } from "@repo/lib/cn";
 import { Loader2, ChevronsUpDown, Check } from "lucide-react";
 import { DateInput } from "@/components/date-input";
+import { Calendar } from "@/components/ui/calendar";
 import { CalcInput } from "@/components/calc-input";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
@@ -143,6 +144,7 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   const [loanAmount, setLoanAmount] = useState("");
   const [salesPrice, setSalesPrice] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [dueDateMonth, setDueDateMonth] = useState<Date>(new Date());
 
   // Deal
   const [deals, setDeals] = useState<DealOption[]>([]);
@@ -860,7 +862,23 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
               </div>
               <div>
                 <Label className="text-xs">Due Date</Label>
-                <DateInput value={dueDate} onChange={setDueDate} emptyOnMount className="h-9" />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <DateInput value={dueDate} onChange={setDueDate} emptyOnMount className="h-9" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      month={dueDateMonth}
+                      onMonthChange={setDueDateMonth}
+                      onSelect={(d) => d && setDueDate(d)}
+                      captionLayout="label"
+                      className="rounded-md border min-w-[264px]"
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>

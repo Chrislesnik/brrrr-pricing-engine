@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils"
 import { resolveNumberConstraints } from "@/lib/resolve-number-constraints"
 import type { NumberConstraintsConfig } from "@/types/number-constraints"
 import { NUMERIC_INPUT_TYPES } from "@/types/number-constraints"
+import type { DateConfig } from "@/types/date-config"
+import { resolveDateBound } from "@/types/date-config"
 import { AddressAutocomplete } from "@/components/address-autocomplete"
 import { LinkedAutocompleteInput, type LinkedRecord } from "@/components/linked-autocomplete-input"
 
@@ -361,7 +363,7 @@ function InputControl({
       )
 
     case "date":
-      return <DatePickerControl id={id} value={value} onChange={onChange} isDefault={isDefault} isComputed={isComputed} />
+      return <DatePickerControl id={id} value={value} onChange={onChange} isDefault={isDefault} isComputed={isComputed} dateConfig={field.config as unknown as DateConfig | undefined} />
 
     case "boolean": {
       const boolDisplay = (field.config?.boolean_display as string) ?? "dropdown"
@@ -536,16 +538,45 @@ function DatePickerControl({
   onChange,
   isDefault,
   isComputed,
+  dateConfig,
 }: {
   id: string
   value: unknown
   onChange: (val: unknown) => void
   isDefault: boolean
   isComputed?: boolean
+  dateConfig?: DateConfig
 }) {
   const dateValue = value instanceof Date ? value : typeof value === "string" && value ? new Date(value) : undefined
   const validDate = dateValue && !isNaN(dateValue.getTime()) ? dateValue : undefined
   const [calMonth, setCalMonth] = useState<Date>(validDate ?? new Date())
+
+  const captionLayout = dateConfig?.calendar_style === "dropdown" ? "dropdown" : "label"
+
+  const configKey = JSON.stringify({
+    min: dateConfig?.min_date ?? null,
+    max: dateConfig?.max_date ?? null,
+  })
+
+  const { disableBefore, disableAfter } = useMemo(() => {
+    return {
+      disableBefore: resolveDateBound(dateConfig?.min_date),
+      disableAfter: resolveDateBound(dateConfig?.max_date),
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey])
+
+  const disabledMatcher = useMemo(() => {
+    if (!disableBefore && !disableAfter) return undefined
+    return (date: Date) => {
+      if (disableBefore && date < disableBefore) return true
+      if (disableAfter && date > disableAfter) return true
+      return false
+    }
+  }, [disableBefore, disableAfter])
+
+  const startMonth = disableBefore ?? (captionLayout === "dropdown" ? new Date(2020, 0) : undefined)
+  const endMonth = disableAfter ?? (captionLayout === "dropdown" ? new Date(2035, 11) : undefined)
 
   return (
     <Popover>
@@ -563,9 +594,12 @@ function DatePickerControl({
           month={calMonth}
           onMonthChange={setCalMonth}
           onSelect={(d) => d && onChange(d)}
-          captionLayout="label"
+          captionLayout={captionLayout}
+          disabled={disabledMatcher}
+          startMonth={startMonth}
+          endMonth={endMonth}
           className="rounded-md border min-w-[264px]"
-          initialFocus
+          autoFocus
         />
       </PopoverContent>
     </Popover>

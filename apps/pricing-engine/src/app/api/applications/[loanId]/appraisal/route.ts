@@ -46,6 +46,7 @@ export async function PUT(
     const row: Record<string, unknown> = {
       application_id: loanId,
       organization_id: orgUuid,
+      amc_id: body.amc_id ?? null,
       lender: body.lender ?? null,
       investor: body.investor ?? null,
       transaction_type: body.transaction_type ?? null,

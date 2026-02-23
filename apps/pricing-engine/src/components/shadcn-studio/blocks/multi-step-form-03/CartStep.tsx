@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Download, MessageCircle, RotateCcw, X } from "lucide-react"
+import { ChevronsUpDown, Download, MessageCircle, RotateCcw, X } from "lucide-react"
 import { IconEye, IconEyeOff } from "@tabler/icons-react"
 import { motion, AnimatePresence } from "motion/react"
 import { FaFeatherAlt } from "react-icons/fa"
@@ -22,6 +22,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@repo/ui/shadcn/command"
 import {
   Select,
   SelectContent,
@@ -145,6 +153,9 @@ type ReportDoc = {
   url: string
 }
 
+type AmcOption = { id: string; name: string; integration_settings_id: number | null }
+type LoanTypeOption = { name: string; other: boolean }
+
 const ENTITY_TYPE_OPTIONS = [
   "Corporation",
   "General Partnership",
@@ -203,11 +214,28 @@ const CartStep = ({
   )
 
   // ========== Appraisal Tab State ==========
-  // Order Details
-  const [appraisalLender, setAppraisalLender] = useState("DSCR Loan Funder LLC")
-  const [appraisalInvestor, setAppraisalInvestor] = useState(
-    "DSCR Loan Funder LLC"
-  )
+  // AMC
+  const [appraisalAmcs, setAppraisalAmcs] = useState<AmcOption[]>([])
+  const [appraisalSelectedAmcId, setAppraisalSelectedAmcId] = useState("")
+  const [appraisalAmcSearchOpen, setAppraisalAmcSearchOpen] = useState(false)
+  // Order Details – dynamic lists
+  const [appraisalLendersList, setAppraisalLendersList] = useState<string[]>([])
+  const [appraisalLenderSearchOpen, setAppraisalLenderSearchOpen] = useState(false)
+  const [appraisalInvestorsList, setAppraisalInvestorsList] = useState<string[]>([])
+  const [appraisalInvestorSearchOpen, setAppraisalInvestorSearchOpen] = useState(false)
+  const [appraisalTransactionTypesList, setAppraisalTransactionTypesList] = useState<string[]>([])
+  const [appraisalTransactionTypeSearchOpen, setAppraisalTransactionTypeSearchOpen] = useState(false)
+  const [appraisalLoanTypesList, setAppraisalLoanTypesList] = useState<LoanTypeOption[]>([])
+  const [appraisalLoanTypeSearchOpen, setAppraisalLoanTypeSearchOpen] = useState(false)
+  const [appraisalProductsList, setAppraisalProductsList] = useState<string[]>([])
+  const [appraisalProductSearchOpen, setAppraisalProductSearchOpen] = useState(false)
+  const [appraisalPropertyTypesList, setAppraisalPropertyTypesList] = useState<string[]>([])
+  const [appraisalPropertyTypeSearchOpen, setAppraisalPropertyTypeSearchOpen] = useState(false)
+  const [appraisalOccupancyTypesList, setAppraisalOccupancyTypesList] = useState<string[]>([])
+  const [appraisalOccupancyTypeSearchOpen, setAppraisalOccupancyTypeSearchOpen] = useState(false)
+  // Order Details – values
+  const [appraisalLender, setAppraisalLender] = useState("")
+  const [appraisalInvestor, setAppraisalInvestor] = useState("")
   const [appraisalTransactionType, setAppraisalTransactionType] = useState("")
   const [appraisalLoanType, setAppraisalLoanType] = useState("")
   const [appraisalLoanTypeOther, setAppraisalLoanTypeOther] = useState("")
@@ -738,8 +766,9 @@ const CartStep = ({
           const j = await res.json().catch(() => ({}))
           const saved = j?.row
           if (saved && !ignore) {
-            setAppraisalLender((saved.lender as string) ?? "DSCR Loan Funder LLC")
-            setAppraisalInvestor((saved.investor as string) ?? "DSCR Loan Funder LLC")
+            if (saved.amc_id) setAppraisalSelectedAmcId(String(saved.amc_id))
+            setAppraisalLender((saved.lender as string) ?? "")
+            setAppraisalInvestor((saved.investor as string) ?? "")
             setAppraisalTransactionType((saved.transaction_type as string) ?? "")
             setAppraisalLoanType((saved.loan_type as string) ?? "")
             setAppraisalLoanTypeOther((saved.loan_type_other as string) ?? "")
@@ -777,6 +806,64 @@ const CartStep = ({
     loadAppraisal()
     return () => { ignore = true }
   }, [stepper.current.id, applicationId, parseDateStr])
+
+  // ── Fetch AMC list when entering appraisal tab ──
+  useEffect(() => {
+    if (stepper.current.id !== "confirmation") return
+    let cancelled = false
+    async function loadAmcs() {
+      try {
+        const res = await fetch("/api/appraisal-amcs")
+        if (res.ok && !cancelled) {
+          const json = await res.json()
+          setAppraisalAmcs(json.amcs ?? [])
+        }
+      } catch { /* ignore */ }
+    }
+    loadAmcs()
+    return () => { cancelled = true }
+  }, [stepper.current.id])
+
+  // ── Fetch AMC-dependent dropdown options when AMC changes ──
+  useEffect(() => {
+    const resetDependents = () => {
+      setAppraisalLendersList([]); setAppraisalLender("")
+      setAppraisalInvestorsList([]); setAppraisalInvestor("")
+      setAppraisalProductsList([]); setAppraisalProduct("")
+      setAppraisalTransactionTypesList([]); setAppraisalTransactionType("")
+      setAppraisalLoanTypesList([]); setAppraisalLoanType(""); setAppraisalLoanTypeOther("")
+      setAppraisalPropertyTypesList([]); setAppraisalPropertyType("")
+      setAppraisalOccupancyTypesList([]); setAppraisalOccupancyType("")
+    }
+    if (!appraisalSelectedAmcId) { resetDependents(); return }
+    const amc = appraisalAmcs.find((a) => a.id === appraisalSelectedAmcId)
+    const settingsId = amc?.integration_settings_id
+    if (!settingsId) { resetDependents(); return }
+    let cancelled = false
+    async function loadAmcOptions() {
+      try {
+        const [prodRes, ttRes, ltRes, lnRes, invRes, ptRes, ocRes] = await Promise.all([
+          fetch(`/api/appraisal-products?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-transaction-types?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-loan-types?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-lenders?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-investors?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-property-types?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-occupancy-types?settingsId=${settingsId}`),
+        ])
+        if (cancelled) return
+        if (prodRes.ok) { const j = await prodRes.json(); setAppraisalProductsList(j.products ?? []); setAppraisalProduct("") }
+        if (ttRes.ok) { const j = await ttRes.json(); setAppraisalTransactionTypesList(j.transactionTypes ?? []); setAppraisalTransactionType("") }
+        if (ltRes.ok) { const j = await ltRes.json(); setAppraisalLoanTypesList(j.loanTypes ?? []); setAppraisalLoanType(""); setAppraisalLoanTypeOther("") }
+        if (lnRes.ok) { const j = await lnRes.json(); setAppraisalLendersList(j.lenders ?? []); setAppraisalLender("") }
+        if (invRes.ok) { const j = await invRes.json(); setAppraisalInvestorsList(j.investors ?? []); setAppraisalInvestor("") }
+        if (ptRes.ok) { const j = await ptRes.json(); setAppraisalPropertyTypesList(j.propertyTypes ?? []); setAppraisalPropertyType("") }
+        if (ocRes.ok) { const j = await ocRes.json(); setAppraisalOccupancyTypesList(j.occupancyTypes ?? []); setAppraisalOccupancyType("") }
+      } catch { /* ignore */ }
+    }
+    loadAmcOptions()
+    return () => { cancelled = true }
+  }, [appraisalSelectedAmcId, appraisalAmcs])
 
   // ── Autosave: debounced save to application_* tables ──
   const doAutosave = useCallback(async () => {
@@ -836,6 +923,7 @@ const CartStep = ({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            amc_id: appraisalSelectedAmcId || null,
             lender: appraisalLender,
             investor: appraisalInvestor,
             transaction_type: appraisalTransactionType,
@@ -881,7 +969,7 @@ const CartStep = ({
     firstName, lastName, ssn,
     prevStreet, prevCity, prevState, prevZip,
     // Appraisal fields
-    appraisalLender, appraisalInvestor, appraisalTransactionType, appraisalLoanType,
+    appraisalSelectedAmcId, appraisalLender, appraisalInvestor, appraisalTransactionType, appraisalLoanType,
     appraisalLoanTypeOther, appraisalLoanNumber, appraisalPriority,
     appraisalBorrowerName, appraisalBorrowerEmail, appraisalBorrowerPhone, appraisalBorrowerAltPhone,
     appraisalPropertyType, appraisalOccupancyType, appraisalPropertyAddress,
@@ -1547,120 +1635,165 @@ const CartStep = ({
             </>
           ) : isAppraisal ? (
             <>
+              {/* ========== AMC SELECTION ========== */}
+              <h3 className="text-sm font-semibold">AMC</h3>
+              <div className="flex flex-col gap-1">
+                <Label className="text-muted-foreground text-xs font-semibold">AMC</Label>
+                <Popover open={appraisalAmcSearchOpen} onOpenChange={setAppraisalAmcSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                      {appraisalSelectedAmcId
+                        ? (appraisalAmcs.find((a) => a.id === appraisalSelectedAmcId)?.name ?? "Select AMC")
+                        : "Select AMC"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                    <Command>
+                      <CommandInput placeholder="Search AMC..." />
+                      <CommandList>
+                        <CommandEmpty>No AMCs found.</CommandEmpty>
+                        <CommandGroup>
+                          {appraisalAmcs.map((a) => (
+                            <CommandItem key={a.id} value={a.name} onSelect={() => { setAppraisalSelectedAmcId(a.id); setAppraisalAmcSearchOpen(false) }}>
+                              {a.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               {/* ========== ORDER DETAILS ========== */}
               <h3 className="text-sm font-semibold">Order Details</h3>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {/* Lender/Client on Report */}
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Lender/Client on Report
-                  </Label>
-                  <Select
-                    value={appraisalLender}
-                    onValueChange={setAppraisalLender}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select Lender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DSCR Loan Funder LLC">
-                        DSCR Loan Funder LLC
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-muted-foreground text-xs font-semibold">Lender/Client on Report</Label>
+                  <Popover open={appraisalLenderSearchOpen} onOpenChange={setAppraisalLenderSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                        {appraisalLender || "Select Lender"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search lender..." />
+                        <CommandList>
+                          <CommandEmpty>No lenders found.</CommandEmpty>
+                          <CommandGroup>
+                            {appraisalLendersList.map((l) => (
+                              <CommandItem key={l} value={l} onSelect={() => { setAppraisalLender(l); setAppraisalLenderSearchOpen(false) }}>
+                                {l}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {/* Investor Name */}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs font-semibold">Investor Name</Label>
+                  <Popover open={appraisalInvestorSearchOpen} onOpenChange={setAppraisalInvestorSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                        {appraisalInvestor || "Select Investor"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search investor..." />
+                        <CommandList>
+                          <CommandEmpty>No investors found.</CommandEmpty>
+                          <CommandGroup>
+                            {appraisalInvestorsList.map((inv) => (
+                              <CommandItem key={inv} value={inv} onSelect={() => { setAppraisalInvestor(inv); setAppraisalInvestorSearchOpen(false) }}>
+                                {inv}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {/* Transaction Type */}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs font-semibold">Transaction Type</Label>
+                  <Popover open={appraisalTransactionTypeSearchOpen} onOpenChange={setAppraisalTransactionTypeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                        {appraisalTransactionType || "Select"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search transaction type..." />
+                        <CommandList>
+                          <CommandEmpty>No types found.</CommandEmpty>
+                          <CommandGroup>
+                            {appraisalTransactionTypesList.map((t) => (
+                              <CommandItem key={t} value={t} onSelect={() => { setAppraisalTransactionType(t); setAppraisalTransactionTypeSearchOpen(false) }}>
+                                {t}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {/* Loan Type */}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs font-semibold">Loan Type</Label>
+                  <Popover open={appraisalLoanTypeSearchOpen} onOpenChange={setAppraisalLoanTypeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                        {appraisalLoanType || "Select"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search loan type..." />
+                        <CommandList>
+                          <CommandEmpty>No loan types found.</CommandEmpty>
+                          <CommandGroup>
+                            {appraisalLoanTypesList.map((lt) => (
+                              <CommandItem key={lt.name} value={lt.name} onSelect={() => { setAppraisalLoanType(lt.name); setAppraisalLoanTypeSearchOpen(false) }}>
+                                {lt.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {(() => {
+                  const selectedLt = appraisalLoanTypesList.find((lt) => lt.name === appraisalLoanType)
+                  return selectedLt?.other ? (
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-muted-foreground text-xs font-semibold">Other</Label>
+                      <Input className="h-9" placeholder="Specify" value={appraisalLoanTypeOther} onChange={(e) => setAppraisalLoanTypeOther(e.target.value)} />
+                    </div>
+                  ) : null
+                })()}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs font-semibold">Loan Number</Label>
+                  <Input className="h-9" placeholder="Loan #" inputMode="numeric" value={appraisalLoanNumber} onChange={(e) => setAppraisalLoanNumber(e.target.value.replace(/\D/g, ""))} />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Investor Name
-                  </Label>
-                  <Select
-                    value={appraisalInvestor}
-                    onValueChange={setAppraisalInvestor}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select Investor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DSCR Loan Funder LLC">
-                        DSCR Loan Funder LLC
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Transaction Type
-                  </Label>
-                  <Select
-                    value={appraisalTransactionType}
-                    onValueChange={setAppraisalTransactionType}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Purchase">Purchase</SelectItem>
-                      <SelectItem value="Refinance">Refinance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Loan Type
-                  </Label>
-                  <Select
-                    value={appraisalLoanType}
-                    onValueChange={setAppraisalLoanType}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Other (specify)">
-                        Other (specify)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {appraisalLoanType === "Other (specify)" && (
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      Other
-                    </Label>
-                    <Input
-                      className="h-9"
-                      placeholder="Specify"
-                      value={appraisalLoanTypeOther}
-                      onChange={(e) =>
-                        setAppraisalLoanTypeOther(e.target.value)
-                      }
-                    />
-                  </div>
-                )}
-                <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Loan Number
-                  </Label>
-                  <Input
-                    className="h-9"
-                    placeholder="Loan #"
-                    inputMode="numeric"
-                    value={appraisalLoanNumber}
-                    onChange={(e) =>
-                      setAppraisalLoanNumber(e.target.value.replace(/\D/g, ""))
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Priority
-                  </Label>
-                  <Select
-                    value={appraisalPriority}
-                    onValueChange={setAppraisalPriority}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
+                  <Label className="text-muted-foreground text-xs font-semibold">Priority</Label>
+                  <Select value={appraisalPriority} onValueChange={setAppraisalPriority}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Normal">Normal</SelectItem>
                       <SelectItem value="Rush">Rush</SelectItem>
@@ -1673,57 +1806,20 @@ const CartStep = ({
               <h3 className="text-sm font-semibold">Borrower</h3>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Borrower (and Co-Borrower)
-                  </Label>
-                  <Input
-                    className="h-9"
-                    placeholder="Borrower Name"
-                    value={appraisalBorrowerName}
-                    onChange={(e) => setAppraisalBorrowerName(e.target.value)}
-                  />
+                  <Label className="text-muted-foreground text-xs font-semibold">Borrower (and Co-Borrower)</Label>
+                  <Input className="h-9" placeholder="Borrower Name" value={appraisalBorrowerName} onChange={(e) => setAppraisalBorrowerName(e.target.value)} />
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Borrower Email
-                  </Label>
-                  <Input
-                    className="h-9"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={appraisalBorrowerEmail}
-                    onChange={(e) => setAppraisalBorrowerEmail(e.target.value)}
-                  />
+                  <Label className="text-muted-foreground text-xs font-semibold">Borrower Email</Label>
+                  <Input className="h-9" type="email" placeholder="email@example.com" value={appraisalBorrowerEmail} onChange={(e) => setAppraisalBorrowerEmail(e.target.value)} />
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Borrower Phone
-                  </Label>
-                  <Input
-                    className="h-9"
-                    placeholder="(555) 555-5555"
-                    inputMode="tel"
-                    value={appraisalBorrowerPhone}
-                    onChange={(e) =>
-                      setAppraisalBorrowerPhone(formatUSPhone(e.target.value))
-                    }
-                  />
+                  <Label className="text-muted-foreground text-xs font-semibold">Borrower Phone</Label>
+                  <Input className="h-9" placeholder="(555) 555-5555" inputMode="tel" value={appraisalBorrowerPhone} onChange={(e) => setAppraisalBorrowerPhone(formatUSPhone(e.target.value))} />
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Borrower Alternate Phone
-                  </Label>
-                  <Input
-                    className="h-9"
-                    placeholder="(555) 555-5555"
-                    inputMode="tel"
-                    value={appraisalBorrowerAltPhone}
-                    onChange={(e) =>
-                      setAppraisalBorrowerAltPhone(
-                        formatUSPhone(e.target.value)
-                      )
-                    }
-                  />
+                  <Label className="text-muted-foreground text-xs font-semibold">Borrower Alternate Phone</Label>
+                  <Input className="h-9" placeholder="(555) 555-5555" inputMode="tel" value={appraisalBorrowerAltPhone} onChange={(e) => setAppraisalBorrowerAltPhone(formatUSPhone(e.target.value))} />
                 </div>
               </div>
 
@@ -1731,54 +1827,68 @@ const CartStep = ({
               <h3 className="text-sm font-semibold">Property Details</h3>
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-3">
+                  {/* Property Type */}
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      Property Type
-                    </Label>
-                    <Select
-                      value={appraisalPropertyType}
-                      onValueChange={setAppraisalPropertyType}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Single Family">
-                          Single Family
-                        </SelectItem>
-                        <SelectItem value="Condominium">Condominium</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-muted-foreground text-xs font-semibold">Property Type</Label>
+                    <Popover open={appraisalPropertyTypeSearchOpen} onOpenChange={setAppraisalPropertyTypeSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                          {appraisalPropertyType || "Select"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                        <Command>
+                          <CommandInput placeholder="Search property type..." />
+                          <CommandList>
+                            <CommandEmpty>No property types found.</CommandEmpty>
+                            <CommandGroup>
+                              {appraisalPropertyTypesList.map((pt) => (
+                                <CommandItem key={pt} value={pt} onSelect={() => { setAppraisalPropertyType(pt); setAppraisalPropertyTypeSearchOpen(false) }}>
+                                  {pt}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
+                  {/* Occupancy Type */}
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      Occupancy Type
-                    </Label>
-                    <Select
-                      value={appraisalOccupancyType}
-                      onValueChange={setAppraisalOccupancyType}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Investment">Investment</SelectItem>
-                        <SelectItem value="Vacant">Vacant</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-muted-foreground text-xs font-semibold">Occupancy Type</Label>
+                    <Popover open={appraisalOccupancyTypeSearchOpen} onOpenChange={setAppraisalOccupancyTypeSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                          {appraisalOccupancyType || "Select"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                        <Command>
+                          <CommandInput placeholder="Search occupancy type..." />
+                          <CommandList>
+                            <CommandEmpty>No occupancy types found.</CommandEmpty>
+                            <CommandGroup>
+                              {appraisalOccupancyTypesList.map((oc) => (
+                                <CommandItem key={oc} value={oc} onSelect={() => { setAppraisalOccupancyType(oc); setAppraisalOccupancyTypeSearchOpen(false) }}>
+                                  {oc}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Property Address
-                  </Label>
+                  <Label className="text-muted-foreground text-xs font-semibold">Property Address</Label>
                   <AddressAutocomplete
                     value={appraisalPropertyAddress}
                     className="h-9"
                     onChange={(addr) => {
-                      setAppraisalPropertyAddress(
-                        addr.address_line1 ?? addr.raw
-                      )
+                      setAppraisalPropertyAddress(addr.address_line1 ?? addr.raw)
                       setAppraisalPropertyCity(addr.city ?? "")
                       setAppraisalPropertyState(addr.state ?? "")
                       setAppraisalPropertyZip(addr.zip ?? "")
@@ -1790,64 +1900,27 @@ const CartStep = ({
                 </div>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      City
-                    </Label>
-                    <Input
-                      className="h-9"
-                      placeholder="City"
-                      value={appraisalPropertyCity}
-                      onChange={(e) => setAppraisalPropertyCity(e.target.value)}
-                    />
+                    <Label className="text-muted-foreground text-xs font-semibold">City</Label>
+                    <Input className="h-9" placeholder="City" value={appraisalPropertyCity} onChange={(e) => setAppraisalPropertyCity(e.target.value)} />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      State
-                    </Label>
-                    <Select
-                      value={appraisalPropertyState || undefined}
-                      onValueChange={setAppraisalPropertyState}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
+                    <Label className="text-muted-foreground text-xs font-semibold">State</Label>
+                    <Select value={appraisalPropertyState || undefined} onValueChange={setAppraisalPropertyState}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent className="max-h-[300px]">
                         {STATE_OPTIONS.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      Zip Code
-                    </Label>
-                    <Input
-                      className="h-9"
-                      placeholder="12345"
-                      inputMode="numeric"
-                      value={appraisalPropertyZip}
-                      onChange={(e) =>
-                        setAppraisalPropertyZip(
-                          e.target.value.replace(/\D/g, "").slice(0, 5)
-                        )
-                      }
-                    />
+                    <Label className="text-muted-foreground text-xs font-semibold">Zip Code</Label>
+                    <Input className="h-9" placeholder="12345" inputMode="numeric" value={appraisalPropertyZip} onChange={(e) => setAppraisalPropertyZip(e.target.value.replace(/\D/g, "").slice(0, 5))} />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground text-xs font-semibold">
-                      County
-                    </Label>
-                    <Input
-                      className="h-9"
-                      placeholder="County"
-                      value={appraisalPropertyCounty}
-                      onChange={(e) =>
-                        setAppraisalPropertyCounty(e.target.value)
-                      }
-                    />
+                    <Label className="text-muted-foreground text-xs font-semibold">County</Label>
+                    <Input className="h-9" placeholder="County" value={appraisalPropertyCounty} onChange={(e) => setAppraisalPropertyCounty(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -1856,16 +1929,9 @@ const CartStep = ({
               <h3 className="text-sm font-semibold">Access Information</h3>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Contact Person
-                  </Label>
-                  <Select
-                    value={appraisalContactPerson}
-                    onValueChange={setAppraisalContactPerson}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
+                  <Label className="text-muted-foreground text-xs font-semibold">Contact Person</Label>
+                  <Select value={appraisalContactPerson} onValueChange={setAppraisalContactPerson}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Borrower">Borrower</SelectItem>
                       <SelectItem value="Other">Other</SelectItem>
@@ -1875,60 +1941,20 @@ const CartStep = ({
                 {appraisalContactPerson === "Other" && (
                   <>
                     <div className="flex flex-col gap-1">
-                      <Label className="text-muted-foreground text-xs font-semibold">
-                        Contact Name
-                      </Label>
-                      <Input
-                        className="h-9"
-                        placeholder="Name"
-                        value={appraisalContactName}
-                        onChange={(e) =>
-                          setAppraisalContactName(e.target.value)
-                        }
-                      />
+                      <Label className="text-muted-foreground text-xs font-semibold">Contact Name</Label>
+                      <Input className="h-9" placeholder="Name" value={appraisalContactName} onChange={(e) => setAppraisalContactName(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Label className="text-muted-foreground text-xs font-semibold">
-                        Contact Email
-                      </Label>
-                      <Input
-                        className="h-9"
-                        type="email"
-                        placeholder="email@example.com"
-                        value={appraisalContactEmail}
-                        onChange={(e) =>
-                          setAppraisalContactEmail(e.target.value)
-                        }
-                      />
+                      <Label className="text-muted-foreground text-xs font-semibold">Contact Email</Label>
+                      <Input className="h-9" type="email" placeholder="email@example.com" value={appraisalContactEmail} onChange={(e) => setAppraisalContactEmail(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <Label className="text-muted-foreground text-xs font-semibold">
-                        Contact Phone
-                      </Label>
-                      <Input
-                        className="h-9"
-                        placeholder="(555) 555-5555"
-                        inputMode="tel"
-                        value={appraisalContactPhone}
-                        onChange={(e) =>
-                          setAppraisalContactPhone(
-                            formatUSPhone(e.target.value)
-                          )
-                        }
-                      />
+                      <Label className="text-muted-foreground text-xs font-semibold">Contact Phone</Label>
+                      <Input className="h-9" placeholder="(555) 555-5555" inputMode="tel" value={appraisalContactPhone} onChange={(e) => setAppraisalContactPhone(formatUSPhone(e.target.value))} />
                     </div>
                     <div className="col-span-2 flex flex-col gap-1 md:col-span-4">
-                      <Label className="text-muted-foreground text-xs font-semibold">
-                        Other Access Information
-                      </Label>
-                      <Input
-                        className="h-9"
-                        placeholder="Additional access details..."
-                        value={appraisalOtherAccessInfo}
-                        onChange={(e) =>
-                          setAppraisalOtherAccessInfo(e.target.value)
-                        }
-                      />
+                      <Label className="text-muted-foreground text-xs font-semibold">Other Access Information</Label>
+                      <Input className="h-9" placeholder="Additional access details..." value={appraisalOtherAccessInfo} onChange={(e) => setAppraisalOtherAccessInfo(e.target.value)} />
                     </div>
                   </>
                 )}
@@ -1937,59 +1963,48 @@ const CartStep = ({
               {/* ========== APPRAISAL INFORMATION & DATES ========== */}
               <h3 className="text-sm font-semibold">Appraisal Information</h3>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {/* Product */}
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Product
-                  </Label>
-                  <Select
-                    value={appraisalProduct}
-                    onValueChange={setAppraisalProduct}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1004/1007 (SFR & Rent Sch)">
-                        1004/1007 (SFR & Rent Sch)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-muted-foreground text-xs font-semibold">Product</Label>
+                  <Popover open={appraisalProductSearchOpen} onOpenChange={setAppraisalProductSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                        {appraisalProduct || "Select"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search product..." />
+                        <CommandList>
+                          <CommandEmpty>No products found.</CommandEmpty>
+                          <CommandGroup>
+                            {appraisalProductsList.map((p) => (
+                              <CommandItem key={p} value={p} onSelect={() => { setAppraisalProduct(p); setAppraisalProductSearchOpen(false) }}>
+                                {p}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Loan Amount
-                  </Label>
-                  <CalcInput
-                    className="h-9"
-                    placeholder="$0.00"
-                    value={appraisalLoanAmount}
-                    onValueChange={setAppraisalLoanAmount}
-                  />
+                  <Label className="text-muted-foreground text-xs font-semibold">Loan Amount</Label>
+                  <CalcInput className="h-9" placeholder="$0.00" value={appraisalLoanAmount} onValueChange={setAppraisalLoanAmount} />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Sales Price
-                  </Label>
-                  <CalcInput
-                    className="h-9"
-                    placeholder="$0.00"
-                    value={appraisalSalesPrice}
-                    onValueChange={setAppraisalSalesPrice}
-                  />
+                  <Label className="text-muted-foreground text-xs font-semibold">Sales Price</Label>
+                  <CalcInput className="h-9" placeholder="$0.00" value={appraisalSalesPrice} onValueChange={setAppraisalSalesPrice} />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label className="text-muted-foreground text-xs font-semibold">
-                    Due Date
-                  </Label>
+                  <Label className="text-muted-foreground text-xs font-semibold">Due Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <DateInput
-                        className="h-9"
-                        value={appraisalDueDate}
-                        onChange={setAppraisalDueDate}
-                      />
+                      <DateInput className="h-9" value={appraisalDueDate} onChange={setAppraisalDueDate} />
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0" align="start" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                       <Calendar
                         mode="single"
                         selected={appraisalDueDate}

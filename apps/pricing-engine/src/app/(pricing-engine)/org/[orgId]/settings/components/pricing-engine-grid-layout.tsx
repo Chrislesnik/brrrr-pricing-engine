@@ -391,7 +391,7 @@ export function PricingEngineGridLayout() {
                         onDragStart={(e) => handleDragStart(e, item.id, cat.id)}
                         onDragEnd={handleDragEnd}
                         className={cn(
-                          "group flex items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-xs cursor-grab active:cursor-grabbing transition-all shrink-0",
+                          "group flex items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-xs cursor-grab active:cursor-grabbing transition-all shrink-0 overflow-x-auto",
                           getWidthClass(item.layout_width)
                         )}
                       >
