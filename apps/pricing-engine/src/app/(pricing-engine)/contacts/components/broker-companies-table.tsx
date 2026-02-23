@@ -483,7 +483,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
                               className={cn(
                                 "h-14 first:pl-4 last:pr-4",
                                 cell.column.columnDef.meta?.className ?? "",
-                                isPinned && "bg-background !px-1"
+                                isPinned && "bg-background group-hover/row:bg-transparent !px-1"
                               )}
                               style={
                                 isPinned

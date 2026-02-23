@@ -8,8 +8,8 @@ import { GripVertical } from "lucide-react";
 import { TableHead } from "@repo/ui/shadcn/table";
 import { cn } from "@repo/lib/cn";
 
-export const PINNED_RIGHT_SET = new Set<string>(["row_actions"]);
-export const FIXED_COLUMNS = new Set<string>(["select", "expand", "row_actions"]);
+export const PINNED_RIGHT_SET = new Set<string>(["row_actions", "actions"]);
+export const FIXED_COLUMNS = new Set<string>(["select", "expand", "row_actions", "actions"]);
 
 interface DraggableTableHeaderProps<TData> {
   header: Header<TData, unknown>;
@@ -47,7 +47,7 @@ export function DraggableTableHeader<TData>({ header }: DraggableTableHeaderProp
       className={cn(
         "relative text-left px-3",
         isDragging && "shadow-lg border-2 border-primary",
-        isPinnedRight && "bg-muted !px-1",
+        isPinnedRight && "bg-background group-hover/row:bg-transparent !px-1",
         metaClassName
       )}
     >

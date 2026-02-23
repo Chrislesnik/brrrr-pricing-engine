@@ -578,7 +578,7 @@ export function CreditTable({ actionButton }: { actionButton?: React.ReactNode }
                           key={cell.id}
                           className={cn(
                             "text-left",
-                            isPinned && "bg-background !px-1"
+                            isPinned && "bg-background group-hover/row:bg-transparent !px-1"
                           )}
                           style={
                             isPinned

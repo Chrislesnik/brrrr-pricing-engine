@@ -452,7 +452,7 @@ export function createPipelineColumns(
         const id = (row.original as Record<string, unknown>).id as string
         return <RowActions id={id} status={status} />
       },
-      meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },
+      meta: { className: "w-10 text-right sticky right-0 bg-background group-hover/row:bg-transparent z-10" },
       enableSorting: false,
       enableHiding: false,
     },

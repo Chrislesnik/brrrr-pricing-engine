@@ -353,7 +353,7 @@ export function BorrowersTable({ data, actionButton }: { data: BorrowerRow[]; ac
                             key={cell.id}
                             className={cn(
                               "h-14 first:pl-4 last:pr-4",
-                              isPinned && "bg-background !px-1",
+                              isPinned && "bg-background group-hover/row:bg-transparent !px-1",
                               metaClassName
                             )}
                             style={

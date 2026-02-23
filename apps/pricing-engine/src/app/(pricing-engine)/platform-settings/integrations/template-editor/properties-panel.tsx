@@ -202,7 +202,8 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
 
   const readStyles = useCallback(() => {
     if (!editor || suppressSync.current) return
-    const selected = editor.getSelected?.()
+    let selected: ReturnType<typeof editor.getSelected> | undefined
+    try { selected = editor.getSelected?.() } catch { /* editor not ready */ }
     if (!selected) {
       setStyles({})
       setComponentType("")

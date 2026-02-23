@@ -251,7 +251,7 @@ export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
         <Table className="min-w-[1000px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-muted">
+              <TableRow key={headerGroup.id}>
                 <SortableContext
                   items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
                   strategy={horizontalListSortingStrategy}
@@ -279,7 +279,7 @@ export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
                         className={cn(
                           "px-3 whitespace-nowrap text-left",
                           cell.column.columnDef.meta?.className ?? "",
-                          isPinned && "bg-background !px-1"
+                          isPinned && "bg-background group-hover/row:bg-transparent !px-1"
                         )}
                         style={
                           isPinned

@@ -532,7 +532,7 @@ export function ApplicationsTable({ data }: Props) {
                           return (
                             <TableCell
                               key={cell.id}
-                              className={cn("h-14 px-3", isPinned && "bg-background group-hover/row:bg-muted/50 data-[state=selected]:bg-muted !px-1", metaClassName)}
+                              className={cn("h-14 px-3", isPinned && "bg-background group-hover/row:bg-transparent !px-1", metaClassName)}
                               style={isPinned ? { position: "sticky", right: 0, zIndex: 10, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" } : undefined}
                             >
                               {flexRender(
