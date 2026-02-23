@@ -1026,11 +1026,53 @@ const CartStep = ({
   ])
 
   async function handleRun() {
-    if (!(isCredit || isBackground) || runPhase !== "idle") return
+    if (!(isCredit || isBackground || isAppraisal) || runPhase !== "idle") return
     setRunPhase("bounce")
     const bounceTimer = setTimeout(() => setRunPhase("running"), 180)
     try {
-      if (isBackground) {
+      if (isAppraisal) {
+        const formatDate = (d?: Date) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : null
+        const payload = {
+          application_id: applicationId || null,
+          amc_id: appraisalSelectedAmcId || null,
+          lender: appraisalLender || null,
+          investor: appraisalInvestor || null,
+          transaction_type: appraisalTransactionType || null,
+          loan_type: appraisalLoanType || null,
+          loan_type_other: appraisalLoanTypeOther || null,
+          loan_number: appraisalLoanNumber || null,
+          priority: appraisalPriority || null,
+          borrower_name: appraisalBorrowerName || null,
+          borrower_email: appraisalBorrowerEmail || null,
+          borrower_phone: appraisalBorrowerPhone || null,
+          borrower_alt_phone: appraisalBorrowerAltPhone || null,
+          property_type: appraisalPropertyType || null,
+          occupancy_type: appraisalOccupancyType || null,
+          property_address: appraisalPropertyAddress || null,
+          property_city: appraisalPropertyCity || null,
+          property_state: appraisalPropertyState || null,
+          property_zip: appraisalPropertyZip || null,
+          property_county: appraisalPropertyCounty || null,
+          contact_person: appraisalContactPerson || null,
+          contact_name: appraisalContactName || null,
+          contact_email: appraisalContactEmail || null,
+          contact_phone: appraisalContactPhone || null,
+          other_access_info: appraisalOtherAccessInfo || null,
+          product: appraisalProduct || null,
+          loan_amount: appraisalLoanAmount || null,
+          sales_price: appraisalSalesPrice || null,
+          due_date: formatDate(appraisalDueDate),
+        }
+        const res = await fetch("https://n8n.axora.info/webhook/a8c1235b-3598-42a2-949e-2f79214e1aaa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          throw new Error(`Webhook failed (status ${res.status})`)
+        }
+        toast({ title: "Appraisal order sent", description: "Order submitted successfully." })
+      } else if (isBackground) {
         const dobStr = dob
           ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, "0")}-${String(dob.getDate()).padStart(2, "0")}`
           : null
@@ -1124,7 +1166,7 @@ const CartStep = ({
         })
       }
     } catch (e) {
-      const label = isBackground ? "Background run" : "Credit run"
+      const label = isAppraisal ? "Appraisal order" : isBackground ? "Background run" : "Credit run"
       const msg =
         e instanceof Error ? e.message : `Failed to run ${label.toLowerCase()}`
       toast({ title: `${label} failed`, description: msg })

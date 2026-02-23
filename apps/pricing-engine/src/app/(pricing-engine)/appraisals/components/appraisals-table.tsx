@@ -64,6 +64,7 @@ interface BorrowerJoin {
 interface AmcJoin {
   id: string;
   name: string;
+  integration_settings?: { id: number; name: string } | null;
 }
 
 export interface AppraisalOrder {
@@ -96,7 +97,7 @@ export interface AppraisalOrder {
 /* -------------------------------------------------------------------------- */
 
 function getAmcName(order: AppraisalOrder): string {
-  return order.integration_setup?.name || "—";
+  return order.integration_setup?.integration_settings?.name || order.integration_setup?.name || "—";
 }
 
 function getAddress(order: AppraisalOrder): string {

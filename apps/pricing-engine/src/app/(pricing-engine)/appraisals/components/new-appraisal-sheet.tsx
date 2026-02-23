@@ -367,6 +367,42 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
         }),
       });
       if (res.ok) {
+        fetch("https://n8n.axora.info/webhook/a8c1235b-3598-42a2-949e-2f79214e1aaa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amc_id: selectedAmcId || null,
+            deal_id: dealId || null,
+            borrower_id: selectedBorrowerId || null,
+            borrower_name: borrowerName || null,
+            borrower_email: borrowerEmail || null,
+            borrower_phone: borrowerPhone || null,
+            borrower_alt_phone: borrowerAltPhone || null,
+            loan_number: loanNumber || null,
+            lender: lender || null,
+            investor: investor || null,
+            transaction_type: transactionType || null,
+            loan_type: loanType || null,
+            loan_type_other: loanTypeOther || null,
+            priority: priority || null,
+            property_type: propertyType || null,
+            occupancy_type: occupancyType || null,
+            property_address: propertyAddress || null,
+            property_city: propertyCity || null,
+            property_state: propertyState || null,
+            property_zip: propertyZip || null,
+            property_county: propertyCounty || null,
+            contact_person: contactPerson || null,
+            contact_name: contactName || null,
+            contact_email: contactEmail || null,
+            contact_phone: contactPhone || null,
+            other_access_info: otherAccessInfo || null,
+            product: product || null,
+            loan_amount: loanAmount || null,
+            sales_price: salesPrice || null,
+            due_date: formatDateForApi(dueDate),
+          }),
+        }).catch(() => {});
         onCreated?.();
         handleOpenChange(false);
       }
@@ -853,11 +889,17 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Loan Amount</Label>
-                  <CalcInput className="h-9" placeholder="$0.00" value={loanAmount} onValueChange={setLoanAmount} />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground z-10">$</span>
+                    <CalcInput className="h-9 pl-6" placeholder="0.00" value={loanAmount} onValueChange={setLoanAmount} />
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Sales Price</Label>
-                  <CalcInput className="h-9" placeholder="$0.00" value={salesPrice} onValueChange={setSalesPrice} />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground z-10">$</span>
+                    <CalcInput className="h-9 pl-6" placeholder="0.00" value={salesPrice} onValueChange={setSalesPrice} />
+                  </div>
                 </div>
               </div>
               <div>
