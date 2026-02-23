@@ -60,7 +60,7 @@ import type { TableConfig } from "@/types/table-config"
 import type { SectionButton } from "@/types/section-buttons"
 import DSCRTermSheet, { type DSCRTermSheetProps, type DSCRTermSheetData } from "@/components/DSCRTermSheet"
 import BridgeTermSheet from "@/components/BridgeTermSheet"
-import { resolveTemplateVariables, type TemplateVariable } from "@/lib/template-variable-resolver"
+import { resolveTemplateVariables, type TemplateVariable, type OrgLogos } from "@/lib/template-variable-resolver"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
 import { GoogleMap, Marker } from "@react-google-maps/api"
@@ -494,9 +494,11 @@ interface ResolvedTermSheet {
 function ScaledHtmlPreview({
   html,
   previewRef,
+  isEditable = false,
 }: {
   html: string
   previewRef?: React.Ref<HTMLDivElement>
+  isEditable?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
@@ -558,19 +560,137 @@ function ScaledHtmlPreview({
     if (!iframe) return
     const doc = iframe.contentDocument || iframe.contentWindow?.document
     if (!doc) return
+    const embeddedStyles: string[] = []
+    let stripped = html.replace(/<style>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
+      embeddedStyles.push(css)
+      return ""
+    })
     const bodyContent = (() => {
-      const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
-      return m ? m[1] : html
+      const m = stripped.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+      return m ? m[1] : stripped
     })()
+    const editableStyles = isEditable ? `<style>
+      .ts-edit { border: 1px dashed rgba(245,158,11,0.6); background: rgba(245,158,11,0.06); border-radius: 2px; padding: 1px 2px; }
+      .ts-edit:focus { outline: 2px solid #f59e0b; outline-offset: 0; }
+      img.ts-replaceable { cursor: pointer; transition: opacity 0.15s; }
+      img.ts-replaceable:hover { opacity: 0.8; outline: 2px dashed #f59e0b; outline-offset: 2px; }
+    </style>` : ""
     doc.open()
     doc.write(`<!DOCTYPE html><html><head><style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; background: white; padding: 20px; line-height: 1.4; }
       table { width: 100%; border-collapse: collapse; }
       html, body { overflow: hidden; }
-    </style></head><body>${bodyContent}</body></html>`)
+    </style>${embeddedStyles.map((css) => `<style>${css}</style>`).join("")}${editableStyles}</head><body>${bodyContent}</body></html>`)
     doc.close()
-  }, [html])
+
+    if (isEditable) {
+      requestAnimationFrame(() => {
+        if (!doc.body) return
+        const textEls = doc.querySelectorAll("h1,h2,h3,h4,h5,h6,p,span,td,th,div,b,em,i,strong")
+        textEls.forEach((el) => {
+          const htmlEl = el as HTMLElement
+          if (htmlEl.childElementCount === 0 && (htmlEl.textContent || "").trim().length > 0) {
+            htmlEl.setAttribute("contenteditable", "true")
+            htmlEl.classList.add("ts-edit")
+          }
+        })
+
+        function showImagePopover(img: HTMLImageElement) {
+          doc.querySelector(".ts-img-popover")?.remove()
+          const popover = doc.createElement("div")
+          popover.className = "ts-img-popover"
+          const rect = img.getBoundingClientRect()
+          const scrollY = doc.documentElement.scrollTop || doc.body.scrollTop
+          const scrollX = doc.documentElement.scrollLeft || doc.body.scrollLeft
+          popover.style.cssText = `position:absolute;top:${rect.bottom + scrollY + 6}px;left:${rect.left + scrollX}px;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);width:220px;font-family:Arial,sans-serif;`
+          const preview = doc.createElement("div")
+          preview.style.cssText = "display:flex;justify-content:center;padding:8px;background:#f9fafb;border-radius:6px;margin-bottom:8px;"
+          const previewImg = doc.createElement("img")
+          previewImg.src = img.src
+          previewImg.style.cssText = "max-height:50px;max-width:100%;object-fit:contain;"
+          preview.appendChild(previewImg)
+          popover.appendChild(preview)
+
+          const dropZone = doc.createElement("div")
+          dropZone.style.cssText = "border:2px dashed #d1d5db;border-radius:6px;padding:12px;text-align:center;transition:all 0.15s;margin-bottom:8px;"
+          const dropText = doc.createElement("div")
+          dropText.textContent = "Drag & drop to replace"
+          dropText.style.cssText = "font-size:11px;color:#6b7280;margin-bottom:6px;"
+          dropZone.appendChild(dropText)
+
+          const fileInput = doc.createElement("input")
+          fileInput.type = "file"
+          fileInput.accept = "image/*"
+          fileInput.style.display = "none"
+
+          const chooseBtn = doc.createElement("button")
+          chooseBtn.textContent = "Choose File"
+          chooseBtn.style.cssText = "background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;color:#000;"
+          chooseBtn.addEventListener("click", () => fileInput.click())
+          dropZone.appendChild(chooseBtn)
+          dropZone.appendChild(fileInput)
+          popover.appendChild(dropZone)
+
+          const removeBtn = doc.createElement("button")
+          removeBtn.textContent = "Remove Image"
+          removeBtn.style.cssText = "width:100%;background:#ef4444;color:#fff;border:none;border-radius:4px;padding:6px;font-size:12px;cursor:pointer;"
+          removeBtn.addEventListener("click", () => {
+            img.src = ""
+            img.style.display = "none"
+            popover.remove()
+          })
+          popover.appendChild(removeBtn)
+
+          function handleFile(file: File) {
+            if (!file.type.startsWith("image/")) return
+            const reader = new FileReader()
+            reader.onload = () => {
+              if (typeof reader.result === "string") {
+                img.src = reader.result
+                previewImg.src = reader.result
+              }
+            }
+            reader.readAsDataURL(file)
+            setTimeout(() => popover.remove(), 300)
+          }
+
+          fileInput.addEventListener("change", () => {
+            const f = fileInput.files?.[0]
+            if (f) handleFile(f)
+          })
+
+          dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.style.borderColor = "#f59e0b"; dropZone.style.background = "#fffbeb"; })
+          dropZone.addEventListener("dragleave", (e) => { e.preventDefault(); dropZone.style.borderColor = "#d1d5db"; dropZone.style.background = "transparent"; })
+          dropZone.addEventListener("drop", (e) => {
+            e.preventDefault()
+            dropZone.style.borderColor = "#d1d5db"
+            dropZone.style.background = "transparent"
+            const f = e.dataTransfer?.files?.[0]
+            if (f) handleFile(f)
+          })
+
+          doc.body.appendChild(popover)
+          const closeOnOutside = (e: MouseEvent) => {
+            if (!popover.contains(e.target as Node) && e.target !== img) {
+              popover.remove()
+              doc.removeEventListener("click", closeOnOutside)
+            }
+          }
+          setTimeout(() => doc.addEventListener("click", closeOnOutside), 10)
+        }
+
+        const images = doc.querySelectorAll("img")
+        images.forEach((img) => {
+          img.classList.add("ts-replaceable")
+          img.addEventListener("click", (e) => {
+            e.stopPropagation()
+            showImagePopover(img)
+          })
+        })
+      })
+    }
+  }, [html, isEditable])
 
   const scaledW = 816 * scale
   const scaledH = 1056 * scale
@@ -619,7 +739,7 @@ function ScaledHtmlPreview({
             >
               <iframe
                 ref={iframeRef}
-                className="w-full h-full border-0 pointer-events-none"
+                className={`w-full h-full border-0${isEditable ? "" : " pointer-events-none"}`}
                 sandbox="allow-same-origin"
                 title="Term Sheet Preview"
               />
@@ -3021,6 +3141,7 @@ function ResultCard({
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [resolvedSheets, setResolvedSheets] = useState<ResolvedTermSheet[]>([])
   const [activeSheetIdx, setActiveSheetIdx] = useState<number>(0)
+  const [isInternalOrg, setIsInternalOrg] = useState(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetData>({})
   const previewRef = useRef<HTMLDivElement | null>(null)
 
@@ -3517,11 +3638,13 @@ function ResultCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input_values: inputs }),
       })
-      const evalJson = await evalRes.json().catch(() => ({ term_sheets: [] }))
+      const evalJson = await evalRes.json().catch(() => ({ term_sheets: [], org_logos: null }))
       const matchingSheets = evalJson.term_sheets as Array<{
         id: string; template_name: string; html_content: string;
         variables: TemplateVariable[]
       }>
+      const evalOrgLogos = (evalJson.org_logos ?? { light: null, dark: null }) as OrgLogos
+      setIsInternalOrg(evalJson.is_internal === true)
 
       if (!matchingSheets || matchingSheets.length === 0) {
         setResolvedSheets([])
@@ -3556,7 +3679,7 @@ function ResultCard({
       const resolved: ResolvedTermSheet[] = matchingSheets.map((sheet) => ({
         id: sheet.id,
         template_name: sheet.template_name,
-        resolvedHtml: resolveTemplateVariables(sheet.html_content, sheet.variables, webhookData),
+        resolvedHtml: resolveTemplateVariables(sheet.html_content, sheet.variables, webhookData, evalOrgLogos),
       }))
 
       setResolvedSheets(resolved)
@@ -3977,6 +4100,7 @@ function ResultCard({
                 <ScaledHtmlPreview
                   html={resolvedSheets[activeSheetIdx]?.resolvedHtml ?? ""}
                   previewRef={previewRef}
+                  isEditable={isInternalOrg}
                 />
               </div>
             </div>
@@ -4166,6 +4290,7 @@ function ResultsPanel({
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
   const [resolvedSheetsMain, setResolvedSheetsMain] = useState<ResolvedTermSheet[]>([])
   const [activeSheetIdxMain, setActiveSheetIdxMain] = useState<number>(0)
+  const [isInternalOrgMain, setIsInternalOrgMain] = useState(false)
   const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetData>({})
   const previewRefMain = useRef<HTMLDivElement | null>(null)
   const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/ac651502-6422-400c-892e-c268b8c66201"
@@ -4524,11 +4649,13 @@ function ResultsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input_values: inputs }),
       })
-      const evalJson = await evalRes.json().catch(() => ({ term_sheets: [] }))
+      const evalJson = await evalRes.json().catch(() => ({ term_sheets: [], org_logos: null }))
       const matchingSheets = evalJson.term_sheets as Array<{
         id: string; template_name: string; html_content: string;
         variables: TemplateVariable[]
       }>
+      const evalOrgLogos = (evalJson.org_logos ?? { light: null, dark: null }) as OrgLogos
+      setIsInternalOrgMain(evalJson.is_internal === true)
 
       if (!matchingSheets || matchingSheets.length === 0) {
         setResolvedSheetsMain([])
@@ -4564,7 +4691,7 @@ function ResultsPanel({
       const resolved: ResolvedTermSheet[] = matchingSheets.map((sheet) => ({
         id: sheet.id,
         template_name: sheet.template_name,
-        resolvedHtml: resolveTemplateVariables(sheet.html_content, sheet.variables, webhookData),
+        resolvedHtml: resolveTemplateVariables(sheet.html_content, sheet.variables, webhookData, evalOrgLogos),
       }))
 
       setResolvedSheetsMain(resolved)
@@ -4947,6 +5074,7 @@ function ResultsPanel({
                     <ScaledHtmlPreview
                       html={resolvedSheetsMain[activeSheetIdxMain]?.resolvedHtml ?? ""}
                       previewRef={previewRefMain}
+                      isEditable={isInternalOrgMain}
                     />
                   </div>
                 </div>
@@ -5229,6 +5357,7 @@ function ResultsPanel({
                   <ScaledHtmlPreview
                     html={resolvedSheetsMain[activeSheetIdxMain]?.resolvedHtml ?? ""}
                     previewRef={previewRefMain}
+                    isEditable={isInternalOrgMain}
                   />
                 </div>
               </div>

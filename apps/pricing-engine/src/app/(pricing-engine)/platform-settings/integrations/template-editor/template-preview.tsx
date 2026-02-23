@@ -21,8 +21,12 @@ export function TemplatePreview({ html, className = "" }: TemplatePreviewProps) 
     const doc = iframe.contentDocument || iframe.contentWindow?.document
     if (!doc) return
 
-    // Write the HTML content to the iframe
-    const cleanedHtml = replaceVariablesWithPills(extractBodyContent(html))
+    const embeddedStyles: string[] = []
+    let stripped = html.replace(/<style>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
+      embeddedStyles.push(css)
+      return ""
+    })
+    const cleanedHtml = replaceVariablesWithPills(extractBodyContent(stripped))
     doc.open()
     doc.write(`
       <!DOCTYPE html>
@@ -44,7 +48,6 @@ export function TemplatePreview({ html, className = "" }: TemplatePreviewProps) 
               width: 100%;
               border-collapse: collapse;
             }
-            /* Prevent scrolling */
             html, body {
               overflow: hidden;
             }
@@ -61,6 +64,7 @@ export function TemplatePreview({ html, className = "" }: TemplatePreviewProps) 
               vertical-align: baseline;
             }
           </style>
+          ${embeddedStyles.map((css) => `<style>${css}</style>`).join("")}
         </head>
         <body>
           ${cleanedHtml}

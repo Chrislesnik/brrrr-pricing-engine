@@ -265,6 +265,7 @@ export function DocumentsTab() {
   const [variables, setVariables] = useState<Variable[]>(defaultVariables)
   const [variableEditorOpen, setVariableEditorOpen] = useState(false)
   const [currentTemplate, setCurrentTemplate] = useState<DocumentTemplate | null>(null)
+  const [orgLogos, setOrgLogos] = useState<{ light: string | null; dark: string | null }>({ light: null, dark: null })
   const [loadingTemplate, setLoadingTemplate] = useState(false)
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [showTestPanel, setShowTestPanel] = useState(false)
@@ -394,6 +395,15 @@ export function DocumentsTab() {
 
     return () => { cancelled = true }
   }, [templateId])
+
+  useEffect(() => {
+    fetch("/api/org/whitelabel-logo")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data) setOrgLogos({ light: data.light_url ?? null, dark: data.dark_url ?? null })
+      })
+      .catch(() => {})
+  }, [])
 
   const handleSelectTemplate = useCallback((template: DocumentTemplate) => {
     router.push(`/platform-settings/integrations/template-editor?tab=documents&template=${template.id}`)
@@ -701,6 +711,7 @@ export function DocumentsTab() {
             template={editorTemplate}
             onSave={handleEditorSave}
             onEditorReady={handleEditorReady}
+            orgLogos={orgLogos}
           />
         </div>
 

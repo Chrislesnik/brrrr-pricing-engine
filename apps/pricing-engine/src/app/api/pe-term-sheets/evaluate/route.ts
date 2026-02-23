@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getOrgUuidFromClerkId } from "@/lib/orgs";
 import { evaluateOperator } from "@/lib/logic-engine";
 
 interface ConditionRow {
@@ -22,13 +23,33 @@ interface RuleRow {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const inputValues = (body.input_values ?? {}) as Record<string, unknown>;
+
+    let orgLogos: { light: string | null; dark: string | null } = { light: null, dark: null };
+    let isInternal = false;
+    if (orgId) {
+      const orgUuid = await getOrgUuidFromClerkId(orgId);
+      if (orgUuid) {
+        const { data: orgData } = await supabaseAdmin
+          .from("organizations")
+          .select("whitelabel_logo_light_url, whitelabel_logo_dark_url, is_internal_yn")
+          .eq("id", orgUuid)
+          .maybeSingle();
+        if (orgData) {
+          orgLogos = {
+            light: orgData.whitelabel_logo_light_url ?? null,
+            dark: orgData.whitelabel_logo_dark_url ?? null,
+          };
+          isInternal = orgData.is_internal_yn === true;
+        }
+      }
+    }
 
     // 1. Fetch all active pe_term_sheets joined with document_templates
     const { data: termSheets, error: tsErr } = await supabaseAdmin
@@ -205,7 +226,7 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ term_sheets: result });
+    return NextResponse.json({ term_sheets: result, org_logos: orgLogos, is_internal: isInternal });
   } catch (error) {
     console.error("[POST /api/pe-term-sheets/evaluate]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

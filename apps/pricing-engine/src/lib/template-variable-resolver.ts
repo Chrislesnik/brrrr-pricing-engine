@@ -22,10 +22,16 @@ export interface TemplateVariable {
  * @param webhookData  Flat key-value map from n8n webhook, keyed by variable UUID
  * @returns            HTML string with Handlebars expressions replaced by values
  */
+export interface OrgLogos {
+  light: string | null;
+  dark: string | null;
+}
+
 export function resolveTemplateVariables(
   htmlContent: string,
   variables: TemplateVariable[],
-  webhookData: Record<string, string>
+  webhookData: Record<string, string>,
+  orgLogos?: OrgLogos
 ): string {
   // Build path -> value map by looking up each UUID
   const valueMap = new Map<string, string>();
@@ -102,6 +108,23 @@ export function resolveTemplateVariables(
       return `<img${updated}>`;
     }
   );
+
+  // Pattern 6: Brand logo <img> tags with data-brand-logo="light" or "dark"
+  if (orgLogos) {
+    result = result.replace(
+      /<img([^>]*?)data-brand-logo="(light|dark)"([^>]*?)>/gi,
+      (match, before: string, mode: string, after: string) => {
+        const logoUrl = mode === "dark" ? orgLogos.dark : orgLogos.light;
+        if (!logoUrl) return match;
+        const full = before + `data-brand-logo="${mode}"` + after;
+        const hasSrc = /src="[^"]*"/.test(full);
+        const updated = hasSrc
+          ? full.replace(/src="[^"]*"/, `src="${logoUrl}"`)
+          : full + ` src="${logoUrl}"`;
+        return `<img${updated}>`;
+      }
+    );
+  }
 
   return result;
 }

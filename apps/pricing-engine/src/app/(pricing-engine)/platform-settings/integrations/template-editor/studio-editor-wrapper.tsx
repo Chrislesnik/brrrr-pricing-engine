@@ -170,6 +170,72 @@ interface StudioEditorWrapperProps {
   template?: DocumentTemplate | null
   onSave?: (html: string, projectData: object) => void
   onEditorReady?: (editor: any) => void
+  orgLogos?: { light: string | null; dark: string | null }
+}
+
+const BRAND_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`
+
+function brandLogoPlugin(editor: any, orgLogos: { light: string | null; dark: string | null }) {
+  const placeholderSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='60' viewBox='0 0 150 60'%3E%3Crect width='150' height='60' fill='%23f3f4f6' rx='4'/%3E%3Ctext x='75' y='35' text-anchor='middle' fill='%239ca3af' font-family='sans-serif' font-size='12'%3EBrand Logo%3C/text%3E%3C/svg%3E"
+
+  function getLogoSrc(mode: string) {
+    const url = mode === "dark" ? orgLogos.dark : orgLogos.light
+    return url || placeholderSrc
+  }
+
+  editor.Components.addType("brand-logo", {
+    model: {
+      defaults: {
+        tagName: "img",
+        attributes: {
+          "data-gjs-type": "brand-logo",
+          "data-brand-logo": "light",
+          src: getLogoSrc("light"),
+          alt: "Organization Logo",
+        },
+        style: { display: "block", maxWidth: "200px", height: "auto" },
+        traits: [
+          { type: "text", name: "data-brand-logo" },
+        ],
+        stylable: ["width", "height", "max-width", "margin", "padding"],
+        resizable: true,
+        droppable: false,
+      },
+      init() {
+        this.on("change:attributes:data-brand-logo", this.updateLogoSrc)
+        this.updateLogoSrc()
+      },
+      updateLogoSrc() {
+        const mode = this.getAttributes()["data-brand-logo"] || "light"
+        const src = getLogoSrc(mode)
+        this.set("src", src)
+        this.addAttributes({ src })
+      },
+    },
+    view: {
+      onRender() {
+        const attrs = this.model.getAttributes()
+        const mode = attrs["data-brand-logo"] || "light"
+        const src = getLogoSrc(mode)
+        this.el.setAttribute("src", src)
+        this.el.setAttribute("alt", "Organization Logo")
+      },
+    },
+  })
+
+  editor.Blocks.add("brand-logo-light", {
+    label: "Logo (Light)",
+    category: "Extra",
+    media: BRAND_LOGO_SVG,
+    content: { type: "brand-logo", attributes: { "data-brand-logo": "light" } },
+  })
+
+  editor.Blocks.add("brand-logo-dark", {
+    label: "Logo (Dark)",
+    category: "Extra",
+    media: BRAND_LOGO_SVG,
+    content: { type: "brand-logo", attributes: { "data-brand-logo": "dark" } },
+  })
 }
 
 /**
@@ -183,6 +249,7 @@ export function StudioEditorWrapper({
   template,
   onSave,
   onEditorReady,
+  orgLogos = { light: null, dark: null },
 }: StudioEditorWrapperProps) {
   const [mounted, setMounted] = useState(false)
   const [stylesReady, setStylesReady] = useState(false)
@@ -194,7 +261,7 @@ export function StudioEditorWrapper({
 
   const grapejsTheme = resolvedTheme === "dark" ? "dark" : "light"
   const customTheme = themeState?.mode === grapejsTheme ? themeState.theme : undefined
-  const templateHtml = template?.html_content || defaultTemplateHtml
+  const templateHtml = (template?.html_content || defaultTemplateHtml).replace(/<style>[\s\S]*?<\/style>/gi, "")
 
   const hasStoredProject =
     template?.gjs_data &&
@@ -461,7 +528,9 @@ export function StudioEditorWrapper({
             onSave: async ({ project, editor }: { project: object; editor: any }) => {
               try {
                 const html = editor.getHtml() ?? ""
-                onSave?.(html, project)
+                const css = editor.getCss?.() ?? ""
+                const fullHtml = css ? `<style>${css}</style>${html}` : html
+                onSave?.(fullHtml, project)
               } catch (e) {
                 console.error("Failed to extract editor data on save:", e)
               }
@@ -498,6 +567,7 @@ export function StudioEditorWrapper({
               : []),
             flexComponent,
             qrCodePlugin,
+            (editor: any) => brandLogoPlugin(editor, orgLogos),
             ...(aiChat?.init
               ? [aiChat.init({ chatApi: "/api/ai-chat" })]
               : []),
@@ -790,7 +860,7 @@ export function StudioEditorWrapper({
       />
       {hasSelection && portalTarget && editorRef.current &&
         createPortal(
-          <PropertiesPanel editor={editorRef.current} variables={variables} />,
+          <PropertiesPanel editor={editorRef.current} variables={variables} orgLogos={orgLogos} />,
           portalTarget
         )
       }

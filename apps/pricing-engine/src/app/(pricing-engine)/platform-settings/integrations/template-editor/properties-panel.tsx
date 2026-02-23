@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ColorInput } from "@/components/color-input"
 import type { Variable } from "./variable-types"
@@ -189,15 +190,17 @@ function SpacingInputs({
 interface PropertiesPanelProps {
   editor: any
   variables?: Variable[]
+  orgLogos?: { light: string | null; dark: string | null }
 }
 
-export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps) {
+export function PropertiesPanel({ editor, variables = [], orgLogos }: PropertiesPanelProps) {
   const [styles, setStyles] = useState<Record<string, string>>({})
   const [componentType, setComponentType] = useState("")
   const [componentName, setComponentName] = useState("")
   const [paddingLinked, setPaddingLinked] = useState(true)
   const [marginLinked, setMarginLinked] = useState(true)
   const [qrAttrs, setQrAttrs] = useState<Record<string, string>>({})
+  const [brandLogoMode, setBrandLogoMode] = useState<string | null>(null)
   const suppressSync = useRef(false)
 
   const readStyles = useCallback(() => {
@@ -261,6 +264,15 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
       })
     } else {
       setQrAttrs({})
+    }
+    if (type === "brand-logo") {
+      const attrs = selected.getAttributes?.() || {}
+      setBrandLogoMode(attrs["data-brand-logo"] || "light")
+    } else if (type === "image") {
+      const attrs = selected.getAttributes?.() || {}
+      setBrandLogoMode(attrs["data-brand-logo"] || null)
+    } else {
+      setBrandLogoMode(null)
     }
   }, [editor])
 
@@ -331,6 +343,53 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
     [editor]
   )
 
+  const toggleBrandLogo = useCallback(
+    (enabled: boolean, mode: string = "light") => {
+      if (!editor) return
+      const selected = editor.getSelected?.()
+      if (!selected) return
+      if (enabled) {
+        const originalSrc = selected.getAttributes?.()?.src || ""
+        if (!selected.getAttributes?.()?.["data-original-src"]) {
+          selected.addAttributes({ "data-original-src": originalSrc })
+        }
+        selected.addAttributes({ "data-brand-logo": mode })
+        const logoUrl = mode === "dark" ? orgLogos?.dark : orgLogos?.light
+        if (logoUrl) {
+          selected.set("src", logoUrl)
+          selected.addAttributes({ src: logoUrl })
+        }
+        setBrandLogoMode(mode)
+      } else {
+        const originalSrc = selected.getAttributes?.()?.["data-original-src"] || ""
+        selected.addAttributes({ "data-brand-logo": "" })
+        selected.addAttributes({ "data-original-src": "" })
+        if (originalSrc) {
+          selected.set("src", originalSrc)
+          selected.addAttributes({ src: originalSrc })
+        }
+        setBrandLogoMode(null)
+      }
+    },
+    [editor, orgLogos]
+  )
+
+  const setBrandLogoVariant = useCallback(
+    (mode: string) => {
+      if (!editor) return
+      const selected = editor.getSelected?.()
+      if (!selected) return
+      selected.addAttributes({ "data-brand-logo": mode })
+      const logoUrl = mode === "dark" ? orgLogos?.dark : orgLogos?.light
+      if (logoUrl) {
+        selected.set("src", logoUrl)
+        selected.addAttributes({ src: logoUrl })
+      }
+      setBrandLogoMode(mode)
+    },
+    [editor, orgLogos]
+  )
+
   const handleClose = useCallback(() => {
     if (!editor) return
     editor.select(null)
@@ -346,6 +405,9 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
 
   const showTypography = isTextComponent(selected)
   const isQrCode = componentType === "qr-code"
+  const isBrandLogo = componentType === "brand-logo"
+  const isImage = componentType === "image"
+  const showBrandLogoSection = isBrandLogo || isImage
   const isDataVariable = componentType === "data-variable"
   const isInlineOnly = isDataVariable
   const stringVariables = variables.filter(v => v.type === "String")
@@ -393,7 +455,7 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
         <div className="px-3 py-2">
           <Accordion
             type="multiple"
-            defaultValue={["qrcode", "layout", "size", "space", "typography", "background", "border"]}
+            defaultValue={["qrcode", "brandlogo", "layout", "size", "space", "typography", "background", "border"]}
             className="w-full"
           >
             {/* QR Code settings */}
@@ -476,6 +538,51 @@ export function PropertiesPanel({ editor, variables = [] }: PropertiesPanelProps
                       step={10}
                     />
                   </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* Brand Logo settings */}
+            {showBrandLogoSection && (
+              <AccordionItem value="brandlogo">
+                <AccordionTrigger className="py-2 text-xs font-medium">
+                  Brand Logo
+                </AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Use org branding</Label>
+                    <Switch
+                      checked={!!brandLogoMode}
+                      onCheckedChange={(checked) => toggleBrandLogo(checked, brandLogoMode || "light")}
+                    />
+                  </div>
+                  {brandLogoMode && (
+                    <>
+                      <Separator />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Variant</Label>
+                        <ToggleGroup
+                          type="single"
+                          value={brandLogoMode}
+                          onValueChange={(v) => { if (v) setBrandLogoVariant(v) }}
+                          className="justify-start w-full"
+                          size="sm"
+                        >
+                          <ToggleGroupItem value="light" className="flex-1 h-8 text-xs">
+                            Light
+                          </ToggleGroupItem>
+                          <ToggleGroupItem value="dark" className="flex-1 h-8 text-xs">
+                            Dark
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </div>
+                      {!orgLogos?.light && !orgLogos?.dark && (
+                        <p className="text-xs text-amber-600">
+                          No branding logos uploaded. Go to Settings &gt; General &gt; Document Branding to add them.
+                        </p>
+                      )}
+                    </>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             )}
