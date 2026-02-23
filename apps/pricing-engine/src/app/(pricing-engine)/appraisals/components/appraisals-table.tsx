@@ -29,7 +29,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, Columns2, Loader2, MoreHorizontal, Pencil, Search, Users } from "lucide-react";
+import { ChevronDown, Columns2, Loader2, MessageCircle, MoreHorizontal, Pencil, Search, Users } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
@@ -52,8 +52,17 @@ import {
 } from "@repo/ui/shadcn/table";
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@repo/ui/shadcn/sheet";
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
-import { EditAppraisalDialog } from "./edit-appraisal-dialog";
+import { InlineAppraisalCommentsPanel } from "@/components/liveblocks/appraisal-comments-panel";
+import { EditAppraisalSheet } from "./edit-appraisal-sheet";
+import type { EditAppraisalSheetOrder } from "./edit-appraisal-sheet";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -87,6 +96,7 @@ export interface AppraisalOrder {
   file_number: string | null;
   order_type: string | null;
   order_status: string | null;
+  priority: string | null;
   property_address: string | null;
   property_city: string | null;
   property_state: string | null;
@@ -157,6 +167,7 @@ const STATUS_COLORS: Record<string, string> = {
 function buildColumns(
   openAssignDialog: (appraisalId: string) => void,
   openEditDialog: (appraisalId: string) => void,
+  openCommentsSheet: (appraisalId: string) => void,
 ): ColumnDef<AppraisalOrder>[] {
   return [
     {
@@ -257,7 +268,16 @@ function buildColumns(
       cell: ({ row }) => {
         const appraisalId = String(row.original.id);
         return (
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-0.5">
+            <Button
+              className="h-8 w-8 p-0"
+              onClick={() => openCommentsSheet(appraisalId)}
+              size="sm"
+              variant="ghost"
+              data-ignore-row-click
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-8 w-8 p-0" data-ignore-row-click>
@@ -340,6 +360,7 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
   const [rowSelection, setRowSelection] = useState({});
   const [assignAppraisalId, setAssignAppraisalId] = useState<string | null>(null);
   const [editAppraisalId, setEditAppraisalId] = useState<string | null>(null);
+  const [commentsAppraisalId, setCommentsAppraisalId] = useState<string | null>(null);
 
   const openAssignDialog = React.useCallback(
     (appraisalId: string) => setAssignAppraisalId(appraisalId),
@@ -351,9 +372,14 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
     []
   );
 
+  const openCommentsSheet = React.useCallback(
+    (appraisalId: string) => setCommentsAppraisalId(appraisalId),
+    []
+  );
+
   const columns = React.useMemo(
-    () => buildColumns(openAssignDialog, openEditDialog),
-    [openAssignDialog, openEditDialog]
+    () => buildColumns(openAssignDialog, openEditDialog, openCommentsSheet),
+    [openAssignDialog, openEditDialog, openCommentsSheet]
   );
 
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
@@ -604,14 +630,18 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
 
       {editAppraisalId && (() => {
         const order = data.find((o) => String(o.id) === editAppraisalId);
-        const currentBorrowers = (order?.appraisal_borrowers ?? [])
-          .map((ab) => ab.borrowers)
-          .filter((b): b is { id: string; first_name: string; last_name: string } => b !== null);
+        if (!order) return null;
+        const sheetOrder: EditAppraisalSheetOrder = {
+          id: order.id,
+          deal_id: order.deal_id,
+          order_status: order.order_status,
+          priority: order.priority,
+          date_due: order.date_due,
+          appraisal_borrowers: order.appraisal_borrowers,
+        };
         return (
-          <EditAppraisalDialog
-            appraisalId={editAppraisalId}
-            currentDealId={order?.deal_id ?? null}
-            currentBorrowers={currentBorrowers}
+          <EditAppraisalSheet
+            order={sheetOrder}
             open={true}
             onOpenChange={(open) => {
               if (!open) setEditAppraisalId(null);
@@ -620,6 +650,27 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
           />
         );
       })()}
+
+      {/* Comments Sheet — powered by Liveblocks */}
+      <Sheet open={commentsAppraisalId !== null} onOpenChange={(open) => {
+        if (!open) setCommentsAppraisalId(null);
+      }}>
+        <SheetContent className="w-full sm:max-w-xl flex flex-col p-0">
+          <SheetHeader className="px-6 py-4 border-b">
+            <SheetTitle>
+              {commentsAppraisalId ? `Appraisal #${commentsAppraisalId}` : "Appraisal Chat"}
+            </SheetTitle>
+            <SheetDescription>
+              View and add comments for this appraisal order
+            </SheetDescription>
+          </SheetHeader>
+          {commentsAppraisalId && (
+            <div className="flex-1 min-h-0">
+              <InlineAppraisalCommentsPanel appraisalId={commentsAppraisalId} />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </DndContext>
   );
 }

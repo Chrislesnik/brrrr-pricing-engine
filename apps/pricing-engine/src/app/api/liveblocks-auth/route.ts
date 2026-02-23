@@ -35,10 +35,11 @@ export async function POST() {
       },
     });
 
-    // Grant full access to all deal:*, task:*, and email-template:* rooms
+    // Grant full access to all deal:*, task:*, email-template:*, and appraisal:* rooms
     session.allow("deal:*", session.FULL_ACCESS);
     session.allow("task:*", session.FULL_ACCESS);
     session.allow("email-template:*", session.FULL_ACCESS);
+    session.allow("appraisal:*", session.FULL_ACCESS);
 
     const { status, body } = await session.authorize();
     return new Response(body, { status });

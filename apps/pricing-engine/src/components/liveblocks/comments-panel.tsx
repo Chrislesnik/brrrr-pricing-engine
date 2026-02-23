@@ -268,7 +268,7 @@ function ChatListView({
 /*  Inner content — must be rendered inside RoomProvider                       */
 /* -------------------------------------------------------------------------- */
 
-function CommentsContent() {
+export function CommentsContent() {
   const { threads } = useThreads();
   const [activeThread, setActiveThread] = useState<ThreadData | null>(null);
 

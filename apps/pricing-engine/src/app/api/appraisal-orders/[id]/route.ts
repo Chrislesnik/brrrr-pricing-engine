@@ -7,8 +7,7 @@ export const runtime = "nodejs"
 
 /**
  * PATCH /api/appraisal-orders/[id]
- * Update deal_id and/or borrower list on an appraisal.
- * Body: { deal_id?: string | null, borrower_ids?: string[] }
+ * Update fields on an appraisal: deal_id, borrowers, order_status, priority, date_due.
  */
 export async function PATCH(
   req: NextRequest,
@@ -27,7 +26,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid appraisal ID" }, { status: 400 })
     }
 
-    // Verify the appraisal belongs to the caller's org
     const { data: existing, error: fetchErr } = await supabaseAdmin
       .from("appraisal")
       .select("id, organization_id")
@@ -42,33 +40,41 @@ export async function PATCH(
     const body = await req.json().catch(() => null)
     if (!body) return NextResponse.json({ error: "Invalid body" }, { status: 400 })
 
-    const { deal_id, borrower_ids } = body as {
+    const { deal_id, borrower_ids, order_status, priority, date_due } = body as {
       deal_id?: string | null
       borrower_ids?: string[]
+      order_status?: string | null
+      priority?: string | null
+      date_due?: string | null
     }
 
-    // Update deal_id on the appraisal row
-    if (deal_id !== undefined) {
+    // Build update payload for scalar fields on the appraisal row
+    const updatePayload: Record<string, unknown> = {}
+
+    if (deal_id !== undefined) updatePayload.deal_id = deal_id || null
+    if (order_status !== undefined) updatePayload.order_status = order_status || null
+    if (priority !== undefined) updatePayload.priority = priority || null
+    if (date_due !== undefined) updatePayload.date_due = date_due || null
+
+    if (Object.keys(updatePayload).length > 0) {
       const { error: updateErr } = await supabaseAdmin
         .from("appraisal")
-        .update({ deal_id: deal_id || null })
+        .update(updatePayload)
         .eq("id", appraisalId)
 
       if (updateErr) {
-        console.error("[PATCH /api/appraisal-orders] deal_id update error:", updateErr)
+        console.error("[PATCH /api/appraisal-orders] update error:", updateErr)
         return NextResponse.json({ error: updateErr.message }, { status: 500 })
       }
     }
 
     // Replace borrowers via the junction table
     if (borrower_ids !== undefined) {
-      // Delete all existing borrower links
       await supabaseAdmin
         .from("appraisal_borrowers")
         .delete()
         .eq("appraisal_id", appraisalId)
 
-      // Insert new set
       if (borrower_ids.length > 0) {
         const rows = borrower_ids.map((bid) => ({
           appraisal_id: appraisalId,
@@ -84,7 +90,7 @@ export async function PATCH(
         }
       }
 
-      // Keep legacy borrower_id in sync (first borrower or null)
+      // Keep legacy borrower_id in sync
       await supabaseAdmin
         .from("appraisal")
         .update({ borrower_id: borrower_ids[0] ?? null })
