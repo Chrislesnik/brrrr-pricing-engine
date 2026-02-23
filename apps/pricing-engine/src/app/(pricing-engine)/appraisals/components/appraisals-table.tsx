@@ -29,7 +29,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, Columns2, Loader2, Search } from "lucide-react";
+import { ChevronDown, Columns2, Loader2, MoreHorizontal, Pencil, Search, Users } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
@@ -38,6 +38,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
 import { Input } from "@repo/ui/shadcn/input";
@@ -50,6 +52,8 @@ import {
 } from "@repo/ui/shadcn/table";
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
+import { EditAppraisalDialog } from "./edit-appraisal-dialog";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -65,6 +69,11 @@ interface AmcJoin {
   id: string;
   name: string;
   integration_settings?: { id: number; name: string } | null;
+}
+
+interface AppraisalBorrowerJoin {
+  borrower_id: string;
+  borrowers: BorrowerJoin | null;
 }
 
 export interface AppraisalOrder {
@@ -89,6 +98,7 @@ export interface AppraisalOrder {
   date_report_received: string | null;
   created_at: string;
   borrowers: BorrowerJoin | null;
+  appraisal_borrowers: AppraisalBorrowerJoin[] | null;
   integration_setup: AmcJoin | null;
 }
 
@@ -106,6 +116,16 @@ function getAddress(order: AppraisalOrder): string {
 }
 
 function getBorrowerDisplay(order: AppraisalOrder): string {
+  const junctionBorrowers = (order.appraisal_borrowers ?? [])
+    .map((ab) => ab.borrowers)
+    .filter((b): b is BorrowerJoin => b !== null);
+
+  if (junctionBorrowers.length > 0) {
+    return junctionBorrowers
+      .map((b) => `${b.first_name || ""} ${b.last_name || ""}`.trim() || "Unknown")
+      .join(", ");
+  }
+
   if (order.borrowers) {
     return `${order.borrowers.first_name || ""} ${order.borrowers.last_name || ""}`.trim() || "Unknown";
   }
@@ -134,7 +154,10 @@ const STATUS_COLORS: Record<string, string> = {
 /*  Columns                                                                    */
 /* -------------------------------------------------------------------------- */
 
-function buildColumns(): ColumnDef<AppraisalOrder>[] {
+function buildColumns(
+  openAssignDialog: (appraisalId: string) => void,
+  openEditDialog: (appraisalId: string) => void,
+): ColumnDef<AppraisalOrder>[] {
   return [
     {
       id: "select",
@@ -228,6 +251,50 @@ function buildColumns(): ColumnDef<AppraisalOrder>[] {
         </span>
       ),
     },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const appraisalId = String(row.original.id);
+        return (
+          <div className="flex items-center justify-end">
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0" data-ignore-row-click>
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" data-ignore-row-click>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditDialog(appraisalId);
+                    }}
+                  >
+                    <Pencil size={16} className="opacity-60" aria-hidden="true" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAssignDialog(appraisalId);
+                    }}
+                  >
+                    <Users size={16} className="opacity-60" aria-hidden="true" />
+                    Assigned To
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
+    },
   ];
 }
 
@@ -271,8 +338,23 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [rowSelection, setRowSelection] = useState({});
+  const [assignAppraisalId, setAssignAppraisalId] = useState<string | null>(null);
+  const [editAppraisalId, setEditAppraisalId] = useState<string | null>(null);
 
-  const columns = buildColumns();
+  const openAssignDialog = React.useCallback(
+    (appraisalId: string) => setAssignAppraisalId(appraisalId),
+    []
+  );
+
+  const openEditDialog = React.useCallback(
+    (appraisalId: string) => setEditAppraisalId(appraisalId),
+    []
+  );
+
+  const columns = React.useMemo(
+    () => buildColumns(openAssignDialog, openEditDialog),
+    [openAssignDialog, openEditDialog]
+  );
 
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
 
@@ -282,23 +364,24 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
     useSensor(KeyboardSensor, {})
   );
 
-  useEffect(() => {
-    async function fetchOrders() {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/appraisal-orders");
-        if (!res.ok) throw new Error("Failed to fetch appraisal orders");
-        const json = await res.json();
-        setData(json.orders ?? []);
-      } catch (err) {
-        console.error("Error fetching appraisal orders:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setLoading(false);
-      }
+  const fetchOrders = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/appraisal-orders");
+      if (!res.ok) throw new Error("Failed to fetch appraisal orders");
+      const json = await res.json();
+      setData(json.orders ?? []);
+    } catch (err) {
+      console.error("Error fetching appraisal orders:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
     }
-    fetchOrders();
   }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const toggleRow = (rowId: string) => {
     setExpandedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
@@ -507,6 +590,36 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
 
       <DealsStylePagination table={table} />
       </div>
+
+      {assignAppraisalId && (
+        <RoleAssignmentDialog
+          resourceType="appraisal"
+          resourceId={assignAppraisalId}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setAssignAppraisalId(null);
+          }}
+        />
+      )}
+
+      {editAppraisalId && (() => {
+        const order = data.find((o) => String(o.id) === editAppraisalId);
+        const currentBorrowers = (order?.appraisal_borrowers ?? [])
+          .map((ab) => ab.borrowers)
+          .filter((b): b is { id: string; first_name: string; last_name: string } => b !== null);
+        return (
+          <EditAppraisalDialog
+            appraisalId={editAppraisalId}
+            currentDealId={order?.deal_id ?? null}
+            currentBorrowers={currentBorrowers}
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) setEditAppraisalId(null);
+            }}
+            onSaved={fetchOrders}
+          />
+        );
+      })()}
     </DndContext>
   );
 }

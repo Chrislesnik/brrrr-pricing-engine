@@ -357,6 +357,14 @@ export function TasksSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-semibold">Tasks</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Define the task templates that appear on deal pages. Organize them into stages and drag to reorder.
+        </p>
+      </div>
+
       {/* Action buttons */}
       <div className="flex items-center gap-2">
         <Button

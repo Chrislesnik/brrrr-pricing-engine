@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
@@ -22,6 +22,7 @@ export async function GET() {
       .select(`
         *,
         borrowers:borrower_id (id, first_name, last_name),
+        appraisal_borrowers (borrower_id, borrowers:borrower_id (id, first_name, last_name)),
         integration_setup:amc_id (id, name, integration_settings (id, name))
       `)
       .eq("organization_id", orgUuid)
@@ -32,7 +33,22 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ orders: data ?? [] })
+    let orders = data ?? []
+
+    const userRole = await getUserRoleInOrg(orgUuid, userId)
+    if (!isPrivilegedRole(userRole) && orders.length > 0) {
+      const appraisalIds = orders.map((o) => String(o.id))
+      const { data: myAssignments } = await supabaseAdmin
+        .from("role_assignments")
+        .select("resource_id")
+        .eq("resource_type", "appraisal")
+        .eq("user_id", userId)
+        .in("resource_id", appraisalIds)
+      const myIds = new Set((myAssignments ?? []).map((a) => a.resource_id as string))
+      orders = orders.filter((o) => myIds.has(String(o.id)))
+    }
+
+    return NextResponse.json({ orders })
   } catch (e) {
     console.error("[GET /api/appraisal-orders] Unexpected error:", e)
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
@@ -106,6 +122,61 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error("[POST /api/appraisal-orders] Supabase error:", error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Auto-create role assignments (best-effort, never blocks the response)
+    try {
+      if (data.deal_id) {
+        // Deal assignments take priority -- copy them all
+        const { data: dealAssignments } = await supabaseAdmin
+          .from("role_assignments")
+          .select("role_type_id, user_id, organization_id")
+          .eq("resource_type", "deal")
+          .eq("resource_id", data.deal_id)
+
+        const rows = (dealAssignments ?? []).map((a) => ({
+          resource_type: "appraisal" as const,
+          resource_id: String(data.id),
+          role_type_id: a.role_type_id,
+          user_id: a.user_id,
+          organization_id: a.organization_id,
+          created_by: userId,
+        }))
+
+        // Also include creator as AE if not already in deal assignments
+        const creatorInDeal = (dealAssignments ?? []).some((a) => a.user_id === userId)
+        if (!creatorInDeal) {
+          rows.push({
+            resource_type: "appraisal",
+            resource_id: String(data.id),
+            role_type_id: 6,
+            user_id: userId,
+            organization_id: orgUuid,
+            created_by: userId,
+          })
+        }
+
+        if (rows.length) {
+          await supabaseAdmin.from("role_assignments").upsert(rows, {
+            onConflict: "resource_type,resource_id,role_type_id,user_id",
+          })
+        }
+      } else {
+        // No deal -- assign creator as Account Executive
+        await supabaseAdmin.from("role_assignments").upsert(
+          {
+            resource_type: "appraisal",
+            resource_id: String(data.id),
+            role_type_id: 6,
+            user_id: userId,
+            organization_id: orgUuid,
+            created_by: userId,
+          },
+          { onConflict: "resource_type,resource_id,role_type_id,user_id" }
+        )
+      }
+    } catch (assignErr) {
+      console.error("[POST /api/appraisal-orders] Auto-assign error (non-blocking):", assignErr)
     }
 
     return NextResponse.json({ order: data })
