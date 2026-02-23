@@ -52,6 +52,7 @@ export async function GET() {
     const amcs = (data ?? []).map((row) => ({
       id: row.id,
       name: row.name || row.type || "Unnamed",
+      integration_settings_id: row.integration_settings_id,
     }))
 
     return NextResponse.json({ amcs })

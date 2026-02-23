@@ -65,8 +65,9 @@ const formatUSPhone = (input: string) => {
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-interface AmcOption { id: string; name: string }
+interface AmcOption { id: string; name: string; integration_settings_id: number | null }
 interface BorrowerOption { id: string; first_name: string; last_name: string; email?: string }
+interface DealOption { id: string; heading: string | null; created_at: string }
 
 interface NewAppraisalSheetProps {
   open: boolean;
@@ -123,13 +124,17 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   const [otherAccessInfo, setOtherAccessInfo] = useState("");
 
   // Appraisal Information
+  const [products, setProducts] = useState<string[]>([]);
   const [product, setProduct] = useState("");
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [loanAmount, setLoanAmount] = useState("");
   const [salesPrice, setSalesPrice] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
 
-  // Deal ID
+  // Deal
+  const [deals, setDeals] = useState<DealOption[]>([]);
   const [dealId, setDealId] = useState("");
+  const [dealSearchOpen, setDealSearchOpen] = useState(false);
 
   // UI
   const [saving, setSaving] = useState(false);
@@ -139,9 +144,10 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
     if (!open) return;
     async function fetchData() {
       try {
-        const [amcRes, bRes] = await Promise.all([
+        const [amcRes, bRes, dRes] = await Promise.all([
           fetch("/api/appraisal-amcs"),
           fetch("/api/applicants/borrowers/list"),
+          fetch("/api/deals"),
         ]);
         if (amcRes.ok) {
           const json = await amcRes.json();
@@ -159,10 +165,43 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
             }))
           );
         }
+        if (dRes.ok) {
+          const json = await dRes.json();
+          setDeals(json.deals ?? []);
+        }
       } catch { /* ignore */ }
     }
     fetchData();
   }, [open]);
+
+  // Fetch products when AMC changes
+  useEffect(() => {
+    if (!selectedAmcId) {
+      setProducts([]);
+      setProduct("");
+      return;
+    }
+    const amc = amcs.find((a) => a.id === selectedAmcId);
+    const settingsId = amc?.integration_settings_id;
+    if (!settingsId) {
+      setProducts([]);
+      setProduct("");
+      return;
+    }
+    let cancelled = false;
+    async function loadProducts() {
+      try {
+        const res = await fetch(`/api/appraisal-products?settingsId=${settingsId}`);
+        if (res.ok && !cancelled) {
+          const json = await res.json();
+          setProducts(json.products ?? []);
+          setProduct("");
+        }
+      } catch { /* ignore */ }
+    }
+    loadProducts();
+    return () => { cancelled = true; };
+  }, [selectedAmcId, amcs]);
 
   // Select borrower & auto-populate
   const handleSelectBorrower = useCallback(async (id: string) => {
@@ -228,7 +267,7 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amc_id: selectedAmcId ? Number(selectedAmcId) : null,
+          amc_id: selectedAmcId || null,
           deal_id: dealId || null,
           borrower_id: selectedBorrowerId || null,
           borrower_name: borrowerName || null,
@@ -346,8 +385,43 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Deal ID</Label>
-                <Input className="h-9 font-mono" placeholder="Optional deal UUID" value={dealId} onChange={(e) => setDealId(e.target.value)} />
+                <Label className="text-xs">Deal</Label>
+                <Popover open={dealSearchOpen} onOpenChange={setDealSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9">
+                      <span className={cn("truncate", !dealId && "text-muted-foreground")}>
+                        {(() => {
+                          if (!dealId) return "Select deal..."
+                          const d = deals.find((d) => d.id === dealId)
+                          return d?.heading || d?.id.slice(0, 8) + "..."
+                        })()}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search deals..." />
+                      <CommandList>
+                        <CommandEmpty>No deals found.</CommandEmpty>
+                        <CommandGroup>
+                          {deals.map((d) => (
+                            <CommandItem
+                              key={d.id}
+                              value={`${d.heading ?? ""} ${d.id}`}
+                              onSelect={() => { setDealId(d.id); setDealSearchOpen(false); }}
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-sm font-medium">{d.heading || "Untitled Deal"}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono">{d.id.slice(0, 8)}...</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
@@ -529,12 +603,35 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Product</Label>
-                <Select value={product} onValueChange={setProduct}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1004/1007 (SFR & Rent Sch)">1004/1007 (SFR & Rent Sch)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || products.length === 0}>
+                      <span className={cn("truncate", !product && "text-muted-foreground")}>
+                        {product || (selectedAmcId ? "Select product..." : "Select AMC first")}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search products..." />
+                      <CommandList>
+                        <CommandEmpty>No products found.</CommandEmpty>
+                        <CommandGroup>
+                          {products.map((p) => (
+                            <CommandItem
+                              key={p}
+                              value={p}
+                              onSelect={() => { setProduct(p); setProductSearchOpen(false); }}
+                            >
+                              <span className="text-sm">{p}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
