@@ -552,31 +552,8 @@ function DatePickerControl({
   const [calMonth, setCalMonth] = useState<Date>(validDate ?? new Date())
 
   const captionLayout = dateConfig?.calendar_style === "dropdown" ? "dropdown" : "label"
-
-  const configKey = JSON.stringify({
-    min: dateConfig?.min_date ?? null,
-    max: dateConfig?.max_date ?? null,
-  })
-
-  const { disableBefore, disableAfter } = useMemo(() => {
-    return {
-      disableBefore: resolveDateBound(dateConfig?.min_date),
-      disableAfter: resolveDateBound(dateConfig?.max_date),
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configKey])
-
-  const disabledMatcher = useMemo(() => {
-    if (!disableBefore && !disableAfter) return undefined
-    return (date: Date) => {
-      if (disableBefore && date < disableBefore) return true
-      if (disableAfter && date > disableAfter) return true
-      return false
-    }
-  }, [disableBefore, disableAfter])
-
-  const startMonth = disableBefore ?? (captionLayout === "dropdown" ? new Date(2020, 0) : undefined)
-  const endMonth = disableAfter ?? (captionLayout === "dropdown" ? new Date(2035, 11) : undefined)
+  const hasMinDate = !!dateConfig?.min_date
+  const hasMaxDate = !!dateConfig?.max_date
 
   return (
     <Popover>
@@ -595,9 +572,23 @@ function DatePickerControl({
           onMonthChange={setCalMonth}
           onSelect={(d) => d && onChange(d)}
           captionLayout={captionLayout}
-          disabled={disabledMatcher}
-          startMonth={startMonth}
-          endMonth={endMonth}
+          disabled={
+            hasMinDate || hasMaxDate
+              ? (d: Date) => {
+                  if (hasMinDate) {
+                    const min = resolveDateBound(dateConfig?.min_date)
+                    if (min && d < min) return true
+                  }
+                  if (hasMaxDate) {
+                    const max = resolveDateBound(dateConfig?.max_date)
+                    if (max && d > max) return true
+                  }
+                  return false
+                }
+              : undefined
+          }
+          startMonth={captionLayout === "dropdown" ? new Date(2020, 0) : undefined}
+          endMonth={captionLayout === "dropdown" ? new Date(2035, 11) : undefined}
           className="rounded-md border min-w-[264px]"
           autoFocus
         />
