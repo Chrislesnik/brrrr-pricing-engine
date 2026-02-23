@@ -165,8 +165,8 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
 
   let entityMap: Record<string, { name: string | null }> = {}
   if (entityIds.length) {
-    const { data: entities } = await supabaseAdmin.from("entities").select("id, name").in("id", entityIds)
-    entityMap = Object.fromEntries((entities ?? []).map((e) => [e.id as string, { name: (e.name as string) ?? null }]))
+    const { data: entities } = await supabaseAdmin.from("entities").select("id, entity_name").in("id", entityIds)
+    entityMap = Object.fromEntries((entities ?? []).map((e) => [e.id as string, { name: (e.entity_name as string) ?? null }]))
   }
 
   // Fetch primary scenarios for rows without entity_id to read borrower_type
@@ -177,12 +177,32 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
 
   let scenarioMap: Record<string, any> = {}
   if (loanIdsNeedingScenario.length) {
-    const { data: scenarios } = await supabaseAdmin
+    // Read borrower_type from normalized loan_scenario_inputs for primary scenarios
+    const { data: primaryScenarios } = await supabaseAdmin
       .from("loan_scenarios")
-      .select("loan_id, inputs")
+      .select("id, loan_id")
       .in("loan_id", loanIdsNeedingScenario)
       .eq("primary", true)
-    scenarioMap = Object.fromEntries((scenarios ?? []).map((s) => [s.loan_id as string, s.inputs]))
+
+    const scenarioIds = (primaryScenarios ?? []).map((s) => s.id as string)
+    const loanByScenario = Object.fromEntries(
+      (primaryScenarios ?? []).map((s) => [s.id as string, s.loan_id as string])
+    )
+
+    if (scenarioIds.length) {
+      const { data: inputRows } = await supabaseAdmin
+        .from("loan_scenario_inputs")
+        .select("loan_scenario_id, value_text, pricing_engine_inputs!inner(input_code)")
+        .in("loan_scenario_id", scenarioIds)
+        .eq("pricing_engine_inputs.input_code", "borrower_type")
+
+      for (const row of inputRows ?? []) {
+        const loanId = loanByScenario[row.loan_scenario_id as string]
+        if (loanId) {
+          scenarioMap[loanId] = { borrower_type: row.value_text }
+        }
+      }
+    }
   }
 
   // Gather all guarantor_ids to resolve names/emails from borrowers

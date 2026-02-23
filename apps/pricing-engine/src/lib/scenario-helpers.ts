@@ -8,17 +8,21 @@ export async function writeScenarioInputs(
   scenarioId: string,
   inputs: Record<string, unknown>
 ) {
-  // Fetch PE input map: input_code -> { id, input_type }
+  // Fetch PE input map: input_code -> { id, input_type, linked_table }
   const { data: peInputs } = await supabaseAdmin
     .from("pricing_engine_inputs")
-    .select("id, input_code, input_type")
+    .select("id, input_code, input_type, linked_table")
     .is("archived_at", null)
 
   if (!peInputs || peInputs.length === 0) return
 
-  const codeMap = new Map<string, { id: number; input_type: string }>()
+  const codeMap = new Map<string, { id: number; input_type: string; linked_table: string | null }>()
   for (const inp of peInputs) {
-    codeMap.set(inp.input_code, { id: inp.id as number, input_type: inp.input_type as string })
+    codeMap.set(inp.input_code, {
+      id: inp.id as number,
+      input_type: inp.input_type as string,
+      linked_table: (inp.linked_table as string | null) ?? null,
+    })
   }
 
   // Delete existing rows for this scenario
@@ -87,11 +91,12 @@ export async function writeScenarioInputs(
     unit_data: "leased_units",
   }
 
-  const skip = new Set(["address", "borrower_entity_id", "guarantor_borrower_ids", "guarantor_names", "guarantor_emails", "organization_member_id"])
+  const skip = new Set(["address", "borrower_entity_id", "guarantor_borrower_ids", "guarantor_names", "guarantor_emails", "organization_member_id", "program_id"])
   const seen = new Set<number>()
 
   for (const [key, val] of Object.entries(inputs)) {
     if (skip.has(key)) continue
+    if (key.endsWith("_record_id")) continue
     if (val === undefined || val === null) continue
 
     const code = keyAliases[key] ?? key
@@ -114,6 +119,14 @@ export async function writeScenarioInputs(
       row.value_array = Array.isArray(val) ? JSON.stringify(val) : null
     } else {
       row.value_text = String(val)
+    }
+
+    // Populate linked_record_id for inputs that reference another table
+    if (pe.linked_table) {
+      const recordId = inputs[`${code}_record_id`] ?? inputs[`${code}_id`]
+      if (typeof recordId === "string" && recordId) {
+        row.linked_record_id = recordId
+      }
     }
 
     rows.push(row)
@@ -253,22 +266,26 @@ export async function readScenarioInputs(
 ): Promise<Record<string, unknown>> {
   const { data: rows } = await supabaseAdmin
     .from("loan_scenario_inputs")
-    .select("pricing_engine_input_id, input_type, value_text, value_numeric, value_date, value_array, value_bool")
+    .select("pricing_engine_input_id, input_type, value_text, value_numeric, value_date, value_array, value_bool, linked_record_id")
     .eq("loan_scenario_id", scenarioId)
 
   if (!rows || rows.length === 0) return {}
 
   // Fetch input_code map
   const inputIds = rows.map((r) => r.pricing_engine_input_id)
-  const { data: peInputs } = await supabaseAdmin
+  const { data: readPeInputs } = await supabaseAdmin
     .from("pricing_engine_inputs")
-    .select("id, input_code, input_type")
+    .select("id, input_code, input_type, linked_table")
     .in("id", inputIds)
 
-  if (!peInputs) return {}
+  if (!readPeInputs) return {}
 
   const idToCode = new Map<number, string>()
-  for (const inp of peInputs) idToCode.set(inp.id as number, inp.input_code as string)
+  const idToLinkedTable = new Map<number, string | null>()
+  for (const inp of readPeInputs) {
+    idToCode.set(inp.id as number, inp.input_code as string)
+    idToLinkedTable.set(inp.id as number, (inp.linked_table as string | null) ?? null)
+  }
 
   const result: Record<string, unknown> = {}
   const addressFields: Record<string, string> = {}
@@ -307,6 +324,12 @@ export async function readScenarioInputs(
       addressFields[subKey] = String(value ?? "")
     } else {
       result[code] = value
+    }
+
+    // Restore linked record ID for linked inputs
+    const linkedRecordId = row.linked_record_id as string | null
+    if (linkedRecordId && idToLinkedTable.get(row.pricing_engine_input_id as number)) {
+      result[`${code}_record_id`] = linkedRecordId
     }
   }
 

@@ -326,7 +326,8 @@ export function createPipelineColumns(
         <DataTableColumnHeader column={column} title="Guarantor(s)" />
       ),
       cell: ({ row }) => {
-        const gs = (row.getValue("guarantors") as string[]) ?? []
+        const raw = row.getValue("guarantors")
+        const gs: string[] = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] } })() : []
         return (
           <LongText className="max-w-48">
             {gs.length ? gs.join(", ") : "-"}
@@ -336,7 +337,8 @@ export function createPipelineColumns(
       filterFn: (row, columnId, filterValue) => {
         const term = String(filterValue ?? "").toLowerCase()
         if (!term) return true
-        const gs = (row.getValue(columnId) as string[]) ?? []
+        const raw = row.getValue(columnId)
+        const gs: string[] = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] } })() : []
         const joined = gs.join(", ").toLowerCase()
         return joined.includes(term)
       },

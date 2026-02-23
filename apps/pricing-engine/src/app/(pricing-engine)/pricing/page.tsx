@@ -109,8 +109,14 @@ async function saveFileWithPrompt(file: File): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
-function formatDateOnly(date?: Date | null): string | null {
+function formatDateOnly(date?: Date | string | null): string | null {
   if (!date) return null
+  if (typeof date === "string") {
+    if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date.slice(0, 10)
+    const parsed = new Date(date)
+    if (isNaN(parsed.getTime())) return null
+    date = parsed
+  }
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, "0")
   const d = String(date.getDate()).padStart(2, "0")
@@ -823,6 +829,8 @@ export default function PricingEnginePage() {
                 else if (unit === "y") d.setFullYear(d.getFullYear() + amount)
                 defaults[inp.input_code] = d
               }
+            } else if (inp.input_type === "boolean") {
+              defaults[inp.input_code] = (dv === "true" || dv === "yes" || dv === "Yes")
             } else {
               defaults[inp.input_code] = dv
             }
@@ -1036,9 +1044,9 @@ export default function PricingEnginePage() {
 
   // All input changes go to extraFormValues (single source of truth)
   const updateValue = useCallback((code: string, value: unknown) => {
-    setTouched((prev) => ({ ...prev, [code]: true }))
+    setTouched((prev) => prev[code] ? prev : { ...prev, [code]: true })
     clearSignalColor(code)
-    setExtraFormValues((prev) => ({ ...prev, [code]: value }))
+    setExtraFormValues((prev) => prev[code] === value ? prev : { ...prev, [code]: value })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1272,7 +1280,11 @@ export default function PricingEnginePage() {
           } else if (inp.input_type === "number" || inp.input_type === "currency" || inp.input_type === "calc_currency") {
             updateValue(code, String(val))
             autoKeys.push(code)
-          } else if (inp.input_type === "boolean" || (inp.dropdown_options?.length === 2 && inp.dropdown_options.includes("Yes") && inp.dropdown_options.includes("No"))) {
+          } else if (inp.input_type === "boolean") {
+            const s = String(val).trim().toLowerCase()
+            const bv = (typeof val === "boolean") ? val : ["yes", "y", "true", "1"].includes(s)
+            updateValue(code, bv); autoKeys.push(code)
+          } else if (inp.dropdown_options?.length === 2 && inp.dropdown_options.includes("Yes") && inp.dropdown_options.includes("No")) {
             const s = String(val).trim().toLowerCase()
             const yn = (typeof val === "boolean")
               ? (val ? "Yes" : "No")
@@ -1347,10 +1359,10 @@ export default function PricingEnginePage() {
     }
 
     for (const input of peInputDefs) {
-      const val = formValues[input.input_code]
+      const val = formValues[input.input_code] ?? computedDefaults[input.input_code]
 
       if (input.input_type === "date") {
-        payload[input.input_code] = formatDateOnly(val as Date | undefined)
+        payload[input.input_code] = formatDateOnly(val as Date | string | undefined)
       } else if (input.input_type === "tags") {
         payload[input.input_code] = Array.isArray(val)
           ? val.map((t: unknown) => typeof t === "string" ? t : (t as { name: string })?.name ?? t)
@@ -1358,8 +1370,7 @@ export default function PricingEnginePage() {
       } else if (input.input_type === "table") {
         payload[input.input_code] = val ?? []
       } else if (input.input_type === "boolean") {
-        const v = val
-        payload[input.input_code] = (v === "true" || v === true || v === "Yes") ? "true" : "false"
+        payload[input.input_code] = (val === "true" || val === true || val === "Yes") ? "true" : "false"
       } else {
         payload[input.input_code] = val ?? ""
       }
@@ -1558,7 +1569,6 @@ export default function PricingEnginePage() {
           }
         })
       )
-      toast({ title: "Sent", description: "Webhooks dispatched" })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Failed to send", description: message, variant: "destructive" })
@@ -1855,6 +1865,10 @@ export default function PricingEnginePage() {
         if (d) hydrated[canonicalCode] = d
       } else if (inputDef?.input_type === "table" && Array.isArray(val)) {
         hydrated[canonicalCode] = val
+      } else if (inputDef?.input_type === "boolean") {
+        if (!(canonicalCode in hydrated)) {
+          hydrated[canonicalCode] = (val === true || val === "true" || val === "yes" || val === "Yes")
+        }
       } else {
         if (!(canonicalCode in hydrated)) hydrated[canonicalCode] = val
       }
@@ -1866,7 +1880,7 @@ export default function PricingEnginePage() {
       const legacyCode = Object.entries(legacyKeyMap).find(([, v]) => v === inp.input_code)?.[0]
       const raw = legacyCode && legacyCode in payload ? payload[legacyCode] : undefined
       if (raw !== undefined && !(inp.input_code in hydrated)) {
-        hydrated[inp.input_code] = (raw === "yes" || raw === true) ? "true" : "false"
+        hydrated[inp.input_code] = (raw === "yes" || raw === true || raw === "true" || raw === "Yes")
       }
     }
 

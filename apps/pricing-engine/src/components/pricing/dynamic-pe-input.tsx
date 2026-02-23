@@ -87,7 +87,10 @@ export function DynamicPEInput({
 }: DynamicPEInputProps) {
   const id = `pe-${field.input_code}`
   const placeholder = field.placeholder ?? ""
-  const isDefault = (!touched && value === field.default_value) || !!isExpressionDefault
+  const isDefault = (!touched && (
+    value === field.default_value ||
+    (field.input_type === "boolean" && typeof value === "boolean" && value === (field.default_value === "true" || field.default_value === "yes" || field.default_value === "Yes"))
+  )) || !!isExpressionDefault
 
   const constraints = NUMERIC_INPUT_TYPES.has(field.input_type) && field.config
     ? resolveNumberConstraints(field.config as unknown as NumberConstraintsConfig, formValues ?? {})
@@ -95,6 +98,7 @@ export function DynamicPEInput({
 
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const prevClampedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!constraints) return
@@ -102,7 +106,11 @@ export function DynamicPEInput({
     const num = isEmpty ? NaN : Number(value)
 
     if (isEmpty && constraints.min != null) {
-      onChangeRef.current(String(constraints.min))
+      const target = String(constraints.min)
+      if (prevClampedRef.current !== target) {
+        prevClampedRef.current = target
+        onChangeRef.current(target)
+      }
       return
     }
 
@@ -111,7 +119,15 @@ export function DynamicPEInput({
     let clamped = num
     if (constraints.min != null && clamped < constraints.min) clamped = constraints.min
     if (constraints.max != null && clamped > constraints.max) clamped = constraints.max
-    if (clamped !== num) onChangeRef.current(String(clamped))
+    if (clamped !== num) {
+      const target = String(clamped)
+      if (prevClampedRef.current !== target) {
+        prevClampedRef.current = target
+        onChangeRef.current(target)
+      }
+    } else {
+      prevClampedRef.current = null
+    }
   }, [constraints?.min, constraints?.max, value])
 
   return (
@@ -358,7 +374,7 @@ function InputControl({
               <Switch
                 id={id}
                 checked={boolVal}
-                onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
+                onCheckedChange={(checked) => onChange(!!checked)}
                 className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
               />
               <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
@@ -376,7 +392,7 @@ function InputControl({
         return (
           <RadioGroup
             value={boolVal ? "true" : "false"}
-            onValueChange={(v) => onChange(v)}
+            onValueChange={(v) => onChange(v === "true")}
             className="flex items-center gap-4 py-1"
           >
             <div className="flex items-center gap-1.5">
@@ -397,7 +413,7 @@ function InputControl({
             <Checkbox
               id={id}
               checked={boolVal}
-              onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
+              onCheckedChange={(checked) => onChange(!!checked)}
             />
             <Label htmlFor={id} className="text-sm">
               Yes
@@ -409,7 +425,7 @@ function InputControl({
       return (
         <Select
           value={boolVal ? "true" : (value === "false" || value === "No" || value === false ? "false" : "")}
-          onValueChange={(v) => onChange(v)}
+          onValueChange={(v) => onChange(v === "true")}
         >
           <SelectTrigger id={id} className={cn(computedClass)}>
             <SelectValue placeholder={effectivePlaceholder || field.input_label} />

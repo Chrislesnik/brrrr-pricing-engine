@@ -36,18 +36,16 @@ async function waitForOrgMemberId(
   }
 }
 
-function booleanToYesNoDeep(value: unknown): unknown {
-  if (typeof value === "boolean") {
-    return value ? "yes" : "no"
-  }
+function booleanToStringDeep(value: unknown): unknown {
+  if (typeof value === "boolean") return value ? "true" : "false"
   if (Array.isArray(value)) {
-    return value.map((v) => booleanToYesNoDeep(v))
+    return value.map((v) => booleanToStringDeep(v))
   }
   if (value && typeof value === "object") {
     const src = value as Record<string, unknown>
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(src)) {
-      out[k] = booleanToYesNoDeep(v)
+      out[k] = booleanToStringDeep(v)
     }
     return out
   }
@@ -88,7 +86,7 @@ export async function POST(req: NextRequest) {
       ok?: boolean
       data: Record<string, unknown> | null
     }[] = []
-    const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
+    const normalizedData = booleanToStringDeep(json.data) as Record<string, unknown>
     normalizedData["organization_member_id"] = myMemberId
     const requestIdBase = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
     await Promise.all(

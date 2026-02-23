@@ -352,6 +352,11 @@ function resolveReferences(
     const val = values[inputId];
     if (val === null || val === undefined || val === "") return "0";
     if (typeof val === "boolean") return val ? "1" : "0";
+    if (typeof val === "string") {
+      const lower = val.toLowerCase();
+      if (lower === "true" || lower === "yes") return "1";
+      if (lower === "false" || lower === "no") return "0";
+    }
     const num = Number(val);
     return isNaN(num) ? "0" : String(num);
   });

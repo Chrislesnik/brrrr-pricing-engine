@@ -5144,69 +5144,40 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
-          borrower_entity_id: string | null
           created_at: string
-          guarantor_borrower_ids: string[] | null
-          guarantor_emails: string[] | null
-          guarantor_names: string[] | null
+          created_by: string | null
           id: string
-          inputs: Json
           loan_id: string
           name: string | null
           organization_id: string
           primary: boolean | null
-          selected: Json
-          user_id: string | null
+          selected_rate_option_id: number | null
         }
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
-          borrower_entity_id?: string | null
           created_at?: string
-          guarantor_borrower_ids?: string[] | null
-          guarantor_emails?: string[] | null
-          guarantor_names?: string[] | null
+          created_by?: string | null
           id?: string
-          inputs?: Json
           loan_id: string
           name?: string | null
           organization_id?: string
           primary?: boolean | null
-          selected: Json
-          user_id?: string | null
+          selected_rate_option_id?: number | null
         }
         Update: {
           archived_at?: string | null
           archived_by?: string | null
-          borrower_entity_id?: string | null
           created_at?: string
-          guarantor_borrower_ids?: string[] | null
-          guarantor_emails?: string[] | null
-          guarantor_names?: string[] | null
+          created_by?: string | null
           id?: string
-          inputs?: Json
           loan_id?: string
           name?: string | null
           organization_id?: string
           primary?: boolean | null
-          selected?: Json
-          user_id?: string | null
+          selected_rate_option_id?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "loan_scenarios_borrower_entity_id_fkey"
-            columns: ["borrower_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "loan_scenarios_borrower_entity_id_fkey"
-            columns: ["borrower_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities_view"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "loan_scenarios_loan_id_fkey"
             columns: ["loan_id"]
