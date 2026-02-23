@@ -55,7 +55,6 @@ import { CalcInput } from "@/components/calc-input"
 import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
 import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
 import { evaluateExpression } from "@/lib/expression-evaluator"
-import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
 import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
 import type { TableConfig } from "@/types/table-config"
 import type { SectionButton } from "@/types/section-buttons"
@@ -565,19 +564,6 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
-  // Entity name autocomplete state for Borrower Name input
-  const [entityQuery, setEntityQuery] = useState("")
-  const [entitySuggestions, setEntitySuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
-  const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
-  const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined)
-  const [hasSessionEntity, setHasSessionEntity] = useState<boolean>(false)
-  const [entityLoading, setEntityLoading] = useState(false)
-  // Guarantor suggestions
-  const [showGuarantorSuggestions, setShowGuarantorSuggestions] = useState(false)
-  const [guarantorSuggestions, setGuarantorSuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
-  const [guarantorQuery, setGuarantorQuery] = useState("")
-  // hasSessionGuarantors removed - linked status is now tracked per-tag in guarantorTags array
-  const [guarantorLoading, setGuarantorLoading] = useState(false)
 
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
@@ -628,83 +614,6 @@ export default function PricingEnginePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
 
-  // Fetch entity suggestions as user types borrower name
-  useEffect(() => {
-    let cancelled = false
-    if (!showEntitySuggestions) {
-      setEntitySuggestions([])
-      setEntityLoading(false)
-      return
-    }
-    const qRaw = entityQuery
-    const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
-    const ctrl = new AbortController()
-    setEntityLoading(true)
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/applicants/entities?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, cache: "no-store" })
-        if (!res.ok) return
-        const j = (await res.json().catch(() => ({}))) as { entities?: Array<{ id: string; display_id?: string; entity_name?: string }> }
-        if (cancelled) return
-        const opts =
-          (j.entities ?? []).slice(0, 20).map((e) => ({
-            id: e.id as string,
-            name: (e.entity_name ?? "") as string,
-            display: `${(e.display_id ?? "") as string} ${(e.entity_name ?? "") as string}`.trim(),
-          })) ?? []
-        setEntitySuggestions(opts)
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setEntityLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ctrl.abort()
-    }
-  }, [entityQuery, showEntitySuggestions])
-
-  // Fetch guarantor suggestions as user types the current token
-  useEffect(() => {
-    let cancelled = false
-    if (!showGuarantorSuggestions) {
-      setGuarantorSuggestions([])
-      setGuarantorLoading(false)
-      return
-    }
-    const qRaw = guarantorQuery
-    const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
-    const ctrl = new AbortController()
-    setGuarantorLoading(true)
-    ;(async () => {
-      try {
-        const url = new URL("/api/applicants/borrowers", window.location.origin)
-        url.searchParams.set("q", q)
-        if (selectedEntityId) url.searchParams.set("entityId", selectedEntityId)
-        const res = await fetch(url.toString(), { signal: ctrl.signal, cache: "no-store" })
-        if (!res.ok) return
-        const j = (await res.json().catch(() => ({}))) as { borrowers?: Array<{ id: string; display_id?: string; first_name?: string; last_name?: string }> }
-        if (cancelled) return
-        const opts =
-          (j.borrowers ?? []).slice(0, 20).map((b) => ({
-            id: b.id as string,
-            name: [b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim(),
-            display: `${(b.display_id ?? "") as string} ${[b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim()}`.trim(),
-          })) ?? []
-        setGuarantorSuggestions(opts)
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setGuarantorLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ctrl.abort()
-    }
-  }, [guarantorQuery, showGuarantorSuggestions, selectedEntityId])
-
   // ----- Resizable panels (inputs/results) -----
   const [leftPanePct, setLeftPanePct] = useState<number>(0.3) // 30% default (clamped 25–50)
   const [isResizing, setIsResizing] = useState<boolean>(false)
@@ -743,32 +652,53 @@ export default function PricingEnginePage() {
     }
   }, [isResizing])
 
-  // Subject Property dependent state
-  const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
-  const [numUnits, setNumUnits] = useState<number | undefined>(undefined)
-  const [loanType, setLoanType] = useState<string | undefined>(undefined)
-  const [bridgeType, setBridgeType] = useState<string | undefined>(undefined)
-  const [transactionType, setTransactionType] = useState<string | undefined>(undefined)
-  const [closingDate, setClosingDate] = useState<Date | undefined>(undefined)
-  const [acquisitionDate, setAcquisitionDate] = useState<Date | undefined>(undefined)
-  const [requestMaxLeverage, setRequestMaxLeverage] = useState<boolean>(false)
-  const [hoiEffective, setHoiEffective] = useState<Date | undefined>(undefined)
-  const [floodEffective, setFloodEffective] = useState<Date | undefined>(undefined)
-  // Calendar visible months (controlled so arrows work and typing syncs view)
-  const [closingCalMonth, setClosingCalMonth] = useState<Date | undefined>(undefined)
-  const [acqCalMonth, setAcqCalMonth] = useState<Date | undefined>(undefined)
-  const [hoiCalMonth, setHoiCalMonth] = useState<Date | undefined>(undefined)
-  const [floodCalMonth, setFloodCalMonth] = useState<Date | undefined>(undefined)
-  const [initialLoanAmount, setInitialLoanAmount] = useState<string>("")
-  const [rehabHoldback, setRehabHoldback] = useState<string>("")
+  // Unified input state: single source of truth for all PE input values
+  const [extraFormValues, setExtraFormValues] = useState<Record<string, unknown>>({})
 
-  // Address fields (hooked to Google Places)
-  const [street, setStreet] = useState<string>("")
-  const [apt, setApt] = useState<string>("")
-  const [city, setCity] = useState<string>("")
-  const [stateCode, setStateCode] = useState<string | undefined>(undefined)
-  const [zip, setZip] = useState<string>("")
-  const [county, setCounty] = useState<string>("")
+  // PE input definitions (moved up so dynamic address/date derivations can use them)
+  interface PECategory { id: number; category: string; display_order: number; default_open: boolean; config?: Record<string, unknown> | null }
+  interface PEInputDef extends PEInputField { category_id: number; display_order: number; config?: Record<string, unknown> | null }
+  const [peInputDefs, setPeInputDefs] = useState<PEInputDef[]>([])
+
+  // Dynamic helper to read any input value by code
+  const fv = useCallback((code: string) => extraFormValues[code], [extraFormValues])
+
+  // Dynamic address field codes resolved from peInputDefs config (address_role → input_code)
+  const primaryAddrCodes = useMemo(() => {
+    const codes: Record<string, string> = {}
+    for (const inp of peInputDefs) {
+      const role = inp.config?.address_role as string | undefined
+      if (role && !codes[role]) codes[role] = inp.input_code
+    }
+    return codes
+  }, [peInputDefs])
+  const street = String(extraFormValues[primaryAddrCodes.street ?? ""] ?? "")
+  const apt = String(extraFormValues[primaryAddrCodes.apt ?? ""] ?? "")
+  const city = String(extraFormValues[primaryAddrCodes.city ?? ""] ?? "")
+  const stateCode = extraFormValues[primaryAddrCodes.state ?? ""] as string | undefined
+  const zip = String(extraFormValues[primaryAddrCodes.zip ?? ""] ?? "")
+  const county = String(extraFormValues[primaryAddrCodes.county ?? ""] ?? "")
+
+  // Date input codes resolved dynamically from peInputDefs
+  const dateInputCodes = useMemo(() =>
+    peInputDefs.filter((d) => d.input_type === "date").map((d) => d.input_code),
+    [peInputDefs],
+  )
+
+  // Generic calendar month state for all date inputs (keyed by input_code)
+  const [calendarMonths, setCalendarMonths] = useState<Record<string, Date | undefined>>({})
+  const setCalendarMonth = useCallback((code: string, d: Date | undefined) => {
+    setCalendarMonths((prev) => prev[code] === d ? prev : { ...prev, [code]: d })
+  }, [])
+
+  // Sync calendar visible months when date values change
+  useEffect(() => {
+    for (const code of dateInputCodes) {
+      const val = extraFormValues[code] as Date | undefined
+      setCalendarMonth(code, val ?? undefined)
+    }
+  }, [dateInputCodes, extraFormValues, setCalendarMonth])
+
   const streetInputRef = useRef<HTMLInputElement | null>(null)
   const [sendingReApi, setSendingReApi] = useState<boolean>(false)
   const [reApiClicked, setReApiClicked] = useState(false)
@@ -805,56 +735,7 @@ export default function PricingEnginePage() {
   const mapZoom = 16
   const debugSessionId = "debug-session"
   const debugRunId = "pre-fix"
-  // Controlled fields for webhook responses
-  const [glaSqFt, setGlaSqFt] = useState<string>("0")
-  const [purchasePrice, setPurchasePrice] = useState<string>("")
-  const [annualTaxes, setAnnualTaxes] = useState<string>("")
-  const [annualHoi, setAnnualHoi] = useState<string>("")
-  const [annualFlood, setAnnualFlood] = useState<string>("")
-  const [annualHoa, setAnnualHoa] = useState<string>("")
-  const [annualMgmt, setAnnualMgmt] = useState<string>("")
-  const [loanAmount, setLoanAmount] = useState<string>("")
-  const [adminFee, setAdminFee] = useState<string>("")
-  const [brokerAdminFee, setBrokerAdminFee] = useState<string>("")
-  const [payoffAmount, setPayoffAmount] = useState<string>("")
-  const [titleRecordingFee, setTitleRecordingFee] = useState<string>("")
-  const [assignmentFee, setAssignmentFee] = useState<string>("")
-  const [sellerConcessions, setSellerConcessions] = useState<string>("")
-  const [hoiPremium, setHoiPremium] = useState<string>("")
-  const [floodPremium, setFloodPremium] = useState<string>("")
-  const [emd, setEmd] = useState<string>("")
-  const [mortgageDebtValue, setMortgageDebtValue] = useState<string>("")
-  const [rehabBudget, setRehabBudget] = useState<string>("")
-  const [rehabCompleted, setRehabCompleted] = useState<string>("")
-  const [arv, setArv] = useState<string>("")
-  const [aiv, setAiv] = useState<string>("")
-  // Additional UI states to include in payload
-  const [borrowerType, setBorrowerType] = useState<string | undefined>(undefined)
-  const [citizenship, setCitizenship] = useState<string | undefined>(undefined)
-  const [fico, setFico] = useState<string>("")
-  const [fthb, setFthb] = useState<string | undefined>(undefined) // DSCR only
-  const [rentalsOwned, setRentalsOwned] = useState<string>("") // Bridge only
-  const [numFlips, setNumFlips] = useState<string>("") // Bridge only
-  const [numGunc, setNumGunc] = useState<string>("") // Bridge only
-  const [otherExp, setOtherExp] = useState<string | undefined>(undefined) // Bridge only
-  const [warrantability, setWarrantability] = useState<string | undefined>(undefined) // Condo only
-  const [strValue, setStrValue] = useState<string | undefined>(undefined) // DSCR only
-  const [decliningMarket, setDecliningMarket] = useState<string | undefined>(undefined) // DSCR only
-  const [rural, setRural] = useState<string | undefined>(undefined) // Yes/No
-  const [loanStructureType, setLoanStructureType] = useState<string | undefined>(undefined) // DSCR
-  const [ppp, setPpp] = useState<string | undefined>(undefined) // DSCR
-  const [term, setTerm] = useState<string | undefined>(undefined) // Bridge
-  const [lenderOrig, setLenderOrig] = useState<string>("")
-  const [brokerOrig, setBrokerOrig] = useState<string>("")
-  const [borrowerName, setBorrowerName] = useState<string>("")
-  const [guarantorTags, setGuarantorTags] = useState<Array<{ name: string; id?: string }>>([])
-  const [uwException, setUwException] = useState<string | undefined>(undefined)
-  // Note: We no longer restore/cache borrower/guarantor links from localStorage.
-  // Links are only established when user selects from dropdown or loads a saved scenario.
-  const [section8, setSection8] = useState<string | undefined>(undefined)
-  const [glaExpansion, setGlaExpansion] = useState<string | undefined>(undefined) // Bridge rehab
-  const [changeOfUse, setChangeOfUse] = useState<string | undefined>(undefined) // Bridge rehab
-  const [taxEscrowMonths, setTaxEscrowMonths] = useState<string>("")
+  // Guarantor tags kept as useState (complex array type, not a simple PE input value)
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
@@ -876,51 +757,6 @@ export default function PricingEnginePage() {
   const [pendingScenarioName, setPendingScenarioName] = useState<string | undefined>(undefined)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false)
 
-  // Defaults for a brand-new loan (from "New Loan" button).
-  // These should be visible as greyed values but still included in all POST payloads.
-  const addDays = (dt: Date, days: number) => {
-    const d = new Date(dt)
-    d.setDate(d.getDate() + days)
-    return d
-  }
-  const addYears = (dt: Date, years: number) => {
-    const d = new Date(dt)
-    d.setFullYear(d.getFullYear() + years)
-    return d
-  }
-  const _isSameDay = (a?: Date, b?: Date) => {
-    if (!a || !b) return false
-    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-  }
-  const DEFAULTS = React.useMemo(
-    () => ({
-      borrowerType: "entity" as string,
-      fthb: "no" as string,
-      citizenship: "us" as string,
-      mortgageDebtValue: "0" as string,
-      rural: "no" as string,
-      strValue: "no" as string,
-      decliningMarket: "no" as string,
-      annualFlood: "0" as string,
-      annualHoa: "0" as string,
-      annualMgmt: "0" as string,
-      closingDate: addDays(new Date(), 24) as Date,
-      acquisitionDate: addYears(new Date(), -1) as Date,
-      loanStructureType: "fixed-30" as string,
-      ppp: "5-4-3-2-1" as string,
-      borrowerName: "Borrowing Entity LLC" as string,
-      guarantorPlaceholder: "First Last" as string,
-      uwException: "no" as string,
-      section8: "no" as string,
-      glaExpansion: "no" as string,
-      changeOfUse: "no" as string,
-      hoiEffective: addDays(new Date(), 24) as Date,
-      floodEffective: addDays(new Date(), 24) as Date,
-      taxEscrowMonths: "3" as string,
-    }),
-    []
-  )
-  const defaultsAppliedRef = useRef<boolean>(false)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [signalColors, setSignalColors] = useState<Record<string, string>>({})
   function markSignalColors(keys: string[], color: string) {
@@ -939,90 +775,13 @@ export default function PricingEnginePage() {
       return next
     })
   }
-  useEffect(() => {
-    if (defaultsAppliedRef.current) return
-    // Only apply defaults when arriving via "New Loan" (no loanId present)
-    if (initialLoanId) return
-    // Guard against overriding any prefilled values
-    const setIfUnsetString = (current: string | undefined, setter: (v: string) => void, value: string) => {
-      if (current === undefined || current === "") setter(value)
-    }
-    const setIfUnsetDate = (current: Date | undefined, setter: (v: Date) => void, value: Date) => {
-      if (!current) setter(value)
-    }
-    setIfUnsetString(borrowerType, (v) => setBorrowerType(v), DEFAULTS.borrowerType)
-    setIfUnsetString(fthb, (v) => setFthb(v), DEFAULTS.fthb)
-    setIfUnsetString(citizenship, (v) => setCitizenship(v), DEFAULTS.citizenship)
-    setIfUnsetString(mortgageDebtValue, (v) => setMortgageDebtValue(v), DEFAULTS.mortgageDebtValue)
-    setIfUnsetString(rural, (v) => setRural(v), DEFAULTS.rural)
-    setIfUnsetString(strValue, (v) => setStrValue(v), DEFAULTS.strValue)
-    setIfUnsetString(decliningMarket, (v) => setDecliningMarket(v), DEFAULTS.decliningMarket)
-    setIfUnsetString(annualFlood, (v) => setAnnualFlood(v), DEFAULTS.annualFlood)
-    setIfUnsetString(annualHoa, (v) => setAnnualHoa(v), DEFAULTS.annualHoa)
-    setIfUnsetString(annualMgmt, (v) => setAnnualMgmt(v), DEFAULTS.annualMgmt)
-    setIfUnsetDate(closingDate, (v) => setClosingDate(v), DEFAULTS.closingDate)
-    setIfUnsetDate(acquisitionDate, (v) => setAcquisitionDate(v), DEFAULTS.acquisitionDate)
-    setIfUnsetString(loanStructureType, (v) => setLoanStructureType(v), DEFAULTS.loanStructureType)
-    setIfUnsetString(ppp, (v) => setPpp(v), DEFAULTS.ppp)
-    setIfUnsetString(borrowerName, (v) => setBorrowerName(v), DEFAULTS.borrowerName)
-    // guarantorTags is now an array, no default string needed
-    setIfUnsetString(uwException, (v) => setUwException(v), DEFAULTS.uwException)
-    setIfUnsetString(section8, (v) => setSection8(v), DEFAULTS.section8)
-    setIfUnsetString(glaExpansion, (v) => setGlaExpansion(v), DEFAULTS.glaExpansion)
-    setIfUnsetString(changeOfUse, (v) => setChangeOfUse(v), DEFAULTS.changeOfUse)
-    setIfUnsetDate(hoiEffective, (v) => setHoiEffective(v), DEFAULTS.hoiEffective)
-    setIfUnsetDate(floodEffective, (v) => setFloodEffective(v), DEFAULTS.floodEffective)
-    // Bridge defaults to 0 months; DSCR defaults to 3
-    setIfUnsetString(
-      taxEscrowMonths,
-      (v) => setTaxEscrowMonths(v),
-      loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
-    )
-    defaultsAppliedRef.current = true
-  }, [
-    initialLoanId,
-    borrowerType,
-    fthb,
-    citizenship,
-    mortgageDebtValue,
-    rural,
-    strValue,
-    decliningMarket,
-    annualFlood,
-    annualHoa,
-    annualMgmt,
-    closingDate,
-    loanStructureType,
-    ppp,
-    borrowerName,
-    uwException,
-    section8,
-    glaExpansion,
-    changeOfUse,
-    hoiEffective,
-    floodEffective,
-    taxEscrowMonths,
-  ])
-
-  // Keep Tax Escrow (months) default in sync with loan type until user edits it
-  useEffect(() => {
-    const currentDefault = loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
-    if (!touched.taxEscrowMonths) {
-      setTaxEscrowMonths((v) => (v === "" || v === "0" || v === "3" ? currentDefault : v))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loanType])
 
   /* -------------------------------------------------------------------------- */
   /*  Dynamic PE inputs infrastructure                                           */
   /* -------------------------------------------------------------------------- */
-  interface PECategory { id: number; category: string; display_order: number; default_open: boolean; config?: Record<string, unknown> | null }
-  interface PEInputDef extends PEInputField { category_id: number; display_order: number; config?: Record<string, unknown> | null }
   const [peCategories, setPeCategories] = useState<PECategory[]>([])
-  const [peInputDefs, setPeInputDefs] = useState<PEInputDef[]>([])
   const [peLoaded, setPeLoaded] = useState(false)
   const [openAccordionSections, setOpenAccordionSections] = useState<string[]>([])
-  const [extraFormValues, setExtraFormValues] = useState<Record<string, unknown>>({})
   const [sectionButtons, setSectionButtons] = useState<SectionButton[]>([])
   const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, { id: string; label: string }[]>>({})
 
@@ -1069,13 +828,7 @@ export default function PricingEnginePage() {
             }
           }
           if (Object.keys(defaults).length > 0 && !initialLoanId) {
-            setExtraFormValues((prev) => {
-              const merged = { ...defaults }
-              for (const [k, v] of Object.entries(prev)) {
-                if (v !== undefined && v !== null && v !== "") merged[k] = v
-              }
-              return merged
-            })
+            setExtraFormValues((prev) => ({ ...prev, ...defaults }))
           }
         }
         if (btnsRes.ok) {
@@ -1168,59 +921,10 @@ export default function PricingEnginePage() {
     return map
   }, [peInputDefs])
 
-  // Combined form values merging individual states + extras
+  // All form values come from extraFormValues (single source of truth)
   const formValues = useMemo<Record<string, unknown>>(() => {
-    const known: Record<string, unknown> = {
-      loan_type: loanType, transaction_type: transactionType, bridge_type: bridgeType,
-      borrower_type: borrowerType, citizenship: citizenship, first_time_homebuyer: fthb,
-      mortgage_debt: mortgageDebtValue, fico_score: fico,
-      rentals_owned: rentalsOwned, number_of_flips: numFlips, number_of_gunc: numGunc,
-      other_experience: otherExp,
-      address_street: street, address_apt: apt, address_city: city,
-      address_state: stateCode, address_zip: zip, address_county: county,
-      property_type: propertyType, warrantability: warrantability,
-      number_of_units: numUnits != null ? String(numUnits) : "",
-      sq_footage: glaSqFt, rural: rural, short_term_rental: strValue,
-      declining_market: decliningMarket,
-      annual_taxes: annualTaxes, annual_hoi: annualHoi, annual_flood: annualFlood,
-      annual_hoa: annualHoa, annual_management: annualMgmt,
-      gla_expansion: glaExpansion, change_of_use: changeOfUse,
-      rehab_budget: rehabBudget, arv: arv,
-      projected_closing_date: closingDate, acquisition_date: acquisitionDate,
-      loan_structure_type: loanStructureType, pre_payment_penalty: ppp,
-      bridge_term: term,
-      purchase_price: purchasePrice, rehab_completed_amount: rehabCompleted,
-      payoff_amount: payoffAmount, as_is_value: aiv,
-      request_max_leverage: requestMaxLeverage ? "true" : "false",
-      initial_loan_amount: initialLoanAmount, rehab_holdback: rehabHoldback,
-      loan_amount: loanAmount,
-      lender_origination: lenderOrig, lender_admin_fee: adminFee,
-      broker_origination: brokerOrig, broker_admin_fee: brokerAdminFee,
-      borrower_name: borrowerName,
-      guarantors: guarantorTags.map((t) => t.name),
-      uw_exception: uwException, section_8: section8,
-      hoi_effective: hoiEffective, flood_effective: floodEffective,
-      title_recording_fee: titleRecordingFee, assignment_fee: assignmentFee,
-      seller_concessions: sellerConcessions, tax_escrow_months: taxEscrowMonths,
-      hoi_premium: hoiPremium, flood_premium: floodPremium, emd: emd,
-    }
-    return { ...known, ...extraFormValues }
-  }, [
-    loanType, transactionType, bridgeType, borrowerType, citizenship, fthb,
-    mortgageDebtValue, fico, rentalsOwned, numFlips, numGunc, otherExp,
-    street, apt, city, stateCode, zip, county,
-    propertyType, warrantability, numUnits, glaSqFt, rural, strValue, decliningMarket,
-    annualTaxes, annualHoi, annualFlood, annualHoa, annualMgmt,
-    glaExpansion, changeOfUse, rehabBudget, arv,
-    closingDate, acquisitionDate, loanStructureType, ppp, term,
-    purchasePrice, rehabCompleted, payoffAmount, aiv,
-    requestMaxLeverage, initialLoanAmount, rehabHoldback, loanAmount,
-    lenderOrig, adminFee, brokerOrig, brokerAdminFee,
-    borrowerName, guarantorTags, uwException, section8,
-    hoiEffective, floodEffective, titleRecordingFee, assignmentFee,
-    sellerConcessions, taxEscrowMonths, hoiPremium, floodPremium, emd,
-    extraFormValues,
-  ])
+    return { ...extraFormValues }
+  }, [extraFormValues])
 
   // Values keyed by input_id for the logic engine
   const formValuesById = useMemo(() => {
@@ -1330,80 +1034,11 @@ export default function PricingEnginePage() {
     return codes
   }, [peLogicResult.requiredFields, idToCodeMap])
 
-  // Route dynamic input changes to individual state setters
+  // All input changes go to extraFormValues (single source of truth)
   const updateValue = useCallback((code: string, value: unknown) => {
     setTouched((prev) => ({ ...prev, [code]: true }))
     clearSignalColor(code)
-    // Always mirror in extraFormValues so ConfigurableGrid row_source lookups work
     setExtraFormValues((prev) => ({ ...prev, [code]: value }))
-    switch (code) {
-      case "loan_type": setLoanType(value as string | undefined); return
-      case "transaction_type": setTransactionType(value as string | undefined); return
-      case "bridge_type": setBridgeType(value as string | undefined); return
-      case "borrower_type": setBorrowerType(value as string | undefined); return
-      case "citizenship": setCitizenship(value as string | undefined); return
-      case "first_time_homebuyer": setFthb(value as string | undefined); return
-      case "mortgage_debt": setMortgageDebtValue(String(value ?? "")); return
-      case "fico_score": setFico(String(value ?? "")); return
-      case "rentals_owned": setRentalsOwned(String(value ?? "")); return
-      case "number_of_flips": setNumFlips(String(value ?? "")); return
-      case "number_of_gunc": setNumGunc(String(value ?? "")); return
-      case "other_experience": setOtherExp(value as string | undefined); return
-      case "address_street": setStreet(String(value ?? "")); return
-      case "address_apt": setApt(String(value ?? "")); return
-      case "address_city": setCity(String(value ?? "")); return
-      case "address_state": setStateCode(value as string | undefined); return
-      case "address_zip": setZip(String(value ?? "")); return
-      case "address_county": setCounty(String(value ?? "")); return
-      case "property_type": setPropertyType(value as string | undefined); return
-      case "warrantability": setWarrantability(value as string | undefined); return
-      case "number_of_units": { const n = Number(value); setNumUnits(Number.isFinite(n) ? n : undefined); return }
-      case "sq_footage": setGlaSqFt(String(value ?? "")); return
-      case "rural": setRural(value as string | undefined); return
-      case "short_term_rental": setStrValue(value as string | undefined); return
-      case "declining_market": setDecliningMarket(value as string | undefined); return
-      case "annual_taxes": setAnnualTaxes(String(value ?? "")); return
-      case "annual_hoi": setAnnualHoi(String(value ?? "")); return
-      case "annual_flood": setAnnualFlood(String(value ?? "")); return
-      case "annual_hoa": setAnnualHoa(String(value ?? "")); return
-      case "annual_management": setAnnualMgmt(String(value ?? "")); return
-      case "gla_expansion": setGlaExpansion(value as string | undefined); return
-      case "change_of_use": setChangeOfUse(value as string | undefined); return
-      case "rehab_budget": setRehabBudget(String(value ?? "")); return
-      case "arv": setArv(String(value ?? "")); return
-      case "projected_closing_date": setClosingDate(value as Date | undefined); return
-      case "acquisition_date": setAcquisitionDate(value as Date | undefined); return
-      case "loan_structure_type": setLoanStructureType(value as string | undefined); return
-      case "pre_payment_penalty": setPpp(value as string | undefined); return
-      case "bridge_term": setTerm(value as string | undefined); return
-      case "purchase_price": setPurchasePrice(String(value ?? "")); return
-      case "rehab_completed_amount": setRehabCompleted(String(value ?? "")); return
-      case "payoff_amount": setPayoffAmount(String(value ?? "")); return
-      case "as_is_value": setAiv(String(value ?? "")); return
-      case "request_max_leverage": setRequestMaxLeverage(value === "true" || value === true || value === "Yes"); return
-      case "initial_loan_amount": setInitialLoanAmount(String(value ?? "")); return
-      case "rehab_holdback": setRehabHoldback(String(value ?? "")); return
-      case "loan_amount": setLoanAmount(String(value ?? "")); return
-      case "lender_origination": setLenderOrig(String(value ?? "")); return
-      case "lender_admin_fee": setAdminFee(String(value ?? "")); return
-      case "broker_origination": setBrokerOrig(String(value ?? "")); return
-      case "broker_admin_fee": setBrokerAdminFee(String(value ?? "")); return
-      case "borrower_name": setBorrowerName(String(value ?? "")); return
-      case "guarantors": setGuarantorTags(Array.isArray(value) ? value.map((v: unknown) => typeof v === "string" ? { name: v } : v as { name: string; id?: string }) : []); return
-      case "uw_exception": setUwException(value as string | undefined); return
-      case "section_8": setSection8(value as string | undefined); return
-      case "hoi_effective": setHoiEffective(value as Date | undefined); return
-      case "flood_effective": setFloodEffective(value as Date | undefined); return
-      case "title_recording_fee": setTitleRecordingFee(String(value ?? "")); return
-      case "assignment_fee": setAssignmentFee(String(value ?? "")); return
-      case "seller_concessions": setSellerConcessions(String(value ?? "")); return
-      case "tax_escrow_months": setTaxEscrowMonths(String(value ?? "")); return
-      case "hoi_premium": setHoiPremium(String(value ?? "")); return
-      case "flood_premium": setFloodPremium(String(value ?? "")); return
-      case "emd": setEmd(String(value ?? "")); return
-      default:
-        setExtraFormValues((prev) => ({ ...prev, [code]: value }))
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1456,49 +1091,6 @@ export default function PricingEnginePage() {
   }
 
   // Keep calendar month in sync with typed/selected dates
-  useEffect(() => {
-    setClosingCalMonth(closingDate ?? undefined)
-  }, [closingDate])
-  useEffect(() => {
-    setAcqCalMonth(acquisitionDate ?? undefined)
-  }, [acquisitionDate])
-  useEffect(() => {
-    setHoiCalMonth(hoiEffective ?? undefined)
-  }, [hoiEffective])
-  useEffect(() => {
-    setFloodCalMonth(floodEffective ?? undefined)
-  }, [floodEffective])
-
-  // Simple derived flags for label required markers
-  const isDscr = loanType === "dscr"
-  const isBridge = loanType === "bridge"
-  const isPurchase = transactionType === "purchase" || transactionType === "delayed-purchase"
-  const isRefi = transactionType === "co-refi" || transactionType === "rt-refi"
-  const isFicoRequired = (isDscr || isBridge) && (citizenship === "us" || citizenship === "pr")
-  // Compute default/placeholder for Title & Recording Fee when untouched
-  const computedTitleRecording = useMemo(() => {
-    const parse = (s: string): number => {
-      const n = Number(String(s ?? "").replace(/[^0-9.-]/g, ""))
-      return Number.isFinite(n) ? n : 0
-    }
-    const formatter = (n: number) => n.toFixed(2)
-    if (isPurchase) {
-      const price = parse(purchasePrice)
-      if (price > 0) return formatter(price * 0.75 * 0.0125)
-    } else if (isRefi) {
-      const v = parse(aiv)
-      if (v > 0) return formatter(v * 0.75 * 0.0125)
-    }
-    return ""
-  }, [isPurchase, isRefi, purchasePrice, aiv])
-  // Do not auto-write Title & Recording Fee while user types other fields.
-  // We will use the computed default in payload if the user left it untouched.
-  // Ensure default Term when Bridge is selected
-  useEffect(() => {
-    if (isBridge && (!term || term === "")) {
-      setTerm("12")
-    }
-  }, [isBridge, term])
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -1653,96 +1245,45 @@ export default function PricingEnginePage() {
     if (sendingReApi) return
     try {
       setSendingReApi(true)
-      const payload = {
-        street,
-        apt,
-        city,
-        state: stateCode ?? "",
-        zip,
-        transaction_type: transactionType ?? "",
-      }
+      const payload = buildPayload()
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // Helper to map RE API data back into form fields
+      // Dynamically map RE API response keys → input_code by matching against peInputDefs
       const applyReApiResponse = (data: Record<string, unknown>) => {
         const autoKeys: string[] = []
-        const val = (...keys: string[]) => {
-          for (const k of keys) {
-            if (k in data) return data[k] as unknown
+        const dataKeys = new Set(Object.keys(data))
+        const normalize = (k: string) => k.replace(/-/g, "_").toLowerCase()
+        const normalizedData = new Map<string, unknown>()
+        for (const [k, v] of Object.entries(data)) {
+          normalizedData.set(normalize(k), v)
+        }
+        for (const inp of peInputDefs) {
+          const code = inp.input_code
+          let val: unknown = undefined
+          if (dataKeys.has(code)) {
+            val = data[code]
+          } else {
+            val = normalizedData.get(normalize(code))
           }
-          return undefined
-        }
-        // Property Type
-        const pt = val("property-type", "property_type")
-        if (typeof pt === "string" && pt) {
-          setPropertyType(pt)
-          autoKeys.push("propertyType")
-        }
-        // Number of Units (validated against property-type)
-        const units = val("num-units", "num_units", "units")
-        if (units !== undefined && units !== null) {
-          const asNum = Number(units)
-          if (!Number.isNaN(asNum) && Number.isFinite(asNum)) {
-            const allowed =
-              pt === "mf2_4"
-                ? [2, 3, 4]
-                : pt === "mf5_10"
-                ? [5, 6, 7, 8, 9, 10]
-                : pt
-                ? [1]
-                : []
-            if (allowed.length === 0 || allowed.includes(asNum)) {
-              setNumUnits(asNum)
-              autoKeys.push("numUnits")
-            }
-          }
-        }
-        // GLA Sq Ft
-        const gla = val("gla", "gla_sq_ft", "gla_sqft", "gla_sqft_ft")
-        if (gla !== undefined && gla !== null) {
-          setGlaSqFt(String(gla))
-          autoKeys.push("glaSqFt")
-        }
-        // Acquisition Date
-        const acq = val("acq-date", "acq_date", "acquisition_date")
-        {
-          const d = parseDateLocal(acq)
-          if (d) {
-            setAcquisitionDate(d)
-            autoKeys.push("acquisitionDate")
+          if (val === undefined || val === null) continue
+          if (inp.input_type === "date") {
+            const d = parseDateLocal(val)
+            if (d) { updateValue(code, d); autoKeys.push(code) }
+          } else if (inp.input_type === "number" || inp.input_type === "currency" || inp.input_type === "calc_currency") {
+            updateValue(code, String(val))
+            autoKeys.push(code)
+          } else if (inp.input_type === "boolean" || (inp.dropdown_options?.length === 2 && inp.dropdown_options.includes("Yes") && inp.dropdown_options.includes("No"))) {
+            const s = String(val).trim().toLowerCase()
+            const yn = (typeof val === "boolean")
+              ? (val ? "Yes" : "No")
+              : (["yes", "y", "true", "1"].includes(s) ? "Yes" : ["no", "n", "false", "0"].includes(s) ? "No" : undefined)
+            if (yn) { updateValue(code, yn); autoKeys.push(code) }
+          } else {
+            updateValue(code, val)
+            autoKeys.push(code)
           }
         }
-        // Purchase Price
-        const pp = val("purchase-price", "purchase_price")
-        if (pp !== undefined && pp !== null) {
-          setPurchasePrice(String(pp))
-          autoKeys.push("purchasePrice")
-        }
-        // Annual Taxes
-        const at = val("annual-taxes", "annual_taxes")
-        if (at !== undefined && at !== null) {
-          setAnnualTaxes(String(at))
-          autoKeys.push("annualTaxes")
-        }
-        // Rural flag (expects Yes/No from RE API; normalize to 'yes' | 'no')
-        const ruralIncoming = val("rural", "is_rural", "rural_flag", "rural-indicator", "rural_indicator")
-        if (ruralIncoming !== undefined && ruralIncoming !== null) {
-          const toYesNo = (v: unknown): "yes" | "no" | undefined => {
-            if (typeof v === "boolean") return v ? "yes" : "no"
-            const s = String(v).trim().toLowerCase()
-            if (["yes", "y", "true", "1"].includes(s)) return "yes"
-            if (["no", "n", "false", "0"].includes(s)) return "no"
-            return undefined
-          }
-          const yn = toYesNo(ruralIncoming)
-          if (yn) {
-            setRural(yn)
-            autoKeys.push("rural")
-          }
-        }
-        if (autoKeys.length > 0) {
-          markReAuto(autoKeys)
-        }
+        if (autoKeys.length > 0) markSignalColors(autoKeys, "green")
       }
 
       const urls = [
@@ -1797,164 +1338,49 @@ export default function PricingEnginePage() {
     }
   }
 
-  // Build payload of current, visible inputs
+  // Build payload dynamically from peInputDefs + formValues (no hardcoded field names)
   function buildPayload() {
-    const payload: Record<string, unknown> = {
-      // Ensure keys are always present in JSON (no undefined values)
-      loan_type: loanType ?? "",
-      transaction_type: transactionType ?? "",
-      property_type: propertyType ?? "",
-      num_units: numUnits ?? null,
-      max_leverage_requested: requestMaxLeverage ? "yes" : "no",
-      address: {
-        street,
-        apt,
-        city,
-        state: stateCode ?? "",
-        zip,
-        county,
-      },
-      gla_sq_ft: glaSqFt,
-      purchase_price: purchasePrice,
-      loan_amount: loanAmount,
-      // keep legacy and alias for clarity in downstream systems
-      // send both legacy and explicit lender_admin_fee for downstream systems
-      // Null semantics: if never edited and empty => null; if explicitly "0" => 0
-      admin_fee: (() => {
-        const ever = !!touched.adminFee
-        const v = String(adminFee ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return adminFee
-      })(),
-      lender_admin_fee: (() => {
-        const ever = !!touched.adminFee
-        const v = String(adminFee ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return adminFee
-      })(),
-      broker_admin_fee: brokerAdminFee,
-      payoff_amount: payoffAmount,
-      aiv,
-      arv,
-      rehab_budget: rehabBudget,
-      rehab_completed: rehabCompleted,
-      rehab_holdback: rehabHoldback,
-      emd,
-      taxes_annual: annualTaxes,
-      hoi_annual: annualHoi,
-      flood_annual: annualFlood,
-      hoa_annual: annualHoa,
-      mgmt_annual: annualMgmt,
-      hoi_premium: hoiPremium,
-      flood_premium: floodPremium,
-      mortgage_debt: mortgageDebtValue,
-      closing_date: formatDateOnly(closingDate),
-      // also send projected note date for downstream webhooks
-      projected_note_date: (() => {
-        const dt = closingDate ?? DEFAULTS.closingDate
-        return formatDateOnly(dt)
-      })(),
-      // always include effective dates (can be null)
-      hoi_effective_date: formatDateOnly(hoiEffective ?? DEFAULTS.hoiEffective),
-      flood_effective_date: formatDateOnly(floodEffective ?? DEFAULTS.floodEffective),
-      // borrower + fees: always include (may be empty string)
-      borrower_type: borrowerType ?? "",
-      citizenship: citizenship ?? "",
-      fico,
-      rural: rural ?? DEFAULTS.rural,
-      borrower_name: borrowerName,
-      borrower_entity_id: selectedEntityId ?? null,
-      guarantors: guarantorTags.map((t) => t.name),
-      guarantor_borrower_ids: guarantorTags.filter((t) => t.id).map((t) => t.id!),
-      uw_exception: uwException ?? "",
-      // Origination null semantics and alias
-      lender_orig_percent: (() => {
-        const ever = !!touched.lenderOrig
-        const v = String(lenderOrig ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return lenderOrig
-      })(),
-      origination_points: (() => {
-        const ever = !!touched.lenderOrig
-        const v = String(lenderOrig ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return lenderOrig
-      })(),
-      broker_orig_percent: brokerOrig,
-      title_recording_fee: titleRecordingFee || computedTitleRecording,
-      assignment_fee: assignmentFee,
-      seller_concessions: sellerConcessions,
-      tax_escrow_months: taxEscrowMonths,
+    const payload: Record<string, unknown> = {}
+    const addressInputCodes = new Set<string>()
+    for (const roleMap of addressGroupIndex.values()) {
+      for (const code of roleMap.values()) addressInputCodes.add(code)
     }
-    // Always include acquisition_date; receivers can ignore when not applicable
-    payload["acquisition_date"] = formatDateOnly(acquisitionDate)
-    if (loanType === "bridge") {
-      // Always include bridge-specific selections
-      payload["bridge_type"] = bridgeType ?? ""
-      payload["term"] = term ?? "12"
-      payload["rentals_owned"] = rentalsOwned
-      payload["num_flips"] = numFlips
-      payload["num_gunc"] = numGunc
-      payload["other_exp"] = otherExp ?? ""
 
-      // Always include potential rehab-related inputs so webhooks receive them when visible
-      payload["gla_expansion"] = glaExpansion ?? ""
-      payload["change_of_use"] = changeOfUse ?? ""
-      payload["initial_loan_amount"] = initialLoanAmount
-      payload["rehab_holdback"] = rehabHoldback
-      const total = (() => {
-        const a = Number(initialLoanAmount || "0")
-        const b = Number(rehabHoldback || "0")
-        const sum = Number.isFinite(a) && Number.isFinite(b) ? a + b : 0
-        return sum.toFixed(2)
-      })()
-      payload["total_loan_amount"] = total
-      // Keep single-loan amount value too (empty string if using rehab path)
-      payload["loan_amount"] = loanAmount
-      // Ensure aliases are present
-      payload["rehab_budget"] = rehabBudget
-      payload["arv"] = arv
-    }
-    if (loanType === "dscr") {
-      payload["fthb"] = fthb ?? ""
-      payload["loan_structure_type"] = loanStructureType ?? ""
-      payload["ppp"] = ppp ?? ""
-      payload["str"] = strValue ?? ""
-      payload["declining_market"] = decliningMarket ?? ""
-      payload["section8"] = section8 ?? ""
-    }
-    if (propertyType === "condo") {
-      payload["warrantability"] = warrantability ?? ""
-    }
-    // Include unit data from ConfigurableGrid (extraFormValues) or legacy unitData state.
-    // Always emit as "leased_units" (canonical DB key) and "unit_data" (webhook compat).
-    const gridUnits = extraFormValues["leased_units"] as Record<string, unknown>[] | undefined
-    if (gridUnits && gridUnits.length > 0) {
-      const sliced = gridUnits.slice(0, numUnits ?? gridUnits.length)
-      payload["leased_units"] = sliced
-      payload["unit_data"] = sliced
-    } else {
-      const visibleUnits = unitData.slice(0, numUnits ?? 0)
-      if (visibleUnits.length > 0) {
-        const mapped = visibleUnits.map((u) => ({
-          leased: u.leased,
-          gross_rent: u.gross,
-          market_rent: u.market,
-        }))
-        payload["leased_units"] = mapped
-        payload["unit_data"] = mapped
+    for (const input of peInputDefs) {
+      const val = formValues[input.input_code]
+
+      if (input.input_type === "date") {
+        payload[input.input_code] = formatDateOnly(val as Date | undefined)
+      } else if (input.input_type === "tags") {
+        payload[input.input_code] = Array.isArray(val)
+          ? val.map((t: unknown) => typeof t === "string" ? t : (t as { name: string })?.name ?? t)
+          : val ?? []
+      } else if (input.input_type === "table") {
+        payload[input.input_code] = val ?? []
+      } else if (input.input_type === "boolean") {
+        const v = val
+        payload[input.input_code] = (v === "true" || v === true || v === "Yes") ? "true" : "false"
+      } else {
+        payload[input.input_code] = val ?? ""
       }
     }
-    // Merge any dynamically-added inputs not in the hardcoded set
+
+    // Build nested address object(s) from addressGroupIndex
+    for (const [groupName, roleMap] of addressGroupIndex) {
+      const addr: Record<string, string> = {}
+      for (const [role, code] of roleMap) {
+        addr[role] = String(formValues[code] ?? "")
+      }
+      payload[`address_${groupName}`] = addr
+    }
+
+    // Include any extra values not defined as peInputDefs (e.g. record IDs, grid data)
     for (const [code, val] of Object.entries(extraFormValues)) {
       if (!(code in payload) && val !== undefined && val !== null) {
         payload[code] = val instanceof Date ? formatDateOnly(val) : val
       }
     }
+
     return payload
   }
 
@@ -2257,110 +1683,8 @@ export default function PricingEnginePage() {
   }
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
 
-  const states = [
-    "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
-  ]
 
-  const unitOptions = useMemo(() => {
-    if (propertyType === "mf2_4") return [2, 3, 4]
-    if (propertyType === "mf5_10") return [5, 6, 7, 8, 9, 10]
-    if (!propertyType) return []
-    return [1]
-  }, [propertyType])
 
-  // Per-unit income rows placeholder state (now uses UnitRow for Data Grid integration)
-  const [unitData, setUnitData] = useState<UnitRow[]>([])
-  // When hydrating from a scenario, stash unit rows so the resizing effect can populate them once.
-  const hydrateUnitsRef = useRef<
-    { leased?: "yes" | "no"; gross?: string; market?: string }[] | null
-  >(null)
-
-  // Keep numUnits within allowed options and resize unit rows accordingly
-  useEffect(() => {
-    if (unitOptions.length === 0) {
-      setNumUnits(undefined)
-      setUnitData([])
-      return
-    }
-    
-    // Check if we have saved data to hydrate
-    const saved = hydrateUnitsRef.current
-    
-    // If we have hydration data, use its length as the target (if valid for current unitOptions)
-    if (saved && Array.isArray(saved) && saved.length > 0) {
-      const targetLength = unitOptions.includes(saved.length) ? saved.length : unitOptions[0]
-      setNumUnits(targetLength)
-      const rows: UnitRow[] = Array.from({ length: targetLength }, (_, i) => ({
-        id: `unit-${i}`,
-        unitNumber: `#${i + 1}`,
-        leased: saved[i]?.leased,
-        gross: saved[i]?.gross ?? "",
-        market: saved[i]?.market ?? "",
-      }))
-      setUnitData(rows)
-      hydrateUnitsRef.current = null
-      return
-    }
-    
-    // No hydration data - handle normal numUnits changes
-    if (!numUnits || !unitOptions.includes(numUnits)) {
-      const next = unitOptions[0]
-      setNumUnits(next)
-      setUnitData((prev) => {
-        // Resize array while preserving existing data
-        return Array.from({ length: next }, (_, i) => {
-          const existing = prev[i]
-          if (existing) {
-            return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
-          }
-          return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
-        })
-      })
-      return
-    }
-    
-    // numUnits is valid - just resize if needed
-    setUnitData((prev) => {
-      // Resize array while preserving existing data
-      return Array.from({ length: numUnits }, (_, i) => {
-        // Keep existing data if available, otherwise create empty row
-        const existing = prev[i]
-        if (existing) {
-          return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
-        }
-        return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
-      })
-    })
-  }, [unitOptions, numUnits])
-
-  // Derived requiredness and validation for Calculate button (placed after unitData declaration)
-  const rehabSectionVisible = isBridge && (bridgeType === "bridge-rehab" || bridgeType === "ground-up")
-  const rehabPathVisible = !requestMaxLeverage && rehabSectionVisible
-  const loanAmountPathVisible = !requestMaxLeverage && !rehabPathVisible
-  // Units table is only applicable to DSCR income analysis
-  const areUnitRowsVisible = isDscr && (numUnits ?? 0) > 0
-  const unitsComplete = useMemo(() => {
-    if (!areUnitRowsVisible) return true
-    const count = numUnits ?? 0
-    // Prefer ConfigurableGrid data from extraFormValues, fall back to legacy unitData
-    const gridUnits = extraFormValues["leased_units"] as Record<string, unknown>[] | undefined
-    if (gridUnits && gridUnits.length > 0) {
-      const visible = gridUnits.slice(0, count)
-      return visible.every((u) => {
-        const hasLeased = u.leased != null
-        const hasGross = u.gross_rent != null && u.gross_rent !== ""
-        const hasMarket = u.market_rent != null && u.market_rent !== ""
-        return hasLeased && hasGross && hasMarket
-      })
-    }
-    const visibleRows = unitData.slice(0, count)
-    return visibleRows.every((u) => {
-      const hasLeased = u.leased != null
-      const hasGross = u.gross != null && u.gross !== ""
-      const hasMarket = u.market != null && u.market !== ""
-      return hasLeased && hasGross && hasMarket
-    })
-  }, [areUnitRowsVisible, unitData, numUnits, extraFormValues])
   // Returns array of missing required field labels (driven entirely by logic engine rules)
   const missingFields = useMemo(() => {
     const missing: string[] = []
@@ -2468,189 +1792,94 @@ export default function PricingEnginePage() {
     })()
   }, [initialLoanId])
 
-  // Helper setters from inputs payload
+  // Legacy key → input_code migration map for loading old saved scenarios
+  const legacyKeyMap: Record<string, string> = {
+    num_units: "number_of_units",
+    max_leverage_requested: "request_max_leverage",
+    gla_sq_ft: "sq_footage",
+    admin_fee: "lender_admin_fee",
+    aiv: "as_is_value",
+    arv: "arv",
+    rehab_completed: "rehab_completed_amount",
+    taxes_annual: "annual_taxes",
+    hoi_annual: "annual_hoi",
+    flood_annual: "annual_flood",
+    hoa_annual: "annual_hoa",
+    mgmt_annual: "annual_management",
+    mortgage_debt: "mortgage_debt",
+    fico: "fico_score",
+    closing_date: "projected_closing_date",
+    projected_note_date: "projected_closing_date",
+    note_date: "projected_closing_date",
+    hoi_effective_date: "hoi_effective",
+    flood_effective_date: "flood_effective",
+    fthb: "first_time_homebuyer",
+    ppp: "pre_payment_penalty",
+    str: "short_term_rental",
+    section8: "section_8",
+    lender_orig_percent: "lender_origination",
+    origination_points: "lender_origination",
+    broker_orig_percent: "broker_origination",
+    num_flips: "number_of_flips",
+    num_gunc: "number_of_gunc",
+    other_exp: "other_experience",
+    term: "bridge_term",
+    acq_date: "acquisition_date",
+    "acq-date": "acquisition_date",
+  }
+
   function applyInputsPayload(payload: Record<string, unknown>) {
-    // Prevent Google Places predictions from triggering while hydrating from Supabase
     suppressPredictionsRef.current = true
-    const addr = (payload["address"] as Record<string, unknown>) ?? {}
-    if ("street" in addr) setStreet(String(addr["street"] ?? ""))
-    if ("apt" in addr) setApt(String(addr["apt"] ?? ""))
-    if ("city" in addr) setCity(String(addr["city"] ?? ""))
-    if ("state" in addr) setStateCode((addr["state"] as string) ?? undefined)
-    if ("zip" in addr) setZip(String(addr["zip"] ?? ""))
-    if ("county" in addr) setCounty(String(addr["county"] ?? ""))
+    const hydrated: Record<string, unknown> = {}
 
-    if ("loan_type" in payload) setLoanType((payload["loan_type"] as string) ?? undefined)
-    if ("transaction_type" in payload) setTransactionType((payload["transaction_type"] as string) ?? undefined)
-    if ("property_type" in payload) setPropertyType((payload["property_type"] as string) ?? undefined)
-    if ("num_units" in payload) {
-      const n = Number(payload["num_units"])
-      if (Number.isFinite(n)) setNumUnits(n)
-    }
-    if ("max_leverage_requested" in payload) {
-      const v = payload["max_leverage_requested"]
-      setRequestMaxLeverage(v === "yes" || v === true)
-    } else if ("request_max_leverage" in payload) {
-      // backward compatibility with older payloads
-      const v = payload["request_max_leverage"]
-      setRequestMaxLeverage(v === "yes" || v === true)
-    }
-
-    if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
-    if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
-    if ("loan_amount" in payload) setLoanAmount(String(payload["loan_amount"] ?? ""))
-    if ("admin_fee" in payload) {
-      setAdminFee(String(payload["admin_fee"] ?? ""))
-    } else if ("lender_admin_fee" in payload) {
-      setAdminFee(String((payload as any)["lender_admin_fee"] ?? ""))
-    }
-    if ("payoff_amount" in payload) setPayoffAmount(String(payload["payoff_amount"] ?? ""))
-    if ("aiv" in payload) setAiv(String(payload["aiv"] ?? ""))
-    if ("arv" in payload) setArv(String(payload["arv"] ?? ""))
-    if ("rehab_budget" in payload) setRehabBudget(String(payload["rehab_budget"] ?? ""))
-    if ("rehab_completed" in payload) setRehabCompleted(String(payload["rehab_completed"] ?? ""))
-    if ("rehab_holdback" in payload) setRehabHoldback(String(payload["rehab_holdback"] ?? ""))
-    if ("emd" in payload) setEmd(String(payload["emd"] ?? ""))
-    if ("taxes_annual" in payload) setAnnualTaxes(String(payload["taxes_annual"] ?? ""))
-    if ("hoi_annual" in payload) setAnnualHoi(String(payload["hoi_annual"] ?? ""))
-    if ("flood_annual" in payload) setAnnualFlood(String(payload["flood_annual"] ?? ""))
-    if ("hoa_annual" in payload) setAnnualHoa(String(payload["hoa_annual"] ?? ""))
-    if ("hoi_premium" in payload) setHoiPremium(String(payload["hoi_premium"] ?? ""))
-    if ("flood_premium" in payload) setFloodPremium(String(payload["flood_premium"] ?? ""))
-    if ("mortgage_debt" in payload) setMortgageDebtValue(String(payload["mortgage_debt"] ?? ""))
-    if ("tax_escrow_months" in payload) setTaxEscrowMonths(String(payload["tax_escrow_months"] ?? ""))
-    // Units from scenario inputs - normalize to new config keys (gross_rent, market_rent)
-    const unitsFromPayload = (payload["leased_units"] ?? payload["units"] ?? payload["unit_data"]) as unknown
-    if (Array.isArray(unitsFromPayload)) {
-      const normalized = unitsFromPayload.map(
-        (u: Record<string, unknown>) => {
-          let normalizedLeased: "yes" | "no" | undefined = undefined
-          if (u?.leased != null) {
-            const leasedStr = String(u.leased).toLowerCase()
-            if (leasedStr === "yes" || leasedStr === "true") {
-              normalizedLeased = "yes"
-            } else if (leasedStr === "no" || leasedStr === "false") {
-              normalizedLeased = "no"
-            }
-          }
-          const grossVal = u?.gross_rent ?? u?.gross
-          const marketVal = u?.market_rent ?? u?.market
-          return {
-            leased: normalizedLeased as string | undefined,
-            gross_rent: grossVal != null ? String(grossVal) : "",
-            market_rent: marketVal != null ? String(marketVal) : "",
-          }
+    // Flatten nested address objects (legacy "address" or new "address_property" etc.)
+    for (const [groupName, roleMap] of addressGroupIndex) {
+      const addrObj = (payload[`address_${groupName}`] ?? (groupName === "property" ? payload["address"] : undefined)) as Record<string, unknown> | undefined
+      if (addrObj && typeof addrObj === "object") {
+        for (const [role, code] of roleMap) {
+          if (role in addrObj) hydrated[code] = addrObj[role]
         }
-      )
-      // Populate extraFormValues for ConfigurableGrid (new keys)
-      setExtraFormValues((prev) => ({ ...prev, leased_units: normalized }))
-      // Also populate hydrateUnitsRef for the legacy LeasedUnitsGrid fallback
-      hydrateUnitsRef.current = normalized.map((u) => ({
-        leased: u.leased as "yes" | "no" | undefined,
-        gross: u.gross_rent,
-        market: u.market_rent,
-      }))
-      if (normalized.length > 0) {
-        setNumUnits(normalized.length)
       }
     }
 
-    if ("borrower_type" in payload) setBorrowerType((payload["borrower_type"] as string) ?? undefined)
-    if ("citizenship" in payload) setCitizenship((payload["citizenship"] as string) ?? undefined)
-    if ("fico" in payload) setFico(String(payload["fico"] ?? ""))
-    if ("borrower_name" in payload) setBorrowerName(String(payload["borrower_name"] ?? ""))
-    const borrowerEntityId = typeof payload["borrower_entity_id"] === "string" ? (payload["borrower_entity_id"] as string) : undefined
-    setSelectedEntityId(borrowerEntityId ?? undefined)
-    if (borrowerEntityId) {
-      setHasSessionEntity(true)
-    }
-    const guarantorNames = Array.isArray(payload["guarantors"]) ? (payload["guarantors"] as string[]) : []
-    const guarantorIds = Array.isArray(payload["guarantor_borrower_ids"])
-      ? (payload["guarantor_borrower_ids"] as unknown[]).filter((g): g is string => typeof g === "string" && g.length > 0)
-      : []
-    // Build guarantorTags array - names with optional IDs
-    const loadedTags: Array<{ name: string; id?: string }> = guarantorNames.map((name, idx) => ({
-      name,
-      id: guarantorIds[idx] ?? undefined,
-    }))
-    setGuarantorTags(loadedTags)
-    if ("rural" in payload) setRural((payload["rural"] as string) ?? undefined)
-    if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
-    if ("section8" in payload) setSection8((payload["section8"] as string) ?? undefined)
-    if ("lender_orig_percent" in payload) {
-      setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
-    } else if ("lender_origination" in (payload as any)) {
-      setLenderOrig(String((payload as any)["lender_origination"] ?? ""))
-    }
-    if ("broker_orig_percent" in payload) setBrokerOrig(String(payload["broker_orig_percent"] ?? ""))
-    if ("title_recording_fee" in payload) setTitleRecordingFee(String(payload["title_recording_fee"] ?? ""))
-    if ("seller_concessions" in payload) setSellerConcessions(String(payload["seller_concessions"] ?? ""))
+    // Map all payload keys through legacy migration, then store in hydrated
+    for (const [key, val] of Object.entries(payload)) {
+      if (val === undefined || val === null) continue
+      if (key === "address" || key.startsWith("address_")) continue
 
-    function parseDate(val: unknown): Date | undefined {
-      return parseDateLocal(val)
-    }
-    // Acquisition date from scenario payload (support common aliases)
-    {
-      const acq =
-        payload["acquisition_date"] ??
-        (payload as Record<string, unknown>)["acq_date"] ??
-        (payload as Record<string, unknown>)["acq-date"]
-      const d = parseDate(acq)
-      if (d) setAcquisitionDate(d)
-    }
-    // Projected Note/Closing date from scenario payload
-    {
-      const proj =
-        payload["projected_note_date"] ??
-        (payload as Record<string, unknown>)["note_date"] ??
-        payload["closing_date"]
-      const d = parseDate(proj)
-      if (d) setClosingDate(d)
-    }
-    const hoiEff = parseDateLocal(payload["hoi_effective_date"])
-    if (hoiEff) setHoiEffective(hoiEff)
-    const floodEff = parseDateLocal(payload["flood_effective_date"])
-    if (floodEff) setFloodEffective(floodEff)
+      const canonicalCode = legacyKeyMap[key] ?? key
 
-    if ("bridge_type" in payload) setBridgeType((payload["bridge_type"] as string) ?? undefined)
-    if ("fthb" in payload) setFthb((payload["fthb"] as string) ?? undefined)
-    if ("loan_structure_type" in payload) setLoanStructureType((payload["loan_structure_type"] as string) ?? undefined)
-    if ("ppp" in payload) setPpp((payload["ppp"] as string) ?? undefined)
-    if ("str" in payload) setStrValue((payload["str"] as string) ?? undefined)
-    if ("declining_market" in payload) setDecliningMarket((payload["declining_market"] as string) ?? undefined)
-    if ("rentals_owned" in payload) setRentalsOwned(String(payload["rentals_owned"] ?? ""))
-    if ("num_flips" in payload) setNumFlips(String(payload["num_flips"] ?? ""))
-    if ("num_gunc" in payload) setNumGunc(String(payload["num_gunc"] ?? ""))
-    if ("other_exp" in payload) setOtherExp((payload["other_exp"] as string) ?? undefined)
-    if ("warrantability" in payload) setWarrantability((payload["warrantability"] as string) ?? undefined)
-
-    // Hydrate extraFormValues for any keys not handled by individual setters above
-    const knownKeys = new Set([
-      "address", "loan_type", "transaction_type", "property_type", "num_units",
-      "max_leverage_requested", "request_max_leverage", "gla_sq_ft", "purchase_price",
-      "loan_amount", "admin_fee", "lender_admin_fee", "payoff_amount", "aiv", "arv",
-      "rehab_budget", "rehab_completed", "rehab_holdback", "emd", "taxes_annual",
-      "hoi_annual", "flood_annual", "hoa_annual", "hoi_premium", "flood_premium",
-      "mortgage_debt", "tax_escrow_months", "units", "unit_data", "leased_units", "borrower_type",
-      "citizenship", "fico", "borrower_name", "borrower_entity_id", "guarantors",
-      "guarantor_borrower_ids", "rural", "uw_exception", "section8",
-      "lender_orig_percent", "lender_origination", "broker_orig_percent",
-      "title_recording_fee", "seller_concessions", "acquisition_date", "acq_date",
-      "acq-date", "projected_note_date", "note_date", "closing_date",
-      "hoi_effective_date", "flood_effective_date", "bridge_type", "fthb",
-      "loan_structure_type", "ppp", "str", "declining_market", "rentals_owned",
-      "num_flips", "num_gunc", "other_exp", "warrantability", "mgmt_annual",
-      "broker_admin_fee", "assignment_fee",
-    ])
-    const extras: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(payload)) {
-      if (!knownKeys.has(k) && v !== undefined && v !== null) {
-        extras[k] = v
+      const inputDef = peInputDefs.find((d) => d.input_code === canonicalCode)
+      if (inputDef?.input_type === "date" && !(val instanceof Date)) {
+        const d = parseDateLocal(val)
+        if (d) hydrated[canonicalCode] = d
+      } else if (inputDef?.input_type === "table" && Array.isArray(val)) {
+        hydrated[canonicalCode] = val
+      } else {
+        if (!(canonicalCode in hydrated)) hydrated[canonicalCode] = val
       }
     }
-    if (Object.keys(extras).length > 0) {
-      setExtraFormValues((prev) => ({ ...prev, ...extras }))
+
+    // Normalize booleans from legacy payloads
+    for (const inp of peInputDefs) {
+      if (inp.input_type !== "boolean") continue
+      const legacyCode = Object.entries(legacyKeyMap).find(([, v]) => v === inp.input_code)?.[0]
+      const raw = legacyCode && legacyCode in payload ? payload[legacyCode] : undefined
+      if (raw !== undefined && !(inp.input_code in hydrated)) {
+        hydrated[inp.input_code] = (raw === "yes" || raw === true) ? "true" : "false"
+      }
     }
+
+    // Hydrate record IDs for linked inputs from legacy payload keys
+    for (const inp of peInputDefs) {
+      if (!inp.linked_table) continue
+      const idKey = `${inp.input_code}_record_id`
+      const legacyId = payload[`${inp.input_code}_id`] ?? payload[`${inp.input_code}_record_id`]
+      if (typeof legacyId === "string" && legacyId) hydrated[idKey] = legacyId
+    }
+
+    // Apply all hydrated values to extraFormValues in one batch
+    setExtraFormValues((prev) => ({ ...prev, ...hydrated }))
   }
 
   // When scenario is selected, load inputs/selected and hydrate UI
@@ -2764,11 +1993,18 @@ export default function PricingEnginePage() {
       const postal = get("postal_code")?.short_name ?? ""
       const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
 
-      setStreet([streetNumber, route].filter(Boolean).join(" "))
-      setCity(locality)
-      setStateCode(admin1 || undefined)
-      setZip(postal)
-      setCounty(countyName)
+      const addrValues: Record<string, string> = {
+        street: [streetNumber, route].filter(Boolean).join(" "),
+        city: locality,
+        state: admin1,
+        zip: postal,
+        county: countyName,
+      }
+      for (const [, roleMap] of addressGroupIndex) {
+        for (const [role, code] of roleMap) {
+          if (role in addrValues) updateValue(code, addrValues[role])
+        }
+      }
       setPredictions([])
       setShowPredictions(false)
       // Prevent the next input value change from reopening the menu immediately
@@ -3211,15 +2447,7 @@ export default function PricingEnginePage() {
                                     )
                                   }
 
-                                  return (
-                                    <div key={String(field.id)} className="col-span-4">
-                                      <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
-                                      <LeasedUnitsGrid
-                                        data={unitData}
-                                        onDataChange={setUnitData}
-                                      />
-                                    </div>
-                                  )
+                                  return null
                                 }
                                 return (
                                   <div key={String(field.id)} className={getDynWidthClass(field.layout_width)}>
@@ -3228,6 +2456,13 @@ export default function PricingEnginePage() {
                                       value={computedDefaults[field.input_code] ?? formValues[field.input_code]}
                                       onChange={(val) => updateValue(field.input_code, val)}
                                       onAddressSelect={(addrFields) => handleAddressSelect(field.input_code, addrFields)}
+                                      onLinkedRecordSelect={(code, recId) => {
+                                        setExtraFormValues((prev) => {
+                                          const idKey = `${code}_record_id`
+                                          if (prev[idKey] === recId) return prev
+                                          return { ...prev, [idKey]: recId }
+                                        })
+                                      }}
                                       isRequired={peRequiredCodes.has(field.input_code)}
                                       isExpressionDefault={hasExpressionDefault.has(field.input_code)}
                                       expressionLabel={expressionLabels[field.input_code]}
@@ -3315,8 +2550,10 @@ export default function PricingEnginePage() {
             getInputs={() => buildPayload()}
             memberId={selfMemberId}
             onApplyFees={(lo, la) => {
-              if (typeof lo === "string" && lo.trim().length > 0) setLenderOrig(lo)
-              if (typeof la === "string" && la.trim().length > 0) setAdminFee(la)
+              const origCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("origination"))?.input_code
+              const adminCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("admin"))?.input_code
+              if (origCode && typeof lo === "string" && lo.trim().length > 0) updateValue(origCode, lo)
+              if (adminCode && typeof la === "string" && la.trim().length > 0) updateValue(adminCode, la)
             }}
             loanId={currentLoanId}
             scenarioId={selectedScenarioId}

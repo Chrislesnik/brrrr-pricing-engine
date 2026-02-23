@@ -89,17 +89,6 @@ export async function POST(req: NextRequest) {
       data: Record<string, unknown> | null
     }[] = []
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
-    // Ensure admin fee aliases are always present
-    if (normalizedData["lender_admin_fee"] === undefined && normalizedData["admin_fee"] !== undefined) {
-      normalizedData["lender_admin_fee"] = normalizedData["admin_fee"]
-    }
-    if (normalizedData["admin_fee"] === undefined && normalizedData["lender_admin_fee"] !== undefined) {
-      normalizedData["admin_fee"] = normalizedData["lender_admin_fee"]
-    }
-    if (normalizedData["broker_admin_fee"] === undefined) {
-      normalizedData["broker_admin_fee"] = ""
-    }
-    // Always include organization_member_id
     normalizedData["organization_member_id"] = myMemberId
     const requestIdBase = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
     await Promise.all(
@@ -108,6 +97,7 @@ export async function POST(req: NextRequest) {
         if (!url) return
         try {
           const requestId = `${requestIdBase}-${idx}`
+          const payload = { ...normalizedData, program_id: p.id }
           const res = await fetch(url, {
             method: "POST",
             cache: "no-store",
@@ -117,7 +107,7 @@ export async function POST(req: NextRequest) {
               "Pragma": "no-cache",
               "X-Request-Id": requestId,
             },
-            body: JSON.stringify(normalizedData),
+            body: JSON.stringify(payload),
           })
           let body: Record<string, unknown> | null = null
           try {

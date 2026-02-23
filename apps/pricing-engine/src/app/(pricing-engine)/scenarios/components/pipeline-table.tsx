@@ -44,6 +44,7 @@ import { cn } from "@repo/lib/cn"
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { LoanRow } from "../data/fetch-loans"
+import { createPipelineColumns, type StarredInput, type AddressInput } from "./pipeline-columns"
 import { PipelineToolbar } from "./pipeline-toolbar"
 import { Badge } from "@repo/ui/shadcn/badge"
 import * as React from "react"
@@ -89,11 +90,16 @@ declare module "@tanstack/react-table" {
 }
 
 interface Props {
-  columns: ColumnDef<LoanRow>[]
   data: LoanRow[]
+  starredInputs: StarredInput[]
+  addressInputs: AddressInput[]
 }
 
-export function PipelineTable({ columns, data }: Props) {
+export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
+  const columns = React.useMemo(
+    () => createPipelineColumns(starredInputs, addressInputs),
+    [starredInputs, addressInputs],
+  )
   const [tableData, setTableData] = useState<LoanRow[]>(data)
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})

@@ -59,6 +59,7 @@ interface DynamicPEInputProps {
   value: unknown
   onChange: (val: unknown) => void
   onAddressSelect?: (fields: AddressFields) => void
+  onLinkedRecordSelect?: (inputCode: string, recordId: string | null) => void
   isRequired?: boolean
   isComputed?: boolean
   isExpressionDefault?: boolean
@@ -74,6 +75,7 @@ export function DynamicPEInput({
   value,
   onChange,
   onAddressSelect,
+  onLinkedRecordSelect,
   isRequired,
   isComputed,
   isExpressionDefault,
@@ -91,13 +93,16 @@ export function DynamicPEInput({
     ? resolveNumberConstraints(field.config as unknown as NumberConstraintsConfig, formValues ?? {})
     : null
 
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
   useEffect(() => {
     if (!constraints) return
     const isEmpty = value === undefined || value === null || value === ""
     const num = isEmpty ? NaN : Number(value)
 
     if (isEmpty && constraints.min != null) {
-      onChange(String(constraints.min))
+      onChangeRef.current(String(constraints.min))
       return
     }
 
@@ -106,8 +111,8 @@ export function DynamicPEInput({
     let clamped = num
     if (constraints.min != null && clamped < constraints.min) clamped = constraints.min
     if (constraints.max != null && clamped > constraints.max) clamped = constraints.max
-    if (clamped !== num) onChange(String(clamped))
-  }, [constraints?.min, constraints?.max, value, onChange])
+    if (clamped !== num) onChangeRef.current(String(clamped))
+  }, [constraints?.min, constraints?.max, value])
 
   return (
     <div className="space-y-1">
@@ -152,6 +157,7 @@ export function DynamicPEInput({
           value={value}
           onChange={onChange}
           onAddressSelect={onAddressSelect}
+          onLinkedRecordSelect={onLinkedRecordSelect}
           placeholder={placeholder}
           isDefault={isDefault}
           isComputed={isComputed}
@@ -171,6 +177,7 @@ function InputControl({
   value,
   onChange,
   onAddressSelect,
+  onLinkedRecordSelect,
   placeholder,
   isDefault,
   isComputed,
@@ -184,6 +191,7 @@ function InputControl({
   value: unknown
   onChange: (val: unknown) => void
   onAddressSelect?: (fields: AddressFields) => void
+  onLinkedRecordSelect?: (inputCode: string, recordId: string | null) => void
   placeholder: string
   isDefault: boolean
   isComputed?: boolean
@@ -208,7 +216,7 @@ function InputControl({
             id={id}
             value={effectiveValue}
             displayValue="street"
-            placeholder={effectivePlaceholder || "Start typing an address..."}
+            placeholder={effectivePlaceholder}
             className={cn(computedClass)}
             onChange={(addr) => {
               onChange(addr.address_line1 ?? addr.raw)
@@ -230,8 +238,9 @@ function InputControl({
             id={id}
             value={effectiveValue}
             onChange={(v) => onChange(v)}
+            onRecordSelect={(rec) => onLinkedRecordSelect?.(field.input_code, rec?.id ?? null)}
             records={linkedRecords!}
-            placeholder={effectivePlaceholder || "Type to search..."}
+            placeholder={effectivePlaceholder}
             className={cn(computedClass)}
           />
         )
@@ -253,8 +262,9 @@ function InputControl({
             id={id}
             value={effectiveValue}
             onChange={(v) => onChange(v)}
+            onRecordSelect={(rec) => onLinkedRecordSelect?.(field.input_code, rec?.id ?? null)}
             records={linkedRecords!}
-            placeholder={effectivePlaceholder || "Type to search..."}
+            placeholder={effectivePlaceholder}
             className={cn(computedClass)}
           />
         )
@@ -265,7 +275,7 @@ function InputControl({
           onValueChange={(v) => onChange(v)}
         >
           <SelectTrigger id={id} className={cn(computedClass)}>
-            <SelectValue placeholder={effectivePlaceholder || "Select..."} />
+            <SelectValue placeholder={effectivePlaceholder || field.input_label} />
           </SelectTrigger>
           <SelectContent>
             {(field.dropdown_options ?? []).map((opt) => (
@@ -287,7 +297,7 @@ function InputControl({
           <span className="pointer-events-none absolute left-3 text-sm text-muted-foreground z-10">$</span>
           <CalcInput
             id={id}
-            placeholder={effectivePlaceholder || "0.00"}
+            placeholder={effectivePlaceholder}
             value={effectiveValue}
             onValueChange={(v) => {
               const n = Number(v)
@@ -325,7 +335,7 @@ function InputControl({
               }
               onChange(v)
             }}
-            placeholder={effectivePlaceholder || "0.00"}
+            placeholder={effectivePlaceholder}
             className={cn("pr-8", computedClass)}
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
@@ -402,7 +412,7 @@ function InputControl({
           onValueChange={(v) => onChange(v)}
         >
           <SelectTrigger id={id} className={cn(computedClass)}>
-            <SelectValue placeholder={effectivePlaceholder || "Select..."} />
+            <SelectValue placeholder={effectivePlaceholder || field.input_label} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="true">Yes</SelectItem>
@@ -413,7 +423,7 @@ function InputControl({
     }
 
     case "tags":
-      return <TagsControl id={id} value={isDefault ? [] : value} onChange={onChange} placeholder={effectivePlaceholder || placeholder} linkedRecords={hasLinkedRecords ? linkedRecords : undefined} />
+      return <TagsControl id={id} value={isDefault ? [] : value} onChange={onChange} onLinkedRecordSelect={(recId) => onLinkedRecordSelect?.(field.input_code, recId)} placeholder={effectivePlaceholder || placeholder} linkedRecords={hasLinkedRecords ? linkedRecords : undefined} />
 
     case "table":
       return (
@@ -429,8 +439,9 @@ function InputControl({
             id={id}
             value={effectiveValue}
             onChange={(v) => onChange(v)}
+            onRecordSelect={(rec) => onLinkedRecordSelect?.(field.input_code, rec?.id ?? null)}
             records={linkedRecords!}
-            placeholder={effectivePlaceholder || "Type to search..."}
+            placeholder={effectivePlaceholder}
           />
         )
       }
@@ -549,12 +560,14 @@ function TagsControl({
   id,
   value,
   onChange,
+  onLinkedRecordSelect,
   placeholder,
   linkedRecords,
 }: {
   id: string
   value: unknown
   onChange: (val: unknown) => void
+  onLinkedRecordSelect?: (recordId: string | null) => void
   placeholder: string
   linkedRecords?: LinkedRecord[]
 }) {
@@ -573,8 +586,9 @@ function TagsControl({
     )
   }, [linkedRecords, inputVal, tags])
 
-  const addTag = (label: string) => {
+  const addTag = (label: string, recordId?: string) => {
     onChange([...tags, label])
+    if (recordId) onLinkedRecordSelect?.(recordId)
     setInputVal("")
     setShowSuggestions(false)
     setActiveIdx(-1)
@@ -643,7 +657,7 @@ function TagsControl({
                 }
                 if (e.key === "Enter" && activeIdx >= 0) {
                   e.preventDefault()
-                  addTag(suggestions[activeIdx].label)
+                  addTag(suggestions[activeIdx].label, suggestions[activeIdx].id)
                   return
                 }
                 if (e.key === "Escape") {
@@ -676,7 +690,7 @@ function TagsControl({
                 idx === activeIdx && "bg-accent",
               )}
               onMouseEnter={() => setActiveIdx(idx)}
-              onClick={() => addTag(rec.label)}
+              onClick={() => addTag(rec.label, rec.id)}
             >
               <span className="truncate">{rec.label}</span>
             </button>

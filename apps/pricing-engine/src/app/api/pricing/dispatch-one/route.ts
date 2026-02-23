@@ -119,18 +119,8 @@ export async function POST(req: NextRequest) {
     const url = String(match.webhook_url).trim()
     console.log("[dispatch-one] Will POST to webhook:", url)
     const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
-    // Ensure admin fee aliases are always present
-    if (normalizedData["lender_admin_fee"] === undefined && normalizedData["admin_fee"] !== undefined) {
-      normalizedData["lender_admin_fee"] = normalizedData["admin_fee"]
-    }
-    if (normalizedData["admin_fee"] === undefined && normalizedData["lender_admin_fee"] !== undefined) {
-      normalizedData["admin_fee"] = normalizedData["lender_admin_fee"]
-    }
-    if (normalizedData["broker_admin_fee"] === undefined) {
-      normalizedData["broker_admin_fee"] = ""
-    }
-    // Attach organization_member_id for downstream auditing (always)
     normalizedData["organization_member_id"] = myMemberId
+    normalizedData["program_id"] = match.id
     console.log("[dispatch-one] Sending POST to webhook...")
     const res = await fetch(url, {
       method: "POST",

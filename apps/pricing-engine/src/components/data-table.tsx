@@ -74,7 +74,7 @@ import {
   DialogTitle,
 } from "@repo/ui/shadcn/dialog"
 import { Input } from "@repo/ui/shadcn/input"
-import { pipelineColumns } from "@/app/(pricing-engine)/scenarios/components/pipeline-columns"
+import { createPipelineColumns, type StarredInput as PEStarredInput, type AddressInput } from "@/app/(pricing-engine)/scenarios/components/pipeline-columns"
 import type { LoanRow } from "@/app/(pricing-engine)/scenarios/data/fetch-loans"
 import type { ApplicationRow } from "@/app/(pricing-engine)/applications/data/fetch-applications"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
@@ -735,6 +735,8 @@ export function DataTable() {
 
   const { data: scenariosRes, isLoading: scenariosLoading } = useSWR<{
     items: LoanRow[]
+    starredInputs?: PEStarredInput[]
+    addressInputs?: AddressInput[]
   }>("/api/pipeline", fetcher)
 
   const { data: appsRes, isLoading: appsLoading } = useSWR<{
@@ -754,6 +756,8 @@ export function DataTable() {
   }, [inputsRes])
 
   const scenarios = scenariosRes?.items ?? []
+  const peStarredInputs = scenariosRes?.starredInputs ?? []
+  const peAddressInputs = scenariosRes?.addressInputs ?? []
 
   const applications: AppRow[] = React.useMemo(() => {
     const items = appsRes?.items ?? []
@@ -778,8 +782,8 @@ export function DataTable() {
   )
 
   const scenariosColumns = React.useMemo(
-    () => pipelineColumns as ColumnDef<LoanRow, unknown>[],
-    [],
+    () => createPipelineColumns(peStarredInputs, peAddressInputs) as ColumnDef<LoanRow, unknown>[],
+    [peStarredInputs, peAddressInputs],
   )
 
   const appsColumns = React.useMemo(

@@ -108,22 +108,32 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
       .select("loan_scenario_id, pricing_engine_input_id, value_text, value_date, value_array, value_bool")
       .in("loan_scenario_id", scenarioIds)
 
-    // Fetch PE input code map
+    // Fetch PE input metadata (code + config for address resolution)
     const { data: peInputs } = await supabaseAdmin
       .from("pricing_engine_inputs")
-      .select("id, input_code")
+      .select("id, input_code, config")
       .is("archived_at", null)
     const idToCode = new Map<number, string>()
-    for (const inp of peInputs ?? []) idToCode.set(inp.id as number, inp.input_code as string)
+    const idToConfig = new Map<number, Record<string, unknown>>()
+    for (const inp of peInputs ?? []) {
+      idToCode.set(inp.id as number, inp.input_code as string)
+      if (inp.config) idToConfig.set(inp.id as number, inp.config as Record<string, unknown>)
+    }
 
-    // Group by scenario and reconstruct inputs
+    // Group by scenario and reconstruct inputs (keyed by input_code and by input_id)
     for (const row of allInputRows ?? []) {
       const sid = row.loan_scenario_id as string
       const scenario = [...loanIdToScenario.values()].find((s) => s.id === sid)
       if (!scenario) continue
-      const code = idToCode.get(row.pricing_engine_input_id as number)
+      const peId = row.pricing_engine_input_id as number
+      const code = idToCode.get(peId)
       if (!code) continue
       const val = row.value_date ?? row.value_array ?? (row.value_bool !== null ? row.value_bool : row.value_text)
+
+      // Store by input_id for dynamic column access
+      if (!scenario.inputs!.__byId) scenario.inputs!.__byId = {}
+      ;(scenario.inputs!.__byId as Record<string, unknown>)[String(peId)] = val
+
       if (code.startsWith("address_")) {
         if (!scenario.inputs!.address) scenario.inputs!.address = {}
         ;(scenario.inputs!.address as Record<string, unknown>)[code.replace("address_", "")] = val
@@ -225,6 +235,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     const scenario = loanIdToScenario.get(l.id as string)
     const inputs = (scenario?.inputs as Record<string, unknown>) ?? {}
     const selected = (scenario?.selected as Record<string, unknown>) ?? {}
+    const inputsById = (inputs.__byId as Record<string, unknown>) ?? {}
     const raUserIds = loanToUserIds.get(l.id as string)
     const assignedToUserIds = raUserIds ? [...raUserIds] : []
     const assignedToNames = assignedToUserIds.map((id) => userIdToName.get(id) ?? id)
@@ -237,21 +248,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
       assignedTo: assignedToDisplay,
       createdAt: l.created_at as string,
       updatedAt: l.updated_at as string,
-      // Derived columns for the pipeline table
-      propertyAddress: (() => {
-        const addr = inputs["address"] as { street?: string; city?: string; state?: string; zip?: string } | undefined
-        if (!addr) return undefined
-        const street = addr.street ?? ""
-        const city = addr.city ?? ""
-        const state = addr.state ?? ""
-        const zip = addr.zip ?? ""
-        const stateZip =
-          state && zip
-            ? `${state} ${zip}`
-            : [state, zip].filter(Boolean).join(" ")
-        const parts = [street, city, stateZip].filter((p) => String(p).trim().length > 0)
-        return parts.length ? parts.join(", ") : undefined
-      })(),
+      inputsById,
       borrowerFirstName: (inputs["borrower_name"] as string | undefined)?.split(" ")[0],
       borrowerLastName: (() => {
         const name = inputs["borrower_name"] as string | undefined
@@ -260,21 +257,19 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
         return parts.length > 1 ? parts.slice(1).join(" ") : undefined
       })(),
       guarantors: Array.isArray(inputs["guarantors"]) ? (inputs["guarantors"] as string[]) : [],
-      loanType: inputs["loan_type"] as string | undefined,
-      transactionType: inputs["transaction_type"] as string | undefined,
       loanAmount: (() => {
-        // support both selected.loan_amount and legacy selected.loanAmount
         const v = (selected["loan_amount"] ?? selected["loanAmount"]) as string | number | undefined
         const num = typeof v === "string" ? Number(v.toString().replace(/[$,]/g, "")) : (v as number | undefined)
         return Number.isFinite(num as number) ? (num as number) : undefined
       })(),
       rate: (() => {
-        // support both selected.rate and legacy selected.interestRate
         const v = (selected["rate"] ?? selected["interestRate"]) as string | number | undefined
         const num = typeof v === "string" ? Number(v.toString().replace(/[%]/g, "")) : (v as number | undefined)
         return Number.isFinite(num as number) ? (num as number) : undefined
       })(),
-      ...(inputs as Record<string, unknown>),
+      ...Object.fromEntries(
+        Object.entries(inputs).filter(([k]) => k !== "__byId")
+      ),
     }
   })
 

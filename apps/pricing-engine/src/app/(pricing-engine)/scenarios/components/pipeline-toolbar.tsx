@@ -53,9 +53,9 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           className="h-9 w-full flex-shrink-0 sm:w-[240px] lg:w-[250px]"
         />
         <div className="flex min-w-0 flex-wrap gap-2 sm:gap-x-2">
-          {table.getColumn("loanType") && (
+          {table.getColumn("loan_type") && (
             <DataTableFacetedFilter
-              column={table.getColumn("loanType")}
+              column={table.getColumn("loan_type")}
               title="Loan Type"
               options={[
                 { label: "DSCR", value: "dscr" },
@@ -63,9 +63,9 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
               ]}
             />
           )}
-          {table.getColumn("transactionType") && (
+          {table.getColumn("transaction_type") && (
             <DataTableFacetedFilter
-              column={table.getColumn("transactionType")}
+              column={table.getColumn("transaction_type")}
               title="Transaction Type"
               options={[
                 { label: "Purchase", value: "purchase" },

@@ -13,6 +13,7 @@ export interface LinkedRecord {
 interface LinkedAutocompleteInputProps {
   value?: string
   onChange: (value: string) => void
+  onRecordSelect?: (record: LinkedRecord | null) => void
   records: LinkedRecord[]
   placeholder?: string
   className?: string
@@ -22,6 +23,7 @@ interface LinkedAutocompleteInputProps {
 export function LinkedAutocompleteInput({
   value,
   onChange,
+  onRecordSelect,
   records,
   placeholder,
   className,
@@ -52,6 +54,7 @@ export function LinkedAutocompleteInput({
   function handleChange(newText: string) {
     setText(newText)
     onChange(newText)
+    onRecordSelect?.(null)
     setShow(true)
     setActiveIdx(-1)
   }
@@ -59,6 +62,7 @@ export function LinkedAutocompleteInput({
   function selectRecord(rec: LinkedRecord) {
     setText(rec.label)
     onChange(rec.label)
+    onRecordSelect?.(rec)
     setShow(false)
     setActiveIdx(-1)
   }
