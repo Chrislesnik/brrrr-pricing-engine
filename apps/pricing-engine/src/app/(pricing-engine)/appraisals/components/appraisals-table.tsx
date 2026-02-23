@@ -62,7 +62,7 @@ interface BorrowerJoin {
 }
 
 interface AmcJoin {
-  id: number;
+  id: string;
   name: string;
 }
 
@@ -70,7 +70,7 @@ export interface AppraisalOrder {
   id: number;
   organization_id: string;
   deal_id: string | null;
-  amc_id: number | null;
+  amc_id: string | null;
   borrower_id: string | null;
   borrower_name: string | null;
   loan_number: string | null;
@@ -88,7 +88,7 @@ export interface AppraisalOrder {
   date_report_received: string | null;
   created_at: string;
   borrowers: BorrowerJoin | null;
-  appraisal_amcs: AmcJoin | null;
+  integration_setup: AmcJoin | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -96,7 +96,7 @@ export interface AppraisalOrder {
 /* -------------------------------------------------------------------------- */
 
 function getAmcName(order: AppraisalOrder): string {
-  return order.appraisal_amcs?.name || "—";
+  return order.integration_setup?.name || "—";
 }
 
 function getAddress(order: AppraisalOrder): string {

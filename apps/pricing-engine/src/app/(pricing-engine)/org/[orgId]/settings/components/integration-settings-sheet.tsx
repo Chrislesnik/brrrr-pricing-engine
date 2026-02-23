@@ -25,6 +25,7 @@ import type { IntegrationType } from "@/components/workflow-builder/lib/types/in
 import {
   updateIntegrationSettings,
   getIntegrationConnections,
+  getIntegrationTags,
   saveIntegrationConnection,
   archiveIntegrationConnection,
   type ConnectionRow,
@@ -36,13 +37,13 @@ interface IntegrationSettingsRow {
   slug: string;
   description: string | null;
   icon_url: string | null;
-  tags: string[];
   active: boolean;
   level_global: boolean;
   level_org: boolean;
   level_individual: boolean;
   type: string;
   created_at: string;
+  tags?: string[];
 }
 
 interface IntegrationSettingsSheetProps {
@@ -157,7 +158,7 @@ export function IntegrationSettingsSheet({
       setLevelGlobal(integration.level_global);
       setLevelOrg(integration.level_org);
       setLevelIndividual(integration.level_individual);
-      setTags(integration.tags ?? []);
+      setTags([]); // will be loaded from integration_tags table below
       setTagInput("");
       setShowConnForm(false);
       setEditingConnId(null);
@@ -180,11 +181,24 @@ export function IntegrationSettingsSheet({
     }
   }, [integration]);
 
+  // Load tags from the integration_tags table
+  const loadTags = useCallback(async () => {
+    if (!integration) return;
+    try {
+      const tagList = await getIntegrationTags(integration.id);
+      setTags(tagList);
+    } catch (err) {
+      console.error("Failed to load tags:", err);
+      setTags([]);
+    }
+  }, [integration]);
+
   useEffect(() => {
     if (open && integration) {
       loadConnections();
+      loadTags();
     }
-  }, [open, integration, loadConnections]);
+  }, [open, integration, loadConnections, loadTags]);
 
   // Tag helpers
   const addTag = useCallback(() => {

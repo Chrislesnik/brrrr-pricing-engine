@@ -34,7 +34,7 @@ import {
   CommandList,
 } from "@repo/ui/shadcn/command";
 import { cn } from "@repo/lib/cn";
-import { Loader2, ChevronsUpDown, Check, Plus } from "lucide-react";
+import { Loader2, ChevronsUpDown, Check } from "lucide-react";
 import { DateInput } from "@/components/date-input";
 import { CalcInput } from "@/components/calc-input";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
@@ -65,7 +65,7 @@ const formatUSPhone = (input: string) => {
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-interface AmcOption { id: number; name: string }
+interface AmcOption { id: string; name: string }
 interface BorrowerOption { id: string; first_name: string; last_name: string; email?: string }
 
 interface NewAppraisalSheetProps {
@@ -87,8 +87,6 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   // AMC
   const [amcs, setAmcs] = useState<AmcOption[]>([]);
   const [selectedAmcId, setSelectedAmcId] = useState<string>("");
-  const [newAmcName, setNewAmcName] = useState("");
-  const [creatingAmc, setCreatingAmc] = useState(false);
 
   // Order Details
   const [lender, setLender] = useState("DSCR Loan Funder LLC");
@@ -165,27 +163,6 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
     }
     fetchData();
   }, [open]);
-
-  // Create AMC inline
-  const handleCreateAmc = async () => {
-    if (!newAmcName.trim()) return;
-    setCreatingAmc(true);
-    try {
-      const res = await fetch("/api/appraisal-amcs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newAmcName.trim() }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const newAmc = json.amc;
-        setAmcs((prev) => [...prev, { id: newAmc.id, name: newAmc.name }]);
-        setSelectedAmcId(String(newAmc.id));
-        setNewAmcName("");
-      }
-    } catch { /* ignore */ }
-    finally { setCreatingAmc(false); }
-  };
 
   // Select borrower & auto-populate
   const handleSelectBorrower = useCallback(async (id: string) => {
@@ -297,13 +274,6 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2 mt-2">
-              <Input value={newAmcName} onChange={(e) => setNewAmcName(e.target.value)} placeholder="Add new AMC..." className="h-8 text-xs flex-1" />
-              <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleCreateAmc} disabled={creatingAmc || !newAmcName.trim()}>
-                {creatingAmc ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                Add
-              </Button>
-            </div>
           </div>
 
           <Separator />

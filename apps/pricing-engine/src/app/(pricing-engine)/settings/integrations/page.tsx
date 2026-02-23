@@ -10,7 +10,8 @@ import { Label } from "@repo/ui/shadcn/label"
 import { Separator } from "@repo/ui/shadcn/separator"
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/shadcn/tabs"
 import { Badge } from "@repo/ui/shadcn/badge"
-import { Check, Cog, ExternalLink, Plus, Search, Archive } from "lucide-react"
+import { Check, ChevronRight, Cog, ExternalLink, Plus, Search, Archive } from "lucide-react"
+import { cn } from "@repo/lib/cn"
 import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon"
 import { getIntegration } from "@/components/workflow-builder/plugins"
 import type { IntegrationType } from "@/components/workflow-builder/lib/types/integration"
@@ -190,15 +191,39 @@ export default function SettingsIntegrationsPage() {
   const [error, setError] = React.useState<string | null>(null)
   const { toast } = useToast()
 
-  // Workflow integrations state
+  // All connections (flat list)
   const [workflowIntegrations, setWorkflowIntegrations] = React.useState<WorkflowIntegrationItem[]>([])
+
+  // Modal state
   const [wfAddModalOpen, setWfAddModalOpen] = React.useState(false)
   const [wfAddType, setWfAddType] = React.useState("")
+  const [wfAddName, setWfAddName] = React.useState("")
+  const [wfEditId, setWfEditId] = React.useState<string | null>(null)
   const [wfAddFieldValues, setWfAddFieldValues] = React.useState<Record<string, string>>({})
   const [wfAddLoading, setWfAddLoading] = React.useState(false)
   const [wfAddError, setWfAddError] = React.useState<string | null>(null)
 
-  // Platform status is now loaded via loadWorkflowIntegrations which fetches all types
+  // Expand/collapse per integration type
+  const [expandedTypes, setExpandedTypes] = React.useState<Set<string>>(new Set())
+
+  const toggleExpanded = React.useCallback((type: string) => {
+    setExpandedTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }, [])
+
+  // Group connections by type
+  const connectionsByType = React.useMemo(() => {
+    const map: Record<string, WorkflowIntegrationItem[]> = {}
+    for (const item of workflowIntegrations) {
+      if (!map[item.type]) map[item.type] = []
+      map[item.type]!.push(item)
+    }
+    return map
+  }, [workflowIntegrations])
 
   const loadWorkflowIntegrations = React.useCallback(async () => {
     try {
@@ -212,16 +237,16 @@ export default function SettingsIntegrationsPage() {
         items.map((i) => ({
           id: i.id,
           type: i.type,
-          name: i.name || allIntegrationMeta[i.type]?.label || i.type,
+          name: i.name || "",
           configured: Object.values(i.config).some((v) => v === "configured" || (v && v !== "")),
         }))
       )
 
-      // Update platform cards configured state from the same data
+      // Update platform cards configured state
       setActiveIntegrations((prev) =>
         prev.map((integration) => {
-          const existing = items.find((i) => i.type === integration.icon)
-          const hasKey = existing ? Object.values(existing.config).some((v) => v === "configured" || (v && v !== "")) : false
+          const conns = items.filter((i) => i.type === integration.icon)
+          const hasKey = conns.length > 0 && conns.some((c) => Object.values(c.config).some((v) => v === "configured" || (v && v !== "")))
           return { ...integration, hasKey, enabled: hasKey }
         })
       )
@@ -234,9 +259,7 @@ export default function SettingsIntegrationsPage() {
     loadWorkflowIntegrations()
   }, [loadWorkflowIntegrations])
 
-  // Get credential field config dynamically from plugin registry
   const getWfFields = React.useCallback((type: string): { key: string; label: string; isSecret: boolean }[] => {
-    // Try to get fields from plugin registry first
     const plugin = getIntegration(type as IntegrationType)
     if (plugin?.formFields?.length) {
       return plugin.formFields.map((f) => ({
@@ -265,20 +288,33 @@ export default function SettingsIntegrationsPage() {
     }
   }, [])
 
-  const handleWfAdd = async (type: string) => {
+  // Open modal for a NEW connection
+  const handleWfAdd = (type: string) => {
     setWfAddType(type)
+    setWfAddName("")
+    setWfEditId(null)
+    setWfAddFieldValues({})
+    setWfAddError(null)
+    setWfAddModalOpen(true)
+  }
+
+  // Open modal to EDIT an existing connection
+  const handleWfEdit = async (type: string, id: string) => {
+    setWfAddType(type)
+    setWfAddName("")
+    setWfEditId(id)
     setWfAddFieldValues({})
     setWfAddError(null)
     setWfAddModalOpen(true)
 
-    // If this integration already exists, fetch its current config to pre-fill
-    const existing = workflowIntegrations.find((w) => w.type === type)
-    if (existing) {
-      try {
-        const res = await fetch(`/api/workflow-integrations?id=${encodeURIComponent(existing.id)}`, { cache: "no-store" })
-        if (res.ok) {
-          const data = await res.json()
-          const config = data.integration?.config as Record<string, string> | undefined
+    try {
+      const res = await fetch(`/api/workflow-integrations?id=${encodeURIComponent(id)}`, { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        const integration = data.integration
+        if (integration) {
+          setWfAddName(integration.name || "")
+          const config = integration.config as Record<string, string> | undefined
           if (config) {
             const fields = getWfFields(type)
             const prefilled: Record<string, string> = {}
@@ -289,9 +325,9 @@ export default function SettingsIntegrationsPage() {
             setWfAddFieldValues(prefilled)
           }
         }
-      } catch {
-        // ignore fetch errors, user can re-enter
       }
+    } catch {
+      // ignore -- user can re-enter
     }
   }
 
@@ -300,33 +336,31 @@ export default function SettingsIntegrationsPage() {
     setWfAddError(null)
     try {
       const fields = getWfFields(wfAddType)
-      const existing = workflowIntegrations.find((w) => w.type === wfAddType)
+      const isEditing = !!wfEditId
       const config: Record<string, string> = {}
 
-      // Build config from all field values
       for (const field of fields) {
         const val = (wfAddFieldValues[field.key] || "").trim()
-        // For secret fields on existing integrations: if left empty, send "configured" to preserve existing value
-        config[field.key] = (existing && !val && field.isSecret) ? "configured" : val
+        config[field.key] = (isEditing && !val && field.isSecret) ? "configured" : val
       }
 
-      if (existing) {
-        // Update existing integration
-        const res = await fetch(`/api/workflow-integrations/${encodeURIComponent(existing.id)}`, {
+      const name = wfAddName.trim() || null
+
+      if (isEditing) {
+        const res = await fetch(`/api/workflow-integrations/${encodeURIComponent(wfEditId!)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ config }),
+          body: JSON.stringify({ name, config }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: "Failed to save" }))
           throw new Error(err.error)
         }
       } else {
-        // Create new integration
         const res = await fetch("/api/workflow-integrations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: wfAddType, name: null, config }),
+          body: JSON.stringify({ type: wfAddType, name, config }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: "Failed to save" }))
@@ -334,7 +368,7 @@ export default function SettingsIntegrationsPage() {
         }
       }
 
-      toast({ title: "Saved", description: `${allIntegrationMeta[wfAddType]?.label || wfAddType} credentials saved.` })
+      toast({ title: "Saved", description: `${allIntegrationMeta[wfAddType]?.label || wfAddType} connection saved.` })
       setWfAddModalOpen(false)
       loadWorkflowIntegrations()
     } catch (e) {
@@ -347,7 +381,7 @@ export default function SettingsIntegrationsPage() {
   const handleWfDelete = async (id: string) => {
     try {
       await fetch(`/api/workflow-integrations/${id}`, { method: "DELETE" })
-      toast({ title: "Archived", description: "Integration archived. It can be restored later." })
+      toast({ title: "Archived", description: "Connection archived." })
       loadWorkflowIntegrations()
     } catch {
       // ignore
@@ -363,6 +397,81 @@ export default function SettingsIntegrationsPage() {
       integration.description.toLowerCase().includes(query.toLowerCase())
     return matchesTab && matchesQuery
   })
+
+  // Shared connection-list footer rendered inside each card
+  const renderConnectionFooter = (type: string, link?: string) => {
+    const conns = connectionsByType[type] ?? []
+    const isExpanded = expandedTypes.has(type)
+
+    return (
+      <div className="px-6 py-4 space-y-2">
+        {/* Header row: toggle + count on the left, Add button on the right */}
+        <div className="flex items-center justify-between">
+          {conns.length > 0 ? (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => toggleExpanded(type)}
+            >
+              <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-90")} />
+              {conns.length} {conns.length === 1 ? "connection" : "connections"}
+            </button>
+          ) : (
+            <span />
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => handleWfAdd(type)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Connection
+          </Button>
+        </div>
+
+        {/* Expanded connection list */}
+        {isExpanded && conns.length > 0 && (
+          <div className="space-y-1 pt-1">
+            {conns.map((conn) => (
+              <div
+                key={conn.id}
+                className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="truncate font-medium">{conn.name || "Unnamed"}</span>
+                  {conn.configured && (
+                    <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
+                      <Check className="h-2.5 w-2.5" />
+                      Active
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleWfEdit(type, conn.id)}
+                  >
+                    <Cog className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleWfDelete(conn.id)}
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -405,79 +514,43 @@ export default function SettingsIntegrationsPage() {
       {/* Platform Integrations */}
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Platform</h3>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {filtered.map((integration) => (
-          <Card key={integration.name} className="border shadow-sm">
-            <div className="space-y-4 px-6 py-6">
-              <div className="flex items-start justify-between">
-                <div className="text-foreground">{integrationIcons[integration.icon]}</div>
-                <div className="flex items-center gap-1">
-                  {integration.hasKey && (
-                    <Badge variant="secondary" className="gap-1 text-xs">
-                      <Check className="h-3 w-3" />
-                      Configured
-                    </Badge>
-                  )}
-                  {integration.link ? (
-                    <a href={integration.link} target="_blank" rel="noreferrer noopener">
-                      <Button variant="ghost" size="icon" aria-label={`Open ${integration.name}`}>
+        {filtered.map((integration) => {
+          const conns = connectionsByType[integration.icon] ?? []
+          return (
+            <Card key={integration.name} className="border shadow-sm">
+              <div className="space-y-4 px-6 py-6">
+                <div className="flex items-start justify-between">
+                  <div className="text-foreground">{integrationIcons[integration.icon]}</div>
+                  <div className="flex items-center gap-1">
+                    {conns.length > 0 && (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Check className="h-3 w-3" />
+                        {conns.length} {conns.length === 1 ? "connection" : "connections"}
+                      </Badge>
+                    )}
+                    {integration.link ? (
+                      <a href={integration.link} target="_blank" rel="noreferrer noopener">
+                        <Button variant="ghost" size="icon" aria-label={`Open ${integration.name}`}>
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button variant="ghost" size="icon" aria-label={`No link for ${integration.name}`} disabled>
                         <ExternalLink className="h-4 w-4" />
                       </Button>
-                    </a>
-                  ) : (
-                    <Button variant="ghost" size="icon" aria-label={`No link for ${integration.name}`} disabled>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">{integration.name}</h3>
+                  <p className="text-muted-foreground text-sm">{integration.description}</p>
                 </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold">{integration.name}</h3>
-                <p className="text-muted-foreground text-sm">{integration.description}</p>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between px-6 py-4">
-              {(() => {
-                const existing = workflowIntegrations.find((w) => w.type === integration.icon)
-                if (existing) {
-                  return (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => handleWfAdd(integration.icon)}
-                      >
-                        <Cog className="h-4 w-4" />
-                        Update
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleWfDelete(existing.id)}
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                        Archive
-                      </Button>
-                    </>
-                  )
-                }
-                return (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => handleWfAdd(integration.icon)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Connection
-                  </Button>
-                )
-              })()}
-            </div>
-          </Card>
-        ))}
+              <Separator />
+              {renderConnectionFooter(integration.icon, integration.link)}
+            </Card>
+          )
+        })}
       </div>
 
       {/* Workflow Integrations */}
@@ -494,7 +567,7 @@ export default function SettingsIntegrationsPage() {
           })
           .map((type) => {
             const meta = allIntegrationMeta[type]
-            const existing = workflowIntegrations.find((w) => w.type === type)
+            const conns = connectionsByType[type] ?? []
             return (
               <Card key={type} className="border shadow-sm">
                 <div className="space-y-4 px-6 py-6">
@@ -503,10 +576,10 @@ export default function SettingsIntegrationsPage() {
                       <IntegrationIcon integration={type} className="h-5 w-5" />
                     </div>
                     <div className="flex items-center gap-1">
-                      {existing?.configured && (
+                      {conns.length > 0 && (
                         <Badge variant="secondary" className="gap-1 text-xs">
                           <Check className="h-3 w-3" />
-                          Configured
+                          {conns.length} {conns.length === 1 ? "connection" : "connections"}
                         </Badge>
                       )}
                       {meta.link && (
@@ -524,53 +597,38 @@ export default function SettingsIntegrationsPage() {
                   </div>
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between px-6 py-4">
-                  {existing ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => handleWfAdd(type)}
-                      >
-                        <Cog className="h-4 w-4" />
-                        Update
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleWfDelete(existing.id)}
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                        Archive
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => handleWfAdd(type)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Connection
-                    </Button>
-                  )}
-                </div>
+                {renderConnectionFooter(type, meta.link)}
               </Card>
             )
           })}
       </div>
 
-      {/* Add Workflow Integration Modal */}
+      {/* Connection Credential Modal */}
       <Dialog open={wfAddModalOpen} onOpenChange={setWfAddModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{allIntegrationMeta[wfAddType]?.label || wfAddType} Credentials</DialogTitle>
-            <DialogDescription>Enter your API credentials for {allIntegrationMeta[wfAddType]?.label || wfAddType}.</DialogDescription>
+            <DialogTitle>
+              {wfEditId ? "Edit" : "New"} {allIntegrationMeta[wfAddType]?.label || wfAddType} Connection
+            </DialogTitle>
+            <DialogDescription>
+              {wfEditId
+                ? `Update the name and credentials for this ${allIntegrationMeta[wfAddType]?.label || wfAddType} connection.`
+                : `Give this connection a name and enter your credentials for ${allIntegrationMeta[wfAddType]?.label || wfAddType}.`}
+            </DialogDescription>
           </DialogHeader>
           <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="wf-connection-name">Connection Name</Label>
+              <Input
+                id="wf-connection-name"
+                autoComplete="off"
+                value={wfAddName}
+                onChange={(e) => setWfAddName(e.target.value)}
+                placeholder={`e.g. My ${allIntegrationMeta[wfAddType]?.label || wfAddType} Production`}
+                disabled={wfAddLoading}
+              />
+            </div>
+            <Separator />
             {getWfFields(wfAddType).map((field) => (
               <div key={field.key} className="space-y-1">
                 <Label htmlFor={`wf-field-${field.key}`}>{field.label}</Label>

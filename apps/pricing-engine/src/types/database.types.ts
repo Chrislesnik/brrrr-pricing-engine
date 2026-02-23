@@ -782,7 +782,7 @@ export type Database = {
             foreignKeyName: "appraisal_amc_id_fkey"
             columns: ["amc_id"]
             isOneToOne: false
-            referencedRelation: "appraisal_amcs"
+            referencedRelation: "integration_setup"
             referencedColumns: ["id"]
           },
           {
@@ -4988,7 +4988,6 @@ export type Database = {
           level_org: boolean
           name: string
           slug: string
-          tags: Json
           type: string
           updated_at: string
         }
@@ -5003,7 +5002,6 @@ export type Database = {
           level_org?: boolean
           name: string
           slug: string
-          tags?: Json
           type: string
           updated_at?: string
         }
@@ -5018,7 +5016,6 @@ export type Database = {
           level_org?: boolean
           name?: string
           slug?: string
-          tags?: Json
           type?: string
           updated_at?: string
         }

@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export type ConnectionRow = {
   id: string;
@@ -80,10 +81,9 @@ export async function updateIntegrationSettings(input: {
   level_individual: boolean;
   tags: string[];
 }): Promise<{ ok: true }> {
-  const { token } = await requireAuth();
-  const supabase = supabaseForUser(token);
+  await requireAuth();
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("integration_settings")
     .update({
       active: input.active,
@@ -91,13 +91,49 @@ export async function updateIntegrationSettings(input: {
       level_global: input.level_global,
       level_org: input.level_org,
       level_individual: input.level_individual,
-      tags: input.tags,
     })
     .eq("id", input.id);
 
   if (error) throw new Error(error.message);
 
+  // Sync integration_tags table: delete old, insert new
+  const { error: delErr } = await supabaseAdmin
+    .from("integration_tags")
+    .delete()
+    .eq("integration_settings_id", input.id);
+
+  if (delErr) throw new Error(delErr.message);
+
+  if (input.tags.length > 0) {
+    const { error: insErr } = await supabaseAdmin
+      .from("integration_tags")
+      .insert(
+        input.tags.map((tag) => ({
+          integration_settings_id: input.id,
+          tag,
+        }))
+      );
+
+    if (insErr) throw new Error(insErr.message);
+  }
+
   return { ok: true };
+}
+
+export async function getIntegrationTags(
+  integrationSettingsId: number,
+): Promise<string[]> {
+  await requireAuth();
+
+  const { data, error } = await supabaseAdmin
+    .from("integration_tags")
+    .select("tag")
+    .eq("integration_settings_id", integrationSettingsId)
+    .order("tag");
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((r) => r.tag);
 }
 
 /* ------------------------------------------------------------------ */

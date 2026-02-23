@@ -31,13 +31,13 @@ interface IntegrationSettingsRow {
   slug: string;
   description: string | null;
   icon_url: string | null;
-  tags: string[];
   active: boolean;
   level_global: boolean;
   level_org: boolean;
   level_individual: boolean;
   type: string;
   created_at: string;
+  tags?: string[];
 }
 
 const SYSTEM_LOGO_MAP: Record<string, { src: string; alt: string }> = {
@@ -74,12 +74,24 @@ export function IntegrationsSettings() {
   const loadIntegrations = useCallback(async () => {
     try {
       const supabase = createSupabaseBrowser();
-      const { data } = await supabase
-        .from("integration_settings")
-        .select("*")
-        .order("name");
+      const [{ data: settings }, { data: tagRows }] = await Promise.all([
+        supabase.from("integration_settings").select("*").order("name"),
+        supabase.from("integration_tags").select("integration_settings_id, tag"),
+      ]);
 
-      setIntegrations((data ?? []) as IntegrationSettingsRow[]);
+      const tagsBySettingsId: Record<number, string[]> = {};
+      for (const row of tagRows ?? []) {
+        const sid = row.integration_settings_id as number;
+        if (!tagsBySettingsId[sid]) tagsBySettingsId[sid] = [];
+        tagsBySettingsId[sid]!.push(row.tag as string);
+      }
+
+      setIntegrations(
+        (settings ?? []).map((s) => ({
+          ...(s as IntegrationSettingsRow),
+          tags: tagsBySettingsId[s.id as number] ?? [],
+        }))
+      );
     } finally {
       setLoading(false);
     }
