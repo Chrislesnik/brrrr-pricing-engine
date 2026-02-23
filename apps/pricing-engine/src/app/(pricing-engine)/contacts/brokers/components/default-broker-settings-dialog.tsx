@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { Settings, XIcon } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
-import { Dialog, DialogContent, DialogTitle } from "@repo/ui/shadcn/dialog"
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@repo/ui/shadcn/dialog"
 import { cn } from "@repo/lib/cn"
 import { toast } from "@/hooks/use-toast"
 import {
@@ -10,6 +11,7 @@ import {
   ProgramsLoader,
   ProgramsList,
   RatesFeesTable,
+  stripEmptyRateRows,
   type RateRow,
 } from "./broker-settings-shared"
 
@@ -22,6 +24,44 @@ export function DefaultBrokerSettingsDialog() {
   const [allowBuydown, setAllowBuydown] = useState<boolean>(false)
   const [allowWhiteLabeling, setAllowWhiteLabeling] = useState<boolean>(false)
   const [saving, setSaving] = useState<boolean>(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      try {
+        const res = await fetch("/api/brokers/default-settings", { cache: "no-store" })
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(j?.error ?? "Failed to load")
+        if (cancelled) return
+        setAllowYsp(j.allow_ysp === true)
+        setAllowBuydown(j.allow_buydown_rate === true)
+        setAllowWhiteLabeling(j.allow_white_labeling === true)
+        setProgramVisibility((j.program_visibility as Record<string, boolean>) ?? {})
+        setRateRows(
+          Array.isArray(j.rates)
+            ? j.rates.map((r: any) => ({
+                id: String(r.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+                minUpb: r.min_upb ?? "",
+                minOp: r.min_op ?? ">=",
+                maxOp: r.max_op ?? "<=",
+                maxUpb: r.max_upb ?? "",
+                origination: r.origination ?? "",
+                adminFee: r.admin_fee ?? "",
+                ysp: r.ysp ?? "",
+              }))
+            : []
+        )
+      } catch {
+        // first time: no defaults saved yet -- keep blank state
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open])
 
   const NavItem = ({
     id,
@@ -51,8 +91,10 @@ export function DefaultBrokerSettingsDialog() {
         allow_buydown_rate: allowBuydown,
         allow_white_labeling: allowWhiteLabeling,
         program_visibility: programVisibility,
-        rates: rateRows.map((r) => ({
+        rates: stripEmptyRateRows(rateRows).map((r) => ({
           min_upb: r.minUpb ?? "",
+          min_op: r.minOp ?? ">=",
+          max_op: r.maxOp ?? "<=",
           max_upb: r.maxUpb ?? "",
           origination: r.origination ?? "",
           admin_fee: r.adminFee ?? "",
@@ -81,12 +123,13 @@ export function DefaultBrokerSettingsDialog() {
 
   return (
     <>
-      <Button variant="default" size="sm" type="button" onClick={() => setOpen(true)}>
-        Default Broker Settings
+      <Button className="space-x-1" type="button" onClick={() => setOpen(true)}>
+        <span>Default Broker Settings</span>
+        <Settings size={18} />
       </Button>
       {open && tab === "programs" ? <ProgramsLoader /> : null}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]">
+        <DialogContent hideClose className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]">
           <DialogTitle className="sr-only">Default Broker Settings</DialogTitle>
           <div className="grid grid-cols-[260px_1fr]">
             <aside className="border-r bg-muted/40 p-4">
@@ -104,8 +147,12 @@ export function DefaultBrokerSettingsDialog() {
               </nav>
             </aside>
             <section className="bg-background flex flex-col">
-              <header className="flex h-12 items-center border-b px-6 text-sm font-semibold">
-                {tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}
+              <header className="flex h-12 items-center justify-between border-b px-6 text-sm font-semibold">
+                <span>{tab === "programs" ? "Programs" : tab === "rates" ? "Rates/Fees" : "Additional"}</span>
+                <DialogClose className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                  <XIcon className="size-4" />
+                  <span className="sr-only">Close</span>
+                </DialogClose>
               </header>
               <div className="flex-1 p-6 overflow-y-auto max-h-[60vh]">
                 {tab === "programs" ? (

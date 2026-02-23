@@ -35,6 +35,10 @@ import {
 } from "@repo/ui/shadcn/select"
 import { DatePickerField } from "@/components/date-picker-field"
 import { CalcInput } from "@/components/calc-input"
+import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input"
+import { Switch } from "@/components/ui/switch"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -45,6 +49,7 @@ interface InputCategory {
   category: string
   display_order: number
   created_at: string
+  default_open?: boolean
 }
 
 interface InputField {
@@ -54,6 +59,7 @@ interface InputField {
   input_label: string
   input_type: string
   dropdown_options: string[] | null
+  config?: Record<string, unknown> | null
   starred: boolean
   display_order: number
   created_at: string
@@ -358,7 +364,7 @@ export function NewDealSheet({
             <div className="space-y-6 rounded-xl border bg-background/70 p-4 shadow-sm">
               <Accordion
                 type="multiple"
-                defaultValue={categories.map((c) => String(c.id))}
+                defaultValue={categories.filter((c) => c.default_open !== false).map((c) => String(c.id))}
                 className="w-full space-y-4"
               >
                 {inputsByCategory.map(({ category, fields }) => (
@@ -475,52 +481,27 @@ function DynamicInput({
       )
 
     case "dropdown": {
-      // Linked table dropdown — options come from the database
       if (field.linked_table) {
-        if (loadingLinked) {
-          return (
-            <div className="space-y-2">
-              <Label>
-                {field.input_label}
-                {isRequired && <span className="ml-1 text-destructive">*</span>}
-              </Label>
-              <Select disabled>
-                <SelectTrigger className={computedClass}>
-                  <SelectValue placeholder="Loading..." />
-                </SelectTrigger>
-                <SelectContent />
-              </Select>
-            </div>
-          )
-        }
-
         return (
           <div className="space-y-2">
             <Label>
               {field.input_label}
               {isRequired && <span className="ml-1 text-destructive">*</span>}
             </Label>
-            <Select
-              value={stringVal || undefined}
-              onValueChange={(val) => onChange(val)}
-            >
-              <SelectTrigger className={computedClass}>
-                <SelectValue placeholder={`Select ${field.linked_table.replace(/_/g, " ")}...`} />
-              </SelectTrigger>
-              <SelectContent>
-                {linkedRecords.length === 0 ? (
-                  <SelectItem value="__empty" disabled>
-                    No records found
-                  </SelectItem>
-                ) : (
-                  linkedRecords.map((rec) => (
-                    <SelectItem key={rec.id} value={rec.id}>
-                      {rec.label}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            {loadingLinked ? (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
+                <Loader2 className="size-3 animate-spin" />
+                Loading...
+              </div>
+            ) : (
+              <LinkedAutocompleteInput
+                value={stringVal}
+                onChange={(val) => onChange(val)}
+                records={linkedRecords}
+                placeholder={`Search ${field.linked_table.replace(/_/g, " ")}...`}
+                className={computedClass}
+              />
+            )}
           </div>
         )
       }
@@ -672,7 +653,70 @@ function DynamicInput({
         </div>
       )
 
-    case "boolean":
+    case "boolean": {
+      const boolDisplay = (field.config?.boolean_display as string) ?? "dropdown"
+
+      if (boolDisplay === "switch") {
+        return (
+          <div className="space-y-2">
+            <Label>
+              {field.input_label}
+              {isRequired && <span className="ml-1 text-destructive">*</span>}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={boolVal}
+                onCheckedChange={(checked) => onChange(checked)}
+              />
+              <span className="text-sm text-muted-foreground">{boolVal ? "Yes" : "No"}</span>
+            </div>
+          </div>
+        )
+      }
+
+      if (boolDisplay === "radio") {
+        return (
+          <div className="space-y-2">
+            <Label>
+              {field.input_label}
+              {isRequired && <span className="ml-1 text-destructive">*</span>}
+            </Label>
+            <RadioGroup
+              value={boolVal ? "true" : "false"}
+              onValueChange={(val) => onChange(val === "true")}
+              className="flex items-center gap-4"
+            >
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="true" id={`${field.id}-yes`} />
+                <Label htmlFor={`${field.id}-yes`} className="text-sm">Yes</Label>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="false" id={`${field.id}-no`} />
+                <Label htmlFor={`${field.id}-no`} className="text-sm">No</Label>
+              </div>
+            </RadioGroup>
+          </div>
+        )
+      }
+
+      if (boolDisplay === "checkbox") {
+        return (
+          <div className="space-y-2">
+            <Label>
+              {field.input_label}
+              {isRequired && <span className="ml-1 text-destructive">*</span>}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={boolVal}
+                onCheckedChange={(checked) => onChange(!!checked)}
+              />
+              <Label className="text-sm">Yes</Label>
+            </div>
+          </div>
+        )
+      }
+
       return (
         <div className="space-y-2">
           <Label>
@@ -693,6 +737,7 @@ function DynamicInput({
           </Select>
         </div>
       )
+    }
 
     default:
       return (

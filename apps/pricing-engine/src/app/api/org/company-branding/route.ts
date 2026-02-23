@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         .from("custom_broker_settings")
         .select("allow_white_labeling")
         .eq("organization_id", orgUuid)
-        .eq("broker_id", brokerId)
+        .eq("broker_org_id", brokerId)
         .maybeSingle()
       allowWhiteLabeling =
         (custom as any)?.allow_white_labeling === true ||

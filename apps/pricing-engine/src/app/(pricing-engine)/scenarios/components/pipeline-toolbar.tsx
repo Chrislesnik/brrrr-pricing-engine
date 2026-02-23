@@ -1,7 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { Cross2Icon } from "@radix-ui/react-icons"
 import { Table } from "@tanstack/react-table"
+import { Plus } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import { Input } from "@repo/ui/shadcn/input"
 import { DataTableViewOptions } from "../../users/components/data-table-view-options"
@@ -51,9 +53,9 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           className="h-9 w-full flex-shrink-0 sm:w-[240px] lg:w-[250px]"
         />
         <div className="flex min-w-0 flex-wrap gap-2 sm:gap-x-2">
-          {table.getColumn("loanType") && (
+          {table.getColumn("loan_type") && (
             <DataTableFacetedFilter
-              column={table.getColumn("loanType")}
+              column={table.getColumn("loan_type")}
               title="Loan Type"
               options={[
                 { label: "DSCR", value: "dscr" },
@@ -61,9 +63,9 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
               ]}
             />
           )}
-          {table.getColumn("transactionType") && (
+          {table.getColumn("transaction_type") && (
             <DataTableFacetedFilter
-              column={table.getColumn("transactionType")}
+              column={table.getColumn("transaction_type")}
               title="Transaction Type"
               options={[
                 { label: "Purchase", value: "purchase" },
@@ -103,8 +105,14 @@ export function PipelineToolbar({ table }: Props<LoanRow>) {
           </Button>
         )}
       </div>
-      <div className="flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center gap-2">
         <DataTableViewOptions table={table} />
+        <Button size="sm" className="h-8" asChild>
+          <Link href="/pricing">
+            <Plus className="mr-2 h-4 w-4" />
+            New Loan
+          </Link>
+        </Button>
       </div>
     </div>
   )

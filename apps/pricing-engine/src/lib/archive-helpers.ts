@@ -10,6 +10,8 @@ export type ArchivableTable =
   | "deals"
   | "borrowers"
   | "entities"
+  | "credit_reports"
+  | "background_reports"
   | "guarantor"
   // Tier 2: Operational
   | "inputs"
@@ -21,9 +23,11 @@ export type ArchivableTable =
   | "task_templates"
   | "actions"
   | "programs"
+  | "pricing_engine_inputs"
+  | "pricing_engine_input_categories"
   | "document_templates"
   // Tier 3: Settings/Config
-  | "workflow_integrations"
+  | "integration_setup"
   | "organization_policies"
   | "organization_member_roles"
   | "deal_stages"

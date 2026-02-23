@@ -2,34 +2,9 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
+import { writeScenarioInputs, writeScenarioOutputs, readScenarioInputs } from "@/lib/scenario-helpers"
 
 export const runtime = "nodejs"
-
-function parseBorrowerEntityId(inputs: Record<string, unknown> | undefined): string | null {
-  const raw = inputs?.["borrower_entity_id"]
-  return typeof raw === "string" && raw.length > 0 ? raw : null
-}
-
-function parseGuarantorIds(inputs: Record<string, unknown> | undefined): string[] | null {
-  const raw = inputs?.["guarantor_borrower_ids"]
-  if (!Array.isArray(raw)) return null
-  const ids = raw.filter((v): v is string => typeof v === "string" && v.length > 0)
-  return ids.length > 0 ? ids : []
-}
-
-function parseGuarantorNames(inputs: Record<string, unknown> | undefined): string[] | null {
-  const raw = inputs?.["guarantor_names"] ?? inputs?.["guarantors"]
-  if (!Array.isArray(raw)) return null
-  const names = raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-  return names.length > 0 ? names : []
-}
-
-function parseGuarantorEmails(inputs: Record<string, unknown> | undefined): string[] | null {
-  const raw = inputs?.["guarantor_emails"]
-  if (!Array.isArray(raw)) return null
-  const emails = raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-  return emails.length > 0 ? emails : []
-}
 
 export async function GET(
   req: Request,
@@ -42,11 +17,48 @@ export async function GET(
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
     const { data, error } = await supabaseAdmin
       .from("loan_scenarios")
-      .select("id, name, inputs, selected, loan_id, primary")
+      .select("id, name, loan_id, primary, selected_rate_option_id")
       .eq("id", id)
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ scenario: data })
+
+    // Read inputs from normalized table
+    const inputs = await readScenarioInputs(id)
+
+    // Read selected from the rate option FK
+    let selected: Record<string, unknown> | null = null
+    if (data?.selected_rate_option_id) {
+      const { data: rateOpt } = await supabaseAdmin
+        .from("scenario_rate_options")
+        .select("*, scenario_program_results!inner(program_id, program_name, loan_amount, ltv)")
+        .eq("id", data.selected_rate_option_id)
+        .single()
+      if (rateOpt) {
+        const result = rateOpt.scenario_program_results as Record<string, unknown>
+        selected = {
+          program_id: result?.program_id ?? null,
+          program_name: result?.program_name ?? null,
+          row_index: rateOpt.row_index,
+          loanPrice: rateOpt.loan_price,
+          interestRate: rateOpt.interest_rate,
+          loanAmount: (result?.loan_amount as string) ?? rateOpt.total_loan_amount ?? null,
+          ltv: (result?.ltv as string) ?? null,
+          pitia: rateOpt.pitia,
+          dscr: rateOpt.dscr,
+        }
+      }
+    }
+
+    return NextResponse.json({
+      scenario: {
+        id: data?.id,
+        name: data?.name,
+        loan_id: data?.loan_id,
+        primary: data?.primary,
+        inputs,
+        selected,
+      },
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -73,42 +85,91 @@ export async function POST(
     // Fetch previous state for comparison
     const { data: previousScenario } = await supabaseAdmin
       .from("loan_scenarios")
-      .select("inputs, selected, loan_id")
+      .select("loan_id")
       .eq("id", id)
       .single()
+    const previousInputs = await readScenarioInputs(id)
 
     const update: Record<string, unknown> = {}
     if (body.name !== undefined) update.name = body.name
-    if (body.inputs !== undefined) {
-      const inputs = body.inputs as Record<string, unknown> | undefined
-      update.inputs = inputs
-      update.borrower_entity_id = parseBorrowerEntityId(inputs)
-      update.guarantor_borrower_ids = parseGuarantorIds(inputs)
-      update.guarantor_names = parseGuarantorNames(inputs)
-      update.guarantor_emails = parseGuarantorEmails(inputs)
-    }
-    if (body.selected !== undefined) update.selected = body.selected
     if (body.loanId !== undefined) update.loan_id = body.loanId
-    if (Object.keys(update).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
-    const { data, error } = await supabaseAdmin
-      .from("loan_scenarios")
-      .update(update)
-      .eq("id", id)
-      .select("id, name, inputs, selected, loan_id, primary")
-      .single()
+    if (Object.keys(update).length === 0 && body.inputs === undefined && body.selected === undefined && body.outputs === undefined) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+    }
+    let data: Record<string, unknown> | null = null
+    if (Object.keys(update).length > 0) {
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from("loan_scenarios")
+        .update(update)
+        .eq("id", id)
+        .select("id, name, loan_id, primary")
+        .single()
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+      data = updated as Record<string, unknown>
+    } else {
+      const { data: existing, error: fetchError } = await supabaseAdmin
+        .from("loan_scenarios")
+        .select("id, name, loan_id, primary")
+        .eq("id", id)
+        .single()
+      if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
+      data = existing as Record<string, unknown>
+    }
+    const error = null
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Write to normalized tables
+    if (body.inputs !== undefined) {
+      await writeScenarioInputs(id, body.inputs as Record<string, unknown>)
+    }
+    if (body.outputs && Array.isArray(body.outputs) && body.outputs.length > 0) {
+      await writeScenarioOutputs(
+        id,
+        body.outputs,
+        (body.selected ?? data?.selected) as Record<string, unknown> | null | undefined
+      )
+    } else if (body.selected) {
+      // Update selection on existing rate options without re-writing outputs
+      const sel = body.selected as Record<string, unknown>
+      const programId = sel.program_id ?? sel.programId
+      const rowIdx = sel.row_index ?? sel.rowIdx
+
+      const { data: existingResults } = await supabaseAdmin
+        .from("scenario_program_results")
+        .select("id, program_id")
+        .eq("loan_scenario_id", id)
+
+      if (existingResults?.length) {
+        const matchResult = programId
+          ? existingResults.find(r => String(r.program_id) === String(programId))
+          : existingResults[0]
+
+        if (matchResult) {
+          const { data: rateOpt } = await supabaseAdmin
+            .from("scenario_rate_options")
+            .select("id")
+            .eq("scenario_program_result_id", matchResult.id)
+            .eq("row_index", Number(rowIdx))
+            .single()
+
+          if (rateOpt) {
+            await supabaseAdmin
+              .from("loan_scenarios")
+              .update({ selected_rate_option_id: rateOpt.id })
+              .eq("id", id)
+          }
+        }
+      }
+    }
 
     // Log activity for scenario update - compare and log separately
     try {
       const loanId = data?.loan_id ?? body.loanId ?? null
 
-      // Compare inputs
       const inputsChanged = body.inputs !== undefined && 
-        JSON.stringify(previousScenario?.inputs) !== JSON.stringify(body.inputs)
+        JSON.stringify(previousInputs) !== JSON.stringify(body.inputs)
       
-      // Compare selection
-      const selectionChanged = body.selected !== undefined && 
-        JSON.stringify(previousScenario?.selected) !== JSON.stringify(body.selected)
+      const selectionChanged = body.selected !== undefined
 
       // Log input_changes if inputs actually changed
       if (inputsChanged) {

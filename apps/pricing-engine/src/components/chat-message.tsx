@@ -29,11 +29,11 @@ function extractThemeFromText(text: string): {
   isComplete: boolean;
 } {
   if (!text) return { theme: null, isComplete: false };
-  
-  // Try to parse as JSON directly
+
+  const trimmed = text.trim();
+
+  // Strategy 1: Parse as a clean JSON string
   try {
-    const trimmed = text.trim();
-    // Check if it looks like JSON
     if (trimmed.startsWith("{")) {
       const parsed = JSON.parse(trimmed);
       if (parsed.light && parsed.dark) {
@@ -41,10 +41,10 @@ function extractThemeFromText(text: string): {
       }
     }
   } catch {
-    // Not complete JSON yet, try to extract partial
+    // Not a clean JSON string
   }
 
-  // Try to extract JSON from markdown code block if present
+  // Strategy 2: Extract from markdown code block
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     try {
@@ -53,30 +53,49 @@ function extractThemeFromText(text: string): {
         return { theme: parsed, isComplete: true };
       }
     } catch {
-      // Ignore parse errors
+      // Ignore
     }
   }
 
-  // Check if we have partial JSON being streamed
+  // Strategy 3: Find JSON by locating the outermost { ... } in the text
+  // (handles preamble text like "Here's your theme:" before the JSON)
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const jsonCandidate = trimmed.substring(firstBrace, lastBrace + 1);
+    try {
+      const parsed = JSON.parse(jsonCandidate);
+      if (parsed.light && parsed.dark) {
+        return { theme: parsed, isComplete: true };
+      }
+    } catch {
+      // Extraction failed
+    }
+  }
+
+  // Strategy 4: Partial streaming detection — close unclosed braces
   const hasOpenBrace = text.includes("{");
   const hasLight = text.includes('"light"');
   const hasDark = text.includes('"dark"');
-  
+
   if (hasOpenBrace && (hasLight || hasDark)) {
-    // Try to extract partial theme for preview
     try {
-      // Add closing braces to make it parseable
-      let partial = text.trim();
+      let partial = trimmed;
+      const startIdx = partial.indexOf("{");
+      if (startIdx > 0) partial = partial.substring(startIdx);
+
       if (!partial.endsWith("}")) {
-        // Count open braces and add closing ones
         const openCount = (partial.match(/{/g) || []).length;
         const closeCount = (partial.match(/}/g) || []).length;
         partial += "}".repeat(Math.max(0, openCount - closeCount));
       }
       const parsed = JSON.parse(partial);
-      return { theme: parsed, isComplete: false };
+      if (parsed.light || parsed.dark) {
+        return { theme: parsed, isComplete: false };
+      }
     } catch {
-      // Can't parse partial, that's okay
+      // Can't parse partial
     }
   }
 

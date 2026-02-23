@@ -14,7 +14,7 @@ export async function GET() {
     if (!orgUuid) return NextResponse.json({ items: [] })
     const { data, error } = await supabaseAdmin
       .from("ai_chats")
-      .select("id, name, created_at, last_used_at")
+      .select("id, name, created_at, last_used_at, loan_type, program_id")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
       .order("last_used_at", { ascending: false })
@@ -35,20 +35,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 200 })
     }
     let name = "New chat"
+    let loanType: string | undefined
+    let programId: string | undefined
     try {
       const body = await req.json()
       if (typeof body?.name === "string" && body.name.trim().length) {
         name = body.name.trim().slice(0, 120)
       }
+      if (typeof body?.loan_type === "string" && body.loan_type.trim()) {
+        loanType = body.loan_type.trim()
+      }
+      if (typeof body?.program_id === "string" && body.program_id.trim()) {
+        programId = body.program_id.trim()
+      }
     } catch {
-      // ignore body parse issues; fall back to default name
+      // ignore body parse issues; fall back to defaults
     }
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ ok: false, error: "Org not found" }, { status: 200 })
+    const insertPayload: Record<string, unknown> = {
+      user_id: userId,
+      organization_id: orgUuid,
+      name,
+      last_used_at: new Date().toISOString(),
+    }
+    if (loanType) insertPayload.loan_type = loanType
+    if (programId) insertPayload.program_id = programId
     const { data, error } = await supabaseAdmin
       .from("ai_chats")
-      .insert({ user_id: userId, organization_id: orgUuid, name, last_used_at: new Date().toISOString() })
-      .select("id, name, created_at, last_used_at")
+      .insert(insertPayload)
+      .select("id, name, created_at, last_used_at, loan_type, program_id")
       .single()
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 200 })

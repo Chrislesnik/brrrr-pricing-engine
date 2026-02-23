@@ -36,17 +36,29 @@ export async function PATCH(
     if (!orgUuid) return NextResponse.json({ ok: false, error: "Org not found" }, { status: 200 })
 
     const body = await req.json().catch(() => ({}))
-    const name =
-      typeof body?.name === "string" && body.name.trim().length ? body.name.trim().slice(0, 120) : undefined
-    if (!name) return NextResponse.json({ ok: false, error: "Invalid name" }, { status: 200 })
+    const updates: Record<string, unknown> = { last_used_at: new Date().toISOString() }
+
+    if (typeof body?.name === "string" && body.name.trim().length) {
+      updates.name = body.name.trim().slice(0, 120)
+    }
+    if (typeof body?.loan_type === "string") {
+      updates.loan_type = body.loan_type.trim() || null
+    }
+    if (body?.program_id !== undefined) {
+      updates.program_id = (typeof body.program_id === "string" && body.program_id.trim()) ? body.program_id.trim() : null
+    }
+
+    if (Object.keys(updates).length === 1) {
+      return NextResponse.json({ ok: false, error: "No fields to update" }, { status: 200 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from("ai_chats")
-      .update({ name, last_used_at: new Date().toISOString() })
+      .update(updates)
       .eq("id", id)
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
-      .select("id, name, created_at, last_used_at")
+      .select("id, name, created_at, last_used_at, loan_type, program_id")
       .single()
 
     if (error) {

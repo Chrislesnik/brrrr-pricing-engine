@@ -26,6 +26,8 @@ export interface LogicCondition {
 
 export interface LogicAction {
   input_id: string;
+  category_id?: number;
+  target_type?: "input" | "category";
   value_type: string; // visible | not_visible | required | not_required | value | field | expression
   value_text?: string;
   value_visible?: boolean;

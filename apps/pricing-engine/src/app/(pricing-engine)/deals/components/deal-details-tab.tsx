@@ -27,6 +27,11 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
+import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input";
+import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@repo/ui/shadcn/label";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -44,6 +49,7 @@ interface InputCategory {
   category: string;
   display_order: number;
   created_at: string;
+  default_open?: boolean;
 }
 
 interface InputField {
@@ -53,6 +59,7 @@ interface InputField {
   input_label: string;
   input_type: string;
   dropdown_options: string[] | null;
+  config?: Record<string, unknown> | null;
   starred: boolean;
   display_order: number;
   created_at: string;
@@ -389,7 +396,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
       case "date":
         return formatDate(rawValue);
       case "boolean":
-        return rawValue === true ? "Yes" : rawValue === false ? "No" : "—";
+        return rawValue === true || rawValue === "true" || rawValue === "Yes" ? "Yes" : rawValue === false || rawValue === "false" || rawValue === "No" ? "No" : "—";
       case "dropdown":
         return formatEnum(rawValue);
       case "text":
@@ -400,10 +407,10 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
 
   /** Render an edit control based on input_type */
   const renderEditControl = (field: InputField, rawValue: unknown) => {
-    // For linked inputs: render a dropdown of records from the linked table
+    // For linked inputs: render a searchable text input with autocomplete from linked records
     if (field.linked_table) {
       const records = linkedRecordsByTable[field.linked_table] ?? [];
-      const selectedPk = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
+      const currentVal = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
 
       if (loadingLinkedRecords) {
         return (
@@ -414,34 +421,14 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         );
       }
 
-      if (records.length === 0) {
-        return (
-          <div className="text-xs text-muted-foreground py-2 flex items-center gap-1">
-            <Link2 className="size-3" />
-            No {field.linked_table.replace(/_/g, " ")} found
-          </div>
-        );
-      }
-
       return (
-        <Select
-          value={selectedPk || undefined}
-          onValueChange={(val) => updateValue(field.id, val)}
-        >
-          <SelectTrigger className="text-sm">
-            <div className="flex items-center gap-1.5">
-              <Link2 className="size-3 text-indigo-500 shrink-0" />
-              <SelectValue placeholder={`Select ${field.linked_table.replace(/_/g, " ")}...`} />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            {records.map((rec) => (
-              <SelectItem key={rec.id} value={rec.id}>
-                {rec.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <LinkedAutocompleteInput
+          value={currentVal}
+          onChange={(val) => updateValue(field.id, val)}
+          records={records}
+          placeholder={`Search ${field.linked_table.replace(/_/g, " ")}...`}
+          className="text-sm"
+        />
       );
     }
 
@@ -573,7 +560,52 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
           </div>
         );
 
-      case "boolean":
+      case "boolean": {
+        const boolDisplay = (field.config?.boolean_display as string) ?? "dropdown";
+
+        if (boolDisplay === "switch") {
+          return (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={boolVal}
+                onCheckedChange={(checked) => updateValue(field.id, checked)}
+              />
+              <span className="text-sm text-muted-foreground">{boolVal ? "Yes" : "No"}</span>
+            </div>
+          );
+        }
+
+        if (boolDisplay === "radio") {
+          return (
+            <RadioGroup
+              value={boolVal ? "true" : "false"}
+              onValueChange={(val) => updateValue(field.id, val === "true")}
+              className="flex items-center gap-4"
+            >
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="true" id={`${field.id}-yes`} />
+                <Label htmlFor={`${field.id}-yes`} className="text-sm">Yes</Label>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <RadioGroupItem value="false" id={`${field.id}-no`} />
+                <Label htmlFor={`${field.id}-no`} className="text-sm">No</Label>
+              </div>
+            </RadioGroup>
+          );
+        }
+
+        if (boolDisplay === "checkbox") {
+          return (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={boolVal}
+                onCheckedChange={(checked) => updateValue(field.id, !!checked)}
+              />
+              <Label className="text-sm">Yes</Label>
+            </div>
+          );
+        }
+
         return (
           <Select
             value={boolVal ? "true" : "false"}
@@ -588,6 +620,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
             </SelectContent>
           </Select>
         );
+      }
 
       default:
         return (
@@ -616,9 +649,9 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     );
   }
 
-  const allCategoryIds = inputsByCategory.map(({ category }) =>
-    String(category.id)
-  );
+  const allCategoryIds = inputsByCategory
+    .filter(({ category }) => category.default_open !== false)
+    .map(({ category }) => String(category.id));
 
   /** Render a category column */
   const renderCategory = ({ category, fields }: { category: InputCategory; fields: InputField[] }) => {

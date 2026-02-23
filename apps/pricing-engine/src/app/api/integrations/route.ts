@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest) {
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("id, type, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest) {
 
     // Find existing row
     const { data: existing } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("id, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
@@ -94,7 +94,7 @@ export async function PATCH(req: NextRequest) {
     // Update status in config
     const updatedConfig = { ...config, status: status.toString() }
     const { error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .update({ config: updatedConfig })
       .eq("id", existing.id)
 

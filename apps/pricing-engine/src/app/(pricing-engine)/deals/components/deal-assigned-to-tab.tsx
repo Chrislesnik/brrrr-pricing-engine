@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Users } from "lucide-react";
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
+import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 type RoleAssignment = {
   id: number;
@@ -44,6 +45,30 @@ export function DealAssignedToRoster({ dealId }: DealAssignedToRosterProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const supabase = useMemo(() => createSupabaseBrowser(), []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`deal-users-${dealId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "deal_users",
+          filter: `deal_id=eq.${dealId}`,
+        },
+        () => {
+          void load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, dealId, load]);
 
   const fullName = (a: { first_name?: string | null; last_name?: string | null; user_id?: string }) =>
     [a.first_name, a.last_name].filter(Boolean).join(" ").trim() || a.user_id || "?";

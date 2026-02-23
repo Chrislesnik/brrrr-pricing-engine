@@ -530,7 +530,7 @@ export function NewEntityModal({
 									<Label>EIN</Label>
 									<Input
 										placeholder="XX-XXXXXXX"
-										name="ein"
+										name="contact-entity-ein"
 										ref={einRef}
 										value={formatEINMasked(einRaw)}
 										onChange={(e) => {
@@ -547,7 +547,9 @@ export function NewEntityModal({
 										}}
 										inputMode="numeric"
 										maxLength={10}
-										autoComplete="off"
+										autoComplete="one-time-code"
+										data-1p-ignore
+										data-lpignore="true"
 										onKeyDown={(e) => {
 											const allowed = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End","Enter"]
 											if (allowed.includes(e.key) || e.metaKey || e.ctrlKey) return

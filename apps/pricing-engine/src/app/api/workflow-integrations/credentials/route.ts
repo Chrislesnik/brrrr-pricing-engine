@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("type, config")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)

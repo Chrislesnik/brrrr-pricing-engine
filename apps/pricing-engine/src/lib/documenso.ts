@@ -108,9 +108,89 @@ export async function getDocument(documentId: string): Promise<{
     name: string
     role: string
     signingStatus: string
+    signingUrl: string
   }>
 }> {
   return documensoFetch(`/documents/${documentId}`)
+}
+
+/**
+ * Send a drafted document to its recipients
+ * Endpoint: POST /api/v1/documents/{id}/send
+ */
+export async function sendDocument(documentId: string): Promise<unknown> {
+  return documensoFetch(`/documents/${documentId}/send`, {
+    method: "POST",
+    body: {},
+  })
+}
+
+/**
+ * Resend a signing reminder to pending recipients.
+ * Tries the v1 resend endpoint first. If Documenso's endpoint fails
+ * (known issue with embed-created documents), returns signing URLs
+ * so the caller can surface them to the user.
+ */
+export async function resendDocument(
+  documentId: string,
+): Promise<{ sent: boolean; signingUrls?: Array<{ email: string; name: string; url: string }> }> {
+  const doc = await getDocument(documentId)
+  const pendingRecipients = doc.recipients.filter(
+    (r) => r.signingStatus !== "SIGNED",
+  )
+
+  if (pendingRecipients.length === 0) {
+    throw new Error("No pending recipients to remind")
+  }
+
+  try {
+    await documensoFetch(`/documents/${documentId}/resend`, {
+      method: "POST",
+      body: { recipients: pendingRecipients.map((r) => Number(r.id)) },
+    })
+    return { sent: true }
+  } catch (err) {
+    console.warn("Documenso resend failed, returning signing URLs as fallback:", err)
+    return {
+      sent: false,
+      signingUrls: pendingRecipients.map((r) => ({
+        email: r.email,
+        name: r.name,
+        url: r.signingUrl,
+      })),
+    }
+  }
+}
+
+/**
+ * Download a document PDF from Documenso (v2 API).
+ * Returns the raw Response so the caller can stream the binary PDF.
+ * Endpoint: GET /api/v2/document/{documentId}/download?version=signed
+ * Ref: https://openapi.documenso.com/reference#tag/document/get/document/{documentId}/download
+ */
+export async function downloadDocument(
+  documentId: string,
+  version: "original" | "signed" = "signed",
+): Promise<Response> {
+  if (!DOCUMENSO_API_KEY) {
+    throw new Error("DOCUMENSO_API_KEY is not configured")
+  }
+
+  const response = await fetch(
+    `${DOCUMENSO_API_URL}/v2/document/${documentId}/download?version=${version}`,
+    {
+      headers: {
+        Authorization: `Bearer ${DOCUMENSO_API_KEY}`,
+      },
+    },
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Documenso API error: ${response.status} ${errorText}`)
+  }
+
+  return response
 }
 
 /**

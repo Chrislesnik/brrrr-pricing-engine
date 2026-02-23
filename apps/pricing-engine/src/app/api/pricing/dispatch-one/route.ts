@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { fetchProgramConditions, evaluateProgramConditions } from "@/lib/program-condition-evaluator"
 
 export const runtime = "nodejs"
 
 async function waitForOrgMemberId(
   orgUuid: string | null,
   userId: string | null | undefined,
-  maxWaitMs = 5000,  // Reduced from 45s to 5s for faster debugging
+  maxWaitMs = 5000,
   intervalMs = 400
 ): Promise<string | null> {
   const start = Date.now()
@@ -35,13 +36,13 @@ async function waitForOrgMemberId(
   }
 }
 
-function booleanToYesNoDeep(value: unknown): unknown {
-  if (typeof value === "boolean") return value ? "yes" : "no"
-  if (Array.isArray(value)) return value.map((v) => booleanToYesNoDeep(v))
+function booleanToStringDeep(value: unknown): unknown {
+  if (typeof value === "boolean") return value ? "true" : "false"
+  if (Array.isArray(value)) return value.map((v) => booleanToStringDeep(v))
   if (value && typeof value === "object") {
     const src = value as Record<string, unknown>
     const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(src)) out[k] = booleanToYesNoDeep(v)
+    for (const [k, v] of Object.entries(src)) out[k] = booleanToStringDeep(v)
     return out
   }
   return value
@@ -49,33 +50,24 @@ function booleanToYesNoDeep(value: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("[dispatch-one] Starting POST request")
     const { orgId, userId } = await auth()
-    console.log("[dispatch-one] Auth:", { orgId, userId })
 
     const json = (await req.json().catch(() => null)) as {
-      loanType?: string
       programId?: string
+      inputValuesById?: Record<string, unknown>
       data?: Record<string, unknown>
     } | null
-    console.log("[dispatch-one] Payload:", { loanType: json?.loanType, programId: json?.programId, hasData: !!json?.data })
-    if (!json?.loanType || !json?.programId || !json?.data) {
-      console.log("[dispatch-one] Missing payload, returning 400")
+    if (!json?.programId || !json?.data) {
       return new NextResponse("Missing payload", { status: 400 })
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
-    console.log("[dispatch-one] orgUuid:", orgUuid)
-    // Resolve caller's organization_member_id for attribution (wait until available)
     const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
-    console.log("[dispatch-one] myMemberId:", myMemberId)
 
     const { data, error } = await supabaseAdmin
       .from("programs")
       .select("id,internal_name,external_name,webhook_url")
-      .eq("loan_type", String(json.loanType).toLowerCase())
       .eq("status", "active")
-    console.log("[dispatch-one] Programs query result:", { count: data?.length, error: error?.message, programs: data })
     if (error) return new NextResponse(error.message, { status: 500 })
 
     const match = (data ?? []).find((p) =>
@@ -83,9 +75,27 @@ export async function POST(req: NextRequest) {
         p.internal_name === json.programId ||
         p.external_name === json.programId
     )
-    console.log("[dispatch-one] Looking for programId:", json.programId, "Found match:", match ? { id: match.id, internal_name: match.internal_name, webhook_url: match.webhook_url } : null)
+
+    if (match?.id) {
+      const condMap = await fetchProgramConditions([match.id])
+      const entry = condMap.get(match.id)
+      if (entry && entry.conditions.length > 0) {
+        const conditionValues = json.inputValuesById ?? json.data ?? {}
+        const passes = evaluateProgramConditions(entry.conditions, entry.logic_type, conditionValues)
+        if (!passes) {
+          return NextResponse.json({
+            id: match.id,
+            internal_name: match.internal_name,
+            external_name: match.external_name,
+            ok: false,
+            status: 0,
+            data: null,
+          })
+        }
+      }
+    }
+
     if (!match || !String(match.webhook_url || "").trim()) {
-      console.log("[dispatch-one] No match or no webhook URL, returning early")
       return NextResponse.json({
         internal_name: match?.internal_name,
         external_name: match?.external_name,
@@ -96,21 +106,9 @@ export async function POST(req: NextRequest) {
     }
 
     const url = String(match.webhook_url).trim()
-    console.log("[dispatch-one] Will POST to webhook:", url)
-    const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
-    // Ensure admin fee aliases are always present
-    if (normalizedData["lender_admin_fee"] === undefined && normalizedData["admin_fee"] !== undefined) {
-      normalizedData["lender_admin_fee"] = normalizedData["admin_fee"]
-    }
-    if (normalizedData["admin_fee"] === undefined && normalizedData["lender_admin_fee"] !== undefined) {
-      normalizedData["admin_fee"] = normalizedData["lender_admin_fee"]
-    }
-    if (normalizedData["broker_admin_fee"] === undefined) {
-      normalizedData["broker_admin_fee"] = ""
-    }
-    // Attach organization_member_id for downstream auditing (always)
+    const normalizedData = booleanToStringDeep(json.data) as Record<string, unknown>
     normalizedData["organization_member_id"] = myMemberId
-    console.log("[dispatch-one] Sending POST to webhook...")
+    normalizedData["program_id"] = match.id
     const res = await fetch(url, {
       method: "POST",
       cache: "no-store",
@@ -121,7 +119,6 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify(normalizedData),
     })
-    console.log("[dispatch-one] Webhook response status:", res.status, res.ok)
     let body: Record<string, unknown> | null = null
     try {
       const parsed = await res.json()
@@ -129,7 +126,6 @@ export async function POST(req: NextRequest) {
     } catch {
       body = null
     }
-    console.log("[dispatch-one] Returning success response")
     return NextResponse.json({
       id: (match as any).id,
       internal_name: match.internal_name,

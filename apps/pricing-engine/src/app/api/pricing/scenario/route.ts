@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth, clerkClient } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { writeScenarioInputs, writeScenarioOutputs } from "@/lib/scenario-helpers"
 
 export const runtime = "nodejs"
 
@@ -11,32 +12,6 @@ type SaveScenarioBody = {
   outputs?: unknown[] | null
   selected?: Record<string, unknown> | null
   loanId?: string
-}
-
-function parseBorrowerEntityId(inputs: Record<string, unknown> | undefined): string | null {
-  const raw = inputs?.["borrower_entity_id"]
-  return typeof raw === "string" && raw.length > 0 ? raw : null
-}
-
-function parseGuarantorIds(inputs: Record<string, unknown> | undefined): string[] | null {
-  const raw = inputs?.["guarantor_borrower_ids"]
-  if (!Array.isArray(raw)) return null
-  const ids = raw.filter((v): v is string => typeof v === "string" && v.length > 0)
-  return ids.length > 0 ? ids : []
-}
-
-function parseGuarantorNames(inputs: Record<string, unknown> | undefined): string[] | null {
-  const raw = inputs?.["guarantor_names"] ?? inputs?.["guarantors"]
-  if (!Array.isArray(raw)) return null
-  const names = raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-  return names.length > 0 ? names : []
-}
-
-function parseGuarantorEmails(inputs: Record<string, unknown> | undefined): string[] | null {
-  const raw = inputs?.["guarantor_emails"]
-  if (!Array.isArray(raw)) return null
-  const emails = raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-  return emails.length > 0 ? emails : []
 }
 
 export async function POST(req: Request) {
@@ -61,7 +36,6 @@ export async function POST(req: Request) {
         .from("loans")
         .insert({
           organization_id: orgUuid,
-          assigned_to_user_id: [userId], // Clerk user id
           primary_user_id: userId,
           status: "active",
         })
@@ -107,9 +81,96 @@ export async function POST(req: Request) {
       } catch {
         // ignore webhook errors
       }
+
+      // Auto-assign users to the new loan
+      try {
+        // Determine if user is internal or external
+        const { data: userOrg } = await supabaseAdmin
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .eq("organization_id", orgUuid)
+          .maybeSingle()
+
+        let isExternal = false
+        if (userOrg?.organization_id) {
+          const { data: org } = await supabaseAdmin
+            .from("organizations")
+            .select("is_internal_yn")
+            .eq("id", userOrg.organization_id)
+            .maybeSingle()
+          isExternal = org?.is_internal_yn === false
+        }
+
+        const creatorRoleTypeId = isExternal ? 4 : 6 // Broker (4) or Account Executive (6)
+
+        // Assign the creating user
+        await supabaseAdmin.from("role_assignments").insert({
+          resource_type: "loan",
+          resource_id: loanId,
+          role_type_id: creatorRoleTypeId,
+          user_id: userId,
+          organization_id: orgUuid,
+          created_by: userId,
+        })
+
+        const assignedUserIds = [userId]
+
+        // If external user (broker), mirror broker_org role assignments to the loan
+        if (isExternal) {
+          // Find the broker org ID (external org the user belongs to)
+          const { data: extMemberships } = await supabaseAdmin
+            .from("organization_members")
+            .select("organization_id, organizations!inner(is_internal_yn)")
+            .eq("user_id", userId)
+
+          const brokerOrgId = (extMemberships ?? []).find(
+            (m) => (m.organizations as any)?.is_internal_yn === false
+          )?.organization_id as string | undefined
+
+          if (brokerOrgId) {
+            // Get role assignments configured on the broker org
+            const { data: brokerOrgAssignments } = await supabaseAdmin
+              .from("role_assignments")
+              .select("role_type_id, user_id")
+              .eq("resource_type", "broker_org")
+              .eq("resource_id", brokerOrgId)
+
+            for (const ba of brokerOrgAssignments ?? []) {
+              const baUserId = ba.user_id as string
+              if (baUserId === userId) continue // Already assigned above
+              await supabaseAdmin.from("role_assignments").insert({
+                resource_type: "loan",
+                resource_id: loanId,
+                role_type_id: ba.role_type_id,
+                user_id: baUserId,
+                organization_id: orgUuid,
+                created_by: userId,
+              }).then(() => {
+                assignedUserIds.push(baUserId)
+              }).catch(() => {
+                // Skip duplicates or errors
+              })
+            }
+          }
+        }
+
+        // Sync deal_users for chat filtering
+        if (assignedUserIds.length > 0) {
+          await supabaseAdmin
+            .from("deal_users")
+            .upsert(
+              assignedUserIds.map((uid) => ({ deal_id: loanId!, user_id: uid })),
+              { onConflict: "deal_id,user_id" }
+            )
+            .catch(() => {})
+        }
+      } catch {
+        // Auto-assignment should not block loan creation
+      }
     }
 
-    // loan_scenarios schema includes jsonb columns: inputs, selected
+    // Compute primary = true when this is the first scenario for the loan
     // Store raw inputs payload in inputs; selection (and name metadata) in selected/name fields
     // Compute primary = true when this is the first scenario for the loan
     let isPrimary = false
@@ -127,19 +188,25 @@ export async function POST(req: Request) {
         loan_id: loanId,
         name: body.name ?? null,
         primary: isPrimary,
-        user_id: userId,
+        created_by: userId,
         organization_id: orgUuid,
-        inputs: body.inputs ?? {},
-        selected: body.selected ?? {},
-        borrower_entity_id: parseBorrowerEntityId(body.inputs),
-        guarantor_borrower_ids: parseGuarantorIds(body.inputs),
-        guarantor_names: parseGuarantorNames(body.inputs),
-        guarantor_emails: parseGuarantorEmails(body.inputs),
       })
       .select("id")
       .single()
     if (scenErr) {
       return NextResponse.json({ error: `Failed to save scenario: ${scenErr.message}` }, { status: 500 })
+    }
+
+    // Write to normalized tables
+    if (scenario?.id && body.inputs) {
+      await writeScenarioInputs(scenario.id as string, body.inputs)
+    }
+    if (scenario?.id && body.outputs && Array.isArray(body.outputs) && body.outputs.length > 0) {
+      await writeScenarioOutputs(
+        scenario.id as string,
+        body.outputs,
+        body.selected as Record<string, unknown> | null | undefined
+      )
     }
 
     // Log activity for new scenario creation - separate logs for inputs and selection

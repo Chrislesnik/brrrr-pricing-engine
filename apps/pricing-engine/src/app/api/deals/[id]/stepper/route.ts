@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { notifyDealStatusChange } from "@/lib/notifications";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -107,6 +108,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       );
     }
 
+    // Capture previous step before updating
+    const { data: prevStepper } = await supabaseAdmin
+      .from("deal_stepper")
+      .select("current_step")
+      .eq("deal_id", dealId)
+      .maybeSingle();
+    const previousStage = prevStepper?.current_step as string | undefined;
+
     // Update the deal_stepper row
     const { data, error } = await supabaseAdmin
       .from("deal_stepper")
@@ -152,6 +161,36 @@ export async function PATCH(request: Request, { params }: RouteContext) {
             },
             { onConflict: "deal_id,input_id" }
           );
+      }
+    }
+
+    // Notify assigned users about the stage change
+    if (previousStage !== current_step) {
+      try {
+        const { data: deal } = await supabaseAdmin
+          .from("deals")
+          .select("deal_name, assigned_to_user_id")
+          .eq("id", dealId)
+          .maybeSingle();
+        const dealName = deal?.deal_name || "a deal";
+        const assignedUsers = Array.isArray(deal?.assigned_to_user_id)
+          ? (deal.assigned_to_user_id as string[])
+          : [];
+        const usersToNotify = assignedUsers.filter((uid) => uid !== userId);
+        if (usersToNotify.length > 0) {
+          await Promise.allSettled(
+            usersToNotify.map((uid) =>
+              notifyDealStatusChange(uid, {
+                dealId,
+                dealName,
+                newStage: current_step,
+                previousStage,
+              })
+            )
+          );
+        }
+      } catch {
+        // Notification is non-critical
       }
     }
 

@@ -1,8 +1,142 @@
 import { z } from "zod"
 import { auth } from "@clerk/nextjs/server"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+
+/* -------------------------------------------------------------------------- */
+/*  GET /api/deals — list deals for current user's org                         */
+/* -------------------------------------------------------------------------- */
+
+function readDealInputValue(row: {
+  input_type: string
+  value_text: string | null
+  value_numeric: number | null
+  value_date: string | null
+  value_bool: boolean | null
+}): unknown {
+  switch (row.input_type) {
+    case "text":
+    case "dropdown":
+      return row.value_text
+    case "currency":
+    case "number":
+    case "percentage":
+      return row.value_numeric
+    case "date":
+      return row.value_date
+    case "boolean":
+      return row.value_bool
+    default:
+      return row.value_text ?? row.value_numeric ?? row.value_date ?? row.value_bool ?? null
+  }
+}
+
+function resolveExpression(
+  expr: string,
+  codeToId: Map<string, string>,
+  inputs: Record<string, unknown>,
+): string {
+  return expr
+    .replace(/@(\w+)/g, (_, code: string) => {
+      const inputId = codeToId.get(code)
+      if (!inputId) return ""
+      const val = inputs[inputId]
+      return val !== null && val !== undefined ? String(val) : ""
+    })
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+export async function GET(_req: NextRequest) {
+  try {
+    const { userId, orgId } = await auth()
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const organizationId = await getOrgUuidFromClerkId(orgId)
+    if (!organizationId) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+    }
+
+    const [dealsRes, settingsRes, inputDefsRes] = await Promise.all([
+      supabaseAdmin
+        .from("deals")
+        .select("id, created_at")
+        .eq("organization_id", organizationId)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("app_settings")
+        .select("key, value")
+        .in("key", ["deal_heading_expression"]),
+      supabaseAdmin
+        .from("inputs")
+        .select("id, input_code")
+        .is("archived_at", null),
+    ])
+
+    if (dealsRes.error) {
+      return NextResponse.json({ error: dealsRes.error.message }, { status: 500 })
+    }
+
+    const dealRows = dealsRes.data ?? []
+    const dealIds = dealRows.map((d) => d.id as string)
+
+    if (dealIds.length === 0) {
+      return NextResponse.json({ deals: [] })
+    }
+
+    const settings: Record<string, string> = {}
+    for (const row of settingsRes.data ?? []) {
+      settings[row.key as string] = row.value as string
+    }
+    const headingExpr = settings.deal_heading_expression || ""
+
+    const codeToId = new Map<string, string>()
+    for (const inp of inputDefsRes.data ?? []) {
+      codeToId.set(inp.input_code as string, String(inp.id))
+    }
+
+    // Fetch deal_inputs with input_type so we resolve the correct value column
+    const { data: diRows } = await supabaseAdmin
+      .from("deal_inputs")
+      .select("deal_id, input_id, input_type, value_text, value_numeric, value_date, value_bool")
+      .in("deal_id", dealIds)
+
+    const inputsByDeal: Record<string, Record<string, unknown>> = {}
+    for (const row of diRows ?? []) {
+      const did = row.deal_id as string
+      const iid = String(row.input_id)
+      if (!inputsByDeal[did]) inputsByDeal[did] = {}
+      inputsByDeal[did]![iid] = readDealInputValue(row as {
+        input_type: string
+        value_text: string | null
+        value_numeric: number | null
+        value_date: string | null
+        value_bool: boolean | null
+      })
+    }
+
+    const result = dealRows.map((d) => {
+      const did = d.id as string
+      const inputs = inputsByDeal[did] ?? {}
+      return {
+        id: did,
+        heading: headingExpr ? resolveExpression(headingExpr, codeToId, inputs) : null,
+        created_at: d.created_at as string,
+      }
+    })
+
+    return NextResponse.json({ deals: result })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Schema                                                                     */

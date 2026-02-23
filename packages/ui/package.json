@@ -34,6 +34,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@ark-ui/react": "^5.32.0",
     "@clerk/nextjs": "^6.35.2",
     "@clerk/types": "^4.101.14",
     "@radix-ui/react-accordion": "^1.2.3",

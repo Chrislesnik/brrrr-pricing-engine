@@ -30,7 +30,6 @@ import {
 
 interface ProgramRow {
   id: string;
-  loan_type: "dscr" | "bridge" | string;
   internal_name: string;
   external_name: string;
   webhook_url: string | null;
@@ -141,7 +140,6 @@ export function ProgramsSettingsClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Loan Type</TableHead>
                     <TableHead>Internal Name</TableHead>
                     <TableHead>External Name</TableHead>
                     <TableHead>Status</TableHead>
@@ -151,11 +149,6 @@ export function ProgramsSettingsClient({
                 <TableBody>
                   {programs.map((program) => (
                     <TableRow key={program.id}>
-                      <TableCell>
-                        <Badge variant="outline" className="uppercase">
-                          {program.loan_type}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="font-medium">
                         {program.internal_name}
                       </TableCell>

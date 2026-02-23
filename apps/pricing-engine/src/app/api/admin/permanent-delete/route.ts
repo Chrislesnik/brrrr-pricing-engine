@@ -22,7 +22,7 @@ const ARCHIVABLE_TABLES: Set<string> = new Set([
   "actions",
   "programs",
   "document_templates",
-  "workflow_integrations",
+  "integration_setup",
   "organization_policies",
   "organization_member_roles",
   "deal_stages",

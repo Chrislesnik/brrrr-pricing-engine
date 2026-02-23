@@ -4,28 +4,53 @@ import { Fragment, useMemo, useState, type ReactNode } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   PaginationState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown } from "lucide-react"
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { ChevronDown, Columns2, Search } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
+import { Checkbox } from "@repo/ui/shadcn/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { EntityProfile } from "../data/types"
 import { EntityRowActions } from "./entity-row-actions"
 
@@ -78,13 +103,15 @@ function formatDate(ymd: string | null | undefined) {
   return `${String(d).padStart(2, "0")} ${mon}, ${y}`
 }
 
-export function EntitiesTable({ data, initialOwnersMap }: Props) {
+export function EntitiesTable({ data, initialOwnersMap, actionButton }: Props & { actionButton?: ReactNode }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize,
   })
+  const [rowSelection, setRowSelection] = useState({})
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [ownersMap, setOwnersMap] = useState<
     Record<string, EntityOwner[] | null | undefined>
@@ -181,6 +208,30 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
   const columns = useMemo<ColumnDef<EntityRow>[]>(() => {
     return [
       {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
         id: "expand",
         header: "",
         cell: ({ row }) => {
@@ -195,7 +246,7 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform",
+                  "h-4 w-4 transition-transform duration-200",
                   isOpen ? "rotate-180" : "-rotate-90"
                 )}
                 aria-hidden="true"
@@ -275,7 +326,6 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
           const rawNames = Array.isArray(row.original.assigned_to_names)
             ? row.original.assigned_to_names
             : []
-          // Deduplicate names
           const names = [...new Set(rawNames)]
           return (
             <span className="text-muted-foreground text-sm">
@@ -286,7 +336,7 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
       },
       {
         header: () => <div className="w-full text-center">Actions</div>,
-        id: "actions",
+        id: "row_actions",
         cell: ({ row }) => (
           <div className="flex w-full items-center justify-center">
             <EntityRowActions entity={row.original} />
@@ -298,144 +348,227 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
     ]
   }, [expandedRows])
 
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
+
   const table = useReactTable({
     data,
     columns,
     state: {
       columnFilters,
+      columnVisibility,
       pagination,
+      columnOrder,
+      rowSelection,
     },
+    onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
+    onColumnOrderChange: setColumnOrder,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     enableSortingRemoval: false,
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
-    // Use row.id as the stable row identifier to preserve state across data updates
     getRowId: (row) => row.id,
   })
 
   return (
-    <div className="w-full rounded-lg border">
-      <div className="border-b">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">Entities</span>
-          <Filter column={table.getColumn("display_id")!} />
-        </div>
-        {/* Desktop table */}
-        <div className="hidden md:block">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12 border-t">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="text-muted-foreground first:pl-4 last:pr-4"
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+      <div className="w-full">
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search entities..."
+                value={(table.getColumn("display_id")?.getFilterValue() as string) ?? ""}
+                onChange={(e) => table.getColumn("display_id")?.setFilterValue(e.target.value)}
+                className="pl-8 max-w-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 bg-background">
+                  <Columns2 className="w-4 h-4 mr-2" />
+                  <span className="text-xs font-medium">Customize Columns</span>
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                {table
+                  .getAllColumns()
+                  .filter((col) => col.getCanHide())
+                  .map((col) => (
+                    <DropdownMenuCheckboxItem
+                      key={col.id}
+                      checked={col.getIsVisible()}
+                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
+                      {col.id.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()}
+                    </DropdownMenuCheckboxItem>
                   ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => {
-                  const isOpen = !!expandedRows[row.id]
-                  return (
-                    <Fragment key={row.id}>
-                      <TableRow
-                        data-state={row.getIsSelected() && "selected"}
-                        className="cursor-pointer"
-                        onClick={(e) => {
-                          if (isAnyDialogOpen()) return
-                          const interactive = (e.target as HTMLElement).closest(
-                            "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
-                          )
-                          if (interactive) return
-                          toggleRow(row.id, row.original.id)
-                        }}
-                        aria-expanded={isOpen}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className="h-14 first:pl-4 last:pr-4"
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      {isOpen ? (
-                        ownersLoading[row.original.id] &&
-                        ownersMap[row.original.id] === undefined ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              Loading members...
-                            </TableCell>
-                          </TableRow>
-                        ) : ownersMap[row.original.id] == null ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-destructive p-4 text-sm"
-                            >
-                              Failed to load members.
-                            </TableCell>
-                          </TableRow>
-                        ) : (ownersMap[row.original.id]?.length ?? 0) === 0 ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              No members listed.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <>
-                            <TableRow className="bg-muted/30">
-                              <TableCell colSpan={columns.length} className="p-0">
-                                <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                  <span>ID</span>
-                                  <span>Name</span>
-                                  <span>Type</span>
-                                  <span>Title</span>
-                                  <span>% Ownership</span>
-                                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {actionButton}
+          </div>
+        </div>
+        <div className="rounded-md border overflow-x-auto">
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="bg-muted">
+                    <SortableContext
+                      items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                      strategy={horizontalListSortingStrategy}
+                    >
+                      {headerGroup.headers.map((header) => (
+                        <DraggableTableHeader
+                          key={header.id}
+                          header={header}
+                        />
+                      ))}
+                    </SortableContext>
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => {
+                    const isOpen = !!expandedRows[row.id]
+                    return (
+                      <Fragment key={row.id}>
+                        <TableRow
+                          data-state={row.getIsSelected() && "selected"}
+                          className="cursor-pointer"
+                          onClick={(e) => {
+                            if (isAnyDialogOpen()) return
+                            const interactive = (e.target as HTMLElement).closest(
+                              "button, a, input, select, textarea, [role='menuitem'], [role='menu'], [data-radix-popper-content]"
+                            )
+                            if (interactive) return
+                            toggleRow(row.id, row.original.id)
+                          }}
+                          aria-expanded={isOpen}
+                        >
+                          {row.getVisibleCells().map((cell) => {
+                            const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                            const metaClassName = (cell.column.columnDef.meta as Record<string, unknown> | undefined)?.className as string | undefined
+                            return (
+                              <TableCell
+                                key={cell.id}
+                                className={cn(
+                                  "h-14 first:pl-4 last:pr-4",
+                                  isPinned && "bg-background group-hover/row:bg-transparent !px-1",
+                                  metaClassName
+                                )}
+                                style={
+                                  isPinned
+                                    ? {
+                                        position: "sticky",
+                                        right: 0,
+                                        zIndex: 10,
+                                        boxShadow:
+                                          "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                      }
+                                    : undefined
+                                }
+                              >
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
                               </TableCell>
-                            </TableRow>
-                            {ownersMap[row.original.id]?.map((owner, idx) => (
-                              <MemberRow
-                                key={`${row.original.id}-owner-${idx}`}
-                                owner={owner}
-                                depth={1}
-                                columns={columns.length}
-                                ancestors={new Set([row.original.id])}
-                                expandedMembers={expandedMembers}
-                                onToggle={toggleMember}
-                                ownersMap={ownersMap}
-                                ownersLoading={ownersLoading}
-                                entityDetailsMap={entityDetailsMap}
-                                entityDetailsLoading={entityDetailsLoading}
-                              />
-                            ))}
-                          </>
-                        )
-                      ) : null}
+                            )
+                          })}
+                        </TableRow>
+                      <TableRow className="bg-muted/30 border-0">
+                        <TableCell colSpan={columns.length} className="p-0">
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                            style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                          >
+                            <div className="overflow-hidden">
+                              {ownersLoading[row.original.id] &&
+                              ownersMap[row.original.id] === undefined ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  Loading members...
+                                </div>
+                              ) : ownersMap[row.original.id] == null ? (
+                                <div className="text-destructive p-4 text-sm">
+                                  Failed to load members.
+                                </div>
+                              ) : (ownersMap[row.original.id]?.length ?? 0) ===
+                                0 ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  No members listed.
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
+                                    <span>ID</span>
+                                    <span>Name</span>
+                                    <span>Type</span>
+                                    <span>Title</span>
+                                    <span>% Ownership</span>
+                                  </div>
+                                  {ownersMap[row.original.id]?.map(
+                                    (owner, idx) => (
+                                      <MemberRow
+                                        key={`${row.original.id}-owner-${idx}`}
+                                        owner={owner}
+                                        depth={1}
+                                        columns={columns.length}
+                                        ancestors={
+                                          new Set([row.original.id])
+                                        }
+                                        expandedMembers={expandedMembers}
+                                        onToggle={toggleMember}
+                                        ownersMap={ownersMap}
+                                        ownersLoading={ownersLoading}
+                                        entityDetailsMap={entityDetailsMap}
+                                        entityDetailsLoading={
+                                          entityDetailsLoading
+                                        }
+                                      />
+                                    )
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     </Fragment>
                   )
                 })
@@ -538,9 +671,9 @@ export function EntitiesTable({ data, initialOwnersMap }: Props) {
           </div>
         </div>
       </div>
-
-      <DataTablePagination table={table} />
-    </div>
+      <DealsStylePagination table={table} />
+      </div>
+    </DndContext>
   )
 }
 
@@ -649,90 +782,73 @@ function MemberRow({
 
   return (
     <>
-      <TableRow className={cn("bg-muted/30", canExpand && "cursor-pointer")}>
-        <TableCell colSpan={columns} className="p-0">
+      <div className={cn(canExpand && "cursor-pointer")}>
+        <div
+          className={cn(
+            "grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm",
+            canExpand && "hover:bg-muted/40"
+          )}
+          onClick={
+            canExpand
+              ? (e) => {
+                  e.stopPropagation()
+                  onToggle(linkedId)
+                }
+              : undefined
+          }
+        >
           <div
-            className={cn(
-              "grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm",
-              canExpand && "hover:bg-muted/40"
-            )}
-            onClick={
-              canExpand
-                ? (e) => {
-                    e.stopPropagation()
-                    onToggle(linkedId)
-                  }
-                : undefined
-            }
+            className="flex items-center"
+            style={{ paddingLeft: depth * 16 }}
           >
-            <div
-              className="flex items-center"
-              style={{ paddingLeft: depth * 16 }}
-            >
-              {canExpand ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onToggle(linkedId)
-                  }}
-                  aria-label={
-                    isExpanded
-                      ? "Collapse member entity"
-                      : "Expand member entity"
-                  }
-                >
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 transition-transform",
-                      isExpanded ? "rotate-180" : "-rotate-90"
-                    )}
-                    aria-hidden="true"
-                  />
-                </Button>
-              ) : (
-                <span className="text-muted-foreground mr-2">↳</span>
-              )}
-              <span className="text-muted-foreground">{displayId}</span>
-            </div>
-            <div className="text-foreground font-semibold">{displayName}</div>
-            <div className="text-muted-foreground">{displayType}</div>
-            <div className="text-muted-foreground">{displayTitle}</div>
-            <div className="text-muted-foreground">{displayOwnership}</div>
+            {canExpand ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggle(linkedId)
+                }}
+                aria-label={
+                  isExpanded
+                    ? "Collapse member entity"
+                    : "Expand member entity"
+                }
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    isExpanded ? "rotate-180" : "-rotate-90"
+                  )}
+                  aria-hidden="true"
+                />
+              </Button>
+            ) : (
+              <span className="text-muted-foreground mr-2">↳</span>
+            )}
+            <span className="text-muted-foreground">{displayId}</span>
           </div>
-        </TableCell>
-      </TableRow>
+          <div className="text-foreground font-semibold">{displayName}</div>
+          <div className="text-muted-foreground">{displayType}</div>
+          <div className="text-muted-foreground">{displayTitle}</div>
+          <div className="text-muted-foreground">{displayOwnership}</div>
+        </div>
+      </div>
 
       {canExpand && isExpanded ? (
         childOwnersLoading && childOwners === undefined ? (
-          <TableRow className="bg-muted/40">
-            <TableCell
-              colSpan={columns}
-              className="text-muted-foreground p-4 text-sm"
-            >
-              Loading members...
-            </TableCell>
-          </TableRow>
+          <div className="text-muted-foreground p-4 text-sm">
+            Loading members...
+          </div>
         ) : childOwners == null ? (
-          <TableRow className="bg-muted/40">
-            <TableCell
-              colSpan={columns}
-              className="text-destructive p-4 text-sm"
-            >
-              Failed to load members.
-            </TableCell>
-          </TableRow>
+          <div className="text-destructive p-4 text-sm">
+            Failed to load members.
+          </div>
         ) : (childOwners?.length ?? 0) === 0 ? (
-          <TableRow className="bg-muted/40">
-            <TableCell
-              colSpan={columns}
-              className="text-muted-foreground p-4 text-sm"
-            >
-              No members listed.
-            </TableCell>
-          </TableRow>
+          <div className="text-muted-foreground p-4 text-sm">
+            No members listed.
+          </div>
         ) : (
           childOwners?.map((child, idx) => (
             <MemberRow

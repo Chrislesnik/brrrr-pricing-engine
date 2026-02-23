@@ -16,7 +16,9 @@ interface ConditionPayload {
 }
 
 interface ActionPayload {
-  input_id: string;
+  input_id?: string;
+  category_id?: number;
+  target_type?: "input" | "category";
   value_type?: string;
   value_text?: string;
   value_visible?: boolean;
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
     const { data: actionRows } = await supabaseAdmin
       .from("input_logic_actions")
       .select(
-        "id, input_logic_id, input_id, value_type, value_visible, value_required, value_text, value_field, value_expression"
+        "id, input_logic_id, input_id, category_id, value_type, value_visible, value_required, value_text, value_field, value_expression"
       )
       .in("input_logic_id", allRuleIds);
 
@@ -114,6 +116,8 @@ export async function GET(request: NextRequest) {
         .filter((a) => a.input_logic_id === rule.id)
         .map((a) => ({
           input_id: a.input_id != null ? String(a.input_id) : "",
+          category_id: a.category_id ?? undefined,
+          target_type: a.category_id ? "category" as const : "input" as const,
           value_type: a.value_type ?? "value",
           value_text: a.value_text ?? "",
           value_visible: a.value_visible ?? undefined,
@@ -208,12 +212,14 @@ export async function POST(request: NextRequest) {
       // Insert actions
       if (rule.actions && rule.actions.length > 0) {
         const actionRows = rule.actions
-          .filter((a) => a.input_id)
+          .filter((a) => a.input_id || a.category_id)
           .map((a) => {
             const vt = a.value_type || "value";
+            const isCategory = a.target_type === "category" || (!a.input_id && a.category_id);
             return {
               input_logic_id: ruleId,
-              input_id: a.input_id || null,
+              input_id: isCategory ? null : (a.input_id || null),
+              category_id: isCategory ? (a.category_id || null) : null,
               value_type: vt,
               value_visible:
                 vt === "visible"
@@ -222,15 +228,16 @@ export async function POST(request: NextRequest) {
                     ? false
                     : null,
               value_required:
-                vt === "required"
+                isCategory ? null :
+                (vt === "required"
                   ? true
                   : vt === "not_required"
                     ? false
-                    : null,
-              value_text: vt === "value" ? (a.value_text || null) : null,
-              value_field: vt === "field" ? (a.value_field || null) : null,
-              value_expression:
-                vt === "expression" ? (a.value_expression || null) : null,
+                    : null),
+              value_text: isCategory ? null : (vt === "value" ? (a.value_text || null) : null),
+              value_field: isCategory ? null : (vt === "field" ? (a.value_field || null) : null),
+              value_expression: isCategory ? null :
+                (vt === "expression" ? (a.value_expression || null) : null),
             };
           });
 

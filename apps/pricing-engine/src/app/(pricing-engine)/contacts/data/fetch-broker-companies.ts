@@ -7,6 +7,7 @@ export type BrokerOrgRow = {
 	slug: string | null
 	member_count: number
 	created_at: string
+	permissions: "default" | "custom"
 }
 
 export type OrgMemberRow = {
@@ -20,19 +21,42 @@ export type OrgMemberRow = {
 }
 
 /**
- * Fetches all external organizations (is_internal_yn = false) and
- * pre-loads their member counts + members for the expanded rows.
+ * Fetches external organizations (is_internal_yn = false), optionally
+ * filtered to only those assigned to the given internal org member.
+ * Also resolves a "permissions" badge per org (default vs custom).
  */
-export async function getExternalOrganizations(): Promise<{
+export async function getExternalOrganizations(
+	internalOrgUuid?: string,
+	currentUserId?: string
+): Promise<{
 	organizations: BrokerOrgRow[]
 	membersMap: Record<string, OrgMemberRow[]>
 }> {
-	// Fetch all external organizations
-	const { data: orgs, error } = await supabaseAdmin
+	// Get assigned broker org IDs from role_assignments (source of truth)
+	let assignedOrgIds: string[] | null = null
+	if (currentUserId) {
+		const { data: assignments } = await supabaseAdmin
+			.from("role_assignments")
+			.select("resource_id")
+			.eq("resource_type", "broker_org")
+			.eq("user_id", currentUserId)
+		if (assignments && assignments.length > 0) {
+			assignedOrgIds = assignments.map((a) => a.resource_id as string)
+		}
+	}
+
+	// Fetch external organizations (filtered if assignments exist)
+	let query = supabaseAdmin
 		.from("organizations")
 		.select("id, name, slug, created_at")
 		.eq("is_internal_yn", false)
 		.order("created_at", { ascending: false })
+
+	if (assignedOrgIds !== null) {
+		query = query.in("id", assignedOrgIds)
+	}
+
+	const { data: orgs, error } = await query
 
 	if (error) {
 		console.error("getExternalOrganizations error:", error.message)
@@ -63,9 +87,9 @@ export async function getExternalOrganizations(): Promise<{
 	// Group members by organization_id
 	const membersMap: Record<string, OrgMemberRow[]> = {}
 	for (const m of allMembers ?? []) {
-		const orgId = m.organization_id as string
-		if (!membersMap[orgId]) membersMap[orgId] = []
-		membersMap[orgId].push({
+		const oid = m.organization_id as string
+		if (!membersMap[oid]) membersMap[oid] = []
+		membersMap[oid].push({
 			id: m.id as string,
 			user_id: (m.user_id as string) ?? null,
 			first_name: (m.first_name as string) ?? null,
@@ -76,13 +100,31 @@ export async function getExternalOrganizations(): Promise<{
 		})
 	}
 
-	// Build organization rows with member counts
+	// Batch-fetch custom_broker_settings to determine permissions per org
+	const customSettingsMap = new Map<string, boolean>()
+	if (internalOrgUuid) {
+		const { data: customRows } = await supabaseAdmin
+			.from("custom_broker_settings")
+			.select("broker_org_id, \"default\"")
+			.eq("organization_id", internalOrgUuid)
+			.in("broker_org_id", orgIds)
+		for (const c of customRows ?? []) {
+			const row = c as { broker_org_id: string; default?: boolean }
+			customSettingsMap.set(
+				row.broker_org_id,
+				row.default === false
+			)
+		}
+	}
+
+	// Build organization rows
 	const organizations: BrokerOrgRow[] = rows.map((o) => ({
 		id: o.id as string,
 		name: (o.name as string) ?? "Unnamed",
 		slug: (o.slug as string) ?? null,
 		member_count: (membersMap[o.id as string] ?? []).length,
 		created_at: o.created_at as string,
+		permissions: customSettingsMap.get(o.id as string) ? "custom" : "default",
 	}))
 
 	return { organizations, membersMap }

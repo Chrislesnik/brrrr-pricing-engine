@@ -21,7 +21,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     // Load the workflow (action) by UUID
     const { data: action, error: actionErr } = await supabaseAdmin
-      .from("actions")
+      .from("automations")
       .select("uuid, name, workflow_data")
       .eq("uuid", workflowId)
       .single()

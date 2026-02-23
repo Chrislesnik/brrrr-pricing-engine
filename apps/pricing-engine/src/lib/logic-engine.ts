@@ -106,9 +106,9 @@ export function evaluateOperator(
 
     // Boolean
     case "is_true":
-      return fieldValue === true || fStr === "true";
+      return fieldValue === true || fStr === "true" || fStr === "yes";
     case "is_false":
-      return fieldValue === false || fStr === "false";
+      return fieldValue === false || fStr === "false" || fStr === "no";
 
     default:
       return false;
@@ -204,41 +204,54 @@ const MAX_CASCADE_PASSES = 10;
  */
 export function evaluateRules(
   rules: LogicRule[],
-  _inputDefs: InputDef[],
+  inputDefs: InputDef[],
   currentValues: Record<string, unknown>
 ): LogicResult {
   const hiddenFields = new Set<string>();
   const requiredFields = new Set<string>();
   const computedValues: Record<string, unknown> = {};
 
-  // Working copy of values for cascading
+  const categoryInputMap = new Map<number, string[]>();
+  for (const inp of inputDefs) {
+    if (inp.category_id) {
+      const existing = categoryInputMap.get(inp.category_id) ?? [];
+      existing.push(inp.id);
+      categoryInputMap.set(inp.category_id, existing);
+    }
+  }
+
   let workingValues = { ...currentValues };
 
   for (let pass = 0; pass < MAX_CASCADE_PASSES; pass++) {
     const prevSnapshot = JSON.stringify(computedValues);
 
-    // Clear visibility/required each pass (they rebuild from scratch)
     hiddenFields.clear();
     requiredFields.clear();
 
-    // Process rules in order (last rule wins for conflicts)
     for (const rule of rules) {
       const conditionsMet = evaluateRuleConditions(rule, workingValues);
 
       if (!conditionsMet) {
-        // Conditions not met — visibility/required stay at defaults (visible, not required)
-        // Computed values are NOT cleared (user may have edited)
         continue;
       }
 
-      // Apply actions
       for (const action of rule.actions) {
+        if (action.category_id && action.target_type === "category") {
+          const inputIds = categoryInputMap.get(action.category_id) ?? [];
+          if (action.value_type === "not_visible") {
+            for (const id of inputIds) hiddenFields.add(id);
+          } else if (action.value_type === "visible") {
+            for (const id of inputIds) hiddenFields.delete(id);
+          }
+          continue;
+        }
+
         const targetId = action.input_id;
         if (!targetId) continue;
 
         switch (action.value_type) {
           case "visible":
-            hiddenFields.delete(targetId); // ensure visible
+            hiddenFields.delete(targetId);
             break;
           case "not_visible":
             hiddenFields.add(targetId);
@@ -262,10 +275,8 @@ export function evaluateRules(
       }
     }
 
-    // Merge computed values into working values for next cascade pass
     workingValues = { ...currentValues, ...computedValues };
 
-    // Check if anything changed — if not, we've stabilized
     const newSnapshot = JSON.stringify(computedValues);
     if (newSnapshot === prevSnapshot) break;
   }
@@ -364,7 +375,7 @@ async function evaluateRuleConditionsAsync(
  */
 export async function evaluateRulesAsync(
   rules: LogicRule[],
-  _inputDefs: InputDef[],
+  inputDefs: InputDef[],
   currentValues: Record<string, unknown>,
   dealId: string
 ): Promise<LogicResult> {
@@ -372,19 +383,24 @@ export async function evaluateRulesAsync(
   const requiredFields = new Set<string>();
   const computedValues: Record<string, unknown> = {};
 
-  // Working copy of values for cascading
+  const categoryInputMap = new Map<number, string[]>();
+  for (const inp of inputDefs) {
+    if (inp.category_id) {
+      const existing = categoryInputMap.get(inp.category_id) ?? [];
+      existing.push(inp.id);
+      categoryInputMap.set(inp.category_id, existing);
+    }
+  }
+
   let workingValues = { ...currentValues };
 
   for (let pass = 0; pass < MAX_CASCADE_PASSES; pass++) {
     const prevSnapshot = JSON.stringify(computedValues);
 
-    // Clear visibility/required each pass (they rebuild from scratch)
     hiddenFields.clear();
     requiredFields.clear();
 
-    // Process rules in order (last rule wins for conflicts)
     for (const rule of rules) {
-      // Check if this rule has any SQL conditions
       const hasSql = rule.conditions?.some(
         (c) => c.source_type === "sql"
       );
@@ -395,8 +411,17 @@ export async function evaluateRulesAsync(
 
       if (!conditionsMet) continue;
 
-      // Apply actions (same as sync version)
       for (const action of rule.actions) {
+        if (action.category_id && action.target_type === "category") {
+          const inputIds = categoryInputMap.get(action.category_id) ?? [];
+          if (action.value_type === "not_visible") {
+            for (const id of inputIds) hiddenFields.add(id);
+          } else if (action.value_type === "visible") {
+            for (const id of inputIds) hiddenFields.delete(id);
+          }
+          continue;
+        }
+
         const targetId = action.input_id;
         if (!targetId) continue;
 
@@ -426,10 +451,8 @@ export async function evaluateRulesAsync(
       }
     }
 
-    // Merge computed values into working values for next cascade pass
     workingValues = { ...currentValues, ...computedValues };
 
-    // Check if anything changed — if not, we've stabilized
     const newSnapshot = JSON.stringify(computedValues);
     if (newSnapshot === prevSnapshot) break;
   }

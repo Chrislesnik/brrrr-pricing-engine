@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { IconDeviceFloppy, IconFileExport, IconMapPin, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
+import { IconDeviceFloppy, IconFileExport, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import { SearchIcon, LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
 import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
 import html2canvas from "html2canvas"
@@ -48,10 +48,16 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
-import { LeasedUnitsGrid, type UnitRow } from "@/components/leased-units-grid"
+import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
+import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
+import { evaluateExpression } from "@/lib/expression-evaluator"
+import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
+import type { TableConfig } from "@/types/table-config"
+import type { SectionButton } from "@/types/section-buttons"
 import DSCRTermSheet, { type DSCRTermSheetProps, type DSCRTermSheetData } from "@/components/DSCRTermSheet"
 import BridgeTermSheet from "@/components/BridgeTermSheet"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -103,8 +109,14 @@ async function saveFileWithPrompt(file: File): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
-function formatDateOnly(date?: Date | null): string | null {
+function formatDateOnly(date?: Date | string | null): string | null {
   if (!date) return null
+  if (typeof date === "string") {
+    if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date.slice(0, 10)
+    const parsed = new Date(date)
+    if (isNaN(parsed.getTime())) return null
+    date = parsed
+  }
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, "0")
   const d = String(date.getDate()).padStart(2, "0")
@@ -551,31 +563,13 @@ export default function PricingEnginePage() {
         setIsBrokerMember(j?.editable === false)
         setSelfMemberId(j?.self_member_id ?? null)
         setSelfBrokerId(j?.self_broker_id ?? null)
-      } catch (err) {
-        if (!active) return
-        toast({
-          title: "Failed to load user info",
-          description: "Your permissions may not display correctly. Try refreshing the page.",
-          variant: "destructive",
-        })
+      } catch {
+        // ignore
       }
     })()
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
-  // Entity name autocomplete state for Borrower Name input
-  const [entityQuery, setEntityQuery] = useState("")
-  const [entitySuggestions, setEntitySuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
-  const [showEntitySuggestions, setShowEntitySuggestions] = useState(false)
-  const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined)
-  const [hasSessionEntity, setHasSessionEntity] = useState<boolean>(false)
-  const [entityLoading, setEntityLoading] = useState(false)
-  // Guarantor suggestions
-  const [showGuarantorSuggestions, setShowGuarantorSuggestions] = useState(false)
-  const [guarantorSuggestions, setGuarantorSuggestions] = useState<Array<{ id: string; name: string; display: string }>>([])
-  const [guarantorQuery, setGuarantorQuery] = useState("")
-  // hasSessionGuarantors removed - linked status is now tracked per-tag in guarantorTags array
-  const [guarantorLoading, setGuarantorLoading] = useState(false)
 
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
@@ -626,83 +620,6 @@ export default function PricingEnginePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])
 
-  // Fetch entity suggestions as user types borrower name
-  useEffect(() => {
-    let cancelled = false
-    if (!showEntitySuggestions) {
-      setEntitySuggestions([])
-      setEntityLoading(false)
-      return
-    }
-    const qRaw = entityQuery
-    const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
-    const ctrl = new AbortController()
-    setEntityLoading(true)
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/applicants/entities?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, cache: "no-store" })
-        if (!res.ok) return
-        const j = (await res.json().catch(() => ({}))) as { entities?: Array<{ id: string; display_id?: string; entity_name?: string }> }
-        if (cancelled) return
-        const opts =
-          (j.entities ?? []).slice(0, 20).map((e) => ({
-            id: e.id as string,
-            name: (e.entity_name ?? "") as string,
-            display: `${(e.display_id ?? "") as string} ${(e.entity_name ?? "") as string}`.trim(),
-          })) ?? []
-        setEntitySuggestions(opts)
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setEntityLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ctrl.abort()
-    }
-  }, [entityQuery, showEntitySuggestions])
-
-  // Fetch guarantor suggestions as user types the current token
-  useEffect(() => {
-    let cancelled = false
-    if (!showGuarantorSuggestions) {
-      setGuarantorSuggestions([])
-      setGuarantorLoading(false)
-      return
-    }
-    const qRaw = guarantorQuery
-    const q = qRaw && qRaw.trim().length > 0 ? qRaw.trim() : "*"
-    const ctrl = new AbortController()
-    setGuarantorLoading(true)
-    ;(async () => {
-      try {
-        const url = new URL("/api/applicants/borrowers", window.location.origin)
-        url.searchParams.set("q", q)
-        if (selectedEntityId) url.searchParams.set("entityId", selectedEntityId)
-        const res = await fetch(url.toString(), { signal: ctrl.signal, cache: "no-store" })
-        if (!res.ok) return
-        const j = (await res.json().catch(() => ({}))) as { borrowers?: Array<{ id: string; display_id?: string; first_name?: string; last_name?: string }> }
-        if (cancelled) return
-        const opts =
-          (j.borrowers ?? []).slice(0, 20).map((b) => ({
-            id: b.id as string,
-            name: [b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim(),
-            display: `${(b.display_id ?? "") as string} ${[b.first_name ?? "", b.last_name ?? ""].filter(Boolean).join(" ").trim()}`.trim(),
-          })) ?? []
-        setGuarantorSuggestions(opts)
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setGuarantorLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-      ctrl.abort()
-    }
-  }, [guarantorQuery, showGuarantorSuggestions, selectedEntityId])
-
   // ----- Resizable panels (inputs/results) -----
   const [leftPanePct, setLeftPanePct] = useState<number>(0.3) // 30% default (clamped 25–50)
   const [isResizing, setIsResizing] = useState<boolean>(false)
@@ -741,63 +658,57 @@ export default function PricingEnginePage() {
     }
   }, [isResizing])
 
-  // Subject Property dependent state
-  const [propertyType, setPropertyType] = useState<string | undefined>(undefined)
-  const [numUnits, setNumUnits] = useState<number | undefined>(undefined)
-  const [loanType, setLoanType] = useState<string | undefined>(undefined)
-  const [bridgeType, setBridgeType] = useState<string | undefined>(undefined)
-  const [transactionType, setTransactionType] = useState<string | undefined>(undefined)
-  const [closingDate, setClosingDate] = useState<Date | undefined>(undefined)
-  const [acquisitionDate, setAcquisitionDate] = useState<Date | undefined>(undefined)
-  const [requestMaxLeverage, setRequestMaxLeverage] = useState<boolean>(false)
-  const [hoiEffective, setHoiEffective] = useState<Date | undefined>(undefined)
-  const [floodEffective, setFloodEffective] = useState<Date | undefined>(undefined)
-  // Calendar visible months (controlled so arrows work and typing syncs view)
-  const [closingCalMonth, setClosingCalMonth] = useState<Date | undefined>(undefined)
-  const [acqCalMonth, setAcqCalMonth] = useState<Date | undefined>(undefined)
-  const [hoiCalMonth, setHoiCalMonth] = useState<Date | undefined>(undefined)
-  const [floodCalMonth, setFloodCalMonth] = useState<Date | undefined>(undefined)
-  const [initialLoanAmount, setInitialLoanAmount] = useState<string>("")
-  const [rehabHoldback, setRehabHoldback] = useState<string>("")
+  // Unified input state: single source of truth for all PE input values
+  const [extraFormValues, setExtraFormValues] = useState<Record<string, unknown>>({})
 
-  // Prefetch program catalog for current loan type so we can map IDs to names
-  useEffect(() => {
-    let active = true
-    if (!loanType) return
-    ;(async () => {
-      try {
-        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        const res = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
-          method: "GET",
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
-        })
-        if (!res.ok) {
-          if (active) toast({ title: "Failed to load programs", description: `Server returned ${res.status}. Programs may not appear.`, variant: "destructive" })
-          return
-        }
-        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
-        if (!active) return
-        const ph = Array.isArray(pj?.programs) ? pj.programs : []
-        setProgramPlaceholders(ph)
-      } catch (err) {
-        if (active) toast({ title: "Failed to load programs", description: "Check your connection and try refreshing.", variant: "destructive" })
-      }
-    })()
-    return () => {
-      active = false
+  // PE input definitions (moved up so dynamic address/date derivations can use them)
+  interface PECategory { id: number; category: string; display_order: number; default_open: boolean; config?: Record<string, unknown> | null }
+  interface PEInputDef extends PEInputField { category_id: number; display_order: number; config?: Record<string, unknown> | null }
+  const [peInputDefs, setPeInputDefs] = useState<PEInputDef[]>([])
+
+  // Dynamic helper to read any input value by code
+  const fv = useCallback((code: string) => extraFormValues[code], [extraFormValues])
+
+  // Dynamic address field codes resolved from peInputDefs config (address_role → input_code)
+  const primaryAddrCodes = useMemo(() => {
+    const codes: Record<string, string> = {}
+    for (const inp of peInputDefs) {
+      const role = inp.config?.address_role as string | undefined
+      if (role && !codes[role]) codes[role] = inp.input_code
     }
-  }, [loanType])
+    return codes
+  }, [peInputDefs])
+  const street = String(extraFormValues[primaryAddrCodes.street ?? ""] ?? "")
+  const apt = String(extraFormValues[primaryAddrCodes.apt ?? ""] ?? "")
+  const city = String(extraFormValues[primaryAddrCodes.city ?? ""] ?? "")
+  const stateCode = extraFormValues[primaryAddrCodes.state ?? ""] as string | undefined
+  const zip = String(extraFormValues[primaryAddrCodes.zip ?? ""] ?? "")
+  const county = String(extraFormValues[primaryAddrCodes.county ?? ""] ?? "")
 
-  // Address fields (hooked to Google Places)
-  const [street, setStreet] = useState<string>("")
-  const [apt, setApt] = useState<string>("")
-  const [city, setCity] = useState<string>("")
-  const [stateCode, setStateCode] = useState<string | undefined>(undefined)
-  const [zip, setZip] = useState<string>("")
-  const [county, setCounty] = useState<string>("")
+  // Date input codes resolved dynamically from peInputDefs
+  const dateInputCodes = useMemo(() =>
+    peInputDefs.filter((d) => d.input_type === "date").map((d) => d.input_code),
+    [peInputDefs],
+  )
+
+  // Generic calendar month state for all date inputs (keyed by input_code)
+  const [calendarMonths, setCalendarMonths] = useState<Record<string, Date | undefined>>({})
+  const setCalendarMonth = useCallback((code: string, d: Date | undefined) => {
+    setCalendarMonths((prev) => prev[code] === d ? prev : { ...prev, [code]: d })
+  }, [])
+
+  // Sync calendar visible months when date values change
+  useEffect(() => {
+    for (const code of dateInputCodes) {
+      const val = extraFormValues[code] as Date | undefined
+      setCalendarMonth(code, val ?? undefined)
+    }
+  }, [dateInputCodes, extraFormValues, setCalendarMonth])
+
   const streetInputRef = useRef<HTMLInputElement | null>(null)
   const [sendingReApi, setSendingReApi] = useState<boolean>(false)
+  const [reApiClicked, setReApiClicked] = useState(false)
+  const [mapsClicked, setMapsClicked] = useState(false)
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""
   const [mapsLoadError, setMapsLoadError] = useState(false)
   const [mapsModalOpen, setMapsModalOpen] = useState(false)
@@ -816,6 +727,10 @@ export default function PricingEnginePage() {
     const st = typeof stateCode === "string" ? stateCode.trim() : ""
     return Boolean(s && c && st && z)
   }, [city, stateCode, street, zip])
+  useEffect(() => {
+    setReApiClicked(false)
+    setMapsClicked(false)
+  }, [street, city, stateCode, zip])
   const fullAddress = useMemo(() => {
     const parts = [street, apt, city, stateCode, zip]
       .map((p) => (typeof p === "string" ? p.trim() : p))
@@ -826,56 +741,7 @@ export default function PricingEnginePage() {
   const mapZoom = 16
   const debugSessionId = "debug-session"
   const debugRunId = "pre-fix"
-  // Controlled fields for webhook responses
-  const [glaSqFt, setGlaSqFt] = useState<string>("0")
-  const [purchasePrice, setPurchasePrice] = useState<string>("")
-  const [annualTaxes, setAnnualTaxes] = useState<string>("")
-  const [annualHoi, setAnnualHoi] = useState<string>("")
-  const [annualFlood, setAnnualFlood] = useState<string>("")
-  const [annualHoa, setAnnualHoa] = useState<string>("")
-  const [annualMgmt, setAnnualMgmt] = useState<string>("")
-  const [loanAmount, setLoanAmount] = useState<string>("")
-  const [adminFee, setAdminFee] = useState<string>("")
-  const [brokerAdminFee, setBrokerAdminFee] = useState<string>("")
-  const [payoffAmount, setPayoffAmount] = useState<string>("")
-  const [titleRecordingFee, setTitleRecordingFee] = useState<string>("")
-  const [assignmentFee, setAssignmentFee] = useState<string>("")
-  const [sellerConcessions, setSellerConcessions] = useState<string>("")
-  const [hoiPremium, setHoiPremium] = useState<string>("")
-  const [floodPremium, setFloodPremium] = useState<string>("")
-  const [emd, setEmd] = useState<string>("")
-  const [mortgageDebtValue, setMortgageDebtValue] = useState<string>("")
-  const [rehabBudget, setRehabBudget] = useState<string>("")
-  const [rehabCompleted, setRehabCompleted] = useState<string>("")
-  const [arv, setArv] = useState<string>("")
-  const [aiv, setAiv] = useState<string>("")
-  // Additional UI states to include in payload
-  const [borrowerType, setBorrowerType] = useState<string | undefined>(undefined)
-  const [citizenship, setCitizenship] = useState<string | undefined>(undefined)
-  const [fico, setFico] = useState<string>("")
-  const [fthb, setFthb] = useState<string | undefined>(undefined) // DSCR only
-  const [rentalsOwned, setRentalsOwned] = useState<string>("") // Bridge only
-  const [numFlips, setNumFlips] = useState<string>("") // Bridge only
-  const [numGunc, setNumGunc] = useState<string>("") // Bridge only
-  const [otherExp, setOtherExp] = useState<string | undefined>(undefined) // Bridge only
-  const [warrantability, setWarrantability] = useState<string | undefined>(undefined) // Condo only
-  const [strValue, setStrValue] = useState<string | undefined>(undefined) // DSCR only
-  const [decliningMarket, setDecliningMarket] = useState<string | undefined>(undefined) // DSCR only
-  const [rural, setRural] = useState<string | undefined>(undefined) // Yes/No
-  const [loanStructureType, setLoanStructureType] = useState<string | undefined>(undefined) // DSCR
-  const [ppp, setPpp] = useState<string | undefined>(undefined) // DSCR
-  const [term, setTerm] = useState<string | undefined>(undefined) // Bridge
-  const [lenderOrig, setLenderOrig] = useState<string>("")
-  const [brokerOrig, setBrokerOrig] = useState<string>("")
-  const [borrowerName, setBorrowerName] = useState<string>("")
-  const [guarantorTags, setGuarantorTags] = useState<Array<{ name: string; id?: string }>>([])
-  const [uwException, setUwException] = useState<string | undefined>(undefined)
-  // Note: We no longer restore/cache borrower/guarantor links from localStorage.
-  // Links are only established when user selects from dropdown or loads a saved scenario.
-  const [section8, setSection8] = useState<string | undefined>(undefined)
-  const [glaExpansion, setGlaExpansion] = useState<string | undefined>(undefined) // Bridge rehab
-  const [changeOfUse, setChangeOfUse] = useState<string | undefined>(undefined) // Bridge rehab
-  const [taxEscrowMonths, setTaxEscrowMonths] = useState<string>("")
+  // Guarantor tags kept as useState (complex array type, not a simple PE input value)
   const [gmapsReady, setGmapsReady] = useState<boolean>(false)
   const [showPredictions, setShowPredictions] = useState<boolean>(false)
   const [activePredictionIdx, setActivePredictionIdx] = useState<number>(-1)
@@ -897,165 +763,342 @@ export default function PricingEnginePage() {
   const [pendingScenarioName, setPendingScenarioName] = useState<string | undefined>(undefined)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false)
 
-  // Defaults for a brand-new loan (from "New Loan" button).
-  // These should be visible as greyed values but still included in all POST payloads.
-  const addDays = (dt: Date, days: number) => {
-    const d = new Date(dt)
-    d.setDate(d.getDate() + days)
-    return d
-  }
-  const addYears = (dt: Date, years: number) => {
-    const d = new Date(dt)
-    d.setFullYear(d.getFullYear() + years)
-    return d
-  }
-  const _isSameDay = (a?: Date, b?: Date) => {
-    if (!a || !b) return false
-    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-  }
-  const DEFAULTS = React.useMemo(
-    () => ({
-      borrowerType: "entity" as string,
-      fthb: "no" as string,
-      citizenship: "us" as string,
-      mortgageDebtValue: "0" as string,
-      rural: "no" as string,
-      strValue: "no" as string,
-      decliningMarket: "no" as string,
-      annualFlood: "0" as string,
-      annualHoa: "0" as string,
-      annualMgmt: "0" as string,
-      closingDate: addDays(new Date(), 24) as Date,
-      acquisitionDate: addYears(new Date(), -1) as Date,
-      loanStructureType: "fixed-30" as string,
-      ppp: "5-4-3-2-1" as string,
-      borrowerName: "Borrowing Entity LLC" as string,
-      guarantorPlaceholder: "First Last" as string,
-      uwException: "no" as string,
-      section8: "no" as string,
-      glaExpansion: "no" as string,
-      changeOfUse: "no" as string,
-      hoiEffective: addDays(new Date(), 24) as Date,
-      floodEffective: addDays(new Date(), 24) as Date,
-      taxEscrowMonths: "3" as string,
-    }),
-    []
-  )
-  const defaultsAppliedRef = useRef<boolean>(false)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
-  const [reAuto, setReAuto] = useState<Record<string, boolean>>({})
-  function markReAuto(keys: string[]) {
-    if (!Array.isArray(keys) || keys.length === 0) return
-    setReAuto((prev) => {
-      const next: Record<string, boolean> = { ...prev }
-      for (const k of keys) next[k] = true
+  const [signalColors, setSignalColors] = useState<Record<string, string>>({})
+  function markSignalColors(keys: string[], color: string) {
+    if (!Array.isArray(keys) || keys.length === 0 || !color) return
+    setSignalColors((prev) => {
+      const next: Record<string, string> = { ...prev }
+      for (const k of keys) next[k] = color
       return next
     })
   }
-  function clearReAuto(key: string) {
-    setReAuto((prev) => {
+  function clearSignalColor(key: string) {
+    setSignalColors((prev) => {
       if (!prev[key]) return prev
       const next = { ...prev }
       delete next[key]
       return next
     })
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*  Dynamic PE inputs infrastructure                                           */
+  /* -------------------------------------------------------------------------- */
+  const [peCategories, setPeCategories] = useState<PECategory[]>([])
+  const [peLoaded, setPeLoaded] = useState(false)
+  const [openAccordionSections, setOpenAccordionSections] = useState<string[]>([])
+  const [sectionButtons, setSectionButtons] = useState<SectionButton[]>([])
+  const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, { id: string; label: string }[]>>({})
+
   useEffect(() => {
-    if (defaultsAppliedRef.current) return
-    // Only apply defaults when arriving via "New Loan" (no loanId present)
-    if (initialLoanId) return
-    // Guard against overriding any prefilled values
-    const setIfUnsetString = (current: string | undefined, setter: (v: string) => void, value: string) => {
-      if (current === undefined || current === "") setter(value)
-    }
-    const setIfUnsetDate = (current: Date | undefined, setter: (v: Date) => void, value: Date) => {
-      if (!current) setter(value)
-    }
-    setIfUnsetString(borrowerType, (v) => setBorrowerType(v), DEFAULTS.borrowerType)
-    setIfUnsetString(fthb, (v) => setFthb(v), DEFAULTS.fthb)
-    setIfUnsetString(citizenship, (v) => setCitizenship(v), DEFAULTS.citizenship)
-    setIfUnsetString(mortgageDebtValue, (v) => setMortgageDebtValue(v), DEFAULTS.mortgageDebtValue)
-    setIfUnsetString(rural, (v) => setRural(v), DEFAULTS.rural)
-    setIfUnsetString(strValue, (v) => setStrValue(v), DEFAULTS.strValue)
-    setIfUnsetString(decliningMarket, (v) => setDecliningMarket(v), DEFAULTS.decliningMarket)
-    setIfUnsetString(annualFlood, (v) => setAnnualFlood(v), DEFAULTS.annualFlood)
-    setIfUnsetString(annualHoa, (v) => setAnnualHoa(v), DEFAULTS.annualHoa)
-    setIfUnsetString(annualMgmt, (v) => setAnnualMgmt(v), DEFAULTS.annualMgmt)
-    setIfUnsetDate(closingDate, (v) => setClosingDate(v), DEFAULTS.closingDate)
-    setIfUnsetDate(acquisitionDate, (v) => setAcquisitionDate(v), DEFAULTS.acquisitionDate)
-    setIfUnsetString(loanStructureType, (v) => setLoanStructureType(v), DEFAULTS.loanStructureType)
-    setIfUnsetString(ppp, (v) => setPpp(v), DEFAULTS.ppp)
-    setIfUnsetString(borrowerName, (v) => setBorrowerName(v), DEFAULTS.borrowerName)
-    // guarantorTags is now an array, no default string needed
-    setIfUnsetString(uwException, (v) => setUwException(v), DEFAULTS.uwException)
-    setIfUnsetString(section8, (v) => setSection8(v), DEFAULTS.section8)
-    setIfUnsetString(glaExpansion, (v) => setGlaExpansion(v), DEFAULTS.glaExpansion)
-    setIfUnsetString(changeOfUse, (v) => setChangeOfUse(v), DEFAULTS.changeOfUse)
-    setIfUnsetDate(hoiEffective, (v) => setHoiEffective(v), DEFAULTS.hoiEffective)
-    setIfUnsetDate(floodEffective, (v) => setFloodEffective(v), DEFAULTS.floodEffective)
-    // Bridge defaults to 0 months; DSCR defaults to 3
-    setIfUnsetString(
-      taxEscrowMonths,
-      (v) => setTaxEscrowMonths(v),
-      loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
-    )
-    defaultsAppliedRef.current = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true
+    ;(async () => {
+      try {
+        const [catsRes, inputsRes, btnsRes] = await Promise.all([
+          fetch("/api/pricing-engine-input-categories"),
+          fetch("/api/pricing-engine-inputs"),
+          fetch("/api/pe-section-buttons"),
+        ])
+        if (!active) return
+        if (catsRes.ok) {
+          const cats = await catsRes.json() as PECategory[]
+          setPeCategories(cats)
+          setOpenAccordionSections(
+            cats.filter((c) => c.default_open !== false).map((c) => `pe-cat-${c.id}`)
+          )
+        }
+        if (inputsRes.ok) {
+          const rawInputs = await inputsRes.json()
+          setPeInputDefs(rawInputs)
+          // Initialize defaults from DB for inputs not yet set
+          const defaults: Record<string, unknown> = {}
+          for (const inp of rawInputs as PEInputDef[]) {
+            if (!inp.default_value) continue
+            if (inp.default_value.includes("{")) continue
+            const dv = inp.default_value
+            if (inp.input_type === "date") {
+              const m = dv.match(/^([+-])(\d+)([dmy])$/)
+              if (m) {
+                const sign = m[1] === "+" ? 1 : -1
+                const amount = Number(m[2]) * sign
+                const unit = m[3]
+                const d = new Date()
+                if (unit === "d") d.setDate(d.getDate() + amount)
+                else if (unit === "m") d.setMonth(d.getMonth() + amount)
+                else if (unit === "y") d.setFullYear(d.getFullYear() + amount)
+                defaults[inp.input_code] = d
+              }
+            } else if (inp.input_type === "boolean") {
+              defaults[inp.input_code] = (dv === "true" || dv === "yes" || dv === "Yes")
+            } else {
+              defaults[inp.input_code] = dv
+            }
+          }
+          if (Object.keys(defaults).length > 0 && !initialLoanId) {
+            setExtraFormValues((prev) => ({ ...prev, ...defaults }))
+          }
+        }
+        if (btnsRes.ok) {
+          const btns = await btnsRes.json()
+          if (Array.isArray(btns)) setSectionButtons(btns)
+        }
+        setPeLoaded(true)
+      } catch (err) {
+        console.error("Failed to fetch PE input definitions:", err)
+        setPeLoaded(true)
+      }
+    })()
+    return () => { active = false }
   }, [initialLoanId])
 
-  // Keep Tax Escrow (months) default in sync with loan type until user edits it
+  // Fetch linked records for inputs with linked_table
   useEffect(() => {
-    const currentDefault = loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths
-    if (!touched.taxEscrowMonths) {
-      setTaxEscrowMonths((v) => (v === "" || v === "0" || v === "3" ? currentDefault : v))
+    const linkedInputs = peInputDefs.filter((inp) => inp.linked_table)
+    if (linkedInputs.length === 0) return
+    let cancelled = false
+    const tableColumnPairs = new Map<string, string | null>()
+    for (const inp of linkedInputs) {
+      if (!tableColumnPairs.has(inp.linked_table!)) {
+        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null)
+      }
     }
+    ;(async () => {
+      const results: Record<string, { id: string; label: string }[]> = {}
+      await Promise.all(
+        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
+          try {
+            const params = new URLSearchParams({ table })
+            if (column) params.set("expression", column)
+            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
+            const data = await res.json()
+            if (!cancelled && Array.isArray(data.records)) {
+              results[table] = data.records
+            }
+          } catch { /* ignore */ }
+        }),
+      )
+      if (!cancelled) setLinkedRecordsByTable(results)
+    })()
+    return () => { cancelled = true }
+  }, [peInputDefs])
+
+  // Map input_code → input_id for the logic engine
+  const codeToIdMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const inp of peInputDefs) m.set(inp.input_code, String(inp.id))
+    return m
+  }, [peInputDefs])
+  const idToCodeMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const inp of peInputDefs) m.set(String(inp.id), inp.input_code)
+    return m
+  }, [peInputDefs])
+
+  // Address group index: maps address_group name → { role → input_code }
+  const addressGroupIndex = useMemo(() => {
+    const groups = new Map<string, Map<string, string>>()
+    for (const inp of peInputDefs) {
+      const role = inp.config?.address_role as string | undefined
+      const group = inp.config?.address_group as string | undefined
+      if (!role || !group) continue
+      let roleMap = groups.get(group)
+      if (!roleMap) {
+        roleMap = new Map<string, string>()
+        groups.set(group, roleMap)
+      }
+      roleMap.set(role, inp.input_code)
+    }
+    return groups
+  }, [peInputDefs])
+
+  // First address group (used for auto-detecting Google Maps address)
+  const primaryAddressGroup = useMemo(() => {
+    const first = addressGroupIndex.entries().next()
+    return first.done ? null : first.value[1]
+  }, [addressGroupIndex])
+
+  // Expression-based default values: maps input_code → expression string for defaults containing {input_id} references
+  const expressionDefaults = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const inp of peInputDefs) {
+      if (inp.default_value && inp.default_value.includes("{")) {
+        map.set(inp.input_code, inp.default_value)
+      }
+    }
+    return map
+  }, [peInputDefs])
+
+  // All form values come from extraFormValues (single source of truth)
+  const formValues = useMemo<Record<string, unknown>>(() => {
+    return { ...extraFormValues }
+  }, [extraFormValues])
+
+  // Values keyed by input_id for the logic engine
+  const formValuesById = useMemo(() => {
+    const byId: Record<string, unknown> = {}
+    for (const [code, val] of Object.entries(formValues)) {
+      const id = codeToIdMap.get(code)
+      if (id) byId[id] = val
+    }
+    return byId
+  }, [formValues, codeToIdMap])
+
+  // Stable serialized key for formValuesById to avoid excessive refetches
+  const formValuesByIdKey = useMemo(() => {
+    try { return JSON.stringify(formValuesById) } catch { return "" }
+  }, [formValuesById])
+
+  // Prefetch program catalog filtered by current input values via program conditions
+  useEffect(() => {
+    let active = true
+    if (!formValuesByIdKey) return
+    ;(async () => {
+      try {
+        const res = await fetch("/api/pricing/programs", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+          body: JSON.stringify({ inputValues: formValuesById }),
+        })
+        if (!res.ok) return
+        const pj = (await res.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
+        if (!active) return
+        const ph = Array.isArray(pj?.programs) ? pj.programs : []
+        setProgramPlaceholders(ph)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => { active = false }
+  }, [formValuesByIdKey])
+
+  // Evaluate expression-based defaults from current form values
+  const computedDefaults = useMemo(() => {
+    const result: Record<string, string> = {}
+    for (const [code, expr] of expressionDefaults) {
+      if (touched[code]) continue
+      const val = evaluateExpression(expr, formValuesById)
+      if (val !== null) result[code] = String(val)
+    }
+    return result
+  }, [expressionDefaults, formValuesById, touched])
+
+  // Track which fields currently show an expression-computed default
+  const hasExpressionDefault = useMemo(() => {
+    const codes = new Set<string>()
+    for (const [code] of expressionDefaults) {
+      if (!touched[code] && computedDefaults[code] !== undefined) codes.add(code)
+    }
+    return codes
+  }, [expressionDefaults, touched, computedDefaults])
+
+  // Human-readable expression labels: replaces {input_id} with input labels
+  const expressionLabels = useMemo(() => {
+    const idToLabel = new Map<string, string>()
+    for (const inp of peInputDefs) idToLabel.set(String(inp.id), inp.input_label)
+    const labels: Record<string, string> = {}
+    for (const [code, expr] of expressionDefaults) {
+      labels[code] = expr.replace(/\{([^}]+)\}/g, (_m, id) => idToLabel.get(id) ?? id)
+    }
+    return labels
+  }, [peInputDefs, expressionDefaults])
+
+  // Merged values keyed by both input_code AND input_id (for number constraint conditions that reference by ID)
+  const formValuesMerged = useMemo(() => ({ ...formValues, ...formValuesById }), [formValues, formValuesById])
+
+  // Config-based full address for Google Maps (auto-detects from address_role config, falls back to hardcoded)
+  const resolvedFullAddress = useMemo(() => {
+    if (primaryAddressGroup) {
+      const roleOrder: string[] = ["street", "apt", "city", "state", "zip"]
+      const parts = roleOrder
+        .map((role) => {
+          const code = primaryAddressGroup.get(role)
+          return code ? formValues[code] : undefined
+        })
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter(Boolean)
+      if (parts.length > 0) return parts.join(", ")
+    }
+    return fullAddress
+  }, [primaryAddressGroup, formValues, fullAddress])
+
+  // Logic engine
+  const peLogicResult = usePELogicEngine(formValuesById)
+  const peHiddenCodes = useMemo(() => {
+    const codes = new Set<string>()
+    for (const id of peLogicResult.hiddenFields) {
+      const code = idToCodeMap.get(id)
+      if (code) codes.add(code)
+    }
+    return codes
+  }, [peLogicResult.hiddenFields, idToCodeMap])
+  const peRequiredCodes = useMemo(() => {
+    const codes = new Set<string>()
+    for (const id of peLogicResult.requiredFields) {
+      const code = idToCodeMap.get(id)
+      if (code) codes.add(code)
+    }
+    return codes
+  }, [peLogicResult.requiredFields, idToCodeMap])
+
+  // All input changes go to extraFormValues (single source of truth)
+  const updateValue = useCallback((code: string, value: unknown) => {
+    setTouched((prev) => prev[code] ? prev : { ...prev, [code]: true })
+    clearSignalColor(code)
+    setExtraFormValues((prev) => prev[code] === value ? prev : { ...prev, [code]: value })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loanType])
+  }, [])
+
+  const handleAddressSelect = useCallback(
+    (sourceInputCode: string, fields: AddressFields) => {
+      const sourceDef = peInputDefs.find((d) => d.input_code === sourceInputCode)
+      const group = sourceDef?.config?.address_group as string | undefined
+      if (!group) return
+      const roleMap = addressGroupIndex.get(group)
+      if (!roleMap) return
+      const mapping: [keyof AddressFields, string][] = [
+        ["street", "street"],
+        ["apt", "apt"],
+        ["city", "city"],
+        ["state", "state"],
+        ["zip", "zip"],
+        ["county", "county"],
+      ]
+      for (const [addrKey, role] of mapping) {
+        const code = roleMap.get(role)
+        if (!code || code === sourceInputCode) continue
+        const val = fields[addrKey]
+        if (val !== undefined && val !== "") updateValue(code, val)
+      }
+    },
+    [peInputDefs, addressGroupIndex, updateValue],
+  )
+
+  // Build layout rows for a category
+  type DynLayoutRow = { rowIndex: number; items: PEInputDef[] }
+  function buildDynRows(catInputs: PEInputDef[]): DynLayoutRow[] {
+    const sorted = [...catInputs].sort((a, b) => a.layout_row - b.layout_row || a.display_order - b.display_order)
+    const rowMap = new Map<number, PEInputDef[]>()
+    for (const inp of sorted) {
+      const existing = rowMap.get(inp.layout_row) ?? []
+      existing.push(inp)
+      rowMap.set(inp.layout_row, existing)
+    }
+    return [...rowMap.keys()].sort((a, b) => a - b).map((k) => ({ rowIndex: k, items: rowMap.get(k)! }))
+  }
+
+  function getDynWidthClass(width: string): string {
+    switch (width) {
+      case "100": return "col-span-4"
+      case "75": return "col-span-3"
+      case "50": return "col-span-2"
+      case "25": return "col-span-1"
+      default: return "col-span-2"
+    }
+  }
 
   // Keep calendar month in sync with typed/selected dates
-  useEffect(() => {
-    setClosingCalMonth(closingDate ?? undefined)
-  }, [closingDate])
-  useEffect(() => {
-    setAcqCalMonth(acquisitionDate ?? undefined)
-  }, [acquisitionDate])
-  useEffect(() => {
-    setHoiCalMonth(hoiEffective ?? undefined)
-  }, [hoiEffective])
-  useEffect(() => {
-    setFloodCalMonth(floodEffective ?? undefined)
-  }, [floodEffective])
-
-  // Simple derived flags for label required markers
-  const isDscr = loanType === "dscr"
-  const isBridge = loanType === "bridge"
-  const isPurchase = transactionType === "purchase" || transactionType === "delayed-purchase"
-  const isRefi = transactionType === "co-refi" || transactionType === "rt-refi"
-  const isFicoRequired = (isDscr || isBridge) && (citizenship === "us" || citizenship === "pr")
-  // Compute default/placeholder for Title & Recording Fee when untouched
-  const computedTitleRecording = useMemo(() => {
-    const parse = (s: string): number => {
-      const n = Number(String(s ?? "").replace(/[^0-9.-]/g, ""))
-      return Number.isFinite(n) ? n : 0
-    }
-    const formatter = (n: number) => n.toFixed(2)
-    if (isPurchase) {
-      const price = parse(purchasePrice)
-      if (price > 0) return formatter(price * 0.75 * 0.0125)
-    } else if (isRefi) {
-      const v = parse(aiv)
-      if (v > 0) return formatter(v * 0.75 * 0.0125)
-    }
-    return ""
-  }, [isPurchase, isRefi, purchasePrice, aiv])
-  // Do not auto-write Title & Recording Fee while user types other fields.
-  // We will use the computed default in payload if the user left it untouched.
-  // Ensure default Term when Bridge is selected
-  useEffect(() => {
-    if (isBridge && (!term || term === "")) {
-      setTerm("12")
-    }
-  }, [isBridge, term])
   useEffect(() => {
     if (isNamingScenario) {
       // focus when entering naming mode
@@ -1097,7 +1140,7 @@ export default function PricingEnginePage() {
       setMapsLoading(false)
       return
     }
-    if (!fullAddress) {
+    if (!resolvedFullAddress) {
       setMapsError("Enter street, city, state, and zip to preview")
       setMapsCenter(null)
       setMapsLoading(false)
@@ -1116,7 +1159,7 @@ export default function PricingEnginePage() {
     setMapsLoading(true)
     setMapsError(null)
     const geocoder = new g.Geocoder()
-    geocoder.geocode({ address: fullAddress }, (results: Array<any> | null, status: string) => {
+    geocoder.geocode({ address: resolvedFullAddress }, (results: Array<any> | null, status: string) => {
       if (status === "OK" && results?.[0]?.geometry?.location) {
         const loc = results[0].geometry.location
         setMapsCenter({ lat: loc.lat(), lng: loc.lng() })
@@ -1126,7 +1169,7 @@ export default function PricingEnginePage() {
       }
       setMapsLoading(false)
     })
-  }, [fullAddress, mapsApiKey, mapsLoadError, mapsModalOpen, gmapsReady])
+  }, [resolvedFullAddress, mapsApiKey, mapsLoadError, mapsModalOpen, gmapsReady])
 
   useEffect(() => {
     setStreetViewPosition(null)
@@ -1210,96 +1253,49 @@ export default function PricingEnginePage() {
     if (sendingReApi) return
     try {
       setSendingReApi(true)
-      const payload = {
-        street,
-        apt,
-        city,
-        state: stateCode ?? "",
-        zip,
-        transaction_type: transactionType ?? "",
-      }
+      const payload = buildPayload()
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // Helper to map RE API data back into form fields
+      // Dynamically map RE API response keys → input_code by matching against peInputDefs
       const applyReApiResponse = (data: Record<string, unknown>) => {
         const autoKeys: string[] = []
-        const val = (...keys: string[]) => {
-          for (const k of keys) {
-            if (k in data) return data[k] as unknown
+        const dataKeys = new Set(Object.keys(data))
+        const normalize = (k: string) => k.replace(/-/g, "_").toLowerCase()
+        const normalizedData = new Map<string, unknown>()
+        for (const [k, v] of Object.entries(data)) {
+          normalizedData.set(normalize(k), v)
+        }
+        for (const inp of peInputDefs) {
+          const code = inp.input_code
+          let val: unknown = undefined
+          if (dataKeys.has(code)) {
+            val = data[code]
+          } else {
+            val = normalizedData.get(normalize(code))
           }
-          return undefined
-        }
-        // Property Type
-        const pt = val("property-type", "property_type")
-        if (typeof pt === "string" && pt) {
-          setPropertyType(pt)
-          autoKeys.push("propertyType")
-        }
-        // Number of Units (validated against property-type)
-        const units = val("num-units", "num_units", "units")
-        if (units !== undefined && units !== null) {
-          const asNum = Number(units)
-          if (!Number.isNaN(asNum) && Number.isFinite(asNum)) {
-            const allowed =
-              pt === "mf2_4"
-                ? [2, 3, 4]
-                : pt === "mf5_10"
-                ? [5, 6, 7, 8, 9, 10]
-                : pt
-                ? [1]
-                : []
-            if (allowed.length === 0 || allowed.includes(asNum)) {
-              setNumUnits(asNum)
-              autoKeys.push("numUnits")
-            }
-          }
-        }
-        // GLA Sq Ft
-        const gla = val("gla", "gla_sq_ft", "gla_sqft", "gla_sqft_ft")
-        if (gla !== undefined && gla !== null) {
-          setGlaSqFt(String(gla))
-          autoKeys.push("glaSqFt")
-        }
-        // Acquisition Date
-        const acq = val("acq-date", "acq_date", "acquisition_date")
-        {
-          const d = parseDateLocal(acq)
-          if (d) {
-            setAcquisitionDate(d)
-            autoKeys.push("acquisitionDate")
+          if (val === undefined || val === null) continue
+          if (inp.input_type === "date") {
+            const d = parseDateLocal(val)
+            if (d) { updateValue(code, d); autoKeys.push(code) }
+          } else if (inp.input_type === "number" || inp.input_type === "currency" || inp.input_type === "calc_currency") {
+            updateValue(code, String(val))
+            autoKeys.push(code)
+          } else if (inp.input_type === "boolean") {
+            const s = String(val).trim().toLowerCase()
+            const bv = (typeof val === "boolean") ? val : ["yes", "y", "true", "1"].includes(s)
+            updateValue(code, bv); autoKeys.push(code)
+          } else if (inp.dropdown_options?.length === 2 && inp.dropdown_options.includes("Yes") && inp.dropdown_options.includes("No")) {
+            const s = String(val).trim().toLowerCase()
+            const yn = (typeof val === "boolean")
+              ? (val ? "Yes" : "No")
+              : (["yes", "y", "true", "1"].includes(s) ? "Yes" : ["no", "n", "false", "0"].includes(s) ? "No" : undefined)
+            if (yn) { updateValue(code, yn); autoKeys.push(code) }
+          } else {
+            updateValue(code, val)
+            autoKeys.push(code)
           }
         }
-        // Purchase Price
-        const pp = val("purchase-price", "purchase_price")
-        if (pp !== undefined && pp !== null) {
-          setPurchasePrice(String(pp))
-          autoKeys.push("purchasePrice")
-        }
-        // Annual Taxes
-        const at = val("annual-taxes", "annual_taxes")
-        if (at !== undefined && at !== null) {
-          setAnnualTaxes(String(at))
-          autoKeys.push("annualTaxes")
-        }
-        // Rural flag (expects Yes/No from RE API; normalize to 'yes' | 'no')
-        const ruralIncoming = val("rural", "is_rural", "rural_flag", "rural-indicator", "rural_indicator")
-        if (ruralIncoming !== undefined && ruralIncoming !== null) {
-          const toYesNo = (v: unknown): "yes" | "no" | undefined => {
-            if (typeof v === "boolean") return v ? "yes" : "no"
-            const s = String(v).trim().toLowerCase()
-            if (["yes", "y", "true", "1"].includes(s)) return "yes"
-            if (["no", "n", "false", "0"].includes(s)) return "no"
-            return undefined
-          }
-          const yn = toYesNo(ruralIncoming)
-          if (yn) {
-            setRural(yn)
-            autoKeys.push("rural")
-          }
-        }
-        if (autoKeys.length > 0) {
-          markReAuto(autoKeys)
-        }
+        if (autoKeys.length > 0) markSignalColors(autoKeys, "green")
       }
 
       const urls = [
@@ -1354,149 +1350,35 @@ export default function PricingEnginePage() {
     }
   }
 
-  // Build payload of current, visible inputs
+  // Build payload dynamically from peInputDefs + formValues (no hardcoded field names)
   function buildPayload() {
-    const payload: Record<string, unknown> = {
-      // Ensure keys are always present in JSON (no undefined values)
-      loan_type: loanType ?? "",
-      transaction_type: transactionType ?? "",
-      property_type: propertyType ?? "",
-      num_units: numUnits ?? null,
-      max_leverage_requested: requestMaxLeverage ? "yes" : "no",
-      address: {
-        street,
-        apt,
-        city,
-        state: stateCode ?? "",
-        zip,
-        county,
-      },
-      gla_sq_ft: glaSqFt,
-      purchase_price: purchasePrice,
-      loan_amount: loanAmount,
-      // keep legacy and alias for clarity in downstream systems
-      // send both legacy and explicit lender_admin_fee for downstream systems
-      // Null semantics: if never edited and empty => null; if explicitly "0" => 0
-      admin_fee: (() => {
-        const ever = !!touched.adminFee
-        const v = String(adminFee ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return adminFee
-      })(),
-      lender_admin_fee: (() => {
-        const ever = !!touched.adminFee
-        const v = String(adminFee ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return adminFee
-      })(),
-      broker_admin_fee: brokerAdminFee,
-      payoff_amount: payoffAmount,
-      aiv,
-      arv,
-      rehab_budget: rehabBudget,
-      rehab_completed: rehabCompleted,
-      rehab_holdback: rehabHoldback,
-      emd,
-      taxes_annual: annualTaxes,
-      hoi_annual: annualHoi,
-      flood_annual: annualFlood,
-      hoa_annual: annualHoa,
-      mgmt_annual: annualMgmt,
-      hoi_premium: hoiPremium,
-      flood_premium: floodPremium,
-      mortgage_debt: mortgageDebtValue,
-      closing_date: formatDateOnly(closingDate),
-      // also send projected note date for downstream webhooks
-      projected_note_date: (() => {
-        const dt = closingDate ?? DEFAULTS.closingDate
-        return formatDateOnly(dt)
-      })(),
-      // always include effective dates (can be null)
-      hoi_effective_date: formatDateOnly(hoiEffective ?? DEFAULTS.hoiEffective),
-      flood_effective_date: formatDateOnly(floodEffective ?? DEFAULTS.floodEffective),
-      // borrower + fees: always include (may be empty string)
-      borrower_type: borrowerType ?? "",
-      citizenship: citizenship ?? "",
-      fico,
-      rural: rural ?? DEFAULTS.rural,
-      borrower_name: borrowerName,
-      borrower_entity_id: selectedEntityId ?? null,
-      guarantors: guarantorTags.map((t) => t.name),
-      guarantor_borrower_ids: guarantorTags.filter((t) => t.id).map((t) => t.id!),
-      uw_exception: uwException ?? "",
-      // Origination null semantics and alias
-      lender_orig_percent: (() => {
-        const ever = !!touched.lenderOrig
-        const v = String(lenderOrig ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return lenderOrig
-      })(),
-      origination_points: (() => {
-        const ever = !!touched.lenderOrig
-        const v = String(lenderOrig ?? "").trim()
-        if (!ever && v === "") return null
-        if (v === "0" || v === "0.0" || v === "0.00") return 0
-        return lenderOrig
-      })(),
-      broker_orig_percent: brokerOrig,
-      title_recording_fee: titleRecordingFee || computedTitleRecording,
-      assignment_fee: assignmentFee,
-      seller_concessions: sellerConcessions,
-      tax_escrow_months: taxEscrowMonths,
-    }
-    // Always include acquisition_date; receivers can ignore when not applicable
-    payload["acquisition_date"] = formatDateOnly(acquisitionDate)
-    if (loanType === "bridge") {
-      // Always include bridge-specific selections
-      payload["bridge_type"] = bridgeType ?? ""
-      payload["term"] = term ?? "12"
-      payload["rentals_owned"] = rentalsOwned
-      payload["num_flips"] = numFlips
-      payload["num_gunc"] = numGunc
-      payload["other_exp"] = otherExp ?? ""
+    const payload: Record<string, unknown> = {}
 
-      // Always include potential rehab-related inputs so webhooks receive them when visible
-      payload["gla_expansion"] = glaExpansion ?? ""
-      payload["change_of_use"] = changeOfUse ?? ""
-      payload["initial_loan_amount"] = initialLoanAmount
-      payload["rehab_holdback"] = rehabHoldback
-      const total = (() => {
-        const a = Number(initialLoanAmount || "0")
-        const b = Number(rehabHoldback || "0")
-        const sum = Number.isFinite(a) && Number.isFinite(b) ? a + b : 0
-        return sum.toFixed(2)
-      })()
-      payload["total_loan_amount"] = total
-      // Keep single-loan amount value too (empty string if using rehab path)
-      payload["loan_amount"] = loanAmount
-      // Ensure aliases are present
-      payload["rehab_budget"] = rehabBudget
-      payload["arv"] = arv
+    for (const input of peInputDefs) {
+      const val = formValues[input.input_code] ?? computedDefaults[input.input_code]
+
+      if (input.input_type === "date") {
+        payload[input.input_code] = formatDateOnly(val as Date | string | undefined)
+      } else if (input.input_type === "tags") {
+        payload[input.input_code] = Array.isArray(val)
+          ? val.map((t: unknown) => typeof t === "string" ? t : (t as { name: string })?.name ?? t)
+          : val ?? []
+      } else if (input.input_type === "table") {
+        payload[input.input_code] = val ?? []
+      } else if (input.input_type === "boolean") {
+        payload[input.input_code] = (val === "true" || val === true || val === "Yes") ? "true" : "false"
+      } else {
+        payload[input.input_code] = val ?? ""
+      }
     }
-    if (loanType === "dscr") {
-      payload["fthb"] = fthb ?? ""
-      payload["loan_structure_type"] = loanStructureType ?? ""
-      payload["ppp"] = ppp ?? ""
-      payload["str"] = strValue ?? ""
-      payload["declining_market"] = decliningMarket ?? ""
-      payload["section8"] = section8 ?? ""
+
+    // Include any extra values not defined as peInputDefs (e.g. record IDs, grid data)
+    for (const [code, val] of Object.entries(extraFormValues)) {
+      if (!(code in payload) && val !== undefined && val !== null) {
+        payload[code] = val instanceof Date ? formatDateOnly(val) : val
+      }
     }
-    if (propertyType === "condo") {
-      payload["warrantability"] = warrantability ?? ""
-    }
-    // Always include unit data - slice to visible rows based on numUnits
-    const visibleUnits = unitData.slice(0, numUnits ?? 0)
-    if (visibleUnits.length > 0) {
-      const units = visibleUnits.map((u) => ({
-        leased: u.leased,
-        gross: u.gross,
-        market: u.market,
-      }))
-      payload["unit_data"] = units
-    }
+
     return payload
   }
 
@@ -1532,25 +1414,18 @@ export default function PricingEnginePage() {
 
   async function handleCalculate() {
     try {
-      // Clear any previously selected row so a fresh calculation doesn't preselect anything
       setSelectedMainRow(null)
       setResultsStale(false)
-      if (!loanType) {
-        toast({ title: "Missing loan type", description: "Select a Loan Type before calculating.", variant: "destructive" })
-        return
-      }
-      // show results container with loader
       setProgramResults([])
       setProgramPlaceholders([])
       setIsDispatching(true)
-      // Prefetch programs to render per-program loaders
       let placeholdersLocal: Array<{ id?: string; internal_name?: string; external_name?: string }> = []
       try {
-        const antiCache = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        const pre = await fetch(`/api/pricing/programs?loanType=${encodeURIComponent(loanType)}&_=${encodeURIComponent(antiCache)}`, {
-          method: "GET",
+        const pre = await fetch("/api/pricing/programs", {
+          method: "POST",
           cache: "no-store",
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": antiCache },
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+          body: JSON.stringify({ inputValues: formValuesById }),
         })
         if (pre.ok) {
           const pj = (await pre.json().catch(() => ({}))) as { programs?: Array<{ id?: string; internal_name?: string; external_name?: string }> }
@@ -1583,8 +1458,8 @@ export default function PricingEnginePage() {
           // initialize result slots in same order so containers render in place
           setProgramResults(ph.map((p) => ({ id: p.id, internal_name: p.internal_name, external_name: p.external_name } as ProgramResult)))
         }
-      } catch (err) {
-        toast({ title: "Program loading issue", description: "Could not prefetch programs. Results may still load.", variant: "destructive" })
+      } catch {
+        // ignore prefetch errors; we'll still show a generic loader
       }
       const payload = buildPayload()
       try {
@@ -1629,7 +1504,7 @@ export default function PricingEnginePage() {
                 "Pragma": "no-cache",
                 "X-Client-Request-Id": `${nonce}-${idx}`,
               },
-              body: JSON.stringify({ loanType, programId: p.id ?? p.internal_name ?? p.external_name, data: { ...payload, organization_member_id: memberIdLocal ?? null } }),
+              body: JSON.stringify({ programId: p.id ?? p.internal_name ?? p.external_name, inputValuesById: formValuesById, data: { ...payload, organization_member_id: memberIdLocal ?? null } }),
             })
             const single = (await res.json().catch(() => ({}))) as ProgramResult
             // place result in its slot (do not reorder to preserve container positions)
@@ -1676,13 +1551,11 @@ export default function PricingEnginePage() {
               }
               return next
             })
-          } catch (err) {
-            const name = p.external_name || p.internal_name || `Program ${idx + 1}`
-            toast({ title: `${name} failed`, description: "This program could not be calculated. Other programs may still load.", variant: "destructive" })
+          } catch {
+            // leave the loader if a single program fails; others will still resolve
           }
         })
       )
-      toast({ title: "Sent", description: "Webhooks dispatched" })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Failed to send", description: message, variant: "destructive" })
@@ -1807,158 +1680,24 @@ export default function PricingEnginePage() {
   }
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
 
-  const states = [
-    "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
-  ]
 
-  const unitOptions = useMemo(() => {
-    if (propertyType === "mf2_4") return [2, 3, 4]
-    if (propertyType === "mf5_10") return [5, 6, 7, 8, 9, 10]
-    if (!propertyType) return []
-    return [1]
-  }, [propertyType])
 
-  // Per-unit income rows placeholder state (now uses UnitRow for Data Grid integration)
-  const [unitData, setUnitData] = useState<UnitRow[]>([])
-  // When hydrating from a scenario, stash unit rows so the resizing effect can populate them once.
-  const hydrateUnitsRef = useRef<
-    { leased?: "yes" | "no"; gross?: string; market?: string }[] | null
-  >(null)
-
-  // Keep numUnits within allowed options and resize unit rows accordingly
-  useEffect(() => {
-    if (unitOptions.length === 0) {
-      setNumUnits(undefined)
-      setUnitData([])
-      return
-    }
-    
-    // Check if we have saved data to hydrate
-    const saved = hydrateUnitsRef.current
-    
-    // If we have hydration data, use its length as the target (if valid for current unitOptions)
-    if (saved && Array.isArray(saved) && saved.length > 0) {
-      const targetLength = unitOptions.includes(saved.length) ? saved.length : unitOptions[0]
-      setNumUnits(targetLength)
-      const rows: UnitRow[] = Array.from({ length: targetLength }, (_, i) => ({
-        id: `unit-${i}`,
-        unitNumber: `#${i + 1}`,
-        leased: saved[i]?.leased,
-        gross: saved[i]?.gross ?? "",
-        market: saved[i]?.market ?? "",
-      }))
-      setUnitData(rows)
-      hydrateUnitsRef.current = null
-      return
-    }
-    
-    // No hydration data - handle normal numUnits changes
-    if (!numUnits || !unitOptions.includes(numUnits)) {
-      const next = unitOptions[0]
-      setNumUnits(next)
-      setUnitData((prev) => {
-        // Resize array while preserving existing data
-        return Array.from({ length: next }, (_, i) => {
-          const existing = prev[i]
-          if (existing) {
-            return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
-          }
-          return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
-        })
-      })
-      return
-    }
-    
-    // numUnits is valid - just resize if needed
-    setUnitData((prev) => {
-      // Resize array while preserving existing data
-      return Array.from({ length: numUnits }, (_, i) => {
-        // Keep existing data if available, otherwise create empty row
-        const existing = prev[i]
-        if (existing) {
-          return { ...existing, id: `unit-${i}`, unitNumber: `#${i + 1}` }
-        }
-        return { id: `unit-${i}`, unitNumber: `#${i + 1}`, leased: undefined, gross: "", market: "" }
-      })
-    })
-  }, [unitOptions, numUnits])
-
-  // Derived requiredness and validation for Calculate button (placed after unitData declaration)
-  const rehabSectionVisible = isBridge && (bridgeType === "bridge-rehab" || bridgeType === "ground-up")
-  const rehabPathVisible = !requestMaxLeverage && rehabSectionVisible
-  const loanAmountPathVisible = !requestMaxLeverage && !rehabPathVisible
-  // Units table is only applicable to DSCR income analysis
-  const areUnitRowsVisible = isDscr && (numUnits ?? 0) > 0
-  const unitsComplete = useMemo(() => {
-    if (!areUnitRowsVisible) return true
-    // Only validate the visible rows (first numUnits), not stale rows in unitData
-    const visibleRows = unitData.slice(0, numUnits ?? 0)
-    return visibleRows.every((u) => {
-      // Leased: accept any value (yes or no)
-      const hasLeased = u.leased != null
-      // Gross/Market: accept any non-null/undefined value (including "0", "0.00")
-      const hasGross = u.gross != null && u.gross !== ""
-      const hasMarket = u.market != null && u.market !== ""
-      return hasLeased && hasGross && hasMarket
-    })
-  }, [areUnitRowsVisible, unitData, numUnits])
-  // Returns array of missing required field labels (only checks VISIBLE fields)
+  // Returns array of missing required field labels (driven entirely by logic engine rules)
   const missingFields = useMemo(() => {
     const missing: string[] = []
     const has = (v: unknown) => !(v === undefined || v === null || v === "")
 
-    // Always required
-    if (!has(loanType)) missing.push("Loan Type")
-    if (!has(transactionType)) missing.push("Transaction Type")
-    if (!has(borrowerType)) missing.push("Borrower Type")
-    if (!has(citizenship)) missing.push("Citizenship")
-    if (!has(stateCode)) missing.push("State")
-    if (!has(propertyType)) missing.push("Property Type")
-    if (!has(aiv)) missing.push("AIV")
-
-    // Conditionally required (only when visible)
-    if (isBridge && !has(bridgeType)) missing.push("Bridge Type")
-    if (isBridge && !has(term)) missing.push("Term")
-    if (isFicoRequired && !has(fico)) missing.push("FICO Score")
-    if (isDscr && !has(annualTaxes)) missing.push("Annual Taxes")
-    if (isDscr && !has(annualHoi)) missing.push("Annual HOI")
-    if (isDscr && !has(loanStructureType)) missing.push("Loan Structure")
-    if (isDscr && !has(ppp)) missing.push("Prepay Penalty")
-    if (isPurchase && !has(purchasePrice)) missing.push("Purchase Price")
-    if (rehabSectionVisible && !has(rehabBudget)) missing.push("Rehab Budget")
-    if (rehabSectionVisible && !has(arv)) missing.push("ARV")
-    if (rehabPathVisible && !has(initialLoanAmount)) missing.push("Initial Loan Amount")
-    if (loanAmountPathVisible && !has(loanAmount)) missing.push("Loan Amount")
+    for (const code of peRequiredCodes) {
+      if (peHiddenCodes.has(code)) continue
+      const val = formValues[code]
+      if (!has(val)) {
+        const def = peInputDefs.find((d) => d.input_code === code)
+        if (def) missing.push(def.input_label)
+      }
+    }
 
     return missing
-  }, [
-    loanType,
-    transactionType,
-    borrowerType,
-    citizenship,
-    stateCode,
-    propertyType,
-    aiv,
-    isBridge,
-    bridgeType,
-    term,
-    isFicoRequired,
-    fico,
-    isDscr,
-    annualTaxes,
-    annualHoi,
-    loanStructureType,
-    ppp,
-    isPurchase,
-    purchasePrice,
-    rehabSectionVisible,
-    rehabBudget,
-    arv,
-    rehabPathVisible,
-    initialLoanAmount,
-    loanAmountPathVisible,
-    loanAmount,
-  ])
+  }, [peRequiredCodes, peHiddenCodes, formValues, peInputDefs])
 
   const canCalculate = missingFields.length === 0
 
@@ -2001,9 +1740,7 @@ export default function PricingEnginePage() {
       el.removeEventListener("change", markDirty, true)
     }
   }, [isDispatching, programResults, lastCalculatedKey])
-  // Also detect programmatic/default changes that don't emit input/change events.
-  // Intentionally has no deps — must run on every render to catch any state change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Also detect programmatic/default changes that don't emit input/change events
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
@@ -2046,162 +1783,93 @@ export default function PricingEnginePage() {
         } else {
           setSelectedScenarioId(undefined)
         }
-      } catch (err) {
-        toast({ title: "Failed to load scenarios", description: "Could not retrieve saved scenarios for this loan.", variant: "destructive" })
+      } catch {
+        // ignore
       }
     })()
   }, [initialLoanId])
 
-  // Helper setters from inputs payload
+  // Legacy key → input_code migration map for loading old saved scenarios
+  const legacyKeyMap: Record<string, string> = {
+    num_units: "number_of_units",
+    max_leverage_requested: "request_max_leverage",
+    gla_sq_ft: "sq_footage",
+    admin_fee: "lender_admin_fee",
+    aiv: "as_is_value",
+    arv: "arv",
+    rehab_completed: "rehab_completed_amount",
+    taxes_annual: "annual_taxes",
+    hoi_annual: "annual_hoi",
+    flood_annual: "annual_flood",
+    hoa_annual: "annual_hoa",
+    mgmt_annual: "annual_management",
+    mortgage_debt: "mortgage_debt",
+    fico: "fico_score",
+    closing_date: "projected_closing_date",
+    projected_note_date: "projected_closing_date",
+    note_date: "projected_closing_date",
+    hoi_effective_date: "hoi_effective",
+    flood_effective_date: "flood_effective",
+    fthb: "first_time_homebuyer",
+    ppp: "pre_payment_penalty",
+    str: "short_term_rental",
+    section8: "section_8",
+    lender_orig_percent: "lender_origination",
+    origination_points: "lender_origination",
+    broker_orig_percent: "broker_origination",
+    num_flips: "number_of_flips",
+    num_gunc: "number_of_gunc",
+    other_exp: "other_experience",
+    term: "bridge_term",
+    acq_date: "acquisition_date",
+    "acq-date": "acquisition_date",
+  }
+
   function applyInputsPayload(payload: Record<string, unknown>) {
-    // Prevent Google Places predictions from triggering while hydrating from Supabase
     suppressPredictionsRef.current = true
-    const addr = (payload["address"] as Record<string, unknown>) ?? {}
-    if ("street" in addr) setStreet(String(addr["street"] ?? ""))
-    if ("apt" in addr) setApt(String(addr["apt"] ?? ""))
-    if ("city" in addr) setCity(String(addr["city"] ?? ""))
-    if ("state" in addr) setStateCode((addr["state"] as string) ?? undefined)
-    if ("zip" in addr) setZip(String(addr["zip"] ?? ""))
-    if ("county" in addr) setCounty(String(addr["county"] ?? ""))
+    const hydrated: Record<string, unknown> = {}
 
-    if ("loan_type" in payload) setLoanType((payload["loan_type"] as string) ?? undefined)
-    if ("transaction_type" in payload) setTransactionType((payload["transaction_type"] as string) ?? undefined)
-    if ("property_type" in payload) setPropertyType((payload["property_type"] as string) ?? undefined)
-    if ("num_units" in payload) {
-      const n = Number(payload["num_units"])
-      if (Number.isFinite(n)) setNumUnits(n)
-    }
-    if ("max_leverage_requested" in payload) {
-      const v = payload["max_leverage_requested"]
-      setRequestMaxLeverage(v === "yes" || v === true)
-    } else if ("request_max_leverage" in payload) {
-      // backward compatibility with older payloads
-      const v = payload["request_max_leverage"]
-      setRequestMaxLeverage(v === "yes" || v === true)
-    }
+    // Map all payload keys through legacy migration, then store in hydrated
+    for (const [key, val] of Object.entries(payload)) {
+      if (val === undefined || val === null) continue
 
-    if ("gla_sq_ft" in payload) setGlaSqFt(String(payload["gla_sq_ft"] ?? ""))
-    if ("purchase_price" in payload) setPurchasePrice(String(payload["purchase_price"] ?? ""))
-    if ("loan_amount" in payload) setLoanAmount(String(payload["loan_amount"] ?? ""))
-    if ("admin_fee" in payload) {
-      setAdminFee(String(payload["admin_fee"] ?? ""))
-    } else if ("lender_admin_fee" in payload) {
-      setAdminFee(String((payload as any)["lender_admin_fee"] ?? ""))
-    }
-    if ("payoff_amount" in payload) setPayoffAmount(String(payload["payoff_amount"] ?? ""))
-    if ("aiv" in payload) setAiv(String(payload["aiv"] ?? ""))
-    if ("arv" in payload) setArv(String(payload["arv"] ?? ""))
-    if ("rehab_budget" in payload) setRehabBudget(String(payload["rehab_budget"] ?? ""))
-    if ("rehab_completed" in payload) setRehabCompleted(String(payload["rehab_completed"] ?? ""))
-    if ("rehab_holdback" in payload) setRehabHoldback(String(payload["rehab_holdback"] ?? ""))
-    if ("emd" in payload) setEmd(String(payload["emd"] ?? ""))
-    if ("taxes_annual" in payload) setAnnualTaxes(String(payload["taxes_annual"] ?? ""))
-    if ("hoi_annual" in payload) setAnnualHoi(String(payload["hoi_annual"] ?? ""))
-    if ("flood_annual" in payload) setAnnualFlood(String(payload["flood_annual"] ?? ""))
-    if ("hoa_annual" in payload) setAnnualHoa(String(payload["hoa_annual"] ?? ""))
-    if ("hoi_premium" in payload) setHoiPremium(String(payload["hoi_premium"] ?? ""))
-    if ("flood_premium" in payload) setFloodPremium(String(payload["flood_premium"] ?? ""))
-    if ("mortgage_debt" in payload) setMortgageDebtValue(String(payload["mortgage_debt"] ?? ""))
-    if ("tax_escrow_months" in payload) setTaxEscrowMonths(String(payload["tax_escrow_months"] ?? ""))
-    // Units (leased/gross/market) from scenario inputs - supports legacy field names as fallbacks
-    const unitsFromPayload = (payload["units"] ?? payload["unit_data"]) as unknown
-    if (Array.isArray(unitsFromPayload)) {
-      const normalized = unitsFromPayload.map(
-        (u: { leased?: string | boolean | null; gross?: string | number | null; market?: string | number | null; gross_rent?: string | number | null; market_rent?: string | number | null }) => {
-          // Normalize leased value to lowercase "yes" or "no"
-          let normalizedLeased: "yes" | "no" | undefined = undefined
-          if (u?.leased != null) {
-            const leasedStr = String(u.leased).toLowerCase()
-            if (leasedStr === "yes" || leasedStr === "true") {
-              normalizedLeased = "yes"
-            } else if (leasedStr === "no" || leasedStr === "false") {
-              normalizedLeased = "no"
-            }
-          }
-          // Support legacy gross_rent/market_rent field names as fallbacks
-          const grossVal = u?.gross ?? u?.gross_rent
-          const marketVal = u?.market ?? u?.market_rent
-          return {
-            leased: normalizedLeased,
-            gross: grossVal != null ? String(grossVal) : "",
-            market: marketVal != null ? String(marketVal) : "",
-          }
+      const canonicalCode = legacyKeyMap[key] ?? key
+
+      const inputDef = peInputDefs.find((d) => d.input_code === canonicalCode)
+      if (inputDef?.input_type === "date" && !(val instanceof Date)) {
+        const d = parseDateLocal(val)
+        if (d) hydrated[canonicalCode] = d
+      } else if (inputDef?.input_type === "table" && Array.isArray(val)) {
+        hydrated[canonicalCode] = val
+      } else if (inputDef?.input_type === "boolean") {
+        if (!(canonicalCode in hydrated)) {
+          hydrated[canonicalCode] = (val === true || val === "true" || val === "yes" || val === "Yes")
         }
-      )
-      hydrateUnitsRef.current = normalized
-      if (normalized.length > 0) {
-        setNumUnits(normalized.length)
+      } else {
+        if (!(canonicalCode in hydrated)) hydrated[canonicalCode] = val
       }
     }
 
-    if ("borrower_type" in payload) setBorrowerType((payload["borrower_type"] as string) ?? undefined)
-    if ("citizenship" in payload) setCitizenship((payload["citizenship"] as string) ?? undefined)
-    if ("fico" in payload) setFico(String(payload["fico"] ?? ""))
-    if ("borrower_name" in payload) setBorrowerName(String(payload["borrower_name"] ?? ""))
-    const borrowerEntityId = typeof payload["borrower_entity_id"] === "string" ? (payload["borrower_entity_id"] as string) : undefined
-    setSelectedEntityId(borrowerEntityId ?? undefined)
-    if (borrowerEntityId) {
-      setHasSessionEntity(true)
+    // Normalize booleans from legacy payloads
+    for (const inp of peInputDefs) {
+      if (inp.input_type !== "boolean") continue
+      const legacyCode = Object.entries(legacyKeyMap).find(([, v]) => v === inp.input_code)?.[0]
+      const raw = legacyCode && legacyCode in payload ? payload[legacyCode] : undefined
+      if (raw !== undefined && !(inp.input_code in hydrated)) {
+        hydrated[inp.input_code] = (raw === "yes" || raw === true || raw === "true" || raw === "Yes")
+      }
     }
-    const guarantorNames = Array.isArray(payload["guarantors"]) ? (payload["guarantors"] as string[]) : []
-    const guarantorIds = Array.isArray(payload["guarantor_borrower_ids"])
-      ? (payload["guarantor_borrower_ids"] as unknown[]).filter((g): g is string => typeof g === "string" && g.length > 0)
-      : []
-    // Build guarantorTags array - names with optional IDs
-    const loadedTags: Array<{ name: string; id?: string }> = guarantorNames.map((name, idx) => ({
-      name,
-      id: guarantorIds[idx] ?? undefined,
-    }))
-    setGuarantorTags(loadedTags)
-    if ("rural" in payload) setRural((payload["rural"] as string) ?? undefined)
-    if ("uw_exception" in payload) setUwException((payload["uw_exception"] as string) ?? undefined)
-    if ("section8" in payload) setSection8((payload["section8"] as string) ?? undefined)
-    if ("lender_orig_percent" in payload) {
-      setLenderOrig(String(payload["lender_orig_percent"] ?? ""))
-    } else if ("lender_origination" in (payload as any)) {
-      setLenderOrig(String((payload as any)["lender_origination"] ?? ""))
-    }
-    if ("broker_orig_percent" in payload) setBrokerOrig(String(payload["broker_orig_percent"] ?? ""))
-    if ("title_recording_fee" in payload) setTitleRecordingFee(String(payload["title_recording_fee"] ?? ""))
-    if ("seller_concessions" in payload) setSellerConcessions(String(payload["seller_concessions"] ?? ""))
 
-    function parseDate(val: unknown): Date | undefined {
-      return parseDateLocal(val)
+    // Hydrate record IDs for linked inputs from legacy payload keys
+    for (const inp of peInputDefs) {
+      if (!inp.linked_table) continue
+      const idKey = `${inp.input_code}_record_id`
+      const legacyId = payload[`${inp.input_code}_id`] ?? payload[`${inp.input_code}_record_id`]
+      if (typeof legacyId === "string" && legacyId) hydrated[idKey] = legacyId
     }
-    // Acquisition date from scenario payload (support common aliases)
-    {
-      const acq =
-        payload["acquisition_date"] ??
-        (payload as Record<string, unknown>)["acq_date"] ??
-        (payload as Record<string, unknown>)["acq-date"]
-      const d = parseDate(acq)
-      if (d) setAcquisitionDate(d)
-    }
-    // Projected Note/Closing date from scenario payload
-    {
-      const proj =
-        payload["projected_note_date"] ??
-        (payload as Record<string, unknown>)["note_date"] ??
-        payload["closing_date"]
-      const d = parseDate(proj)
-      if (d) setClosingDate(d)
-    }
-    const hoiEff = parseDateLocal(payload["hoi_effective_date"])
-    if (hoiEff) setHoiEffective(hoiEff)
-    const floodEff = parseDateLocal(payload["flood_effective_date"])
-    if (floodEff) setFloodEffective(floodEff)
 
-    if ("bridge_type" in payload) setBridgeType((payload["bridge_type"] as string) ?? undefined)
-    if ("fthb" in payload) setFthb((payload["fthb"] as string) ?? undefined)
-    if ("loan_structure_type" in payload) setLoanStructureType((payload["loan_structure_type"] as string) ?? undefined)
-    if ("ppp" in payload) setPpp((payload["ppp"] as string) ?? undefined)
-    if ("str" in payload) setStrValue((payload["str"] as string) ?? undefined)
-    if ("declining_market" in payload) setDecliningMarket((payload["declining_market"] as string) ?? undefined)
-    if ("rentals_owned" in payload) setRentalsOwned(String(payload["rentals_owned"] ?? ""))
-    if ("num_flips" in payload) setNumFlips(String(payload["num_flips"] ?? ""))
-    if ("num_gunc" in payload) setNumGunc(String(payload["num_gunc"] ?? ""))
-    if ("other_exp" in payload) setOtherExp((payload["other_exp"] as string) ?? undefined)
-    if ("warrantability" in payload) setWarrantability((payload["warrantability"] as string) ?? undefined)
+    // Apply all hydrated values to extraFormValues in one batch
+    setExtraFormValues((prev) => ({ ...prev, ...hydrated }))
   }
 
   // When scenario is selected, load inputs/selected and hydrate UI
@@ -2211,10 +1879,7 @@ export default function PricingEnginePage() {
     ;(async () => {
       try {
         const res = await fetch(`/api/scenarios/${sid}`)
-        if (!res.ok) {
-          toast({ title: "Failed to load scenario", description: `Could not load scenario data (${res.status}).`, variant: "destructive" })
-          return
-        }
+        if (!res.ok) return
         const json = (await res.json()) as { scenario?: { inputs?: Record<string, unknown>; selected?: Record<string, unknown> } }
         const inputs = json.scenario?.inputs ?? {}
         applyInputsPayload(inputs as Record<string, unknown>)
@@ -2249,8 +1914,8 @@ export default function PricingEnginePage() {
                 dscr: sel["dscr"] as number | string | null,
               },
         })
-      } catch (err) {
-        toast({ title: "Failed to load scenario", description: "Could not restore saved inputs. Try selecting it again.", variant: "destructive" })
+      } catch {
+        // ignore errors
       }
     })()
   }, [selectedScenarioId])
@@ -2318,11 +1983,18 @@ export default function PricingEnginePage() {
       const postal = get("postal_code")?.short_name ?? ""
       const countyName = (get("administrative_area_level_2")?.long_name ?? "").replace(/ County$/i, "")
 
-      setStreet([streetNumber, route].filter(Boolean).join(" "))
-      setCity(locality)
-      setStateCode(admin1 || undefined)
-      setZip(postal)
-      setCounty(countyName)
+      const addrValues: Record<string, string> = {
+        street: [streetNumber, route].filter(Boolean).join(" "),
+        city: locality,
+        state: admin1,
+        zip: postal,
+        county: countyName,
+      }
+      for (const [, roleMap] of addressGroupIndex) {
+        for (const [role, code] of roleMap) {
+          if (role in addrValues) updateValue(code, addrValues[role])
+        }
+      }
       setPredictions([])
       setShowPredictions(false)
       // Prevent the next input value change from reopening the menu immediately
@@ -2597,7 +2269,10 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride ?? "Scenario",
                               inputs,
-                              outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
+                              outputs: programResults?.map(r => {
+                                if (!r.data) return null
+                                return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
+                              }).filter(Boolean) ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -2627,7 +2302,10 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride,
                               inputs,
-                              outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
+                              outputs: programResults?.map(r => {
+                                if (!r.data) return null
+                                return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
+                              }).filter(Boolean) ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -2687,1820 +2365,120 @@ export default function PricingEnginePage() {
               <div ref={inputsAreaRef} className="p-3 pb-4">
                 <Accordion
                 type="multiple"
-                defaultValue={[
-                  "loan-details",
-                  "borrowers",
-                  "subject",
-                  "loan-structure",
-                  // include conditional sections so if rendered, they start opened
-                  "experience",
-                  "rehab-details",
-                  "income",
-                ]}
+                value={openAccordionSections}
+                onValueChange={setOpenAccordionSections}
                 className="w-full"
               >
-                <AccordionItem value="loan-details" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Loan Details
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="loan-type">
-                          Loan Type <span className="text-red-600">*</span>
-                        </Label>
-                        <Select value={loanType} onValueChange={setLoanType}>
-                          <SelectTrigger id="loan-type" className="h-9 w-full">
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="dscr">DSCR</SelectItem>
-                            <SelectItem value="bridge">Bridge</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="transaction-type">
-                          Transaction Type <span className="text-red-600">*</span>
-                        </Label>
-                        <Select
-                          value={transactionType}
-                          onValueChange={setTransactionType}
-                        >
-                          <SelectTrigger id="transaction-type" className="h-9 w-full">
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="purchase">Purchase</SelectItem>
-                            <SelectItem value="delayed-purchase">Delayed Purchase</SelectItem>
-                            <SelectItem value="rt-refi">Refinance Rate/Term</SelectItem>
-                            <SelectItem value="co-refi">Refinance Cash Out</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {loanType === "bridge" && (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="bridge-type">
-                            Bridge Type <span className="text-red-600">*</span>
-                          </Label>
-                          <Select value={bridgeType} onValueChange={setBridgeType}>
-                            <SelectTrigger id="bridge-type" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="bridge">Bridge</SelectItem>
-                              <SelectItem value="bridge-rehab">Bridge + Rehab</SelectItem>
-                              <SelectItem value="ground-up">Ground Up</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                {peCategories.map((cat) => {
+                  const catInputs = peInputDefs.filter(
+                    (inp) => inp.category_id === cat.id && !inp.input_code?.startsWith("__")
+                  )
+                  const visibleInputs = catInputs.filter(
+                    (inp) => !peHiddenCodes.has(inp.input_code)
+                  )
+                  if (visibleInputs.length === 0) return null
+                  const rows = buildDynRows(visibleInputs)
 
-                
-                <AccordionItem value="borrowers" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Borrowers &amp; Guarantors
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="borrower-type">
-                          Borrower Type <span className="text-red-600">*</span>
-                        </Label>
-                        <Select
-                          value={borrowerType}
-                          onValueChange={(v) => {
-                            setBorrowerType(v)
-                            setTouched((t) => ({ ...t, borrowerType: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="borrower-type"
-                            className={`h-9 w-full ${!touched.borrowerType && borrowerType === DEFAULTS.borrowerType ? "text-muted-foreground" : ""}`}
-                          >
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="entity">Entity</SelectItem>
-                            <SelectItem value="individual">Individual</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="citizenship">
-                          Citizenship <span className="text-red-600">*</span>
-                        </Label>
-                        <Select
-                          value={citizenship}
-                          onValueChange={(v) => {
-                            setCitizenship(v)
-                            setTouched((t) => ({ ...t, citizenship: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="citizenship"
-                            className={`h-9 w-full ${!touched.citizenship && citizenship === DEFAULTS.citizenship ? "text-muted-foreground" : ""}`}
-                          >
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="us">U.S. Citizen</SelectItem>
-                            <SelectItem value="pr">Permanent Resident</SelectItem>
-                            <SelectItem value="npr">Non-Permanent Resident</SelectItem>
-                            <SelectItem value="fn">Foreign National</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {loanType === "dscr" && (
-                        <>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="fthb">FTHB</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>First Time Home Buyer</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <Select
-                              value={fthb}
-                              onValueChange={(v) => {
-                                setFthb(v)
-                                setTouched((t) => ({ ...t, fthb: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="fthb"
-                                className={`h-9 w-full ${!touched.fthb && fthb === DEFAULTS.fthb ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes</SelectItem>
-                                <SelectItem value="no">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="mortgage-debt">Mortgage Debt</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Mortgage Debt shown on guarantor(s) credit report</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="mortgage-debt"
-                                placeholder="0.00"
-                                className={`pl-6 ${!touched.mortgageDebt && mortgageDebtValue === DEFAULTS.mortgageDebtValue ? "text-muted-foreground" : ""}`}
-                                value={mortgageDebtValue}
-                                onValueChange={(v) => {
-                                  setMortgageDebtValue(v)
-                                  setTouched((t) => ({ ...t, mortgageDebt: true }))
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="fico">
-                            FICO Score{isFicoRequired ? <span className="text-red-600"> *</span> : null}
-                          </Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Middle score when 3 tradelines available, or lower score if only 2 are available</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <NumberField
-                          value={fico ? Number(fico) : undefined}
-                          onChange={(val) => setFico(String(val))}
-                          minValue={300}
-                          maxValue={850}
-                          className="w-full"
-                        >
-                          <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                            <AriaInput
-                              id="fico"
-                              placeholder="700"
-                              className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                            />
-                            <AriaButton
-                              slot="decrement"
-                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                            >
-                              <MinusIcon className="size-4" />
-                              <span className="sr-only">Decrease FICO</span>
-                            </AriaButton>
-                            <AriaButton
-                              slot="increment"
-                              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                            >
-                              <PlusIcon className="size-4" />
-                              <span className="sr-only">Increase FICO</span>
-                            </AriaButton>
-                          </Group>
-                        </NumberField>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                  const catButtons = sectionButtons.filter((b) => b.category_id === cat.id)
 
-                {loanType === "bridge" && (
-                  <AccordionItem value="experience" className="border-b">
-                    <AccordionTrigger className="text-left text-base font-bold italic">
-                      Experience
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="rentals-owned">Rentals Owned</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Properties owned (fix & holds should be included under '# of Flips')</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <NumberField
-                            value={rentalsOwned ? Number(rentalsOwned) : undefined}
-                            onChange={(val) => setRentalsOwned(String(val))}
-                            minValue={0}
-                            className="w-full"
-                          >
-                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                              <AriaInput
-                                id="rentals-owned"
-                                placeholder="0"
-                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                              />
-                              <AriaButton
-                                slot="decrement"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <MinusIcon className="size-4" />
-                                <span className="sr-only">Decrease Rentals Owned</span>
-                              </AriaButton>
-                              <AriaButton
-                                slot="increment"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <PlusIcon className="size-4" />
-                                <span className="sr-only">Increase Rentals Owned</span>
-                              </AriaButton>
-                            </Group>
-                          </NumberField>
-                        </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="num-flips"># of Flips</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Flips exited in trailing 36 months</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <NumberField
-                            value={numFlips ? Number(numFlips) : undefined}
-                            onChange={(val) => setNumFlips(String(val))}
-                            minValue={0}
-                            className="w-full"
-                          >
-                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                              <AriaInput
-                                id="num-flips"
-                                placeholder="0"
-                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                              />
-                              <AriaButton
-                                slot="decrement"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <MinusIcon className="size-4" />
-                                <span className="sr-only">Decrease Flips</span>
-                              </AriaButton>
-                              <AriaButton
-                                slot="increment"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <PlusIcon className="size-4" />
-                                <span className="sr-only">Increase Flips</span>
-                              </AriaButton>
-                            </Group>
-                          </NumberField>
-                        </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="num-gunc"># of GUNC</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Ground Up projects exited in trailing 36 months</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <NumberField
-                            value={numGunc ? Number(numGunc) : undefined}
-                            onChange={(val) => setNumGunc(String(val))}
-                            minValue={0}
-                            className="w-full"
-                          >
-                            <Group className="border-input data-focus-within:ring-1 data-focus-within:ring-ring relative inline-flex h-9 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-sm transition-colors outline-none data-disabled:opacity-50">
-                              <AriaInput
-                                id="num-gunc"
-                                placeholder="0"
-                                className="w-full grow px-3 py-1 text-base md:text-sm outline-none bg-transparent placeholder:text-muted-foreground"
-                              />
-                              <AriaButton
-                                slot="decrement"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <MinusIcon className="size-4" />
-                                <span className="sr-only">Decrease GUNC</span>
-                              </AriaButton>
-                              <AriaButton
-                                slot="increment"
-                                className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-                              >
-                                <PlusIcon className="size-4" />
-                                <span className="sr-only">Increase GUNC</span>
-                              </AriaButton>
-                            </Group>
-                          </NumberField>
-                        </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="other-exp">Other</Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>Other real estate experience</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                          <Select value={otherExp} onValueChange={setOtherExp}>
-                            <SelectTrigger id="other-exp" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-
-                <AccordionItem value="subject" className="border-b">
-                  <div className="flex items-center gap-2 pr-2 pl-1">
-                    <AccordionTrigger className="flex-1 text-left text-base font-bold italic hover:no-underline">
-                      <div className="flex items-center gap-3">
-                        <span>Subject Property</span>
-                      </div>
-                    </AccordionTrigger>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-7 not-italic"
-                        onClick={handleSendToReApi}
-                        disabled={!hasBasicAddress || sendingReApi}
-                        aria-disabled={sendingReApi || !hasBasicAddress}
-                      >
-                        {sendingReApi ? "Sending..." : "RE API"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-7 not-italic"
-                        onClick={(e) => handleOpenMapsModal(e)}
-                        disabled={!hasBasicAddress}
-                      >
-                        Google Maps
-                      </Button>
-                    </div>
-                  </div>
-                  <AccordionContent>
-                    <div className="grid gap-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1 sm:col-span-2">
-                          <Label htmlFor="street">Street</Label>
-                          <div className="relative">
-                            <Input
-                              id="street"
-                              placeholder="123 Main St"
-                              ref={streetInputRef}
-                              value={street}
-                              onChange={(e) => setStreet(e.target.value)}
-                              onFocus={() => predictions.length && setShowPredictions(true)}
-                              onKeyDown={(e) => {
-                                if (!showPredictions || predictions.length === 0) return
-                                if (e.key === "ArrowDown") {
-                                  e.preventDefault()
-                                  setActivePredictionIdx((idx) =>
-                                    Math.min(idx + 1, predictions.length - 1),
-                                  )
-                                } else if (e.key === "ArrowUp") {
-                                  e.preventDefault()
-                                  setActivePredictionIdx((idx) => Math.max(idx - 1, 0))
-                                } else if (e.key === "Enter") {
-                                  if (activePredictionIdx >= 0) {
-                                    e.preventDefault()
-                                    const p = predictions[activePredictionIdx]
-                                    applyPlaceById(p.place_id)
-                                  }
-                                } else if (e.key === "Escape") {
-                                  setShowPredictions(false)
-                                }
-                              }}
-                              onBlur={() => {
-                                // If the blur was caused by clicking inside the menu, don't close yet
-                                setTimeout(() => {
-                                  if (!pointerInMenuRef.current) {
-                                    setShowPredictions(false)
-                                  }
-                                }, 0)
-                              }}
-                              autoComplete="off"
-                            />
-                            {showPredictions && predictions.length > 0 && (
-                              <div
-                                ref={predictionsMenuRef}
-                                className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow"
-                                onMouseDown={() => {
-                                  pointerInMenuRef.current = true
-                                }}
-                                onMouseUp={() => {
-                                  pointerInMenuRef.current = false
-                                }}
-                              >
-                                <div
-                                  role="listbox"
-                                  aria-label="Address suggestions"
-                                >
-                                  {predictions.map((p, idx) => (
-                                    <div
-                                      key={p.place_id}
-                                      role="option"
-                                      aria-selected={idx === activePredictionIdx ? "true" : "false"}
-                                      tabIndex={-1}
-                                      className={`flex w-full cursor-pointer items-start gap-2 px-2 py-2 text-left hover:bg-accent ${
-                                        idx === activePredictionIdx ? "bg-accent" : ""
-                                      }`}
-                                      onMouseEnter={() => setActivePredictionIdx(idx)}
-                                      onClick={() => {
-                                        applyPlaceById(p.place_id)
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                          e.preventDefault()
-                                          applyPlaceById(p.place_id)
-                                        }
-                                      }}
-                                    >
-                                      <IconMapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                      <div className="flex min-w-0 flex-col">
-                                        <span className="truncate text-sm font-medium">
-                                          {p.structured_formatting?.main_text ?? p.description}
-                                        </span>
-                                        <span className="truncate text-xs text-muted-foreground">
-                                          {p.structured_formatting?.secondary_text ?? ""}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="border-t px-2 py-1 text-right text-[10px] uppercase tracking-wide text-muted-foreground">
-                                  Powered by Google
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="apt">Apt #</Label>
-                          <Input
-                            id="apt"
-                            placeholder="Unit/Apt"
-                            value={apt}
-                            onChange={(e) => setApt(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="city">City</Label>
-                          <Input
-                            id="city"
-                            placeholder="City"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="state">
-                            State <span className="text-red-600">*</span>
-                          </Label>
-                          <Select value={stateCode} onValueChange={setStateCode}>
-                            <SelectTrigger id="state" className="h-9 w-full">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {states.map((st) => (
-                                <SelectItem key={st} value={st}>
-                                  {st}
-                                </SelectItem>
+                  return (
+                    <AccordionItem key={cat.id} value={`pe-cat-${cat.id}`} className="border-b">
+                      <AccordionTrigger asDiv className="text-left text-base font-bold italic hover:no-underline">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="hover:underline">{cat.category}</span>
+                          {catButtons.length > 0 && (
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {catButtons.map((btn) => (
+                                <SectionActionButton
+                                  key={btn.id}
+                                  btn={btn}
+                                  onGoogleMaps={handleOpenMapsModal}
+                                  buildPayload={buildPayload}
+                                  formValues={formValues}
+                                  codeToIdMap={codeToIdMap}
+                                  onApplyInputs={(inputs, color) => {
+                                    const codes: string[] = []
+                                    for (const [code, val] of Object.entries(inputs)) {
+                                      updateValue(code, val)
+                                      if (color) codes.push(code)
+                                    }
+                                    if (color && codes.length > 0) markSignalColors(codes, color)
+                                  }}
+                                />
                               ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="zip">Zip Code</Label>
-                          <Input
-                            id="zip"
-                            inputMode="numeric"
-                            maxLength={5}
-                            pattern="[0-9]*"
-                            placeholder="12345"
-                            value={zip}
-                            onChange={(e) => setZip(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="county">County</Label>
-                          <Input
-                            id="county"
-                            placeholder="County"
-                            value={county}
-                            onChange={(e) => setCounty(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1">
-                        <Label htmlFor="property-type">
-                          Property Type <span className="text-red-600">*</span>
-                        </Label>
-                          <Select
-                            value={propertyType}
-                            onValueChange={(v) => {
-                              clearReAuto("propertyType")
-                              setPropertyType(v)
-                            }}
-                          >
-                            <SelectTrigger id="property-type" className={`h-9 w-full ${reAuto.propertyType ? "ring-1 ring-warning border-warning" : ""}`}>
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="single">Single Family</SelectItem>
-                              <SelectItem value="pud">Townhome/PUD</SelectItem>
-                              <SelectItem value="condo">Condominium</SelectItem>
-                              <SelectItem value="mf2_4">Multifamily 2-4 Units</SelectItem>
-                              <SelectItem value="mf5_10">Multifamily 5-10 Units</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {propertyType === "condo" ? (
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="warrantability">Warrantability</Label>
-                            <Select value={warrantability} onValueChange={setWarrantability}>
-                              <SelectTrigger id="warrantability" className="h-9 w-full">
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="warrantable">Warrantable</SelectItem>
-                                <SelectItem value="non-warrantable">Non-Warrantable</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ) : null}
-
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="num-units">Number of Units</Label>
-                          <Select
-                            disabled={unitOptions.length === 0}
-                            value={numUnits ? String(numUnits) : undefined}
-                            onValueChange={(v) => {
-                              clearReAuto("numUnits")
-                              setNumUnits(parseInt(v))
-                            }}
-                          >
-                            <SelectTrigger id="num-units" className={`h-9 w-full ${reAuto.numUnits ? "ring-1 ring-warning border-warning" : ""}`}>
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {unitOptions.map((n) => (
-                                <SelectItem key={n} value={String(n)}>
-                                  {n}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <Label htmlFor="gla">GLA Sq Ft</Label>
-                            <TooltipProvider>
-                              <Tooltip delayDuration={50}>
-                                <TooltipTrigger>
-                                  <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                  <span className="sr-only">More Info</span>
-                                </TooltipTrigger>
-                                <TooltipContent>Gross Living Area Square Footage of subject property</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                          <Input
-                            id="gla"
-                            inputMode="numeric"
-                            placeholder="0"
-                            value={glaSqFt}
-                            onChange={(e) => {
-                              clearReAuto("glaSqFt")
-                              setGlaSqFt(e.target.value)
-                            }}
-                            className={`${reAuto.glaSqFt ? "ring-1 ring-warning border-warning" : ""}`}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="rural">Rural</Label>
-                        <Select
-                          value={rural}
-                          onValueChange={(v) => {
-                            setRural(v)
-                            setTouched((t) => ({ ...t, rural: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="rural"
-                            className={`h-9 w-full ${!touched.rural && rural === DEFAULTS.rural && !reAuto.rural ? "text-muted-foreground" : ""} ${reAuto.rural ? "ring-1 ring-warning border-warning" : ""}`}
-                          >
-                              <SelectValue placeholder="No" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {loanType === "dscr" && (
-                          <>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <Label htmlFor="str">STR</Label>
-                            <TooltipProvider>
-                              <Tooltip delayDuration={50}>
-                                <TooltipTrigger>
-                                  <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                  <span className="sr-only">More Info</span>
-                                </TooltipTrigger>
-                                <TooltipContent>Short-Term Rental</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                            <Select
-                              value={strValue}
-                              onValueChange={(v) => {
-                                setStrValue(v)
-                                setTouched((t) => ({ ...t, strValue: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="str"
-                                className={`h-9 w-full ${!touched.strValue && strValue === DEFAULTS.strValue ? "text-muted-foreground" : ""}`}
-                              >
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="yes">Yes</SelectItem>
-                                  <SelectItem value="no">No</SelectItem>
-                                </SelectContent>
-                              </Select>
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="declining-market">Declining Market</Label>
-                            <Select
-                              value={decliningMarket}
-                              onValueChange={(v) => {
-                                setDecliningMarket(v)
-                                setTouched((t) => ({ ...t, decliningMarket: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="declining-market"
-                                className={`h-9 w-full ${!touched.decliningMarket && decliningMarket === DEFAULTS.decliningMarket ? "text-muted-foreground" : ""}`}
-                              >
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="yes">Yes</SelectItem>
-                                  <SelectItem value="no">No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {loanType === "bridge" &&
-                  (bridgeType === "bridge-rehab" || bridgeType === "ground-up") && (
-                    <AccordionItem value="rehab-details" className="border-b">
-                      <AccordionTrigger className="text-left text-base font-bold italic">
-                        Rehab Details
+                          )}
+                        </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="gla-expansion">{">20% GLA Expansion"}</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Rehab includes expanding the gross living area square footage by over 20% of current</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                        <div className="space-y-3">
+                          {rows.map((row) => (
+                            <div key={row.rowIndex} className="grid grid-cols-4 gap-4">
+                              {row.items.map((field) => {
+                                if (field.input_type === "table") {
+                                  const tc = field.config as Record<string, unknown> | null | undefined
+                                  const hasTableConfig = tc && Array.isArray(tc.columns) && (tc.columns as unknown[]).length > 0
+
+                                  if (hasTableConfig) {
+                                    const tableConf = tc as unknown as TableConfig
+                                    const linkedCode = tableConf.row_source.type === "input" ? tableConf.row_source.input_code : undefined
+                                    let linkedVal: number | undefined
+                                    if (linkedCode) {
+                                      const raw = formValues[linkedCode] ?? extraFormValues[linkedCode]
+                                      const n = raw !== undefined && raw !== null && raw !== "" ? Number(raw) : NaN
+                                      linkedVal = Number.isFinite(n) && n > 0 ? n : 0
+                                    }
+                                    const tableData = (extraFormValues[field.input_code] as Record<string, unknown>[] | undefined) ?? []
+
+                                    return (
+                                      <div key={String(field.id)} className="col-span-4">
+                                        <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
+                                        <ConfigurableGrid
+                                          config={tableConf}
+                                          data={tableData}
+                                          onDataChange={(next) => setExtraFormValues((prev) => ({ ...prev, [field.input_code]: next }))}
+                                          rowCount={linkedVal}
+                                        />
+                                      </div>
+                                    )
+                                  }
+
+                                  return null
+                                }
+                                return (
+                                  <div key={String(field.id)} className={getDynWidthClass(field.layout_width)}>
+                                    <DynamicPEInput
+                                      field={field}
+                                      value={computedDefaults[field.input_code] ?? formValues[field.input_code]}
+                                      onChange={(val) => updateValue(field.input_code, val)}
+                                      onAddressSelect={(addrFields) => handleAddressSelect(field.input_code, addrFields)}
+                                      onLinkedRecordSelect={(code, recId) => {
+                                        setExtraFormValues((prev) => {
+                                          const idKey = `${code}_record_id`
+                                          if (prev[idKey] === recId) return prev
+                                          return { ...prev, [idKey]: recId }
+                                        })
+                                      }}
+                                      isRequired={peRequiredCodes.has(field.input_code)}
+                                      isExpressionDefault={hasExpressionDefault.has(field.input_code)}
+                                      expressionLabel={expressionLabels[field.input_code]}
+                                      touched={!!touched[field.input_code]}
+                                      formValues={formValuesMerged}
+                                      signalColor={signalColors[field.input_code] ?? null}
+                                      linkedRecords={field.linked_table ? linkedRecordsByTable[field.linked_table] : undefined}
+                                    />
+                                  </div>
+                                )
+                              })}
                             </div>
-                            <Select
-                              value={glaExpansion}
-                              onValueChange={(v) => {
-                                setGlaExpansion(v)
-                                setTouched((t) => ({ ...t, glaExpansion: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="gla-expansion"
-                                className={`h-9 w-full ${!touched.glaExpansion && glaExpansion === DEFAULTS.glaExpansion ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="No" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes</SelectItem>
-                                <SelectItem value="no">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="change-of-use">Change of Use</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Change of property use (ex. converting Single Family to Duplex)</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <Select
-                              value={changeOfUse}
-                              onValueChange={(v) => {
-                                setChangeOfUse(v)
-                                setTouched((t) => ({ ...t, changeOfUse: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="change-of-use"
-                                className={`h-9 w-full ${!touched.changeOfUse && changeOfUse === DEFAULTS.changeOfUse ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="No" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes</SelectItem>
-                                <SelectItem value="no">No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="rehab-budget">Rehab Budget <span className="text-red-600">*</span></Label>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="rehab-budget"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={rehabBudget}
-                                onValueChange={setRehabBudget}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="arv">ARV <span className="text-red-600">*</span></Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>After-Repair Value</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="arv"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={arv}
-                                onValueChange={setArv}
-                              />
-                            </div>
-                          </div>
+                          ))}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  )}
-
-                {loanType === "dscr" && (
-                  <AccordionItem value="income" className="border-b">
-                    <AccordionTrigger className="text-left text-base font-bold italic">
-                      Income &amp; Expenses
-                    </AccordionTrigger>
-                    <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-taxes">
-                          Annual Taxes <span className="text-red-600">*</span>
-                        </Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-taxes"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={annualTaxes}
-                            highlighted={!!reAuto.annualTaxes}
-                            onValueChange={(v) => {
-                              clearReAuto("annualTaxes")
-                              setAnnualTaxes(v)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-hoi">
-                          Annual HOI <span className="text-red-600">*</span>
-                        </Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-hoi"
-                            placeholder="0.00"
-                            className={`pl-6`}
-                            value={annualHoi}
-                            onValueChange={setAnnualHoi}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-flood">Annual Flood</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-flood"
-                            placeholder="0.00"
-                            className={`pl-6 ${!touched.annualFlood && annualFlood === DEFAULTS.annualFlood ? "text-muted-foreground" : ""}`}
-                            value={annualFlood}
-                            onValueChange={(v) => {
-                              setAnnualFlood(v)
-                              setTouched((t) => ({ ...t, annualFlood: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-hoa">Annual HOA</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-hoa"
-                            placeholder="0.00"
-                            className={`pl-6 ${!touched.annualHoa && annualHoa === DEFAULTS.annualHoa ? "text-muted-foreground" : ""}`}
-                            value={annualHoa}
-                            onValueChange={(v) => {
-                              setAnnualHoa(v)
-                              setTouched((t) => ({ ...t, annualHoa: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="annual-mgmt">Annual Management</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="annual-mgmt"
-                            placeholder="0.00"
-                            className={`pl-6 ${!touched.annualMgmt && annualMgmt === DEFAULTS.annualMgmt ? "text-muted-foreground" : ""}`}
-                            value={annualMgmt}
-                            onValueChange={(v) => {
-                              setAnnualMgmt(v)
-                              setTouched((t) => ({ ...t, annualMgmt: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <LeasedUnitsGrid
-                        key={`units-${selectedScenarioId ?? "new"}`}
-                        data={unitData}
-                        onDataChange={setUnitData}
-                      />
-                    </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-
-                <AccordionItem value="loan-structure" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Loan Structure
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                          <Label htmlFor="proj-close">Projected Closing Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <DateInput
-                              value={closingDate}
-                              onChange={(d) => {
-                                setClosingDate(d)
-                                setTouched((t) => ({ ...t, closingDate: true }))
-                              }}
-                              className={`${!touched.closingDate && closingDate && _isSameDay(closingDate, DEFAULTS.closingDate) ? "text-muted-foreground" : ""}`}
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={closingDate}
-                              month={closingCalMonth}
-                              onMonthChange={setClosingCalMonth}
-                              onSelect={(d) => d && setClosingDate(d)}
-                              disabled={{ before: new Date() }}
-                              captionLayout="dropdown"
-                              className="rounded-md border min-w-[264px]"
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      {transactionType !== "purchase" ? (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="acq-date">Acquisition Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <DateInput
-                                value={acquisitionDate}
-                                onChange={(d) => {
-                                  clearReAuto("acquisitionDate")
-                                  setAcquisitionDate(d)
-                                }}
-                                className={`${reAuto.acquisitionDate ? "ring-1 ring-warning border-warning" : ""}`}
-                              />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={acquisitionDate}
-                                month={acqCalMonth}
-                                onMonthChange={setAcqCalMonth}
-                                onSelect={(d) => d && setAcquisitionDate(d)}
-                                captionLayout="dropdown"
-                                className="rounded-md border min-w-[264px]"
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      ) : null}
-                      {loanType === "dscr" && (
-                        <>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="loan-structure-type">
-                              Loan Structure <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={loanStructureType}
-                              onValueChange={(v) => {
-                                setLoanStructureType(v)
-                                setTouched((t) => ({ ...t, loanStructureType: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="loan-structure-type"
-                                className={`h-9 w-full ${!touched.loanStructureType && loanStructureType === DEFAULTS.loanStructureType ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="fixed-30">30 Year Fixed</SelectItem>
-                                <SelectItem value="io">Interest Only</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="ppp">
-                              PPP <span className="text-red-600">*</span>
-                            </Label>
-                            <Select
-                              value={ppp}
-                              onValueChange={(v) => {
-                                setPpp(v)
-                                setTouched((t) => ({ ...t, ppp: true }))
-                              }}
-                            >
-                              <SelectTrigger
-                                id="ppp"
-                                className={`h-9 w-full ${!touched.ppp && ppp === DEFAULTS.ppp ? "text-muted-foreground" : ""}`}
-                              >
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="5-4-3-2-1">5-4-3-2-1</SelectItem>
-                                <SelectItem value="4-3-2-1">4-3-2-1</SelectItem>
-                                <SelectItem value="3-2-1">3-2-1</SelectItem>
-                                <SelectItem value="2-1">2-1</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                <SelectItem value="none">None</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </>
-                      )}
-                      {loanType === "bridge" && (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="term">
-                            Term <span className="text-red-600">*</span>
-                          </Label>
-                          <Select
-                            value={term}
-                            onValueChange={(v) => {
-                              setTerm(v)
-                              setTouched((t) => ({ ...t, term: true }))
-                            }}
-                          >
-                            <SelectTrigger id="term" className={`h-9 w-full ${!touched.term && term === "12" ? "text-muted-foreground" : ""}`}>
-                              <SelectValue placeholder="12 months" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="12">12 months</SelectItem>
-                              <SelectItem value="15">15 months</SelectItem>
-                              <SelectItem value="18">18 months</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="purchase-price">
-                          Purchase Price
-                          {isPurchase ? <span className="text-red-600"> *</span> : null}
-                        </Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="purchase-price"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={purchasePrice}
-                            highlighted={!!reAuto.purchasePrice}
-                            onValueChange={(v) => {
-                              clearReAuto("purchasePrice")
-                              setPurchasePrice(v)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {transactionType !== "purchase" ? (
-                        <>
-                          {loanType === "dscr" && (
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="rehab-completed">Rehab Completed</Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <CalcInput
-                                  id="rehab-completed"
-                                  placeholder="0.00"
-                                  className="pl-6"
-                                  value={rehabCompleted}
-                                  onValueChange={setRehabCompleted}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="payoff-amount">Payoff Amount</Label>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="payoff-amount"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={payoffAmount}
-                                onValueChange={setPayoffAmount}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor="aiv">
-                            AIV<span className="text-red-600"> *</span>
-                          </Label>
-                          <TooltipProvider>
-                            <Tooltip delayDuration={50}>
-                              <TooltipTrigger>
-                                <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                <span className="sr-only">More Info</span>
-                              </TooltipTrigger>
-                              <TooltipContent>As-Is Value</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="aiv"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={aiv}
-                            onValueChange={setAiv}
-                            required
-                            aria-required="true"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="max-lev">Request Max Leverage</Label>
-                        <div className="flex h-9 items-center">
-                          <div className="relative inline-grid h-8 grid-cols-[1fr_1fr] items-center text-sm font-medium">
-                            <Switch
-                              id="max-lev"
-                              checked={requestMaxLeverage}
-                              onCheckedChange={setRequestMaxLeverage}
-                              className="peer data-[state=unchecked]:bg-input/50 absolute inset-0 h-[inherit] w-auto rounded-md [&_span]:z-10 [&_span]:h-full [&_span]:w-1/2 [&_span]:rounded-sm [&_span]:transition-transform [&_span]:duration-300 [&_span]:ease-[cubic-bezier(0.16,1,0.3,1)] [&_span]:data-[state=checked]:translate-x-full [&_span]:data-[state=checked]:rtl:-translate-x-full"
-                            />
-                            <span className="pointer-events-none relative ml-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:invisible peer-data-[state=unchecked]:translate-x-full peer-data-[state=unchecked]:rtl:-translate-x-full">
-                              <span className="text-[10px] font-medium uppercase">No</span>
-                            </span>
-                            <span className="peer-data-[state=checked]:text-background pointer-events-none relative mr-0.5 flex items-center justify-center px-2 text-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] peer-data-[state=checked]:-translate-x-full peer-data-[state=unchecked]:invisible peer-data-[state=checked]:rtl:translate-x-full">
-                              <span className="text-[10px] font-medium uppercase">Yes</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {!requestMaxLeverage ? (
-                        loanType === "bridge" &&
-                        (bridgeType === "bridge-rehab" || bridgeType === "ground-up") ? (
-                          <>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="initial-loan-amount">
-                                Initial Loan Amount <span className="text-red-600">*</span>
-                              </Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <CalcInput
-                                  id="initial-loan-amount"
-                                  placeholder="0.00"
-                                  className="pl-6"
-                                  value={initialLoanAmount}
-                                  onValueChange={setInitialLoanAmount}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="rehab-holdback">Rehab Holdback</Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <CalcInput
-                                  id="rehab-holdback"
-                                  placeholder="0.00"
-                                  className="pl-6"
-                                  value={rehabHoldback}
-                                  onValueChange={setRehabHoldback}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor="total-loan-amount">Total Loan Amount</Label>
-                              <div className="relative">
-                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                  $
-                                </span>
-                                <Input
-                                  id="total-loan-amount"
-                                  readOnly
-                                  value={(() => {
-                                    const toNum = (v: string | number | undefined) =>
-                                      Number(String(v ?? "0").toString().replace(/[^0-9.-]/g, "")) || 0
-                                    const a = toNum(initialLoanAmount)
-                                    const b = toNum(rehabHoldback)
-                                    const total = a + b
-                                    return total.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })
-                                  })()}
-                                  className="pl-6"
-                                />
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="loan-amount">
-                              Loan Amount <span className="text-red-600">*</span>
-                            </Label>
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                $
-                              </span>
-                              <CalcInput
-                                id="loan-amount"
-                                placeholder="0.00"
-                                className="pl-6"
-                                value={loanAmount}
-                                onValueChange={setLoanAmount}
-                              />
-                            </div>
-                          </div>
-                        )
-                      ) : null}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="lender-orig">Lender Origination</Label>
-                        <div className="relative">
-                          <Input
-                            id="lender-orig"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            className="pr-6"
-                            value={lenderOrig}
-                            pattern="^\\d{0,3}(\\.\\d*)?$"
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              // allow empty to let users clear the field
-                              if (raw === "") return setLenderOrig("")
-                              // keep digits and a single decimal point
-                              let v = raw.replace(/[^\d.]/g, "")
-                              const firstDot = v.indexOf(".")
-                              if (firstDot !== -1) {
-                                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "")
-                              }
-                              if (v.startsWith(".")) v = "0" + v
-                              // clamp to 100
-                              const num = Number(v)
-                              if (!Number.isNaN(num) && num > 100) {
-                                v = "100"
-                              }
-                              setLenderOrig(v)
-                              setTouched((t) => ({ ...t, lenderOrig: true }))
-                            }}
-                            readOnly={isBroker}
-                            disabled={isBroker}
-                          />
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            %
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="admin-fee">Lender Admin Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="admin-fee"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={adminFee}
-                            onValueChange={(v) => {
-                              setAdminFee(v)
-                              setTouched((t) => ({ ...t, adminFee: true }))
-                            }}
-                            readOnly={isBroker}
-                            disabled={isBroker}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="broker-orig">Broker Origination</Label>
-                        <div className="relative">
-                          <Input
-                            id="broker-orig"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            className="pr-6"
-                            value={brokerOrig}
-                            pattern="^\\d{0,3}(\\.\\d*)?$"
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              if (raw === "") return setBrokerOrig("")
-                              let v = raw.replace(/[^\d.]/g, "")
-                              const firstDot = v.indexOf(".")
-                              if (firstDot !== -1) {
-                                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "")
-                              }
-                              if (v.startsWith(".")) v = "0" + v
-                              const num = Number(v)
-                              if (!Number.isNaN(num) && num > 100) {
-                                v = "100"
-                              }
-                              setBrokerOrig(v)
-                            }}
-                          />
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            %
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="broker-admin-fee">Broker Admin Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="broker-admin-fee"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={brokerAdminFee}
-                            onValueChange={setBrokerAdminFee}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="additional-details" className="border-b">
-                  <AccordionTrigger className="text-left text-base font-bold italic">
-                    Additional Details
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="borrower-name">Borrower Name</Label>
-                        <div className="relative">
-                          <div className="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center pl-3 peer-disabled:opacity-50">
-                            <SearchIcon className="size-4" />
-                            <span className="sr-only">Search</span>
-                          </div>
-                          <Input
-                            id="borrower-name"
-                            placeholder={borrowerName || DEFAULTS.borrowerName}
-                            value={!touched.borrowerName ? "" : borrowerName}
-                            onChange={(e) => {
-                              const v = e.target.value
-                              setBorrowerName(v)
-                              setTouched((t) => ({ ...t, borrowerName: true }))
-                              setEntityQuery(v)
-                              setShowEntitySuggestions(true)
-                              setSelectedEntityId(undefined)
-                              setHasSessionEntity(false)
-                            }}
-                            onFocus={() => {
-                              const seed = (borrowerName ?? "").trim()
-                              setEntityQuery(seed.length > 0 ? seed : "*")
-                              setShowEntitySuggestions(true)
-                            }}
-                            onBlur={() => {
-                              // Delay to allow clicking on suggestions before closing
-                              setTimeout(() => setShowEntitySuggestions(false), 150)
-                            }}
-                            className={`peer pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none ${selectedEntityId && hasSessionEntity ? "ring-1 ring-blue-500 border-blue-500" : ""}`}
-                            autoComplete="off"
-                          />
-                          {entityLoading && (
-                            <div className="text-muted-foreground pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center pr-3 peer-disabled:opacity-50">
-                              <LoaderCircleIcon className="size-4 animate-spin" />
-                              <span className="sr-only">Loading...</span>
-                            </div>
-                          )}
-                          {showEntitySuggestions && entitySuggestions.length > 0 && (
-                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                              <ul className="max-h-56 overflow-auto">
-                                {entitySuggestions.map((opt) => (
-                                  <li key={opt.id}>
-                                    <button
-                                      type="button"
-                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault() // Prevent blur from firing
-                                        setBorrowerName(opt.name)
-                                        setTouched((t) => ({ ...t, borrowerName: true }))
-                                        setShowEntitySuggestions(false)
-                                        setSelectedEntityId(opt.id)
-                                        setHasSessionEntity(true)
-                                      }}
-                                    >
-                                      {opt.display}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="guarantors">Guarantor(s)</Label>
-                        <div className="relative">
-                          <TagsInput
-                            value={guarantorTags.map((t) => t.name)}
-                            onValueChange={(newValues) => {
-                              // Prevent exceeding 4 guarantor limit
-                              if (newValues.length > 4) return
-                              // Keep only tags whose names are still in the new values
-                              setGuarantorTags((prev) => prev.filter((t) => newValues.includes(t.name)))
-                            }}
-                            className="w-full"
-                          >
-                            <TagsInputList className="min-h-9 max-h-9 px-3 py-1 overflow-x-auto overflow-y-hidden flex-nowrap">
-                              <SearchIcon className="size-4 text-muted-foreground mr-1 shrink-0" />
-                              {guarantorTags.map((tag, idx) => (
-                                <TagsInputItem
-                                  key={`${tag.name}-${idx}`}
-                                  value={tag.name}
-                                  className={`text-xs px-1.5 py-0.5 shrink-0 ${tag.id ? "border-blue-500 ring-1 ring-blue-500" : ""}`}
-                                >
-                                  {tag.name}
-                                </TagsInputItem>
-                              ))}
-                              <TagsInputInput
-                                id="guarantors"
-                                placeholder={
-                                  guarantorTags.length >= 4
-                                    ? "Max 4 guarantors"
-                                    : guarantorTags.length === 0
-                                      ? DEFAULTS.guarantorPlaceholder
-                                      : ""
-                                }
-                                disabled={guarantorTags.length >= 4}
-                                value={guarantorQuery}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  setGuarantorQuery(v)
-                                  if (v.trim().length > 0) {
-                                    setShowGuarantorSuggestions(true)
-                                  } else {
-                                    setShowGuarantorSuggestions(false)
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && guarantorQuery.trim()) {
-                                    e.preventDefault()
-                                    // Prevent exceeding 4 guarantor limit
-                                    if (guarantorTags.length >= 4) return
-                                    // Add as unlinked tag
-                                    setGuarantorTags((prev) => [...prev, { name: guarantorQuery.trim() }])
-                                    setGuarantorQuery("")
-                                    setShowGuarantorSuggestions(false)
-                                  }
-                                }}
-                                onFocus={() => {
-                                  if (guarantorQuery.trim().length > 0) {
-                                    setShowGuarantorSuggestions(true)
-                                  }
-                                }}
-                                onBlur={() => {
-                                  // Delay to allow clicking on suggestions before closing
-                                  setTimeout(() => setShowGuarantorSuggestions(false), 150)
-                                }}
-                                autoComplete="off"
-                              />
-                              {guarantorLoading && (
-                                <LoaderCircleIcon className="size-4 animate-spin text-muted-foreground shrink-0" />
-                              )}
-                            </TagsInputList>
-                          </TagsInput>
-                          {showGuarantorSuggestions && guarantorSuggestions.filter((s) => !guarantorTags.some((t) => t.id === s.id)).length > 0 && (
-                            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                              <ul className="max-h-56 overflow-auto">
-                                {guarantorSuggestions.filter((s) => !guarantorTags.some((t) => t.id === s.id)).map((opt) => (
-                                  <li key={opt.id}>
-                                    <button
-                                      type="button"
-                                      className="w-full cursor-pointer rounded-sm px-2 py-1 text-left text-sm hover:bg-muted"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault() // Prevent blur from firing
-                                        // Prevent exceeding 4 guarantor limit
-                                        if (guarantorTags.length >= 4) return
-                                        // Add as linked tag with borrower ID
-                                        setGuarantorTags((prev) => [...prev, { name: opt.name, id: opt.id }])
-                                        setGuarantorQuery("")
-                                        setShowGuarantorSuggestions(false)
-                                      }}
-                                    >
-                                      {opt.display}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
-                              <Label htmlFor="uw-exception">UW Exception</Label>
-                              <TooltipProvider>
-                                <Tooltip delayDuration={50}>
-                                  <TooltipTrigger>
-                                    <IconInfoCircle size={12} className="text-muted-foreground stroke-[1.25]" />
-                                    <span className="sr-only">More Info</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Underwriting Exception</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                        <Select
-                          value={uwException}
-                          onValueChange={(v) => {
-                            setUwException(v)
-                            setTouched((t) => ({ ...t, uwException: true }))
-                          }}
-                        >
-                          <SelectTrigger
-                            id="uw-exception"
-                            className={`h-9 w-full ${!touched.uwException && uwException === DEFAULTS.uwException ? "text-muted-foreground" : ""}`}
-                          >
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="yes">Yes</SelectItem>
-                            <SelectItem value="no">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {isDscr && (
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="section-8">Section 8</Label>
-                          <Select
-                            value={section8}
-                            onValueChange={(v) => {
-                              setSection8(v)
-                              setTouched((t) => ({ ...t, section8: true }))
-                            }}
-                          >
-                            <SelectTrigger
-                              id="section-8"
-                              className={`h-9 w-full ${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
-                            >
-                              <SelectValue
-                                placeholder="No"
-                                className={`${!touched.section8 && section8 === DEFAULTS.section8 ? "text-muted-foreground" : ""}`}
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="hoi-effective">HOI Effective</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <DateInput
-                              value={hoiEffective}
-                              onChange={(d) => {
-                                setHoiEffective(d)
-                                setTouched((t) => ({ ...t, hoiEffective: true }))
-                              }}
-                              className={`${!touched.hoiEffective && hoiEffective && _isSameDay(hoiEffective, DEFAULTS.hoiEffective) ? "text-muted-foreground" : ""}`}
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={hoiEffective}
-                              month={hoiCalMonth}
-                              onMonthChange={setHoiCalMonth}
-                              onSelect={(d) => d && setHoiEffective(d)}
-                              captionLayout="dropdown"
-                              className="rounded-md border min-w-[264px]"
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="flood-effective">Flood Effective</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <DateInput
-                              value={floodEffective}
-                              onChange={(d) => {
-                                setFloodEffective(d)
-                                setTouched((t) => ({ ...t, floodEffective: true }))
-                              }}
-                              className={`${!touched.floodEffective && floodEffective && _isSameDay(floodEffective, DEFAULTS.floodEffective) ? "text-muted-foreground" : ""}`}
-                            />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={floodEffective}
-                              month={floodCalMonth}
-                              onMonthChange={setFloodCalMonth}
-                              onSelect={(d) => d && setFloodEffective(d)}
-                              captionLayout="dropdown"
-                              className="rounded-md border min-w-[264px]"
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="title-recording">Title &amp; Recording Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="title-recording"
-                            placeholder={computedTitleRecording || "0.00"}
-                            className={`pl-6 ${!touched.titleRecordingFee && titleRecordingFee === computedTitleRecording ? "text-muted-foreground" : ""}`}
-                            value={titleRecordingFee}
-                            onValueChange={(v) => {
-                              setTitleRecordingFee(v)
-                              setTouched((t) => ({ ...t, titleRecordingFee: true }))
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="assignment-fee">Assignment Fee</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="assignment-fee"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={assignmentFee}
-                            onValueChange={setAssignmentFee}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="seller-concessions">Seller Concessions</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="seller-concessions"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={sellerConcessions}
-                            onValueChange={setSellerConcessions}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="tax-escrow">Tax Escrow (months)</Label>
-                        <Input
-                          id="tax-escrow"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={taxEscrowMonths}
-                          onChange={(e) => {
-                            setTaxEscrowMonths(e.target.value)
-                            setTouched((t) => ({ ...t, taxEscrowMonths: true }))
-                          }}
-                          className={`${!touched.taxEscrowMonths && taxEscrowMonths === (loanType === "bridge" ? "0" : DEFAULTS.taxEscrowMonths) ? "text-muted-foreground" : ""}`}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="hoi-premium">HOI Premium</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="hoi-premium"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={hoiPremium}
-                            onValueChange={setHoiPremium}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="flood-premium">Flood Premium</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="flood-premium"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={floodPremium}
-                            onValueChange={setFloodPremium}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="emd">EMD</Label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <CalcInput
-                            id="emd"
-                            placeholder="0.00"
-                            className="pl-6"
-                            value={emd}
-                            onValueChange={setEmd}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                </Accordion>
+                  )
+                })}
+              </Accordion>
+              {/* Old hardcoded AccordionItems removed - replaced by dynamic rendering above */}
               </div>
             </ScrollArea>
 
@@ -4568,8 +2546,10 @@ export default function PricingEnginePage() {
             getInputs={() => buildPayload()}
             memberId={selfMemberId}
             onApplyFees={(lo, la) => {
-              if (typeof lo === "string" && lo.trim().length > 0) setLenderOrig(lo)
-              if (typeof la === "string" && la.trim().length > 0) setAdminFee(la)
+              const origCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("origination"))?.input_code
+              const adminCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("admin"))?.input_code
+              if (origCode && typeof lo === "string" && lo.trim().length > 0) updateValue(origCode, lo)
+              if (adminCode && typeof la === "string" && la.trim().length > 0) updateValue(adminCode, la)
             }}
             loanId={currentLoanId}
             scenarioId={selectedScenarioId}
@@ -4584,7 +2564,7 @@ export default function PricingEnginePage() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground">
-              {fullAddress || "Enter street, city, state, and zip to preview the subject property."}
+              {resolvedFullAddress || "Enter street, city, state, and zip to preview the subject property."}
             </div>
             <div className="inline-flex gap-1">
               <Button
@@ -4657,8 +2637,142 @@ export default function PricingEnginePage() {
 }
 
 
+// ---------- Section Action Button ----------
+
+function SectionActionButton({
+  btn,
+  onGoogleMaps,
+  buildPayload,
+  onApplyInputs,
+  formValues,
+  codeToIdMap,
+}: {
+  btn: SectionButton
+  onGoogleMaps: (e?: React.MouseEvent) => void
+  buildPayload: () => Record<string, unknown>
+  onApplyInputs?: (inputs: Record<string, unknown>, signalColor: string | null) => void
+  formValues?: Record<string, unknown>
+  codeToIdMap?: Map<string, string>
+}) {
+  const [loading, setLoading] = React.useState(false)
+  const [clicked, setClicked] = React.useState(false)
+
+  // Sync glow animation across all buttons by anchoring to wall-clock time
+  const glowSyncDelay = React.useMemo(() => {
+    const periodMs = 3500
+    const offset = Date.now() % periodMs
+    return `-${offset}ms`
+  }, [])
+
+  const isGoogleMaps = btn.actions.some((a) => a.action_type === "google_maps")
+
+  const requiredSatisfied = React.useMemo(() => {
+    const required = btn.required_inputs ?? []
+    if (required.length === 0) return true
+    if (!formValues || !codeToIdMap) return true
+    const idToCode = new Map<string, string>()
+    for (const [code, id] of codeToIdMap.entries()) idToCode.set(id, code)
+    return required.every((inputId) => {
+      const code = idToCode.get(inputId)
+      if (!code) return true
+      const val = formValues[code]
+      return val !== undefined && val !== null && val !== ""
+    })
+  }, [btn.required_inputs, formValues, codeToIdMap])
+
+  if (isGoogleMaps) {
+    const glowing = !clicked && requiredSatisfied
+    return (
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!requiredSatisfied}
+        className={cn(
+          "h-7 not-italic",
+          glowing && "border border-primary/50 animate-attention-glow",
+        )}
+        style={glowing ? { animationDelay: glowSyncDelay } : undefined}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setClicked(true)
+          onGoogleMaps(e)
+        }}
+      >
+        {btn.label}
+      </Button>
+    )
+  }
+
+  const workflowActions = btn.actions.filter((a) => a.action_type === "workflow" && a.action_uuid)
+  const canRun = workflowActions.length > 0 && requiredSatisfied
+  const glowing = !clicked && !loading && canRun
+
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      className={cn(
+        "h-7 not-italic",
+        glowing && "border border-primary/50 animate-attention-glow",
+      )}
+      style={glowing ? { animationDelay: glowSyncDelay } : undefined}
+      disabled={loading || !canRun}
+      onClick={async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (loading || !canRun) return
+        setClicked(true)
+        setLoading(true)
+        try {
+          const payload = buildPayload()
+          const results = await Promise.allSettled(
+            workflowActions.map(async (a) => {
+              const res = await fetch(`/api/workflows/${a.action_uuid}/webhook`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              })
+              if (!res.ok) {
+                const errBody = await res.text().catch(() => "")
+                let detail = ""
+                try { detail = JSON.parse(errBody)?.error ?? errBody } catch { detail = errBody }
+                throw new Error(detail || `Request failed (${res.status})`)
+              }
+              const data = await res.json().catch(() => ({}))
+              if (data.inputs && typeof data.inputs === "object" && onApplyInputs) {
+                onApplyInputs(data.inputs as Record<string, unknown>, btn.signal_color ?? null)
+              }
+              return data
+            })
+          )
+          const anyFailed = results.some((r) => r.status === "rejected")
+          if (anyFailed) {
+            const errors = results
+              .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+              .map((r) => r.reason?.message ?? "Unknown")
+            console.error(`[SectionActionButton] "${btn.label}" partial failure:`, errors)
+            toast({ title: "Action failed", description: errors.join("; "), variant: "destructive" })
+          } else {
+            toast({ title: "Sent", description: `${btn.label} executed successfully.` })
+          }
+        } catch (err) {
+          console.error(`[SectionActionButton] "${btn.label}" error:`, err)
+          const message = err instanceof Error ? err.message : "Unknown error"
+          toast({ title: "Action failed", description: message, variant: "destructive" })
+        } finally {
+          setLoading(false)
+        }
+      }}
+    >
+      {loading ? <LoaderCircleIcon className="size-3.5 animate-spin" /> : null}
+      {btn.label}
+    </Button>
+  )
+}
+
+
 // ---------- Results UI ----------
-import * as React from "react"
 type ProgramResponseData = {
   pass?: boolean
   highlight_display?: number
@@ -5849,7 +3963,6 @@ function ResultsPanel({
         setSelected(selectedFromProps)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFromProps, results])
 
   // Main panel term sheet preview/download state

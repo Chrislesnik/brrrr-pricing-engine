@@ -1,37 +1,73 @@
 "use client"
 
+import { useEffect, useMemo, useRef } from "react"
 import useSWR from "swr"
-import { UserPrimaryActions } from "@/app/(pricing-engine)/users/components/user-primary-actions"
-import { pipelineColumns } from "./components/pipeline-columns"
 import { PipelineTable } from "./components/pipeline-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
+import { createSupabaseBrowser } from "@/lib/supabase-browser"
 import type { LoanRow } from "./data/fetch-loans"
+import type { StarredInput, AddressInput } from "./components/pipeline-columns"
+
+interface PipelineResponse {
+  items: LoanRow[]
+  starredInputs: StarredInput[]
+  addressInputs: AddressInput[]
+}
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-export default function PipelinePage() {
-  const { data, isLoading } = useSWR<{ items: LoanRow[] }>("/api/pipeline", fetcher)
-  const loans = data?.items ?? []
+const REALTIME_TABLES = ["loans", "loan_scenarios", "loan_scenario_inputs"] as const
 
-  // Show skeleton ONLY during initial load (no data yet), not during revalidation
-  // This prevents the table from unmounting and losing pagination state
+export default function PipelinePage() {
+  const { data, isLoading, mutate } = useSWR<PipelineResponse>("/api/pipeline", fetcher)
+  const loans = data?.items ?? []
+  const starredInputs = data?.starredInputs ?? []
+  const addressInputs = data?.addressInputs ?? []
+
+  const supabase = useMemo(() => createSupabaseBrowser(), [])
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const revalidate = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => void mutate(), 300)
+    }
+
+    const channel = supabase.channel("scenarios-realtime")
+
+    for (const table of REALTIME_TABLES) {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        revalidate,
+      )
+    }
+
+    channel.subscribe()
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, mutate])
+
   if (isLoading && !data) {
     return <PageSkeleton title="Loan Pipeline" columns={7} rows={10} />
   }
 
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Scenarios
-          </h2>
-          <UserPrimaryActions />
-        </div>
+    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Scenarios</h1>
+        <p className="text-muted-foreground">
+          Manage and compare your loan pricing scenarios.
+        </p>
       </div>
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <PipelineTable data={loans} columns={pipelineColumns} />
-      </div>
-    </>
+      <PipelineTable
+        data={loans}
+        starredInputs={starredInputs}
+        addressInputs={addressInputs}
+      />
+    </div>
   )
 }

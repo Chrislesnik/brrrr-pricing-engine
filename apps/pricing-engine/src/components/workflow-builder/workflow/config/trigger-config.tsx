@@ -60,25 +60,50 @@ export function TriggerConfig({
     }
   }, [config?.webhookSchema, inputs]);
 
+  const webhookType = (config?.webhookType as string) || "";
+
   useEffect(() => {
-    if (config?.triggerType !== "Webhook") return;
-    fetch("/api/inputs")
-      .then((r) => r.json())
-      .then((data: InputOption[]) => {
-        if (Array.isArray(data)) {
-          const systemInputs: InputOption[] = [
-            {
-              id: "__deal_id__",
-              input_label: "Deal ID",
-              input_code: "deal_id",
-              input_type: "text",
-            },
-          ];
-          setInputs([...systemInputs, ...data]);
-        }
-      })
-      .catch(() => {});
-  }, [config?.triggerType]);
+    if (config?.triggerType !== "Webhook" || !webhookType) {
+      setInputs([]);
+      return;
+    }
+
+    if (webhookType === "deal") {
+      fetch("/api/inputs")
+        .then((r) => r.json())
+        .then((data: InputOption[]) => {
+          if (Array.isArray(data)) {
+            const systemInputs: InputOption[] = [
+              {
+                id: "__deal_id__",
+                input_label: "Deal ID",
+                input_code: "deal_id",
+                input_type: "text",
+              },
+            ];
+            setInputs([...systemInputs, ...data]);
+          }
+        })
+        .catch(() => {});
+    } else if (webhookType === "pricing_engine") {
+      fetch("/api/pricing-engine-inputs")
+        .then((r) => r.json())
+        .then((data: InputOption[]) => {
+          if (Array.isArray(data)) {
+            const systemInputs: InputOption[] = [
+              {
+                id: "__scenario_id__",
+                input_label: "Scenario ID",
+                input_code: "scenario_id",
+                input_type: "text",
+              },
+            ];
+            setInputs([...systemInputs, ...data]);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [config?.triggerType, webhookType]);
 
   const handleSchemaChange = (schema: SchemaField[]) => {
     setLocalSchema(schema);
@@ -157,6 +182,32 @@ export function TriggerConfig({
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="ml-1" htmlFor="webhookType">
+              Webhook Type (Optional)
+            </Label>
+            <Select
+              disabled={disabled}
+              onValueChange={(value) =>
+                onUpdateConfig("webhookType", value === "__none__" ? "" : value)
+              }
+              value={webhookType || "__none__"}
+            >
+              <SelectTrigger className="w-full" id="webhookType">
+                <SelectValue placeholder="Select webhook type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">
+                  <span className="text-muted-foreground">None</span>
+                </SelectItem>
+                <SelectItem value="deal">Deal</SelectItem>
+                <SelectItem value="pricing_engine">Pricing Engine</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">
+              Select a type to link schema properties to existing inputs.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Request Schema (Optional)</Label>

@@ -93,24 +93,9 @@ export async function DELETE(
           // best-effort
         }
 
-        // Update legacy assigned_to column
+        // Update legacy assigned_to column (deals only; loans column removed)
         try {
-          if (resourceType === "loan") {
-            const { data: loan } = await supabaseAdmin
-              .from("loans")
-              .select("assigned_to_user_id")
-              .eq("id", resourceId)
-              .single();
-            const current = Array.isArray(loan?.assigned_to_user_id)
-              ? (loan.assigned_to_user_id as string[])
-              : [];
-            await supabaseAdmin
-              .from("loans")
-              .update({
-                assigned_to_user_id: current.filter((uid) => uid !== removedUserId),
-              })
-              .eq("id", resourceId);
-          } else if (resourceType === "deal") {
+          if (resourceType === "deal") {
             const { data: deal } = await supabaseAdmin
               .from("deals")
               .select("assigned_to_user_id")

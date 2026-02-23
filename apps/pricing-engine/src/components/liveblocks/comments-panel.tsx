@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   RoomProvider,
   ClientSideSuspense,
@@ -10,6 +10,7 @@ import { Thread, Comment, Composer } from "@liveblocks/react-ui";
 import { Button } from "@repo/ui/shadcn/button";
 import { MessageSquare, X, Loader2, ArrowLeft, MessageCircle } from "lucide-react";
 import type { ThreadData } from "@liveblocks/client";
+import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 const COMPOSER_OVERRIDES = {
   COMPOSER_PLACEHOLDER: "Write a message...",
@@ -146,7 +147,13 @@ function ThreadDetailView({
   onBack: () => void;
 }) {
   const threadContainerRef = useRef<HTMLDivElement>(null);
+  const threadScrollRef = useRef<HTMLDivElement>(null);
   useEnableSubmitWithAttachments(threadContainerRef);
+
+  useEffect(() => {
+    const el = threadScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread.comments.length]);
 
   return (
     <div ref={threadContainerRef} className="flex flex-col h-full">
@@ -164,7 +171,7 @@ function ThreadDetailView({
       </div>
 
       {/* Full thread with all replies */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={threadScrollRef} className="flex-1 overflow-y-auto">
         <Thread
           thread={thread}
           showComposer={true}
@@ -189,7 +196,12 @@ function ChatListView({
   onOpenThread: (thread: ThreadData) => void;
 }) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   useEnableSubmitWithAttachments(chatContainerRef);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [threads.length]);
 
   return (
     <div ref={chatContainerRef} className="flex flex-col h-full">
@@ -241,6 +253,7 @@ function ChatListView({
             );
           })
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Composer at the bottom — creates new threads */}
@@ -293,11 +306,43 @@ interface CommentsPanelProps {
   onClose: () => void;
 }
 
+function useDealUsersVersion(dealId: string, enabled: boolean) {
+  const [version, setVersion] = useState(0);
+  const supabase = useMemo(() => createSupabaseBrowser(), []);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const channel = supabase
+      .channel(`deal-users-mentions-${dealId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "deal_users",
+          filter: `deal_id=eq.${dealId}`,
+        },
+        () => {
+          setVersion((v) => v + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, dealId, enabled]);
+
+  return version;
+}
+
 export function CommentsPanel({
   dealId,
   open,
   onClose,
 }: CommentsPanelProps) {
+  const membersVersion = useDealUsersVersion(dealId, open);
   const roomId = `deal:${dealId}`;
 
   if (!open) return null;
@@ -319,7 +364,7 @@ export function CommentsPanel({
 
       {/* Room-scoped content */}
       <div className="flex-1 min-h-0">
-        <RoomProvider id={roomId}>
+        <RoomProvider id={roomId} key={`${roomId}-v${membersVersion}`}>
           <ClientSideSuspense
             fallback={
               <div className="flex items-center justify-center h-40 gap-2">

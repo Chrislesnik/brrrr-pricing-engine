@@ -16,7 +16,9 @@ interface ConditionPayload {
 }
 
 interface ActionPayload {
-  document_type_id: number;
+  document_type_id?: number;
+  category_id?: number;
+  target_type?: "document" | "category";
   value_type?: string;
   value_visible?: boolean;
   value_required?: boolean;
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest) {
     const { data: actionRows } = await supabaseAdmin
       .from("document_logic_actions")
       .select(
-        "id, document_logic_id, document_type_id, value_type, value_visible, value_required"
+        "id, document_logic_id, document_type_id, category_id, value_type, value_visible, value_required"
       )
       .in("document_logic_id", allRuleIds);
 
@@ -111,6 +113,8 @@ export async function GET(request: NextRequest) {
         .filter((a) => a.document_logic_id === rule.id)
         .map((a) => ({
           document_type_id: a.document_type_id ?? 0,
+          category_id: a.category_id ?? undefined,
+          target_type: a.category_id ? "category" as const : "document" as const,
           value_type: a.value_type ?? "visible",
           value_visible: a.value_visible ?? undefined,
           value_required: a.value_required ?? undefined,
@@ -246,12 +250,14 @@ export async function POST(request: NextRequest) {
       // Insert actions
       if (rule.actions && rule.actions.length > 0) {
         const actionRows = rule.actions
-          .filter((a) => a.document_type_id)
+          .filter((a) => a.document_type_id || a.category_id)
           .map((a) => {
             const vt = a.value_type || "visible";
+            const isCategory = a.target_type === "category" || (!a.document_type_id && a.category_id);
             return {
               document_logic_id: ruleId,
-              document_type_id: a.document_type_id || null,
+              document_type_id: isCategory ? null : (a.document_type_id || null),
+              category_id: isCategory ? (a.category_id || null) : null,
               value_type: vt,
               value_visible:
                 vt === "visible"
@@ -260,11 +266,12 @@ export async function POST(request: NextRequest) {
                     ? false
                     : null,
               value_required:
-                vt === "required"
+                isCategory ? null :
+                (vt === "required"
                   ? true
                   : vt === "not_required"
                     ? false
-                    : null,
+                    : null),
             };
           });
 

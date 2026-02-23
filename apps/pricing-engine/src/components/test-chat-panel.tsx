@@ -133,7 +133,8 @@ function DetailItem({
 }) {
   const isCondition = item.type === "condition"
   const inputType = item.input_type ?? "text"
-  const [value, setValue] = React.useState(String(item.output.answer ?? ""))
+  const output = item.output ?? {} as DetailItemData["output"]
+  const [value, setValue] = React.useState(String(output.answer ?? ""))
   const [currentDealValue, setCurrentDealValue] = React.useState(
     item.current_deal_value ?? null
   )
@@ -148,8 +149,9 @@ function DetailItem({
   })
 
   // Sync local state when the parent re-renders with fresh item data
+  const outputAnswer = (item.output ?? {}).answer
   React.useEffect(() => {
-    setValue(String(item.output.answer ?? ""))
+    setValue(String(outputAnswer ?? ""))
     setCurrentDealValue(item.current_deal_value ?? null)
     if (item.rejected === true) {
       setStatus("rejected")
@@ -158,7 +160,7 @@ function DetailItem({
     } else {
       setStatus("neutral")
     }
-  }, [item.output.answer, item.current_deal_value, item.approved_value, item.rejected])
+  }, [outputAnswer, item.current_deal_value, item.approved_value, item.rejected])
 
   const handleRefresh = async () => {
     if (!onRefreshItem || isRefreshing) return
@@ -211,7 +213,7 @@ function DetailItem({
       persistStatus(null, null)
     } else {
       setStatus("approved")
-      const approvedVal = isCondition ? Boolean(item.output.answer) : value
+      const approvedVal = isCondition ? Boolean(output.answer) : value
       persistStatus(approvedVal, false)
       // Optimistically update the displayed current deal value for inputs
       if (!isCondition) {
@@ -283,7 +285,7 @@ function DetailItem({
             <Select
               value={
                 isCondition
-                  ? item.output.answer === true
+                  ? output.answer === true
                     ? "true"
                     : "false"
                   : value === "true"
@@ -466,9 +468,9 @@ function DetailItem({
       )}
 
       {/* Citations */}
-      {item.output.citations && item.output.citations.length > 0 && (
+      {output.citations && output.citations.length > 0 && (
         <div className="flex flex-col gap-1 pt-1">
-          {item.output.citations.map((citation, idx) => (
+          {output.citations.map((citation, idx) => (
             <button
               key={idx}
               onClick={() => handleCitationClick(citation)}
@@ -708,7 +710,13 @@ export function TestChatPanel({
         body: JSON.stringify(dealDocument),
       })
       const webhookText = await webhookRes.text()
-      const webhookData = webhookText ? JSON.parse(webhookText) : []
+      let webhookData: unknown
+      try {
+        webhookData = webhookText ? JSON.parse(webhookText) : []
+      } catch {
+        console.error("[fetchDetails] Webhook returned non-JSON:", webhookText.slice(0, 200))
+        webhookData = []
+      }
 
       // 3. Persist results via our API
       if (Array.isArray(webhookData) && webhookData.length > 0) {
@@ -728,19 +736,29 @@ export function TestChatPanel({
     }
   }, [dealId, dealDocumentId, aiResultsApiPath, loadSavedResults])
 
-  // Auto-trigger fetchDetails when parseStatus transitions to COMPLETE
+  // When parseStatus transitions to COMPLETE, load saved results from DB.
+  // Only trigger the webhook if no results exist yet (first-time extraction).
   const prevParseStatusRef = React.useRef<ParseStatus | undefined>(undefined)
   React.useEffect(() => {
     const prev = prevParseStatusRef.current
     prevParseStatusRef.current = parseStatus
 
-    // Only fire when transitioning FROM a non-COMPLETE state TO COMPLETE
     if (
       parseStatus === "COMPLETE" &&
       prev !== undefined &&
       prev !== "COMPLETE"
     ) {
-      fetchDetails()
+      ;(async () => {
+        setDetailsLoading(true)
+        try {
+          const saved = await loadSavedResults()
+          if (saved.length === 0) {
+            await fetchDetails()
+          }
+        } finally {
+          setDetailsLoading(false)
+        }
+      })()
     }
   }, [parseStatus, fetchDetails])
 
@@ -768,7 +786,14 @@ export function TestChatPanel({
           body: JSON.stringify({ item, dealDocument }),
         }
       )
-      const webhookData = await webhookRes.json()
+      const webhookText = await webhookRes.text()
+      let webhookData: unknown
+      try {
+        webhookData = webhookText ? JSON.parse(webhookText) : []
+      } catch {
+        console.error("[handleRefreshItem] Webhook returned non-JSON:", webhookText.slice(0, 200))
+        webhookData = []
+      }
 
       // 3. Persist via our API — the POST endpoint upserts on
       //    (deal_document_id, document_type_ai_input_id) so the existing row

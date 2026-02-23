@@ -1,6 +1,6 @@
 /**
  * API Client adapted for Brrrr Pricing Engine
- * Maps workflow-builder API calls to our /api/actions/ endpoints
+ * Maps workflow-builder API calls to our /api/automations/ endpoints
  */
 
 import type { IntegrationConfig, IntegrationType } from "./types/integration";
@@ -263,7 +263,7 @@ export const userApi = {
   }),
 };
 
-// Workflow API - maps to our /api/actions/ endpoints
+// Workflow API - maps to our /api/automations/ endpoints
 export const workflowApi = {
   getAll: async (): Promise<SavedWorkflow[]> => {
     const res = await apiCall<{ actions: Array<{
@@ -274,8 +274,8 @@ export const workflowApi = {
       is_active: boolean;
       created_at: string;
       updated_at: string;
-    }> }>("/api/actions");
-    return (res.actions ?? []).map((a) => ({
+    }> }>("/api/automations");
+    return (res.automations ?? []).map((a) => ({
       id: a.uuid,
       name: a.name,
       description: a.description || undefined,
@@ -297,8 +297,8 @@ export const workflowApi = {
       is_active: boolean;
       created_at: string;
       updated_at: string;
-    } }>(`/api/actions/${id}`);
-    const a = res.action;
+    } }>(`/api/automations/${id}`);
+    const a = res.automation;
     return {
       id: a.uuid,
       name: a.name,
@@ -320,14 +320,14 @@ export const workflowApi = {
       workflow_data: { nodes?: WorkflowNode[]; edges?: WorkflowEdge[] } | null;
       created_at: string;
       updated_at: string;
-    } }>("/api/actions", {
+    } }>("/api/automations", {
       method: "POST",
       body: JSON.stringify({
         name: workflow.name || "Untitled Action",
         description: workflow.description || null,
       }),
     });
-    const a = res.action;
+    const a = res.automation;
     return {
       id: a.uuid,
       name: a.name,
@@ -352,6 +352,14 @@ export const workflowApi = {
       };
     }
 
+    const triggerNode = (workflow.nodes ?? []).find(
+      (n) => n.data.type === "trigger"
+    );
+    if (triggerNode) {
+      const wt = triggerNode.data.config?.webhookType as string | undefined;
+      payload.webhook_type = wt || null;
+    }
+
     const res = await apiCall<{ action: {
       uuid: string;
       name: string;
@@ -359,11 +367,11 @@ export const workflowApi = {
       workflow_data: { nodes?: WorkflowNode[]; edges?: WorkflowEdge[] } | null;
       created_at: string;
       updated_at: string;
-    } }>(`/api/actions/${id}`, {
+    } }>(`/api/automations/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
-    const a = res.action;
+    const a = res.automation;
     return {
       id: a.uuid,
       name: a.name,
@@ -378,7 +386,7 @@ export const workflowApi = {
   },
 
   delete: async (id: string): Promise<{ success: boolean }> => {
-    return apiCall<{ ok: boolean }>(`/api/actions/${id}`, {
+    return apiCall<{ ok: boolean }>(`/api/automations/${id}`, {
       method: "DELETE",
     }).then(() => ({ success: true }));
   },

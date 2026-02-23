@@ -280,6 +280,7 @@ export function getColumnVariant(variant?: CellOpts["variant"]): {
     case "checkbox":
       return { label: "Checkbox", icon: CheckSquareIcon };
     case "select":
+    case "cycle-select":
       return { label: "Select", icon: ListIcon };
     case "multi-select":
       return { label: "Multi-select", icon: ListChecksIcon };

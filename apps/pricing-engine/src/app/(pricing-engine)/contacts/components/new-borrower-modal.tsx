@@ -584,12 +584,11 @@ export function NewBorrowerModal({
                             ? `***-**-${ssnLast4}`
                             : "xxx-xx-xxxx"
                         }
-                        name="ssn"
+                        name="contact-borrower-tin"
                         ref={ssnInputRef}
                         type={showSsn ? "text" : "password"}
                         value={formatSSN(ssnRaw)}
                         onChange={(e) => {
-                          // allow only digits, max 9; store digits in form state; mask display
                           const digits = e.target.value
                             .replace(/\D+/g, "")
                             .slice(0, 9)
@@ -598,7 +597,6 @@ export function NewBorrowerModal({
                             shouldValidate: false,
                             shouldDirty: true,
                           })
-                          // keep caret at end of masked value
                           queueMicrotask(() => {
                             const el = ssnInputRef.current
                             if (el) {
@@ -609,7 +607,9 @@ export function NewBorrowerModal({
                         }}
                         inputMode="numeric"
                         maxLength={11}
-                        autoComplete="off"
+                        autoComplete="one-time-code"
+                        data-1p-ignore
+                        data-lpignore="true"
                         onKeyDown={(e) => {
                           // Allow control/navigation keys
                           const allowed = [

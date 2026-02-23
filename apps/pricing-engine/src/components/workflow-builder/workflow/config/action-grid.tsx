@@ -21,6 +21,7 @@ import {
   Merge,
   MoreHorizontal,
   Repeat,
+  Reply,
   Search,
   Settings,
   Timer,
@@ -153,6 +154,12 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Process items in configurable batch sizes",
     category: "System",
   },
+  {
+    id: "Respond to Webhook",
+    label: "Respond to Webhook",
+    description: "Write values to inputs and respond to the webhook caller",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions
@@ -218,6 +225,7 @@ const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ classNam
   Sort: { icon: ArrowUpDown, color: "text-sky-500" },
   "Remove Duplicates": { icon: CopyX, color: "text-amber-500" },
   "Loop Over Batches": { icon: Repeat, color: "text-lime-500" },
+  "Respond to Webhook": { icon: Reply, color: "text-blue-600" },
 };
 
 function ActionIcon({

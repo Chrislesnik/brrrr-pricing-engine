@@ -37,7 +37,7 @@ interface DealStageRow {
 
 interface TaskTemplateRow {
   button_enabled: boolean;
-  button_action_id: number | null;
+  button_automation_id: number | null;
   button_label: string | null;
 }
 
@@ -139,7 +139,7 @@ function apiTaskToTrackerTask(task: TaskFromApi, dealId: string): Task {
     dealStageName: task.deal_stages?.name ?? undefined,
     buttonEnabled: task.task_templates?.button_enabled ?? false,
     buttonLabel: task.task_templates?.button_label ?? undefined,
-    buttonActionId: task.task_templates?.button_action_id ?? undefined,
+    buttonActionId: task.task_templates?.button_automation_id ?? undefined,
   };
 }
 
@@ -287,7 +287,7 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
 
       try {
         // 1. Look up the action by numeric ID to get uuid + workflow_data
-        const actionRes = await fetch(`/api/actions/by-id/${task.buttonActionId}`);
+        const actionRes = await fetch(`/api/automations/by-id/${task.buttonActionId}`);
         if (!actionRes.ok) {
           toast.error("Failed to load action");
           return false;

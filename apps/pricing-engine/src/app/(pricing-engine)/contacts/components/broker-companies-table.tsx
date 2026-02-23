@@ -1,24 +1,46 @@
 "use client"
 
-import { Fragment, useMemo, useState } from "react"
+import React, { Fragment, useCallback, useMemo, useState } from "react"
 import {
   ColumnDef,
   ColumnFiltersState,
+  ColumnOrderState,
   PaginationState,
+  RowData,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown, MoreHorizontal, UserPlus, Settings, Archive } from "lucide-react"
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { ChevronDown, Columns2, MoreHorizontal, Plus, Search, Settings, UserPlus, Archive } from "lucide-react"
 import { cn } from "@repo/lib/cn"
+import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
+import { Checkbox } from "@repo/ui/shadcn/checkbox"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -30,11 +52,20 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table"
-import { DataTablePagination } from "../../users/components/data-table-pagination"
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
+
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> {
+    className?: string
+  }
+}
+
+import { BrokerSettingsDialog } from "../brokers/components/broker-settings-dialog"
+import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 import type {
   BrokerOrgRow,
   OrgMemberRow,
@@ -43,7 +74,7 @@ import type {
 interface Props {
   data: BrokerOrgRow[]
   initialMembersMap?: Record<string, OrgMemberRow[]>
-  /** Called when "Invite Members" is selected from a row action dropdown */
+  onSettingsChanged?: () => void
   onInviteMembers?: (orgId: string) => void
 }
 
@@ -65,13 +96,63 @@ function formatRole(role: string | null | undefined) {
   return role.replace(/^org:/, "").replace(/_/g, " ")
 }
 
-export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers }: Props) {
+function ActionsCell({
+  org,
+  onOpenSettings,
+  onOpenAssign,
+}: {
+  org: BrokerOrgRow
+  onOpenSettings: (orgId: string) => void
+  onOpenAssign: (orgId: string) => void
+}) {
+  return (
+    <div className="flex justify-center">
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenSettings(org.id)
+            }}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Broker Settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenAssign(org.id)
+            }}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Assign Account Manager
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
+export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged, onInviteMembers, actionButton }: Props & { actionButton?: React.ReactNode }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const pageSize = 10
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize,
   })
+  const [rowSelection, setRowSelection] = useState({})
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [membersMap, setMembersMap] = useState<
     Record<string, OrgMemberRow[] | null | undefined>
@@ -79,6 +160,12 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
   const [membersLoading, setMembersLoading] = useState<
     Record<string, boolean>
   >({})
+
+  const [settingsOrgId, setSettingsOrgId] = useState<string | null>(null)
+  const [assignOrgId, setAssignOrgId] = useState<string | null>(null)
+
+  const onOpenSettings = useCallback((orgId: string) => setSettingsOrgId(orgId), [])
+  const onOpenAssign = useCallback((orgId: string) => setAssignOrgId(orgId), [])
 
   const fetchMembers = async (orgId: string) => {
     if (membersMap[orgId] !== undefined || membersLoading[orgId]) return
@@ -122,6 +209,32 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
   const columns = useMemo<ColumnDef<BrokerOrgRow>[]>(() => {
     return [
       {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { className: "w-10 pl-3" },
+      },
+      {
         id: "expand",
         header: "",
         cell: ({ row }) => {
@@ -136,7 +249,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
             >
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 transition-transform",
+                  "h-4 w-4 transition-transform duration-200",
                   isOpen ? "rotate-180" : "-rotate-90"
                 )}
                 aria-hidden="true"
@@ -189,6 +302,22 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
         ),
       },
       {
+        header: "Permissions",
+        accessorKey: "permissions",
+        cell: ({ row }) => {
+          const p = row.original.permissions ?? "default"
+          const color =
+            p === "custom"
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "bg-highlight-muted text-highlight-foreground border-highlight/30"
+          return (
+            <Badge variant="outline" className={cn("uppercase text-[10px]", color)}>
+              {p}
+            </Badge>
+          )
+        },
+      },
+      {
         header: "Date Added",
         accessorKey: "created_at",
         cell: ({ row }) => (
@@ -198,60 +327,58 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
         ),
       },
       {
-        id: "actions",
+        id: "row_actions",
         header: "",
+        cell: ({ row }) => (
+          <ActionsCell
+            org={row.original}
+            onOpenSettings={onOpenSettings}
+            onOpenAssign={onOpenAssign}
+          />
+        ),
         enableSorting: false,
         enableHiding: false,
-        cell: ({ row }) => {
-          const org = row.original
-          return (
-            <div className="flex justify-end">
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    aria-label="Open menu"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={() => onInviteMembers?.(org.id)}
-                    >
-                      <UserPlus className="mr-2 h-4 w-4 opacity-60" />
-                      Invite Members
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem className="text-red-600">
-                      <Archive className="mr-2 h-4 w-4" />
-                      Archive
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )
-        },
-        meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },
       },
     ]
-  }, [expandedRows, onInviteMembers])
+  }, [expandedRows, onOpenSettings, onOpenAssign])
+
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string
+      const overId = over.id as string
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id)
+      const oldIndex = currentOrder.indexOf(activeId)
+      const newIndex = currentOrder.indexOf(overId)
+      if (oldIndex === -1 || newIndex === -1) return
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex))
+    }
+  }
 
   const table = useReactTable({
     data,
     columns,
     state: {
       columnFilters,
+      columnVisibility,
       pagination,
+      columnOrder,
+      rowSelection,
     },
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -262,31 +389,67 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
   })
 
   return (
-    <div className="w-full rounded-lg border">
-      <div className="border-b">
-        <div className="flex min-h-17 flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">Organizations</span>
-          <Filter column={table.getColumn("name")!} />
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+    <div className="w-full">
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search organizations..."
+              value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+              onChange={(e) => table.getColumn("name")?.setFilterValue(e.target.value)}
+              className="pl-8 max-w-sm"
+            />
+          </div>
         </div>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 bg-background">
+                <Columns2 className="w-4 h-4 mr-2" />
+                <span className="text-xs font-medium">Customize Columns</span>
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                  >
+                    {col.id.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {actionButton}
+        </div>
+      </div>
+      <div className="rounded-md border overflow-x-auto">
         {/* Desktop table */}
         <div className="hidden md:block">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-12 border-t">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="text-muted-foreground first:pl-4 last:pr-4"
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
+                <TableRow key={headerGroup.id} className="bg-muted">
+                  <SortableContext
+                    items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {headerGroup.headers.map((header) => (
+                      <DraggableTableHeader key={header.id} header={header} />
+                    ))}
+                  </SortableContext>
                 </TableRow>
               ))}
             </TableHeader>
@@ -312,107 +475,96 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
                         }}
                         aria-expanded={isOpen}
                       >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className="h-14 first:pl-4 last:pr-4"
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
+                        {row.getVisibleCells().map((cell) => {
+                          const isPinned = PINNED_RIGHT_SET.has(cell.column.id)
+                          return (
+                            <TableCell
+                              key={cell.id}
+                              className={cn(
+                                "h-14 first:pl-4 last:pr-4",
+                                cell.column.columnDef.meta?.className ?? "",
+                                isPinned && "bg-background group-hover/row:bg-transparent !px-1"
+                              )}
+                              style={
+                                isPinned
+                                  ? { position: "sticky", right: 0, zIndex: 10, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" }
+                                  : undefined
+                              }
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          )
+                        })}
                       </TableRow>
-                      {isOpen ? (
-                        membersLoading[orgId] &&
-                        membersMap[orgId] === undefined ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              Loading members...
-                            </TableCell>
-                          </TableRow>
-                        ) : membersMap[orgId] == null ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-destructive p-4 text-sm"
-                            >
-                              Failed to load members.
-                            </TableCell>
-                          </TableRow>
-                        ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
-                          <TableRow className="bg-muted/30">
-                            <TableCell
-                              colSpan={columns.length}
-                              className="text-muted-foreground p-4 text-sm"
-                            >
-                              No members listed.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <>
-                            <TableRow className="bg-muted/30">
-                              <TableCell
-                                colSpan={columns.length}
-                                className="p-0"
-                              >
-                                <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
-                                  <span>ID</span>
-                                  <span>Name</span>
-                                  <span>Org Role</span>
-                                  <span>Member Role</span>
-                                  <span>Joined</span>
+                      <TableRow className="bg-muted/30 border-0">
+                        <TableCell colSpan={columns.length} className="p-0">
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out"
+                            style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                          >
+                            <div className="overflow-hidden">
+                              {membersLoading[orgId] &&
+                              membersMap[orgId] === undefined ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  Loading members...
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                            {membersMap[orgId]?.map((member) => (
-                              <TableRow
-                                key={member.id}
-                                className="bg-muted/30"
-                              >
-                                <TableCell
-                                  colSpan={columns.length}
-                                  className="p-0"
-                                >
-                                  <div className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm">
-                                    <div className="flex items-center">
-                                      <span className="text-muted-foreground mr-2">
-                                        ↳
-                                      </span>
-                                      <span className="text-muted-foreground">
-                                        {member.user_id
-                                          ? member.user_id.slice(0, 12) + "\u2026"
-                                          : member.id.slice(0, 12) + "\u2026"}
-                                      </span>
-                                    </div>
-                                    <div className="text-foreground font-semibold">
-                                      {[
-                                        member.first_name,
-                                        member.last_name,
-                                      ]
-                                        .filter(Boolean)
-                                        .join(" ") || "-"}
-                                    </div>
-                                    <div className="text-muted-foreground capitalize">
-                                      {formatRole(member.clerk_org_role)}
-                                    </div>
-                                    <div className="text-muted-foreground capitalize">
-                                      {formatRole(member.clerk_member_role)}
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                      {formatDate(member.created_at)}
-                                    </div>
+                              ) : membersMap[orgId] == null ? (
+                                <div className="text-destructive p-4 text-sm">
+                                  Failed to load members.
+                                </div>
+                              ) : (membersMap[orgId]?.length ?? 0) === 0 ? (
+                                <div className="text-muted-foreground p-4 text-sm">
+                                  No members listed.
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-muted-foreground grid grid-cols-5 gap-4 px-6 py-2 text-[11px] font-semibold uppercase">
+                                    <span>ID</span>
+                                    <span>Name</span>
+                                    <span>Org Role</span>
+                                    <span>Member Role</span>
+                                    <span>Joined</span>
                                   </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </>
-                        )
-                      ) : null}
+                                  {membersMap[orgId]?.map((member) => (
+                                    <div
+                                      key={member.id}
+                                      className="grid grid-cols-5 items-center gap-4 px-6 py-2 text-sm"
+                                    >
+                                      <div className="flex items-center">
+                                        <span className="text-muted-foreground mr-2">
+                                          ↳
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                          {member.user_id
+                                            ? member.user_id.slice(0, 12) + "…"
+                                            : member.id.slice(0, 12) + "…"}
+                                        </span>
+                                      </div>
+                                      <div className="text-foreground font-semibold">
+                                        {[member.first_name, member.last_name]
+                                          .filter(Boolean)
+                                          .join(" ") || "-"}
+                                      </div>
+                                      <div className="text-muted-foreground capitalize">
+                                        {formatRole(member.clerk_org_role)}
+                                      </div>
+                                      <div className="text-muted-foreground capitalize">
+                                        {formatRole(member.clerk_member_role)}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        {formatDate(member.created_at)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     </Fragment>
                   )
                 })
@@ -461,22 +613,21 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
                           />
                         </div>
                       </div>
-                      <div className="mt-1 flex items-center justify-between">
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "uppercase text-[10px]",
+                            org.permissions === "custom"
+                              ? "bg-primary/10 text-primary border-primary/30"
+                              : "bg-highlight-muted text-highlight-foreground border-highlight/30"
+                          )}
+                        >
+                          {org.permissions ?? "default"}
+                        </Badge>
                         <span className="text-xs text-muted-foreground">
                           Added {formatDate(org.created_at)}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onInviteMembers?.(org.id)
-                          }}
-                        >
-                          <UserPlus className="mr-1 h-3 w-3" />
-                          Invite
-                        </Button>
                       </div>
                     </div>
                     {isOpen && (
@@ -512,9 +663,28 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onInviteMembers 
           </div>
         </div>
       </div>
+      <DealsStylePagination table={table} />
 
-      <DataTablePagination table={table} />
+      {settingsOrgId && (
+        <BrokerSettingsDialog
+          brokerOrgId={settingsOrgId}
+          open={!!settingsOrgId}
+          onOpenChange={(v) => { if (!v) setSettingsOrgId(null) }}
+          onSaved={() => onSettingsChanged?.()}
+        />
+      )}
+
+      {assignOrgId && (
+        <RoleAssignmentDialog
+          resourceType="broker_org"
+          resourceId={assignOrgId}
+          open={!!assignOrgId}
+          onOpenChange={(v) => { if (!v) setAssignOrgId(null) }}
+          onSaved={() => onSettingsChanged?.()}
+        />
+      )}
     </div>
+    </DndContext>
   )
 }
 

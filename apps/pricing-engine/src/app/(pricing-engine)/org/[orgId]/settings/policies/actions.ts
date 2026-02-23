@@ -13,6 +13,7 @@ export type {
   PolicyAction,
   OrgPolicyRow,
   NamedScopeRow,
+  IntegrationFeatureResource,
 } from "./constants";
 
 import type {
@@ -23,7 +24,7 @@ import type {
   PolicyScope,
   NamedScopeRow,
 } from "./constants";
-import { FEATURE_RESOURCES } from "./constants";
+import { FEATURE_RESOURCES, type IntegrationFeatureResource, type PolicyAction as PA } from "./constants";
 
 type SavePolicyInput = {
   resourceType: ResourceType;
@@ -476,11 +477,11 @@ export async function getAvailableResources(): Promise<{
   tables: string[];
   buckets: string[];
   features: typeof FEATURE_RESOURCES;
+  integrationFeatures: IntegrationFeatureResource[];
 }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
-  // Fetch public table names (excluding system/excluded tables)
   const excludedTables = [
     "organization_policies",
     "organizations",
@@ -490,18 +491,35 @@ export async function getAvailableResources(): Promise<{
     "schema_migrations",
   ];
 
-  const { data: tables } = await supabase.rpc("get_public_table_names").select();
+  const [tablesRes, bucketsRes, integrationsRes] = await Promise.all([
+    supabase.rpc("get_public_table_names").select(),
+    supabase.storage.listBuckets(),
+    supabase
+      .from("integration_settings")
+      .select("id, name, slug, description, active")
+      .eq("active", true)
+      .order("name"),
+  ]);
 
-  // Fetch storage buckets
-  const { data: buckets } = await supabase.storage.listBuckets();
+  const integrationFeatures: IntegrationFeatureResource[] = (
+    integrationsRes.data ?? []
+  ).map((row) => ({
+    name: `integration:${row.slug}`,
+    label: `Integration — ${row.name}`,
+    description: (row.description as string) || `Access to ${row.name} integration`,
+    actions: ["view"] as PA[],
+    slug: row.slug as string,
+    integrationSettingsId: row.id as number,
+  }));
 
   return {
-    tables: (tables as Array<{ table_name: string }> | null)
+    tables: (tablesRes.data as Array<{ table_name: string }> | null)
       ?.map((t) => t.table_name)
       .filter((t) => !excludedTables.includes(t))
       .sort() ?? [],
-    buckets: buckets?.map((b) => b.name).sort() ?? [],
+    buckets: bucketsRes.data?.map((b) => b.name).sort() ?? [],
     features: FEATURE_RESOURCES,
+    integrationFeatures,
   };
 }
 

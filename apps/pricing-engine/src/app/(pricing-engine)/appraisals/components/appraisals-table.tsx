@@ -1,29 +1,55 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   ColumnDef,
+  ColumnOrderState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   SortingState,
+  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, Loader2, Search } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { ChevronDown, Columns2, Loader2, Search } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
+import { Checkbox } from "@repo/ui/shadcn/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu";
 import { Input } from "@repo/ui/shadcn/input";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
+import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -36,7 +62,7 @@ interface BorrowerJoin {
 }
 
 interface AmcJoin {
-  id: number;
+  id: string;
   name: string;
 }
 
@@ -44,7 +70,7 @@ export interface AppraisalOrder {
   id: number;
   organization_id: string;
   deal_id: string | null;
-  amc_id: number | null;
+  amc_id: string | null;
   borrower_id: string | null;
   borrower_name: string | null;
   loan_number: string | null;
@@ -62,7 +88,7 @@ export interface AppraisalOrder {
   date_report_received: string | null;
   created_at: string;
   borrowers: BorrowerJoin | null;
-  appraisal_amcs: AmcJoin | null;
+  integration_setup: AmcJoin | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -70,7 +96,7 @@ export interface AppraisalOrder {
 /* -------------------------------------------------------------------------- */
 
 function getAmcName(order: AppraisalOrder): string {
-  return order.appraisal_amcs?.name || "—";
+  return order.integration_setup?.name || "—";
 }
 
 function getAddress(order: AppraisalOrder): string {
@@ -110,9 +136,36 @@ const STATUS_COLORS: Record<string, string> = {
 function buildColumns(): ColumnDef<AppraisalOrder>[] {
   return [
     {
+      id: "select",
+      header: ({ table }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="p-2">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
+    },
+    {
       id: "expand",
       header: "",
-      cell: () => null, // rendered manually in the row
+      cell: () => null,
       enableSorting: false,
       enableHiding: false,
     },
@@ -208,15 +261,25 @@ function ExpandedContent({ order }: { order: AppraisalOrder }) {
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function AppraisalsTable() {
+export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNode }) {
   const [data, setData] = useState<AppraisalOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [rowSelection, setRowSelection] = useState({});
 
   const columns = buildColumns();
+
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, {})
+  );
 
   useEffect(() => {
     async function fetchOrders() {
@@ -243,9 +306,13 @@ export function AppraisalsTable() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, columnOrder, columnVisibility, rowSelection },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -253,6 +320,20 @@ export function AppraisalsTable() {
     getRowId: (row) => String(row.id),
     initialState: { pagination: { pageSize: 20 } },
   });
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (active && over && active.id !== over.id) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      if (FIXED_COLUMNS.has(activeId) || FIXED_COLUMNS.has(overId)) return;
+      const currentOrder = table.getAllLeafColumns().map((c) => c.id);
+      const oldIndex = currentOrder.indexOf(activeId);
+      const newIndex = currentOrder.indexOf(overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      setColumnOrder(arrayMove(currentOrder, oldIndex, newIndex));
+    }
+  }
 
   if (loading) {
     return (
@@ -271,38 +352,66 @@ export function AppraisalsTable() {
   }
 
   return (
-    <>
-      <div className="flex items-center gap-2 pb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by AMC, address, file #..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8"
-          />
+    <DndContext
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={handleDragEnd}
+      sensors={sensors}
+    >
+      <div className="w-full">
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by AMC, address, file #..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-8 max-w-sm"
+            />
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 bg-background">
+                <Columns2 className="w-4 h-4 mr-2" />
+                <span className="text-xs font-medium">Customize Columns</span>
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
+                  >
+                    {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {actionButton}
         </div>
       </div>
 
-      <div className="rounded-lg border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      header.column.getCanSort() && "cursor-pointer select-none",
-                      header.id === "expand" && "w-12 pl-3"
-                    )}
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+              <TableRow key={headerGroup.id} className="bg-muted">
+                <SortableContext
+                  items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {headerGroup.headers.map((header) => (
+                    <DraggableTableHeader key={header.id} header={header} />
+                  ))}
+                </SortableContext>
               </TableRow>
             ))}
           </TableHeader>
@@ -330,6 +439,7 @@ export function AppraisalsTable() {
                       aria-expanded={isOpen}
                     >
                       {row.getVisibleCells().map((cell) => {
+                        const isPinned = PINNED_RIGHT_SET.has(cell.column.id);
                         if (cell.column.id === "expand") {
                           return (
                             <TableCell key={cell.id} className="w-12 pl-3">
@@ -342,7 +452,7 @@ export function AppraisalsTable() {
                               >
                                 <ChevronDown
                                   className={cn(
-                                    "h-4 w-4 transition-transform",
+                                    "h-4 w-4 transition-transform duration-200",
                                     isOpen ? "rotate-180" : "-rotate-90"
                                   )}
                                   aria-hidden="true"
@@ -352,19 +462,40 @@ export function AppraisalsTable() {
                           );
                         }
                         return (
-                          <TableCell key={cell.id}>
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              "text-left",
+                              isPinned && "bg-background group-hover/row:bg-transparent !px-1"
+                            )}
+                            style={
+                              isPinned
+                                ? {
+                                    position: "sticky",
+                                    right: 0,
+                                    zIndex: 10,
+                                    boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)",
+                                  }
+                                : undefined
+                            }
+                          >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>
                         );
                       })}
                     </TableRow>
-                    {isOpen && (
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell colSpan={columns.length} className="p-0">
-                          <ExpandedContent order={row.original} />
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    <TableRow className="bg-muted/30 hover:bg-muted/30 border-0">
+                      <TableCell colSpan={columns.length} className="p-0">
+                        <div
+                          className="grid transition-[grid-template-rows] duration-200 ease-out"
+                          style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                        >
+                          <div className="overflow-hidden">
+                            <ExpandedContent order={row.original} />
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   </Fragment>
                 );
               })
@@ -373,21 +504,8 @@ export function AppraisalsTable() {
         </Table>
       </div>
 
-      {table.getPageCount() > 1 && (
-        <div className="flex items-center justify-between pt-4">
-          <p className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-    </>
+      <DealsStylePagination table={table} />
+      </div>
+    </DndContext>
   );
 }

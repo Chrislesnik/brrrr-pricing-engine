@@ -207,6 +207,6 @@ export const borrowerColumns: ColumnDef<Borrower>[] = [
       const b = row.original
       return <BorrowerRowActions borrower={b} />
     },
-    meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },
+    meta: { className: "w-10 text-right sticky right-0 bg-background group-hover/row:bg-transparent z-10" },
   },
 ]

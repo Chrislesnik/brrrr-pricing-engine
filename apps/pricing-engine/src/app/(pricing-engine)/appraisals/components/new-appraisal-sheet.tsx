@@ -34,7 +34,7 @@ import {
   CommandList,
 } from "@repo/ui/shadcn/command";
 import { cn } from "@repo/lib/cn";
-import { Loader2, ChevronsUpDown, Check, Plus } from "lucide-react";
+import { Loader2, ChevronsUpDown, Check } from "lucide-react";
 import { DateInput } from "@/components/date-input";
 import { CalcInput } from "@/components/calc-input";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
@@ -65,8 +65,10 @@ const formatUSPhone = (input: string) => {
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-interface AmcOption { id: number; name: string }
+interface AmcOption { id: string; name: string; integration_settings_id: number | null }
 interface BorrowerOption { id: string; first_name: string; last_name: string; email?: string }
+interface DealOption { id: string; heading: string | null; created_at: string }
+interface LoanTypeOption { name: string; other: boolean }
 
 interface NewAppraisalSheetProps {
   open: boolean;
@@ -87,14 +89,16 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   // AMC
   const [amcs, setAmcs] = useState<AmcOption[]>([]);
   const [selectedAmcId, setSelectedAmcId] = useState<string>("");
-  const [newAmcName, setNewAmcName] = useState("");
-  const [creatingAmc, setCreatingAmc] = useState(false);
 
   // Order Details
   const [lender, setLender] = useState("DSCR Loan Funder LLC");
   const [investor, setInvestor] = useState("DSCR Loan Funder LLC");
+  const [transactionTypes, setTransactionTypes] = useState<string[]>([]);
   const [transactionType, setTransactionType] = useState("");
+  const [transactionTypeSearchOpen, setTransactionTypeSearchOpen] = useState(false);
+  const [loanTypes, setLoanTypes] = useState<LoanTypeOption[]>([]);
   const [loanType, setLoanType] = useState("");
+  const [loanTypeSearchOpen, setLoanTypeSearchOpen] = useState(false);
   const [loanTypeOther, setLoanTypeOther] = useState("");
   const [loanNumber, setLoanNumber] = useState("");
   const [priority, setPriority] = useState("");
@@ -125,13 +129,17 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   const [otherAccessInfo, setOtherAccessInfo] = useState("");
 
   // Appraisal Information
+  const [products, setProducts] = useState<string[]>([]);
   const [product, setProduct] = useState("");
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [loanAmount, setLoanAmount] = useState("");
   const [salesPrice, setSalesPrice] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
 
-  // Deal ID
+  // Deal
+  const [deals, setDeals] = useState<DealOption[]>([]);
   const [dealId, setDealId] = useState("");
+  const [dealSearchOpen, setDealSearchOpen] = useState(false);
 
   // UI
   const [saving, setSaving] = useState(false);
@@ -141,9 +149,10 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
     if (!open) return;
     async function fetchData() {
       try {
-        const [amcRes, bRes] = await Promise.all([
+        const [amcRes, bRes, dRes] = await Promise.all([
           fetch("/api/appraisal-amcs"),
           fetch("/api/applicants/borrowers/list"),
+          fetch("/api/deals"),
         ]);
         if (amcRes.ok) {
           const json = await amcRes.json();
@@ -161,31 +170,69 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
             }))
           );
         }
+        if (dRes.ok) {
+          const json = await dRes.json();
+          setDeals(json.deals ?? []);
+        }
       } catch { /* ignore */ }
     }
     fetchData();
   }, [open]);
 
-  // Create AMC inline
-  const handleCreateAmc = async () => {
-    if (!newAmcName.trim()) return;
-    setCreatingAmc(true);
-    try {
-      const res = await fetch("/api/appraisal-amcs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newAmcName.trim() }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const newAmc = json.amc;
-        setAmcs((prev) => [...prev, { id: newAmc.id, name: newAmc.name }]);
-        setSelectedAmcId(String(newAmc.id));
-        setNewAmcName("");
-      }
-    } catch { /* ignore */ }
-    finally { setCreatingAmc(false); }
-  };
+  // Fetch products, transaction types, and loan types when AMC changes
+  useEffect(() => {
+    if (!selectedAmcId) {
+      setProducts([]);
+      setProduct("");
+      setTransactionTypes([]);
+      setTransactionType("");
+      setLoanTypes([]);
+      setLoanType("");
+      setLoanTypeOther("");
+      return;
+    }
+    const amc = amcs.find((a) => a.id === selectedAmcId);
+    const settingsId = amc?.integration_settings_id;
+    if (!settingsId) {
+      setProducts([]);
+      setProduct("");
+      setTransactionTypes([]);
+      setTransactionType("");
+      setLoanTypes([]);
+      setLoanType("");
+      setLoanTypeOther("");
+      return;
+    }
+    let cancelled = false;
+    async function loadAmcOptions() {
+      try {
+        const [prodRes, ttRes, ltRes] = await Promise.all([
+          fetch(`/api/appraisal-products?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-transaction-types?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-loan-types?settingsId=${settingsId}`),
+        ]);
+        if (cancelled) return;
+        if (prodRes.ok) {
+          const json = await prodRes.json();
+          setProducts(json.products ?? []);
+          setProduct("");
+        }
+        if (ttRes.ok) {
+          const json = await ttRes.json();
+          setTransactionTypes(json.transactionTypes ?? []);
+          setTransactionType("");
+        }
+        if (ltRes.ok) {
+          const json = await ltRes.json();
+          setLoanTypes(json.loanTypes ?? []);
+          setLoanType("");
+          setLoanTypeOther("");
+        }
+      } catch { /* ignore */ }
+    }
+    loadAmcOptions();
+    return () => { cancelled = true; };
+  }, [selectedAmcId, amcs]);
 
   // Select borrower & auto-populate
   const handleSelectBorrower = useCallback(async (id: string) => {
@@ -251,7 +298,7 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amc_id: selectedAmcId ? Number(selectedAmcId) : null,
+          amc_id: selectedAmcId || null,
           deal_id: dealId || null,
           borrower_id: selectedBorrowerId || null,
           borrower_name: borrowerName || null,
@@ -297,13 +344,6 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2 mt-2">
-              <Input value={newAmcName} onChange={(e) => setNewAmcName(e.target.value)} placeholder="Add new AMC..." className="h-8 text-xs flex-1" />
-              <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleCreateAmc} disabled={creatingAmc || !newAmcName.trim()}>
-                {creatingAmc ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                Add
-              </Button>
-            </div>
           </div>
 
           <Separator />
@@ -335,25 +375,70 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Transaction Type</Label>
-                  <Select value={transactionType} onValueChange={setTransactionType}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Purchase">Purchase</SelectItem>
-                      <SelectItem value="Refinance">Refinance</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={transactionTypeSearchOpen} onOpenChange={setTransactionTypeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || transactionTypes.length === 0}>
+                        <span className={cn("truncate", !transactionType && "text-muted-foreground")}>
+                          {transactionType || (selectedAmcId ? "Select type..." : "Select AMC first")}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search transaction types..." />
+                        <CommandList>
+                          <CommandEmpty>No transaction types found.</CommandEmpty>
+                          <CommandGroup>
+                            {transactionTypes.map((t) => (
+                              <CommandItem
+                                key={t}
+                                value={t}
+                                onSelect={() => { setTransactionType(t); setTransactionTypeSearchOpen(false); }}
+                              >
+                                <span className="text-sm">{t}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label className="text-xs">Loan Type</Label>
-                  <Select value={loanType} onValueChange={setLoanType}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Other (specify)">Other (specify)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={loanTypeSearchOpen} onOpenChange={setLoanTypeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || loanTypes.length === 0}>
+                        <span className={cn("truncate", !loanType && "text-muted-foreground")}>
+                          {loanType || (selectedAmcId ? "Select loan type..." : "Select AMC first")}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search loan types..." />
+                        <CommandList>
+                          <CommandEmpty>No loan types found.</CommandEmpty>
+                          <CommandGroup>
+                            {loanTypes.map((lt) => (
+                              <CommandItem
+                                key={lt.name}
+                                value={lt.name}
+                                onSelect={() => { setLoanType(lt.name); setLoanTypeSearchOpen(false); if (!lt.other) setLoanTypeOther(""); }}
+                              >
+                                <span className="text-sm">{lt.name}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
-              {loanType === "Other (specify)" && (
+              {loanTypes.find((lt) => lt.name === loanType)?.other && (
                 <div>
                   <Label className="text-xs">Other</Label>
                   <Input className="h-9" placeholder="Specify" value={loanTypeOther} onChange={(e) => setLoanTypeOther(e.target.value)} />
@@ -376,8 +461,43 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Deal ID</Label>
-                <Input className="h-9 font-mono" placeholder="Optional deal UUID" value={dealId} onChange={(e) => setDealId(e.target.value)} />
+                <Label className="text-xs">Deal</Label>
+                <Popover open={dealSearchOpen} onOpenChange={setDealSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9">
+                      <span className={cn("truncate", !dealId && "text-muted-foreground")}>
+                        {(() => {
+                          if (!dealId) return "Select deal..."
+                          const d = deals.find((d) => d.id === dealId)
+                          return d?.heading || d?.id.slice(0, 8) + "..."
+                        })()}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                    <Command>
+                      <CommandInput placeholder="Search deals..." />
+                      <CommandList>
+                        <CommandEmpty>No deals found.</CommandEmpty>
+                        <CommandGroup>
+                          {deals.map((d) => (
+                            <CommandItem
+                              key={d.id}
+                              value={`${d.heading ?? ""} ${d.id}`}
+                              onSelect={() => { setDealId(d.id); setDealSearchOpen(false); }}
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-sm font-medium">{d.heading || "Untitled Deal"}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono">{d.id.slice(0, 8)}...</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
@@ -399,10 +519,10 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                     <Command>
                       <CommandInput placeholder="Search borrowers..." />
-                      <CommandList className="max-h-48">
+                      <CommandList>
                         <CommandEmpty>No borrowers found.</CommandEmpty>
                         <CommandGroup>
                           {borrowers.map((b) => (
@@ -559,12 +679,35 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Product</Label>
-                <Select value={product} onValueChange={setProduct}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1004/1007 (SFR & Rent Sch)">1004/1007 (SFR & Rent Sch)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || products.length === 0}>
+                      <span className={cn("truncate", !product && "text-muted-foreground")}>
+                        {product || (selectedAmcId ? "Select product..." : "Select AMC first")}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                    <Command>
+                      <CommandInput placeholder="Search products..." />
+                      <CommandList>
+                        <CommandEmpty>No products found.</CommandEmpty>
+                        <CommandGroup>
+                          {products.map((p) => (
+                            <CommandItem
+                              key={p}
+                              value={p}
+                              onSelect={() => { setProduct(p); setProductSearchOpen(false); }}
+                            >
+                              <span className="text-sm">{p}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getOrgUuidFromClerkId } from "@/lib/orgs";
+import { notifyDealAssignment } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -199,24 +200,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Also keep legacy assigned_to columns in sync for backward compatibility
+    // Also keep legacy assigned_to columns in sync for backward compatibility (deals only; loans column removed)
     try {
-      if (resource_type === "loan") {
-        const { data: loan } = await supabaseAdmin
-          .from("loans")
-          .select("assigned_to_user_id")
-          .eq("id", resource_id)
-          .single();
-        const current = Array.isArray(loan?.assigned_to_user_id)
-          ? (loan.assigned_to_user_id as string[])
-          : [];
-        if (!current.includes(targetUserId)) {
-          await supabaseAdmin
-            .from("loans")
-            .update({ assigned_to_user_id: [...current, targetUserId] })
-            .eq("id", resource_id);
-        }
-      } else if (resource_type === "deal") {
+      if (resource_type === "deal") {
         const { data: deal } = await supabaseAdmin
           .from("deals")
           .select("assigned_to_user_id")
@@ -249,6 +235,34 @@ export async function POST(req: NextRequest) {
       .eq("user_id", targetUserId)
       .limit(1)
       .maybeSingle();
+
+    // Send Liveblocks notification for deal/loan assignments (don't notify yourself)
+    if ((resource_type === "deal" || resource_type === "loan") && targetUserId !== userId) {
+      try {
+        const { data: dealRow } = await supabaseAdmin
+          .from("deals")
+          .select("deal_name")
+          .eq("id", resource_id)
+          .maybeSingle();
+        const { data: assignerRow } = await supabaseAdmin
+          .from("users")
+          .select("full_name, first_name, last_name")
+          .eq("clerk_user_id", userId)
+          .maybeSingle();
+        const assignerName =
+          assignerRow?.full_name ||
+          [assignerRow?.first_name, assignerRow?.last_name].filter(Boolean).join(" ") ||
+          "Someone";
+        const dealName = dealRow?.deal_name || "a deal";
+        await notifyDealAssignment(targetUserId, {
+          dealId: resource_id,
+          dealName,
+          assignerName,
+        });
+      } catch {
+        // Notification is non-critical
+      }
+    }
 
     return NextResponse.json(
       {

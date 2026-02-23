@@ -5,13 +5,11 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@repo/ui/shadcn/sheet";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
 
 import { Download, User, FileText } from "lucide-react";
-import { cn } from "@repo/lib/cn";
 import type { CreditReport } from "./credit-table";
 
 /* -------------------------------------------------------------------------- */
@@ -38,19 +36,37 @@ function formatDateTime(dateStr: string | null): string {
   });
 }
 
+function getReportStatus(report: CreditReport): { label: string; colorVar: string; bgVar: string } {
+  const dateStr = report.report_date ?? report.created_at;
+  if (!dateStr) return { label: "Unknown", colorVar: "--muted-foreground", bgVar: "--muted" };
+  const ageMs = Date.now() - new Date(dateStr).getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays > 90) return { label: "Expired", colorVar: "--danger", bgVar: "--danger-muted" };
+  if (ageDays >= 75) return { label: "Expiring Soon", colorVar: "--warning", bgVar: "--warning-muted" };
+  return { label: "Valid", colorVar: "--success", bgVar: "--success-muted" };
+}
+
+function getDaysSincePull(report: CreditReport): number | null {
+  const dateStr = report.report_date ?? report.created_at;
+  if (!dateStr) return null;
+  const ageMs = Date.now() - new Date(dateStr).getTime();
+  return Math.floor(ageMs / (1000 * 60 * 60 * 24));
+}
+
 function ScoreCard({ label, score }: { label: string; score: number | null }) {
   const num = score !== null && score !== undefined ? Number(score) : null;
+  let scoreColor = "--danger";
+  if (num !== null) {
+    if (num >= 740) scoreColor = "--success";
+    else if (num >= 670) scoreColor = "--warning";
+  }
   return (
     <div className="flex flex-col items-center gap-1 rounded-lg border p-3 flex-1">
       <span className="text-xs text-muted-foreground uppercase font-medium">{label}</span>
       {num !== null ? (
         <span
-          className={cn(
-            "text-2xl font-bold tabular-nums",
-            num >= 740 && "text-green-600 dark:text-green-400",
-            num >= 670 && num < 740 && "text-yellow-600 dark:text-yellow-400",
-            num < 670 && "text-red-600 dark:text-red-400"
-          )}
+          className="text-2xl font-bold tabular-nums"
+          style={{ color: `hsl(var(${scoreColor}))` }}
         >
           {num}
         </span>
@@ -84,13 +100,8 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
   if (!report) return null;
 
   const name = getBorrowerName(report);
-  const status = report.status || "pending";
-  const statusColor =
-    status === "stored"
-      ? "border-green-500/50 text-green-600 dark:text-green-400"
-      : status === "failed"
-        ? "border-red-500/50 text-red-600 dark:text-red-400"
-        : "border-yellow-500/50 text-yellow-600 dark:text-yellow-400";
+  const { label: statusLabel, colorVar, bgVar } = getReportStatus(report);
+  const daysSince = getDaysSincePull(report);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -102,10 +113,16 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
             </div>
             <div className="min-w-0">
               <SheetTitle className="text-lg truncate">{name}</SheetTitle>
-              <SheetDescription className="flex items-center gap-2 mt-0.5">
-                <Badge variant="outline" className={cn("text-xs capitalize", statusColor)}>
-                  {status}
-                </Badge>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span
+                  className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+                  style={{
+                    backgroundColor: `hsl(var(${bgVar}))`,
+                    color: `hsl(var(${colorVar}))`,
+                  }}
+                >
+                  {statusLabel}
+                </span>
                 {report.aggregator_link?.aggregator && (
                   <Badge variant="secondary" className="text-xs capitalize">
                     {report.aggregator_link.aggregator}
@@ -116,7 +133,7 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
                     {report.pull_type} pull
                   </Badge>
                 )}
-              </SheetDescription>
+              </div>
             </div>
           </div>
         </SheetHeader>
@@ -140,7 +157,15 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
                 <span className="font-mono text-xs">{report.report_id || report.id.slice(0, 12) + "..."}</span>
               } />
               <DetailRow label="Status" value={
-                <Badge variant="outline" className={cn("text-xs capitalize", statusColor)}>{status}</Badge>
+                <span
+                  className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+                  style={{
+                    backgroundColor: `hsl(var(${bgVar}))`,
+                    color: `hsl(var(${colorVar}))`,
+                  }}
+                >
+                  {statusLabel}
+                </span>
               } />
               <DetailRow label="Aggregator" value={
                 <span className="capitalize">{report.aggregator_link?.aggregator || report.aggregator || "—"}</span>
@@ -148,7 +173,10 @@ export function CreditDetailSheet({ report, open, onOpenChange }: CreditDetailSh
               <DetailRow label="Pull Type" value={
                 <span className="capitalize">{report.pull_type || "—"}</span>
               } />
-              <DetailRow label="Created" value={formatDateTime(report.created_at)} />
+              <DetailRow label="Days Since Pull" value={
+                daysSince !== null ? `${daysSince} day${daysSince !== 1 ? "s" : ""}` : "—"
+              } />
+              <DetailRow label="Report Date" value={formatDateTime(report.report_date ?? report.created_at)} />
             </div>
           </div>
 

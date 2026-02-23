@@ -268,11 +268,29 @@ export async function GET(req: NextRequest) {
 
     // ── Non-deals pipeline view ─────────────────────────────────────────
     if (!orgId || !userId) {
-      return NextResponse.json({ items: [] })
+      return NextResponse.json({ items: [], starredInputs: [], addressInputs: [] })
     }
 
-    const data = await getPipelineLoansForOrg(orgId, userId)
-    return NextResponse.json({ items: data })
+    const [data, starredRes, addressRes] = await Promise.all([
+      getPipelineLoansForOrg(orgId, userId),
+      supabaseAdmin
+        .from("pricing_engine_inputs")
+        .select("id, input_label, input_code, input_type, dropdown_options, starred, display_order, config")
+        .eq("starred", true)
+        .is("archived_at", null)
+        .order("display_order", { ascending: true }),
+      supabaseAdmin
+        .from("pricing_engine_inputs")
+        .select("id, input_label, input_code, input_type, config")
+        .filter("config->>address_group", "eq", "property")
+        .is("archived_at", null)
+        .order("display_order", { ascending: true }),
+    ])
+
+    const starredInputs = (starredRes.data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
+    const addressInputs = (addressRes.data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
+
+    return NextResponse.json({ items: data, starredInputs, addressInputs })
   } catch (error) {
     console.error("Pipeline API error:", error)
     return NextResponse.json({ items: [], error: "Failed to fetch pipeline data" }, { status: 500 })

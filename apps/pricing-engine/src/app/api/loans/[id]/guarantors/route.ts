@@ -48,8 +48,8 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     let entityName: string | null = null
     if (appRow.entity_id) {
       entityIds = [appRow.entity_id]
-      const { data: ent } = await supabaseAdmin.from("entities").select("name").eq("id", appRow.entity_id).maybeSingle()
-      entityName = (ent?.name as string) ?? appRow.borrower_name ?? null
+      const { data: ent } = await supabaseAdmin.from("entities").select("entity_name").eq("id", appRow.entity_id).maybeSingle()
+      entityName = (ent?.entity_name as string) ?? appRow.borrower_name ?? null
     } else {
       entityName = appRow.borrower_name ?? null
     }

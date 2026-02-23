@@ -73,6 +73,88 @@ import { DataTableColumnHeader } from "../../users/components/data-table-column-
 import { LoanRow } from "../data/fetch-loans"
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog"
 
+/* -------------------------------------------------------------------------- */
+/*  Shared types for starred / address inputs                                  */
+/* -------------------------------------------------------------------------- */
+
+export interface StarredInput {
+  id: string
+  input_label: string
+  input_code: string
+  input_type: string
+  dropdown_options: string[] | null
+  starred: boolean
+  display_order: number
+  config?: Record<string, unknown>
+}
+
+export interface AddressInput {
+  id: string
+  input_label: string
+  input_code: string
+  input_type: string
+  config?: { address_role?: string; address_group?: string; [k: string]: unknown }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Dynamic cell renderer for starred input columns                            */
+/* -------------------------------------------------------------------------- */
+
+function renderDynamicCell(value: unknown, inputType: string): React.ReactNode {
+  if (value == null || value === "") return <span className="text-muted-foreground">-</span>
+
+  switch (inputType) {
+    case "currency": {
+      const num = typeof value === "number" ? value : Number(value)
+      if (isNaN(num)) return <span className="text-muted-foreground">-</span>
+      return (
+        <div>
+          {new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+            maximumFractionDigits: 0,
+          }).format(num)}
+        </div>
+      )
+    }
+    case "number": {
+      return <div>{String(value)}</div>
+    }
+    case "percentage": {
+      return <div>{String(value)}%</div>
+    }
+    case "date": {
+      const str = String(value)
+      try {
+        return <div>{new Date(str).toLocaleDateString()}</div>
+      } catch {
+        return <div>{str}</div>
+      }
+    }
+    case "dropdown": {
+      const display = String(value)
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase())
+      return <Badge variant="outline">{display}</Badge>
+    }
+    case "boolean": {
+      const bool = value === true || value === "true"
+      return (
+        <Badge variant={bool ? "default" : "outline"}>
+          {bool ? "Yes" : "No"}
+        </Badge>
+      )
+    }
+    case "text":
+    default:
+      return <div className="max-w-[200px] truncate">{String(value)}</div>
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
 const statusStyles: Record<string, string> = {
   active: "bg-success-muted text-success border-success/30",
   inactive: "bg-danger-muted text-danger border-danger/30",
@@ -85,312 +167,299 @@ const statusLabels: Record<string, string> = {
   archived: "Archived",
 }
 
-export const pipelineColumns: ColumnDef<LoanRow>[] = [
-  // Hidden combined search column to enable single-input OR filtering across fields
-  {
-    id: "search",
-    accessorFn: (row) => {
-      const borrowerFirst =
-        (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
-        (row as { firstName?: string; borrowerFirstName?: string })
-          .borrowerFirstName ??
-        ""
-      const borrowerLast =
-        (row as { lastName?: string; borrowerLastName?: string }).lastName ??
-        (row as { lastName?: string; borrowerLastName?: string })
-          .borrowerLastName ??
-        ""
-      const borrower = [borrowerFirst, borrowerLast]
-        .filter(Boolean)
-        .join(" ")
-        .trim()
-      const guarantors = Array.isArray(
-        (row as { guarantors?: string[] }).guarantors
-      )
-        ? ((row as { guarantors?: string[] }).guarantors as string[]).join(", ")
-        : ""
-      const address =
-        (row as { propertyAddress?: string }).propertyAddress ?? ""
-      const id = (row as { id?: string }).id ?? ""
-      return [id, address, borrower, guarantors]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
+function assembleAddress(row: LoanRow, addressInputs: AddressInput[]): string | undefined {
+  const byId = (row as { inputsById?: Record<string, unknown> }).inputsById
+  if (!byId || addressInputs.length === 0) {
+    // Fallback to legacy address assembly
+    const addr = (row as { address?: Record<string, string> }).address
+    if (!addr) return undefined
+    const stateZip = [addr.state, addr.zip].filter(Boolean).join(" ")
+    const parts = [addr.street, addr.city, stateZip].filter((p) => p?.trim())
+    return parts.length ? parts.join(", ") : undefined
+  }
+
+  const roleToValue = new Map<string, string>()
+  for (const inp of addressInputs) {
+    const role = inp.config?.address_role
+    if (!role) continue
+    const val = byId[inp.id]
+    if (val != null && String(val).trim()) {
+      roleToValue.set(role, String(val).trim())
+    }
+  }
+
+  const street = roleToValue.get("street") ?? ""
+  const apt = roleToValue.get("apt") ?? ""
+  const city = roleToValue.get("city") ?? ""
+  const state = roleToValue.get("state") ?? ""
+  const zip = roleToValue.get("zip") ?? ""
+
+  const streetPart = apt ? `${street} ${apt}`.trim() : street
+  const stateZip = [state, zip].filter(Boolean).join(" ")
+  const parts = [streetPart, city, stateZip].filter((p) => p.trim().length > 0)
+  return parts.length ? parts.join(", ") : undefined
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Column factory                                                             */
+/* -------------------------------------------------------------------------- */
+
+export function createPipelineColumns(
+  starredInputs: StarredInput[],
+  addressInputs: AddressInput[],
+): ColumnDef<LoanRow>[] {
+  // --- Fixed start columns ---
+  const fixedStart: ColumnDef<LoanRow>[] = [
+    {
+      id: "search",
+      accessorFn: (row) => {
+        const borrowerFirst =
+          (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
+          (row as { firstName?: string; borrowerFirstName?: string })
+            .borrowerFirstName ??
+          ""
+        const borrowerLast =
+          (row as { lastName?: string; borrowerLastName?: string }).lastName ??
+          (row as { lastName?: string; borrowerLastName?: string })
+            .borrowerLastName ??
+          ""
+        const borrower = [borrowerFirst, borrowerLast]
+          .filter(Boolean)
+          .join(" ")
+          .trim()
+        const guarantors = Array.isArray(
+          (row as { guarantors?: string[] }).guarantors
+        )
+          ? ((row as { guarantors?: string[] }).guarantors as string[]).join(", ")
+          : ""
+        const address = assembleAddress(row, addressInputs) ?? ""
+        const id = (row as { id?: string }).id ?? ""
+        return [id, address, borrower, guarantors]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+      },
+      header: () => null,
+      cell: () => null,
+      filterFn: (row, columnId, filterValue) => {
+        const haystack = String(row.getValue(columnId) ?? "")
+        const needle = String(filterValue ?? "").toLowerCase()
+        if (!needle) return true
+        return haystack.includes(needle)
+      },
+      meta: { className: "hidden" },
+      enableSorting: false,
+      enableHiding: true,
     },
-    header: () => null,
-    cell: () => null,
-    filterFn: (row, columnId, filterValue) => {
-      const haystack = String(row.getValue(columnId) ?? "")
-      const needle = String(filterValue ?? "").toLowerCase()
-      if (!needle) return true
-      return haystack.includes(needle)
+    {
+      accessorKey: "displayId",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="ID" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm font-medium">{row.getValue("displayId")}</span>
+      ),
+      meta: { className: "w-28" },
+      enableSorting: false,
     },
-    // Hide via CSS so it doesn't affect layout or visibility
-    meta: { className: "hidden" },
-    enableSorting: false,
-    enableHiding: true,
-  },
-  {
-    accessorKey: "displayId",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="ID" />
+    {
+      id: "propertyAddress",
+      accessorFn: (row) => assembleAddress(row, addressInputs) ?? null,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Property Address" />
+      ),
+      cell: ({ row }) => {
+        const id = (row.original as Record<string, unknown>).id as string | undefined
+        const addr = (row.getValue("propertyAddress") as string | undefined) ?? "-"
+        if (!id || addr === "-") {
+          return <LongText className="max-w-[520px]">{addr}</LongText>
+        }
+        const href = `/pricing?loanId=${encodeURIComponent(id)}`
+        return (
+          <Link
+            href={href}
+            className="text-primary hover:underline"
+            aria-label={`Open pricing engine for loan ${id}`}
+          >
+            <LongText className="max-w-[520px]">{addr}</LongText>
+          </Link>
+        )
+      },
+      enableSorting: false,
+    },
+    {
+      id: "borrower",
+      accessorFn: (row) => {
+        const firstName =
+          (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
+          (row as { firstName?: string; borrowerFirstName?: string })
+            .borrowerFirstName
+        const lastName =
+          (row as { lastName?: string; borrowerLastName?: string }).lastName ??
+          (row as { lastName?: string; borrowerLastName?: string })
+            .borrowerLastName
+        return [firstName, lastName].filter(Boolean).join(" ").trim()
+      },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Borrower" />
+      ),
+      cell: ({ row }) => {
+        const firstName =
+          (row.original as { firstName?: string; borrowerFirstName?: string })
+            .firstName ??
+          (row.original as { firstName?: string; borrowerFirstName?: string })
+            .borrowerFirstName
+        const lastName =
+          (row.original as { lastName?: string; borrowerLastName?: string })
+            .lastName ??
+          (row.original as { lastName?: string; borrowerLastName?: string })
+            .borrowerLastName
+        const display =
+          [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
+        return <div>{display}</div>
+      },
+      enableSorting: false,
+    },
+    {
+      accessorKey: "guarantors",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Guarantor(s)" />
+      ),
+      cell: ({ row }) => {
+        const raw = row.getValue("guarantors")
+        const gs: string[] = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] } })() : []
+        return (
+          <LongText className="max-w-48">
+            {gs.length ? gs.join(", ") : "-"}
+          </LongText>
+        )
+      },
+      filterFn: (row, columnId, filterValue) => {
+        const term = String(filterValue ?? "").toLowerCase()
+        if (!term) return true
+        const raw = row.getValue(columnId)
+        const gs: string[] = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] } })() : []
+        const joined = gs.join(", ").toLowerCase()
+        return joined.includes(term)
+      },
+      enableSorting: false,
+    },
+  ]
+
+  // --- Dynamic starred columns ---
+  // Skip address inputs (they are composed into the Property Address column)
+  const addressInputIds = new Set(addressInputs.map((a) => a.id))
+  const dynamicInputs = starredInputs.filter((inp) => !addressInputIds.has(inp.id))
+
+  const dynamicCols: ColumnDef<LoanRow>[] = dynamicInputs.map((input) => ({
+    id: input.input_code,
+    accessorFn: (row: LoanRow) => {
+      const byId = (row as { inputsById?: Record<string, unknown> }).inputsById
+      return byId?.[input.id] ?? null
+    },
+    header: ({ column }: { column: any }) => (
+      <DataTableColumnHeader column={column} title={input.input_label} />
     ),
-    cell: ({ row }) => (
-      <span className="text-sm font-medium">{row.getValue("displayId")}</span>
-    ),
-    meta: { className: "w-28" },
-    enableSorting: false,
-  },
-  {
-    accessorKey: "propertyAddress",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Property Address" />
-    ),
-    cell: ({ row }) => {
-      const id = (row.original as Record<string, unknown>).id as string | undefined
-      const addr =
-        (row.getValue("propertyAddress") as string | undefined) ?? "-"
-      if (!id || addr === "-") {
-        return <LongText className="max-w-[520px]">{addr}</LongText>
-      }
-      const href = `/pricing?loanId=${encodeURIComponent(id)}`
-      return (
-        <Link
-          href={href}
-          className="text-primary hover:underline"
-          aria-label={`Open pricing engine for loan ${id}`}
-        >
-          <LongText className="max-w-[520px]">{addr}</LongText>
-        </Link>
-      )
-    },
-    enableSorting: false,
-  },
-  {
-    id: "borrower",
-    accessorFn: (row) => {
-      const firstName =
-        // Prefer canonical keys if present, otherwise fall back to alternate names
-        (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
-        (row as { firstName?: string; borrowerFirstName?: string })
-          .borrowerFirstName
-      const lastName =
-        (row as { lastName?: string; borrowerLastName?: string }).lastName ??
-        (row as { lastName?: string; borrowerLastName?: string })
-          .borrowerLastName
-      const display = [firstName, lastName].filter(Boolean).join(" ").trim()
-      return display
-    },
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Borrower" />
-    ),
-    cell: ({ row }) => {
-      const firstName =
-        // Prefer canonical keys if present, otherwise fall back to alternate names
-        (row.original as { firstName?: string; borrowerFirstName?: string })
-          .firstName ??
-        (row.original as { firstName?: string; borrowerFirstName?: string })
-          .borrowerFirstName
-      const lastName =
-        (row.original as { lastName?: string; borrowerLastName?: string })
-          .lastName ??
-        (row.original as { lastName?: string; borrowerLastName?: string })
-          .borrowerLastName
-      const display =
-        [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
-      return <div>{display}</div>
-    },
-    enableSorting: false,
-  },
-  {
-    accessorKey: "guarantors",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Guarantor(s)" />
-    ),
-    cell: ({ row }) => {
-      const gs = (row.getValue("guarantors") as string[]) ?? []
-      return (
-        <LongText className="max-w-48">
-          {gs.length ? gs.join(", ") : "-"}
-        </LongText>
-      )
-    },
-    filterFn: (row, columnId, filterValue) => {
-      const term = String(filterValue ?? "").toLowerCase()
-      if (!term) return true
-      const gs = (row.getValue(columnId) as string[]) ?? []
-      const joined = gs.join(", ").toLowerCase()
-      return joined.includes(term)
-    },
-    enableSorting: false,
-  },
-  {
-    accessorKey: "loanType",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Loan Type" />
-    ),
-    cell: ({ row }) => {
-      const raw = (
-        row.getValue("loanType") as string | undefined
-      )?.toLowerCase()
-      const display =
-        raw === "dscr" ? "DSCR" : raw === "bridge" ? "Bridge" : raw ? raw : "-"
-      return <div>{display}</div>
-    },
-    // OR matching across selected values (e.g., DSCR OR Bridge)
-    filterFn: (row, columnId, filterValue) => {
-      const selected = Array.isArray(filterValue)
-        ? (filterValue as string[])
-        : []
+    cell: ({ getValue }: { getValue: () => unknown }) =>
+      renderDynamicCell(getValue(), input.input_type),
+    filterFn: (row: any, columnId: string, filterValue: unknown) => {
+      const selected = Array.isArray(filterValue) ? (filterValue as string[]) : []
       if (selected.length === 0) return true
       const cell = String(row.getValue(columnId) ?? "").toLowerCase()
       return selected.some((s) => cell === String(s).toLowerCase())
     },
     enableSorting: false,
-  },
-  {
-    accessorKey: "transactionType",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Transaction Type" />
-    ),
-    cell: ({ row }) => {
-      const raw = (row.getValue("transactionType") as string | undefined) ?? ""
-      if (!raw) return <div>-</div>
-      const lower = raw.toLowerCase()
-      const mapping: Record<string, string> = {
-        "delayed-purchase": "Delayed Purchase",
-        "rt-refi": "Refinance Rate/Term",
-        "co-refi": "Refinance Cash Out",
-        purchase: "Purchase",
-      }
-      const title =
-        mapping[lower] ??
-        raw.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      return <div>{title}</div>
+  }))
+
+  // --- Fixed end columns ---
+  const fixedEnd: ColumnDef<LoanRow>[] = [
+    {
+      accessorKey: "status",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Status" />
+      ),
+      cell: ({ row }) => (
+        <StatusCell
+          id={(row.original as Record<string, unknown>).id as string}
+          initialStatus={row.getValue("status") as string}
+        />
+      ),
+      filterFn: (row, columnId, filterValue) => {
+        const selected = Array.isArray(filterValue)
+          ? (filterValue as string[])
+          : []
+        const cell = String(row.getValue(columnId) ?? "").toLowerCase()
+        if (cell === "archived") {
+          return selected.some((s) => String(s).toLowerCase() === "archived")
+        }
+        if (selected.length === 0) return true
+        return selected.some((s) => cell === String(s).toLowerCase())
+      },
+      enableSorting: false,
+      enableHiding: false,
     },
-    // OR matching for selected transaction types
-    filterFn: (row, columnId, filterValue) => {
-      const selected = Array.isArray(filterValue)
-        ? (filterValue as string[])
-        : []
-      if (selected.length === 0) return true
-      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
-      return selected.some((s) => cell === String(s).toLowerCase())
+    {
+      accessorKey: "assignedTo",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Assigned To" />
+      ),
+      cell: ({ row }) => <div>{row.getValue("assignedTo") ?? "-"}</div>,
+      filterFn: (row, columnId, filterValue) => {
+        const selected = Array.isArray(filterValue)
+          ? (filterValue as string[])
+          : []
+        if (selected.length === 0) return true
+        const cell = String(row.getValue(columnId) ?? "").toLowerCase()
+        return selected.some((name) => cell.includes(String(name).toLowerCase()))
+      },
+      enableSorting: false,
     },
-    enableSorting: false,
-  },
-  {
-    accessorKey: "loanAmount",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Loan Amount" />
-    ),
-    cell: ({ row }) => {
-      const val = row.getValue("loanAmount") as number | undefined
-      if (val == null) return <div>-</div>
-      const currency = new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      })
-      return <div>{currency.format(val)}</div>
+    {
+      accessorKey: "updatedAt",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Last Edited" />
+      ),
+      cell: ({ row }) => {
+        const raw = row.getValue("updatedAt") as string | Date
+        const date = typeof raw === "string" ? new Date(raw) : (raw as Date)
+        return (
+          <div className="w-fit text-nowrap">{format(date, "dd MMM, yyyy")}</div>
+        )
+      },
+      enableSorting: true,
     },
-  },
-  {
-    accessorKey: "rate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Rate" />
-    ),
-    cell: ({ row }) => {
-      const val = row.getValue("rate") as number | undefined
-      return <div>{val != null ? `${Number(val).toFixed(3)}%` : "-"}</div>
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Created At" />
+      ),
+      cell: ({ row }) => {
+        const raw = row.getValue("createdAt") as string | Date
+        const date = typeof raw === "string" ? new Date(raw) : (raw as Date)
+        return (
+          <div className="w-fit text-nowrap">{format(date, "dd MMM, yyyy")}</div>
+        )
+      },
+      enableSorting: true,
     },
-  },
-  {
-    accessorKey: "status",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
-    ),
-    cell: ({ row }) => (
-      <StatusCell
-        id={(row.original as Record<string, unknown>).id as string}
-        initialStatus={row.getValue("status") as string}
-      />
-    ),
-    // OR matching for status — archived rows ONLY show when "Archived" filter is selected
-    filterFn: (row, columnId, filterValue) => {
-      const selected = Array.isArray(filterValue)
-        ? (filterValue as string[])
-        : []
-      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
-      // Always hide archived unless explicitly requested
-      if (cell === "archived") {
-        return selected.some((s) => String(s).toLowerCase() === "archived")
-      }
-      if (selected.length === 0) return true
-      return selected.some((s) => cell === String(s).toLowerCase())
+    {
+      id: "actions",
+      header: () => null,
+      cell: ({ row }) => {
+        const status = (
+          row.getValue("status") as string | undefined
+        )?.toLowerCase()
+        const id = (row.original as Record<string, unknown>).id as string
+        return <RowActions id={id} status={status} />
+      },
+      meta: { className: "w-10 text-right sticky right-0 bg-background group-hover/row:bg-transparent z-10" },
+      enableSorting: false,
+      enableHiding: false,
     },
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "assignedTo",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Assigned To" />
-    ),
-    cell: ({ row }) => <div>{row.getValue("assignedTo") ?? "-"}</div>,
-    filterFn: (row, columnId, filterValue) => {
-      const selected = Array.isArray(filterValue)
-        ? (filterValue as string[])
-        : []
-      if (selected.length === 0) return true
-      const cell = String(row.getValue(columnId) ?? "").toLowerCase()
-      return selected.some((name) => cell.includes(String(name).toLowerCase()))
-    },
-    enableSorting: false,
-  },
-  {
-    accessorKey: "updatedAt",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Last Edited" />
-    ),
-    cell: ({ row }) => {
-      const raw = row.getValue("updatedAt") as string | Date
-      const date = typeof raw === "string" ? new Date(raw) : (raw as Date)
-      return (
-        <div className="w-fit text-nowrap">{format(date, "dd MMM, yyyy")}</div>
-      )
-    },
-    enableSorting: true,
-  },
-  {
-    accessorKey: "createdAt",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Created At" />
-    ),
-    cell: ({ row }) => {
-      const raw = row.getValue("createdAt") as string | Date
-      const date = typeof raw === "string" ? new Date(raw) : (raw as Date)
-      return (
-        <div className="w-fit text-nowrap">{format(date, "dd MMM, yyyy")}</div>
-      )
-    },
-    enableSorting: true,
-  },
-  {
-    id: "actions",
-    header: () => null,
-    cell: ({ row }) => {
-      const status = (
-        row.getValue("status") as string | undefined
-      )?.toLowerCase()
-      const id = (row.original as Record<string, unknown>).id as string
-      return <RowActions id={id} status={status} />
-    },
-    meta: { className: "w-10 text-right sticky right-0 bg-background z-10" },
-    enableSorting: false,
-    enableHiding: false,
-  },
-]
+  ]
+
+  return [...fixedStart, ...dynamicCols, ...fixedEnd]
+}
 
 export function RowActions({ id, status }: { id: string; status?: string }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)

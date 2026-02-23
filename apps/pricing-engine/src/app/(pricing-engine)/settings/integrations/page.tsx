@@ -8,10 +8,10 @@ import { Input } from "@repo/ui/shadcn/input"
 import { PasswordInput } from "@repo/ui/custom/password-input"
 import { Label } from "@repo/ui/shadcn/label"
 import { Separator } from "@repo/ui/shadcn/separator"
-import { Switch } from "@repo/ui/shadcn/switch"
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/shadcn/tabs"
 import { Badge } from "@repo/ui/shadcn/badge"
-import { Check, Cog, ExternalLink, Plus, Search, Archive } from "lucide-react"
+import { Check, ChevronRight, Cog, ExternalLink, Plus, Search, Archive } from "lucide-react"
+import { cn } from "@repo/lib/cn"
 import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon"
 import { getIntegration } from "@/components/workflow-builder/plugins"
 import type { IntegrationType } from "@/components/workflow-builder/lib/types/integration"
@@ -157,7 +157,11 @@ type WorkflowIntegrationItem = {
   configured: boolean
 }
 
-const workflowIntegrationMeta: Record<string, { label: string; description: string; link?: string }> = {
+const allIntegrationMeta: Record<string, { label: string; description: string; link?: string }> = {
+  floify: { label: "Floify", description: "Manage loan applications, documents, and borrower communication.", link: "https://floify.com/" },
+  xactus: { label: "Xactus", description: "Pull credit reports and borrower verification data.", link: "https://xactus.com/" },
+  clear: { label: "Clear (Thomson Reuters)", description: "Run background and identity checks.", link: "https://legal.thomsonreuters.com/en/products/clear" },
+  nadlan: { label: "Nadlan Valuation", description: "Order property appraisals and valuations.", link: "https://nadlanvaluation.com/" },
   perplexity: { label: "Perplexity", description: "AI-powered web search.", link: "https://perplexity.ai/settings/api" },
   "ai-gateway": { label: "AI Gateway / OpenAI", description: "Generate text and images with AI models.", link: "https://platform.openai.com/api-keys" },
   fal: { label: "fal.ai", description: "Generate images and video with Flux models.", link: "https://fal.ai/dashboard/keys" },
@@ -176,8 +180,8 @@ const workflowIntegrationMeta: Record<string, { label: string; description: stri
   superagent: { label: "Superagent", description: "Run AI agent workflows.", link: "https://superagent.sh" },
 }
 
-/** Integration types that are NOT platform types (floify, xactus, clear, nadlan) */
-const WORKFLOW_TYPES = Object.keys(workflowIntegrationMeta)
+const PLATFORM_TYPES = ["floify", "xactus", "clear", "nadlan"]
+const WORKFLOW_TYPES = Object.keys(allIntegrationMeta).filter((t) => !PLATFORM_TYPES.includes(t))
 
 export default function SettingsIntegrationsPage() {
   const [activeIntegrations, setActiveIntegrations] = React.useState<IntegrationType[]>(baseIntegrations)
@@ -187,306 +191,40 @@ export default function SettingsIntegrationsPage() {
   const [error, setError] = React.useState<string | null>(null)
   const { toast } = useToast()
 
-  // Workflow integrations state
+  // All connections (flat list)
   const [workflowIntegrations, setWorkflowIntegrations] = React.useState<WorkflowIntegrationItem[]>([])
+
+  // Modal state
   const [wfAddModalOpen, setWfAddModalOpen] = React.useState(false)
   const [wfAddType, setWfAddType] = React.useState("")
+  const [wfAddName, setWfAddName] = React.useState("")
+  const [wfEditId, setWfEditId] = React.useState<string | null>(null)
   const [wfAddFieldValues, setWfAddFieldValues] = React.useState<Record<string, string>>({})
   const [wfAddLoading, setWfAddLoading] = React.useState(false)
   const [wfAddError, setWfAddError] = React.useState<string | null>(null)
 
-  const [floifyModalOpen, setFloifyModalOpen] = React.useState(false)
-  const [floifyApiKey, setFloifyApiKey] = React.useState("")
-  const [floifyUserApiKey, setFloifyUserApiKey] = React.useState("")
-  const [floifyLoading, setFloifyLoading] = React.useState(false)
-  const [floifyError, setFloifyError] = React.useState<string | null>(null)
+  // Expand/collapse per integration type
+  const [expandedTypes, setExpandedTypes] = React.useState<Set<string>>(new Set())
 
-  const [xactusModalOpen, setXactusModalOpen] = React.useState(false)
-  const [xactusAccountUser, setXactusAccountUser] = React.useState("")
-  const [xactusAccountPassword, setXactusAccountPassword] = React.useState("")
-  const [xactusLoading, setXactusLoading] = React.useState(false)
-  const [xactusError, setXactusError] = React.useState<string | null>(null)
-
-  const [clearModalOpen, setClearModalOpen] = React.useState(false)
-  const [clearUsername, setClearUsername] = React.useState("")
-  const [clearPassword, setClearPassword] = React.useState("")
-  const [clearLoading, setClearLoading] = React.useState(false)
-  const [clearError, setClearError] = React.useState<string | null>(null)
-
-  const [nadlanModalOpen, setNadlanModalOpen] = React.useState(false)
-  const [nadlanUsername, setNadlanUsername] = React.useState("")
-  const [nadlanPassword, setNadlanPassword] = React.useState("")
-  const [nadlanLoading, setNadlanLoading] = React.useState(false)
-  const [nadlanError, setNadlanError] = React.useState<string | null>(null)
-
-  const loadFloify = async () => {
-    setFloifyModalOpen(true)
-    setFloifyLoading(true)
-    setFloifyError(null)
-    try {
-      const res = await fetch("/api/integrations/floify", { cache: "no-store" })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      const j = (await res.json().catch(() => ({}))) as { row?: { x_api_key?: string | null; user_api_key?: string | null } }
-      setFloifyApiKey(j.row?.x_api_key ?? "")
-      setFloifyUserApiKey(j.row?.user_api_key ?? "")
-    } catch (e) {
-      setFloifyError(e instanceof Error ? e.message : "Failed to load Floify settings")
-    } finally {
-      setFloifyLoading(false)
-    }
-  }
-
-  const handleFloifySave = async () => {
-    setFloifyError(null)
-    setFloifyLoading(true)
-    try {
-      const res = await fetch("/api/integrations/floify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x_api_key: floifyApiKey.trim(), user_api_key: floifyUserApiKey.trim() }),
-      })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      toast({ title: "Saved", description: "Floify API key saved." })
-      setFloifyModalOpen(false)
-      // Refresh main list to ensure status stays in sync
-      setLoading(true)
-      const resList = await fetch("/api/integrations", { cache: "no-store" })
-      if (resList.ok) {
-        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
-        const rows = j.rows ?? []
-        setActiveIntegrations(
-          baseIntegrations.map((integration) => {
-            const row = rows.find((r) => r.type === integration.icon)
-            return {
-              ...integration,
-              enabled: row?.status ?? false,
-              hasKey: row?.has_key,
-            }
-          })
-        )
-      }
-    } catch (e) {
-      setFloifyError(e instanceof Error ? e.message : "Failed to save Floify API key")
-    } finally {
-      setFloifyLoading(false)
-      setLoading(false)
-    }
-  }
-
-  const loadXactus = async () => {
-    setXactusModalOpen(true)
-    setXactusLoading(true)
-    setXactusError(null)
-    try {
-      const res = await fetch("/api/integrations/xactus", { cache: "no-store" })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      const j = (await res.json().catch(() => ({}))) as { row?: { account_user?: string | null; account_password?: string | null } }
-      setXactusAccountUser(j.row?.account_user ?? "")
-      setXactusAccountPassword(j.row?.account_password ?? "")
-    } catch (e) {
-      setXactusError(e instanceof Error ? e.message : "Failed to load Xactus settings")
-    } finally {
-      setXactusLoading(false)
-    }
-  }
-
-  const handleXactusSave = async () => {
-    setXactusError(null)
-    setXactusLoading(true)
-    try {
-      const res = await fetch("/api/integrations/xactus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account_user: xactusAccountUser.trim(), account_password: xactusAccountPassword.trim() }),
-      })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      toast({ title: "Saved", description: "Xactus credentials saved." })
-      setXactusModalOpen(false)
-      // Refresh main list to ensure status stays in sync
-      setLoading(true)
-      const resList = await fetch("/api/integrations", { cache: "no-store" })
-      if (resList.ok) {
-        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
-        const rows = j.rows ?? []
-        setActiveIntegrations(
-          baseIntegrations.map((integration) => {
-            const row = rows.find((r) => r.type === integration.icon)
-            return {
-              ...integration,
-              enabled: row?.status ?? false,
-              hasKey: row?.has_key,
-            }
-          })
-        )
-      }
-    } catch (e) {
-      setXactusError(e instanceof Error ? e.message : "Failed to save Xactus credentials")
-    } finally {
-      setXactusLoading(false)
-      setLoading(false)
-    }
-  }
-
-  const loadClear = async () => {
-    setClearModalOpen(true)
-    setClearLoading(true)
-    setClearError(null)
-    try {
-      const res = await fetch("/api/integrations/clear", { cache: "no-store" })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      const j = (await res.json().catch(() => ({}))) as { row?: { username?: string | null; password?: string | null } }
-      setClearUsername(j.row?.username ?? "")
-      setClearPassword(j.row?.password ?? "")
-    } catch (e) {
-      setClearError(e instanceof Error ? e.message : "Failed to load Clear settings")
-    } finally {
-      setClearLoading(false)
-    }
-  }
-
-  const handleClearSave = async () => {
-    setClearError(null)
-    setClearLoading(true)
-    try {
-      const res = await fetch("/api/integrations/clear", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: clearUsername.trim(), password: clearPassword.trim() }),
-      })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      toast({ title: "Saved", description: "Clear credentials saved." })
-      setClearModalOpen(false)
-      // Refresh main list to ensure status stays in sync
-      setLoading(true)
-      const resList = await fetch("/api/integrations", { cache: "no-store" })
-      if (resList.ok) {
-        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
-        const rows = j.rows ?? []
-        setActiveIntegrations(
-          baseIntegrations.map((integration) => {
-            const row = rows.find((r) => r.type === integration.icon)
-            return {
-              ...integration,
-              enabled: row?.status ?? false,
-              hasKey: row?.has_key,
-            }
-          })
-        )
-      }
-    } catch (e) {
-      setClearError(e instanceof Error ? e.message : "Failed to save Clear credentials")
-    } finally {
-      setClearLoading(false)
-      setLoading(false)
-    }
-  }
-
-  const loadNadlan = async () => {
-    setNadlanModalOpen(true)
-    setNadlanLoading(true)
-    setNadlanError(null)
-    try {
-      const res = await fetch("/api/integrations/nadlan", { cache: "no-store" })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      const j = (await res.json().catch(() => ({}))) as { row?: { username?: string | null; password?: string | null } }
-      setNadlanUsername(j.row?.username ?? "")
-      setNadlanPassword(j.row?.password ?? "")
-    } catch (e) {
-      setNadlanError(e instanceof Error ? e.message : "Failed to load Nadlan settings")
-    } finally {
-      setNadlanLoading(false)
-    }
-  }
-
-  const handleNadlanSave = async () => {
-    setNadlanError(null)
-    setNadlanLoading(true)
-    try {
-      const res = await fetch("/api/integrations/nadlan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: nadlanUsername.trim(), password: nadlanPassword.trim() }),
-      })
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
-      toast({ title: "Saved", description: "Nadlan Valuation credentials saved." })
-      setNadlanModalOpen(false)
-      // Refresh main list to ensure status stays in sync
-      setLoading(true)
-      const resList = await fetch("/api/integrations", { cache: "no-store" })
-      if (resList.ok) {
-        const j = (await resList.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
-        const rows = j.rows ?? []
-        setActiveIntegrations(
-          baseIntegrations.map((integration) => {
-            const row = rows.find((r) => r.type === integration.icon)
-            return {
-              ...integration,
-              enabled: row?.status ?? false,
-              hasKey: row?.has_key,
-            }
-          })
-        )
-      }
-    } catch (e) {
-      setNadlanError(e instanceof Error ? e.message : "Failed to save Nadlan credentials")
-    } finally {
-      setNadlanLoading(false)
-      setLoading(false)
-    }
-  }
-
-  React.useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch("/api/integrations", { cache: "no-store" })
-        if (!res.ok) {
-          throw new Error(await res.text())
-        }
-        const j = (await res.json().catch(() => ({}))) as { rows?: Array<{ type: string; status: boolean; has_key?: boolean }> }
-        if (cancelled) return
-        const rows = j.rows ?? []
-        setActiveIntegrations(
-          baseIntegrations.map((integration) => {
-            const row = rows.find((r) => r.type === integration.icon)
-            return {
-              ...integration,
-              enabled: row?.status ?? false,
-              hasKey: row?.has_key,
-            }
-          })
-        )
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load integrations")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
+  const toggleExpanded = React.useCallback((type: string) => {
+    setExpandedTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
   }, [])
 
-  // Load workflow integrations
+  // Group connections by type
+  const connectionsByType = React.useMemo(() => {
+    const map: Record<string, WorkflowIntegrationItem[]> = {}
+    for (const item of workflowIntegrations) {
+      if (!map[item.type]) map[item.type] = []
+      map[item.type]!.push(item)
+    }
+    return map
+  }, [workflowIntegrations])
+
   const loadWorkflowIntegrations = React.useCallback(async () => {
     try {
       const res = await fetch("/api/workflow-integrations", { cache: "no-store" })
@@ -495,15 +233,22 @@ export default function SettingsIntegrationsPage() {
       const items = (j.integrations ?? []) as Array<{
         id: string; type: string; name: string; config: Record<string, string>
       }>
-      // Only show workflow types (not platform types which are shown above)
-      const filtered = items.filter((i) => WORKFLOW_TYPES.includes(i.type))
       setWorkflowIntegrations(
-        filtered.map((i) => ({
+        items.map((i) => ({
           id: i.id,
           type: i.type,
-          name: i.name || workflowIntegrationMeta[i.type]?.label || i.type,
+          name: i.name || "",
           configured: Object.values(i.config).some((v) => v === "configured" || (v && v !== "")),
         }))
+      )
+
+      // Update platform cards configured state
+      setActiveIntegrations((prev) =>
+        prev.map((integration) => {
+          const conns = items.filter((i) => i.type === integration.icon)
+          const hasKey = conns.length > 0 && conns.some((c) => Object.values(c.config).some((v) => v === "configured" || (v && v !== "")))
+          return { ...integration, hasKey, enabled: hasKey }
+        })
       )
     } catch {
       // ignore
@@ -514,9 +259,7 @@ export default function SettingsIntegrationsPage() {
     loadWorkflowIntegrations()
   }, [loadWorkflowIntegrations])
 
-  // Get credential field config dynamically from plugin registry
   const getWfFields = React.useCallback((type: string): { key: string; label: string; isSecret: boolean }[] => {
-    // Try to get fields from plugin registry first
     const plugin = getIntegration(type as IntegrationType)
     if (plugin?.formFields?.length) {
       return plugin.formFields.map((f) => ({
@@ -526,27 +269,52 @@ export default function SettingsIntegrationsPage() {
       }))
     }
 
-    // Fallback for special types not in plugin registry
     switch (type) {
+      case "floify": return [
+        { key: "x_api_key", label: "X-API-KEY", isSecret: false },
+        { key: "user_api_key", label: "User API Key", isSecret: false },
+      ]
+      case "xactus": return [
+        { key: "account_user", label: "Account User", isSecret: false },
+        { key: "account_password", label: "Account Password", isSecret: true },
+      ]
+      case "clear":
+      case "nadlan": return [
+        { key: "username", label: "Username", isSecret: false },
+        { key: "password", label: "Password", isSecret: true },
+      ]
       case "database": return [{ key: "url", label: "Database URL", isSecret: true }]
       default: return [{ key: "apiKey", label: "API Key", isSecret: true }]
     }
   }, [])
 
-  const handleWfAdd = async (type: string) => {
+  // Open modal for a NEW connection
+  const handleWfAdd = (type: string) => {
     setWfAddType(type)
+    setWfAddName("")
+    setWfEditId(null)
+    setWfAddFieldValues({})
+    setWfAddError(null)
+    setWfAddModalOpen(true)
+  }
+
+  // Open modal to EDIT an existing connection
+  const handleWfEdit = async (type: string, id: string) => {
+    setWfAddType(type)
+    setWfAddName("")
+    setWfEditId(id)
     setWfAddFieldValues({})
     setWfAddError(null)
     setWfAddModalOpen(true)
 
-    // If this integration already exists, fetch its current config to pre-fill
-    const existing = workflowIntegrations.find((w) => w.type === type)
-    if (existing) {
-      try {
-        const res = await fetch(`/api/workflow-integrations?id=${encodeURIComponent(existing.id)}`, { cache: "no-store" })
-        if (res.ok) {
-          const data = await res.json()
-          const config = data.integration?.config as Record<string, string> | undefined
+    try {
+      const res = await fetch(`/api/workflow-integrations?id=${encodeURIComponent(id)}`, { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        const integration = data.integration
+        if (integration) {
+          setWfAddName(integration.name || "")
+          const config = integration.config as Record<string, string> | undefined
           if (config) {
             const fields = getWfFields(type)
             const prefilled: Record<string, string> = {}
@@ -557,9 +325,9 @@ export default function SettingsIntegrationsPage() {
             setWfAddFieldValues(prefilled)
           }
         }
-      } catch {
-        // ignore fetch errors, user can re-enter
       }
+    } catch {
+      // ignore -- user can re-enter
     }
   }
 
@@ -568,33 +336,31 @@ export default function SettingsIntegrationsPage() {
     setWfAddError(null)
     try {
       const fields = getWfFields(wfAddType)
-      const existing = workflowIntegrations.find((w) => w.type === wfAddType)
+      const isEditing = !!wfEditId
       const config: Record<string, string> = {}
 
-      // Build config from all field values
       for (const field of fields) {
         const val = (wfAddFieldValues[field.key] || "").trim()
-        // For secret fields on existing integrations: if left empty, send "configured" to preserve existing value
-        config[field.key] = (existing && !val && field.isSecret) ? "configured" : val
+        config[field.key] = (isEditing && !val && field.isSecret) ? "configured" : val
       }
 
-      if (existing) {
-        // Update existing integration
-        const res = await fetch(`/api/workflow-integrations/${encodeURIComponent(existing.id)}`, {
+      const name = wfAddName.trim() || null
+
+      if (isEditing) {
+        const res = await fetch(`/api/workflow-integrations/${encodeURIComponent(wfEditId!)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ config }),
+          body: JSON.stringify({ name, config }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: "Failed to save" }))
           throw new Error(err.error)
         }
       } else {
-        // Create new integration
         const res = await fetch("/api/workflow-integrations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: wfAddType, name: null, config }),
+          body: JSON.stringify({ type: wfAddType, name, config }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: "Failed to save" }))
@@ -602,7 +368,7 @@ export default function SettingsIntegrationsPage() {
         }
       }
 
-      toast({ title: "Saved", description: `${workflowIntegrationMeta[wfAddType]?.label || wfAddType} credentials saved.` })
+      toast({ title: "Saved", description: `${allIntegrationMeta[wfAddType]?.label || wfAddType} connection saved.` })
       setWfAddModalOpen(false)
       loadWorkflowIntegrations()
     } catch (e) {
@@ -615,7 +381,7 @@ export default function SettingsIntegrationsPage() {
   const handleWfDelete = async (id: string) => {
     try {
       await fetch(`/api/workflow-integrations/${id}`, { method: "DELETE" })
-      toast({ title: "Archived", description: "Integration archived. It can be restored later." })
+      toast({ title: "Archived", description: "Connection archived." })
       loadWorkflowIntegrations()
     } catch {
       // ignore
@@ -632,221 +398,83 @@ export default function SettingsIntegrationsPage() {
     return matchesTab && matchesQuery
   })
 
-  const handleToggle = async (integrationName: string) => {
-    const current = activeIntegrations.find((i) => i.name === integrationName)
-    const nextStatus = current ? !current.enabled : true
-    if (current?.icon === "floify" && !current.hasKey) {
-      toast({ title: "API key required", description: "Add your Floify API key before enabling.", variant: "destructive" })
-      return
-    }
-    if (current?.icon === "xactus" && !current.hasKey) {
-      toast({ title: "Credentials required", description: "Add your Xactus credentials before enabling.", variant: "destructive" })
-      return
-    }
-    if (current?.icon === "clear" && !current.hasKey) {
-      toast({ title: "Credentials required", description: "Add your Clear credentials before enabling.", variant: "destructive" })
-      return
-    }
-    if (current?.icon === "nadlan" && !current.hasKey) {
-      toast({ title: "Credentials required", description: "Add your Nadlan Valuation credentials before enabling.", variant: "destructive" })
-      return
-    }
-    setActiveIntegrations((prev) =>
-      prev.map((integration) =>
-        integration.name === integrationName ? { ...integration, enabled: nextStatus } : integration
-      )
+  // Shared connection-list footer rendered inside each card
+  const renderConnectionFooter = (type: string, link?: string) => {
+    const conns = connectionsByType[type] ?? []
+    const isExpanded = expandedTypes.has(type)
+
+    return (
+      <div className="px-6 py-4 space-y-2">
+        {/* Header row: toggle + count on the left, Add button on the right */}
+        <div className="flex items-center justify-between">
+          {conns.length > 0 ? (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => toggleExpanded(type)}
+            >
+              <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-90")} />
+              {conns.length} {conns.length === 1 ? "connection" : "connections"}
+            </button>
+          ) : (
+            <span />
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => handleWfAdd(type)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Connection
+          </Button>
+        </div>
+
+        {/* Expanded connection list */}
+        {isExpanded && conns.length > 0 && (
+          <div className="space-y-1 pt-1">
+            {conns.map((conn) => (
+              <div
+                key={conn.id}
+                className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="truncate font-medium">{conn.name || "Unnamed"}</span>
+                  {conn.configured && (
+                    <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
+                      <Check className="h-2.5 w-2.5" />
+                      Active
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleWfEdit(type, conn.id)}
+                  >
+                    <Cog className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleWfDelete(conn.id)}
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     )
-    const icon = baseIntegrations.find((i) => i.name === integrationName)?.icon
-    if (!icon) return
-    try {
-      await fetch("/api/integrations", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: icon, status: nextStatus }),
-      })
-    } catch {
-      // best-effort; ignore for now
-    }
   }
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <Dialog open={floifyModalOpen} onOpenChange={setFloifyModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Floify API Keys</DialogTitle>
-            <DialogDescription>Enter and save your Floify API credentials.</DialogDescription>
-          </DialogHeader>
-          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="floify-api-key">X-API-KEY</Label>
-              <Input
-                id="floify-api-key"
-                autoComplete="off"
-                value={floifyApiKey}
-                onChange={(e) => setFloifyApiKey(e.target.value)}
-                placeholder="Enter X-API-KEY"
-                disabled={floifyLoading}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="floify-user-api-key">User API Key</Label>
-              <Input
-                id="floify-user-api-key"
-                autoComplete="off"
-                value={floifyUserApiKey}
-                onChange={(e) => setFloifyUserApiKey(e.target.value)}
-                placeholder="Enter User API Key"
-                disabled={floifyLoading}
-              />
-            </div>
-            {floifyError ? <p className="text-sm text-destructive">{floifyError}</p> : null}
-          </form>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setFloifyModalOpen(false)} disabled={floifyLoading}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => handleFloifySave()}
-              disabled={floifyLoading || !floifyApiKey.trim() || !floifyUserApiKey.trim()}
-            >
-              {floifyLoading ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={xactusModalOpen} onOpenChange={setXactusModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Xactus Credentials</DialogTitle>
-            <DialogDescription>Enter and save your Xactus account credentials.</DialogDescription>
-          </DialogHeader>
-          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="xactus-account-user">Account User</Label>
-              <Input
-                id="xactus-account-user"
-                autoComplete="off"
-                value={xactusAccountUser}
-                onChange={(e) => setXactusAccountUser(e.target.value)}
-                placeholder="Enter Account User"
-                disabled={xactusLoading}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="xactus-account-password">Account Password</Label>
-              <PasswordInput
-                id="xactus-account-password"
-                autoComplete="new-password"
-                value={xactusAccountPassword}
-                onChange={(e) => setXactusAccountPassword(e.target.value)}
-                placeholder="Enter Account Password"
-                disabled={xactusLoading}
-              />
-            </div>
-            {xactusError ? <p className="text-sm text-destructive">{xactusError}</p> : null}
-          </form>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setXactusModalOpen(false)} disabled={xactusLoading}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => handleXactusSave()}
-              disabled={xactusLoading || !xactusAccountUser.trim() || !xactusAccountPassword.trim()}
-            >
-              {xactusLoading ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={clearModalOpen} onOpenChange={setClearModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Clear Credentials</DialogTitle>
-            <DialogDescription>Enter and save your Clear (Thomson Reuters) account credentials.</DialogDescription>
-          </DialogHeader>
-          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="clear-username">Username</Label>
-              <Input
-                id="clear-username"
-                autoComplete="off"
-                value={clearUsername}
-                onChange={(e) => setClearUsername(e.target.value)}
-                placeholder="Enter Username"
-                disabled={clearLoading}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="clear-password">Password</Label>
-              <PasswordInput
-                id="clear-password"
-                autoComplete="new-password"
-                value={clearPassword}
-                onChange={(e) => setClearPassword(e.target.value)}
-                placeholder="Enter Password"
-                disabled={clearLoading}
-              />
-            </div>
-            {clearError ? <p className="text-sm text-destructive">{clearError}</p> : null}
-          </form>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setClearModalOpen(false)} disabled={clearLoading}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => handleClearSave()}
-              disabled={clearLoading || !clearUsername.trim() || !clearPassword.trim()}
-            >
-              {clearLoading ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={nadlanModalOpen} onOpenChange={setNadlanModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nadlan Valuation Credentials</DialogTitle>
-            <DialogDescription>Enter and save your Nadlan Valuation account credentials.</DialogDescription>
-          </DialogHeader>
-          <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="nadlan-username">Username</Label>
-              <Input
-                id="nadlan-username"
-                autoComplete="off"
-                value={nadlanUsername}
-                onChange={(e) => setNadlanUsername(e.target.value)}
-                placeholder="Enter Username"
-                disabled={nadlanLoading}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="nadlan-password">Password</Label>
-              <PasswordInput
-                id="nadlan-password"
-                autoComplete="new-password"
-                value={nadlanPassword}
-                onChange={(e) => setNadlanPassword(e.target.value)}
-                placeholder="Enter Password"
-                disabled={nadlanLoading}
-              />
-            </div>
-            {nadlanError ? <p className="text-sm text-destructive">{nadlanError}</p> : null}
-          </form>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setNadlanModalOpen(false)} disabled={nadlanLoading}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => handleNadlanSave()}
-              disabled={nadlanLoading || !nadlanUsername.trim() || !nadlanPassword.trim()}
-            >
-              {nadlanLoading ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {error ? <div className="text-sm text-destructive">Failed to load integrations: {error}</div> : null}
       <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full md:w-auto">
@@ -886,58 +514,43 @@ export default function SettingsIntegrationsPage() {
       {/* Platform Integrations */}
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Platform</h3>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {filtered.map((integration) => (
-          <Card key={integration.name} className="border shadow-sm">
-            <div className="space-y-4 px-6 py-6">
-              <div className="flex items-start justify-between">
-                <div className="text-foreground">{integrationIcons[integration.icon]}</div>
-                {integration.link ? (
-                  <a href={integration.link} target="_blank" rel="noreferrer noopener">
-                    <Button variant="ghost" size="icon" aria-label={`Open ${integration.name}`}>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </a>
-                ) : (
-                  <Button variant="ghost" size="icon" aria-label={`No link for ${integration.name}`} disabled>
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
+        {filtered.map((integration) => {
+          const conns = connectionsByType[integration.icon] ?? []
+          return (
+            <Card key={integration.name} className="border shadow-sm">
+              <div className="space-y-4 px-6 py-6">
+                <div className="flex items-start justify-between">
+                  <div className="text-foreground">{integrationIcons[integration.icon]}</div>
+                  <div className="flex items-center gap-1">
+                    {conns.length > 0 && (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Check className="h-3 w-3" />
+                        {conns.length} {conns.length === 1 ? "connection" : "connections"}
+                      </Badge>
+                    )}
+                    {integration.link ? (
+                      <a href={integration.link} target="_blank" rel="noreferrer noopener">
+                        <Button variant="ghost" size="icon" aria-label={`Open ${integration.name}`}>
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button variant="ghost" size="icon" aria-label={`No link for ${integration.name}`} disabled>
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">{integration.name}</h3>
+                  <p className="text-muted-foreground text-sm">{integration.description}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold">{integration.name}</h3>
-                <p className="text-muted-foreground text-sm">{integration.description}</p>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between px-6 py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => {
-                  if (integration.icon === "floify") {
-                    void loadFloify()
-                  } else if (integration.icon === "xactus") {
-                    void loadXactus()
-                  } else if (integration.icon === "clear") {
-                    void loadClear()
-                  } else if (integration.icon === "nadlan") {
-                    void loadNadlan()
-                  }
-                }}
-              >
-                <Cog className="h-4 w-4" />
-                Settings
-              </Button>
-              <Switch
-                checked={integration.enabled}
-                disabled={(integration.icon === "floify" || integration.icon === "xactus" || integration.icon === "clear" || integration.icon === "nadlan") && !integration.hasKey}
-                onCheckedChange={() => handleToggle(integration.name)}
-                aria-label={`Toggle ${integration.name}`}
-              />
-            </div>
-          </Card>
-        ))}
+              <Separator />
+              {renderConnectionFooter(integration.icon, integration.link)}
+            </Card>
+          )
+        })}
       </div>
 
       {/* Workflow Integrations */}
@@ -946,15 +559,15 @@ export default function SettingsIntegrationsPage() {
         {WORKFLOW_TYPES
           .filter((type) => {
             if (query.trim().length === 0) return true
-            const meta = workflowIntegrationMeta[type]
+            const meta = allIntegrationMeta[type]
             return (
               meta?.label.toLowerCase().includes(query.toLowerCase()) ||
               meta?.description.toLowerCase().includes(query.toLowerCase())
             )
           })
           .map((type) => {
-            const meta = workflowIntegrationMeta[type]
-            const existing = workflowIntegrations.find((w) => w.type === type)
+            const meta = allIntegrationMeta[type]
+            const conns = connectionsByType[type] ?? []
             return (
               <Card key={type} className="border shadow-sm">
                 <div className="space-y-4 px-6 py-6">
@@ -963,10 +576,10 @@ export default function SettingsIntegrationsPage() {
                       <IntegrationIcon integration={type} className="h-5 w-5" />
                     </div>
                     <div className="flex items-center gap-1">
-                      {existing?.configured && (
+                      {conns.length > 0 && (
                         <Badge variant="secondary" className="gap-1 text-xs">
                           <Check className="h-3 w-3" />
-                          Configured
+                          {conns.length} {conns.length === 1 ? "connection" : "connections"}
                         </Badge>
                       )}
                       {meta.link && (
@@ -984,53 +597,38 @@ export default function SettingsIntegrationsPage() {
                   </div>
                 </div>
                 <Separator />
-                <div className="flex items-center justify-between px-6 py-4">
-                  {existing ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => handleWfAdd(type)}
-                      >
-                        <Cog className="h-4 w-4" />
-                        Update
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleWfDelete(existing.id)}
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                        Archive
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => handleWfAdd(type)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Connection
-                    </Button>
-                  )}
-                </div>
+                {renderConnectionFooter(type, meta.link)}
               </Card>
             )
           })}
       </div>
 
-      {/* Add Workflow Integration Modal */}
+      {/* Connection Credential Modal */}
       <Dialog open={wfAddModalOpen} onOpenChange={setWfAddModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{workflowIntegrationMeta[wfAddType]?.label || wfAddType} Credentials</DialogTitle>
-            <DialogDescription>Enter your API credentials for {workflowIntegrationMeta[wfAddType]?.label || wfAddType}.</DialogDescription>
+            <DialogTitle>
+              {wfEditId ? "Edit" : "New"} {allIntegrationMeta[wfAddType]?.label || wfAddType} Connection
+            </DialogTitle>
+            <DialogDescription>
+              {wfEditId
+                ? `Update the name and credentials for this ${allIntegrationMeta[wfAddType]?.label || wfAddType} connection.`
+                : `Give this connection a name and enter your credentials for ${allIntegrationMeta[wfAddType]?.label || wfAddType}.`}
+            </DialogDescription>
           </DialogHeader>
           <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="wf-connection-name">Connection Name</Label>
+              <Input
+                id="wf-connection-name"
+                autoComplete="off"
+                value={wfAddName}
+                onChange={(e) => setWfAddName(e.target.value)}
+                placeholder={`e.g. My ${allIntegrationMeta[wfAddType]?.label || wfAddType} Production`}
+                disabled={wfAddLoading}
+              />
+            </div>
+            <Separator />
             {getWfFields(wfAddType).map((field) => (
               <div key={field.key} className="space-y-1">
                 <Label htmlFor={`wf-field-${field.key}`}>{field.label}</Label>

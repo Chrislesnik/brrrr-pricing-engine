@@ -17,9 +17,13 @@ import {
   Clock,
   XCircle,
   RefreshCw,
-  Trash2,
   Loader2,
   AlertCircle,
+  MoreHorizontal,
+  Download,
+  Ban,
+  Trash2,
+  Bell,
 } from "lucide-react";
 import {
   Table,
@@ -29,6 +33,13 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@repo/ui/shadcn/tooltip";
 import { NewSignatureRequestDialog } from "./new-signature-request-dialog";
+import { toast } from "@/hooks/use-toast";
 
 interface DealSignatureRequestsTabProps {
   dealId: string;
@@ -72,13 +84,20 @@ interface SignatureRequest {
   updated_at: string;
 }
 
+type ConfirmAction = {
+  requestId: string;
+  action: "cancel" | "cancel-delete" | "delete";
+  label: string;
+  description: string;
+};
+
 export function DealSignatureRequestsTab({ dealId }: DealSignatureRequestsTabProps) {
   const [signatureRequests, setSignatureRequests] = useState<SignatureRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [deleteRequestId, setDeleteRequestId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [isActioning, setIsActioning] = useState(false);
 
   const fetchSignatureRequests = useCallback(async () => {
     setIsLoading(true);
@@ -106,29 +125,78 @@ export function DealSignatureRequestsTab({ dealId }: DealSignatureRequestsTabPro
     fetchSignatureRequests();
   }, [fetchSignatureRequests]);
 
-  const handleDeleteRequest = async () => {
-    if (!deleteRequestId) return;
+  const handleDownload = async (request: SignatureRequest) => {
+    try {
+      const res = await fetch(`/api/signature-requests/${request.id}/download`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${request.document_name || "document"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+      setError("Failed to download document");
+    }
+  };
 
-    setIsDeleting(true);
+  const handleRemind = async (request: SignatureRequest) => {
+    try {
+      const res = await fetch(`/api/signature-requests/${request.id}/resend`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send reminder");
+      }
+      const data = await res.json();
+      if (data.fallback && data.signingUrls?.length) {
+        const url = data.signingUrls[0].url;
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Signing link copied",
+          description: "The signing link has been copied to your clipboard. Share it with the recipient.",
+        });
+      } else {
+        toast({
+          title: "Reminder sent",
+          description: "A signing reminder email has been sent to the recipient.",
+        });
+      }
+    } catch (err) {
+      console.error("Remind error:", err);
+      toast({
+        variant: "destructive",
+        title: "Failed to send reminder",
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      });
+    }
+  };
+
+  const handleConfirmedAction = async () => {
+    if (!confirmAction) return;
+    setIsActioning(true);
 
     try {
-      const response = await fetch(`/api/signature-requests/${deleteRequestId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to cancel signature request");
+      const res = await fetch(
+        `/api/signature-requests/${confirmAction.requestId}?action=${confirmAction.action}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Action failed");
       }
-
-      // Refresh the list
       await fetchSignatureRequests();
     } catch (err) {
-      console.error("Error deleting signature request:", err);
-      setError(err instanceof Error ? err.message : "Failed to cancel signature request");
+      console.error("Action error:", err);
+      setError(err instanceof Error ? err.message : "Action failed");
     } finally {
-      setIsDeleting(false);
-      setDeleteRequestId(null);
+      setIsActioning(false);
+      setConfirmAction(null);
     }
   };
 
@@ -302,25 +370,82 @@ export function DealSignatureRequestsTab({ dealId }: DealSignatureRequestsTabPro
                       {new Date(request.updated_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        {request.status === "pending" && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive hover:text-destructive"
-                                  onClick={() => setDeleteRequestId(request.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Cancel request</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleDownload(request)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </DropdownMenuItem>
+
+                          {request.status === "pending" && (
+                            <DropdownMenuItem onClick={() => handleRemind(request)}>
+                              <Bell className="mr-2 h-4 w-4" />
+                              Remind
+                            </DropdownMenuItem>
+                          )}
+
+                          {request.status === "pending" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setConfirmAction({
+                                    requestId: request.id,
+                                    action: "cancel",
+                                    label: "Cancel Request",
+                                    description:
+                                      "This will cancel the signature request in Documenso. Recipients will no longer be able to sign.",
+                                  })
+                                }
+                              >
+                                <Ban className="mr-2 h-4 w-4" />
+                                Cancel
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() =>
+                                  setConfirmAction({
+                                    requestId: request.id,
+                                    action: "cancel-delete",
+                                    label: "Cancel & Delete",
+                                    description:
+                                      "This will cancel the request in Documenso and permanently remove the record. This cannot be undone.",
+                                  })
+                                }
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Cancel & Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+
+                          {request.status !== "pending" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() =>
+                                  setConfirmAction({
+                                    requestId: request.id,
+                                    action: "delete",
+                                    label: "Delete Record",
+                                    description:
+                                      "This will permanently remove this record from the list. This cannot be undone.",
+                                  })
+                                }
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -338,35 +463,34 @@ export function DealSignatureRequestsTab({ dealId }: DealSignatureRequestsTabPro
         onSuccess={fetchSignatureRequests}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Confirmation Dialog */}
       <AlertDialog
-        open={!!deleteRequestId}
-        onOpenChange={(open) => !open && setDeleteRequestId(null)}
+        open={!!confirmAction}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Signature Request?</AlertDialogTitle>
+            <AlertDialogTitle>{confirmAction?.label}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will cancel the signature request and notify recipients. This
-              action cannot be undone.
+              {confirmAction?.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>
-              Keep Request
+            <AlertDialogCancel disabled={isActioning}>
+              Go Back
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteRequest}
-              disabled={isDeleting}
+              onClick={handleConfirmedAction}
+              disabled={isActioning}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? (
+              {isActioning ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cancelling...
+                  Processing...
                 </>
               ) : (
-                "Cancel Request"
+                confirmAction?.label
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

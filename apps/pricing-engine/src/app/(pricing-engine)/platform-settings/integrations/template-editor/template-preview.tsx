@@ -112,20 +112,27 @@ function extractBodyContent(html: string): string {
 }
 
 /**
- * Replaces Handlebars data-source expressions with clean {{field_name}} pill tags.
+ * Replaces Handlebars data-source expressions with clean {{variable_name}} pill tags.
  *
- * GrapesJS stores variables as:
- *   {{#if globalData.field_name.data.data}}{{{globalData.field_name.data.data}}}{{else}}Default{{/if}}
- *
- * This converts them into styled <span class="var-pill">{{field_name}}</span> for the preview.
+ * GrapesJS exports data-variable components as handlebars conditionals:
+ *   {{#if variable_name}}{{{variable_name}}}{{else}}Default{{/if}}
+ * or legacy format:
+ *   {{#if globalData.variable_name.data.data}}{{{globalData.variable_name.data.data}}}{{else}}Default{{/if}}
  */
 function replaceVariablesWithPills(html: string): string {
-  // Match the full handlebars if/else block for globalData variables
-  return html.replace(
-    /\{\{#if\s+globalData\.(\w+)\.data\.data\}\}\{\{\{globalData\.\w+\.data\.data\}\}\}\{\{else\}\}[^{]*\{\{\/if\}\}/g,
-    (_match, fieldName: string) => {
-      const label = fieldName.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())
+  let result = html.replace(
+    /\{\{#if\s+(\w+)\}\}\{\{\{\1\}\}\}\{\{else\}\}[^{]*\{\{\/if\}\}/g,
+    (_match, variableName: string) => {
+      const label = variableName.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())
       return `<span class="var-pill">{{ ${label} }}</span>`
     }
   )
+  result = result.replace(
+    /\{\{#if\s+globalData\.(\w+)\.data\.data\}\}\{\{\{globalData\.\w+\.data\.data\}\}\}\{\{else\}\}[^{]*\{\{\/if\}\}/g,
+    (_match, variableName: string) => {
+      const label = variableName.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())
+      return `<span class="var-pill">{{ ${label} }}</span>`
+    }
+  )
+  return result
 }

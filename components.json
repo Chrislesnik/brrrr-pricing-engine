@@ -34,6 +34,7 @@
     },
     "@shadcnexamples": "https://shadcnexamples.com/r/{name}.json",
     "@shadcn-ai": "https://ui.shadcn.com/r/styles/new-york/{name}.json",
-    "@elements": "https://tryelements.dev/r/{name}.json"
+    "@elements": "https://tryelements.dev/r/{name}.json",
+    "@hextaui": "https://www.hextaui.com/r/{name}.json"
   }
 }

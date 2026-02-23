@@ -41,6 +41,8 @@ export const stepRegistry: Record<string, StepFunction> = {
     (await import("./remove-duplicates")).removeDuplicatesStep(input as never),
   "Loop Over Batches": async (input) =>
     (await import("./loop-batches")).loopBatchesStep(input as never),
+  "Respond to Webhook": async (input) =>
+    (await import("./respond-to-webhook")).respondToWebhookStep(input as never),
 
   // ── AI Gateway ──
   "Generate Text": async (input) =>

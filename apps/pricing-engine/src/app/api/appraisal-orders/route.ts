@@ -22,7 +22,7 @@ export async function GET() {
       .select(`
         *,
         borrowers:borrower_id (id, first_name, last_name),
-        appraisal_amcs:amc_id (id, name)
+        integration_setup:amc_id (id, name)
       `)
       .eq("organization_id", orgUuid)
       .order("created_at", { ascending: false })
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       .select(`
         *,
         borrowers:borrower_id (id, first_name, last_name),
-        appraisal_amcs:amc_id (id, name)
+        integration_setup:amc_id (id, name)
       `)
       .single()
 

@@ -15,7 +15,6 @@ export async function GET() {
       return NextResponse.json({ items: [], membersMap: {}, isActiveOrgInternal: false })
     }
 
-    // Policy-engine check: replaces hardcoded org:broker deny
     const canView = await checkFeatureAccess("organization_invitations", "view")
     if (!canView) {
       return NextResponse.json(
@@ -24,7 +23,6 @@ export async function GET() {
       )
     }
 
-    // Determine whether the caller's active org is internal, and resolve its Supabase UUID
     const { data: activeOrgRow } = await supabaseAdmin
       .from("organizations")
       .select("id, is_internal_yn")
@@ -33,7 +31,6 @@ export async function GET() {
     const isActiveOrgInternal = activeOrgRow?.is_internal_yn === true
     const activeOrgSupabaseId = (activeOrgRow?.id as string) ?? null
 
-    // JIT bulk sync: pull all external orgs' members from Clerk into Supabase
     await syncExternalOrgMembersFromClerk()
 
     const { organizations, membersMap } = await getExternalOrganizations()

@@ -2148,6 +2148,25 @@ function formatCurrencyWithCommas(raw: string): string {
   return d !== undefined ? `${withCommas}.${d}` : withCommas
 }
 
+function sigCharsBefore(s: string, pos: number): number {
+  let count = 0
+  for (let i = 0; i < pos; i++) {
+    if (/[\d.]/.test(s[i])) count++
+  }
+  return count
+}
+
+function caretFromSigChars(formatted: string, count: number): number {
+  let seen = 0
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[\d.]/.test(formatted[i])) {
+      seen++
+      if (seen === count) return i + 1
+    }
+  }
+  return formatted.length
+}
+
 export function CurrencyCalcCell<TData>({
   cell,
   tableMeta,
@@ -2167,6 +2186,7 @@ export function CurrencyCalcCell<TData>({
   const [expr, setExpr] = React.useState("")
   const inputRef = React.useRef<HTMLInputElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const dirtyRef = React.useRef(false)
 
   const prevIsEditingRef = React.useRef(isEditing)
 
@@ -2174,7 +2194,18 @@ export function CurrencyCalcCell<TData>({
   if (initialValue !== prevInitialValueRef.current) {
     prevInitialValueRef.current = initialValue
     setValue(initialValue ?? "")
+    dirtyRef.current = false
   }
+
+  const commitValue = React.useCallback(
+    (v: string) => {
+      if (!readOnly) {
+        tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: v })
+      }
+      dirtyRef.current = false
+    },
+    [readOnly, tableMeta, rowIndex, columnId]
+  )
 
   const resolveExpression = React.useCallback(() => {
     const trimmed = expr.trim()
@@ -2186,48 +2217,58 @@ export function CurrencyCalcCell<TData>({
         setValue(normalized)
         setCalcMode(false)
         setExpr("")
-        if (!readOnly) {
-          tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: normalized })
-        }
+        commitValue(normalized)
       }
     } catch {
       // silently ignore invalid expressions
     }
-  }, [expr, readOnly, tableMeta, rowIndex, columnId])
+  }, [expr, commitValue])
 
   const onBlur = React.useCallback(() => {
     if (calcMode) {
       resolveExpression()
       return
     }
-    if (!readOnly && value !== initialValue) {
-      tableMeta?.onDataUpdate?.({ rowIndex, columnId, value })
+    if (dirtyRef.current) {
+      commitValue(value)
     }
     tableMeta?.onCellEditingStop?.()
   }, [
     tableMeta,
-    rowIndex,
-    columnId,
-    initialValue,
     value,
-    readOnly,
     calcMode,
     resolveExpression,
+    commitValue,
   ])
 
   const onChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      const v = event.target.value
+      const el = event.target
+      const v = el.value
       if (calcMode) {
         if (!v.startsWith("=")) {
           setCalcMode(false)
           setExpr("")
-          setValue(sanitizeCurrencyRaw(v))
+          const sanitized = sanitizeCurrencyRaw(v)
+          setValue(sanitized)
+          dirtyRef.current = true
         } else {
           setExpr(v.slice(1))
+          dirtyRef.current = true
         }
       } else {
-        setValue(sanitizeCurrencyRaw(v))
+        const pos = el.selectionStart ?? v.length
+        const sc = sigCharsBefore(v, pos)
+        const sanitized = sanitizeCurrencyRaw(v)
+        setValue(sanitized)
+        dirtyRef.current = true
+        const formatted = formatCurrencyWithCommas(sanitized)
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const newPos = caretFromSigChars(formatted, sc)
+            try { inputRef.current.setSelectionRange(newPos, newPos) } catch { /* */ }
+          }
+        })
       }
     },
     [calcMode]
@@ -2236,45 +2277,60 @@ export function CurrencyCalcCell<TData>({
   const onWrapperKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (isEditing) {
-        // Enter = key to start calc mode
         if (!calcMode && event.key === "=") {
           event.preventDefault()
           setCalcMode(true)
           setExpr("")
           return
         }
-        // Resolve expression on Enter in calc mode
         if (calcMode && (event.key === "Enter" || event.key === "Return")) {
           event.preventDefault()
           resolveExpression()
           tableMeta?.onCellEditingStop?.({ moveToNextRow: true })
           return
         }
-        // Exit calc mode on Escape
         if (calcMode && event.key === "Escape") {
           event.preventDefault()
           setCalcMode(false)
           setExpr("")
           return
         }
-        // Normal editing behavior
         if (event.key === "Enter") {
           event.preventDefault()
-          if (value !== initialValue) {
-            tableMeta?.onDataUpdate?.({ rowIndex, columnId, value })
-          }
+          if (dirtyRef.current) commitValue(value)
           tableMeta?.onCellEditingStop?.({ moveToNextRow: true })
         } else if (event.key === "Tab") {
           event.preventDefault()
-          if (value !== initialValue) {
-            tableMeta?.onDataUpdate?.({ rowIndex, columnId, value })
-          }
+          if (dirtyRef.current) commitValue(value)
           tableMeta?.onCellEditingStop?.({
             direction: event.shiftKey ? "left" : "right",
           })
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault()
+          if (dirtyRef.current) commitValue(value)
+          tableMeta?.onCellEditingStop?.({ direction: "up" })
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault()
+          if (dirtyRef.current) commitValue(value)
+          tableMeta?.onCellEditingStop?.({ direction: "down" })
+        } else if (event.key === "ArrowLeft") {
+          const el = inputRef.current
+          if (el && el.selectionStart === 0 && el.selectionEnd === 0) {
+            event.preventDefault()
+            if (dirtyRef.current) commitValue(value)
+            tableMeta?.onCellEditingStop?.({ direction: "left" })
+          }
+        } else if (event.key === "ArrowRight") {
+          const el = inputRef.current
+          if (el && el.selectionStart === el.value.length) {
+            event.preventDefault()
+            if (dirtyRef.current) commitValue(value)
+            tableMeta?.onCellEditingStop?.({ direction: "right" })
+          }
         } else if (event.key === "Escape") {
           event.preventDefault()
           setValue(initialValue ?? "")
+          dirtyRef.current = false
           inputRef.current?.blur()
         }
       } else if (isFocused) {
@@ -2283,8 +2339,10 @@ export function CurrencyCalcCell<TData>({
           setExpr("")
         } else if (event.key === "Backspace") {
           setValue("")
+          dirtyRef.current = true
         } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
           setValue(event.key)
+          dirtyRef.current = true
         }
       }
     },
@@ -2293,11 +2351,10 @@ export function CurrencyCalcCell<TData>({
       isFocused,
       initialValue,
       tableMeta,
-      rowIndex,
-      columnId,
       value,
       calcMode,
       resolveExpression,
+      commitValue,
     ]
   )
 
@@ -2307,10 +2364,13 @@ export function CurrencyCalcCell<TData>({
 
     if (isEditing && !wasEditing && inputRef.current) {
       inputRef.current.focus()
+      dirtyRef.current = false
+    }
+    if (!isEditing && wasEditing) {
+      dirtyRef.current = false
     }
   }, [isEditing])
 
-  // Exit calc mode when not editing
   React.useEffect(() => {
     if (!isEditing && calcMode) {
       setCalcMode(false)
@@ -2349,7 +2409,7 @@ export function CurrencyCalcCell<TData>({
             inputMode="decimal"
             className={cn(
               "w-full border-none bg-transparent p-0 outline-none",
-              calcMode && "text-purple-600"
+              calcMode && "text-foreground"
             )}
             onBlur={onBlur}
             onChange={onChange}
@@ -2361,6 +2421,115 @@ export function CurrencyCalcCell<TData>({
           {displayValue || "0.00"}
         </span>
       )}
+    </DataGridCellWrapper>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CycleSelectCell - Click / Enter / Space cycles through options, arrow keys
+// navigate freely (no dropdown overlay).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function CycleSelectCell<TData>({
+  cell,
+  tableMeta,
+  rowIndex,
+  columnId,
+  rowHeight,
+  isFocused,
+  isSelected,
+  isSearchMatch,
+  isActiveSearchMatch,
+  readOnly,
+}: Omit<DataGridCellProps<TData>, "isEditing">) {
+  const initialValue = cell.getValue() as string
+  const [value, setValue] = React.useState(initialValue)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const cellOpts = cell.column.columnDef.meta?.cell
+  const options =
+    cellOpts?.variant === "cycle-select" ? cellOpts.options : []
+
+  const prevInitialValueRef = React.useRef(initialValue)
+  if (initialValue !== prevInitialValueRef.current) {
+    prevInitialValueRef.current = initialValue
+    setValue(initialValue)
+  }
+
+  const cycleValue = React.useCallback(() => {
+    if (readOnly || options.length === 0) return
+    const curIdx = options.findIndex((o) => o.value === value)
+    const nextIdx = (curIdx + 1) % options.length
+    const next = options[nextIdx]?.value ?? options[0]?.value ?? ""
+    setValue(next)
+    tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: next })
+  }, [readOnly, options, value, tableMeta, rowIndex, columnId])
+
+  const onWrapperKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!isFocused) return
+
+      switch (event.key) {
+        case "Enter":
+        case " ": {
+          event.preventDefault()
+          event.stopPropagation()
+          cycleValue()
+          break
+        }
+        case "Tab": {
+          event.preventDefault()
+          event.stopPropagation()
+          tableMeta?.onCellEditingStart?.(rowIndex, columnId)
+          tableMeta?.onCellEditingStop?.({
+            direction: event.shiftKey ? "left" : "right",
+          })
+          break
+        }
+      }
+    },
+    [isFocused, cycleValue, tableMeta, rowIndex, columnId]
+  )
+
+  const onWrapperClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      if (isFocused && !readOnly) {
+        event.preventDefault()
+        event.stopPropagation()
+        cycleValue()
+      }
+    },
+    [isFocused, readOnly, cycleValue]
+  )
+
+  const displayLabel =
+    options.find((opt) => opt.value === value)?.label ?? value
+
+  return (
+    <DataGridCellWrapper<TData>
+      ref={containerRef}
+      cell={cell}
+      tableMeta={tableMeta}
+      rowIndex={rowIndex}
+      columnId={columnId}
+      rowHeight={rowHeight}
+      isEditing={false}
+      isFocused={isFocused}
+      isSelected={isSelected}
+      isSearchMatch={isSearchMatch}
+      isActiveSearchMatch={isActiveSearchMatch}
+      readOnly={readOnly}
+      onKeyDown={onWrapperKeyDown}
+      onClick={onWrapperClick}
+    >
+      {displayLabel ? (
+        <Badge
+          data-slot="grid-cell-content"
+          variant="secondary"
+          className="px-1.5 py-px whitespace-pre-wrap"
+        >
+          {displayLabel}
+        </Badge>
+      ) : null}
     </DataGridCellWrapper>
   )
 }

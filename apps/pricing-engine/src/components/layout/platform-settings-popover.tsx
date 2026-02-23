@@ -20,10 +20,9 @@ import {
   FileCode2,
   Mail,
   Sparkles,
-  LayoutGrid,
-  TextCursorInput,
-  FileText,
-  ListChecks,
+  Calculator,
+  Briefcase,
+  Workflow,
   GlobeLock,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
@@ -57,10 +56,10 @@ const ORG_SETTINGS_ITEMS = [
     icon: ShieldCheck,
     path: "/policies",
   },
-  { id: "programs", label: "Programs", icon: LayoutGrid, path: "?tab=programs" },
-  { id: "inputs", label: "Inputs", icon: TextCursorInput, path: "?tab=inputs" },
-  { id: "documents", label: "Documents", icon: FileText, path: "?tab=documents" },
-  { id: "tasks", label: "Tasks & Actions", icon: ListChecks, path: "?tab=tasks" },
+  { id: "pricing-engine", label: "Pricing Engine", icon: Calculator, path: "?tab=pricing-engine" },
+  { id: "deals", label: "Deals", icon: Briefcase, path: "?tab=deals" },
+  { id: "automations", label: "Automations", icon: Workflow, path: "?tab=automations" },
+  { id: "integrations", label: "Integrations", icon: Plug, path: "?tab=integrations" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;
 

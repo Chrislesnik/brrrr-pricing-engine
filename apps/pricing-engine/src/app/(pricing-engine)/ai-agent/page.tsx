@@ -14,10 +14,12 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select"
 import { useAuth } from "@clerk/nextjs"
-import { Copy, Menu, Pencil, Trash2, MessageSquare, Loader2 } from "lucide-react"
+import { Check, Copy, Menu, Pencil, Trash2, MessageSquare, Loader2, Mic, Phone, PhoneOff, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Sheet, SheetContent } from "@repo/ui/shadcn/sheet"
 import ReactMarkdown from "react-markdown"
+import { VoiceChatPanel } from "@/components/ai/voice-chat-panel"
+import { useVapi, type VapiTranscript } from "@/hooks/use-vapi"
 import {
   Conversation,
   ConversationContent,
@@ -36,8 +38,8 @@ import {
 // SWR fetcher
 const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
 
-type Chat = { id: string; name?: string; created_at: string; last_used_at: string }
-type Program = { id: string; internal_name: string; external_name: string; loan_type: string }
+type Chat = { id: string; name?: string; created_at: string; last_used_at: string; loan_type?: string; program_id?: string }
+type Program = { id: string; internal_name: string; external_name: string }
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string }
 
 export default function AIAgentPage() {
@@ -53,12 +55,18 @@ export default function AIAgentPage() {
   const [isThinking, setIsThinking] = React.useState<boolean>(false)
   const { orgRole } = useAuth()
   const [selectedProgramId, setSelectedProgramId] = React.useState<string | undefined>(undefined)
-  const [loanType, setLoanType] = React.useState<"dscr" | "bridge">("dscr")
   const [selectedChatId, setSelectedChatId] = React.useState<string | undefined>(undefined)
   const [editingChatId, setEditingChatId] = React.useState<string | undefined>(undefined)
   const [editingName, setEditingName] = React.useState<string>("")
   const [isSheetOpen, setIsSheetOpen] = React.useState<boolean>(false)
   const [keyboardOffset, setKeyboardOffset] = React.useState<number>(0)
+  const [voiceMode, setVoiceMode] = React.useState(false)
+  const [copiedId, setCopiedId] = React.useState<string | null>(null)
+
+  // Typewriter animation state
+  const animatedIdsRef = React.useRef<Set<string>>(new Set())
+  const timersRef = React.useRef<Record<string, number>>({})
+  const [visibleContent, setVisibleContent] = React.useState<Record<string, string>>({})
 
   // Auto-select first chat when chats load
   React.useEffect(() => {
@@ -66,6 +74,14 @@ export default function AIAgentPage() {
       setSelectedChatId(chats[0].id)
     }
   }, [chats, selectedChatId])
+
+  // Restore program_id when switching chats
+  React.useEffect(() => {
+    if (!selectedChatId) return
+    const chat = chats.find((c) => c.id === selectedChatId)
+    if (!chat) return
+    setSelectedProgramId(chat.program_id || "all")
+  }, [selectedChatId, chats])
 
   // Load messages for selected chat using SWR
   const { data: messagesData, isLoading: messagesLoading } = useSWR<{ items: ChatMessage[] }>(
@@ -76,6 +92,9 @@ export default function AIAgentPage() {
   // Sync SWR messages data to local state for optimistic updates
   React.useEffect(() => {
     if (messagesData?.items) {
+      for (const m of messagesData.items) {
+        animatedIdsRef.current.add(m.id)
+      }
       setMessages(messagesData.items)
     } else if (!selectedChatId) {
       setMessages([])
@@ -99,20 +118,80 @@ export default function AIAgentPage() {
     }
   }, [])
 
-  // Keep selected program in sync with chosen loan type
+  // Word-by-word typewriter for new assistant messages
   React.useEffect(() => {
-    const filtered = programs.filter((p) => p.loan_type === loanType)
-    if (!filtered.find((p) => p.id === selectedProgramId)) {
-      setSelectedProgramId(filtered[0]?.id)
+    for (const m of messages) {
+      if (animatedIdsRef.current.has(m.id)) continue
+      if (m.role === "user" || m.id.startsWith("thinking-") || !m.content) {
+        animatedIdsRef.current.add(m.id)
+        continue
+      }
+
+      const words = m.content.split(/(\s+)/)
+      let idx = 0
+      setVisibleContent((prev) => ({ ...prev, [m.id]: "" }))
+
+      const timer = window.setInterval(() => {
+        idx += 1
+        const partial = words.slice(0, idx).join("")
+        setVisibleContent((prev) => ({ ...prev, [m.id]: partial }))
+        if (idx >= words.length) {
+          clearInterval(timer)
+          delete timersRef.current[m.id]
+          animatedIdsRef.current.add(m.id)
+          setVisibleContent((prev) => ({ ...prev, [m.id]: m.content }))
+        }
+      }, 30)
+      timersRef.current[m.id] = timer
     }
-  }, [loanType, programs, selectedProgramId])
+
+    return () => {
+      for (const t of Object.values(timersRef.current)) clearInterval(t)
+      timersRef.current = {}
+    }
+  }, [messages])
+
+  // Auto-select "all" if current selection is invalid
+  React.useEffect(() => {
+    if (selectedProgramId !== "all" && !programs.find((p) => p.id === selectedProgramId)) {
+      setSelectedProgramId("all")
+    }
+  }, [programs, selectedProgramId])
+
+  // Persist program_id to the current chat
+  const persistChatSelections = React.useCallback(
+    async (overrides?: { program_id?: string | null }) => {
+      if (!selectedChatId) return
+      const payload: Record<string, unknown> = {}
+      if (overrides?.program_id !== undefined) payload.program_id = overrides.program_id
+      if (Object.keys(payload).length === 0) return
+      try {
+        await fetch(`/api/ai/chats/${selectedChatId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        mutate("/api/ai/chats", (data: { items: Chat[] } | undefined) => {
+          if (!data) return data
+          return {
+            items: data.items.map((c) =>
+              c.id === selectedChatId ? { ...c, ...payload } as Chat : c
+            ),
+          }
+        }, false)
+      } catch {
+        // non-fatal
+      }
+    },
+    [selectedChatId],
+  )
 
   async function createNewConversation() {
     try {
       const res = await fetch("/api/ai/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "New chat" }),
+        body: JSON.stringify({ name: "New chat", program_id: selectedProgramId === "all" ? null : selectedProgramId }),
       })
       const json = (await res.json()) as { ok: boolean; chat?: Chat }
       if (json.ok && json.chat) {
@@ -128,12 +207,7 @@ export default function AIAgentPage() {
     }
   }
 
-  async function handleSend(message: PromptInputMessage) {
-    if (!message.text.trim() || !selectedChatId) return
-    const prompt = message.text
-    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
-    setMessages((prev) => [...prev, userMessage])
-
+  function bumpChatList() {
     mutate("/api/ai/chats", (data: { items: Chat[] } | undefined) => {
       if (!data) return data
       const nowIso = new Date().toISOString()
@@ -143,6 +217,14 @@ export default function AIAgentPage() {
       updated.sort((a, b) => new Date(b.last_used_at ?? b.created_at).getTime() - new Date(a.last_used_at ?? a.created_at).getTime())
       return { items: updated }
     }, false)
+  }
+
+  async function handleSend(message: PromptInputMessage) {
+    if (!message.text.trim() || !selectedChatId) return
+    const prompt = message.text
+    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
+    setMessages((prev) => [...prev, userMessage])
+    bumpChatList()
 
     setIsThinking(true)
     const thinkingId = `thinking-${Date.now()}`
@@ -176,6 +258,73 @@ export default function AIAgentPage() {
     } finally {
       setIsThinking(false)
     }
+  }
+
+  async function handleSendAll(message: PromptInputMessage) {
+    if (!message.text.trim() || !selectedChatId) return
+    const prompt = message.text
+    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
+    setMessages((prev) => [...prev, userMessage])
+    bumpChatList()
+
+    setIsThinking(true)
+    const assistantId = crypto.randomUUID()
+    animatedIdsRef.current.add(assistantId)
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }])
+
+    try {
+      const res = await fetch("/api/ai/send-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedChatId, prompt }),
+      })
+
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "")
+        throw new Error(errText || "Failed to get response")
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        const snapshot = accumulated
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, content: snapshot } : m)),
+        )
+      }
+
+      if (!accumulated.trim()) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: "Sorry, I couldn't generate a response." }
+              : m,
+          ),
+        )
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: "There was a problem generating a response." }
+            : m,
+        ),
+      )
+    } finally {
+      setIsThinking(false)
+    }
+  }
+
+  async function handleSubmit(message: PromptInputMessage) {
+    if (selectedProgramId === "all") {
+      return handleSendAll(message)
+    }
+    return handleSend(message)
   }
 
   async function handleRenameChat(chatId: string, newName: string) {
@@ -221,6 +370,30 @@ export default function AIAgentPage() {
       toast({ title: "Delete failed", description: msg, variant: "destructive" })
     }
   }
+
+  const vapiMetadata = React.useMemo(
+    () => ({
+      sessionId: selectedChatId ?? "",
+      program_id: selectedProgramId ?? "",
+    }),
+    [selectedChatId, selectedProgramId],
+  )
+
+  const vapi = useVapi({ metadata: vapiMetadata })
+
+  const handleVoiceSessionEnd = React.useCallback(
+    async (_transcripts: VapiTranscript[]) => {
+      if (!selectedChatId) return
+
+      // Messages are already persisted by the webhook during the call.
+      // Just refresh the chat data from the server to pick them up.
+      mutate(`/api/ai/chats/${selectedChatId}/messages`)
+      mutate("/api/ai/chats")
+
+      setVoiceMode(false)
+    },
+    [selectedChatId],
+  )
 
   const ChatListItem = ({ c, isMobile = false }: { c: Chat; isMobile?: boolean }) => {
     const commonClass =
@@ -375,26 +548,14 @@ export default function AIAgentPage() {
               </h2>
             </div>
             <div className="ml-auto flex items-center gap-2 min-w-0 overflow-hidden flex-1 justify-end">
-              <div className="min-w-0 flex-1 md:flex-none md:w-[160px]">
-                <Select value={loanType} onValueChange={(v) => setLoanType(v as "dscr" | "bridge")}>
-                  <SelectTrigger className="h-8 w-full truncate">
-                    <SelectValue placeholder="Loan Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dscr">DSCR</SelectItem>
-                    <SelectItem value="bridge">Bridge</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="min-w-0 flex-1 md:flex-none md:w-[220px]">
-                <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
+                <Select value={selectedProgramId} onValueChange={(v) => { setSelectedProgramId(v); persistChatSelections({ program_id: v === "all" ? null : v }) }}>
                   <SelectTrigger className="h-8 w-full truncate">
                     <SelectValue placeholder="Programs" />
                   </SelectTrigger>
                   <SelectContent>
-                    {programs
-                      .filter((p) => p.loan_type === loanType)
-                      .map((p) => {
+                    <SelectItem value="all">All Programs</SelectItem>
+                    {programs.map((p) => {
                         const isBroker = orgRole === "org:broker" || orgRole === "broker"
                         const label = isBroker ? p.external_name || p.internal_name : p.internal_name || p.external_name
                         return (
@@ -410,7 +571,17 @@ export default function AIAgentPage() {
           </div>
 
           <div className="relative flex min-h-0 flex-1 flex-col">
-            {selectedChatId ? (
+            {voiceMode && selectedChatId ? (
+              <VoiceChatPanel
+                isSessionActive={vapi.isSessionActive}
+                isConnecting={vapi.isConnecting}
+                isSpeaking={vapi.isSpeaking}
+                volumeLevel={vapi.volumeLevel}
+                transcripts={vapi.transcripts}
+                toggleCall={vapi.toggleCall}
+                onSessionEnd={handleVoiceSessionEnd}
+              />
+            ) : selectedChatId ? (
               <Conversation className="flex-1 min-h-0 px-3">
                 <ConversationContent className="mx-auto max-w-2xl pt-4 pb-6">
                   {messagesLoading ? (
@@ -436,10 +607,12 @@ export default function AIAgentPage() {
                       {messages.map((m) => (
                         <Message key={m.id} from={m.role}>
                           <MessageContent>
-                            {m.id.startsWith("thinking-") ? (
+                            {m.id.startsWith("thinking-") || (m.role === "assistant" && !m.content) ? (
                               <div className="flex items-center gap-2">
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                <span className="text-muted-foreground">Thinking...</span>
+                                <span className="text-muted-foreground">
+                                  {selectedProgramId === "all" && !m.id.startsWith("thinking-") ? "Analyzing all programs…" : "Thinking..."}
+                                </span>
                               </div>
                             ) : (
                               <div
@@ -449,26 +622,31 @@ export default function AIAgentPage() {
                                     : "prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
                                 }
                               >
-                                <ReactMarkdown>{m.content}</ReactMarkdown>
+                                <ReactMarkdown>{visibleContent[m.id] ?? m.content}</ReactMarkdown>
                               </div>
                             )}
                           </MessageContent>
-                          {!m.id.startsWith("thinking-") && m.content && (
+                          {!m.id.startsWith("thinking-") && m.content?.trim() && (
                             <MessageActions className={m.role === "user" ? "justify-end" : ""}>
                               <button
                                 type="button"
                                 onClick={async () => {
                                   try {
                                     await navigator.clipboard.writeText(m.content)
-                                    toast({ title: "Copied to clipboard" })
+                                    setCopiedId(m.id)
+                                    setTimeout(() => setCopiedId((prev) => (prev === m.id ? null : prev)), 2000)
                                   } catch {
-                                    toast({ title: "Copy failed", variant: "destructive" })
+                                    // silent fail
                                   }
                                 }}
                                 aria-label="Copy message"
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-background text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
                               >
-                                <Copy className="h-4 w-4" />
+                                {copiedId === m.id ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
                               </button>
                             </MessageActions>
                           )}
@@ -500,16 +678,89 @@ export default function AIAgentPage() {
             style={keyboardOffset ? ({ bottom: keyboardOffset } as React.CSSProperties) : undefined}
           >
             <div className="mx-auto w-full max-w-2xl pb-2">
-              <PromptInput onSubmit={handleSend}>
-                <PromptInputTextarea placeholder="Ask your AI Agent…" />
-                <PromptInputFooter>
-                  <div />
-                  <PromptInputSubmit
-                    disabled={!selectedChatId}
-                    status={isThinking ? "streaming" : undefined}
-                  />
-                </PromptInputFooter>
-              </PromptInput>
+              {voiceMode ? (
+                <div className="flex items-center justify-between rounded-xl border bg-background px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {vapi.isSessionActive ? (
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {vapi.isSpeaking ? "Assistant speaking" : "Listening..."}
+                        </span>
+                      </div>
+                    ) : vapi.isConnecting ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Connecting...</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Voice mode</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {vapi.isSessionActive ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={vapi.stopCall}
+                        className="gap-1.5"
+                      >
+                        <PhoneOff className="h-4 w-4" />
+                        End Call
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={vapi.toggleCall}
+                        disabled={!selectedChatId || vapi.isConnecting}
+                        className="gap-1.5"
+                      >
+                        <Phone className="h-4 w-4" />
+                        Start Call
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        if (vapi.isSessionActive) vapi.stopCall()
+                        setVoiceMode(false)
+                      }}
+                      aria-label="Exit voice mode"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <PromptInput onSubmit={handleSubmit}>
+                  <PromptInputTextarea placeholder="Ask your AI Agent…" />
+                  <PromptInputFooter>
+                    <div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={!selectedChatId}
+                        onClick={() => { setVoiceMode(true); vapi.startCall() }}
+                        aria-label="Voice mode"
+                      >
+                        <Mic className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <PromptInputSubmit
+                      disabled={!selectedChatId}
+                      status={isThinking ? "streaming" : undefined}
+                    />
+                  </PromptInputFooter>
+                </PromptInput>
+              )}
             </div>
           </div>
         </div>

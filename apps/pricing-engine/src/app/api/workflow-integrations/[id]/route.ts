@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       // If config contains "configured" placeholders, merge with existing config
       // to preserve unchanged secrets
       const { data: existing } = await supabaseAdmin
-        .from("workflow_integrations")
+        .from("integration_setup")
         .select("config")
         .eq("id", id)
         .eq("organization_id", orgUuid)
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .update(updates)
       .eq("id", id)
       .eq("organization_id", orgUuid)
@@ -127,7 +127,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     const url = new URL(_req.url)
     if (url.searchParams.get("action") === "restore") {
       const { error } = await supabaseAdmin
-        .from("workflow_integrations")
+        .from("integration_setup")
         .update({ archived_at: null, archived_by: null })
         .eq("id", id)
         .eq("organization_id", orgUuid)
@@ -138,7 +138,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     // Archive instead of delete
     const now = new Date().toISOString()
     const { error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .update({ archived_at: now, archived_by: userId })
       .eq("id", id)
       .eq("organization_id", orgUuid)

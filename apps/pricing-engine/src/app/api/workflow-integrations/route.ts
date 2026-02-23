@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     const id = req.nextUrl.searchParams.get("id")
 
     let query = supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .select("id, type, name, config, created_at, updated_at")
       .eq("organization_id", orgUuid)
       .eq("user_id", userId)
@@ -113,14 +113,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing type" }, { status: 400 })
     }
 
+    // Look up the catalog entry so every connection is linked to its settings
+    const { data: settings } = await supabaseAdmin
+      .from("integration_settings")
+      .select("id")
+      .eq("slug", type)
+      .maybeSingle()
+
     const { data, error } = await supabaseAdmin
-      .from("workflow_integrations")
+      .from("integration_setup")
       .insert({
         organization_id: orgUuid,
         user_id: userId,
         type,
         name,
         config,
+        integration_settings_id: settings?.id ?? null,
       })
       .select("id, type, name, config, created_at, updated_at")
       .single()

@@ -21,7 +21,6 @@ import {
   X,
   Archive,
 } from "lucide-react";
-import { cn } from "@repo/lib/cn";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
@@ -53,7 +52,7 @@ import {
 import { TaskLogicBuilderSheet } from "./task-logic-builder-sheet";
 import { TaskSettingsSheet } from "./task-settings-sheet";
 import { StepperBuilderSheet } from "./stepper-builder-sheet";
-import { ActionsSettings } from "./actions-settings";
+// AutomationsSettings now rendered directly by DealsSettings wrapper
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -100,10 +99,7 @@ const UNASSIGNED_KEY = "col-unassigned";
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
-type SubTab = "tasks" | "actions";
-
 export function TasksSettings() {
-  const [subTab, setSubTab] = useState<SubTab>("tasks");
   const [stages, setStages] = useState<DealStage[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [statuses, setStatuses] = useState<LookupItem[]>([]);
@@ -361,48 +357,6 @@ export function TasksSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold">Tasks &amp; Actions</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage task templates and workflow actions for your deal pipeline.
-        </p>
-      </div>
-
-      {/* Sub-tab switcher */}
-      <div className="flex items-center gap-1 border-b">
-        <button
-          type="button"
-          onClick={() => setSubTab("tasks")}
-          className={cn(
-            "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
-            subTab === "tasks"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-          )}
-        >
-          Tasks
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubTab("actions")}
-          className={cn(
-            "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
-            subTab === "actions"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-          )}
-        >
-          Actions
-        </button>
-      </div>
-
-      {/* Actions sub-tab */}
-      {subTab === "actions" && <ActionsSettings />}
-
-      {/* Tasks sub-tab content */}
-      {subTab === "tasks" && (
-      <>
       {/* Action buttons */}
       <div className="flex items-center gap-2">
         <Button
@@ -844,8 +798,6 @@ export function TasksSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </>
-      )}
     </div>
   );
 }

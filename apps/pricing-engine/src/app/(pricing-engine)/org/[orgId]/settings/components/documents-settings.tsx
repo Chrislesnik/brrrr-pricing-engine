@@ -453,6 +453,17 @@ export function DocumentsSettings() {
                           variant="ghost"
                           size="icon"
                           className="size-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setLogicBuilderDocTypeId(null);
+                            setLogicBuilderOpen(true);
+                          }}
+                        >
+                          <Workflow className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-foreground"
                           onClick={() => handleStartEditCategory(cat)}
                         >
                           <Pencil className="size-3.5" />

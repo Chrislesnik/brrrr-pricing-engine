@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const { category_id, input_label, input_type, dropdown_options, linked_table, linked_column } = body
+    const { category_id, input_label, input_type, dropdown_options, config, linked_table, linked_column, tooltip } = body
 
     if (!category_id) return NextResponse.json({ error: "category_id is required" }, { status: 400 })
     if (!input_label?.trim()) return NextResponse.json({ error: "input_label is required" }, { status: 400 })
@@ -106,8 +106,10 @@ export async function POST(req: NextRequest) {
         input_type,
         dropdown_options: input_type === "dropdown" ? (dropdown_options ?? []) : null,
         display_order: nextOrder,
+        config: config ?? {},
         linked_table: linked_table || null,
         linked_column: linked_column || null,
+        tooltip: tooltip || null,
       })
       .select("*")
       .single()
@@ -134,7 +136,7 @@ export async function PATCH(req: NextRequest) {
 
     // Single input update (edit label, type, dropdown_options, starred, linked_table, linked_column)
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options, starred, linked_table, linked_column } = body
+      const { id, input_label, input_type, dropdown_options, config, starred, linked_table, linked_column, tooltip } = body
       const updatePayload: Record<string, unknown> = {}
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
       if (input_type !== undefined) {
@@ -147,6 +149,7 @@ export async function PATCH(req: NextRequest) {
       }
       if (dropdown_options !== undefined && !(input_type !== undefined && input_type !== "dropdown"))
         updatePayload.dropdown_options = dropdown_options
+      if (config !== undefined) updatePayload.config = config
       if (typeof starred === "boolean") updatePayload.starred = starred
 
       // Handle linked table/column updates
@@ -167,6 +170,7 @@ export async function PATCH(req: NextRequest) {
       if (linked_column !== undefined && linked_table === undefined) {
         updatePayload.linked_column = linked_column || null
       }
+      if (tooltip !== undefined) updatePayload.tooltip = tooltip || null
       if (Object.keys(updatePayload).length === 0) {
         return NextResponse.json({ error: "No fields to update" }, { status: 400 })
       }

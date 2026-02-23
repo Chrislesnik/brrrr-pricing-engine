@@ -9,33 +9,31 @@ import {
   IconGripVertical,
   IconSettings,
 } from "@tabler/icons-react"
-import { Field } from "./field-types"
+import { Variable } from "./variable-types"
 
 interface DataPanelProps {
-  fields: Field[]
-  onOpenFieldEditor: () => void
-  onDragStart?: (field: Field) => void
+  variables: Variable[]
+  onOpenVariableEditor: () => void
+  onDragStart?: (variable: Variable) => void
 }
 
-export function DataPanel({ fields, onOpenFieldEditor, onDragStart }: DataPanelProps) {
+export function DataPanel({ variables, onOpenVariableEditor, onDragStart }: DataPanelProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Filter fields based on search
-  const filteredFields = useMemo(() => {
-    if (!searchQuery.trim()) return fields
-    return fields.filter((field) =>
-      field.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredVariables = useMemo(() => {
+    if (!searchQuery.trim()) return variables
+    return variables.filter((variable) =>
+      variable.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [fields, searchQuery])
+  }, [variables, searchQuery])
 
-  const handleDragStart = (e: React.DragEvent, field: Field) => {
-    // Set drag data for GrapeJS
-    e.dataTransfer.setData("text/plain", `{{${field.name}}}`)
-    e.dataTransfer.setData("application/json", JSON.stringify(field))
+  const handleDragStart = (e: React.DragEvent, variable: Variable) => {
+    e.dataTransfer.setData("text/plain", `{{${variable.name}}}`)
+    e.dataTransfer.setData("application/json", JSON.stringify(variable))
     e.dataTransfer.effectAllowed = "copy"
     
     if (onDragStart) {
-      onDragStart(field)
+      onDragStart(variable)
     }
   }
 
@@ -51,8 +49,8 @@ export function DataPanel({ fields, onOpenFieldEditor, onDragStart }: DataPanelP
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={onOpenFieldEditor}
-          title="Edit Fields"
+          onClick={onOpenVariableEditor}
+          title="Edit Variables"
         >
           <IconSettings className="h-4 w-4" />
         </Button>
@@ -83,25 +81,25 @@ export function DataPanel({ fields, onOpenFieldEditor, onDragStart }: DataPanelP
         </div>
       </div>
 
-      {/* Fields List */}
+      {/* Variables List */}
       <ScrollArea className="flex-1">
         <div className="px-2 pb-4">
-          {filteredFields.length === 0 ? (
+          {filteredVariables.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              {searchQuery ? "No fields found" : "No fields defined"}
+              {searchQuery ? "No variables found" : "No variables defined"}
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredFields.map((field) => (
+              {filteredVariables.map((variable) => (
                 <div
-                  key={field.id}
+                  key={variable.id}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, field)}
+                  onDragStart={(e) => handleDragStart(e, variable)}
                   className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-grab active:cursor-grabbing group transition-colors"
                 >
                   <IconGripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground" />
                   <span className="text-primary font-mono text-sm font-medium">Tt</span>
-                  <span className="text-sm font-mono truncate flex-1">{field.name}</span>
+                  <span className="text-sm font-mono truncate flex-1">{variable.name}</span>
                 </div>
               ))}
             </div>
@@ -115,10 +113,10 @@ export function DataPanel({ fields, onOpenFieldEditor, onDragStart }: DataPanelP
           variant="outline"
           size="sm"
           className="w-full text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
-          onClick={onOpenFieldEditor}
+          onClick={onOpenVariableEditor}
         >
           <IconSettings className="h-4 w-4 mr-2" />
-          Manage Fields
+          Manage Variables
         </Button>
       </div>
     </div>

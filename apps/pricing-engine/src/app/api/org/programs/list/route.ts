@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("programs")
-      .select("id, loan_type, internal_name, external_name, webhook_url, status")
+      .select("id, internal_name, external_name, webhook_url, status")
       .order("updated_at", { ascending: false });
 
     if (error) {

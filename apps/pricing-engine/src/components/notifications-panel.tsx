@@ -1,165 +1,174 @@
 "use client"
 
+import { useCallback } from "react"
 import {
   BellIcon,
-  CheckCircle2Icon,
-  AlertTriangleIcon,
-  UsersIcon,
-  FileTextIcon,
-  ArrowRightLeftIcon,
-  ClockIcon,
-  UserPlusIcon,
-  ShieldCheckIcon,
+  Loader2,
 } from "lucide-react"
+import {
+  useInboxNotifications,
+  useMarkAllInboxNotificationsAsRead,
+  useMarkInboxNotificationAsRead,
+} from "@liveblocks/react/suspense"
+import { ClientSideSuspense } from "@liveblocks/react/suspense"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+import type { InboxNotificationData } from "@liveblocks/client"
+import TeamNotifications, {
+  type NotificationType,
+  type TeamNotification,
+} from "@/components/ui/team-notifications"
 
-interface Notification {
-  id: number
-  icon: React.ReactNode
-  title: string
-  description: string
-  time: string
-  unread: boolean
+function mapKindToType(kind: string): NotificationType {
+  switch (kind) {
+    case "thread":
+    case "textMention":
+      return "mention"
+    case "$taskAssignment":
+      return "system"
+    case "$dealAssignment":
+    case "$loanAssignment":
+    case "$dealStatusChange":
+      return "project_updated"
+    case "$applicationCompleted":
+      return "system"
+    default:
+      return "system"
+  }
 }
 
-const notifications: Notification[] = [
-  {
-    id: 1,
-    icon: <FileTextIcon className="size-4 text-info" />,
-    title: "New deal submitted",
-    description: "Deal #1042 — 123 Main St was submitted for review.",
-    time: "12 min ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    icon: <CheckCircle2Icon className="size-4 text-success" />,
-    title: "Task completed",
-    description: "Appraisal review marked as done by Eddie Lake.",
-    time: "34 min ago",
-    unread: true,
-  },
-  {
-    id: 3,
-    icon: <UserPlusIcon className="size-4 text-primary" />,
-    title: "Member joined",
-    description: "Chris Lesnik accepted the invitation to Brrrr Funder LLC.",
-    time: "1 hour ago",
-    unread: true,
-  },
-  {
-    id: 4,
-    icon: <ArrowRightLeftIcon className="size-4 text-chart-1" />,
-    title: "Deal stage changed",
-    description: "Deal #1038 moved from Processing to Underwriting.",
-    time: "2 hours ago",
-    unread: false,
-  },
-  {
-    id: 5,
-    icon: <AlertTriangleIcon className="size-4 text-warning" />,
-    title: "Task overdue",
-    description: "Title search for Deal #1035 is 2 days past due.",
-    time: "3 hours ago",
-    unread: false,
-  },
-  {
-    id: 6,
-    icon: <UsersIcon className="size-4 text-info" />,
-    title: "Broker assigned",
-    description: "Aaron Kraut was assigned as account manager for Broker 2 LLC.",
-    time: "5 hours ago",
-    unread: false,
-  },
-  {
-    id: 7,
-    icon: <ShieldCheckIcon className="size-4 text-success" />,
-    title: "Policy approved",
-    description: "LTV limit policy was approved and is now active.",
-    time: "Yesterday",
-    unread: false,
-  },
-  {
-    id: 8,
-    icon: <ClockIcon className="size-4 text-muted-foreground" />,
-    title: "Scenario expired",
-    description: "Rate lock for Scenario #892 expired. Re-price to continue.",
-    time: "Yesterday",
-    unread: false,
-  },
-  {
-    id: 9,
-    icon: <FileTextIcon className="size-4 text-info" />,
-    title: "Document uploaded",
-    description: "Borrower uploaded appraisal report for Deal #1040.",
-    time: "2 days ago",
-    unread: false,
-  },
-  {
-    id: 10,
-    icon: <CheckCircle2Icon className="size-4 text-success" />,
-    title: "Deal funded",
-    description: "Deal #1029 — 456 Oak Ave was marked as funded.",
-    time: "2 days ago",
-    unread: false,
-  },
-]
+function getNotificationContent(notification: InboxNotificationData) {
+  const kind = notification.kind
+  const activities = (notification as Record<string, unknown>).activities as unknown[] | undefined
+  const latestActivity = activities?.[activities.length - 1] as Record<string, unknown> | undefined
 
-export function NotificationsPanel() {
-  const unreadCount = notifications.filter((n) => n.unread).length
+  switch (kind) {
+    case "thread":
+      return {
+        title: "New comment activity",
+        description: "You have new activity in a comment thread.",
+      }
+    case "textMention":
+      return {
+        title: "You were mentioned",
+        description: "Someone mentioned you in a comment.",
+      }
+    case "$taskAssignment": {
+      const taskName = (latestActivity?.taskName as string) || "a task"
+      const assignerName = (latestActivity?.assignerName as string) || "Someone"
+      return {
+        title: "Task assigned to you",
+        description: `${assignerName} assigned you to ${taskName}.`,
+      }
+    }
+    case "$loanAssignment": {
+      const assignerName = (latestActivity?.assignerName as string) || "Someone"
+      return {
+        title: "Loan scenario assigned",
+        description: `${assignerName} assigned a loan scenario to you.`,
+      }
+    }
+    case "$dealAssignment": {
+      const dealName = (latestActivity?.dealName as string) || "a deal"
+      const assignerName = (latestActivity?.assignerName as string) || "Someone"
+      return {
+        title: "Added to a deal",
+        description: `${assignerName} added you to ${dealName}.`,
+      }
+    }
+    case "$applicationCompleted": {
+      const borrowerName = (latestActivity?.borrowerName as string) || "A borrower"
+      return {
+        title: "Application completed",
+        description: `${borrowerName} completed and submitted their application.`,
+      }
+    }
+    case "$dealStatusChange": {
+      const dealName = (latestActivity?.dealName as string) || "A deal"
+      const newStage = (latestActivity?.newStage as string) || "a new stage"
+      return {
+        title: "Deal stage changed",
+        description: `${dealName} moved to ${newStage}.`,
+      }
+    }
+    default:
+      return {
+        title: "Notification",
+        description: "You have a new notification.",
+      }
+  }
+}
+
+function NotificationsList({ onOpenChat }: { onOpenChat?: (dealId: string) => void }) {
+  const { inboxNotifications } = useInboxNotifications()
+  const markAsRead = useMarkInboxNotificationAsRead()
+  const markAllAsRead = useMarkAllInboxNotificationsAsRead()
+
+  const mapped: TeamNotification[] = inboxNotifications.map((n) => {
+    const { title, description } = getNotificationContent(n)
+    const dealId = n.roomId?.startsWith("deal:") ? n.roomId.slice(5) : undefined
+    return {
+      id: n.id,
+      type: mapKindToType(n.kind),
+      title,
+      message: description,
+      read: !!n.readAt,
+      timestamp: n.notifiedAt,
+      link: dealId ? `/deals/${dealId}` : undefined,
+      metadata: { kind: n.kind, dealId },
+    }
+  })
+
+  const handleNotificationClick = useCallback(
+    (notification: TeamNotification) => {
+      if (!notification.read) {
+        markAsRead(notification.id)
+      }
+      const kind = notification.metadata?.kind as string | undefined
+      const dealId = notification.metadata?.dealId as string | undefined
+
+      if ((kind === "thread" || kind === "textMention") && dealId && onOpenChat) {
+        onOpenChat(dealId)
+      } else if (notification.link) {
+        window.location.href = notification.link
+      }
+    },
+    [markAsRead, onOpenChat]
+  )
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden">
-      <CardHeader className="flex-none border-b px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BellIcon className="size-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-semibold">Notifications</CardTitle>
-          </div>
-          {unreadCount > 0 && (
-            <Badge variant="secondary" className="h-5 rounded-full px-1.5 text-[10px] font-semibold">
-              {unreadCount}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-full">
-          <div className="flex flex-col">
-            {notifications.map((notification, idx) => (
-              <div key={notification.id}>
-                <div
-                  className={`flex gap-3 px-4 py-3 transition-colors hover:bg-muted/50 ${
-                    notification.unread ? "bg-muted/30" : ""
-                  }`}
-                >
-                  <div className="mt-0.5 flex-none">{notification.icon}</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm leading-tight ${notification.unread ? "font-semibold" : "font-medium"}`}>
-                        {notification.title}
-                      </p>
-                      {notification.unread && (
-                        <span className="mt-1 flex-none size-2 rounded-full bg-primary" />
-                      )}
-                    </div>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {notification.description}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground/70">
-                      {notification.time}
-                    </p>
-                  </div>
-                </div>
-                {idx < notifications.length - 1 && <Separator />}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+    <TeamNotifications
+      notifications={mapped}
+      onNotificationClick={handleNotificationClick}
+      onMarkAsRead={async (id) => markAsRead(id)}
+      onMarkAllAsRead={async () => markAllAsRead()}
+      showFilters={true}
+      className="flex h-full flex-col overflow-hidden"
+    />
+  )
+}
+
+interface NotificationsPanelProps {
+  onOpenChat?: (dealId: string) => void
+}
+
+export function NotificationsPanel({ onOpenChat }: NotificationsPanelProps) {
+  return (
+    <ClientSideSuspense
+      fallback={
+        <Card className="flex h-full flex-col overflow-hidden">
+          <CardHeader className="flex-none border-b px-4 py-3">
+            <div className="flex items-center gap-2">
+              <BellIcon className="size-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold">Notifications</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-1 items-center justify-center p-0">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      }
+    >
+      <NotificationsList onOpenChat={onOpenChat} />
+    </ClientSideSuspense>
   )
 }

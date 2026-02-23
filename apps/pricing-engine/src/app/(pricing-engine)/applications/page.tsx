@@ -1,15 +1,6 @@
 "use client"
 
-import Link from "next/link"
 import useSWR from "swr"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@repo/ui/shadcn/breadcrumb"
 import { ApplicationsTable } from "./components/applications-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
 import type { ApplicationRow } from "./data/fetch-applications"
@@ -27,30 +18,14 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Applications</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Applications
-          </h2>
-        </div>
+    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Applications</h1>
+        <p className="text-muted-foreground">
+          Manage loan applications and track signing progress.
+        </p>
       </div>
-      <div className="flex-1 min-w-0">
-        <ApplicationsTable data={applications} />
-      </div>
-    </>
+      <ApplicationsTable data={applications} />
+    </div>
   )
 }

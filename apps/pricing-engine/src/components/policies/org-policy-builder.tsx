@@ -1111,6 +1111,13 @@ export default function OrgPolicyBuilder({
             label: feat.label,
           });
         }
+        // Add dynamic integration feature resources
+        for (const feat of resources.integrationFeatures) {
+          opts.push({
+            value: `feature:${feat.name}`,
+            label: feat.label,
+          });
+        }
         setResourceOptions(opts);
       } catch (err) {
         console.error("Failed to load available resources:", err);

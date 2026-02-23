@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { filterProgramsByConditions } from "@/lib/program-condition-evaluator"
 
 export const runtime = "nodejs"
 
@@ -35,18 +36,16 @@ async function waitForOrgMemberId(
   }
 }
 
-function booleanToYesNoDeep(value: unknown): unknown {
-  if (typeof value === "boolean") {
-    return value ? "yes" : "no"
-  }
+function booleanToStringDeep(value: unknown): unknown {
+  if (typeof value === "boolean") return value ? "true" : "false"
   if (Array.isArray(value)) {
-    return value.map((v) => booleanToYesNoDeep(v))
+    return value.map((v) => booleanToStringDeep(v))
   }
   if (value && typeof value === "object") {
     const src = value as Record<string, unknown>
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(src)) {
-      out[k] = booleanToYesNoDeep(v)
+      out[k] = booleanToStringDeep(v)
     }
     return out
   }
@@ -68,12 +67,15 @@ export async function POST(req: NextRequest) {
     // Resolve caller's organization_member_id (wait until available)
     const myMemberId = await waitForOrgMemberId(orgUuid ?? null, userId)
 
-    // fetch active program webhooks for this loan type
-    const { data, error } = await superFetchPrograms(json.loanType)
+    const { data, error } = await supabaseAdmin
+      .from("programs")
+      .select("id,internal_name,external_name,webhook_url")
+      .eq("status", "active")
     if (error) {
-      return new NextResponse(`Query error: ${error}`, { status: 500 })
+      return new NextResponse(`Query error: ${error.message}`, { status: 500 })
     }
-    const programs = (data ?? []).filter((p) => (p.webhook_url ?? "").trim() !== "")
+    const allActive = (data ?? []).filter((p) => (p.webhook_url ?? "").trim() !== "")
+    const programs = await filterProgramsByConditions(allActive, json.data ?? {})
 
     let delivered = 0
     const results: {
@@ -84,18 +86,7 @@ export async function POST(req: NextRequest) {
       ok?: boolean
       data: Record<string, unknown> | null
     }[] = []
-    const normalizedData = booleanToYesNoDeep(json.data) as Record<string, unknown>
-    // Ensure admin fee aliases are always present
-    if (normalizedData["lender_admin_fee"] === undefined && normalizedData["admin_fee"] !== undefined) {
-      normalizedData["lender_admin_fee"] = normalizedData["admin_fee"]
-    }
-    if (normalizedData["admin_fee"] === undefined && normalizedData["lender_admin_fee"] !== undefined) {
-      normalizedData["admin_fee"] = normalizedData["lender_admin_fee"]
-    }
-    if (normalizedData["broker_admin_fee"] === undefined) {
-      normalizedData["broker_admin_fee"] = ""
-    }
-    // Always include organization_member_id
+    const normalizedData = booleanToStringDeep(json.data) as Record<string, unknown>
     normalizedData["organization_member_id"] = myMemberId
     const requestIdBase = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
     await Promise.all(
@@ -104,6 +95,7 @@ export async function POST(req: NextRequest) {
         if (!url) return
         try {
           const requestId = `${requestIdBase}-${idx}`
+          const payload = { ...normalizedData, program_id: p.id }
           const res = await fetch(url, {
             method: "POST",
             cache: "no-store",
@@ -113,7 +105,7 @@ export async function POST(req: NextRequest) {
               "Pragma": "no-cache",
               "X-Request-Id": requestId,
             },
-            body: JSON.stringify(normalizedData),
+            body: JSON.stringify(payload),
           })
           let body: Record<string, unknown> | null = null
           try {
@@ -153,15 +145,6 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "unknown error"
     return new NextResponse(`Server error: ${msg}`, { status: 500 })
   }
-}
-
-async function superFetchPrograms(loanType: string) {
-  const { data, error } = await supabaseAdmin
-    .from("programs")
-    .select("internal_name,external_name,webhook_url")
-    .eq("loan_type", loanType.toLowerCase())
-    .eq("status", "active")
-  return { data, error: error?.message }
 }
 
 

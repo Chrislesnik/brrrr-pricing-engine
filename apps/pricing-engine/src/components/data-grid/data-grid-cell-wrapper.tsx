@@ -51,6 +51,7 @@ export function DataGridCellWrapper<TData>({
       if (!isEditing) {
         event.preventDefault();
         onClickProp?.(event);
+        if (event.isPropagationStopped()) return;
         if (isFocused && !readOnly) {
           tableMeta?.onCellEditingStart?.(rowIndex, columnId);
         } else {

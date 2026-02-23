@@ -17,22 +17,23 @@ export default function BorrowersPage() {
   }
 
   return (
-    <>
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex-none text-xl font-bold tracking-tight">
-            Borrowers Pipeline
-          </h2>
+    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Borrowers</h1>
+        <p className="text-muted-foreground">
+          Manage individual borrower contacts and their information.
+        </p>
+      </div>
+      <BorrowersTable
+        data={borrowers}
+        actionButton={
           <ApplicantsPrimaryActions
             label="New Borrower"
             href="/applicants/borrowers/new"
             type="borrower"
           />
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <BorrowersTable data={borrowers} />
-      </div>
-    </>
+        }
+      />
+    </div>
   )
 }
