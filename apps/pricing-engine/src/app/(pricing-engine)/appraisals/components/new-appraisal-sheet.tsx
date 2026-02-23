@@ -117,8 +117,12 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   const [borrowerAltPhone, setBorrowerAltPhone] = useState("");
 
   // Property Details
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [propertyType, setPropertyType] = useState("");
+  const [propertyTypeSearchOpen, setPropertyTypeSearchOpen] = useState(false);
+  const [occupancyTypes, setOccupancyTypes] = useState<string[]>([]);
   const [occupancyType, setOccupancyType] = useState("");
+  const [occupancyTypeSearchOpen, setOccupancyTypeSearchOpen] = useState(false);
   const [propertyAddress, setPropertyAddress] = useState("");
   const [propertyCity, setPropertyCity] = useState("");
   const [propertyState, setPropertyState] = useState("");
@@ -197,6 +201,10 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
       setLoanTypes([]);
       setLoanType("");
       setLoanTypeOther("");
+      setPropertyTypes([]);
+      setPropertyType("");
+      setOccupancyTypes([]);
+      setOccupancyType("");
       return;
     }
     const amc = amcs.find((a) => a.id === selectedAmcId);
@@ -213,17 +221,23 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
       setLoanTypes([]);
       setLoanType("");
       setLoanTypeOther("");
+      setPropertyTypes([]);
+      setPropertyType("");
+      setOccupancyTypes([]);
+      setOccupancyType("");
       return;
     }
     let cancelled = false;
     async function loadAmcOptions() {
       try {
-        const [prodRes, ttRes, ltRes, lnRes, invRes] = await Promise.all([
+        const [prodRes, ttRes, ltRes, lnRes, invRes, ptRes, ocRes] = await Promise.all([
           fetch(`/api/appraisal-products?settingsId=${settingsId}`),
           fetch(`/api/appraisal-transaction-types?settingsId=${settingsId}`),
           fetch(`/api/appraisal-loan-types?settingsId=${settingsId}`),
           fetch(`/api/appraisal-lenders?settingsId=${settingsId}`),
           fetch(`/api/appraisal-investors?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-property-types?settingsId=${settingsId}`),
+          fetch(`/api/appraisal-occupancy-types?settingsId=${settingsId}`),
         ]);
         if (cancelled) return;
         if (prodRes.ok) {
@@ -251,6 +265,16 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
           const json = await invRes.json();
           setInvestors(json.investors ?? []);
           setInvestor("");
+        }
+        if (ptRes.ok) {
+          const json = await ptRes.json();
+          setPropertyTypes(json.propertyTypes ?? []);
+          setPropertyType("");
+        }
+        if (ocRes.ok) {
+          const json = await ocRes.json();
+          setOccupancyTypes(json.occupancyTypes ?? []);
+          setOccupancyType("");
         }
       } catch { /* ignore */ }
     }
@@ -599,7 +623,6 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
                         <CommandGroup>
                           {borrowers.map((b) => (
                             <CommandItem key={b.id} value={`${b.first_name} ${b.last_name} ${b.email}`} onSelect={() => handleSelectBorrower(b.id)}>
-                              <Check className={cn("mr-2 h-4 w-4", selectedBorrowerId === b.id ? "opacity-100" : "opacity-0")} />
                               <span className="text-sm">{b.first_name} {b.last_name}</span>
                             </CommandItem>
                           ))}
@@ -639,23 +662,67 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Property Type</Label>
-                  <Select value={propertyType} onValueChange={setPropertyType}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Single Family">Single Family</SelectItem>
-                      <SelectItem value="Condominium">Condominium</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={propertyTypeSearchOpen} onOpenChange={setPropertyTypeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || propertyTypes.length === 0}>
+                        <span className={cn("truncate", !propertyType && "text-muted-foreground")}>
+                          {propertyType || (selectedAmcId ? "Select property type..." : "Select AMC first")}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search property types..." />
+                        <CommandList>
+                          <CommandEmpty>No property types found.</CommandEmpty>
+                          <CommandGroup>
+                            {propertyTypes.map((pt) => (
+                              <CommandItem
+                                key={pt}
+                                value={pt}
+                                onSelect={() => { setPropertyType(pt); setPropertyTypeSearchOpen(false); }}
+                              >
+                                <span className="text-sm">{pt}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label className="text-xs">Occupancy Type</Label>
-                  <Select value={occupancyType} onValueChange={setOccupancyType}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Investment">Investment</SelectItem>
-                      <SelectItem value="Vacant">Vacant</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={occupancyTypeSearchOpen} onOpenChange={setOccupancyTypeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9" disabled={!selectedAmcId || occupancyTypes.length === 0}>
+                        <span className={cn("truncate", !occupancyType && "text-muted-foreground")}>
+                          {occupancyType || (selectedAmcId ? "Select occupancy..." : "Select AMC first")}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" collisionPadding={8} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+                      <Command>
+                        <CommandInput placeholder="Search occupancy types..." />
+                        <CommandList>
+                          <CommandEmpty>No occupancy types found.</CommandEmpty>
+                          <CommandGroup>
+                            {occupancyTypes.map((oc) => (
+                              <CommandItem
+                                key={oc}
+                                value={oc}
+                                onSelect={() => { setOccupancyType(oc); setOccupancyTypeSearchOpen(false); }}
+                              >
+                                <span className="text-sm">{oc}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <div>
