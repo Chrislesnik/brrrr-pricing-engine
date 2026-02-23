@@ -72,5 +72,8 @@ packages/*/.turbo
 # Clerk (contains secrets in keyless mode)
 .clerk/.tmp/**
 
+# Supabase CLI runtime state
+**/.temp/
+
 # Vapi voice context (runtime temp file)
 .vapi-voice-context.json
