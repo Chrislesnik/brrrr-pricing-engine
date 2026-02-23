@@ -134,12 +134,7 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
       if (!scenario.inputs!.__byId) scenario.inputs!.__byId = {}
       ;(scenario.inputs!.__byId as Record<string, unknown>)[String(peId)] = val
 
-      if (code.startsWith("address_")) {
-        if (!scenario.inputs!.address) scenario.inputs!.address = {}
-        ;(scenario.inputs!.address as Record<string, unknown>)[code.replace("address_", "")] = val
-      } else {
-        scenario.inputs![code] = val
-      }
+      scenario.inputs![code] = val
     }
 
     // Load selected rate options for scenarios that have them

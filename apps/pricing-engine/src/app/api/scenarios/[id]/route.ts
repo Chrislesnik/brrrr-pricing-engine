@@ -122,12 +122,44 @@ export async function POST(
     if (body.inputs !== undefined) {
       await writeScenarioInputs(id, body.inputs as Record<string, unknown>)
     }
-    if (body.outputs !== undefined) {
+    if (body.outputs && Array.isArray(body.outputs) && body.outputs.length > 0) {
       await writeScenarioOutputs(
         id,
         body.outputs,
         (body.selected ?? data?.selected) as Record<string, unknown> | null | undefined
       )
+    } else if (body.selected) {
+      // Update selection on existing rate options without re-writing outputs
+      const sel = body.selected as Record<string, unknown>
+      const programId = sel.program_id ?? sel.programId
+      const rowIdx = sel.row_index ?? sel.rowIdx
+
+      const { data: existingResults } = await supabaseAdmin
+        .from("scenario_program_results")
+        .select("id, program_id")
+        .eq("loan_scenario_id", id)
+
+      if (existingResults?.length) {
+        const matchResult = programId
+          ? existingResults.find(r => String(r.program_id) === String(programId))
+          : existingResults[0]
+
+        if (matchResult) {
+          const { data: rateOpt } = await supabaseAdmin
+            .from("scenario_rate_options")
+            .select("id")
+            .eq("scenario_program_result_id", matchResult.id)
+            .eq("row_index", Number(rowIdx))
+            .single()
+
+          if (rateOpt) {
+            await supabaseAdmin
+              .from("loan_scenarios")
+              .update({ selected_rate_option_id: rateOpt.id })
+              .eq("id", id)
+          }
+        }
+      }
     }
 
     // Log activity for scenario update - compare and log separately

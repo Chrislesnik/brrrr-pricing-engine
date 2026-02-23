@@ -1353,10 +1353,6 @@ export default function PricingEnginePage() {
   // Build payload dynamically from peInputDefs + formValues (no hardcoded field names)
   function buildPayload() {
     const payload: Record<string, unknown> = {}
-    const addressInputCodes = new Set<string>()
-    for (const roleMap of addressGroupIndex.values()) {
-      for (const code of roleMap.values()) addressInputCodes.add(code)
-    }
 
     for (const input of peInputDefs) {
       const val = formValues[input.input_code] ?? computedDefaults[input.input_code]
@@ -1374,15 +1370,6 @@ export default function PricingEnginePage() {
       } else {
         payload[input.input_code] = val ?? ""
       }
-    }
-
-    // Build nested address object(s) from addressGroupIndex
-    for (const [groupName, roleMap] of addressGroupIndex) {
-      const addr: Record<string, string> = {}
-      for (const [role, code] of roleMap) {
-        addr[role] = String(formValues[code] ?? "")
-      }
-      payload[`address_${groupName}`] = addr
     }
 
     // Include any extra values not defined as peInputDefs (e.g. record IDs, grid data)
@@ -1842,20 +1829,9 @@ export default function PricingEnginePage() {
     suppressPredictionsRef.current = true
     const hydrated: Record<string, unknown> = {}
 
-    // Flatten nested address objects (legacy "address" or new "address_property" etc.)
-    for (const [groupName, roleMap] of addressGroupIndex) {
-      const addrObj = (payload[`address_${groupName}`] ?? (groupName === "property" ? payload["address"] : undefined)) as Record<string, unknown> | undefined
-      if (addrObj && typeof addrObj === "object") {
-        for (const [role, code] of roleMap) {
-          if (role in addrObj) hydrated[code] = addrObj[role]
-        }
-      }
-    }
-
     // Map all payload keys through legacy migration, then store in hydrated
     for (const [key, val] of Object.entries(payload)) {
       if (val === undefined || val === null) continue
-      if (key === "address" || key.startsWith("address_")) continue
 
       const canonicalCode = legacyKeyMap[key] ?? key
 
@@ -2293,7 +2269,10 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride ?? "Scenario",
                               inputs,
-                              outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
+                              outputs: programResults?.map(r => {
+                                if (!r.data) return null
+                                return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
+                              }).filter(Boolean) ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id
@@ -2323,7 +2302,10 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride,
                               inputs,
-                              outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
+                              outputs: programResults?.map(r => {
+                                if (!r.data) return null
+                                return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
+                              }).filter(Boolean) ?? null,
                               selected: {
                                 ...selected,
                                 // Always save external name and UUID for id

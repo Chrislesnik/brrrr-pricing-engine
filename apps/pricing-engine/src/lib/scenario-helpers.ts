@@ -34,31 +34,6 @@ export async function writeScenarioInputs(
   // Build rows from the inputs payload
   const rows: Array<Record<string, unknown>> = []
 
-  // Handle nested address object
-  if (inputs.address && typeof inputs.address === "object") {
-    const addr = inputs.address as Record<string, unknown>
-    const addrFields: Record<string, string> = {
-      street: "address_street",
-      apt: "address_apt",
-      city: "address_city",
-      state: "address_state",
-      zip: "address_zip",
-      county: "address_county",
-    }
-    for (const [subKey, code] of Object.entries(addrFields)) {
-      const pe = codeMap.get(code)
-      if (!pe) continue
-      const val = addr[subKey]
-      if (val === undefined || val === null) continue
-      rows.push({
-        loan_scenario_id: scenarioId,
-        pricing_engine_input_id: pe.id,
-        input_type: pe.input_type,
-        value_text: String(val),
-      })
-    }
-  }
-
   // Legacy key -> input_code mapping for backward compat
   const keyAliases: Record<string, string> = {
     admin_fee: "lender_admin_fee",
@@ -91,7 +66,7 @@ export async function writeScenarioInputs(
     unit_data: "leased_units",
   }
 
-  const skip = new Set(["address", "borrower_entity_id", "guarantor_borrower_ids", "guarantor_names", "guarantor_emails", "organization_member_id", "program_id"])
+  const skip = new Set(["borrower_entity_id", "guarantor_borrower_ids", "guarantor_names", "guarantor_emails", "organization_member_id", "program_id"])
   const seen = new Set<number>()
 
   for (const [key, val] of Object.entries(inputs)) {
@@ -165,8 +140,10 @@ export async function writeScenarioOutputs(
   let selectedRateOptionId: number | null = null
   const selectedProgramId = selected?.program_id ?? selected?.programId
   const selectedRowIdx = selected?.row_index ?? selected?.rowIdx
+  const selectedProgramIndex = selected?.program_index
 
-  for (const output of outputs) {
+  for (let outputIndex = 0; outputIndex < outputs.length; outputIndex++) {
+    const output = outputs[outputIndex]
     if (!output || typeof output !== "object") continue
     const o = output as Record<string, unknown>
 
@@ -237,11 +214,19 @@ export async function writeScenarioOutputs(
         .select("id, row_index")
 
       // Check if any of these rate options match the selected row
-      if (insertedRates && selectedProgramId && String(selectedProgramId) === String(programId)) {
-        const match = insertedRates.find(
-          (r) => r.row_index === Number(selectedRowIdx)
-        )
-        if (match) selectedRateOptionId = match.id as number
+      if (insertedRates && selectedRateOptionId === null) {
+        const isMatchingProgram =
+          (selectedProgramId && programId && String(selectedProgramId) === String(programId)) ||
+          (!selectedProgramId && !programId) ||
+          (outputs.length === 1) ||
+          (selectedProgramIndex != null && outputIndex === Number(selectedProgramIndex))
+
+        if (isMatchingProgram) {
+          const match = insertedRates.find(
+            (r) => r.row_index === Number(selectedRowIdx)
+          )
+          if (match) selectedRateOptionId = match.id as number
+        }
       }
     }
   }
@@ -258,8 +243,8 @@ export async function writeScenarioOutputs(
 }
 
 /**
- * Read scenario inputs from `loan_scenario_inputs` and reconstruct
- * the backward-compatible inputs object keyed by input_code.
+ * Read scenario inputs from `loan_scenario_inputs` rows,
+ * returning a flat object keyed by input_code.
  */
 export async function readScenarioInputs(
   scenarioId: string
@@ -288,7 +273,6 @@ export async function readScenarioInputs(
   }
 
   const result: Record<string, unknown> = {}
-  const addressFields: Record<string, string> = {}
 
   for (const row of rows) {
     const code = idToCode.get(row.pricing_engine_input_id as number)
@@ -318,23 +302,13 @@ export async function readScenarioInputs(
     else if (row.value_numeric !== null && row.value_numeric !== undefined) value = row.value_numeric
     else value = row.value_text
 
-    // Reconstruct address object for backward compat
-    if (code.startsWith("address_")) {
-      const subKey = code.replace("address_", "")
-      addressFields[subKey] = String(value ?? "")
-    } else {
-      result[code] = value
-    }
+    result[code] = value
 
     // Restore linked record ID for linked inputs
     const linkedRecordId = row.linked_record_id as string | null
     if (linkedRecordId && idToLinkedTable.get(row.pricing_engine_input_id as number)) {
       result[`${code}_record_id`] = linkedRecordId
     }
-  }
-
-  if (Object.keys(addressFields).length > 0) {
-    result.address = addressFields
   }
 
   return result

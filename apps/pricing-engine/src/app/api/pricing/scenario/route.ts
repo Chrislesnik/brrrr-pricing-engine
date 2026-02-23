@@ -201,7 +201,7 @@ export async function POST(req: Request) {
     if (scenario?.id && body.inputs) {
       await writeScenarioInputs(scenario.id as string, body.inputs)
     }
-    if (scenario?.id && body.outputs) {
+    if (scenario?.id && body.outputs && Array.isArray(body.outputs) && body.outputs.length > 0) {
       await writeScenarioOutputs(
         scenario.id as string,
         body.outputs,

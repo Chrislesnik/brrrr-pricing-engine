@@ -374,32 +374,6 @@ export function createPipelineColumns(
   // --- Fixed end columns ---
   const fixedEnd: ColumnDef<LoanRow>[] = [
     {
-      accessorKey: "loanAmount",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Loan Amount" />
-      ),
-      cell: ({ row }) => {
-        const val = row.getValue("loanAmount") as number | undefined
-        if (val == null) return <div>-</div>
-        const currency = new Intl.NumberFormat(undefined, {
-          style: "currency",
-          currency: "USD",
-          maximumFractionDigits: 0,
-        })
-        return <div>{currency.format(val)}</div>
-      },
-    },
-    {
-      accessorKey: "rate",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Rate" />
-      ),
-      cell: ({ row }) => {
-        const val = row.getValue("rate") as number | undefined
-        return <div>{val != null ? `${Number(val).toFixed(3)}%` : "-"}</div>
-      },
-    },
-    {
       accessorKey: "status",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Status" />
