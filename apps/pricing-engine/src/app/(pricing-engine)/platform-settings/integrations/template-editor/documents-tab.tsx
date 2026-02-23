@@ -432,6 +432,39 @@ export function DocumentsTab() {
 
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [editableName, setEditableName] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+  const editableNameRef = useRef<string | null>(null)
+
+  const loadedTemplateName = currentTemplate?.name ?? null
+  useEffect(() => {
+    if (loadedTemplateName) {
+      setEditableName(loadedTemplateName)
+      editableNameRef.current = loadedTemplateName
+    }
+  }, [loadedTemplateName])
+
+  const handleNameChange = useCallback((val: string) => {
+    setEditableName(val)
+    editableNameRef.current = val
+  }, [])
+
+  const saveTemplateName = useCallback(async () => {
+    const id = currentTemplate?.id ?? templateId
+    const name = editableNameRef.current
+    if (!id || id.startsWith("new-") || !name?.trim()) return
+    try {
+      const res = await fetch(`/api/document-templates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+      if (!res.ok) console.error("Failed to save name:", await res.text())
+    } catch (e) {
+      console.error("Failed to save template name:", e)
+    }
+  }, [currentTemplate?.id, templateId])
 
   const handleEditorSave = useCallback(async (html: string, projectData: object) => {
     const id = currentTemplate?.id ?? templateId
@@ -456,6 +489,7 @@ export function DocumentsTab() {
     setSaving(true)
     setSaveSuccess(false)
     try {
+      await saveTemplateName()
       await editor.store()
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 2000)
@@ -464,20 +498,21 @@ export function DocumentsTab() {
     } finally {
       setSaving(false)
     }
-  }, [])
+  }, [saveTemplateName])
 
   const handleSaveAndExit = useCallback(async () => {
     const editor = editorRef.current
     if (!editor) return
     setSaving(true)
     try {
+      await saveTemplateName()
       await editor.store()
       router.push("/platform-settings/integrations/template-editor?tab=documents")
     } catch (e) {
       console.error("Failed to save template:", e)
       setSaving(false)
     }
-  }, [router])
+  }, [router, saveTemplateName])
 
   const editorTemplate = useMemo(() => {
     if (currentTemplate) return currentTemplate
@@ -550,9 +585,34 @@ export function DocumentsTab() {
             Back
           </Button>
           <div>
-            <h3 className="text-lg font-medium">
-              {editorTemplate?.name || "Template Editor"}
-            </h3>
+            {editingName ? (
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={editableName ?? ""}
+                onChange={(e) => handleNameChange(e.target.value)}
+                onBlur={() => setEditingName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { setEditingName(false); e.currentTarget.blur() }
+                  if (e.key === "Escape") { setEditingName(false); e.currentTarget.blur() }
+                }}
+                className="text-lg font-medium bg-transparent border-0 border-b-2 border-primary outline-none px-0 py-0.5 w-auto min-w-[120px] max-w-[400px]"
+                style={{ width: `${Math.max(120, (editableName?.length ?? 10) * 10 + 20)}px` }}
+                placeholder="Template name"
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingName(true)
+                  setTimeout(() => nameInputRef.current?.select(), 0)
+                }}
+                className="text-lg font-medium text-left rounded px-1.5 py-0.5 -ml-1.5 hover:bg-accent transition-colors cursor-text"
+              >
+                {editableName || "Untitled Template"}
+              </button>
+            )}
             <p className="text-muted-foreground text-sm">
               Edit template design
             </p>

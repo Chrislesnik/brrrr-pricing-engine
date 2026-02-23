@@ -60,6 +60,7 @@ import type { TableConfig } from "@/types/table-config"
 import type { SectionButton } from "@/types/section-buttons"
 import DSCRTermSheet, { type DSCRTermSheetProps, type DSCRTermSheetData } from "@/components/DSCRTermSheet"
 import BridgeTermSheet from "@/components/BridgeTermSheet"
+import { resolveTemplateVariables, type TemplateVariable } from "@/lib/template-variable-resolver"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
 import { GoogleMap, Marker } from "@react-google-maps/api"
@@ -478,6 +479,174 @@ function ScaledTermSheetPreview({
         >
           Fit
         </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface ResolvedTermSheet {
+  id: string
+  template_name: string
+  resolvedHtml: string
+}
+
+function ScaledHtmlPreview({
+  html,
+  previewRef,
+}: {
+  html: string
+  previewRef?: React.Ref<HTMLDivElement>
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const [baseScale, setBaseScale] = useState<number>(0.6)
+  const [zoom, setZoom] = useState<number>(1)
+  const scale = Math.max(0.1, Math.min(baseScale * zoom, 6))
+  const [hasValidMeasure, setHasValidMeasure] = useState<boolean>(false)
+  const [containerDims, setContainerDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      const width = el.clientWidth
+      const height = el.clientHeight
+      if (width <= 0 || height <= 0) {
+        const vw = Math.max(0, (window.innerWidth || 0) - 16)
+        const vh = Math.max(0, (window.innerHeight || 0) - 16)
+        if (vw > 0 && vh > 0) {
+          const fallback = Math.min(vw / 816, vh / 1056, 1) * 0.86
+          setBaseScale(fallback)
+        }
+        setHasValidMeasure(false)
+        return
+      }
+      const paddingAllowance = 8
+      const s = Math.min((width - paddingAllowance) / 816, (height - paddingAllowance) / 1056, 1) * 0.88
+      setBaseScale(s)
+      setContainerDims({ width, height })
+      setHasValidMeasure(true)
+    }
+    update()
+    const rafIds: number[] = []
+    const tryRaf = (times: number) => {
+      if (times <= 0) return
+      rafIds.push(requestAnimationFrame(() => { update(); tryRaf(times - 1) }))
+    }
+    tryRaf(3)
+    const timeouts = [100, 350, 1000, 2000].map((ms) => window.setTimeout(update, ms))
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      const factor = Math.pow(0.8, e.deltaY / 100)
+      setZoom((z) => Math.min(5, Math.max(0.25, z * factor)))
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => {
+      ro.disconnect()
+      el.removeEventListener("wheel", onWheel as EventListener as unknown as (e: WheelEvent) => void)
+      rafIds.forEach((id) => cancelAnimationFrame(id))
+      timeouts.forEach((id) => clearTimeout(id))
+    }
+  }, [])
+
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    const doc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!doc) return
+    const bodyContent = (() => {
+      const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+      return m ? m[1] : html
+    })()
+    doc.open()
+    doc.write(`<!DOCTYPE html><html><head><style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, Helvetica, sans-serif; background: white; padding: 20px; line-height: 1.4; }
+      table { width: 100%; border-collapse: collapse; }
+      html, body { overflow: hidden; }
+    </style></head><body>${bodyContent}</body></html>`)
+    doc.close()
+  }, [html])
+
+  const scaledW = 816 * scale
+  const scaledH = 1056 * scale
+
+  const padLeft = Math.max(16, (containerDims.width - scaledW) / 2)
+  const padTop = Math.max(16, (containerDims.height - scaledH) / 2)
+
+  const scrollBy = (dx: number, dy: number) => {
+    containerRef.current?.scrollBy({ left: dx, top: dy, behavior: "smooth" })
+  }
+
+  return (
+    <div className="w-full h-[72vh] max-sm:h-[64vh] relative">
+      <div
+        ref={containerRef}
+        style={{ overflow: "auto", width: 0, minWidth: "100%" }}
+        className="h-full rounded-md bg-neutral-100/40"
+      >
+        <div
+          style={{
+            paddingLeft: padLeft,
+            paddingRight: 16,
+            paddingTop: padTop,
+            paddingBottom: 48,
+            width: "fit-content",
+          }}
+        >
+          <div
+            style={{
+              width: scaledW,
+              height: scaledH,
+              opacity: hasValidMeasure ? 1 : 0,
+              transition: "opacity 150ms ease",
+            }}
+          >
+            <div
+              ref={previewRef}
+              style={{
+                width: 816,
+                height: 1056,
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+                overflow: "hidden",
+              }}
+              className="border border-black/20 bg-white shadow-xl rounded-sm"
+            >
+              <iframe
+                ref={iframeRef}
+                className="w-full h-full border-0 pointer-events-none"
+                sandbox="allow-same-origin"
+                title="Term Sheet Preview"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="absolute bottom-3 left-0 right-0 z-50 flex items-center justify-between px-4 pointer-events-none">
+        <div className="flex items-center gap-1 pointer-events-auto">
+          <button type="button" className="rounded-md border bg-white p-1.5 shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => scrollBy(-120, 0)} aria-label="Scroll left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button type="button" className="rounded-md border bg-white p-1.5 shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => scrollBy(0, -120)} aria-label="Scroll up">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+          </button>
+          <button type="button" className="rounded-md border bg-white p-1.5 shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => scrollBy(0, 120)} aria-label="Scroll down">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button type="button" className="rounded-md border bg-white p-1.5 shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => scrollBy(120, 0)} aria-label="Scroll right">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button type="button" className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => setZoom((z) => Math.max(0.25, z * 0.8))} aria-label="Zoom out">-</button>
+          <div className="rounded-sm border bg-white px-2 py-1 text-[11px] shadow-sm min-w-14 text-center text-black dark:text-black dark:bg-white">{Math.round((zoom || 1) * 100)}%</div>
+          <button type="button" className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => setZoom((z) => Math.min(5, z * 1.2))} aria-label="Zoom in">+</button>
+          <button type="button" className="rounded-sm border bg-white px-2 py-1 text-xs shadow-sm hover:bg-neutral-50 text-black dark:text-black dark:bg-white" onClick={() => setZoom(1)} aria-label="Reset zoom">Fit</button>
         </div>
       </div>
     </div>
@@ -2849,12 +3018,12 @@ function ResultCard({
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
-  // Hooks must be called unconditionally at the top of the component.
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
+  const [resolvedSheets, setResolvedSheets] = useState<ResolvedTermSheet[]>([])
+  const [activeSheetIdx, setActiveSheetIdx] = useState<number>(0)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetData>({})
   const previewRef = useRef<HTMLDivElement | null>(null)
 
-  // Log term sheet activity for this result card
   const logCardTermSheetActivity = async (action: "downloaded" | "shared", pdfFile: File) => {
     try {
       if (!loanId) return
@@ -2875,6 +3044,39 @@ function ResultCard({
 
   // Render the currently open preview into a PDF File
   const renderPreviewToPdf = async (): Promise<File | null> => {
+    // New iframe-based term sheet: capture the previewRef container directly
+    const iframe = previewRef.current?.querySelector("iframe") as HTMLIFrameElement | null
+    if (iframe) {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+      if (!iframeDoc?.body) return null
+      const container = document.createElement("div")
+      container.style.position = "fixed"
+      container.style.left = "-10000px"
+      container.style.top = "0"
+      container.style.width = "816px"
+      container.style.height = "1056px"
+      container.style.overflow = "hidden"
+      container.style.background = "#ffffff"
+      container.style.fontFamily = "Arial, Helvetica, sans-serif"
+      container.style.padding = "20px"
+      container.style.lineHeight = "1.4"
+      container.innerHTML = iframeDoc.body.innerHTML
+      const styles = iframeDoc.querySelectorAll("style")
+      styles.forEach((s) => container.appendChild(s.cloneNode(true)))
+      document.body.appendChild(container)
+      try {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+        const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
+        const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
+        const img = canvas.toDataURL("image/jpeg", 0.88)
+        pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
+        const blob = pdf.output("blob")
+        const filename = `term-sheet-${Date.now()}.pdf`
+        return new File([blob], filename, { type: "application/pdf" })
+      } finally {
+        document.body.removeChild(container)
+      }
+    }
     const root = (previewRef.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
     if (!root) return null
     const container = document.createElement("div")
@@ -3251,7 +3453,6 @@ function ResultCard({
   const dscr = isBridgeResp ? undefined : pick<string | number>(d?.dscr, hi)
   const loanAmount = isBridgeResp ? pick<string | number>(d?.total_loan_amount, hi) : d?.loan_amount
   const ltv = d?.ltv
-  const TERMSHEET_WEBHOOK = "https://n8n.axora.info/webhook/bba9f146-8e5a-4618-bdef-705f39383e33"
   const validationList: string[] = Array.isArray(d.validations)
     ? (d.validations as (string | null | undefined)[])
         .filter((v) => typeof v === "string" && String(v).trim().length > 0)
@@ -3280,10 +3481,12 @@ function ResultCard({
     return value
   }
 
+  const TERMSHEET_WEBHOOK_NEW = "https://n8n.axora.info/webhook/ac651502-6422-400c-892e-c268b8c66201"
+
   async function openTermSheetPreview(rowIndex?: number, opts?: { autoDownloadPdf?: boolean; autoShare?: boolean }) {
     try {
-      // Open modal immediately with loader while webhook response is fetched
-      setSheetProps({} as DSCRTermSheetData)
+      setResolvedSheets([])
+      setActiveSheetIdx(0)
       setMcpOpen(true)
 
       const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
@@ -3294,7 +3497,6 @@ function ResultCard({
       }
       if (isBridgeResp) {
         payloadRow["initial_loan_amount"] = pick<string | number>(d?.initial_loan_amount, idx)
-        // include initial_pitia (from response or cache)
         const ip = pick<string | number>(d?.initial_pitia as any, idx)
         payloadRow["initial_pitia"] = ip ?? (r as any)?.initial_pitia_cache?.[idx]
         payloadRow["rehab_holdback"] = pick<string | number>(d?.rehab_holdback, idx)
@@ -3308,43 +3510,35 @@ function ResultCard({
       }
       const inputs = toYesNoDeep(rawInputs) as Record<string, unknown>
       const normalizedRow = toYesNoDeep(payloadRow) as Record<string, unknown>
-      const body = {
+
+      // 1. Evaluate which term sheets match current inputs
+      const evalRes = await fetch("/api/pe-term-sheets/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input_values: inputs }),
+      })
+      const evalJson = await evalRes.json().catch(() => ({ term_sheets: [] }))
+      const matchingSheets = evalJson.term_sheets as Array<{
+        id: string; template_name: string; html_content: string;
+        variables: TemplateVariable[]
+      }>
+
+      if (!matchingSheets || matchingSheets.length === 0) {
+        setResolvedSheets([])
+        return
+      }
+
+      // 2. Call the n8n webhook for variable values
+      const webhookBody = {
         program: isBroker ? (r.external_name ?? "Program") : (r.internal_name ?? r.external_name ?? "Program"),
         program_id: r.id ?? null,
         row_index: idx,
-        inputs: (() => {
-          // Include any lender fee overrides or defaults returned by the program webhook
-          const out = { ...inputs }
-          const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
-            Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
-          const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
-          const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
-          const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
-          const defLenderOrig = toStr(
-            pickAt<any>((d as any)["default_lender_orig_percent"], idx) ??
-              (d as any)["default_lender_orig_percent"] ??
-              (r as any)?.lender_defaults_cache?.default_lender_orig_percent
-          )
-          const defLenderAdmin = toStr(
-            pickAt<any>((d as any)["default_lender_admin_fee"], idx) ??
-              (d as any)["default_lender_admin_fee"] ??
-              (r as any)?.lender_defaults_cache?.default_lender_admin_fee
-          )
-          if (selLenderOrig) out["lender_orig_percent"] = selLenderOrig
-          if (selLenderAdmin) {
-            out["lender_admin_fee"] = selLenderAdmin
-            out["admin_fee"] = selLenderAdmin
-          }
-          // Always include default values, even if empty
-          out["default_lender_orig_percent"] = defLenderOrig
-          out["default_lender_admin_fee"] = defLenderAdmin
-          return out
-        })(),
+        inputs,
         row: normalizedRow,
         organization_member_id: memberId ?? null,
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-      const res = await fetch(`${TERMSHEET_WEBHOOK}?_=${encodeURIComponent(nonce)}`, {
+      const webhookRes = await fetch(`${TERMSHEET_WEBHOOK_NEW}?_=${encodeURIComponent(nonce)}`, {
         method: "POST",
         cache: "no-store",
         headers: {
@@ -3353,37 +3547,20 @@ function ResultCard({
           "Pragma": "no-cache",
           "X-Client-Request-Id": nonce,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(webhookBody),
       })
-      const raw = await res.json().catch(() => ({}))
-      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetData) : (raw as DSCRTermSheetData)
-      let enriched: DSCRTermSheetData =
-        json && typeof json === "object" && !Array.isArray(json)
-          ? ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr", ...json } as DSCRTermSheetData)
-          : ({ loan_type: (isBridgeResp || isBridgeProgramName) ? "bridge" : "dscr" } as DSCRTermSheetData)
-      // Cache any returned default lender values at the program level for subsequent term sheets
-      try {
-        const retDefOrig = String((json as any)?.default_lender_orig_percent ?? "").trim()
-        const retDefAdmin = String((json as any)?.default_lender_admin_fee ?? "").trim()
-        ;(r as any).lender_defaults_cache = {
-          default_lender_orig_percent: retDefOrig,
-          default_lender_admin_fee: retDefAdmin,
-          ...(typeof (r as any).lender_defaults_cache === "object" ? (r as any).lender_defaults_cache : {}),
-        }
-      } catch {/* ignore */}
-      // Fallback: if logo not provided by webhook, pull broker company branding
-      try {
-        const currentLogo = String((enriched as any)?.logo ?? "").trim()
-        if (!currentLogo) {
-          const resLogo = await fetch("/api/org/company-branding", { cache: "no-store" })
-          const jLogo = (await resLogo.json().catch(() => ({}))) as { logo_url?: string }
-          const logoUrl = (typeof jLogo?.logo_url === "string" && jLogo.logo_url.length > 0) ? jLogo.logo_url : ""
-          if (logoUrl) {
-            enriched = { ...enriched, logo: logoUrl }
-          }
-        }
-      } catch { /* ignore */ }
-      setSheetProps(enriched)
+      const webhookRaw = await webhookRes.json().catch(() => ({}))
+      const webhookData: Record<string, string> = Array.isArray(webhookRaw) ? (webhookRaw[0] ?? {}) : (webhookRaw ?? {})
+
+      // 3. Resolve variables into HTML for each matching template
+      const resolved: ResolvedTermSheet[] = matchingSheets.map((sheet) => ({
+        id: sheet.id,
+        template_name: sheet.template_name,
+        resolvedHtml: resolveTemplateVariables(sheet.html_content, sheet.variables, webhookData),
+      }))
+
+      setResolvedSheets(resolved)
+
       if (opts?.autoDownloadPdf || opts?.autoShare) {
         setTimeout(async () => {
           try {
@@ -3396,20 +3573,19 @@ function ResultCard({
                 (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
               const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
               try {
-              if (nav?.share && canShareFiles) {
-                await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                void logCardTermSheetActivity("shared", file)
-              } else {
-                await saveFileWithPrompt(file)
-                toast({ title: "Saved", description: "PDF saved to your device." })
-                void logCardTermSheetActivity("downloaded", file)
+                if (nav?.share && canShareFiles) {
+                  await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                  void logCardTermSheetActivity("shared", file)
+                } else {
+                  await saveFileWithPrompt(file)
+                  toast({ title: "Saved", description: "PDF saved to your device." })
+                  void logCardTermSheetActivity("downloaded", file)
                 }
               } catch (shareErr) {
                 const msg = shareErr instanceof Error ? shareErr.message.toLowerCase() : ""
                 const name = (shareErr as any)?.name ?? ""
-                // Swallow user-initiated aborts/cancels
                 if (msg.includes("cancel") || name === "AbortError" || name === "NotAllowedError") {
-                  // no toast
+                  // user cancelled
                 } else {
                   toast({ title: "PDF error", description: (shareErr as any)?.message || "Share failed", variant: "destructive" })
                 }
@@ -3419,7 +3595,6 @@ function ResultCard({
               void logCardTermSheetActivity("downloaded", file)
             }
           } catch (e) {
-            // When the preview hasn't fully rendered yet or user cancels share, avoid noisy errors
             const message = e instanceof Error ? e.message : "Failed to create PDF"
             if (!/cancel/i.test(message)) {
               toast({ title: "PDF not ready", description: "Preparing term sheet, try again in a moment.", variant: "default" })
@@ -3714,7 +3889,7 @@ function ResultCard({
         </AccordionItem>
       </Accordion>
       <Dialog open={mcpOpen} onOpenChange={setMcpOpen}>
-        <DialogContent showCloseButton={false} className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+        <DialogContent showCloseButton={false} className="sm:max-w-[min(1060px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
           <DialogHeader className="mb-1">
             <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
@@ -3735,13 +3910,12 @@ function ResultCard({
                   await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                   void logCardTermSheetActivity("shared", file)
                 } else {
-                  // Desktop fallback: download and notify user
                   await saveFileWithPrompt(file)
                   toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
                   void logCardTermSheetActivity("downloaded", file)
                 }
               } catch (e) {
-                if ((e as Error).name === "AbortError") return // User cancelled share
+                if ((e as Error).name === "AbortError") return
                 const message = e instanceof Error ? e.message : "Unable to share"
                 toast({ title: "Share failed", description: message, variant: "destructive" })
               }
@@ -3775,20 +3949,44 @@ function ResultCard({
           >
             <IconX />
           </button>
-          <div className="space-y-3">
-            {Object.keys(sheetProps ?? {}).length ? (
-              <ScaledTermSheetPreview
-                sheetProps={sheetProps as DSCRTermSheetData}
-                pageRef={previewRef}
-                readOnly={isBroker}
-                onLogoChange={(url) => setSheetProps((prev) => ({ ...prev, logo: url ?? "" }))}
-              />
-            ) : (
-              <div className="flex h-[70vh] items-center justify-center">
-                <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
+          {resolvedSheets.length > 0 ? (
+            <div className="flex gap-3 min-h-0">
+              {resolvedSheets.length > 1 && (
+                <div className="w-[180px] shrink-0 border-r pr-3 overflow-y-auto">
+                  <div className="space-y-1">
+                    {resolvedSheets.map((sheet, idx) => (
+                      <button
+                        key={sheet.id}
+                        type="button"
+                        onClick={() => setActiveSheetIdx(idx)}
+                        className={cn(
+                          "w-full text-left rounded-md px-3 py-2 text-sm transition-colors truncate",
+                          idx === activeSheetIdx
+                            ? "bg-accent text-accent-foreground font-medium"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                        title={sheet.template_name}
+                      >
+                        {sheet.template_name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <ScaledHtmlPreview
+                  html={resolvedSheets[activeSheetIdx]?.resolvedHtml ?? ""}
+                  previewRef={previewRef}
+                />
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex h-[70vh] items-center justify-center">
+              <div className="text-sm text-muted-foreground">
+                {mcpOpen && resolvedSheets.length === 0 ? "Preparing term sheet…" : "No term sheets match current inputs."}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -3965,14 +4163,47 @@ function ResultsPanel({
     }
   }, [selectedFromProps, results])
 
-  // Main panel term sheet preview/download state
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
+  const [resolvedSheetsMain, setResolvedSheetsMain] = useState<ResolvedTermSheet[]>([])
+  const [activeSheetIdxMain, setActiveSheetIdxMain] = useState<number>(0)
   const [sheetPropsMain, setSheetPropsMain] = useState<DSCRTermSheetData>({})
   const previewRefMain = useRef<HTMLDivElement | null>(null)
-  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/bba9f146-8e5a-4618-bdef-705f39383e33"
+  const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/ac651502-6422-400c-892e-c268b8c66201"
 
-  // Render main preview to a PDF File
   const renderPreviewToPdfMain = async (): Promise<File | null> => {
+    // New iframe-based term sheet: capture iframe content directly
+    const iframe = previewRefMain.current?.querySelector("iframe") as HTMLIFrameElement | null
+    if (iframe) {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+      if (!iframeDoc?.body) return null
+      const container = document.createElement("div")
+      container.style.position = "fixed"
+      container.style.left = "-10000px"
+      container.style.top = "0"
+      container.style.width = "816px"
+      container.style.height = "1056px"
+      container.style.overflow = "hidden"
+      container.style.background = "#ffffff"
+      container.style.fontFamily = "Arial, Helvetica, sans-serif"
+      container.style.padding = "20px"
+      container.style.lineHeight = "1.4"
+      container.innerHTML = iframeDoc.body.innerHTML
+      const styles = iframeDoc.querySelectorAll("style")
+      styles.forEach((s) => container.appendChild(s.cloneNode(true)))
+      document.body.appendChild(container)
+      try {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+        const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
+        const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
+        const img = canvas.toDataURL("image/jpeg", 0.88)
+        pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
+        const blob = pdf.output("blob")
+        const filename = `term-sheet-${Date.now()}.pdf`
+        return new File([blob], filename, { type: "application/pdf" })
+      } finally {
+        document.body.removeChild(container)
+      }
+    }
     const root = (previewRefMain.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
     if (!root) return null
     const container = document.createElement("div")
@@ -4253,6 +4484,10 @@ function ResultsPanel({
   async function openMainTermSheetPreview(opts?: { autoDownloadPdf?: boolean; autoShare?: boolean }) {
     try {
       if (!selected) return
+      setResolvedSheetsMain([])
+      setActiveSheetIdxMain(0)
+      setMcpOpenMain(true)
+
       const d = (results?.[selected.programIdx]?.data ?? {}) as ProgramResponseData
       const isBridgeResp =
         Array.isArray(d?.total_loan_amount) ||
@@ -4267,7 +4502,6 @@ function ResultsPanel({
       }
       if (isBridgeResp) {
         payloadRow["initial_loan_amount"] = Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[idx] : undefined
-        // include initial_pitia from response or cached value
         payloadRow["initial_pitia"] = Array.isArray(d?.initial_pitia)
           ? d.initial_pitia[idx]
           : (results?.[selected.programIdx] as any)?.initial_pitia_cache?.[idx]
@@ -4282,35 +4516,28 @@ function ResultsPanel({
       }
       const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
       const inputs = toYesNoDeepGlobal(rawInputs) as Record<string, unknown>
-      // If webhook returned lender fees or defaults, override/append inputs ONLY for the selected program/row
-      const pickAt = <T,>(val: T[] | T | undefined, i: number): T | undefined =>
-        Array.isArray(val) ? (val as T[])[i] : (val as T | undefined)
-      const toStr = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
-      const selLenderOrig = toStr(pickAt<any>((d as any)["lender_orig_percent"], idx))
-      const selLenderAdmin = toStr(pickAt<any>((d as any)["lender_admin_fee"], idx))
-      const defLenderOrig = toStr(
-        pickAt<any>((d as any)["default_lender_orig_percent"], idx) ??
-          (d as any)["default_lender_orig_percent"] ??
-          (results?.[selected.programIdx] as any)?.lender_defaults_cache?.default_lender_orig_percent
-      )
-      const defLenderAdmin = toStr(
-        pickAt<any>((d as any)["default_lender_admin_fee"], idx) ??
-          (d as any)["default_lender_admin_fee"] ??
-          (results?.[selected.programIdx] as any)?.lender_defaults_cache?.default_lender_admin_fee
-      )
-      if (selLenderOrig) {
-        inputs["lender_orig_percent"] = selLenderOrig
-      }
-      if (selLenderAdmin) {
-        inputs["lender_admin_fee"] = selLenderAdmin
-        inputs["admin_fee"] = selLenderAdmin
-      }
-      // Always include defaults, even if empty
-      inputs["default_lender_orig_percent"] = defLenderOrig
-      inputs["default_lender_admin_fee"] = defLenderAdmin
       const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
+
+      // 1. Evaluate which term sheets match
+      const evalRes = await fetch("/api/pe-term-sheets/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input_values: inputs }),
+      })
+      const evalJson = await evalRes.json().catch(() => ({ term_sheets: [] }))
+      const matchingSheets = evalJson.term_sheets as Array<{
+        id: string; template_name: string; html_content: string;
+        variables: TemplateVariable[]
+      }>
+
+      if (!matchingSheets || matchingSheets.length === 0) {
+        setResolvedSheetsMain([])
+        return
+      }
+
+      // 2. Call n8n webhook for variable values
       const r = results?.[selected.programIdx]
-      const body = {
+      const webhookBody = {
         program: (isBroker ? (r?.external_name ?? "Program") : (r?.internal_name ?? r?.external_name ?? "Program")),
         program_id: r?.id ?? null,
         row_index: idx,
@@ -4328,29 +4555,20 @@ function ResultsPanel({
           "Pragma": "no-cache",
           "X-Client-Request-Id": nonce,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(webhookBody),
       })
-      const raw = await res.json().catch(() => ({}))
-      const json = Array.isArray(raw) ? (raw[0] as DSCRTermSheetData) : (raw as DSCRTermSheetData)
-      const enriched =
-        json && typeof json === "object" && !Array.isArray(json)
-          ? ({ loan_type: isBridgeResp ? "bridge" : "dscr", ...json } as DSCRTermSheetData)
-          : ({ loan_type: isBridgeResp ? "bridge" : "dscr" } as DSCRTermSheetData)
-      // Cache any returned defaults at the program level for reuse
-      try {
-        const retDefOrig = String((json as any)?.default_lender_orig_percent ?? "").trim()
-        const retDefAdmin = String((json as any)?.default_lender_admin_fee ?? "").trim()
-        const prog = results?.[selected.programIdx] as any
-        if (prog && typeof prog === "object") {
-          prog.lender_defaults_cache = {
-            default_lender_orig_percent: retDefOrig,
-            default_lender_admin_fee: retDefAdmin,
-            ...(typeof prog.lender_defaults_cache === "object" ? prog.lender_defaults_cache : {}),
-          }
-        }
-      } catch {/* ignore */}
-      setSheetPropsMain(enriched)
-      setMcpOpenMain(true)
+      const webhookRaw = await res.json().catch(() => ({}))
+      const webhookData: Record<string, string> = Array.isArray(webhookRaw) ? (webhookRaw[0] ?? {}) : (webhookRaw ?? {})
+
+      // 3. Resolve variables
+      const resolved: ResolvedTermSheet[] = matchingSheets.map((sheet) => ({
+        id: sheet.id,
+        template_name: sheet.template_name,
+        resolvedHtml: resolveTemplateVariables(sheet.html_content, sheet.variables, webhookData),
+      }))
+
+      setResolvedSheetsMain(resolved)
+
       if (opts?.autoDownloadPdf || opts?.autoShare) {
         setTimeout(async () => {
           try {
@@ -4364,12 +4582,15 @@ function ResultsPanel({
               const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
               if (nav?.share && canShareFiles) {
                 await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                void logPanelTermSheetActivity("shared", file)
               } else {
                 await saveFileWithPrompt(file)
                 toast({ title: "Saved", description: "PDF saved to your device." })
+                void logPanelTermSheetActivity("downloaded", file)
               }
             } else if (opts?.autoDownloadPdf) {
               await saveFileWithPrompt(file)
+              void logPanelTermSheetActivity("downloaded", file)
             }
           } catch (e) {
             const message = e instanceof Error ? e.message : "Unknown error"
@@ -4638,7 +4859,7 @@ function ResultsPanel({
             )}
           </div>
           <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
-            <DialogContent showCloseButton={false} className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+            <DialogContent showCloseButton={false} className="sm:max-w-[min(1060px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
               <DialogHeader className="mb-1">
                 <DialogTitle className="text-base">Term Sheet</DialogTitle>
               </DialogHeader>
@@ -4657,13 +4878,14 @@ function ResultsPanel({
                     const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
                     if (nav?.share && canShareFiles) {
                       await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                      void logPanelTermSheetActivity("shared", file)
                     } else {
-                      // Desktop fallback: download and notify user
                       await saveFileWithPrompt(file)
                       toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
+                      void logPanelTermSheetActivity("downloaded", file)
                     }
                   } catch (e) {
-                    if ((e as Error).name === "AbortError") return // User cancelled share
+                    if ((e as Error).name === "AbortError") return
                     const message = e instanceof Error ? e.message : "Unable to share"
                     toast({ title: "Share failed", description: message, variant: "destructive" })
                   }
@@ -4680,6 +4902,7 @@ function ResultsPanel({
                     const file = await renderPreviewToPdfMain()
                     if (!file) throw new Error("Could not render PDF")
                     await saveFileWithPrompt(file)
+                    void logPanelTermSheetActivity("downloaded", file)
                   } catch (e) {
                     const message = e instanceof Error ? e.message : "Unknown error"
                     toast({ title: "Download failed", description: message, variant: "destructive" })
@@ -4696,21 +4919,44 @@ function ResultsPanel({
               >
                 <IconX />
               </button>
-              
-              <div className="space-y-3">
-                {Object.keys(sheetPropsMain ?? {}).length ? (
-                  <ScaledTermSheetPreview
-                    sheetProps={sheetPropsMain as DSCRTermSheetData}
-                    pageRef={previewRefMain}
-                    readOnly={isBroker}
-                    onLogoChange={(url) => setSheetPropsMain((prev) => ({ ...prev, logo: url ?? "" }))}
-                  />
-                ) : (
-                  <div className="flex h-[70vh] items-center justify-center">
-                    <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
+              {resolvedSheetsMain.length > 0 ? (
+                <div className="flex gap-3 min-h-0">
+                  {resolvedSheetsMain.length > 1 && (
+                    <div className="w-[180px] shrink-0 border-r pr-3 overflow-y-auto">
+                      <div className="space-y-1">
+                        {resolvedSheetsMain.map((sheet, idx) => (
+                          <button
+                            key={sheet.id}
+                            type="button"
+                            onClick={() => setActiveSheetIdxMain(idx)}
+                            className={cn(
+                              "w-full text-left rounded-md px-3 py-2 text-sm transition-colors truncate",
+                              idx === activeSheetIdxMain
+                                ? "bg-accent text-accent-foreground font-medium"
+                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            )}
+                            title={sheet.template_name}
+                          >
+                            {sheet.template_name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <ScaledHtmlPreview
+                      html={resolvedSheetsMain[activeSheetIdxMain]?.resolvedHtml ?? ""}
+                      previewRef={previewRefMain}
+                    />
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex h-[70vh] items-center justify-center">
+                  <div className="text-sm text-muted-foreground">
+                    {mcpOpenMain && resolvedSheetsMain.length === 0 ? "Preparing term sheet…" : "No term sheets match current inputs."}
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
           </>
@@ -4904,7 +5150,7 @@ function ResultsPanel({
         />
       ))}
         <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
-          <DialogContent className="sm:max-w-[min(860px,calc(100vw-2rem))] max-h-[90vh] px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
+          <DialogContent className="sm:max-w-[min(1060px,calc(100vw-2rem))] max-h-[90vh] px-6 pt-4 pb-3 gap-2 max-sm:w-[calc(100vw-1rem)] max-sm:max-h-[95vh] max-sm:px-4 max-sm:pt-2 max-sm:pb-2">
             <DialogHeader className="mb-1">
               <DialogTitle className="text-base">Term Sheet</DialogTitle>
             </DialogHeader>
@@ -4923,12 +5169,10 @@ function ResultsPanel({
                   const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
                   if (nav?.share && canShareFiles) {
                     await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                    // Log activity after successful share
                     void logPanelTermSheetActivity("shared", file)
                   } else {
                     await saveFileWithPrompt(file)
                     toast({ title: "Saved", description: "PDF saved to your device." })
-                    // Log as downloaded since it fell back to download
                     void logPanelTermSheetActivity("downloaded", file)
                   }
                 } catch (e) {
@@ -4947,15 +5191,7 @@ function ResultsPanel({
                 try {
                   const file = await renderPreviewToPdfMain()
                   if (!file) throw new Error("Could not render PDF")
-                  const url = URL.createObjectURL(file)
-                  const a = document.createElement("a")
-                  a.href = url
-                  a.download = file.name
-                  document.body.appendChild(a)
-                  a.click()
-                  a.remove()
-                  URL.revokeObjectURL(url)
-                  // Log activity
+                  await saveFileWithPrompt(file)
                   void logPanelTermSheetActivity("downloaded", file)
                 } catch (e) {
                   const message = e instanceof Error ? e.message : "Unknown error"
@@ -4965,20 +5201,44 @@ function ResultsPanel({
             >
               <IconDownload />
             </button>
-            <div className="space-y-3">
-              {Object.keys(sheetPropsMain ?? {}).length ? (
-                <ScaledTermSheetPreview
-                  sheetProps={sheetPropsMain as DSCRTermSheetData}
-                  pageRef={previewRefMain}
-                  readOnly={isBroker}
-                  onLogoChange={(url) => setSheetPropsMain((prev) => ({ ...prev, logo: url ?? "" }))}
-                />
-              ) : (
-                <div className="flex h-[70vh] items-center justify-center">
-                  <div className="text-sm text-muted-foreground">Preparing term sheet…</div>
+            {resolvedSheetsMain.length > 0 ? (
+              <div className="flex gap-3 min-h-0">
+                {resolvedSheetsMain.length > 1 && (
+                  <div className="w-[180px] shrink-0 border-r pr-3 overflow-y-auto">
+                    <div className="space-y-1">
+                      {resolvedSheetsMain.map((sheet, idx) => (
+                        <button
+                          key={sheet.id}
+                          type="button"
+                          onClick={() => setActiveSheetIdxMain(idx)}
+                          className={cn(
+                            "w-full text-left rounded-md px-3 py-2 text-sm transition-colors truncate",
+                            idx === activeSheetIdxMain
+                              ? "bg-accent text-accent-foreground font-medium"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                          )}
+                          title={sheet.template_name}
+                        >
+                          {sheet.template_name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <ScaledHtmlPreview
+                    html={resolvedSheetsMain[activeSheetIdxMain]?.resolvedHtml ?? ""}
+                    previewRef={previewRefMain}
+                  />
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex h-[70vh] items-center justify-center">
+                <div className="text-sm text-muted-foreground">
+                  {mcpOpenMain && resolvedSheetsMain.length === 0 ? "Preparing term sheet…" : "No term sheets match current inputs."}
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
     </div>

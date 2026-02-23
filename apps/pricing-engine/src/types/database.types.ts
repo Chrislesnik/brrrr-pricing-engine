@@ -14,51 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      automations: {
-        Row: {
-          archived_at: string | null
-          archived_by: string | null
-          created_at: string
-          description: string | null
-          id: number
-          is_active: boolean | null
-          name: string
-          trigger_type: string
-          updated_at: string
-          uuid: string
-          webhook_type: string | null
-          workflow_data: Json | null
-        }
-        Insert: {
-          archived_at?: string | null
-          archived_by?: string | null
-          created_at?: string
-          description?: string | null
-          id?: number
-          is_active?: boolean | null
-          name: string
-          trigger_type?: string
-          updated_at?: string
-          uuid?: string
-          webhook_type?: string | null
-          workflow_data?: Json | null
-        }
-        Update: {
-          archived_at?: string | null
-          archived_by?: string | null
-          created_at?: string
-          description?: string | null
-          id?: number
-          is_active?: boolean | null
-          name?: string
-          trigger_type?: string
-          updated_at?: string
-          uuid?: string
-          webhook_type?: string | null
-          workflow_data?: Json | null
-        }
-        Relationships: []
-      }
       ai_chat_messages: {
         Row: {
           ai_chat_id: string
@@ -109,24 +64,30 @@ export type Database = {
           created_at: string
           id: string
           last_used_at: string
+          loan_type: string | null
           name: string
           organization_id: string
+          program_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           last_used_at?: string
+          loan_type?: string | null
           name?: string
           organization_id: string
+          program_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           last_used_at?: string
+          loan_type?: string | null
           name?: string
           organization_id?: string
+          program_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -135,6 +96,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_chats_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]
@@ -162,6 +130,7 @@ export type Database = {
       }
       application_appraisal: {
         Row: {
+          amc_id: string | null
           application_id: string
           borrower_alt_phone: string | null
           borrower_email: string | null
@@ -196,6 +165,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          amc_id?: string | null
           application_id: string
           borrower_alt_phone?: string | null
           borrower_email?: string | null
@@ -230,6 +200,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          amc_id?: string | null
           application_id?: string
           borrower_alt_phone?: string | null
           borrower_email?: string | null
@@ -264,6 +235,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "application_appraisal_amc_id_fkey"
+            columns: ["amc_id"]
+            isOneToOne: false
+            referencedRelation: "integration_setup"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "application_appraisal_application_id_fkey"
             columns: ["application_id"]
@@ -667,7 +645,7 @@ export type Database = {
       }
       appraisal: {
         Row: {
-          amc_id: number | null
+          amc_id: string | null
           appraiser_id: number | null
           borrower_id: string | null
           borrower_name: string | null
@@ -704,7 +682,7 @@ export type Database = {
           value_conclusion_fair_market_rent: number | null
         }
         Insert: {
-          amc_id?: number | null
+          amc_id?: string | null
           appraiser_id?: number | null
           borrower_id?: string | null
           borrower_name?: string | null
@@ -741,7 +719,7 @@ export type Database = {
           value_conclusion_fair_market_rent?: number | null
         }
         Update: {
-          amc_id?: number | null
+          amc_id?: string | null
           appraiser_id?: number | null
           borrower_id?: string | null
           borrower_name?: string | null
@@ -888,6 +866,272 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      appraisal_investor_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          investor_id: string | null
+          investor_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          investor_id?: string | null
+          investor_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          investor_id?: string | null
+          investor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_investor_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_lender_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          lender_id: string | null
+          lender_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          lender_id?: string | null
+          lender_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          lender_id?: string | null
+          lender_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_lender_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_loan_type_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          loan_type_id: string | null
+          loan_type_name: string | null
+          other: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          loan_type_id?: string | null
+          loan_type_name?: string | null
+          other?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          loan_type_id?: string | null
+          loan_type_name?: string | null
+          other?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_loan_type_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_occupancy_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          occupancy_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          occupancy_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          occupancy_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_occupancy_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_product_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          product_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          product_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          product_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_product_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_property_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          property_id: string | null
+          property_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          property_id?: string | null
+          property_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          property_id?: string | null
+          property_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_property_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_transaction_type_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          transaction_type_id: string | null
+          transaction_type_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          transaction_type_id?: string | null
+          transaction_type_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          transaction_type_id?: string | null
+          transaction_type_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_transaction_type_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          description: string | null
+          id: number
+          is_active: boolean | null
+          name: string
+          trigger_type: string
+          updated_at: string
+          uuid: string
+          webhook_type: string | null
+          workflow_data: Json | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          name: string
+          trigger_type?: string
+          updated_at?: string
+          uuid?: string
+          webhook_type?: string | null
+          workflow_data?: Json | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          name?: string
+          trigger_type?: string
+          updated_at?: string
+          uuid?: string
+          webhook_type?: string | null
+          workflow_data?: Json | null
+        }
+        Relationships: []
       }
       background_person_search: {
         Row: {
@@ -3917,6 +4161,7 @@ export type Database = {
       }
       document_logic_actions: {
         Row: {
+          category_id: number | null
           created_at: string
           document_logic_id: number | null
           document_type_id: number | null
@@ -3926,6 +4171,7 @@ export type Database = {
           value_visible: boolean | null
         }
         Insert: {
+          category_id?: number | null
           created_at?: string
           document_logic_id?: number | null
           document_type_id?: number | null
@@ -3935,6 +4181,7 @@ export type Database = {
           value_visible?: boolean | null
         }
         Update: {
+          category_id?: number | null
           created_at?: string
           document_logic_id?: number | null
           document_type_id?: number | null
@@ -3944,6 +4191,13 @@ export type Database = {
           value_visible?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "document_logic_actions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "document_logic_actions_document_logic_id_fkey"
             columns: ["document_logic_id"]
@@ -4724,6 +4978,7 @@ export type Database = {
           archived_by: string | null
           category: string | null
           created_at: string
+          default_open: boolean
           display_order: number
           id: number
           organization_id: string | null
@@ -4733,6 +4988,7 @@ export type Database = {
           archived_by?: string | null
           category?: string | null
           created_at?: string
+          default_open?: boolean
           display_order?: number
           id?: number
           organization_id?: string | null
@@ -4742,6 +4998,7 @@ export type Database = {
           archived_by?: string | null
           category?: string | null
           created_at?: string
+          default_open?: boolean
           display_order?: number
           id?: number
           organization_id?: string | null
@@ -4768,6 +5025,7 @@ export type Database = {
       }
       input_logic_actions: {
         Row: {
+          category_id: number | null
           created_at: string
           id: number
           input_id: number | null
@@ -4780,6 +5038,7 @@ export type Database = {
           value_visible: boolean | null
         }
         Insert: {
+          category_id?: number | null
           created_at?: string
           id?: number
           input_id?: number | null
@@ -4792,6 +5051,7 @@ export type Database = {
           value_visible?: boolean | null
         }
         Update: {
+          category_id?: number | null
           created_at?: string
           id?: number
           input_id?: number | null
@@ -4804,6 +5064,13 @@ export type Database = {
           value_visible?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "input_logic_actions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "input_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "input_logic_actions_input_id_fkey"
             columns: ["input_id"]
@@ -4920,7 +5187,6 @@ export type Database = {
           archived_by: string | null
           category: string | null
           category_id: number | null
-          config: Json | null
           created_at: string
           display_order: number
           dropdown_options: Json | null
@@ -4931,13 +5197,13 @@ export type Database = {
           linked_column: string | null
           linked_table: string | null
           starred: boolean
+          tooltip: string | null
         }
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
           category?: string | null
           category_id?: number | null
-          config?: Json | null
           created_at?: string
           display_order?: number
           dropdown_options?: Json | null
@@ -4948,13 +5214,13 @@ export type Database = {
           linked_column?: string | null
           linked_table?: string | null
           starred?: boolean
+          tooltip?: string | null
         }
         Update: {
           archived_at?: string | null
           archived_by?: string | null
           category?: string | null
           category_id?: number | null
-          config?: Json | null
           created_at?: string
           display_order?: number
           dropdown_options?: Json | null
@@ -4965,6 +5231,7 @@ export type Database = {
           linked_column?: string | null
           linked_table?: string | null
           starred?: boolean
+          tooltip?: string | null
         }
         Relationships: [
           {
@@ -5078,6 +5345,32 @@ export type Database = {
           },
         ]
       }
+      integration_tags: {
+        Row: {
+          id: number
+          integration_settings_id: number
+          tag: string
+        }
+        Insert: {
+          id?: never
+          integration_settings_id: number
+          tag: string
+        }
+        Update: {
+          id?: never
+          integration_settings_id?: number
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_tags_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       llama_document_chunks_vs: {
         Row: {
           content: string
@@ -5137,6 +5430,63 @@ export type Database = {
           },
         ]
       }
+      loan_scenario_inputs: {
+        Row: {
+          created_at: string
+          id: number
+          input_type: string | null
+          linked_record_id: string | null
+          loan_scenario_id: string
+          pricing_engine_input_id: number
+          value_array: Json | null
+          value_bool: boolean | null
+          value_date: string | null
+          value_numeric: number | null
+          value_text: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          input_type?: string | null
+          linked_record_id?: string | null
+          loan_scenario_id: string
+          pricing_engine_input_id: number
+          value_array?: Json | null
+          value_bool?: boolean | null
+          value_date?: string | null
+          value_numeric?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          input_type?: string | null
+          linked_record_id?: string | null
+          loan_scenario_id?: string
+          pricing_engine_input_id?: number
+          value_array?: Json | null
+          value_bool?: boolean | null
+          value_date?: string | null
+          value_numeric?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_scenario_inputs_loan_scenario_id_fkey"
+            columns: ["loan_scenario_id"]
+            isOneToOne: false
+            referencedRelation: "loan_scenarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_scenario_inputs_pricing_engine_input_id_fkey"
+            columns: ["pricing_engine_input_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loan_scenarios: {
         Row: {
           archived_at: string | null
@@ -5176,6 +5526,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_selected_rate_option"
+            columns: ["selected_rate_option_id"]
+            isOneToOne: false
+            referencedRelation: "scenario_rate_options"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "loan_scenarios_loan_id_fkey"
             columns: ["loan_id"]
             isOneToOne: false
@@ -5195,7 +5552,6 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
-          assigned_to_user_id: Json | null
           created_at: string
           display_id: string
           id: string
@@ -5207,7 +5563,6 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
-          assigned_to_user_id?: Json | null
           created_at?: string
           display_id: string
           id?: string
@@ -5219,7 +5574,6 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_by?: string | null
-          assigned_to_user_id?: Json | null
           created_at?: string
           display_id?: string
           id?: string
@@ -5669,6 +6023,340 @@ export type Database = {
         }
         Relationships: []
       }
+      pe_input_logic: {
+        Row: {
+          created_at: string
+          id: number
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          type?: string
+        }
+        Relationships: []
+      }
+      pe_input_logic_actions: {
+        Row: {
+          category_id: number | null
+          created_at: string
+          id: number
+          input_id: number | null
+          pe_input_logic_id: number
+          value_expression: string | null
+          value_field: number | null
+          value_required: boolean | null
+          value_text: string | null
+          value_type: string | null
+          value_visible: boolean | null
+        }
+        Insert: {
+          category_id?: number | null
+          created_at?: string
+          id?: never
+          input_id?: number | null
+          pe_input_logic_id: number
+          value_expression?: string | null
+          value_field?: number | null
+          value_required?: boolean | null
+          value_text?: string | null
+          value_type?: string | null
+          value_visible?: boolean | null
+        }
+        Update: {
+          category_id?: number | null
+          created_at?: string
+          id?: never
+          input_id?: number | null
+          pe_input_logic_id?: number
+          value_expression?: string | null
+          value_field?: number | null
+          value_required?: boolean | null
+          value_text?: string | null
+          value_type?: string | null
+          value_visible?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_input_logic_actions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_input_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_input_logic_actions_input_id_fkey"
+            columns: ["input_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_input_logic_actions_pe_input_logic_id_fkey"
+            columns: ["pe_input_logic_id"]
+            isOneToOne: false
+            referencedRelation: "pe_input_logic"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_input_logic_actions_value_field_fkey"
+            columns: ["value_field"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_input_logic_conditions: {
+        Row: {
+          created_at: string
+          field: number | null
+          id: number
+          operator: string | null
+          pe_input_logic_id: number
+          value: string | null
+          value_expression: string | null
+          value_field: number | null
+          value_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          field?: number | null
+          id?: never
+          operator?: string | null
+          pe_input_logic_id: number
+          value?: string | null
+          value_expression?: string | null
+          value_field?: number | null
+          value_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          field?: number | null
+          id?: never
+          operator?: string | null
+          pe_input_logic_id?: number
+          value?: string | null
+          value_expression?: string | null
+          value_field?: number | null
+          value_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_input_logic_conditions_field_fkey"
+            columns: ["field"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_input_logic_conditions_pe_input_logic_id_fkey"
+            columns: ["pe_input_logic_id"]
+            isOneToOne: false
+            referencedRelation: "pe_input_logic"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pe_input_logic_conditions_value_field_fkey"
+            columns: ["value_field"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_section_button_actions: {
+        Row: {
+          action_type: string
+          action_uuid: string | null
+          button_id: number
+          created_at: string
+          display_order: number
+          id: number
+        }
+        Insert: {
+          action_type: string
+          action_uuid?: string | null
+          button_id: number
+          created_at?: string
+          display_order?: number
+          id?: number
+        }
+        Update: {
+          action_type?: string
+          action_uuid?: string | null
+          button_id?: number
+          created_at?: string
+          display_order?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_section_button_actions_button_id_fkey"
+            columns: ["button_id"]
+            isOneToOne: false
+            referencedRelation: "pe_section_buttons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_section_buttons: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          category_id: number
+          created_at: string
+          display_order: number
+          icon: string | null
+          id: number
+          label: string
+          required_inputs: Json | null
+          signal_color: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category_id: number
+          created_at?: string
+          display_order?: number
+          icon?: string | null
+          id?: number
+          label: string
+          required_inputs?: Json | null
+          signal_color?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category_id?: number
+          created_at?: string
+          display_order?: number
+          icon?: string | null
+          id?: number
+          label?: string
+          required_inputs?: Json | null
+          signal_color?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_section_buttons_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_input_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_term_sheet_conditions: {
+        Row: {
+          created_at: string
+          field: number | null
+          id: number
+          operator: string | null
+          pe_term_sheet_rule_id: number
+          value: string | null
+          value_expression: string | null
+          value_field: number | null
+          value_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          field?: number | null
+          id?: never
+          operator?: string | null
+          pe_term_sheet_rule_id: number
+          value?: string | null
+          value_expression?: string | null
+          value_field?: number | null
+          value_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          field?: number | null
+          id?: never
+          operator?: string | null
+          pe_term_sheet_rule_id?: number
+          value?: string | null
+          value_expression?: string | null
+          value_field?: number | null
+          value_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_term_sheet_conditions_pe_term_sheet_rule_id_fkey"
+            columns: ["pe_term_sheet_rule_id"]
+            isOneToOne: false
+            referencedRelation: "pe_term_sheet_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_term_sheet_rules: {
+        Row: {
+          created_at: string
+          id: number
+          logic_type: string
+          pe_term_sheet_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          logic_type?: string
+          pe_term_sheet_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          logic_type?: string
+          pe_term_sheet_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_term_sheet_rules_pe_term_sheet_id_fkey"
+            columns: ["pe_term_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "pe_term_sheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_term_sheets: {
+        Row: {
+          created_at: string
+          display_order: number
+          document_template_id: string
+          id: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          document_template_id: string
+          id?: never
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          document_template_id?: string
+          id?: never
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_term_sheets_document_template_id_fkey"
+            columns: ["document_template_id"]
+            isOneToOne: true
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pricing_activity_log: {
         Row: {
           action: string
@@ -5728,6 +6416,177 @@ export type Database = {
             columns: ["scenario_id"]
             isOneToOne: false
             referencedRelation: "loan_scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_engine_input_categories: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          category: string | null
+          config: Json | null
+          created_at: string
+          default_open: boolean
+          display_order: number
+          id: number
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          config?: Json | null
+          created_at?: string
+          default_open?: boolean
+          display_order?: number
+          id?: number
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          config?: Json | null
+          created_at?: string
+          default_open?: boolean
+          display_order?: number
+          id?: number
+        }
+        Relationships: []
+      }
+      pricing_engine_inputs: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          category: string | null
+          category_id: number | null
+          config: Json | null
+          created_at: string
+          default_value: string | null
+          display_order: number
+          dropdown_options: Json | null
+          id: number
+          input_code: string
+          input_label: string | null
+          input_type: string | null
+          layout_row: number
+          layout_width: string
+          linked_column: string | null
+          linked_table: string | null
+          placeholder: string | null
+          starred: boolean
+          tooltip: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          category_id?: number | null
+          config?: Json | null
+          created_at?: string
+          default_value?: string | null
+          display_order?: number
+          dropdown_options?: Json | null
+          id?: number
+          input_code: string
+          input_label?: string | null
+          input_type?: string | null
+          layout_row?: number
+          layout_width?: string
+          linked_column?: string | null
+          linked_table?: string | null
+          placeholder?: string | null
+          starred?: boolean
+          tooltip?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          category_id?: number | null
+          config?: Json | null
+          created_at?: string
+          default_value?: string | null
+          display_order?: number
+          dropdown_options?: Json | null
+          id?: number
+          input_code?: string
+          input_label?: string | null
+          input_type?: string | null
+          layout_row?: number
+          layout_width?: string
+          linked_column?: string | null
+          linked_table?: string | null
+          placeholder?: string | null
+          starred?: boolean
+          tooltip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_engine_inputs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_input_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_conditions: {
+        Row: {
+          created_at: string
+          field: number | null
+          id: number
+          logic_type: string
+          operator: string | null
+          program_id: string
+          value: string | null
+          value_expression: string | null
+          value_field: number | null
+          value_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          field?: number | null
+          id?: never
+          logic_type?: string
+          operator?: string | null
+          program_id: string
+          value?: string | null
+          value_expression?: string | null
+          value_field?: number | null
+          value_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          field?: number | null
+          id?: never
+          logic_type?: string
+          operator?: string | null
+          program_id?: string
+          value?: string | null
+          value_expression?: string | null
+          value_field?: number | null
+          value_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_conditions_field_fkey"
+            columns: ["field"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_conditions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_conditions_value_field_fkey"
+            columns: ["value_field"]
+            isOneToOne: false
+            referencedRelation: "pricing_engine_inputs"
             referencedColumns: ["id"]
           },
         ]
@@ -5794,95 +6653,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pricing_engine_input_categories: {
-        Row: {
-          archived_at: string | null
-          archived_by: string | null
-          category: string | null
-          created_at: string
-          display_order: number
-          id: number
-        }
-        Insert: {
-          archived_at?: string | null
-          archived_by?: string | null
-          category?: string | null
-          created_at?: string
-          display_order?: number
-          id?: number
-        }
-        Update: {
-          archived_at?: string | null
-          archived_by?: string | null
-          category?: string | null
-          created_at?: string
-          display_order?: number
-          id?: number
-        }
-        Relationships: []
-      }
-      pricing_engine_inputs: {
-        Row: {
-          archived_at: string | null
-          archived_by: string | null
-          category: string | null
-          category_id: number | null
-          config: Json | null
-          created_at: string
-          display_order: number
-          dropdown_options: Json | null
-          id: number
-          input_code: string
-          input_label: string | null
-          input_type: string | null
-          linked_column: string | null
-          linked_table: string | null
-          starred: boolean
-        }
-        Insert: {
-          archived_at?: string | null
-          archived_by?: string | null
-          category?: string | null
-          category_id?: number | null
-          config?: Json | null
-          created_at?: string
-          display_order?: number
-          dropdown_options?: Json | null
-          id?: number
-          input_code: string
-          input_label?: string | null
-          input_type?: string | null
-          linked_column?: string | null
-          linked_table?: string | null
-          starred?: boolean
-        }
-        Update: {
-          archived_at?: string | null
-          archived_by?: string | null
-          category?: string | null
-          category_id?: number | null
-          config?: Json | null
-          created_at?: string
-          display_order?: number
-          dropdown_options?: Json | null
-          id?: number
-          input_code?: string
-          input_label?: string | null
-          input_type?: string | null
-          linked_column?: string | null
-          linked_table?: string | null
-          starred?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pricing_engine_inputs_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "pricing_engine_input_categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       programs: {
         Row: {
           archived_at: string | null
@@ -5891,7 +6661,6 @@ export type Database = {
           external_name: string
           id: string
           internal_name: string
-          loan_type: string
           status: string
           updated_at: string
           user_id: string
@@ -5904,7 +6673,6 @@ export type Database = {
           external_name: string
           id?: string
           internal_name: string
-          loan_type: string
           status?: string
           updated_at?: string
           user_id: string
@@ -5917,7 +6685,6 @@ export type Database = {
           external_name?: string
           id?: string
           internal_name?: string
-          loan_type?: string
           status?: string
           updated_at?: string
           user_id?: string
@@ -6214,6 +6981,116 @@ export type Database = {
             columns: ["role_type_id"]
             isOneToOne: false
             referencedRelation: "deal_role_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenario_program_results: {
+        Row: {
+          calculated_at: string
+          id: number
+          loan_amount: string | null
+          loan_scenario_id: string
+          ltv: string | null
+          pass: boolean | null
+          program_id: string | null
+          program_name: string | null
+          raw_response: Json | null
+          validations: string[] | null
+          warnings: string[] | null
+        }
+        Insert: {
+          calculated_at?: string
+          id?: number
+          loan_amount?: string | null
+          loan_scenario_id: string
+          ltv?: string | null
+          pass?: boolean | null
+          program_id?: string | null
+          program_name?: string | null
+          raw_response?: Json | null
+          validations?: string[] | null
+          warnings?: string[] | null
+        }
+        Update: {
+          calculated_at?: string
+          id?: number
+          loan_amount?: string | null
+          loan_scenario_id?: string
+          ltv?: string | null
+          pass?: boolean | null
+          program_id?: string | null
+          program_name?: string | null
+          raw_response?: Json | null
+          validations?: string[] | null
+          warnings?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenario_program_results_loan_scenario_id_fkey"
+            columns: ["loan_scenario_id"]
+            isOneToOne: false
+            referencedRelation: "loan_scenarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scenario_program_results_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenario_rate_options: {
+        Row: {
+          dscr: string | null
+          funded_pitia: string | null
+          id: number
+          initial_loan_amount: string | null
+          initial_pitia: string | null
+          interest_rate: string | null
+          loan_price: string | null
+          pitia: string | null
+          rehab_holdback: string | null
+          row_index: number
+          scenario_program_result_id: number
+          total_loan_amount: string | null
+        }
+        Insert: {
+          dscr?: string | null
+          funded_pitia?: string | null
+          id?: number
+          initial_loan_amount?: string | null
+          initial_pitia?: string | null
+          interest_rate?: string | null
+          loan_price?: string | null
+          pitia?: string | null
+          rehab_holdback?: string | null
+          row_index: number
+          scenario_program_result_id: number
+          total_loan_amount?: string | null
+        }
+        Update: {
+          dscr?: string | null
+          funded_pitia?: string | null
+          id?: number
+          initial_loan_amount?: string | null
+          initial_pitia?: string | null
+          interest_rate?: string | null
+          loan_price?: string | null
+          pitia?: string | null
+          rehab_holdback?: string | null
+          row_index?: number
+          scenario_program_result_id?: number
+          total_loan_amount?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenario_rate_options_scenario_program_result_id_fkey"
+            columns: ["scenario_program_result_id"]
+            isOneToOne: false
+            referencedRelation: "scenario_program_results"
             referencedColumns: ["id"]
           },
         ]
@@ -6560,7 +7437,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "task_templates_button_automation_id_fkey"
+            foreignKeyName: "task_templates_button_action_id_fkey"
             columns: ["button_automation_id"]
             isOneToOne: false
             referencedRelation: "automations"
@@ -7107,6 +7984,15 @@ export type Database = {
         }[]
       }
       match_llama_document_chunks: {
+        Args: { filter?: Json; match_count?: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      match_llama_document_chunks_vs: {
         Args: { filter?: Json; match_count?: number; query_embedding: string }
         Returns: {
           content: string

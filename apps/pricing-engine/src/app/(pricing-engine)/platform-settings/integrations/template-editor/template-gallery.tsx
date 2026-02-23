@@ -78,7 +78,21 @@ export function TemplateGallery({
         throw new Error(data.error || "Failed to duplicate template")
       }
       const data = await res.json()
-      // Add to local state at the beginning
+      const newId = data.template?.id
+      if (newId) {
+        const varsRes = await fetch(`/api/document-templates/${template.id}/variables`)
+        if (varsRes.ok) {
+          const varsData = await varsRes.json()
+          const vars = varsData.variables ?? []
+          if (vars.length > 0) {
+            await fetch(`/api/document-templates/${newId}/variables`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ variables: vars }),
+            })
+          }
+        }
+      }
       setTemplates(prev => [data.template, ...prev])
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to duplicate template")

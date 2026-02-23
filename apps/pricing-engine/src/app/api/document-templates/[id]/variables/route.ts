@@ -101,7 +101,7 @@ export async function PUT(
         name: v.name,
         variable_type: v.type,
         position: index,
-        path: v.path ?? null,
+        path: v.path || v.name,
       }))
 
       const { error: insertError } = await supabaseAdmin
@@ -188,7 +188,7 @@ export async function POST(
         name,
         variable_type: type,
         position: newPosition,
-        path: path ?? null,
+        path: path || name,
       })
       .select()
       .single()

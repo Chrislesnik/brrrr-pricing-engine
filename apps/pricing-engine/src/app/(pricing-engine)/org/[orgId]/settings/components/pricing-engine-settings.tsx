@@ -5,6 +5,7 @@ import { cn } from "@repo/lib/cn";
 import { ProgramsSettings } from "./programs-settings";
 import { PricingEngineLayoutSettings } from "./pricing-engine-layout-settings";
 import { PricingEngineGridLayout } from "./pricing-engine-grid-layout";
+import { TermSheetsSettings } from "./term-sheets-settings";
 
 type SubTab = "inputs" | "layout" | "programs" | "term-sheets";
 
@@ -77,13 +78,7 @@ export function PricingEngineSettings() {
 
       {subTab === "programs" && <ProgramsSettings />}
 
-      {subTab === "term-sheets" && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            Term sheet templates coming soon.
-          </p>
-        </div>
-      )}
+      {subTab === "term-sheets" && <TermSheetsSettings />}
     </div>
   );
 }
