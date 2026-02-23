@@ -71,5 +71,37 @@ export function resolveTemplateVariables(
     }
   );
 
+  // Pattern 5: QR code <img> tags with data-qr-mode="variable"
+  // GrapesJS QR components export as <img ... data-qr-mode="variable" data-qr-variable="var_name" data-qr-size="150" src="...">
+  // Replace the src with the resolved QR API URL using the actual variable value
+  result = result.replace(
+    /<img([^>]*?)data-qr-mode="variable"([^>]*?)data-qr-variable="(\w+)"([^>]*?)>/gi,
+    (match, before: string, mid: string, varName: string, after: string) => {
+      const val = valueMap.get(varName);
+      if (!val) return match;
+      const sizeMatch = (before + mid + after).match(/data-qr-size="(\d+)"/)
+      const size = sizeMatch ? sizeMatch[1] : "150";
+      const newSrc = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(val)}`;
+      const full = before + `data-qr-mode="variable"` + mid + `data-qr-variable="${varName}"` + after;
+      const updated = full.replace(/src="[^"]*"/, `src="${newSrc}"`);
+      return `<img${updated}>`;
+    }
+  );
+
+  // Also handle when data-qr-variable appears before data-qr-mode in the attribute order
+  result = result.replace(
+    /<img([^>]*?)data-qr-variable="(\w+)"([^>]*?)data-qr-mode="variable"([^>]*?)>/gi,
+    (match, before: string, varName: string, mid: string, after: string) => {
+      const val = valueMap.get(varName);
+      if (!val) return match;
+      const sizeMatch = (before + mid + after).match(/data-qr-size="(\d+)"/)
+      const size = sizeMatch ? sizeMatch[1] : "150";
+      const newSrc = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(val)}`;
+      const full = before + `data-qr-variable="${varName}"` + mid + `data-qr-mode="variable"` + after;
+      const updated = full.replace(/src="[^"]*"/, `src="${newSrc}"`);
+      return `<img${updated}>`;
+    }
+  );
+
   return result;
 }
