@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import { useTheme } from "next-themes";
+import type { LucideIcon } from "lucide-react";
 import {
   ChevronDown,
   Sparkles,
@@ -20,6 +21,69 @@ import {
   AreaChart,
   User,
   Bot,
+  Search,
+  DollarSign,
+  Users,
+  TrendingUp,
+  TrendingDown,
+  Briefcase,
+  Building2,
+  Calculator,
+  CreditCard,
+  Landmark,
+  PiggyBank,
+  Wallet,
+  Receipt,
+  FileText,
+  Globe,
+  Home,
+  ShieldCheck,
+  HandCoins,
+  Banknote,
+  CircleDollarSign,
+  BadgeDollarSign,
+  ChartLine,
+  Activity,
+  UserPlus,
+  Scale,
+  Percent,
+  ArrowUpRight,
+  ArrowDownRight,
+  Coins,
+  BadgePercent,
+  CirclePercent,
+  Target,
+  Clock,
+  CalendarDays,
+  Hash,
+  Layers,
+  FolderOpen,
+  FileCheck,
+  FileClock,
+  ClipboardList,
+  ListChecks,
+  CheckCircle,
+  AlertCircle,
+  Star,
+  Heart,
+  Zap,
+  Award,
+  Gift,
+  Phone,
+  Mail,
+  MapPin,
+  Truck,
+  Package,
+  ShoppingCart,
+  Store,
+  Gauge,
+  Signal,
+  Wifi,
+  Lock,
+  Unlock,
+  Key,
+  Eye,
+  Settings,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
@@ -53,6 +117,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/shadcn/popover";
+import { ScrollArea } from "@repo/ui/shadcn/scroll-area";
+import {
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -68,12 +138,81 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((m) => m.
   ),
 });
 
+export const ICON_MAP: Record<string, LucideIcon> = {
+  DollarSign,
+  CircleDollarSign,
+  BadgeDollarSign,
+  Banknote,
+  HandCoins,
+  Coins,
+  CreditCard,
+  Wallet,
+  PiggyBank,
+  Landmark,
+  Receipt,
+  Percent,
+  BadgePercent,
+  CirclePercent,
+  TrendingUp,
+  TrendingDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  ChartLine,
+  BarChart3,
+  LineChart,
+  AreaChart,
+  Activity,
+  Gauge,
+  Signal,
+  Target,
+  Users,
+  User,
+  UserPlus,
+  Briefcase,
+  Building2,
+  Home,
+  Store,
+  Globe,
+  MapPin,
+  Calculator,
+  Scale,
+  Hash,
+  Layers,
+  FileText,
+  FileCheck,
+  FileClock,
+  FolderOpen,
+  ClipboardList,
+  ListChecks,
+  CheckCircle,
+  AlertCircle,
+  ShieldCheck,
+  Lock,
+  Unlock,
+  Key,
+  Eye,
+  Star,
+  Heart,
+  Award,
+  Zap,
+  Gift,
+  Clock,
+  CalendarDays,
+  Phone,
+  Mail,
+  Truck,
+  Package,
+  ShoppingCart,
+  Settings,
+};
+
 interface DashboardWidget {
   id: number;
   slot: string;
   widget_type: string;
   title: string;
   subtitle: string | null;
+  icon: string | null;
   trend_label: string | null;
   trend_description: string | null;
   value_format: string | null;
@@ -141,6 +280,7 @@ export function DashboardSettings() {
             slot: widget.slot,
             title: widget.title,
             subtitle: widget.subtitle,
+            icon: widget.icon,
             trend_label: widget.trend_label,
             trend_description: widget.trend_description,
             value_format: widget.value_format,
@@ -481,11 +621,13 @@ function WidgetCard({
       >
         <div className="flex items-center gap-3 flex-1">
           <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-            {isKpi ? (
-              <BarChart3 className="size-4" />
-            ) : (
-              <AreaChart className="size-4" />
-            )}
+            {(() => {
+              if (isKpi && widget.icon && ICON_MAP[widget.icon]) {
+                const Icon = ICON_MAP[widget.icon];
+                return <Icon className="size-4" />;
+              }
+              return isKpi ? <BarChart3 className="size-4" /> : <AreaChart className="size-4" />;
+            })()}
           </div>
           <div>
             <span className="font-medium text-sm">{widget.title}</span>
@@ -560,12 +702,32 @@ function WidgetCard({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Title</Label>
-                <Input
-                  value={widget.title}
-                  onChange={(e) => onChange("title", e.target.value)}
-                  className="h-9"
-                />
+                <div className="flex items-end gap-2">
+                  {isKpi && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs">Icon</Label>
+                      <IconPicker
+                        value={widget.icon}
+                        onChange={(v) => onChange("icon", v)}
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-xs">Title</Label>
+                    <Input
+                      value={widget.title}
+                      onChange={(e) => onChange("title", e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+                {isKpi && (
+                  <SuggestionHint
+                    value={fieldSuggestions?.icon}
+                    onAccept={() => onAcceptSuggestion("icon")}
+                    onDismiss={() => onDismissSuggestion("icon")}
+                  />
+                )}
                 <SuggestionHint
                   value={fieldSuggestions?.title}
                   onAccept={() => onAcceptSuggestion("title")}
@@ -891,9 +1053,16 @@ function SuggestionHint({
   onDismiss: () => void;
 }) {
   if (value === undefined || value === null) return null;
+
+  const SuggestedIcon = ICON_MAP[value];
+
   return (
     <div className="flex w-full items-center gap-0.5 rounded border border-primary/25 bg-primary/5 px-2 py-1">
-      <Sparkles className="size-2.5 shrink-0 text-primary/60" />
+      {SuggestedIcon ? (
+        <SuggestedIcon className="size-3 shrink-0 text-primary/60" />
+      ) : (
+        <Sparkles className="size-2.5 shrink-0 text-primary/60" />
+      )}
       <span className="flex-1 truncate text-[11px] text-primary/80 ml-1">
         {value || "(empty)"}
       </span>
@@ -914,6 +1083,104 @@ function SuggestionHint({
         <X className="size-3" />
       </button>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Icon Picker                                                        */
+/* ------------------------------------------------------------------ */
+
+const ICON_ENTRIES = Object.entries(ICON_MAP);
+
+function IconPicker({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (iconName: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = search
+    ? ICON_ENTRIES.filter(([name]) =>
+        name.toLowerCase().includes(search.toLowerCase())
+      )
+    : ICON_ENTRIES;
+
+  const SelectedIcon = value ? ICON_MAP[value] : null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="size-9 shrink-0"
+          title={value ?? "Select icon"}
+        >
+          {SelectedIcon ? (
+            <SelectedIcon className="size-4" />
+          ) : (
+            <Plus className="size-3.5 text-muted-foreground" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <div className="flex items-center gap-2 border-b px-3 py-2">
+          <Search className="size-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search icons..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <ScrollArea className="h-[240px]">
+          <div className="grid grid-cols-8 gap-0.5 p-2">
+            {filtered.map(([name, Icon]) => (
+              <button
+                key={name}
+                type="button"
+                title={name}
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-md transition-colors",
+                  value === name
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-foreground/80 hover:text-foreground"
+                )}
+                onClick={() => {
+                  onChange(name);
+                  setOpen(false);
+                  setSearch("");
+                }}
+              >
+                <Icon className="size-4" />
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="col-span-8 py-6 text-center text-xs text-muted-foreground">
+                No icons match &ldquo;{search}&rdquo;
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   );
 }
 

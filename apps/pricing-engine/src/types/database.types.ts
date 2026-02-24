@@ -2426,6 +2426,7 @@ export type Database = {
         Row: {
           chart_type: string | null
           created_at: string | null
+          icon: string | null
           id: number
           slot: string
           sql_query: string | null
@@ -2445,6 +2446,7 @@ export type Database = {
         Insert: {
           chart_type?: string | null
           created_at?: string | null
+          icon?: string | null
           id?: number
           slot: string
           sql_query?: string | null
@@ -2464,6 +2466,7 @@ export type Database = {
         Update: {
           chart_type?: string | null
           created_at?: string | null
+          icon?: string | null
           id?: number
           slot?: string
           sql_query?: string | null
@@ -8269,6 +8272,7 @@ export type Database = {
         Args: { p_org_id: string; p_report_id: string; p_user_id: string }
         Returns: undefined
       }
+      exec_sql: { Args: { params?: Json; query: string }; Returns: Json }
       fail_stale_llama_document_parsed: { Args: never; Returns: undefined }
       finalize_document_upload: {
         Args: { p_document_file_id: number; p_file_size?: number }

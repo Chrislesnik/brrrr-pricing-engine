@@ -9,11 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ICON_MAP } from "@/app/(pricing-engine)/org/[orgId]/settings/components/dashboard-settings"
 
 export interface KpiWidgetData {
   config: {
     title: string
     subtitle: string | null
+    icon: string | null
     trend_label: string | null
     trend_description: string | null
     value_format: string | null
@@ -114,10 +116,15 @@ export function SectionCards({ widgets, loading }: SectionCardsProps) {
             ? TrendingDownIcon
             : Minus
 
+        const KpiIcon = w.config.icon ? ICON_MAP[w.config.icon] : null
+
         return (
           <Card key={i} className="@container/card">
             <CardHeader className="relative">
-              <CardDescription>{w.config.title}</CardDescription>
+              <CardDescription className="flex items-center gap-1.5">
+                {KpiIcon && <KpiIcon className="size-3.5" />}
+                {w.config.title}
+              </CardDescription>
               <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
                 {formatValue(
                   w.data?.value ?? null,

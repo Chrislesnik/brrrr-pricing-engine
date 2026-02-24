@@ -54,7 +54,8 @@ ${
   "subtitle": "Brief context phrase or null (e.g. 'Last 30 days')",
   "value_format": "One of: currency, integer, number, percentage",
   "trend_label": "Short trend context, 2-5 words (e.g. 'Up from last month')",
-  "trend_description": "Explains the comparison period (e.g. 'vs. previous 30 days')"
+  "trend_description": "Explains the comparison period (e.g. 'vs. previous 30 days')",
+  "icon": "A lucide-react icon name in PascalCase that best represents this metric (e.g. DollarSign, Users, TrendingUp, Briefcase, Building2, CreditCard, Landmark, Home, ShieldCheck, Calculator, Wallet, PiggyBank, Receipt, FileText, Globe, HandCoins, Banknote, CircleDollarSign, BadgeDollarSign, ChartLine, Activity, UserPlus, Scale, Percent)"
 }`
     : `{
   "title": "Short chart name, 2-4 words (e.g. 'Deals Funded Over Time')",

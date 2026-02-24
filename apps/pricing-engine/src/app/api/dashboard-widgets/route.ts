@@ -69,6 +69,7 @@ export async function PATCH(request: NextRequest) {
     "x_axis_key",
     "y_axis_key",
     "sql_query",
+    "icon",
   ];
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: userId };

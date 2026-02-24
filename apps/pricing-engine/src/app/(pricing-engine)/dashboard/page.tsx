@@ -34,6 +34,7 @@ export default function DashboardPage() {
           config: {
             title: String(w.config.title ?? ""),
             subtitle: (w.config.subtitle as string) ?? null,
+            icon: (w.config.icon as string) ?? null,
             trend_label: (w.config.trend_label as string) ?? null,
             trend_description: (w.config.trend_description as string) ?? null,
             value_format: (w.config.value_format as string) ?? null,
