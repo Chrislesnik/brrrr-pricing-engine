@@ -251,7 +251,7 @@ export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
         <Table className="min-w-[1000px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="bg-muted">
                 <SortableContext
                   items={table.getAllLeafColumns().map((c) => c.id).filter((id) => !FIXED_COLUMNS.has(id))}
                   strategy={horizontalListSortingStrategy}
