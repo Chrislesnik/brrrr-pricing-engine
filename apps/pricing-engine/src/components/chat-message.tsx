@@ -21,6 +21,7 @@ type UIMessageLike = {
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   message: SimpleMessage | UIMessageLike;
   onApplyTheme?: (theme: { light: any; dark: any }) => void;
+  onPreviewTheme?: (theme: { light: any; dark: any }) => void;
 };
 
 // Try to extract JSON theme from text content
@@ -122,6 +123,7 @@ export const Message = ({
   className,
   message,
   onApplyTheme,
+  onPreviewTheme,
   ...props
 }: MessageProps) => {
   const messageText = getMessageText(message);
@@ -295,7 +297,19 @@ export const Message = ({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onPreviewTheme?.({
+                        light: theme.light,
+                        dark: theme.dark,
+                      })
+                    }
+                    className="flex-1 border border-border hover:bg-muted rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+                  >
+                    👁 Preview
+                  </button>
                   <button
                     type="button"
                     onClick={() =>
@@ -304,7 +318,7 @@ export const Message = ({
                         dark: theme.dark,
                       })
                     }
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+                    className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
                   >
                     ✨ Apply Theme
                   </button>

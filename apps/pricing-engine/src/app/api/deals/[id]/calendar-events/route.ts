@@ -29,33 +29,29 @@ async function checkDealAccess(
   userId: string,
   orgId: string | null | undefined
 ): Promise<{ hasAccess: boolean; deal: { organization_id: string } | null }> {
-  const { data: deal } = await supabaseAdmin
-    .from("deals")
-    .select("organization_id, assigned_to_user_id, primary_user_id")
-    .eq("id", dealId)
-    .single();
+  const [{ data: deal }, { data: userRow }, userOrgUuid] = await Promise.all([
+    supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id")
+      .eq("id", dealId)
+      .single(),
+    supabaseAdmin
+      .from("users")
+      .select("id, is_internal_yn")
+      .eq("clerk_user_id", userId)
+      .maybeSingle(),
+    orgId ? getOrgUuidFromClerkId(orgId) : Promise.resolve(null),
+  ]);
 
   if (!deal) return { hasAccess: false, deal: null };
 
-  const userOrgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null;
   const hasOrgAccess = userOrgUuid && deal.organization_id === userOrgUuid;
-
   const assignedUsers = Array.isArray(deal.assigned_to_user_id)
     ? deal.assigned_to_user_id
     : [];
   const isAssigned = assignedUsers.includes(userId);
   const isPrimaryUser = deal.primary_user_id === userId;
-
-  let isInternal = false;
-  const { data: userRow } = await supabaseAdmin
-    .from("users")
-    .select("id, is_internal_yn")
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
-
-  if (userRow) {
-    isInternal = Boolean(userRow.is_internal_yn);
-  }
+  const isInternal = Boolean(userRow?.is_internal_yn);
 
   return {
     hasAccess: Boolean(hasOrgAccess || isAssigned || isPrimaryUser || isInternal),
@@ -86,39 +82,31 @@ export async function GET(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // 1. Find all date-type inputs that have a value for this deal
-    const { data: dateInputs } = await supabaseAdmin
-      .from("deal_inputs")
-      .select("input_id, value_date, input_type")
-      .eq("deal_id", dealId)
-      .eq("input_type", "date")
-      .not("value_date", "is", null);
-
-    // 2. Get input labels for those inputs
-    const dateInputIds = (dateInputs ?? []).map((r) => r.input_id);
-    let inputLabels: Record<string, string> = {};
-    if (dateInputIds.length > 0) {
-      const { data: inputRows } = await supabaseAdmin
-        .from("inputs")
-        .select("id, input_label")
-        .in("id", dateInputIds);
-      if (inputRows) {
-        inputLabels = Object.fromEntries(
-          inputRows.map((r) => [r.id, r.input_label])
-        );
-      }
-    }
-
-    // 3. Fetch existing calendar events for this deal
-    const { data: existingEvents, error: fetchErr } = await supabaseAdmin
-      .from("deal_calendar_events")
-      .select("*")
-      .eq("deal_id", dealId)
-      .order("event_date", { ascending: true });
+    // Fetch date inputs (with labels) and existing calendar events in parallel
+    const [{ data: dateInputs }, { data: existingEvents, error: fetchErr }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("deal_inputs")
+          .select("input_id, value_date, input_type, inputs:input_id(id, input_label)")
+          .eq("deal_id", dealId)
+          .eq("input_type", "date")
+          .not("value_date", "is", null),
+        supabaseAdmin
+          .from("deal_calendar_events")
+          .select("*")
+          .eq("deal_id", dealId)
+          .order("event_date", { ascending: true }),
+      ]);
 
     if (fetchErr) {
       console.error("Error fetching calendar events:", fetchErr.message);
       return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+    }
+
+    const inputLabels: Record<string, string> = {};
+    for (const r of dateInputs ?? []) {
+      const inp = r.inputs as any;
+      if (inp?.input_label) inputLabels[r.input_id] = inp.input_label;
     }
 
     const events = (existingEvents ?? []) as CalendarEventRow[];

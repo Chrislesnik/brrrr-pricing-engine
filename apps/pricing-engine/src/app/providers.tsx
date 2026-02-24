@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { ClerkProvider } from "@clerk/nextjs"
+import { dark } from "@clerk/themes"
+import { useTheme } from "next-themes"
 import SearchProvider from "@/components/search-provider"
 import { ThemeProvider } from "@repo/ui/providers/theme-provider"
 import { LiveblocksProviderWrapper } from "@/components/liveblocks/liveblocks-provider"
@@ -10,37 +12,52 @@ interface Props {
   children: React.ReactNode
 }
 
-export function Providers({ children }: Props) {
-  // Cmd+K shortcut is handled by the header's SearchForm component.
-  // This state is kept for SearchProvider context compatibility.
-  const [open, setOpen] = useState(false)
+function ClerkWithTheme({ children }: Props) {
+  const { resolvedTheme } = useTheme()
 
   return (
     <ClerkProvider
       appearance={{
-        // Global appearance overrides for Clerk components
+        baseTheme: resolvedTheme === "dark" ? dark : undefined,
+        variables: {
+          colorPrimary: "hsl(var(--primary))",
+          colorBackground: "hsl(var(--background))",
+          colorForeground: "hsl(var(--foreground))",
+          colorMuted: "hsl(var(--muted))",
+          colorMutedForeground: "hsl(var(--muted-foreground))",
+          colorBorder: "hsl(var(--border))",
+          colorInput: "hsl(var(--input))",
+          colorInputForeground: "hsl(var(--foreground))",
+          colorDanger: "hsl(var(--destructive))",
+          colorRing: "hsl(var(--ring))",
+          borderRadius: "var(--radius)",
+        },
         elements: {
-          // Hide "Secured by Clerk" in UserButton popover (allowed on Pro plan)
-          userButtonPopoverFooter: {
-            display: "none",
-          },
-          // Hide component footers that can contain Clerk branding on auth pages
-          footer: {
-            display: "none",
-          },
+          userButtonPopoverFooter: { display: "none" },
+          footer: { display: "none" },
         },
       }}
     >
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
+      {children}
+    </ClerkProvider>
+  )
+}
+
+export function Providers({ children }: Props) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <ClerkWithTheme>
         <LiveblocksProviderWrapper>
           <SearchProvider value={{ open, setOpen }}>{children}</SearchProvider>
         </LiveblocksProviderWrapper>
-      </ThemeProvider>
-    </ClerkProvider>
+      </ClerkWithTheme>
+    </ThemeProvider>
   )
 }

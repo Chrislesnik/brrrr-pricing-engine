@@ -970,6 +970,44 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
     [onChange, convertToHex, onSave],
   );
 
+  const handlePreviewTheme = useCallback(
+    (newTheme: { light: ShadcnTokens; dark: ShadcnTokens }) => {
+      if (!prePreviewThemeRef.current) {
+        prePreviewThemeRef.current = { ...themeRef.current };
+      }
+
+      const lightHex: ShadcnTokens = {};
+      const darkHex: ShadcnTokens = {};
+
+      Object.entries(newTheme.light).forEach(([key, value]) => {
+        lightHex[key] = convertToHex(value);
+      });
+      Object.entries(newTheme.dark).forEach(([key, value]) => {
+        darkHex[key] = convertToHex(value);
+      });
+
+      const hexTheme = ensureStatusTokens({ light: lightHex, dark: darkHex });
+
+      const styleId = "tinte-dynamic-theme";
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+      if (!styleElement) {
+        styleElement = document.createElement("style");
+        styleElement.id = styleId;
+        document.head.appendChild(styleElement);
+      }
+
+      const lightTokens = Object.entries(hexTheme.light)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
+        .join("\n");
+      const darkTokens = Object.entries(hexTheme.dark)
+        .map(([key, value]) => `  --${key}: ${convertCssValueForInjection(key, value)};`)
+        .join("\n");
+
+      styleElement.textContent = `html:root {\n${lightTokens}\n}\n\nhtml.dark {\n${darkTokens}\n}`;
+    },
+    [convertToHex],
+  );
+
   // Detect color format
   const detectColorFormat = useCallback(
     (colorValue: string): "hex" | "oklch" | "rgb" | "hsl" | "unknown" => {
@@ -1880,6 +1918,7 @@ export function TinteEditor({ onChange, onSave, initialTheme, inline = false }: 
                             key={message.id}
                             message={message}
                             onApplyTheme={handleApplyTheme}
+                            onPreviewTheme={handlePreviewTheme}
                           />
                         ))}
                         {chatStatus === "streaming" && messages[messages.length - 1]?.content === "" && (

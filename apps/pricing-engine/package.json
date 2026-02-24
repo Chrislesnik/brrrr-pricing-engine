@@ -21,6 +21,7 @@
     "@ai-sdk/react": "^3.0.35",
     "@capacitor/core": "^7.4.4",
     "@clerk/nextjs": "^6.35.2",
+    "@clerk/themes": "^2.4.55",
     "@clerk/types": "^4.101.14",
     "@dagrejs/dagre": "^2.0.4",
     "@diceui/tags-input": "^0.7.2",
