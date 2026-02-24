@@ -100,6 +100,7 @@ export async function GET() {
         config: Omit<DashboardWidget, "sql_query">;
         data: unknown;
         error?: string;
+        configured?: boolean;
       }
     > = {};
 
@@ -108,7 +109,7 @@ export async function GET() {
         const { sql_query, ...config } = w;
 
         if (!sql_query) {
-          results[w.slot] = { config, data: null };
+          results[w.slot] = { config, data: null, configured: false };
           return;
         }
 
@@ -129,6 +130,7 @@ export async function GET() {
               config,
               data: null,
               error: error.message,
+              configured: true,
             };
             return;
           }
@@ -141,6 +143,7 @@ export async function GET() {
               | undefined;
             results[w.slot] = {
               config,
+              configured: true,
               data: row
                 ? {
                     value: row.value ?? null,
@@ -149,13 +152,14 @@ export async function GET() {
                 : null,
             };
           } else {
-            results[w.slot] = { config, data: rows };
+            results[w.slot] = { config, data: rows, configured: true };
           }
         } catch (err) {
           console.error(`[dashboard/data] Error for ${w.slot}:`, err);
           results[w.slot] = {
             config,
             data: null,
+            configured: true,
             error:
               err instanceof Error ? err.message : "Query execution failed",
           };

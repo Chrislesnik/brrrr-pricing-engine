@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const [chatDealId, setChatDealId] = useState<string | null>(null)
 
   const { data: dashboardData, isLoading } = useSWR<
-    Record<string, { config: Record<string, unknown>; data: unknown; error?: string }>
+    Record<string, { config: Record<string, unknown>; data: unknown; error?: string; configured?: boolean }>
   >("/api/dashboard/data", fetcher, { refreshInterval: 60_000 })
 
   const kpiWidgets = useMemo<KpiWidgetData[]>(() => {
@@ -42,6 +42,7 @@ export default function DashboardPage() {
             value_suffix: (w.config.value_suffix as string) ?? null,
           },
           data: w.data as { value: number | null; trend_pct: number | null } | null,
+          configured: w.configured !== false,
         }
       })
       .filter(Boolean) as KpiWidgetData[]
@@ -60,6 +61,7 @@ export default function DashboardPage() {
         y_axis_key: (w.config.y_axis_key as string) ?? "value",
       },
       data: Array.isArray(w.data) ? (w.data as Array<Record<string, unknown>>) : null,
+      configured: w.configured !== false,
     }
   }, [dashboardData])
 

@@ -23,6 +23,7 @@ export interface KpiWidgetData {
     value_suffix: string | null
   }
   data: { value: number | null; trend_pct: number | null } | null
+  configured?: boolean
 }
 
 function formatValue(
@@ -156,7 +157,9 @@ export function SectionCards({ widgets, loading }: SectionCardsProps) {
                 </div>
               )}
               {!w.config.trend_label && !w.config.trend_description && !w.data && (
-                <div className="text-muted-foreground">Not configured</div>
+                <div className="text-muted-foreground">
+                  {w.configured !== false ? "No data available" : "Not configured"}
+                </div>
               )}
             </CardFooter>
           </Card>

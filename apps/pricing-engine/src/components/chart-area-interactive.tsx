@@ -41,6 +41,7 @@ export interface ChartWidgetConfig {
 export interface ChartWidgetData {
   config: ChartWidgetConfig
   data: Array<Record<string, unknown>> | null
+  configured?: boolean
 }
 
 interface ChartAreaInteractiveProps {
@@ -60,6 +61,7 @@ export function ChartAreaInteractive({ widget, loading }: ChartAreaInteractivePr
 
   const config = widget?.config
   const rawData = widget?.data
+  const isConfigured = widget?.configured !== false
   const title = config?.title ?? "Chart"
   const subtitle = config?.subtitle ?? ""
   const chartType = config?.chart_type ?? "area"
@@ -177,7 +179,9 @@ export function ChartAreaInteractive({ widget, loading }: ChartAreaInteractivePr
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         {!hasData ? (
           <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
-            No data available. Configure a SQL query in Settings &rarr; Dashboard.
+            {isConfigured
+              ? "No data available for the selected time range."
+              : "No data available. Configure a SQL query in Settings \u2192 Dashboard."}
           </div>
         ) : (
           <ChartContainer
