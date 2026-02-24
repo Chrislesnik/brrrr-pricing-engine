@@ -31,8 +31,10 @@ export async function GET(req: NextRequest) {
     }
 
     const transactionTypes = (data ?? []).map((row) => row.transaction_type_name as string)
+    const transactionTypeIds: Record<string, number> = {}
+    for (const row of data ?? []) transactionTypeIds[row.transaction_type_name as string] = row.id as number
 
-    return NextResponse.json({ transactionTypes })
+    return NextResponse.json({ transactionTypes, transactionTypeIds })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }

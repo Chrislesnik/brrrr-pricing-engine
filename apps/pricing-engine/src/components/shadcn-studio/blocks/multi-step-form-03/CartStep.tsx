@@ -271,6 +271,7 @@ const CartStep = ({
   >(new Date())
   const supabase = useMemo(() => createSupabaseBrowser(), [])
   const refreshAbortRef = useRef<AbortController | null>(null)
+  const appraisalIdMapsRef = useRef<Record<string, Record<string, number>>>({})
 
   // Auto-select the first file when list loads and nothing is selected
   useEffect(() => {
@@ -852,13 +853,13 @@ const CartStep = ({
           fetch(`/api/appraisal-occupancy-types?settingsId=${settingsId}`),
         ])
         if (cancelled) return
-        if (prodRes.ok) { const j = await prodRes.json(); setAppraisalProductsList(j.products ?? []); setAppraisalProduct("") }
-        if (ttRes.ok) { const j = await ttRes.json(); setAppraisalTransactionTypesList(j.transactionTypes ?? []); setAppraisalTransactionType("") }
-        if (ltRes.ok) { const j = await ltRes.json(); setAppraisalLoanTypesList(j.loanTypes ?? []); setAppraisalLoanType(""); setAppraisalLoanTypeOther("") }
-        if (lnRes.ok) { const j = await lnRes.json(); setAppraisalLendersList(j.lenders ?? []); setAppraisalLender("") }
-        if (invRes.ok) { const j = await invRes.json(); setAppraisalInvestorsList(j.investors ?? []); setAppraisalInvestor("") }
-        if (ptRes.ok) { const j = await ptRes.json(); setAppraisalPropertyTypesList(j.propertyTypes ?? []); setAppraisalPropertyType("") }
-        if (ocRes.ok) { const j = await ocRes.json(); setAppraisalOccupancyTypesList(j.occupancyTypes ?? []); setAppraisalOccupancyType("") }
+        if (prodRes.ok) { const j = await prodRes.json(); setAppraisalProductsList(j.products ?? []); setAppraisalProduct(""); if (j.productIds) appraisalIdMapsRef.current.productIds = j.productIds }
+        if (ttRes.ok) { const j = await ttRes.json(); setAppraisalTransactionTypesList(j.transactionTypes ?? []); setAppraisalTransactionType(""); if (j.transactionTypeIds) appraisalIdMapsRef.current.transactionTypeIds = j.transactionTypeIds }
+        if (ltRes.ok) { const j = await ltRes.json(); setAppraisalLoanTypesList(j.loanTypes ?? []); setAppraisalLoanType(""); setAppraisalLoanTypeOther(""); if (j.loanTypeIds) appraisalIdMapsRef.current.loanTypeIds = j.loanTypeIds }
+        if (lnRes.ok) { const j = await lnRes.json(); setAppraisalLendersList(j.lenders ?? []); setAppraisalLender(""); if (j.lenderIds) appraisalIdMapsRef.current.lenderIds = j.lenderIds }
+        if (invRes.ok) { const j = await invRes.json(); setAppraisalInvestorsList(j.investors ?? []); setAppraisalInvestor(""); if (j.investorIds) appraisalIdMapsRef.current.investorIds = j.investorIds }
+        if (ptRes.ok) { const j = await ptRes.json(); setAppraisalPropertyTypesList(j.propertyTypes ?? []); setAppraisalPropertyType(""); if (j.propertyTypeIds) appraisalIdMapsRef.current.propertyTypeIds = j.propertyTypeIds }
+        if (ocRes.ok) { const j = await ocRes.json(); setAppraisalOccupancyTypesList(j.occupancyTypes ?? []); setAppraisalOccupancyType(""); if (j.occupancyTypeIds) appraisalIdMapsRef.current.occupancyTypeIds = j.occupancyTypeIds }
       } catch { /* ignore */ }
     }
     loadAmcOptions()
@@ -1032,13 +1033,21 @@ const CartStep = ({
     try {
       if (isAppraisal) {
         const formatDate = (d?: Date) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : null
+        const selectedAmc = appraisalAmcs.find((a) => a.id === appraisalSelectedAmcId)
+        const ids = appraisalIdMapsRef.current
         const payload = {
           application_id: applicationId || null,
           amc_id: appraisalSelectedAmcId || null,
+          amc_name: selectedAmc?.name || null,
+          amc_integration_settings_id: selectedAmc?.integration_settings_id || null,
           lender: appraisalLender || null,
+          lender_id: (appraisalLender && ids.lenderIds?.[appraisalLender]) || null,
           investor: appraisalInvestor || null,
+          investor_id: (appraisalInvestor && ids.investorIds?.[appraisalInvestor]) || null,
           transaction_type: appraisalTransactionType || null,
+          transaction_type_id: (appraisalTransactionType && ids.transactionTypeIds?.[appraisalTransactionType]) || null,
           loan_type: appraisalLoanType || null,
+          loan_type_id: (appraisalLoanType && ids.loanTypeIds?.[appraisalLoanType]) || null,
           loan_type_other: appraisalLoanTypeOther || null,
           loan_number: appraisalLoanNumber || null,
           priority: appraisalPriority || null,
@@ -1047,7 +1056,9 @@ const CartStep = ({
           borrower_phone: appraisalBorrowerPhone || null,
           borrower_alt_phone: appraisalBorrowerAltPhone || null,
           property_type: appraisalPropertyType || null,
+          property_type_id: (appraisalPropertyType && ids.propertyTypeIds?.[appraisalPropertyType]) || null,
           occupancy_type: appraisalOccupancyType || null,
+          occupancy_type_id: (appraisalOccupancyType && ids.occupancyTypeIds?.[appraisalOccupancyType]) || null,
           property_address: appraisalPropertyAddress || null,
           property_city: appraisalPropertyCity || null,
           property_state: appraisalPropertyState || null,
@@ -1059,9 +1070,12 @@ const CartStep = ({
           contact_phone: appraisalContactPhone || null,
           other_access_info: appraisalOtherAccessInfo || null,
           product: appraisalProduct || null,
+          product_id: (appraisalProduct && ids.productIds?.[appraisalProduct]) || null,
           loan_amount: appraisalLoanAmount || null,
           sales_price: appraisalSalesPrice || null,
           due_date: formatDate(appraisalDueDate),
+          order_status: "Ordered",
+          date_report_ordered: formatDate(new Date()),
         }
         const res = await fetch("https://n8n.axora.info/webhook/a8c1235b-3598-42a2-949e-2f79214e1aaa", {
           method: "POST",

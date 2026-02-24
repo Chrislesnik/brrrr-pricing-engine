@@ -33,8 +33,10 @@ export async function GET(req: NextRequest) {
       name: row.loan_type_name as string,
       other: row.other === true,
     }))
+    const loanTypeIds: Record<string, number> = {}
+    for (const row of data ?? []) loanTypeIds[row.loan_type_name as string] = row.id as number
 
-    return NextResponse.json({ loanTypes })
+    return NextResponse.json({ loanTypes, loanTypeIds })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }

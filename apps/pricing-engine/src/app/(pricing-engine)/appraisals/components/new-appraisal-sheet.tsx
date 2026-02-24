@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -151,6 +151,8 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
   const [dealId, setDealId] = useState("");
   const [dealSearchOpen, setDealSearchOpen] = useState(false);
 
+  const idMapsRef = useRef<Record<string, Record<string, number>>>({});
+
   // UI
   const [saving, setSaving] = useState(false);
 
@@ -246,37 +248,44 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
           const json = await prodRes.json();
           setProducts(json.products ?? []);
           setProduct("");
+          if (json.productIds) idMapsRef.current.productIds = json.productIds;
         }
         if (ttRes.ok) {
           const json = await ttRes.json();
           setTransactionTypes(json.transactionTypes ?? []);
           setTransactionType("");
+          if (json.transactionTypeIds) idMapsRef.current.transactionTypeIds = json.transactionTypeIds;
         }
         if (ltRes.ok) {
           const json = await ltRes.json();
           setLoanTypes(json.loanTypes ?? []);
           setLoanType("");
           setLoanTypeOther("");
+          if (json.loanTypeIds) idMapsRef.current.loanTypeIds = json.loanTypeIds;
         }
         if (lnRes.ok) {
           const json = await lnRes.json();
           setLenders(json.lenders ?? []);
           setLender("");
+          if (json.lenderIds) idMapsRef.current.lenderIds = json.lenderIds;
         }
         if (invRes.ok) {
           const json = await invRes.json();
           setInvestors(json.investors ?? []);
           setInvestor("");
+          if (json.investorIds) idMapsRef.current.investorIds = json.investorIds;
         }
         if (ptRes.ok) {
           const json = await ptRes.json();
           setPropertyTypes(json.propertyTypes ?? []);
           setPropertyType("");
+          if (json.propertyTypeIds) idMapsRef.current.propertyTypeIds = json.propertyTypeIds;
         }
         if (ocRes.ok) {
           const json = await ocRes.json();
           setOccupancyTypes(json.occupancyTypes ?? []);
           setOccupancyType("");
+          if (json.occupancyTypeIds) idMapsRef.current.occupancyTypeIds = json.occupancyTypeIds;
         }
       } catch { /* ignore */ }
     }
@@ -367,12 +376,18 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
         }),
       });
       if (res.ok) {
+        const selectedAmc = amcs.find((a) => a.id === selectedAmcId);
+        const selectedDeal = deals.find((d) => d.id === dealId);
+        const ids = idMapsRef.current;
         fetch("https://n8n.axora.info/webhook/a8c1235b-3598-42a2-949e-2f79214e1aaa", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amc_id: selectedAmcId || null,
+            amc_name: selectedAmc?.name || null,
+            amc_integration_settings_id: selectedAmc?.integration_settings_id || null,
             deal_id: dealId || null,
+            deal_name: selectedDeal?.heading || null,
             borrower_id: selectedBorrowerId || null,
             borrower_name: borrowerName || null,
             borrower_email: borrowerEmail || null,
@@ -380,13 +395,19 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
             borrower_alt_phone: borrowerAltPhone || null,
             loan_number: loanNumber || null,
             lender: lender || null,
+            lender_id: (lender && ids.lenderIds?.[lender]) || null,
             investor: investor || null,
+            investor_id: (investor && ids.investorIds?.[investor]) || null,
             transaction_type: transactionType || null,
+            transaction_type_id: (transactionType && ids.transactionTypeIds?.[transactionType]) || null,
             loan_type: loanType || null,
+            loan_type_id: (loanType && ids.loanTypeIds?.[loanType]) || null,
             loan_type_other: loanTypeOther || null,
             priority: priority || null,
             property_type: propertyType || null,
+            property_type_id: (propertyType && ids.propertyTypeIds?.[propertyType]) || null,
             occupancy_type: occupancyType || null,
+            occupancy_type_id: (occupancyType && ids.occupancyTypeIds?.[occupancyType]) || null,
             property_address: propertyAddress || null,
             property_city: propertyCity || null,
             property_state: propertyState || null,
@@ -398,9 +419,12 @@ export function NewAppraisalSheet({ open, onOpenChange, onCreated }: NewAppraisa
             contact_phone: contactPhone || null,
             other_access_info: otherAccessInfo || null,
             product: product || null,
+            product_id: (product && ids.productIds?.[product]) || null,
             loan_amount: loanAmount || null,
             sales_price: salesPrice || null,
             due_date: formatDateForApi(dueDate),
+            order_status: "Ordered",
+            date_report_ordered: formatDateForApi(new Date()),
           }),
         }).catch(() => {});
         onCreated?.();

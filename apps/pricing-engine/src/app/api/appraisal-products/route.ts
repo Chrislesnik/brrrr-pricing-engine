@@ -30,8 +30,10 @@ export async function GET(req: NextRequest) {
     }
 
     const products = (data ?? []).map((row) => row.product_name as string)
+    const productIds: Record<string, number> = {}
+    for (const row of data ?? []) productIds[row.product_name as string] = row.id as number
 
-    return NextResponse.json({ products })
+    return NextResponse.json({ products, productIds })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }

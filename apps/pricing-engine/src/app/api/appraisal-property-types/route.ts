@@ -30,8 +30,10 @@ export async function GET(req: NextRequest) {
     }
 
     const propertyTypes = (data ?? []).map((row) => row.property_name as string)
+    const propertyTypeIds: Record<string, number> = {}
+    for (const row of data ?? []) propertyTypeIds[row.property_name as string] = row.id as number
 
-    return NextResponse.json({ propertyTypes })
+    return NextResponse.json({ propertyTypes, propertyTypeIds })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 })
   }
