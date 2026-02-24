@@ -45,9 +45,9 @@ export function DraggableTableHeader<TData>({ header }: DraggableTableHeaderProp
       colSpan={header.colSpan}
       style={style}
       className={cn(
-        "relative text-left px-3",
+        "relative text-left px-3 bg-inherit",
         isDragging && "shadow-lg border-2 border-primary",
-        isPinnedRight && "bg-muted !px-1",
+        isPinnedRight && "!px-1",
         metaClassName
       )}
     >

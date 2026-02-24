@@ -30,6 +30,7 @@ import {
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
+import { Separator } from "@repo/ui/shadcn/separator";
 import {
   Upload,
   FileText,
@@ -53,7 +54,6 @@ import {
   Archive,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useDocumentLogicEngine } from "@/hooks/use-document-logic-engine";
@@ -101,7 +101,7 @@ interface DealDocument {
   storage_bucket: string | null;
   document_file_uuid: string | null;
   document_category_id: number | null;
-  document_status: string | null;
+  document_status_id: number | null;
   uploaded_by_name: string | null;
   uploaded_by_avatar: string | null;
 }
@@ -112,6 +112,15 @@ interface DealDocumentOverride {
   document_type_id: number;
   is_visible_override: boolean | null;
   is_required_override: boolean | null;
+}
+
+interface DocumentStatusItem {
+  id: number;
+  code: string;
+  label: string;
+  color: string | null;
+  is_default: boolean;
+  display_order: number;
 }
 
 interface DealDocumentsTabProps {
@@ -149,6 +158,9 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"category" | "files">("category");
   const [searchQuery, setSearchQuery] = useState("");
+  const [documentStatuses, setDocumentStatuses] = useState<DocumentStatusItem[]>([]);
+  const [isInternalOrg, setIsInternalOrg] = useState(false);
+  const [statusFilters, setStatusFilters] = useState<Set<number>>(new Set());
 
   /* ----- Document logic engine ----- */
   const { hiddenDocTypes, requiredDocTypes, loading: logicLoading } =
@@ -158,19 +170,21 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [catsRes, typesRes, docsRes, overridesRes] = await Promise.all([
+      const [catsRes, typesRes, docsRes, overridesRes, statusesRes] = await Promise.all([
         fetch("/api/document-categories"),
         fetch("/api/document-types"),
         fetch(`/api/deals/${dealId}/deal-documents`),
         fetch(`/api/deals/${dealId}/deal-document-overrides`),
+        fetch("/api/document-statuses"),
       ]);
 
       const catsJson = await catsRes.json().catch(() => []);
       const typesJson = await typesRes.json().catch(() => []);
-      const docsJson = await docsRes.json().catch(() => ({ documents: [] }));
+      const docsJson = await docsRes.json().catch(() => ({ documents: [], is_internal_org: false }));
       const overridesJson = await overridesRes
         .json()
         .catch(() => ({ overrides: [] }));
+      const statusesJson = await statusesRes.json().catch(() => []);
 
       setCategories(Array.isArray(catsJson) ? catsJson : []);
       setDocumentTypes(Array.isArray(typesJson) ? typesJson : []);
@@ -180,6 +194,8 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
       setOverrides(
         Array.isArray(overridesJson.overrides) ? overridesJson.overrides : []
       );
+      setDocumentStatuses(Array.isArray(statusesJson) ? statusesJson : []);
+      setIsInternalOrg(docsJson.is_internal_org === true);
     } catch (error) {
       console.error("Error fetching document data:", error);
       toast({
@@ -195,6 +211,53 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  /* ----- Status helpers ----- */
+  const statusMap = useMemo(() => {
+    const map = new Map<number, DocumentStatusItem>();
+    for (const s of documentStatuses) {
+      map.set(s.id, s);
+    }
+    return map;
+  }, [documentStatuses]);
+
+  const handleStatusChange = useCallback(
+    async (docId: number, documentFileId: number, newStatusId: number) => {
+      // Optimistic update
+      setDealDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, document_status_id: newStatusId } : d
+        )
+      );
+      try {
+        const res = await fetch(`/api/deals/${dealId}/deal-documents/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            document_file_id: documentFileId,
+            document_status_id: newStatusId,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast({
+            title: "Error",
+            description: err.error || "Failed to update status",
+            variant: "destructive",
+          });
+          await fetchAll();
+        }
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to update status",
+          variant: "destructive",
+        });
+        await fetchAll();
+      }
+    },
+    [dealId, fetchAll],
+  );
 
   /* ----- Override helpers ----- */
   const overrideMap = useMemo(() => {
@@ -484,13 +547,17 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           if (!isDocTypeVisible(dt.id)) return false;
           if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
           if (showNotUploadedOnly && (docsByType.get(dt.id)?.length ?? 0) > 0) return false;
+          if (statusFilters.size > 0) {
+            const files = docsByType.get(dt.id) ?? [];
+            if (!files.some((f) => f.document_status_id != null && statusFilters.has(f.document_status_id))) return false;
+          }
           return true;
         }).length;
         return visibleCount > 0;
       })
       .map(({ category }) => String(category.id));
     setOpenCategories(withDocs);
-  }, [categoriesWithTypes, showRequiredOnly, showNotUploadedOnly, isDocTypeVisible, isDocTypeRequired, docsByType]);
+  }, [categoriesWithTypes, showRequiredOnly, showNotUploadedOnly, statusFilters, isDocTypeVisible, isDocTypeRequired, docsByType]);
 
   /* ----- Loading ----- */
   if (loading || logicLoading) {
@@ -536,36 +603,89 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
             )}
           </div>
 
-          {viewMode === "category" && (
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="not-uploaded-filter"
-                  checked={showNotUploadedOnly}
-                  onCheckedChange={setShowNotUploadedOnly}
-                />
-                <Label
-                  htmlFor="not-uploaded-filter"
-                  className="text-sm font-medium cursor-pointer select-none"
-                >
-                  Not uploaded
-                </Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 border-dashed gap-1.5">
+                <ListFilter className="h-3.5 w-3.5" />
+                Filters
+                {(showNotUploadedOnly || showRequiredOnly || statusFilters.size > 0) && (
+                  <>
+                    <Separator orientation="vertical" className="mx-1 h-4" />
+                    <Badge variant="secondary" className="rounded-sm px-1 font-normal">
+                      {(showNotUploadedOnly ? 1 : 0) + (showRequiredOnly ? 1 : 0) + statusFilters.size}
+                    </Badge>
+                  </>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-0" align="start">
+              <div className="p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Document Filters</p>
+                <label className="flex items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted transition-colors cursor-pointer">
+                  <Checkbox
+                    checked={showNotUploadedOnly}
+                    onCheckedChange={(v) => setShowNotUploadedOnly(v === true)}
+                  />
+                  <span className="text-sm">Not uploaded</span>
+                </label>
+                <label className="flex items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted transition-colors cursor-pointer">
+                  <Checkbox
+                    checked={showRequiredOnly}
+                    onCheckedChange={(v) => setShowRequiredOnly(v === true)}
+                  />
+                  <span className="text-sm">Required only</span>
+                </label>
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="required-filter"
-                  checked={showRequiredOnly}
-                  onCheckedChange={setShowRequiredOnly}
-                />
-                <Label
-                  htmlFor="required-filter"
-                  className="text-sm font-medium cursor-pointer select-none"
-                >
-                  Required only
-                </Label>
+              <Separator />
+              <div className="p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Document Status</p>
+                {documentStatuses.map((s) => {
+                  const isSelected = statusFilters.has(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted transition-colors cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => {
+                          setStatusFilters((prev) => {
+                            const next = new Set(prev);
+                            if (isSelected) next.delete(s.id);
+                            else next.add(s.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span
+                        className="size-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: s.color ?? "#94a3b8" }}
+                      />
+                      <span className="text-sm">{s.label}</span>
+                    </label>
+                  );
+                })}
               </div>
-            </div>
-          )}
+              {(showNotUploadedOnly || showRequiredOnly || statusFilters.size > 0) && (
+                <>
+                  <Separator />
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      className="w-full rounded-md px-2 py-1.5 text-xs text-center hover:bg-muted transition-colors"
+                      onClick={() => {
+                        setShowNotUploadedOnly(false);
+                        setShowRequiredOnly(false);
+                        setStatusFilters(new Set());
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
 
           {/* View mode toggle */}
           <div className="flex items-center rounded-md border bg-muted/30 p-0.5">
@@ -606,6 +726,11 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           onRenameDocument={handleRenameDocument}
           onViewDocument={handleViewDocument}
           isDocTypeRequired={isDocTypeRequired}
+          statusMap={statusMap}
+          allStatuses={documentStatuses}
+          isInternalOrg={isInternalOrg}
+          onStatusChange={handleStatusChange}
+          statusFilters={statusFilters}
         />
       ) : (
         <>
@@ -632,6 +757,13 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
                   if (!isDocTypeVisible(dt.id)) return false;
                   if (showRequiredOnly && !isDocTypeRequired(dt.id)) return false;
                   if (showNotUploadedOnly && (docsByType.get(dt.id)?.length ?? 0) > 0) return false;
+                  if (statusFilters.size > 0) {
+                    const files = docsByType.get(dt.id) ?? [];
+                    const hasMatchingStatus = files.some(
+                      (f) => f.document_status_id != null && statusFilters.has(f.document_status_id)
+                    );
+                    if (!hasMatchingStatus) return false;
+                  }
                   if (searchQuery) {
                     const q = searchQuery.toLowerCase();
                     const nameMatch = dt.document_name.toLowerCase().includes(q);
@@ -684,6 +816,10 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
                               uploadingFileNames={[...uploadingFiles.values()]
                                 .filter((v) => v.docTypeId === docType.id)
                                 .map((v) => v.fileName)}
+                              statusMap={statusMap}
+                              allStatuses={documentStatuses}
+                              isInternalOrg={isInternalOrg}
+                              onStatusChange={handleStatusChange}
                             />
                           ))}
                         </div>
@@ -822,6 +958,83 @@ function InlineEditFileName({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  DocumentStatusBadge                                                        */
+/* -------------------------------------------------------------------------- */
+
+function DocumentStatusBadge({
+  doc,
+  statusMap,
+  allStatuses,
+  isInternalOrg,
+  onStatusChange,
+}: {
+  doc: DealDocument;
+  statusMap: Map<number, DocumentStatusItem>;
+  allStatuses: DocumentStatusItem[];
+  isInternalOrg: boolean;
+  onStatusChange: (docId: number, documentFileId: number, newStatusId: number) => void;
+}) {
+  const status = doc.document_status_id ? statusMap.get(doc.document_status_id) : null;
+  if (!status) return null;
+
+  const badgeEl = (
+    <Badge
+      variant="outline"
+      className="shrink-0 whitespace-nowrap capitalize"
+      style={{
+        backgroundColor: status.color ? status.color + "18" : undefined,
+        color: status.color ?? undefined,
+        borderColor: status.color ? status.color + "30" : undefined,
+      }}
+    >
+      {status.label}
+    </Badge>
+  );
+
+  if (!isInternalOrg || !doc.document_file_id) return badgeEl;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+          {badgeEl}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1.5" align="start">
+        <div className="flex flex-col gap-0.5">
+          {allStatuses.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-muted ${
+                s.id === doc.document_status_id ? "bg-muted" : ""
+              }`}
+              onClick={() => {
+                if (s.id !== doc.document_status_id && doc.document_file_id) {
+                  onStatusChange(doc.id, doc.document_file_id, s.id);
+                }
+              }}
+            >
+              <Badge
+                variant="outline"
+                className="capitalize text-[10px] px-1.5 py-0 h-5"
+                style={{
+                  backgroundColor: s.color ? s.color + "18" : undefined,
+                  color: s.color ?? undefined,
+                  borderColor: s.color ? s.color + "30" : undefined,
+                }}
+              >
+                {s.label}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  DocumentTypeRow                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -844,6 +1057,10 @@ interface DocumentTypeRowProps {
     }
   ) => void;
   uploadingFileNames: string[];
+  statusMap: Map<number, DocumentStatusItem>;
+  allStatuses: DocumentStatusItem[];
+  isInternalOrg: boolean;
+  onStatusChange: (docId: number, documentFileId: number, newStatusId: number) => void;
 }
 
 function DocumentTypeRow({
@@ -859,6 +1076,10 @@ function DocumentTypeRow({
   onViewDocument,
   onSetOverride,
   uploadingFileNames,
+  statusMap,
+  allStatuses,
+  isInternalOrg,
+  onStatusChange,
 }: DocumentTypeRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
@@ -1097,6 +1318,13 @@ function DocumentTypeRow({
                     {formatFileSize(doc.file_size)}
                   </span>
                 )}
+                <DocumentStatusBadge
+                  doc={doc}
+                  statusMap={statusMap}
+                  allStatuses={allStatuses}
+                  isInternalOrg={isInternalOrg}
+                  onStatusChange={onStatusChange}
+                />
               </div>
             ))}
             {/* Per-file uploading placeholders */}
@@ -1219,6 +1447,13 @@ function DocumentTypeRow({
                         {formatFileSize(doc.file_size)}
                       </span>
                     )}
+                    <DocumentStatusBadge
+                      doc={doc}
+                      statusMap={statusMap}
+                      allStatuses={allStatuses}
+                      isInternalOrg={isInternalOrg}
+                      onStatusChange={onStatusChange}
+                    />
                   </div>
                 ))}
                 {/* Per-file uploading placeholders in modal */}
@@ -1260,6 +1495,11 @@ interface FileManagerViewProps {
   onRenameDocument: (docId: number, newName: string) => void;
   onViewDocument: (docId: number) => void;
   isDocTypeRequired: (docTypeId: number) => boolean;
+  statusMap: Map<number, DocumentStatusItem>;
+  allStatuses: DocumentStatusItem[];
+  isInternalOrg: boolean;
+  onStatusChange: (docId: number, documentFileId: number, newStatusId: number) => void;
+  statusFilters: Set<number>;
 }
 
 function FileManagerView({
@@ -1274,6 +1514,11 @@ function FileManagerView({
   onRenameDocument,
   onViewDocument,
   isDocTypeRequired,
+  statusMap,
+  allStatuses,
+  isInternalOrg,
+  onStatusChange,
+  statusFilters,
 }: FileManagerViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadDragOver, setUploadDragOver] = useState(false);
@@ -1359,12 +1604,19 @@ function FileManagerView({
       });
     }
 
+    // Apply document status filter
+    if (statusFilters.size > 0) {
+      docs = docs.filter(
+        (doc) => doc.document_status_id != null && statusFilters.has(doc.document_status_id)
+      );
+    }
+
     return docs.sort((a, b) =>
       a.file_name.localeCompare(b.file_name, undefined, {
         sensitivity: "base",
       })
     );
-  }, [dealDocuments, activeFilters, isDocTypeRequired]);
+  }, [dealDocuments, activeFilters, isDocTypeRequired, statusFilters]);
 
   /* ----- Count files per document type (for sidebar chips) ----- */
   const fileCountByType = useMemo(() => {
@@ -1848,6 +2100,13 @@ function FileManagerView({
                       {formatFileSize(doc.file_size)}
                     </span>
                   )}
+                  <DocumentStatusBadge
+                    doc={doc}
+                    statusMap={statusMap}
+                    allStatuses={allStatuses}
+                    isInternalOrg={isInternalOrg}
+                    onStatusChange={onStatusChange}
+                  />
                 </div>
               );
             })}

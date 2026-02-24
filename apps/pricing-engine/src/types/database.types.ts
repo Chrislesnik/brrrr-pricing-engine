@@ -867,6 +867,86 @@ export type Database = {
           },
         ]
       }
+      appraisal_borrowers: {
+        Row: {
+          appraisal_id: number
+          borrower_id: string
+          created_at: string | null
+          id: number
+        }
+        Insert: {
+          appraisal_id: number
+          borrower_id: string
+          created_at?: string | null
+          id?: never
+        }
+        Update: {
+          appraisal_id?: number
+          borrower_id?: string
+          created_at?: string | null
+          id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_borrowers_appraisal_id_fkey"
+            columns: ["appraisal_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_borrowers_borrower_id_fkey"
+            columns: ["borrower_id"]
+            isOneToOne: false
+            referencedRelation: "borrowers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_documents: {
+        Row: {
+          appraisal_id: number
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: number
+          mime_type: string | null
+          organization_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          appraisal_id: number
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: never
+          mime_type?: string | null
+          organization_id: string
+          uploaded_by: string
+        }
+        Update: {
+          appraisal_id?: number
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: never
+          mime_type?: string | null
+          organization_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_documents_appraisal_id_fkey"
+            columns: ["appraisal_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appraisal_investor_list: {
         Row: {
           created_at: string
@@ -1049,6 +1129,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "appraisal_property_list_integration_settings_id_fkey"
+            columns: ["integration_settings_id"]
+            isOneToOne: false
+            referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appraisal_status_list: {
+        Row: {
+          created_at: string
+          id: number
+          integration_settings_id: number | null
+          revision_requested: boolean | null
+          status_id: string | null
+          status_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          revision_requested?: boolean | null
+          status_id?: string | null
+          status_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          integration_settings_id?: number | null
+          revision_requested?: boolean | null
+          status_id?: string | null
+          status_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_status_list_integration_settings_id_fkey"
             columns: ["integration_settings_id"]
             isOneToOne: false
             referencedRelation: "integration_settings"
@@ -3725,6 +3840,78 @@ export type Database = {
           },
         ]
       }
+      document_file_statuses: {
+        Row: {
+          created_at: string
+          created_by: number | null
+          document_file_id: number
+          document_status_id: number
+          id: number
+          note: string | null
+          organization_id: string
+          updated_at: string
+          updated_by: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: number | null
+          document_file_id: number
+          document_status_id: number
+          id?: number
+          note?: string | null
+          organization_id: string
+          updated_at?: string
+          updated_by?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: number | null
+          document_file_id?: number
+          document_status_id?: number
+          id?: number
+          note?: string | null
+          organization_id?: string
+          updated_at?: string
+          updated_by?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_file_statuses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_file_statuses_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_file_statuses_document_status_fkey"
+            columns: ["document_status_id"]
+            isOneToOne: false
+            referencedRelation: "document_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_file_statuses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_file_statuses_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_files: {
         Row: {
           archived_at: string | null
@@ -3732,7 +3919,7 @@ export type Database = {
           created_at: string
           document_category_id: number | null
           document_name: string | null
-          document_status: Database["public"]["Enums"]["document_status"] | null
+          document_status_id: number | null
           effective_date: string | null
           expiration_date: string | null
           file_size: number | null
@@ -3756,9 +3943,7 @@ export type Database = {
           created_at?: string
           document_category_id?: number | null
           document_name?: string | null
-          document_status?:
-            | Database["public"]["Enums"]["document_status"]
-            | null
+          document_status_id?: number | null
           effective_date?: string | null
           expiration_date?: string | null
           file_size?: number | null
@@ -3782,9 +3967,7 @@ export type Database = {
           created_at?: string
           document_category_id?: number | null
           document_name?: string | null
-          document_status?:
-            | Database["public"]["Enums"]["document_status"]
-            | null
+          document_status_id?: number | null
           effective_date?: string | null
           expiration_date?: string | null
           file_size?: number | null
@@ -3808,6 +3991,13 @@ export type Database = {
             columns: ["document_category_id"]
             isOneToOne: false
             referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_document_status_id_fkey"
+            columns: ["document_status_id"]
+            isOneToOne: false
+            referencedRelation: "document_status"
             referencedColumns: ["id"]
           },
         ]
@@ -4316,6 +4506,53 @@ export type Database = {
             columns: ["document_roles_id"]
             isOneToOne: false
             referencedRelation: "document_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_status: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          display_order: number
+          id: number
+          is_active: boolean
+          is_default: boolean
+          is_terminal: boolean
+          label: string
+          organization_id: string | null
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          display_order?: number
+          id?: number
+          is_active?: boolean
+          is_default?: boolean
+          is_terminal?: boolean
+          label: string
+          organization_id?: string | null
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          display_order?: number
+          id?: number
+          is_active?: boolean
+          is_default?: boolean
+          is_terminal?: boolean
+          label?: string
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_statuses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -7915,7 +8152,7 @@ export type Database = {
           created_at: string
           document_category_id: number | null
           document_name: string | null
-          document_status: Database["public"]["Enums"]["document_status"] | null
+          document_status_id: number | null
           effective_date: string | null
           expiration_date: string | null
           file_size: number | null
@@ -8284,12 +8521,6 @@ export type Database = {
         | "Zimbabwe"
         | "Afghanistan"
         | "Algeria"
-      document_status:
-        | "draft"
-        | "pending"
-        | "approved"
-        | "rejected"
-        | "archived"
       entity_type:
         | "general_partnership"
         | "limited_liability_company"
@@ -8786,7 +9017,6 @@ export const Constants = {
         "Afghanistan",
         "Algeria",
       ],
-      document_status: ["draft", "pending", "approved", "rejected", "archived"],
       entity_type: [
         "general_partnership",
         "limited_liability_company",

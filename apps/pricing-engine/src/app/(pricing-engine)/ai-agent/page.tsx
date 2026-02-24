@@ -151,12 +151,17 @@ export default function AIAgentPage() {
     }
   }, [messages])
 
-  // Auto-select "all" if current selection is invalid
+  // Auto-select "all" if current selection is invalid (only after programs have loaded)
   React.useEffect(() => {
-    if (selectedProgramId !== "all" && !programs.find((p) => p.id === selectedProgramId)) {
+    if (!programsData) return
+    if (
+      selectedProgramId &&
+      selectedProgramId !== "all" &&
+      !programs.find((p) => p.id === selectedProgramId)
+    ) {
       setSelectedProgramId("all")
     }
-  }, [programs, selectedProgramId])
+  }, [programs, programsData, selectedProgramId])
 
   // Persist program_id to the current chat
   const persistChatSelections = React.useCallback(

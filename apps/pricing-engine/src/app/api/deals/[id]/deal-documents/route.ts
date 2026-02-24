@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getOrgUuidFromClerkId } from "@/lib/orgs";
 import { nanoid } from "nanoid";
 
 /* -------------------------------------------------------------------------- */
@@ -14,12 +15,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const { userId, orgId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id: dealId } = await params;
+
+    // Resolve whether the caller belongs to an internal org
+    let isInternalOrg = false;
+    const orgUuid = await getOrgUuidFromClerkId(orgId);
+    if (orgUuid) {
+      const { data: orgRow } = await supabaseAdmin
+        .from("organizations")
+        .select("is_internal_yn")
+        .eq("id", orgUuid)
+        .single();
+      isInternalOrg = orgRow?.is_internal_yn === true;
+    }
 
     const { data, error } = await supabaseAdmin
       .from("deal_documents")
@@ -46,7 +59,7 @@ export async function GET(
           file_type,
           file_size,
           document_category_id,
-          document_status
+          document_status_id
         )
       `
       )
@@ -113,14 +126,14 @@ export async function GET(
         storage_bucket: df?.storage_bucket ?? null,
         document_file_uuid: df?.uuid ?? null,
         document_category_id: df?.document_category_id ?? null,
-        document_status: df?.document_status ?? null,
+        document_status_id: df?.document_status_id ?? null,
         // Uploader info
         uploaded_by_name: uploader.name,
         uploaded_by_avatar: uploader.avatarUrl,
       };
     });
 
-    return NextResponse.json({ documents });
+    return NextResponse.json({ documents, is_internal_org: isInternalOrg });
   } catch (error) {
     console.error("[GET /api/deals/[id]/deal-documents]", error);
     return NextResponse.json(
@@ -205,6 +218,17 @@ export async function POST(
       .eq("clerk_user_id", userId)
       .single();
 
+    // ---- Resolve default document status ----
+    let defaultStatusId: number | null = null;
+    const { data: defaultStatus } = await supabaseAdmin
+      .from("document_status")
+      .select("id")
+      .eq("is_default", true)
+      .maybeSingle();
+    if (defaultStatus) {
+      defaultStatusId = defaultStatus.id;
+    }
+
     // ---- Step 1: Upload to Supabase Storage FIRST ----
     // (must happen before the DB insert so the trigger's file_download_url is valid)
     const fileBuffer = await file.arrayBuffer();
@@ -236,6 +260,7 @@ export async function POST(
         uploaded_by: userId,
         uploaded_at: new Date().toISOString(),
         document_category_id: documentCategoryId,
+        document_status_id: defaultStatusId,
       })
       .select("id, uuid")
       .single();
@@ -404,7 +429,7 @@ export async function POST(
         storage_bucket: "deals",
         document_file_uuid: docFile.uuid,
         document_category_id: documentCategoryId,
-        document_status: null,
+        document_status_id: defaultStatusId,
         // Uploader info
         uploaded_by_name: uploaderName,
         uploaded_by_avatar: uploaderAvatar,

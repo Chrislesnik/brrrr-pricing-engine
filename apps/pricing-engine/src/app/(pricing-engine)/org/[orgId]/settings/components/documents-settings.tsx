@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Check,
+  CircleDot,
   GripVertical,
   Pencil,
   Plus,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DocumentLogicBuilderSheet } from "./document-logic-builder-sheet";
 import { DocumentAIPromptsSheet } from "./document-ai-prompts-sheet";
+import { DocumentStatusesSheet } from "./document-statuses-sheet";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -89,6 +91,9 @@ export function DocumentsSettings() {
   const [aiPromptsOpen, setAiPromptsOpen] = useState(false);
   const [aiPromptsDocTypeId, setAiPromptsDocTypeId] = useState<number | null>(null);
   const [aiPromptsDocTypeName, setAiPromptsDocTypeName] = useState("");
+
+  // Document Statuses sheet state
+  const [statusesSheetOpen, setStatusesSheetOpen] = useState(false);
 
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -366,6 +371,14 @@ export function DocumentsSettings() {
         >
           <Workflow className="size-4 mr-1.5" />
           Logic Builder
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setStatusesSheetOpen(true)}
+        >
+          <CircleDot className="size-4 mr-1.5" />
+          Document Statuses
         </Button>
       </div>
 
@@ -687,6 +700,12 @@ export function DocumentsSettings() {
         onOpenChange={setAiPromptsOpen}
         documentTypeId={aiPromptsDocTypeId}
         documentTypeName={aiPromptsDocTypeName}
+      />
+
+      {/* Document Statuses Sheet */}
+      <DocumentStatusesSheet
+        open={statusesSheetOpen}
+        onOpenChange={setStatusesSheetOpen}
       />
 
       {/* Delete confirmation dialog */}

@@ -35,7 +35,32 @@ export function useVapi(options: UseVapiOptions = {}) {
       return
     }
 
-    console.log("[useVapi] Initializing Vapi with key:", publicKey.slice(0, 8) + "...")
+    // Temporarily suppress console.error from the Vapi SDK during
+    // init and event handling so transient SDK-level errors don't
+    // trigger the Next.js error overlay.
+    const patchConsoleError = () => {
+      const orig = console.error
+      console.error = (...args: unknown[]) => {
+        const first = typeof args[0] === "string" ? args[0] : ""
+        if (
+          first.includes("Vapi") ||
+          first.includes("[useVapi]") ||
+          (args.length === 1 &&
+            args[0] != null &&
+            typeof args[0] === "object" &&
+            !(args[0] instanceof Error) &&
+            JSON.stringify(args[0]) === "{}")
+        ) {
+          return
+        }
+        orig.apply(console, args)
+      }
+      return () => {
+        console.error = orig
+      }
+    }
+    const restoreConsole = patchConsoleError()
+
     const vapi = new Vapi(publicKey)
     vapiRef.current = vapi
 
@@ -76,13 +101,25 @@ export function useVapi(options: UseVapiOptions = {}) {
     })
 
     vapi.on("error", (error: unknown) => {
-      console.error("Vapi error:", error)
+      if (
+        error != null &&
+        typeof error === "object" &&
+        !(error instanceof Error) &&
+        JSON.stringify(error) === "{}"
+      ) {
+        // Vapi SDK fires empty error events on transient connection issues — safe to ignore
+      } else {
+        const msg =
+          error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error)
+        console.warn("[useVapi] Error event:", msg || "(unknown)")
+      }
       setIsConnecting(false)
     })
 
     return () => {
       vapi.stop()
       vapiRef.current = null
+      restoreConsole()
     }
   }, [publicKey])
 
@@ -108,7 +145,7 @@ export function useVapi(options: UseVapiOptions = {}) {
 
       await vapiRef.current.start(assistantId)
     } catch (err) {
-      console.error("[useVapi] start() failed:", err)
+      console.warn("[useVapi] start() failed:", err)
       setIsConnecting(false)
     }
   }, [assistantId, metadata])
