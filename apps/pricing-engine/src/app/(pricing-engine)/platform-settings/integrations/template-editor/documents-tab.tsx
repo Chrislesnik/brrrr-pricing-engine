@@ -25,15 +25,10 @@ const StudioEditorWrapper = dynamic(
 
 /* GrapesJS: modal z-index fixes + violet-to-org-primary catch-all */
 const grapejsThemeStyles = `
-  /* Preview mode: hide all editor chrome */
-  .gs-preview-mode .gjs-cv-canvas__frames,
-  .gs-preview-mode [class*="gs-canvas"] {
-    pointer-events: none !important;
-  }
+  /* Preview mode: hide component-level editor chrome (spots, badges, resizers)
+     but keep the top canvas toolbar (zoom/save) visible and the iframe scrollable */
   .gs-preview-mode [class*="spot"],
   .gs-preview-mode [class*="Spot"],
-  .gs-preview-mode [class*="toolbar"],
-  .gs-preview-mode [class*="Toolbar"],
   .gs-preview-mode [class*="resizer"],
   .gs-preview-mode [class*="Resizer"],
   .gs-preview-mode [class*="badge"],
@@ -41,18 +36,22 @@ const grapejsThemeStyles = `
   .gs-preview-mode [class*="highlight"],
   .gs-preview-mode [class*="Highlight"],
   .gs-preview-mode [class*="offset-v"],
-  .gs-preview-mode [class*="offset-fixed"] {
+  .gs-preview-mode [class*="offset-fixed"],
+  .gs-preview-mode [class*="gs-cmp-toolbar"],
+  .gs-preview-mode [class*="gs-canvas-spot"] [class*="toolbar"] {
     display: none !important;
     opacity: 0 !important;
     visibility: hidden !important;
-  }
-  .gs-preview-mode iframe {
-    pointer-events: none !important;
   }
   /* Preview mode: hide left and right sidebars */
   .gs-preview-mode .blocks-panel-left,
   .gs-preview-mode .right-sidebar-panel {
     display: none !important;
+  }
+  /* Preview mode: hide the RTE toolbar that appears when editing text */
+  .gs-preview-mode [class*="gs-rte"],
+  .gs-preview-mode [class*="ProseMirror"] {
+    caret-color: transparent !important;
   }
 
   #headlessui-portal-root {
@@ -640,6 +639,7 @@ export function DocumentsTab() {
 
               if (next) {
                 editor.select(null)
+                editor.__previewMode = true
                 const root = document.querySelector(".gs-studio-root")
                 root?.classList.add("gs-preview-mode")
               } else {
@@ -656,6 +656,7 @@ export function DocumentsTab() {
                     el.removeAttribute("data-preview-original-style")
                   })
                 } catch {}
+                editor.__previewMode = false
                 const root = document.querySelector(".gs-studio-root")
                 root?.classList.remove("gs-preview-mode")
               }

@@ -6,7 +6,11 @@ import {
   AlignJustify,
   AlignLeft,
   AlignRight,
+  Bold,
+  Italic,
   Link,
+  Strikethrough,
+  Underline,
   Unlink,
   X,
 } from "lucide-react"
@@ -199,6 +203,7 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
   const [componentName, setComponentName] = useState("")
   const [paddingLinked, setPaddingLinked] = useState(true)
   const [marginLinked, setMarginLinked] = useState(true)
+  const [borderLinked, setBorderLinked] = useState(true)
   const [qrAttrs, setQrAttrs] = useState<Record<string, string>>({})
   const [brandLogoMode, setBrandLogoMode] = useState<string | null>(null)
   const suppressSync = useRef(false)
@@ -232,6 +237,9 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
             "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
             "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
             "width", "height", "display",
+            "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
+            "border-top-style", "border-right-style", "border-bottom-style", "border-left-style",
+            "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
           ]
           for (const prop of boxProps) {
             if (!flat[prop]) {
@@ -859,6 +867,43 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
                   </div>
 
                   <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Style</Label>
+                    <ToggleGroup
+                      type="multiple"
+                      value={[
+                        ...(styles["font-weight"] === "700" || styles["font-weight"] === "bold" ? ["bold"] : []),
+                        ...(styles["font-style"] === "italic" ? ["italic"] : []),
+                        ...(styles["text-decoration"]?.includes("underline") ? ["underline"] : []),
+                        ...(styles["text-decoration"]?.includes("line-through") ? ["strikethrough"] : []),
+                      ]}
+                      onValueChange={(vals) => {
+                        setStyle("font-weight", vals.includes("bold") ? "700" : "400")
+                        setStyle("font-style", vals.includes("italic") ? "italic" : "normal")
+                        const decorations = [
+                          ...(vals.includes("underline") ? ["underline"] : []),
+                          ...(vals.includes("strikethrough") ? ["line-through"] : []),
+                        ]
+                        setStyle("text-decoration", decorations.length > 0 ? decorations.join(" ") : "none")
+                      }}
+                      className="justify-start"
+                      size="sm"
+                    >
+                      <ToggleGroupItem value="bold" className="h-8 w-8 p-0">
+                        <Bold className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="italic" className="h-8 w-8 p-0">
+                        <Italic className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="underline" className="h-8 w-8 p-0">
+                        <Underline className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="strikethrough" className="h-8 w-8 p-0">
+                        <Strikethrough className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Line Height</Label>
                     <Input
                       type="number"
@@ -933,41 +978,100 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
                 Border
               </AccordionTrigger>
               <AccordionContent className="pb-3 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Width</Label>
-                    <Input
-                      type="number"
-                      value={parseStyleValue(styles["border-width"]).num}
-                      onChange={(e) =>
-                        setStyle(
-                          "border-width",
-                          e.target.value ? `${e.target.value}px` : "0"
-                        )
-                      }
-                      className="h-8 text-xs"
-                      placeholder="0"
-                      min={0}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Style</Label>
-                    <Select
-                      value={styles["border-style"] || "none"}
-                      onValueChange={(v) => setStyle("border-style", v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="solid">Solid</SelectItem>
-                        <SelectItem value="dashed">Dashed</SelectItem>
-                        <SelectItem value="dotted">Dotted</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Sides</Label>
+                  <button
+                    type="button"
+                    onClick={() => setBorderLinked((b) => !b)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title={borderLinked ? "Configure each side" : "Link all sides"}
+                  >
+                    {borderLinked ? <Link className="h-3.5 w-3.5" /> : <Unlink className="h-3.5 w-3.5" />}
+                  </button>
                 </div>
+
+                {borderLinked ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Width</Label>
+                        <Input
+                          type="number"
+                          value={parseStyleValue(styles["border-width"]).num}
+                          onChange={(e) =>
+                            setStyle("border-width", e.target.value ? `${e.target.value}px` : "0")
+                          }
+                          className="h-8 text-xs"
+                          placeholder="0"
+                          min={0}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Style</Label>
+                        <Select
+                          value={styles["border-style"] || "none"}
+                          onValueChange={(v) => setStyle("border-style", v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="solid">Solid</SelectItem>
+                            <SelectItem value="dashed">Dashed</SelectItem>
+                            <SelectItem value="dotted">Dotted</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <ColorInput
+                      label="Color"
+                      value={styles["border-color"] || "#000000"}
+                      onChange={(v) => setStyle("border-color", v)}
+                    />
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    {(["top", "right", "bottom", "left"] as const).map((side) => (
+                      <div key={side} className="space-y-1.5">
+                        <span className="text-[10px] font-medium text-muted-foreground capitalize">{side}</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            type="number"
+                            value={parseStyleValue(styles[`border-${side}-width`]).num}
+                            onChange={(e) =>
+                              setStyle(`border-${side}-width`, e.target.value ? `${e.target.value}px` : "0")
+                            }
+                            className="h-8 text-xs"
+                            placeholder="0"
+                            min={0}
+                          />
+                          <Select
+                            value={styles[`border-${side}-style`] || "none"}
+                            onValueChange={(v) => setStyle(`border-${side}-style`, v)}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="solid">Solid</SelectItem>
+                              <SelectItem value="dashed">Dashed</SelectItem>
+                              <SelectItem value="dotted">Dotted</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <ColorInput
+                          label=""
+                          value={styles[`border-${side}-color`] || "#000000"}
+                          onChange={(v) => setStyle(`border-${side}-color`, v)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Separator />
 
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Radius</Label>
@@ -985,12 +1089,6 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
                     min={0}
                   />
                 </div>
-
-                <ColorInput
-                  label="Border Color"
-                  value={styles["border-color"] || "#000000"}
-                  onChange={(v) => setStyle("border-color", v)}
-                />
               </AccordionContent>
             </AccordionItem>}
           </Accordion>

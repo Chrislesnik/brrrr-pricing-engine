@@ -548,10 +548,75 @@ export function StudioEditorWrapper({
             dataSourceHandlebars,
             ...(rteProseMirror?.init
               ? [rteProseMirror.init({
+                  enableOnClick: true,
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  toolbar({ items, layouts, commands }: any) {
+                  toolbar({ items, layouts, commands, proseMirror }: any) {
+                    const { view } = proseMirror
+
+                    const resolveMark = (...names: string[]) => {
+                      const marks = view?.state?.schema?.marks
+                      if (!marks) return null
+                      for (const n of names) {
+                        if (marks[n]) return marks[n]
+                      }
+                      return null
+                    }
+
+                    const toggleMark = (...names: string[]) => {
+                      if (!view) return
+                      view.focus()
+                      const { state, dispatch } = view
+                      const markType = resolveMark(...names)
+                      if (!markType) return
+
+                      const { from, $from, to, empty } = state.selection
+                      if (empty) {
+                        const active = markType.isInSet(state.storedMarks || $from.marks())
+                        if (active) {
+                          dispatch(state.tr.removeStoredMark(markType))
+                        } else {
+                          dispatch(state.tr.addStoredMark(markType.create()))
+                        }
+                      } else {
+                        const hasMark = state.doc.rangeHasMark(from, to, markType)
+                        if (hasMark) {
+                          dispatch(state.tr.removeMark(from, to, markType))
+                        } else {
+                          dispatch(state.tr.addMark(from, to, markType.create()))
+                        }
+                      }
+                    }
+
+                    const isMarkActive = (...names: string[]) => {
+                      if (!view) return false
+                      const { state } = view
+                      const markType = resolveMark(...names)
+                      if (!markType) return false
+                      const { from, $from, to, empty } = state.selection
+                      if (empty) {
+                        return !!markType.isInSet(state.storedMarks || $from.marks())
+                      }
+                      return state.doc.rangeHasMark(from, to, markType)
+                    }
+
+                    const markButton = (id: string, names: string[], label: string, icon: string) => ({
+                      id,
+                      type: "button" as const,
+                      icon,
+                      tooltip: label,
+                      active: () => isMarkActive(...names),
+                      onClick: () => toggleMark(...names),
+                    })
+
                     return [
-                      ...items,
+                      markButton("bold", ["bold", "strong"], "Bold", "format_bold"),
+                      markButton("italic", ["italic", "em"], "Italic", "format_italic"),
+                      markButton("underline", ["underline"], "Underline", "format_underlined"),
+                      markButton("strikethrough", ["strike", "strikethrough"], "Strikethrough", "strikethrough_s"),
+                      layouts.separator,
+                      ...items.filter((item: any) =>
+                        !["bold", "italic", "underline", "strikethrough", "strike"].includes(item.id)
+                      ),
                       layouts.separator,
                       {
                         id: "variables",
@@ -590,6 +655,11 @@ export function StudioEditorWrapper({
           onEditorReady?.(editor)
 
           editor.on("component:selected", (component: any) => {
+            if (editor.__previewMode) {
+              editor.select(null)
+              return
+            }
+
             setHasSelection(true)
             const findTarget = (retries = 15) => {
               const el = document.querySelector(".custom-properties-portal")
@@ -601,10 +671,7 @@ export function StudioEditorWrapper({
             }
             requestAnimationFrame(() => findTarget())
 
-            // Auto-activate RTE on text components for inline editing on single click
-            if (component?.get?.("editable") || component?.get?.("type") === "text") {
-              setTimeout(() => component.trigger("active"), 50)
-            }
+            // RTE is auto-activated on click via enableOnClick: true in rteProseMirror config
           })
           editor.on("component:deselected", () => {
             setHasSelection(false)
@@ -853,8 +920,32 @@ export function StudioEditorWrapper({
             }
           }
 
+          const injectRteMarkStyles = () => {
+            try {
+              const canvasDoc = editor.Canvas.getDocument()
+              if (!canvasDoc) return
+              if (canvasDoc.getElementById("rte-mark-styles")) return
+
+              const styleEl = canvasDoc.createElement("style")
+              styleEl.id = "rte-mark-styles"
+              styleEl.textContent = `
+                strong, b { font-weight: bold !important; }
+                em, i { font-style: italic !important; }
+                u { text-decoration: underline !important; }
+                s, strike, del { text-decoration: line-through !important; }
+              `
+              canvasDoc.head.appendChild(styleEl)
+            } catch {
+              // Canvas not ready yet
+            }
+          }
+
           setTimeout(injectVariableStyles, 500)
-          editor.on("canvas:frame:load", () => setTimeout(injectVariableStyles, 300))
+          setTimeout(injectRteMarkStyles, 500)
+          editor.on("canvas:frame:load", () => {
+            setTimeout(injectVariableStyles, 300)
+            setTimeout(injectRteMarkStyles, 300)
+          })
 
         }}
       />
