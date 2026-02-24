@@ -1000,7 +1000,7 @@ function DocumentStatusBadge({
           {badgeEl}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-1.5" align="start">
+      <PopoverContent className="w-48 p-1.5 pr-3" align="end">
         <div className="flex flex-col gap-0.5">
           {allStatuses.map((s) => (
             <button
