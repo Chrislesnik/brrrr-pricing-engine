@@ -3504,6 +3504,54 @@ export type Database = {
           },
         ]
       }
+      deal_stepper_history: {
+        Row: {
+          id: number
+          deal_id: string
+          deal_stepper_id: number
+          previous_step: string | null
+          new_step: string
+          changed_by: string | null
+          change_source: string
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          deal_id: string
+          deal_stepper_id: number
+          previous_step?: string | null
+          new_step: string
+          changed_by?: string | null
+          change_source: string
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          deal_id?: string
+          deal_stepper_id?: number
+          previous_step?: string | null
+          new_step?: string
+          changed_by?: string | null
+          change_source?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_stepper_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_stepper_history_deal_stepper_id_fkey"
+            columns: ["deal_stepper_id"]
+            isOneToOne: false
+            referencedRelation: "deal_stepper"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_task_events: {
         Row: {
           created_at: string

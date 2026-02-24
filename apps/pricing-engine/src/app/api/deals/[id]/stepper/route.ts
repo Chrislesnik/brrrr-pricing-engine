@@ -62,10 +62,21 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
         // If the deal input has a value and it differs from current_step, sync it
         if (actualValue && actualValue !== data.current_step && data.step_order.includes(actualValue)) {
+          const prevStep = data.current_step;
+
           await supabaseAdmin
             .from("deal_stepper")
             .update({ current_step: actualValue })
             .eq("id", data.id);
+
+          await supabaseAdmin.from("deal_stepper_history").insert({
+            deal_id: dealId,
+            deal_stepper_id: data.id,
+            previous_step: prevStep,
+            new_step: actualValue,
+            changed_by: null,
+            change_source: "sync",
+          });
 
           data.current_step = actualValue;
         }
@@ -162,6 +173,18 @@ export async function PATCH(request: Request, { params }: RouteContext) {
             { onConflict: "deal_id,input_id" }
           );
       }
+    }
+
+    // Log step change to history
+    if (previousStage !== current_step) {
+      await supabaseAdmin.from("deal_stepper_history").insert({
+        deal_id: dealId,
+        deal_stepper_id: data.id,
+        previous_step: previousStage ?? null,
+        new_step: current_step,
+        changed_by: userId,
+        change_source: "manual",
+      });
     }
 
     // Notify assigned users about the stage change
