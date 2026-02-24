@@ -1,4 +1,4 @@
-import { TrendingUpIcon } from "lucide-react"
+import { TrendingUpIcon, TrendingDownIcon, Minus } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -8,94 +8,153 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export function SectionCards() {
+export interface KpiWidgetData {
+  config: {
+    title: string
+    subtitle: string | null
+    trend_label: string | null
+    trend_description: string | null
+    value_format: string | null
+    value_prefix: string | null
+    value_suffix: string | null
+  }
+  data: { value: number | null; trend_pct: number | null } | null
+}
+
+function formatValue(
+  value: number | null,
+  format: string | null,
+  prefix?: string | null,
+  suffix?: string | null
+): string {
+  if (value === null || value === undefined) return "--"
+
+  let formatted: string
+  switch (format) {
+    case "currency": {
+      const abs = Math.abs(value)
+      if (abs >= 1_000_000_000) formatted = `$${(value / 1_000_000_000).toFixed(1)}B`
+      else if (abs >= 1_000_000) formatted = `$${(value / 1_000_000).toFixed(1)}M`
+      else if (abs >= 1_000) formatted = `$${(value / 1_000).toFixed(1)}K`
+      else formatted = `$${value.toLocaleString()}`
+      break
+    }
+    case "percentage":
+      formatted = `${value}%`
+      break
+    case "integer":
+      formatted = Math.round(value).toLocaleString()
+      break
+    default:
+      formatted = value.toLocaleString()
+  }
+
+  if (prefix) formatted = `${prefix}${formatted}`
+  if (suffix) formatted = `${formatted}${suffix}`
+
+  return formatted
+}
+
+interface SectionCardsProps {
+  widgets?: KpiWidgetData[]
+  loading?: boolean
+}
+
+export function SectionCards({ widgets, loading }: SectionCardsProps) {
+  if (loading) {
+    return (
+      <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="@container/card">
+            <CardHeader className="relative">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-8 w-24 mt-2" />
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-48" />
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (!widgets || widgets.length === 0) {
+    return (
+      <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="@container/card">
+            <CardHeader>
+              <CardDescription>KPI {i + 1}</CardDescription>
+              <CardTitle className="text-2xl font-semibold text-muted-foreground">
+                --
+              </CardTitle>
+            </CardHeader>
+            <CardFooter className="text-sm text-muted-foreground">
+              Not configured
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
-      <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Loan Amount Funded</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            $24.5M
-          </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +12.5%
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Funding volume up this month <TrendingUpIcon className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            Total funded over the last 6 months
-          </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>New Borrowers</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            87
-          </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +8.2%
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Up 8.2% this period <TrendingUpIcon className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            New borrower acquisition this quarter
-          </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Active Loans</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            342
-          </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +12.5%
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong loan activity <TrendingUpIcon className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Active loans across all programs</div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader className="relative">
-          <CardDescription>Growth Rate</CardDescription>
-          <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-            4.5%
-          </CardTitle>
-          <div className="absolute right-4 top-4">
-            <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
-              <TrendingUpIcon className="size-3" />
-              +4.5%
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance <TrendingUpIcon className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
-        </CardFooter>
-      </Card>
+      {widgets.map((w, i) => {
+        const trendPct = w.data?.trend_pct ?? null
+        const isPositive = trendPct !== null && trendPct > 0
+        const isNegative = trendPct !== null && trendPct < 0
+        const TrendIcon = isPositive
+          ? TrendingUpIcon
+          : isNegative
+            ? TrendingDownIcon
+            : Minus
+
+        return (
+          <Card key={i} className="@container/card">
+            <CardHeader className="relative">
+              <CardDescription>{w.config.title}</CardDescription>
+              <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+                {formatValue(
+                  w.data?.value ?? null,
+                  w.config.value_format,
+                  w.config.value_prefix,
+                  w.config.value_suffix
+                )}
+              </CardTitle>
+              {trendPct !== null && (
+                <div className="absolute right-4 top-4">
+                  <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
+                    <TrendIcon className="size-3" />
+                    {isPositive ? "+" : ""}
+                    {trendPct}%
+                  </Badge>
+                </div>
+              )}
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1 text-sm">
+              {w.config.trend_label && (
+                <div className="line-clamp-1 flex gap-2 font-medium">
+                  {w.config.trend_label}{" "}
+                  <TrendIcon className="size-4" />
+                </div>
+              )}
+              {w.config.trend_description && (
+                <div className="text-muted-foreground">
+                  {w.config.trend_description}
+                </div>
+              )}
+              {!w.config.trend_label && !w.config.trend_description && !w.data && (
+                <div className="text-muted-foreground">Not configured</div>
+              )}
+            </CardFooter>
+          </Card>
+        )
+      })}
     </div>
   )
 }

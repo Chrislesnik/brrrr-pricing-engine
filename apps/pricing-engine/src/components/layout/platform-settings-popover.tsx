@@ -22,6 +22,7 @@ import {
   Sparkles,
   Calculator,
   Briefcase,
+  LayoutDashboard,
   Workflow,
   GlobeLock,
 } from "lucide-react";
@@ -58,6 +59,7 @@ const ORG_SETTINGS_ITEMS = [
   },
   { id: "pricing-engine", label: "Pricing Engine", icon: Calculator, path: "?tab=pricing-engine" },
   { id: "deals", label: "Deals", icon: Briefcase, path: "?tab=deals" },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "?tab=dashboard" },
   { id: "automations", label: "Automations", icon: Workflow, path: "?tab=automations" },
   { id: "integrations", label: "Integrations", icon: Plug, path: "?tab=integrations" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },

@@ -2348,6 +2348,140 @@ export type Database = {
           },
         ]
       }
+      dashboard_widget_chats: {
+        Row: {
+          created_at: string
+          dashboard_widget_id: number
+          id: number
+          last_used_at: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          dashboard_widget_id: number
+          id?: number
+          last_used_at?: string
+          name?: string
+        }
+        Update: {
+          created_at?: string
+          dashboard_widget_id?: number
+          id?: number
+          last_used_at?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_widget_chats_dashboard_widget_id_fkey"
+            columns: ["dashboard_widget_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_widgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dashboard_widget_conversations: {
+        Row: {
+          content: string
+          created_at: string | null
+          dashboard_widget_chat_id: number
+          dashboard_widget_id: number
+          id: number
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          dashboard_widget_chat_id: number
+          dashboard_widget_id: number
+          id?: number
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          dashboard_widget_chat_id?: number
+          dashboard_widget_id?: number
+          id?: number
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_widget_conversations_dashboard_widget_chat_id_fkey"
+            columns: ["dashboard_widget_chat_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_widget_chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dashboard_widget_conversations_dashboard_widget_id_fkey"
+            columns: ["dashboard_widget_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_widgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dashboard_widgets: {
+        Row: {
+          chart_type: string | null
+          created_at: string | null
+          id: number
+          slot: string
+          sql_query: string | null
+          subtitle: string | null
+          title: string
+          trend_description: string | null
+          trend_label: string | null
+          updated_at: string | null
+          updated_by: string | null
+          value_format: string | null
+          value_prefix: string | null
+          value_suffix: string | null
+          widget_type: string
+          x_axis_key: string | null
+          y_axis_key: string | null
+        }
+        Insert: {
+          chart_type?: string | null
+          created_at?: string | null
+          id?: number
+          slot: string
+          sql_query?: string | null
+          subtitle?: string | null
+          title: string
+          trend_description?: string | null
+          trend_label?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          value_format?: string | null
+          value_prefix?: string | null
+          value_suffix?: string | null
+          widget_type: string
+          x_axis_key?: string | null
+          y_axis_key?: string | null
+        }
+        Update: {
+          chart_type?: string | null
+          created_at?: string | null
+          id?: number
+          slot?: string
+          sql_query?: string | null
+          subtitle?: string | null
+          title?: string
+          trend_description?: string | null
+          trend_label?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          value_format?: string | null
+          value_prefix?: string | null
+          value_suffix?: string | null
+          widget_type?: string
+          x_axis_key?: string | null
+          y_axis_key?: string | null
+        }
+        Relationships: []
+      }
       deal_borrower: {
         Row: {
           deal_entity_id: number

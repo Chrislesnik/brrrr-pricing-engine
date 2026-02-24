@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Area, AreaChart, Bar, BarChart, Line, LineChart, CartesianGrid, XAxis } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -28,108 +28,27 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
-const chartData = [
-  { date: "2024-04-01", funded: 3 },
-  { date: "2024-04-02", funded: 1 },
-  { date: "2024-04-03", funded: 2 },
-  { date: "2024-04-04", funded: 4 },
-  { date: "2024-04-05", funded: 5 },
-  { date: "2024-04-06", funded: 3 },
-  { date: "2024-04-07", funded: 2 },
-  { date: "2024-04-08", funded: 6 },
-  { date: "2024-04-09", funded: 1 },
-  { date: "2024-04-10", funded: 3 },
-  { date: "2024-04-11", funded: 5 },
-  { date: "2024-04-12", funded: 4 },
-  { date: "2024-04-13", funded: 5 },
-  { date: "2024-04-14", funded: 2 },
-  { date: "2024-04-15", funded: 1 },
-  { date: "2024-04-16", funded: 2 },
-  { date: "2024-04-17", funded: 7 },
-  { date: "2024-04-18", funded: 5 },
-  { date: "2024-04-19", funded: 3 },
-  { date: "2024-04-20", funded: 1 },
-  { date: "2024-04-21", funded: 2 },
-  { date: "2024-04-22", funded: 3 },
-  { date: "2024-04-23", funded: 2 },
-  { date: "2024-04-24", funded: 6 },
-  { date: "2024-04-25", funded: 3 },
-  { date: "2024-04-26", funded: 1 },
-  { date: "2024-04-27", funded: 6 },
-  { date: "2024-04-28", funded: 2 },
-  { date: "2024-04-29", funded: 4 },
-  { date: "2024-04-30", funded: 7 },
-  { date: "2024-05-01", funded: 2 },
-  { date: "2024-05-02", funded: 4 },
-  { date: "2024-05-03", funded: 3 },
-  { date: "2024-05-04", funded: 6 },
-  { date: "2024-05-05", funded: 7 },
-  { date: "2024-05-06", funded: 8 },
-  { date: "2024-05-07", funded: 5 },
-  { date: "2024-05-08", funded: 2 },
-  { date: "2024-05-09", funded: 3 },
-  { date: "2024-05-10", funded: 4 },
-  { date: "2024-05-11", funded: 5 },
-  { date: "2024-05-12", funded: 3 },
-  { date: "2024-05-13", funded: 3 },
-  { date: "2024-05-14", funded: 7 },
-  { date: "2024-05-15", funded: 7 },
-  { date: "2024-05-16", funded: 5 },
-  { date: "2024-05-17", funded: 8 },
-  { date: "2024-05-18", funded: 5 },
-  { date: "2024-05-19", funded: 3 },
-  { date: "2024-05-20", funded: 2 },
-  { date: "2024-05-21", funded: 1 },
-  { date: "2024-05-22", funded: 1 },
-  { date: "2024-05-23", funded: 4 },
-  { date: "2024-05-24", funded: 4 },
-  { date: "2024-05-25", funded: 3 },
-  { date: "2024-05-26", funded: 3 },
-  { date: "2024-05-27", funded: 6 },
-  { date: "2024-05-28", funded: 3 },
-  { date: "2024-05-29", funded: 1 },
-  { date: "2024-05-30", funded: 5 },
-  { date: "2024-05-31", funded: 2 },
-  { date: "2024-06-01", funded: 2 },
-  { date: "2024-06-02", funded: 7 },
-  { date: "2024-06-03", funded: 1 },
-  { date: "2024-06-04", funded: 6 },
-  { date: "2024-06-05", funded: 1 },
-  { date: "2024-06-06", funded: 4 },
-  { date: "2024-06-07", funded: 5 },
-  { date: "2024-06-08", funded: 6 },
-  { date: "2024-06-09", funded: 7 },
-  { date: "2024-06-10", funded: 2 },
-  { date: "2024-06-11", funded: 1 },
-  { date: "2024-06-12", funded: 8 },
-  { date: "2024-06-13", funded: 1 },
-  { date: "2024-06-14", funded: 6 },
-  { date: "2024-06-15", funded: 4 },
-  { date: "2024-06-16", funded: 5 },
-  { date: "2024-06-17", funded: 7 },
-  { date: "2024-06-18", funded: 1 },
-  { date: "2024-06-19", funded: 5 },
-  { date: "2024-06-20", funded: 6 },
-  { date: "2024-06-21", funded: 2 },
-  { date: "2024-06-22", funded: 5 },
-  { date: "2024-06-23", funded: 8 },
-  { date: "2024-06-24", funded: 2 },
-  { date: "2024-06-25", funded: 2 },
-  { date: "2024-06-26", funded: 7 },
-  { date: "2024-06-27", funded: 7 },
-  { date: "2024-06-28", funded: 2 },
-  { date: "2024-06-29", funded: 1 },
-  { date: "2024-06-30", funded: 7 },
-]
+import { Skeleton } from "@/components/ui/skeleton"
 
-const chartConfig = {
-  funded: {
-    label: "Deals Funded",
-    color: "hsl(var(--chart-1))",
-  },
-} satisfies ChartConfig
+export interface ChartWidgetConfig {
+  title: string
+  subtitle: string | null
+  chart_type: string | null
+  x_axis_key: string | null
+  y_axis_key: string | null
+}
 
-export function ChartAreaInteractive() {
+export interface ChartWidgetData {
+  config: ChartWidgetConfig
+  data: Array<Record<string, unknown>> | null
+}
+
+interface ChartAreaInteractiveProps {
+  widget?: ChartWidgetData
+  loading?: boolean
+}
+
+export function ChartAreaInteractive({ widget, loading }: ChartAreaInteractiveProps) {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("30d")
 
@@ -139,40 +58,81 @@ export function ChartAreaInteractive() {
     }
   }, [isMobile])
 
-  const filteredData = chartData.filter((item) => {
-    const date = new Date(item.date)
-    const referenceDate = new Date("2024-06-30")
+  const config = widget?.config
+  const rawData = widget?.data
+  const title = config?.title ?? "Chart"
+  const subtitle = config?.subtitle ?? ""
+  const chartType = config?.chart_type ?? "area"
+  const xKey = config?.x_axis_key ?? "date"
+  const yKey = config?.y_axis_key ?? "value"
+
+  const filteredData = React.useMemo(() => {
+    if (!rawData || rawData.length === 0) return []
+
+    const sorted = [...rawData].sort((a, b) => {
+      const da = String(a[xKey] ?? "")
+      const db = String(b[xKey] ?? "")
+      return da.localeCompare(db)
+    })
+
+    const lastDateStr = String(sorted[sorted.length - 1]?.[xKey] ?? "")
+    const referenceDate = lastDateStr ? new Date(lastDateStr) : new Date()
+
+    if (isNaN(referenceDate.getTime())) return sorted
+
     let daysToSubtract = 90
-    if (timeRange === "30d") {
-      daysToSubtract = 30
-    } else if (timeRange === "7d") {
-      daysToSubtract = 7
-    }
+    if (timeRange === "30d") daysToSubtract = 30
+    else if (timeRange === "7d") daysToSubtract = 7
+
     const startDate = new Date(referenceDate)
     startDate.setDate(startDate.getDate() - daysToSubtract)
-    return date >= startDate
-  })
+
+    return sorted.filter((item) => {
+      const d = new Date(String(item[xKey] ?? ""))
+      return !isNaN(d.getTime()) && d >= startDate
+    })
+  }, [rawData, timeRange, xKey])
+
+  if (loading) {
+    return (
+      <Card className="@container/card">
+        <CardHeader className="relative">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48 mt-1" />
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <Skeleton className="h-[250px] w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const chartConfig = {
+    [yKey]: {
+      label: title,
+      color: "hsl(var(--chart-1))",
+    },
+  } satisfies ChartConfig
+
+  const timeRangeLabel =
+    timeRange === "90d"
+      ? "3 months"
+      : timeRange === "30d"
+        ? "30 days"
+        : "7 days"
+
+  const hasData = filteredData.length > 0
 
   return (
     <Card className="@container/card">
       <CardHeader className="relative">
-        <CardTitle>Deals Funded</CardTitle>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>
           <span className="@[540px]/card:block hidden">
-            Deals funded over the last{" "}
-            {timeRange === "90d"
-              ? "3 months"
-              : timeRange === "30d"
-                ? "30 days"
-                : "7 days"}
+            {subtitle || `${title} over the last ${timeRangeLabel}`}
           </span>
           <span className="@[540px]/card:hidden">
-            Last{" "}
-            {timeRange === "90d"
-              ? "3 months"
-              : timeRange === "30d"
-                ? "30 days"
-                : "7 days"}
+            Last {timeRangeLabel}
           </span>
         </CardDescription>
         <div className="absolute right-4 top-4">
@@ -215,63 +175,132 @@ export function ChartAreaInteractive() {
         </div>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
-        >
-          <AreaChart data={filteredData}>
-            <defs>
-              <linearGradient id="fillFunded" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor="var(--color-funded)"
-                  stopOpacity={1.0}
+        {!hasData ? (
+          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+            No data available. Configure a SQL query in Settings &rarr; Dashboard.
+          </div>
+        ) : (
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto h-[250px] w-full"
+          >
+            {chartType === "bar" ? (
+              <BarChart data={filteredData}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey={xKey}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  minTickGap={32}
+                  tickFormatter={formatDateTick}
                 />
-                <stop
-                  offset="95%"
-                  stopColor="var(--color-funded)"
-                  stopOpacity={0.1}
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={formatDateLabel}
+                      indicator="dot"
+                    />
+                  }
                 />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(value) => {
-                const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              }}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }}
-                  indicator="dot"
+                <Bar
+                  dataKey={yKey}
+                  fill="var(--color-value, hsl(var(--chart-1)))"
+                  radius={[4, 4, 0, 0]}
                 />
-              }
-            />
-            <Area
-              dataKey="funded"
-              type="natural"
-              fill="url(#fillFunded)"
-              stroke="var(--color-funded)"
-            />
-          </AreaChart>
-        </ChartContainer>
+              </BarChart>
+            ) : chartType === "line" ? (
+              <LineChart data={filteredData}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey={xKey}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  minTickGap={32}
+                  tickFormatter={formatDateTick}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={formatDateLabel}
+                      indicator="dot"
+                    />
+                  }
+                />
+                <Line
+                  dataKey={yKey}
+                  type="natural"
+                  stroke="var(--color-value, hsl(var(--chart-1)))"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            ) : (
+              <AreaChart data={filteredData}>
+                <defs>
+                  <linearGradient id="fillValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="var(--color-value, hsl(var(--chart-1)))"
+                      stopOpacity={1.0}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--color-value, hsl(var(--chart-1)))"
+                      stopOpacity={0.1}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey={xKey}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  minTickGap={32}
+                  tickFormatter={formatDateTick}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={formatDateLabel}
+                      indicator="dot"
+                    />
+                  }
+                />
+                <Area
+                  dataKey={yKey}
+                  type="natural"
+                  fill="url(#fillValue)"
+                  stroke="var(--color-value, hsl(var(--chart-1)))"
+                />
+              </AreaChart>
+            )}
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   )
+}
+
+function formatDateTick(value: unknown): string {
+  const date = new Date(String(value))
+  if (isNaN(date.getTime())) return String(value)
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })
+}
+
+function formatDateLabel(value: unknown): string {
+  const date = new Date(String(value))
+  if (isNaN(date.getTime())) return String(value)
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })
 }

@@ -493,9 +493,8 @@ export function ApplicationsTable({ data }: Props) {
           <ColumnVisibilityToggle table={table} />
         </div>
       </div>
-      <div className="rounded-md border overflow-x-auto">
-        {/* Desktop table */}
-        <div className="hidden md:block">
+      {/* Desktop table */}
+      <div className="rounded-md border hidden md:block overflow-x-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -597,11 +596,11 @@ export function ApplicationsTable({ data }: Props) {
               )}
             </TableBody>
           </Table>
-        </div>
+      </div>
 
-        {/* Mobile card view */}
-        <div className="md:hidden">
-          <div className="space-y-3 p-3">
+      {/* Mobile card view */}
+      <div className="md:hidden rounded-md border">
+        <div className="space-y-3 p-3">
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const app = row.original
@@ -691,7 +690,6 @@ export function ApplicationsTable({ data }: Props) {
               </div>
             )}
           </div>
-        </div>
       </div>
       <DealsStylePagination table={table} />
       <Dialog

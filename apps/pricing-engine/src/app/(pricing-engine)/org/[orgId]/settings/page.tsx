@@ -16,6 +16,7 @@ import {
   Loader2,
   Calculator,
   Briefcase,
+  LayoutDashboard,
   Workflow,
   Plug,
 } from "lucide-react";
@@ -30,8 +31,9 @@ import { ThemesSettings } from "./components/themes-settings";
 import { DealsSettings } from "./components/deals-settings";
 import { AutomationsSettings } from "./components/automations-settings";
 import { IntegrationsSettings } from "./components/integrations-settings";
+import { DashboardSettings } from "./components/dashboard-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "automations" | "integrations";
+type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "dashboard" | "automations" | "integrations";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -85,6 +87,12 @@ const settingsNavItems: NavItem[] = [
     label: "Deals",
     icon: Briefcase,
     description: "Manage deal inputs, documents, and tasks",
+  },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    description: "Configure dashboard widgets and data",
   },
   {
     id: "automations",
@@ -271,6 +279,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "pricing-engine" && <PricingEngineSettings />}
             {activeTab === "themes" && <ThemesSettings />}
             {activeTab === "deals" && <DealsSettings />}
+            {activeTab === "dashboard" && <DashboardSettings />}
             {activeTab === "automations" && <AutomationsSettings />}
             {activeTab === "integrations" && <IntegrationsSettings />}
           </div>

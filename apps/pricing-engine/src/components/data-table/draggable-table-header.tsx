@@ -37,7 +37,8 @@ export function DraggableTableHeader<TData>({ header }: DraggableTableHeaderProp
     ...(isPinnedRight ? { right: 0, boxShadow: "-4px 0 8px -4px rgba(0,0,0,0.08)" } : {}),
   };
 
-  const metaClassName = (header.column.columnDef.meta as Record<string, unknown> | undefined)?.className as string | undefined;
+  const rawMetaClassName = (header.column.columnDef.meta as Record<string, unknown> | undefined)?.className as string | undefined;
+  const metaClassName = rawMetaClassName?.replace(/\bbg-background\b/, "").trim();
 
   return (
     <TableHead
