@@ -955,7 +955,7 @@ function AiChatSheet({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch chats list when the widget changes
+  // Fetch chats list when the widget changes; auto-create one only if none exist
   useEffect(() => {
     if (!widget) return;
     let cancelled = false;
@@ -972,11 +972,25 @@ function AiChatSheet({
         );
         if (!res.ok || cancelled) return;
         const { chats: data } = await res.json();
-        if (!cancelled && Array.isArray(data)) {
-          setChats(data);
-          if (data.length > 0) {
-            setSelectedChatId(data[0].id);
+        if (cancelled) return;
+
+        if (!Array.isArray(data) || data.length === 0) {
+          const createRes = await fetch("/api/dashboard-widgets/chats", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ widget_id: widget.id }),
+          });
+          if (cancelled) return;
+          if (createRes.ok) {
+            const { chat } = await createRes.json();
+            if (!cancelled && chat) {
+              setChats([chat]);
+              setSelectedChatId(chat.id);
+            }
           }
+        } else {
+          setChats(data);
+          setSelectedChatId(data[0].id);
         }
       } catch {
         /* ignore */
@@ -1183,49 +1197,66 @@ function AiChatSheet({
         </SheetHeader>
 
         {/* Chat tabs bar */}
-        <div className="flex items-center gap-2 border-b px-6 py-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-xs"
-            onClick={createChat}
-          >
-            <Plus className="size-3" />
-            New Chat
-          </Button>
-          <div className="flex flex-1 items-center gap-1 overflow-x-auto">
+        <div className="flex items-center border-b">
+          <div className="flex flex-1 items-center overflow-x-auto">
             {loadingChats && (
-              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+              <div className="px-4 py-2">
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+              </div>
             )}
-            {chats.map((c) => (
-              <div key={c.id} className="group relative flex shrink-0">
+            {chats.map((c) => {
+              const isActive = selectedChatId === c.id;
+              return (
                 <button
+                  key={c.id}
                   type="button"
                   className={cn(
-                    "h-7 rounded-md px-3 text-xs transition-colors",
-                    selectedChatId === c.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted hover:bg-accent"
+                    "group relative flex items-center gap-1.5 border-r px-3 py-2 text-xs transition-colors",
+                    isActive
+                      ? "bg-background text-foreground"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                   )}
                   onClick={() => setSelectedChatId(c.id)}
                 >
-                  {c.name}
+                  <span className="max-w-[120px] truncate">{c.name}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className={cn(
+                      "flex size-4 shrink-0 items-center justify-center rounded-sm transition-colors",
+                      isActive
+                        ? "text-muted-foreground/60 hover:text-foreground hover:bg-muted"
+                        : "opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-foreground hover:bg-muted"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChat(c.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.stopPropagation();
+                        deleteChat(c.id);
+                      }
+                    }}
+                    aria-label="Close chat"
+                  >
+                    <X className="size-3" />
+                  </span>
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary" />
+                  )}
                 </button>
-                <button
-                  type="button"
-                  className="absolute -right-1 -top-1 hidden size-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground group-hover:flex"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteChat(c.id);
-                  }}
-                  aria-label="Delete chat"
-                >
-                  <Trash2 className="size-2.5" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          <button
+            type="button"
+            className="flex shrink-0 items-center justify-center px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-l"
+            onClick={createChat}
+            aria-label="New chat"
+          >
+            <Plus className="size-3.5" />
+          </button>
         </div>
 
         {/* Context hint */}
@@ -1247,7 +1278,7 @@ function AiChatSheet({
         >
           {!selectedChatId && !loadingChats && (
             <div className="text-center text-sm text-muted-foreground py-8">
-              Create a new chat to get started.
+              Select a chat or click <Plus className="inline size-3.5" /> to start a new one.
             </div>
           )}
           {loadingHistory && (
