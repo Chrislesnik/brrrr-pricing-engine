@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
             return {
               pe_input_logic_id: ruleId,
               field: c.field || null,
-              operator: c.operator || null,
+              operator: c.operator || "equals",
               value_type: vt,
               value: vt === "value" ? (c.value || null) : null,
               value_field: vt === "field" ? (c.value_field || null) : null,

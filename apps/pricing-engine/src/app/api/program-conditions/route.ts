@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
           program_id,
           logic_type: logic_type || "AND",
           field: c.field || null,
-          operator: c.operator || null,
+          operator: c.operator || "equals",
           value_type: vt,
           value: vt === "value" ? (c.value || null) : null,
           value_field: vt === "field" ? (c.value_field || null) : null,

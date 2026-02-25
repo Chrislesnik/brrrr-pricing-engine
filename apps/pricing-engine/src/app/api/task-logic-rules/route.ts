@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
               task_logic_id: ruleId,
               source_type: "input" as const,
               field: c.field || null,
-              operator: c.operator || null,
+              operator: c.operator || "equals",
               value_type: vt,
               value: vt === "value" ? c.value || null : null,
               value_field: vt === "field" ? c.value_field || null : null,
