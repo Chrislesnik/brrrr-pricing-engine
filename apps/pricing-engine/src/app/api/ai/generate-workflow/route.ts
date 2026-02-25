@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateAIActionPrompts } from "@/components/workflow-builder/plugins";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const maxDuration = 120;
 
@@ -27,7 +28,27 @@ type ExistingWorkflow = {
   name?: string;
 };
 
-function buildSystemPrompt(availableIntegrations: string[]): string {
+type InputDef = { id: number; input_code: string; input_label: string; input_type: string; category: string };
+
+function formatInputList(title: string, webhookType: string, inputs: InputDef[]): string {
+  if (inputs.length === 0) return "";
+  const byCategory = new Map<string, InputDef[]>();
+  for (const inp of inputs) {
+    const cat = inp.category || "Other";
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(inp);
+  }
+  const lines: string[] = [`## ${title}`, "", `When using "Respond to Webhook" with webhookType "${webhookType}", these are the available inputs. Use the exact id, input_code, and input_type when building inputMappings:`, ""];
+  for (const [cat, catInputs] of byCategory) {
+    lines.push(`### ${cat}`);
+    for (const inp of catInputs) {
+      lines.push(`- id: ${inp.id}, code: "${inp.input_code}", label: "${inp.input_label}", type: "${inp.input_type}"`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function buildSystemPrompt(availableIntegrations: string[], pricingEngineInputs: InputDef[], dealInputs: InputDef[]): string {
   const pluginActions = generateAIActionPrompts();
 
   return `You are an expert workflow automation architect. Given a user's description, generate (or modify) a workflow as a JSON object with nodes and edges for a React Flow canvas.
@@ -94,7 +115,8 @@ Every workflow needs exactly ONE trigger node. The trigger's config must include
 { "triggerType": "schedule", "scheduleCron": "0 9 * * *", "scheduleTimezone": "America/New_York" }
 
 ### Webhook Trigger
-{ "triggerType": "webhook" }
+{ "triggerType": "webhook", "webhookType": "pricing_engine" }
+webhookType values: "pricing_engine" (for loan scenario inputs) or "deal" (for deal inputs). Always set webhookType when the workflow involves writing to pricing engine or deal inputs via Respond to Webhook.
 
 ## Built-in Action Types
 
@@ -152,7 +174,28 @@ Modes: "append", "byPosition", "byField"
 { "actionType": "Loop Over Batches", "batchSize": "10" }
 
 ### Respond to Webhook
-{ "actionType": "Respond to Webhook" }
+Maps incoming webhook data to pricing engine inputs or deal inputs and writes them to the database.
+
+Config fields:
+- "actionType": "Respond to Webhook"
+- "recordId": template string for the scenario/deal ID, e.g. "{{@trigger_1:Webhook Trigger.body.scenario_id}}"
+- "responseStatusCode": HTTP status to return, e.g. "200"
+- "responseBody": JSON string for the webhook response body, e.g. "{\\"success\\": true}"
+- "inputMappings": JSON-encoded array of input mapping objects. Each mapping has:
+  - "id": unique string (use a descriptive id like "map_1")
+  - "inputId": the pricing engine input ID (number as string)
+  - "inputCode": the input_code from pricing_engine_inputs
+  - "inputType": the input_type (e.g. "currency", "number", "dropdown", "text", "date", "boolean", "percentage", "table", "tags")
+  - "value": template string pulling from webhook body, e.g. "{{@trigger_1:Webhook Trigger.body.purchase_price}}"
+
+IMPORTANT: The trigger node must have "triggerType": "webhook" and "webhookType": "pricing_engine" (or "deal") for this action to work.
+
+Example:
+{ "actionType": "Respond to Webhook", "recordId": "{{@trigger_1:Webhook Trigger.body.scenario_id}}", "responseStatusCode": "200", "responseBody": "{\\"success\\": true}", "inputMappings": "[{\\"id\\":\\"map_1\\",\\"inputId\\":\\"16\\",\\"inputCode\\":\\"purchase_price\\",\\"inputType\\":\\"currency\\",\\"value\\":\\"{{@trigger_1:Webhook Trigger.body.purchase_price}}\\"},{\\"id\\":\\"map_2\\",\\"inputId\\":\\"8\\",\\"inputCode\\":\\"fico_score\\",\\"inputType\\":\\"number\\",\\"value\\":\\"{{@trigger_1:Webhook Trigger.body.fico_score}}\\"}]" }
+
+${formatInputList("Available Pricing Engine Inputs", "pricing_engine", pricingEngineInputs)}
+
+${formatInputList("Available Deal Inputs", "deal", dealInputs)}
 
 ## Plugin Action Types (Integration Actions)
 
@@ -276,7 +319,32 @@ export async function POST(request: NextRequest) {
 
     const openai = createOpenAI({ apiKey: openaiKey });
 
-    const systemPrompt = buildSystemPrompt(availableIntegrations ?? []);
+    const [{ data: peInputsRaw }, { data: dealInputsRaw }] = await Promise.all([
+      supabaseAdmin
+        .from("pricing_engine_inputs")
+        .select("id, input_code, input_label, input_type, category")
+        .is("archived_at", null)
+        .order("category_id")
+        .order("display_order"),
+      supabaseAdmin
+        .from("inputs")
+        .select("id, input_code, input_label, input_type, category")
+        .is("archived_at", null)
+        .order("category_id")
+        .order("display_order"),
+    ]);
+
+    const toInputDef = (r: Record<string, unknown>): InputDef => ({
+      id: r.id as number,
+      input_code: r.input_code as string,
+      input_label: r.input_label as string,
+      input_type: r.input_type as string,
+      category: r.category as string,
+    });
+    const peInputs = (peInputsRaw ?? []).map(toInputDef);
+    const dealInputs = (dealInputsRaw ?? []).map(toInputDef);
+
+    const systemPrompt = buildSystemPrompt(availableIntegrations ?? [], peInputs, dealInputs);
     const userMessage = buildUserMessage(prompt, existingWorkflow);
 
     let text = "";
