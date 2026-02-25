@@ -3042,8 +3042,6 @@ function SectionActionButton({
               .map((r) => r.reason?.message ?? "Unknown")
             console.error(`[SectionActionButton] "${btn.label}" partial failure:`, errors)
             toast({ title: "Action failed", description: errors.join("; "), variant: "destructive" })
-          } else {
-            toast({ title: "Sent", description: `${btn.label} executed successfully.` })
           }
         } catch (err) {
           console.error(`[SectionActionButton] "${btn.label}" error:`, err)

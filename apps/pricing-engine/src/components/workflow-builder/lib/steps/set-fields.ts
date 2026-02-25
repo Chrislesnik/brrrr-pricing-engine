@@ -75,15 +75,30 @@ function resolveItemRefs(template: string, item: WorkflowItem): string {
 }
 
 /**
+ * Auto-quote bare (unquoted) text values adjacent to comparison operators.
+ * Template resolution inserts bare strings like `Single Family` which are
+ * not valid JS identifiers. This detects them and wraps in single quotes
+ * so `Single Family == 'X'` becomes `'Single Family' == 'X'`.
+ */
+function autoQuoteBareValues(expr: string): string {
+  // Match bare text (letters, digits, spaces, hyphens, slashes) that appears
+  // directly before a comparison operator and is NOT already quoted
+  return expr
+    .replace(/(?<!['"$\w])([A-Za-z][A-Za-z0-9 /\-]*[A-Za-z0-9])(?=\s*(?:===?|!==?)\s*')/g, "'$1'")
+    .replace(/(?<='\s*(?:===?|!==?)\s*)([A-Za-z][A-Za-z0-9 /\-]*[A-Za-z0-9])(?!\s*[?:'])/g, "'$1'");
+}
+
+/**
  * Evaluate a JavaScript expression string in a sandboxed context.
  * Provides the current item's json fields as top-level variables.
  */
 function safeEvalExpression(expr: string, item: WorkflowItem): unknown {
+  const quoted = autoQuoteBareValues(expr);
   try {
     const vars = item.json ?? {};
-    const argNames = Object.keys(vars);
-    const argValues = Object.values(vars);
-    const fn = new Function(...argNames, `"use strict"; return (${expr});`);
+    const argNames = Object.keys(vars).filter((k) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k));
+    const argValues = argNames.map((k) => vars[k]);
+    const fn = new Function(...argNames, `"use strict"; return (${quoted});`);
     return fn(...argValues);
   } catch {
     return expr;
