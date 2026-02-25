@@ -116,6 +116,18 @@ export function evaluateStructuredConditions(data: StructuredCondition): boolean
   return results.every(Boolean);
 }
 
+const EXPRESSION_OPERATORS = /[=!<>]=?|&&|\|\|/;
+
+function safeEvaluateExpression(expr: string): boolean {
+  try {
+    const fn = new Function(`"use strict"; return (${expr});`);
+    const result = fn();
+    return Boolean(result);
+  } catch {
+    return false;
+  }
+}
+
 function evaluateCondition(input: ConditionInput): ConditionResult {
   const conditionValue = input.condition;
 
@@ -124,7 +136,7 @@ function evaluateCondition(input: ConditionInput): ConditionResult {
     return { condition: conditionValue };
   }
 
-  // String: could be structured JSON or a legacy expression that was pre-evaluated
+  // String: could be structured JSON, expression, or simple truthy/falsy
   if (typeof conditionValue === "string") {
     try {
       const parsed = JSON.parse(conditionValue);
@@ -133,15 +145,22 @@ function evaluateCondition(input: ConditionInput): ConditionResult {
         return { condition: evaluateStructuredConditions(parsed as StructuredCondition) };
       }
     } catch {
-      // Not JSON — treat as truthy/falsy string
+      // Not JSON — continue to expression/string handling
     }
 
-    // Legacy string: "true"/"false" or expression result
-    const lower = conditionValue.toLowerCase().trim();
+    const trimmed = conditionValue.trim();
+
+    // Simple truthy/falsy literals
+    const lower = trimmed.toLowerCase();
     if (lower === "true" || lower === "1") return { condition: true };
     if (lower === "false" || lower === "0" || lower === "") return { condition: false };
 
-    // Non-empty string is truthy
+    // If the string contains comparison/logical operators, evaluate as expression
+    if (EXPRESSION_OPERATORS.test(trimmed)) {
+      return { condition: safeEvaluateExpression(trimmed) };
+    }
+
+    // Non-empty string with no operators is truthy
     return { condition: true };
   }
 

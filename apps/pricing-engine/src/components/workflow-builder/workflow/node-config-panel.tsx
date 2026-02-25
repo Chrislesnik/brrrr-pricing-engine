@@ -820,6 +820,7 @@ export const PanelInner = () => {
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
               {selectedNode.data.type === "trigger" && (
                 <TriggerConfig
+                  key={selectedNode.id}
                   config={selectedNode.data.config || {}}
                   disabled={isGenerating || !isOwner}
                   onUpdateConfig={handleUpdateConfig}
@@ -840,6 +841,7 @@ export const PanelInner = () => {
               {selectedNode.data.type === "action" &&
               selectedNode.data.config?.actionType ? (
                 <ActionConfig
+                  key={selectedNode.id}
                   config={selectedNode.data.config || {}}
                   disabled={isGenerating || !isOwner}
                   isOwner={isOwner}

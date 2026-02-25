@@ -2,7 +2,7 @@
 
 import { useReactFlow } from "@xyflow/react";
 import { useAtom, useAtomValue } from "jotai";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@repo/ui/shadcn/button";
@@ -31,6 +31,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   const [streamStatus, setStreamStatus] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const nodes = useAtomValue(nodesAtom);
   const [edges, setEdges] = useAtom(edgesAtom);
   const [_nodes, setNodes] = useAtom(nodesAtom);
@@ -93,6 +94,8 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         return;
       }
 
+      const controller = new AbortController();
+      abortRef.current = controller;
       setIsGenerating(true);
       setStreamStatus("Thinking...");
 
@@ -134,6 +137,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
           },
           existingWorkflow,
           integrationsRef.current ?? [],
+          controller.signal,
         );
 
         setStreamStatus("Applying changes...");
@@ -226,13 +230,18 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         setIsFocused(false);
         inputRef.current?.blur();
       } catch (error) {
-        console.error("Failed to generate workflow:", error);
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to generate workflow",
-        );
+        if (error instanceof DOMException && error.name === "AbortError") {
+          toast.info("Generation stopped.");
+        } else {
+          console.error("Failed to generate workflow:", error);
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Failed to generate workflow",
+          );
+        }
       } finally {
+        abortRef.current = null;
         setIsGenerating(false);
         setStreamStatus(null);
       }
@@ -256,6 +265,10 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       fitView,
     ],
   );
+
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const barExpanded = isExpanded || isGenerating;
 
@@ -334,36 +347,50 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
             {isGenerating ? "Generating workflow, please wait..." : ""}
           </div>
           <div className="relative size-8 shrink-0 self-end">
-            <Button
-              aria-label="Focus prompt input (⌘K)"
-              className="absolute inset-0 h-8 px-0 text-xs text-muted-foreground hover:bg-transparent transition-[opacity,filter] ease-out"
-              onClick={() => inputRef.current?.focus()}
-              style={
-                !prompt.trim() && !isGenerating && !isFocused
-                  ? { opacity: 1, filter: "blur(0px)", pointerEvents: "auto", visibility: "visible" }
-                  : { opacity: 0, filter: "blur(2px)", pointerEvents: "none", visibility: "hidden" }
-              }
-              type="button"
-              variant="ghost"
-            >
-              <kbd aria-hidden="true" className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </Button>
-            <Button
-              aria-label={isGenerating ? "Generating workflow..." : "Generate workflow"}
-              className="size-8 transition-[opacity,filter] ease-out shrink-0"
-              disabled={!prompt.trim() || isGenerating}
-              size="sm"
-              style={
-                !prompt.trim() && !isGenerating && !isFocused
-                  ? { opacity: 0, filter: "blur(2px)", pointerEvents: "none", visibility: "hidden" }
-                  : { opacity: 1, filter: "blur(0px)", pointerEvents: "auto", visibility: "visible" }
-              }
-              type="submit"
-            >
-              <ArrowUp aria-hidden="true" className="size-4" />
-            </Button>
+            {isGenerating ? (
+              <Button
+                aria-label="Stop generation"
+                className="size-8 shrink-0 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                size="sm"
+                type="button"
+                onClick={handleStop}
+              >
+                <Square aria-hidden="true" className="size-3 fill-current" />
+              </Button>
+            ) : (
+              <>
+                <Button
+                  aria-label="Focus prompt input (⌘K)"
+                  className="absolute inset-0 h-8 px-0 text-xs text-muted-foreground hover:bg-transparent transition-[opacity,filter] ease-out"
+                  onClick={() => inputRef.current?.focus()}
+                  style={
+                    !prompt.trim() && !isFocused
+                      ? { opacity: 1, filter: "blur(0px)", pointerEvents: "auto", visibility: "visible" }
+                      : { opacity: 0, filter: "blur(2px)", pointerEvents: "none", visibility: "hidden" }
+                  }
+                  type="button"
+                  variant="ghost"
+                >
+                  <kbd aria-hidden="true" className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                    <span className="text-xs">⌘</span>K
+                  </kbd>
+                </Button>
+                <Button
+                  aria-label="Generate workflow"
+                  className="size-8 transition-[opacity,filter] ease-out shrink-0"
+                  disabled={!prompt.trim()}
+                  size="sm"
+                  style={
+                    !prompt.trim() && !isFocused
+                      ? { opacity: 0, filter: "blur(2px)", pointerEvents: "none", visibility: "hidden" }
+                      : { opacity: 1, filter: "blur(0px)", pointerEvents: "auto", visibility: "visible" }
+                  }
+                  type="submit"
+                >
+                  <ArrowUp aria-hidden="true" className="size-4" />
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>

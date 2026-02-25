@@ -212,13 +212,69 @@ export function WorkflowCanvas() {
     }
   }, [currentWorkflowId, hasRealNodes, fitView]);
 
-  // Keyboard shortcut for fit view (Cmd+/ or Ctrl+/)
+  // Clipboard for copy/paste
+  const clipboardRef = useRef<{ nodes: WorkflowNode[]; edges: typeof edges }>({ nodes: [], edges: [] });
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Check for Cmd+/ (Mac) or Ctrl+/ (Windows/Linux)
       if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         event.preventDefault();
         fitView({ padding: 0.2, duration: 300 });
+        return;
+      }
+
+      // Skip if user is typing in an input/textarea
+      const tag = (event.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (event.target as HTMLElement)?.isContentEditable) return;
+
+      if (!(event.metaKey || event.ctrlKey)) return;
+
+      if (event.key === "c") {
+        const selected = nodes.filter((n) => n.selected && n.data.type !== "trigger");
+        if (selected.length === 0) return;
+        const selectedIds = new Set(selected.map((n) => n.id));
+        const connectedEdges = edges.filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target));
+        clipboardRef.current = { nodes: selected, edges: connectedEdges };
+      }
+
+      if (event.key === "v") {
+        const { nodes: clipNodes, edges: clipEdges } = clipboardRef.current;
+        if (clipNodes.length === 0) return;
+        event.preventDefault();
+
+        const idMap = new Map<string, string>();
+        for (const n of clipNodes) idMap.set(n.id, nanoid());
+
+        const OFFSET = 50;
+        const newNodes: WorkflowNode[] = clipNodes.map((n) => ({
+          ...n,
+          id: idMap.get(n.id)!,
+          position: { x: n.position.x + OFFSET, y: n.position.y + OFFSET },
+          selected: true,
+          data: {
+            ...n.data,
+            label: n.data.label ? `${n.data.label} (copy)` : n.data.label,
+            config: n.data.config ? { ...n.data.config } : {},
+          },
+        }));
+
+        const newEdges = clipEdges
+          .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+          .map((e) => ({
+            ...e,
+            id: nanoid(),
+            source: idMap.get(e.source)!,
+            target: idMap.get(e.target)!,
+          }));
+
+        // Deselect current, add cloned nodes + edges
+        setNodes((prev) => [...prev.map((n) => ({ ...n, selected: false })), ...newNodes]);
+        setEdges((prev) => [...prev, ...newEdges]);
+        setHasUnsavedChanges(true);
+        if (newNodes.length === 1) {
+          setSelectedNode(newNodes[0].id);
+          setActiveTab("properties");
+        }
       }
     };
 
@@ -226,7 +282,7 @@ export function WorkflowCanvas() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [fitView]);
+  }, [fitView, nodes, edges, setNodes, setEdges, setSelectedNode, setActiveTab, setHasUnsavedChanges]);
 
   const nodeTypes = useMemo(
     () => ({
@@ -294,8 +350,9 @@ export function WorkflowCanvas() {
   const onNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
       setSelectedNode(node.id);
+      setActiveTab("properties");
     },
-    [setSelectedNode]
+    [setSelectedNode, setActiveTab]
   );
 
   const onConnectStart = useCallback(

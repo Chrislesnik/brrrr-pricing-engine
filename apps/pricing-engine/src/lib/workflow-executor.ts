@@ -89,7 +89,8 @@ function traversePath(root: unknown, fields: string[]): unknown {
 
 function processTemplates(
   config: Record<string, unknown>,
-  outputs: NodeOutputs
+  outputs: NodeOutputs,
+  rawKeys?: Set<string>,
 ): Record<string, unknown> {
   const processed: Record<string, unknown> = {};
 
@@ -104,13 +105,17 @@ function processTemplates(
         value.endsWith("}}") &&
         (value.match(templatePattern) || []).length === 1;
 
+      // rawKeys bypass double-escaping (needed for Code node's code field
+      // where resolved JSON is embedded directly in JavaScript, not a JSON string)
+      const useRaw = rawKeys?.has(key) ?? false;
+
       // When a resolved object is embedded within a larger string (e.g. inside
       // a JSON-encoded config field), its quotes must be escaped so the
       // enclosing JSON stays valid. When the template IS the entire value,
       // return raw JSON so downstream consumers can parse it directly.
       const stringify = (obj: unknown): string => {
         const raw = JSON.stringify(obj);
-        if (isSoleTemplate) return raw;
+        if (isSoleTemplate || useRaw) return raw;
         return raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       };
 
@@ -342,7 +347,9 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         }
 
         // Process template variables in config
-        const processedConfig = processTemplates({ ...config }, outputs);
+        // Code nodes need raw JSON (not double-escaped) for embedded objects
+        const codeRawKeys = actionType === "Code" ? new Set(["code"]) : undefined;
+        const processedConfig = processTemplates({ ...config }, outputs, codeRawKeys);
 
         // Add step context
         processedConfig._context = stepContext;

@@ -69,6 +69,7 @@ export const aiApi = {
       name?: string;
     },
     availableIntegrations?: string[],
+    signal?: AbortSignal,
   ): Promise<WorkflowData> => {
     const response = await fetch("/api/ai/generate-workflow", {
       method: "POST",
@@ -78,6 +79,7 @@ export const aiApi = {
         existingWorkflow: existingWorkflow ?? undefined,
         availableIntegrations: availableIntegrations ?? [],
       }),
+      signal,
     });
 
     if (!response.ok) {
