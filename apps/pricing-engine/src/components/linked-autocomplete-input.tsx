@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Input } from "@repo/ui/shadcn/input"
 import { SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -67,8 +68,28 @@ export function LinkedAutocompleteInput({
     setActiveIdx(-1)
   }
 
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  const updateMenuPos = useCallback(() => {
+    if (!wrapperRef.current) return
+    const rect = wrapperRef.current.getBoundingClientRect()
+    setMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [])
+
+  useEffect(() => {
+    if (!show) return
+    updateMenuPos()
+    window.addEventListener("scroll", updateMenuPos, true)
+    window.addEventListener("resize", updateMenuPos)
+    return () => {
+      window.removeEventListener("scroll", updateMenuPos, true)
+      window.removeEventListener("resize", updateMenuPos)
+    }
+  }, [show, updateMenuPos])
+
   return (
-    <div className="relative">
+    <div ref={wrapperRef} className="relative">
       <div className={cn("relative rounded-md", isLinkedMatch && "ring-2 ring-blue-500")}>
         <SearchIcon className={cn("pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5", isLinkedMatch ? "text-blue-500" : "text-muted-foreground")} />
         <Input
@@ -106,10 +127,11 @@ export function LinkedAutocompleteInput({
           autoComplete="off"
         />
       </div>
-      {show && filtered.length > 0 && (
+      {show && filtered.length > 0 && menuPos && createPortal(
         <div
           ref={menuRef}
-          className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow max-h-48 overflow-y-auto"
+          className="fixed z-50 overflow-hidden rounded-md border bg-background shadow max-h-48 overflow-y-auto"
+          style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
           role="listbox"
           onMouseDown={() => (pointerInMenuRef.current = true)}
           onMouseUp={() => (pointerInMenuRef.current = false)}
@@ -128,7 +150,8 @@ export function LinkedAutocompleteInput({
               <span className="truncate">{rec.label}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
