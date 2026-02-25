@@ -8,7 +8,9 @@ import { toast } from "sonner";
 import { Shimmer } from "@/components/workflow-builder/ai-elements/shimmer";
 import { Button } from "@repo/ui/shadcn/button";
 import { api } from "@/components/workflow-builder/lib/api-client";
+import { diffWorkflow } from "@/components/workflow-builder/lib/ai-diff";
 import {
+  aiProposalAtom,
   currentWorkflowIdAtom,
   currentWorkflowNameAtom,
   edgesAtom,
@@ -35,20 +37,32 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   const [_currentWorkflowId, setCurrentWorkflowId] = useAtom(currentWorkflowIdAtom);
   const [_currentWorkflowName, setCurrentWorkflowName] = useAtom(currentWorkflowNameAtom);
   const [_selectedNodeId, setSelectedNodeId] = useAtom(selectedNodeAtom);
+  const [_proposal, setAiProposal] = useAtom(aiProposalAtom);
   const { fitView } = useReactFlow();
 
-  // Filter out placeholder "add" nodes to get real nodes
   const realNodes = nodes.filter((node) => node.type !== "add");
   const hasNodes = realNodes.length > 0;
 
-  // Focus input when Cmd/Ctrl + K is pressed
+  // Cache available integrations so we don't refetch on every submit
+  const integrationsRef = useRef<string[] | null>(null);
+  useEffect(() => {
+    api.integration
+      .getAll()
+      .then((list) => {
+        integrationsRef.current = list.map((i) => i.type);
+      })
+      .catch(() => {
+        integrationsRef.current = [];
+      });
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         inputRef.current?.focus();
       }
-    }
+    };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -62,7 +76,6 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   };
 
   const handleBlur = (e: React.FocusEvent) => {
-    // Don't collapse if focus is moving to another element within the container
     if (containerRef.current?.contains(e.relatedTarget as Node)) {
       return;
     }
@@ -83,187 +96,124 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       setIsGenerating(true);
 
       try {
-        // Send existing workflow data for context when modifying
         const existingWorkflow = hasNodes
           ? { nodes: realNodes, edges, name: _currentWorkflowName }
           : undefined;
 
-        console.log("[AI Prompt] Generating workflow");
-        console.log("[AI Prompt] Has nodes:", hasNodes);
-        console.log("[AI Prompt] Sending existing workflow:", !!existingWorkflow);
-        if (existingWorkflow) {
-          console.log(
-            "[AI Prompt] Existing workflow:",
-            existingWorkflow.nodes.length,
-            "nodes,",
-            existingWorkflow.edges.length,
-            "edges"
-          );
-        }
-
-        // Use streaming API with incremental updates
         const workflowData = await api.ai.generateStream(
           prompt,
           (partialData) => {
-            // Update UI incrementally with animated edges
-            const edgesWithAnimatedType = (partialData.edges || []).map((edge) => ({
-              ...edge,
-              type: "animated",
-            }));
-
-            // Validate: ensure only ONE trigger node exists
-            const triggerNodes = (partialData.nodes || []).filter(
-              (node) => node.data?.type === "trigger"
-            );
-
-            let validEdges = edgesWithAnimatedType;
-
-            if (triggerNodes.length > 1) {
-              // Keep only the first trigger and all non-trigger nodes
-              const firstTrigger = triggerNodes[0];
-              const nonTriggerNodes = (partialData.nodes || []).filter(
-                (node) => node.data?.type !== "trigger"
+            // For fresh canvases, show streaming preview directly
+            if (!hasNodes) {
+              const edgesWithAnimatedType = (partialData.edges || []).map(
+                (edge) => ({ ...edge, type: "animated" }),
               );
-              partialData.nodes = [firstTrigger, ...nonTriggerNodes];
-
-              // Remove edges connected to removed triggers
-              const removedTriggerIds = triggerNodes.slice(1).map((n) => n.id);
-              validEdges = edgesWithAnimatedType.filter(
-                (edge) =>
-                  !removedTriggerIds.includes(edge.source) &&
-                  !removedTriggerIds.includes(edge.target)
-              );
+              setNodes(partialData.nodes || []);
+              setEdges(edgesWithAnimatedType);
+              if (partialData.name) {
+                setCurrentWorkflowName(partialData.name);
+              }
+              setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 0);
             }
-
-            // Update the canvas incrementally
-            setNodes(partialData.nodes || []);
-            setEdges(validEdges);
-            if (partialData.name) {
-              setCurrentWorkflowName(partialData.name);
-            }
-            // Fit view after each update to keep all nodes visible
-            setTimeout(() => {
-              fitView({ padding: 0.2, duration: 200 });
-            }, 0);
           },
-          existingWorkflow
+          existingWorkflow,
+          integrationsRef.current ?? [],
         );
 
-        console.log("[AI Prompt] Received final workflow data");
-        console.log("[AI Prompt] Nodes:", workflowData.nodes?.length || 0);
-        console.log("[AI Prompt] Edges:", workflowData.edges?.length || 0);
-
-        // Use edges from workflow data with animated type
         const finalEdges = (workflowData.edges || []).map((edge) => ({
           ...edge,
           type: "animated",
         }));
+        const finalNodes = workflowData.nodes || [];
 
-        // Validate: check for blank/incomplete nodes
-        console.log("[AI Prompt] Validating nodes:", workflowData.nodes);
-        const incompleteNodes = (workflowData.nodes || []).filter((node) => {
+        // Validate completeness
+        const incompleteNodes = finalNodes.filter((node) => {
           const nodeType = node.data?.type;
           const config = node.data?.config || {};
-
-          console.log(`[AI Prompt] Checking node ${node.id}:`, {
-            type: nodeType,
-            config,
-            hasActionType: !!config.actionType,
-            hasTriggerType: !!config.triggerType,
-          });
-
-          // Check trigger nodes
-          if (nodeType === "trigger") {
-            return !config.triggerType;
-          }
-
-          // Check action nodes
-          if (nodeType === "action") {
-            return !config.actionType;
-          }
-
-          // Allow other node types (condition, transform) without strict validation
+          if (nodeType === "trigger") return !config.triggerType;
+          if (nodeType === "action") return !config.actionType;
           return false;
         });
 
         if (incompleteNodes.length > 0) {
-          console.error(
-            "[AI Prompt] AI generated incomplete nodes:",
-            incompleteNodes
-          );
-          console.error(
-            "[AI Prompt] Full workflow data:",
-            JSON.stringify(workflowData, null, 2)
-          );
-          throw new Error(
-            `Cannot create workflow: The AI tried to create ${incompleteNodes.length} incomplete node(s). The requested action type may not be supported. Please try a different description using supported actions: Send Email, Send Slack Message, Create Ticket, Database Query, HTTP Request, Generate Text, Generate Image, Scrape, or Search.`
+          console.error("[AI Prompt] Incomplete nodes:", incompleteNodes.map((n) => n.id));
+          toast.error(
+            `${incompleteNodes.length} node(s) missing configuration — please review and fill in details.`,
           );
         }
 
-        // If no workflowId, create a new workflow
-        if (!workflowId) {
-          const newWorkflow = await api.workflow.create({
-            name: workflowData.name || "AI Generated Workflow",
-            description: workflowData.description || "",
-            nodes: workflowData.nodes || [],
-            edges: finalEdges,
-          });
+        if (hasNodes && workflowId) {
+          // Existing workflow: open review panel with diff
+          const { nodeChanges, edgeChanges } = diffWorkflow(
+            realNodes,
+            edges,
+            finalNodes,
+            finalEdges,
+          );
 
-          // State already updated by streaming callback
-          setCurrentWorkflowId(newWorkflow.id);
+          if (nodeChanges.length === 0 && edgeChanges.length === 0) {
+            toast.info("AI returned the same workflow — no changes detected.");
+          } else {
+            setAiProposal({
+              name: workflowData.name,
+              description: workflowData.description,
+              nodeChanges,
+              edgeChanges,
+              proposedNodes: finalNodes,
+              proposedEdges: finalEdges,
+            });
 
-          toast.success("Created workflow");
-
-          // Notify parent component to redirect
-          if (onWorkflowCreated) {
-            onWorkflowCreated(newWorkflow.id);
+            setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
+            toast.info(
+              `${nodeChanges.length} change${nodeChanges.length !== 1 ? "s" : ""} proposed — review before applying.`,
+            );
           }
         } else {
-          setCurrentWorkflowId(workflowId);
+          // Fresh canvas: apply directly
+          if (!workflowId) {
+            const newWorkflow = await api.workflow.create({
+              name: workflowData.name || "AI Generated Workflow",
+              description: workflowData.description || "",
+              nodes: finalNodes,
+              edges: finalEdges,
+            });
 
-          console.log("[AI Prompt] Updating existing workflow:", workflowId);
-          console.log("[AI Prompt] Has existingWorkflow context:", !!existingWorkflow);
+            setCurrentWorkflowId(newWorkflow.id);
+            toast.success("Workflow created");
 
-          // State already updated by streaming callback
-          if (existingWorkflow) {
-            console.log("[AI Prompt] REPLACING workflow with AI response");
-            console.log(
-              "[AI Prompt] Replacing",
-              realNodes.length,
-              "nodes with",
-              workflowData.nodes?.length || 0,
-              "nodes"
-            );
+            if (onWorkflowCreated) {
+              onWorkflowCreated(newWorkflow.id);
+            }
           } else {
-            console.log("[AI Prompt] Setting workflow for empty canvas");
+            setCurrentWorkflowId(workflowId);
+            setNodes(finalNodes);
+            setEdges(finalEdges);
+            if (workflowData.name) {
+              setCurrentWorkflowName(workflowData.name);
+            }
 
-            toast.success("Generated workflow");
+            await api.workflow.update(workflowId, {
+              name: workflowData.name,
+              description: workflowData.description,
+              nodes: finalNodes,
+              edges: finalEdges,
+            });
+
+            toast.success("Workflow generated");
           }
-
-          const selectedNode = workflowData.nodes?.find(
-            (n: { selected?: boolean }) => n.selected
-          );
-          if (selectedNode) {
-            setSelectedNodeId(selectedNode.id);
-          }
-
-          // Save the updated workflow
-          await api.workflow.update(workflowId, {
-            name: workflowData.name,
-            description: workflowData.description,
-            nodes: workflowData.nodes,
-            edges: finalEdges,
-          });
         }
 
-        // Clear and close
         setPrompt("");
         setIsExpanded(false);
         setIsFocused(false);
         inputRef.current?.blur();
       } catch (error) {
         console.error("Failed to generate workflow:", error);
-        toast.error("Failed to generate workflow");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to generate workflow",
+        );
       } finally {
         setIsGenerating(false);
       }
@@ -273,17 +223,19 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       isGenerating,
       workflowId,
       hasNodes,
-      nodes,
+      realNodes,
       edges,
+      _currentWorkflowName,
       setIsGenerating,
       setCurrentWorkflowId,
       setNodes,
       setEdges,
       setCurrentWorkflowName,
       setSelectedNodeId,
+      setAiProposal,
       onWorkflowCreated,
       fitView,
-    ]
+    ],
   );
 
   return (

@@ -33,14 +33,19 @@ export const TriggerNode = memo(({ data, selected }: TriggerNodeProps) => {
     TriggerIcon = Webhook;
   }
 
+  const preview = data._preview;
+
   return (
     <Node
       className={cn(
         "flex h-48 w-48 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
-        selected && "border-primary"
+        selected && !preview && "border-primary",
+        preview === "added" && "border-dashed border-2 border-green-500 opacity-80",
+        preview === "modified" && "border-dashed border-2 border-amber-500 opacity-80",
+        preview === "removed" && "border-dashed border-2 border-red-500 opacity-50",
       )}
       handles={{ target: false, source: true }}
-      status={status}
+      status={preview ? undefined : status}
     >
       {/* Status indicator badge in top right */}
       {status && status !== "idle" && status !== "running" && (

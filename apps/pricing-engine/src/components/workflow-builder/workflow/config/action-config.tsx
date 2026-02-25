@@ -74,6 +74,7 @@ import { cn } from "@/components/workflow-builder/lib/utils";
 import { ActionConfigRenderer } from "./action-config-renderer";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
 import { ConditionBuilderInline } from "@/components/workflow-builder/ui/condition-builder-inline";
+import { Switch } from "@repo/ui/shadcn/switch";
 import {
   Collapsible,
   CollapsibleContent,
@@ -1631,7 +1632,7 @@ function SplitOutFields({
   disabled: boolean;
 }) {
   useEffect(() => {
-    if (config?.includeOtherFields === undefined) onUpdateConfig("includeOtherFields", "true");
+    if (config?.includeOtherFields === undefined) onUpdateConfig("includeOtherFields", "false");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1649,18 +1650,16 @@ function SplitOutFields({
           Path to the array field to explode into individual items.
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="includeOtherFields"
-          disabled={disabled}
-          checked={(config?.includeOtherFields as string) !== "false"}
-          onChange={(e) => onUpdateConfig("includeOtherFields", e.target.checked ? "true" : "false")}
-          className="h-4 w-4 rounded border"
-        />
+      <div className="flex items-center justify-between">
         <Label htmlFor="includeOtherFields" className="text-xs cursor-pointer">
           Include other fields from parent item
         </Label>
+        <Switch
+          id="includeOtherFields"
+          disabled={disabled}
+          checked={(config?.includeOtherFields as string) === "true"}
+          onCheckedChange={(checked) => onUpdateConfig("includeOtherFields", checked ? "true" : "false")}
+        />
       </div>
     </div>
   );
@@ -2710,22 +2709,22 @@ function SetFieldsFields({
         Add Field
       </Button>
 
-      <div className="flex items-center gap-2 pt-1">
-        <input
-          type="checkbox"
+      <div className="flex items-center justify-between pt-1">
+        <div className="space-y-0.5">
+          <Label htmlFor="includeInputFields" className="text-xs cursor-pointer">
+            Include other input fields
+          </Label>
+          <p className="text-[10px] text-muted-foreground">
+            When enabled, all fields from the input item are kept and the fields above are added/overwritten.
+          </p>
+        </div>
+        <Switch
           id="includeInputFields"
           disabled={disabled}
-          checked={(config?.includeInputFields as string) !== "false"}
-          onChange={(e) => onUpdateConfig("includeInputFields", e.target.checked ? "true" : "false")}
-          className="h-4 w-4 rounded border"
+          checked={(config?.includeInputFields as string) === "true"}
+          onCheckedChange={(checked) => onUpdateConfig("includeInputFields", checked ? "true" : "false")}
         />
-        <Label htmlFor="includeInputFields" className="text-xs cursor-pointer">
-          Include other input fields
-        </Label>
       </div>
-      <p className="text-[10px] text-muted-foreground">
-        When enabled, all fields from the input item are kept and the fields above are added/overwritten.
-      </p>
     </div>
   );
 }

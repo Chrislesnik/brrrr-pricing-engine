@@ -67,7 +67,7 @@ export function analyzeNodeUsage(nodes: WorkflowNode[]): Set<string> {
   const usedNodes = new Set<string>();
 
   for (const node of nodes) {
-    if (node.data.type !== "action") {
+    if (!node.data || node.data.type !== "action") {
       continue;
     }
 
@@ -105,7 +105,7 @@ export function findTriggerNodes(
 ): WorkflowNode[] {
   const nodesWithIncoming = new Set(edges.map((e) => e.target));
   return nodes.filter(
-    (node) => node.data.type === "trigger" && !nodesWithIncoming.has(node.id)
+    (node) => node.data?.type === "trigger" && !nodesWithIncoming.has(node.id)
   );
 }
 

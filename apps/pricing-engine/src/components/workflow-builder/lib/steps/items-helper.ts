@@ -45,19 +45,86 @@ export function getInputBranches(input: DataAwareInput): WorkflowItem[][] {
 
 /**
  * Get a nested field value from an item.
+ * Supports dot notation (a.b.c) and array index notation (a[0].b).
  */
 export function getFieldValue(item: WorkflowItem, path: string): unknown {
   const parts = path.split(".");
   let current: unknown = item.json;
   for (const part of parts) {
     if (current === null || current === undefined) return undefined;
-    if (typeof current === "object") {
+
+    // Handle array index notation like "items[0]" or bare "[0]"
+    const arrayMatch = part.match(/^(.*)\[(\d+)]$/);
+    if (arrayMatch) {
+      const [, fieldName, indexStr] = arrayMatch;
+      if (fieldName && typeof current === "object") {
+        current = (current as Record<string, unknown>)[fieldName];
+      }
+      if (Array.isArray(current)) {
+        current = current[parseInt(indexStr, 10)];
+      } else {
+        return undefined;
+      }
+    } else if (typeof current === "object") {
       current = (current as Record<string, unknown>)[part];
     } else {
       return undefined;
     }
   }
   return current;
+}
+
+/**
+ * Detect when a config field (like fieldPath or sortField) was template-resolved
+ * into the actual data value instead of remaining a field name string.
+ *
+ * Returns a usable field name string, or null if the value can't be used as a field name.
+ * When the input is a non-string (object/array/number from template resolution),
+ * returns null so the caller can handle the resolved value directly.
+ */
+export function sanitizeFieldName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // If it starts with [ or { it's likely a JSON-stringified resolved value
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) return null;
+
+  // If it's a pure number, it's a resolved value not a field name
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
+
+  return trimmed;
+}
+
+/**
+ * When a template like {{@...:NodeName.year}} resolves to the VALUE (e.g., 2014)
+ * instead of the field NAME ("year"), try to infer which field the user meant
+ * by scanning the input items for a key whose value matches the resolved value.
+ */
+export function inferFieldName(
+  items: WorkflowItem[],
+  resolvedValue: unknown,
+): string | null {
+  if (items.length === 0 || resolvedValue === null || resolvedValue === undefined) {
+    return null;
+  }
+
+  const sample = items[0].json;
+  if (!sample || typeof sample !== "object") return null;
+
+  // Coerce to a comparable string for loose matching
+  const target = String(resolvedValue);
+
+  for (const [key, val] of Object.entries(sample)) {
+    if (key.startsWith("_")) continue;
+    // Exact match (handles numbers, strings, booleans)
+    if (val !== null && val !== undefined && String(val) === target) {
+      return key;
+    }
+  }
+
+  return null;
 }
 
 // ── Legacy fallback helpers ──

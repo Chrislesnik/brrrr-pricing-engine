@@ -312,6 +312,8 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
     nodeLog?.output &&
     isBase64ImageOutput(nodeLog.output);
 
+  const preview = data._preview;
+
   // Handle empty action type (new node without selected action)
   if (!actionType) {
     const isDisabled = data.enabled === false;
@@ -319,12 +321,15 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
       <Node
         className={cn(
           "flex h-48 w-48 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
-          selected && "border-primary",
-          isDisabled && "opacity-50"
+          selected && !preview && "border-primary",
+          isDisabled && "opacity-50",
+          preview === "added" && "border-dashed border-2 border-green-500 opacity-80",
+          preview === "modified" && "border-dashed border-2 border-amber-500 opacity-80",
+          preview === "removed" && "border-dashed border-2 border-red-500 opacity-50",
         )}
         data-testid={`action-node-${id}`}
         handles={{ target: true, source: true }}
-        status={status}
+        status={preview ? undefined : status}
       >
         {isDisabled && (
           <div className="absolute top-2 left-2 rounded-full bg-gray-500/50 p-1">
@@ -411,12 +416,15 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
     <Node
       className={cn(
         "relative flex h-48 w-48 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
-        selected && "border-primary",
-        isDisabled && "opacity-50"
+        selected && !preview && "border-primary",
+        isDisabled && !preview && "opacity-50",
+        preview === "added" && "border-dashed border-2 border-green-500 opacity-80",
+        preview === "modified" && "border-dashed border-2 border-amber-500 opacity-80",
+        preview === "removed" && "border-dashed border-2 border-red-500 opacity-50",
       )}
       data-testid={`action-node-${id}`}
       handles={{ target: true, source: isCondition ? ["true", "false"] : isSwitch ? (switchHandles ?? ["default"]) : isLoop ? ["batch", "done"] : isFilter ? ["kept", "rejected"] : true }}
-      status={status}
+      status={preview ? undefined : status}
     >
       {/* Disabled badge in top left */}
       {isDisabled && (

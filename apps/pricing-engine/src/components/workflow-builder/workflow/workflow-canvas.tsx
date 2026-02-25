@@ -24,6 +24,9 @@ import { PlayCircle, Zap } from "lucide-react";
 import { nanoid } from "nanoid";
 import {
   addNodeAtom,
+  aiProposalAtom,
+  canvasEdgesAtom,
+  canvasNodesAtom,
   currentWorkflowIdAtom,
   edgesAtom,
   hasUnsavedChangesAtom,
@@ -42,6 +45,7 @@ import {
   type WorkflowNode,
   type WorkflowNodeType,
 } from "@/components/workflow-builder/lib/workflow-store";
+import { AIReviewPanel } from "../ai-elements/ai-review-panel";
 import { Edge } from "../ai-elements/edge";
 import { Panel } from "../ai-elements/panel";
 import { ActionNode } from "./nodes/action-node";
@@ -81,6 +85,10 @@ const edgeTypes = {
 export function WorkflowCanvas() {
   const [nodes, setNodes] = useAtom(nodesAtom);
   const [edges, setEdges] = useAtom(edgesAtom);
+  const displayNodes = useAtomValue(canvasNodesAtom);
+  const displayEdges = useAtomValue(canvasEdgesAtom);
+  const proposal = useAtomValue(aiProposalAtom);
+  const hasProposal = proposal !== null;
   const [isGenerating] = useAtom(isGeneratingAtom);
   const currentWorkflowId = useAtomValue(currentWorkflowIdAtom);
   const [showMinimap] = useAtom(showMinimapAtom);
@@ -540,30 +548,30 @@ export function WorkflowCanvas() {
         className="!bg-transparent"
         connectionLineComponent={Connection}
         connectionMode={ConnectionMode.Strict}
-        edges={edges}
+        edges={displayEdges}
         edgeTypes={edgeTypes}
-        elementsSelectable={!isGenerating}
+        elementsSelectable={!isGenerating && !hasProposal}
         panOnDrag={panOnDrag}
         selectionOnDrag={!panOnDrag}
         panOnScroll={!panOnDrag}
         panOnScrollSpeed={0.8}
         zoomOnScroll={panOnDrag}
         isValidConnection={isValidConnection}
-        nodes={nodes}
-        nodesConnectable={!isGenerating}
-        nodesDraggable={!isGenerating}
+        nodes={displayNodes}
+        nodesConnectable={!isGenerating && !hasProposal}
+        nodesDraggable={!isGenerating && !hasProposal}
         nodeTypes={nodeTypes}
-        onConnect={isGenerating ? undefined : onConnect}
-        onConnectEnd={isGenerating ? undefined : onConnectEnd}
-        onConnectStart={isGenerating ? undefined : onConnectStart}
-        onEdgeContextMenu={isGenerating ? undefined : onEdgeContextMenu}
-        onEdgesChange={isGenerating ? undefined : onEdgesChange}
-        onNodeClick={isGenerating ? undefined : onNodeClick}
-        onNodeContextMenu={isGenerating ? undefined : onNodeContextMenu}
-        onNodesChange={isGenerating ? undefined : onNodesChange}
+        onConnect={isGenerating || hasProposal ? undefined : onConnect}
+        onConnectEnd={isGenerating || hasProposal ? undefined : onConnectEnd}
+        onConnectStart={isGenerating || hasProposal ? undefined : onConnectStart}
+        onEdgeContextMenu={isGenerating || hasProposal ? undefined : onEdgeContextMenu}
+        onEdgesChange={isGenerating || hasProposal ? undefined : onEdgesChange}
+        onNodeClick={isGenerating || hasProposal ? undefined : onNodeClick}
+        onNodeContextMenu={isGenerating || hasProposal ? undefined : onNodeContextMenu}
+        onNodesChange={isGenerating || hasProposal ? undefined : onNodesChange}
         onPaneClick={onPaneClick}
-        onPaneContextMenu={isGenerating ? undefined : onPaneContextMenu}
-        onSelectionChange={isGenerating ? undefined : onSelectionChange}
+        onPaneContextMenu={isGenerating || hasProposal ? undefined : onPaneContextMenu}
+        onSelectionChange={isGenerating || hasProposal ? undefined : onSelectionChange}
       >
         <Panel
           className="workflow-controls-panel border-none bg-transparent p-0"
@@ -576,8 +584,11 @@ export function WorkflowCanvas() {
         )}
       </Canvas>
 
-      {/* AI Prompt */}
-      {currentWorkflowId && <AIPrompt workflowId={currentWorkflowId} />}
+      {/* AI Review Panel (shown when proposal is pending) */}
+      <AIReviewPanel />
+
+      {/* AI Prompt (hidden when proposal is pending) */}
+      {currentWorkflowId && !hasProposal && <AIPrompt workflowId={currentWorkflowId} />}
 
       {/* Context Menu */}
       <WorkflowContextMenu

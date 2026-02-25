@@ -63,13 +63,15 @@ function traversePath(root: unknown, fields: string[]): unknown {
   for (const field of fields) {
     if (current === null || current === undefined) return undefined;
 
-    const arrayMatch = field.match(/^(.+)\[(\d+)\]$/);
+    const arrayMatch = field.match(/^(.*)\[(\d+)\]$/);
     if (arrayMatch) {
       const [, arrayField, indexStr] = arrayMatch;
-      if (typeof current === "object") {
-        current = (current as Record<string, unknown>)[arrayField];
-      } else {
-        return undefined;
+      if (arrayField) {
+        if (typeof current === "object") {
+          current = (current as Record<string, unknown>)[arrayField];
+        } else {
+          return undefined;
+        }
       }
       if (Array.isArray(current)) {
         current = current[parseInt(indexStr, 10)];
@@ -96,6 +98,22 @@ function processTemplates(
       const templatePattern = /\{\{@([^:]+):([^}]+)\}\}/g;
       let processedValue = value;
 
+      // Check if the entire string is a single template (no surrounding text)
+      const isSoleTemplate =
+        value.startsWith("{{@") &&
+        value.endsWith("}}") &&
+        (value.match(templatePattern) || []).length === 1;
+
+      // When a resolved object is embedded within a larger string (e.g. inside
+      // a JSON-encoded config field), its quotes must be escaped so the
+      // enclosing JSON stays valid. When the template IS the entire value,
+      // return raw JSON so downstream consumers can parse it directly.
+      const stringify = (obj: unknown): string => {
+        const raw = JSON.stringify(obj);
+        if (isSoleTemplate) return raw;
+        return raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      };
+
       processedValue = processedValue.replace(
         templatePattern,
         (_match, nodeId: string, rest: string) => {
@@ -105,26 +123,21 @@ function processTemplates(
 
           const dotIndex = rest.indexOf(".");
           if (dotIndex === -1) {
-            // No field path -- return the full output
             const data = output.data;
             if (data === null || data === undefined) return "";
-            if (typeof data === "object") return JSON.stringify(data);
+            if (typeof data === "object") return stringify(data);
             return String(data);
           }
 
           const fieldPath = rest.substring(dotIndex + 1);
           const fields = fieldPath.split(".");
 
-          // Strategy: try multiple resolution paths for maximum compatibility
-          // 1. Try resolving from first item's json (items-based access)
-          // 2. Try resolving from raw data (legacy access for .success, .data, .rows, etc.)
-
           // Path 1: Items-based resolution (first item's json)
           const firstItem = output.items[0];
           if (firstItem) {
             const fromItems = traversePath(firstItem.json, fields);
             if (fromItems !== undefined) {
-              if (typeof fromItems === "object" && fromItems !== null) return JSON.stringify(fromItems);
+              if (typeof fromItems === "object" && fromItems !== null) return stringify(fromItems);
               return String(fromItems);
             }
           }
@@ -133,7 +146,6 @@ function processTemplates(
           let current: unknown = output.data;
           if (current === null || current === undefined) return "";
 
-          // For standardized { success, data } outputs, look inside data
           if (
             current &&
             typeof current === "object" &&
@@ -148,7 +160,7 @@ function processTemplates(
 
           const resolved = traversePath(current, fields);
           if (resolved === null || resolved === undefined) return "";
-          if (typeof resolved === "object") return JSON.stringify(resolved);
+          if (typeof resolved === "object") return stringify(resolved);
           return String(resolved);
         }
       );
@@ -234,10 +246,15 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   type EdgeInfo = { target: string; sourceHandle?: string | null };
   const edgesBySource = new Map<string, EdgeInfo[]>();
+  const edgesByTarget = new Map<string, string[]>();
   for (const edge of edges) {
     const targets = edgesBySource.get(edge.source) || [];
     targets.push({ target: edge.target, sourceHandle: (edge as { sourceHandle?: string | null }).sourceHandle ?? null });
     edgesBySource.set(edge.source, targets);
+
+    const sources = edgesByTarget.get(edge.target) || [];
+    sources.push(edge.source);
+    edgesByTarget.set(edge.target, sources);
   }
 
   // Find trigger nodes (no incoming edges, type "trigger")
@@ -330,30 +347,43 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
         // Add step context
         processedConfig._context = stepContext;
 
-        // Inject all upstream node outputs for data-aware nodes that need access to
-        // upstream items ($input/$node for Code, or items for Filter/Split Out/Limit/Aggregate).
+        // Inject upstream data for data-aware nodes.
+        // _nodeOutputs = ALL upstream (for expression/template resolution)
+        // _nodeItems   = DIRECT predecessors only (for item flow, like n8n)
         const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches", "Set Fields", "Respond to Webhook"];
         if (DATA_AWARE_NODES.includes(actionType)) {
           const nodeOutputMap: Record<string, unknown> = {};
-          const nodeItemsMap: Record<string, WorkflowItem[]> = {};
           for (const [_k, v] of Object.entries(outputs)) {
-            // Always add by the stored label
             nodeOutputMap[v.label] = v.data;
-            nodeItemsMap[v.label] = v.items;
-            // Also add by the human-readable action label (resolves slugs like "supabase/get-row" -> "Get Row")
             const resolved = resolveActionType(v.label);
             if (resolved !== v.label) {
               nodeOutputMap[resolved] = v.data;
-              nodeItemsMap[resolved] = v.items;
             }
-            // Also try findActionById for plugin actions
             const pluginAction = findActionById(v.label);
             if (pluginAction?.label && pluginAction.label !== v.label) {
               nodeOutputMap[pluginAction.label] = v.data;
-              nodeItemsMap[pluginAction.label] = v.items;
             }
           }
           processedConfig._nodeOutputs = nodeOutputMap;
+
+          // _nodeItems: only from direct predecessors (matching n8n behavior)
+          const nodeItemsMap: Record<string, WorkflowItem[]> = {};
+          const predecessorIds = edgesByTarget.get(nodeId) || [];
+          for (const predId of predecessorIds) {
+            const sanitizedPredId = predId.replace(/[^a-zA-Z0-9]/g, "_");
+            const predOutput = outputs[sanitizedPredId];
+            if (predOutput) {
+              nodeItemsMap[predOutput.label] = predOutput.items;
+              const resolved = resolveActionType(predOutput.label);
+              if (resolved !== predOutput.label) {
+                nodeItemsMap[resolved] = predOutput.items;
+              }
+              const pluginAction = findActionById(predOutput.label);
+              if (pluginAction?.label && pluginAction.label !== predOutput.label) {
+                nodeItemsMap[pluginAction.label] = predOutput.items;
+              }
+            }
+          }
           processedConfig._nodeItems = nodeItemsMap;
         }
 

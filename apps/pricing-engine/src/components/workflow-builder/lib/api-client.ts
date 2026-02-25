@@ -60,27 +60,204 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 // AI API - uses our /api/ai/generate-workflow endpoint
 export const aiApi = {
-  generate: (prompt: string) =>
-    apiCall<{ workflow: WorkflowData }>("/api/ai/generate-workflow", {
-      method: "POST",
-      body: JSON.stringify({ prompt }),
-    }).then((res) => res.workflow),
-
   generateStream: async (
     prompt: string,
     onUpdate: (data: WorkflowData) => void,
-    _existingWorkflow?: {
+    existingWorkflow?: {
       nodes: WorkflowNode[];
       edges: WorkflowEdge[];
       name?: string;
-    }
+    },
+    availableIntegrations?: string[],
   ): Promise<WorkflowData> => {
-    // For now, use non-streaming generation
-    const result = await aiApi.generate(prompt);
-    onUpdate(result);
-    return result;
+    const response = await fetch("/api/ai/generate-workflow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        existingWorkflow: existingWorkflow ?? undefined,
+        availableIntegrations: availableIntegrations ?? [],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Unknown error" }));
+      throw new ApiError(response.status, err.error || "Failed to generate workflow");
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new ApiError(500, "No response body");
+    }
+
+    const decoder = new TextDecoder();
+    let accumulated = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        accumulated += decoder.decode(value, { stream: true });
+
+        // Try to extract and parse JSON from the accumulated text.
+        // The model streams raw JSON text — we attempt to parse the
+        // largest valid prefix on each chunk so the UI can update
+        // incrementally as nodes arrive.
+        const parsed = tryParsePartialWorkflow(accumulated);
+        if (parsed) {
+          onUpdate(parsed);
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    // Final parse of the complete response
+    const finalJson = extractJson(accumulated);
+    if (!finalJson) {
+      throw new ApiError(500, "AI did not return valid workflow JSON");
+    }
+
+    const workflow = JSON.parse(finalJson) as WorkflowData;
+    onUpdate(workflow);
+    return workflow;
   },
 };
+
+/**
+ * Try to parse a partial JSON workflow from accumulated stream text.
+ * Closes any unclosed brackets/braces and arrays to get a valid parse.
+ */
+function tryParsePartialWorkflow(text: string): WorkflowData | null {
+  const jsonStart = text.indexOf("{");
+  if (jsonStart === -1) return null;
+
+  let json = text.slice(jsonStart);
+
+  // First try direct parse (works when stream is complete)
+  try {
+    const parsed = JSON.parse(json);
+    if (parsed.nodes) return parsed as WorkflowData;
+  } catch {
+    // Expected for partial JSON — continue with repair
+  }
+
+  // Close any open strings, arrays, and objects to make partial JSON parseable
+  json = repairPartialJson(json);
+
+  try {
+    const parsed = JSON.parse(json);
+    if (parsed.nodes && Array.isArray(parsed.nodes)) {
+      return parsed as WorkflowData;
+    }
+  } catch {
+    // Still unparseable — wait for more data
+  }
+
+  return null;
+}
+
+/**
+ * Attempt to close unclosed JSON structures so partial output is parseable.
+ */
+function repairPartialJson(json: string): string {
+  let inString = false;
+  let escaped = false;
+  const stack: string[] = [];
+
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") {
+      if (stack.length > 0 && stack[stack.length - 1] === ch) {
+        stack.pop();
+      }
+    }
+  }
+
+  // If we're in the middle of a string, close it
+  if (inString) {
+    json += '"';
+  }
+
+  // Remove any trailing comma before closing brackets
+  json = json.replace(/,\s*$/, "");
+
+  // Close all open structures in reverse order
+  while (stack.length > 0) {
+    const closer = stack.pop()!;
+    // Remove trailing comma before closing
+    json = json.replace(/,\s*$/, "");
+    json += closer;
+  }
+
+  return json;
+}
+
+/**
+ * Extract the first complete JSON object from text.
+ */
+function extractJson(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+
+  // Find the matching closing brace
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+
+  // No complete JSON found — return the whole thing from start (caller will try to parse)
+  return text.slice(start);
+}
 
 export type Integration = {
   id: string;

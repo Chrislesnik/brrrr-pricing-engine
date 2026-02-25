@@ -1,24 +1,37 @@
 /**
  * Sort step — sorts items by a field value.
+ * Matches n8n: case-insensitive string comparison, handles template-resolved field names.
  */
 import "server-only";
 
 import { type StepInput, withStepLogging } from "./step-handler";
-import { getInputItems, getFieldValue, type DataAwareInput } from "./items-helper";
+import {
+  getInputItems,
+  getFieldValue,
+  inferFieldName,
+  sanitizeFieldName,
+  type DataAwareInput,
+} from "./items-helper";
 import type { WorkflowItem } from "../types/items";
 
-export type SortInput = StepInput & DataAwareInput & {
-  sortField: string;
-  direction: "ascending" | "descending";
-  dataType: "auto" | "string" | "number" | "date";
-};
+export type SortInput = StepInput &
+  DataAwareInput & {
+    sortField: string;
+    direction: "ascending" | "descending";
+    dataType: "auto" | "string" | "number" | "date";
+  };
 
-function executeSort(input: SortInput): { items: WorkflowItem[]; count: number } {
+function executeSort(
+  input: SortInput,
+): { items: WorkflowItem[]; count: number } {
   const items = getInputItems(input);
-  const field = (input.sortField || "").trim();
   const dir = input.direction === "descending" ? -1 : 1;
   const dt = input.dataType || "auto";
 
+  let field = sanitizeFieldName(input.sortField);
+  if (!field) {
+    field = inferFieldName(items, input.sortField);
+  }
   if (!field) return { items, count: items.length };
 
   const sorted = [...items].sort((a, b) => {
@@ -44,7 +57,10 @@ function executeSort(input: SortInput): { items: WorkflowItem[]; count: number }
       if (isNaN(db)) return -1;
       return (da - db) * dir;
     }
-    return String(va).localeCompare(String(vb)) * dir;
+    // Case-insensitive string comparison (matches n8n)
+    return String(va)
+      .toLowerCase()
+      .localeCompare(String(vb).toLowerCase()) * dir;
   });
 
   return { items: sorted, count: sorted.length };

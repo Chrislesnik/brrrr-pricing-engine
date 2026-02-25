@@ -54,7 +54,7 @@ export function generateWorkflowCode(
   // Find trigger nodes (nodes with no incoming edges)
   const nodesWithIncoming = new Set(edges.map((e) => e.target));
   const triggerNodes = nodes.filter(
-    (node) => node.data.type === "trigger" && !nodesWithIncoming.has(node.id)
+    (node) => node.data?.type === "trigger" && !nodesWithIncoming.has(node.id)
   );
 
   // Check if any trigger's output is used (meaning input param is needed)
@@ -79,6 +79,7 @@ export function generateWorkflowCode(
   const usedVarNames = new Set<string>();
 
   for (const node of nodes) {
+    if (!node.data) continue;
     let varName: string;
 
     if (node.data.type === "action") {
@@ -919,7 +920,7 @@ export function generateWorkflowCode(
     branchVisited.add(nodeId);
 
     const node = nodeMap.get(nodeId);
-    if (!node) {
+    if (!node?.data) {
       return [];
     }
 
@@ -1228,7 +1229,7 @@ export function generateWorkflowCode(
 
     visited.add(nodeId);
     const node = nodeMap.get(nodeId);
-    if (!node) {
+    if (!node?.data) {
       return [];
     }
 

@@ -11,8 +11,9 @@ export type WorkflowNodeData = {
   type: WorkflowNodeType;
   config?: Record<string, unknown>;
   status?: "idle" | "running" | "success" | "error";
-  enabled?: boolean; // Whether the step is enabled (defaults to true)
-  onClick?: () => void; // For the "add" node type
+  enabled?: boolean;
+  onClick?: () => void;
+  _preview?: "added" | "modified" | "removed";
 };
 
 export type WorkflowNode = Node<WorkflowNodeData>;
@@ -553,4 +554,207 @@ export const clearNodeStatusesAtom = atom(null, (get, set) => {
     data: { ...node.data, status: "idle" as const },
   }));
   set(nodesAtom, newNodes);
+});
+
+// ---------------------------------------------------------------------------
+// AI Proposal Review State
+// ---------------------------------------------------------------------------
+
+export type ChangeType = "added" | "modified" | "removed";
+
+export type ProposedNodeChange = {
+  type: ChangeType;
+  nodeId: string;
+  label: string;
+  detail: string;
+  accepted: boolean;
+  proposedNode?: WorkflowNode;
+  originalNode?: WorkflowNode;
+};
+
+export type ProposedEdgeChange = {
+  type: ChangeType;
+  edgeId: string;
+  accepted: boolean;
+  proposedEdge?: WorkflowEdge;
+};
+
+export type AIProposal = {
+  name?: string;
+  description?: string;
+  nodeChanges: ProposedNodeChange[];
+  edgeChanges: ProposedEdgeChange[];
+  proposedNodes: WorkflowNode[];
+  proposedEdges: WorkflowEdge[];
+};
+
+export const aiProposalAtom = atom<AIProposal | null>(null);
+
+/**
+ * Derived atom that merges the current canvas nodes with the AI proposal's
+ * ghost nodes when a proposal is active. The canvas reads from this atom
+ * instead of nodesAtom directly so preview nodes are visible.
+ */
+export const canvasNodesAtom = atom<WorkflowNode[]>((get) => {
+  const proposal = get(aiProposalAtom);
+  if (!proposal) return get(nodesAtom);
+
+  const currentNodes = get(nodesAtom);
+  const currentIds = new Set(currentNodes.map((n) => n.id));
+  const proposedIds = new Set(proposal.proposedNodes.map((n) => n.id));
+
+  const acceptedNodeIds = new Set(
+    proposal.nodeChanges.filter((c) => c.accepted).map((c) => c.nodeId),
+  );
+
+  const result: WorkflowNode[] = [];
+
+  // Current nodes: mark removed or modified
+  for (const node of currentNodes) {
+    const change = proposal.nodeChanges.find((c) => c.nodeId === node.id);
+    if (!change) {
+      result.push(node);
+      continue;
+    }
+    if (change.type === "removed") {
+      result.push({
+        ...node,
+        data: { ...node.data, _preview: "removed" },
+        draggable: false,
+        selectable: false,
+      } as WorkflowNode);
+    } else if (change.type === "modified" && change.proposedNode) {
+      result.push({
+        ...change.proposedNode,
+        data: { ...change.proposedNode.data, _preview: "modified" },
+        draggable: false,
+        selectable: false,
+      } as WorkflowNode);
+    } else {
+      result.push(node);
+    }
+  }
+
+  // Added nodes from proposal
+  for (const change of proposal.nodeChanges) {
+    if (change.type === "added" && change.proposedNode && !currentIds.has(change.nodeId)) {
+      result.push({
+        ...change.proposedNode,
+        data: { ...change.proposedNode.data, _preview: "added" },
+        draggable: false,
+        selectable: false,
+      } as WorkflowNode);
+    }
+  }
+
+  return result;
+});
+
+/**
+ * Derived atom for edges during proposal review.
+ */
+export const canvasEdgesAtom = atom<WorkflowEdge[]>((get) => {
+  const proposal = get(aiProposalAtom);
+  if (!proposal) return get(edgesAtom);
+  // Show the full proposed edge set during review
+  return proposal.proposedEdges.map((e) => ({ ...e, type: "animated" }));
+});
+
+/**
+ * Apply accepted changes from the proposal into the real workflow state.
+ */
+export const applyProposalAtom = atom(null, (get, set) => {
+  const proposal = get(aiProposalAtom);
+  if (!proposal) return;
+
+  const currentNodes = get(nodesAtom);
+  const currentEdges = get(edgesAtom);
+
+  // Save undo history
+  const history = get(historyAtom);
+  set(historyAtom, [...history, { nodes: currentNodes, edges: currentEdges }]);
+  set(futureAtom, []);
+
+  const currentMap = new Map(currentNodes.map((n) => [n.id, n]));
+
+  const acceptedAdds = proposal.nodeChanges.filter(
+    (c) => c.type === "added" && c.accepted && c.proposedNode,
+  );
+  const acceptedModifies = proposal.nodeChanges.filter(
+    (c) => c.type === "modified" && c.accepted && c.proposedNode,
+  );
+  const acceptedRemoves = new Set(
+    proposal.nodeChanges
+      .filter((c) => c.type === "removed" && c.accepted)
+      .map((c) => c.nodeId),
+  );
+
+  // Start from current nodes, apply modifications and removals
+  const resultNodes: WorkflowNode[] = [];
+  for (const node of currentNodes) {
+    if (acceptedRemoves.has(node.id)) continue;
+    const mod = acceptedModifies.find((c) => c.nodeId === node.id);
+    if (mod?.proposedNode) {
+      // Strip _preview tag
+      const { _preview, ...cleanData } = mod.proposedNode.data;
+      resultNodes.push({ ...mod.proposedNode, data: cleanData } as WorkflowNode);
+    } else {
+      resultNodes.push(node);
+    }
+  }
+
+  // Add new nodes
+  for (const add of acceptedAdds) {
+    if (add.proposedNode) {
+      const { _preview, ...cleanData } = add.proposedNode.data;
+      resultNodes.push({ ...add.proposedNode, data: cleanData } as WorkflowNode);
+    }
+  }
+
+  // Build final edges: start from current, apply accepted edge changes
+  const acceptedEdgeAdds = proposal.edgeChanges.filter(
+    (c) => c.type === "added" && c.accepted && c.proposedEdge,
+  );
+  const acceptedEdgeRemoves = new Set(
+    proposal.edgeChanges
+      .filter((c) => c.type === "removed" && c.accepted)
+      .map((c) => c.edgeId),
+  );
+
+  const resultEdges: WorkflowEdge[] = currentEdges.filter(
+    (e) => !acceptedEdgeRemoves.has(e.id),
+  );
+  for (const add of acceptedEdgeAdds) {
+    if (add.proposedEdge) {
+      resultEdges.push(add.proposedEdge);
+    }
+  }
+
+  // Also add edges from modified connections
+  const acceptedEdgeModifies = proposal.edgeChanges.filter(
+    (c) => c.type === "modified" && c.accepted && c.proposedEdge,
+  );
+  // Replace modified edges
+  const modifiedEdgeIds = new Set(acceptedEdgeModifies.map((c) => c.edgeId));
+  const filteredResult = resultEdges.filter((e) => !modifiedEdgeIds.has(e.id));
+  for (const mod of acceptedEdgeModifies) {
+    if (mod.proposedEdge) {
+      filteredResult.push(mod.proposedEdge);
+    }
+  }
+
+  set(nodesAtom, resultNodes);
+  set(edgesAtom, filteredResult);
+  if (proposal.name) {
+    set(currentWorkflowNameAtom, proposal.name);
+  }
+  set(aiProposalAtom, null);
+  set(hasUnsavedChangesAtom, true);
+});
+
+/**
+ * Discard the proposal, restoring the canvas to its pre-proposal state.
+ */
+export const discardProposalAtom = atom(null, (_get, set) => {
+  set(aiProposalAtom, null);
 });
