@@ -7,9 +7,28 @@ export default `export async function httpRequestStep(input: {
   httpMethod: string;
   httpHeaders?: string;
   httpBody?: string;
+  httpQueryParams?: string;
 }) {
   "use step";
   
+  let url = input.endpoint;
+  if (input.httpQueryParams) {
+    try {
+      const params = JSON.parse(input.httpQueryParams);
+      if (params && typeof params === "object" && Object.keys(params).length > 0) {
+        const u = new URL(url);
+        for (const [key, value] of Object.entries(params)) {
+          if (value !== null && value !== undefined) {
+            u.searchParams.append(key, String(value));
+          }
+        }
+        url = u.toString();
+      }
+    } catch {
+      // If parsing fails, use endpoint as-is
+    }
+  }
+
   let headers = {};
   if (input.httpHeaders) {
     try {
@@ -33,7 +52,7 @@ export default `export async function httpRequestStep(input: {
     }
   }
   
-  const response = await fetch(input.endpoint, {
+  const response = await fetch(url, {
     method: input.httpMethod,
     headers,
     body,

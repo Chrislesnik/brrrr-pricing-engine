@@ -15,6 +15,7 @@ export type HttpRequestInput = StepInput & {
   httpMethod: string;
   httpHeaders?: string;
   httpBody?: string;
+  httpQueryParams?: string;
 };
 
 function parseHeaders(httpHeaders?: string): Record<string, string> {
@@ -25,6 +26,23 @@ function parseHeaders(httpHeaders?: string): Record<string, string> {
     return JSON.parse(httpHeaders);
   } catch {
     return {};
+  }
+}
+
+function appendQueryParams(endpoint: string, httpQueryParams?: string): string {
+  if (!httpQueryParams) return endpoint;
+  try {
+    const params = JSON.parse(httpQueryParams);
+    if (typeof params !== "object" || !params || Object.keys(params).length === 0) return endpoint;
+    const url = new URL(endpoint);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== null && value !== undefined) {
+        url.searchParams.append(key, String(value));
+      }
+    }
+    return url.toString();
+  } catch {
+    return endpoint;
   }
 }
 
@@ -65,6 +83,7 @@ async function httpRequest(
   }
 
   const method = input.httpMethod || "POST";
+  const url = appendQueryParams(input.endpoint, input.httpQueryParams);
   const headers = parseHeaders(input.httpHeaders);
   const body = parseBody(method, input.httpBody);
 
@@ -73,7 +92,7 @@ async function httpRequest(
   }
 
   try {
-    const response = await fetch(input.endpoint, {
+    const response = await fetch(url, {
       method,
       headers,
       body,

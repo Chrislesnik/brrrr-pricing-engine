@@ -102,28 +102,52 @@ export function getCommonFields(node: WorkflowNode): Array<{ field: string; desc
   const actionType = node.data.config?.actionType as string | undefined;
 
   if (actionType === "HTTP Request") {
-    return [
+    const fields: Array<{ field: string; description: string }> = [
       { field: "data", description: "Response data" },
       { field: "status", description: "HTTP status code" },
     ];
+    const outputSchema = node.data.config?.outputSchema as string | undefined;
+    if (outputSchema) {
+      try {
+        const schema = JSON.parse(outputSchema) as SchemaField[];
+        if (schema.length > 0) {
+          fields.push(...schemaToFields(schema, "data"));
+          return fields;
+        }
+      } catch { /* fall through */ }
+    }
+    return fields;
   }
 
   if (actionType === "Database Query") {
+    const fields: Array<{ field: string; description: string }> = [];
     const dbSchema = node.data.config?.dbSchema as string | undefined;
     if (dbSchema) {
       try {
         const schema = JSON.parse(dbSchema) as SchemaField[];
         if (schema.length > 0) {
-          return schemaToFields(schema);
+          fields.push(...schemaToFields(schema));
         }
       } catch {
         // fall through
       }
     }
-    return [
-      { field: "rows", description: "Query result rows" },
-      { field: "count", description: "Number of rows" },
-    ];
+    if (fields.length === 0) {
+      fields.push(
+        { field: "rows", description: "Query result rows" },
+        { field: "count", description: "Number of rows" },
+      );
+    }
+    const outputSchema = node.data.config?.outputSchema as string | undefined;
+    if (outputSchema) {
+      try {
+        const schema = JSON.parse(outputSchema) as SchemaField[];
+        if (schema.length > 0) {
+          fields.push(...schemaToFields(schema, "rows[0]"));
+        }
+      } catch { /* fall through */ }
+    }
+    return fields;
   }
 
   if (isActionType(actionType, "Generate Text", "ai-gateway/generate-text")) {
@@ -283,11 +307,22 @@ export function getCommonFields(node: WorkflowNode): Array<{ field: string; desc
   }
 
   if (actionType === "Code") {
-    return [
+    const fields: Array<{ field: string; description: string }> = [
       { field: "items", description: "Array of output items [{json: {...}}]" },
       { field: "items[0].json", description: "First item's data object" },
       { field: "logs", description: "Captured console.log output" },
     ];
+    const outputSchema = node.data.config?.outputSchema as string | undefined;
+    if (outputSchema) {
+      try {
+        const schema = JSON.parse(outputSchema) as SchemaField[];
+        if (schema.length > 0) {
+          fields.push(...schemaToFields(schema, "items[0].json"));
+          return fields;
+        }
+      } catch { /* fall through */ }
+    }
+    return fields;
   }
 
   if (actionType === "Wait") {

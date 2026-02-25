@@ -47,12 +47,30 @@ export function TriggerConfig({
   });
   const [schemaHasErrors, setSchemaHasErrors] = useState(false);
 
-  // Sync local schema when config changes externally
+  // Sync local schema when config changes externally, and backfill inputCode
+  // for any field that has inputId but is missing inputCode (pre-existing schemas).
   useEffect(() => {
     try {
       const parsed = config?.webhookSchema
         ? (JSON.parse(config.webhookSchema as string) as SchemaField[])
         : [];
+
+      if (inputs.length > 0) {
+        let patched = false;
+        for (const field of parsed) {
+          if (field.inputId && !field.inputCode) {
+            const inp = inputs.find((i) => i.id === field.inputId);
+            if (inp) {
+              field.inputCode = inp.input_code;
+              patched = true;
+            }
+          }
+        }
+        if (patched) {
+          onUpdateConfig("webhookSchema", JSON.stringify(parsed));
+        }
+      }
+
       setLocalSchema(parsed);
       setSchemaHasErrors(inputs.length > 0 && hasSchemaTypeMismatches(parsed, inputs));
     } catch {

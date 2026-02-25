@@ -5,8 +5,12 @@ import {
   nodesAtom,
   edgesAtom,
   selectedNodeAtom,
+  executionLogsAtom,
+  currentWorkflowIdAtom,
 } from "@/components/workflow-builder/lib/workflow-store";
-import { AlertTriangle, Check, ChevronRight, ChevronsUpDown, HelpCircle, Maximize2, Plus, Settings, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, ChevronsUpDown, HelpCircle, Maximize2, Plus, Settings, Sparkles, Trash2 } from "lucide-react";
+import { inferSchemaFromData } from "@/components/workflow-builder/lib/infer-schema";
+import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfigureConnectionOverlay } from "@/components/workflow-builder/overlays/add-connection-overlay";
 import { AiGatewayConsentOverlay } from "@/components/workflow-builder/overlays/ai-gateway-consent-overlay";
@@ -136,6 +140,13 @@ function DatabaseQueryFields({
           }
         />
       </div>
+
+      <OutputSchemaSection
+        config={config}
+        onUpdateConfig={onUpdateConfig}
+        disabled={disabled}
+        nodeId={currentNodeId}
+      />
     </>
   );
 }
@@ -276,6 +287,116 @@ function parseCurl(raw: string): {
   return { method, url, headers, body };
 }
 
+// Reusable Output Schema section with "Generate from Last Run" for any node type
+function OutputSchemaSection({
+  config,
+  onUpdateConfig,
+  disabled,
+  nodeId,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+  nodeId?: string;
+}) {
+  const executionLogs = useAtomValue(executionLogsAtom);
+  const workflowId = useAtomValue(currentWorkflowIdAtom);
+  const [generating, setGenerating] = useState(false);
+
+  let schema: SchemaField[] = [];
+  try {
+    schema = config?.outputSchema
+      ? (JSON.parse(config.outputSchema as string) as SchemaField[])
+      : [];
+  } catch {
+    schema = [];
+  }
+
+  const handleGenerate = async () => {
+    if (!nodeId) {
+      toast.error("No node selected");
+      return;
+    }
+    if (!workflowId) {
+      toast.error("Save the workflow first");
+      return;
+    }
+    setGenerating(true);
+    try {
+      // First try in-memory execution logs (fast path)
+      const memLog = executionLogs[nodeId];
+      if (memLog?.output) {
+        const output = memLog.output as Record<string, unknown>;
+        const data = output.data ?? output;
+        const inferred = inferSchemaFromData(data);
+        onUpdateConfig("outputSchema", JSON.stringify(inferred));
+        toast.success(`Generated ${inferred.length} fields from execution output`);
+        return;
+      }
+
+      // Single API call to get the most recent successful output for this node
+      const res = await fetch(
+        `/api/workflows/${encodeURIComponent(workflowId)}/nodes/${encodeURIComponent(nodeId)}/last-output`
+      );
+      if (!res.ok) {
+        toast.error("Failed to fetch node output");
+        return;
+      }
+
+      const { output } = await res.json();
+      if (!output) {
+        toast.error("No successful output found for this node — run the workflow first");
+        return;
+      }
+
+      const data = (output as Record<string, unknown>).data ?? output;
+      const inferred = inferSchemaFromData(data);
+      onUpdateConfig("outputSchema", JSON.stringify(inferred));
+      toast.success(`Generated ${inferred.length} fields from execution output`);
+    } catch (err) {
+      console.error("[OutputSchema] Generate failed:", err);
+      toast.error("Failed to generate schema");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <Collapsible defaultOpen={schema.length > 0}>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <CollapsibleTrigger className="flex items-center gap-1.5 group cursor-pointer">
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+            <Label className="cursor-pointer text-xs">Output Schema (Optional)</Label>
+          </CollapsibleTrigger>
+          {nodeId && workflowId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              disabled={disabled || generating}
+              onClick={handleGenerate}
+            >
+              <Sparkles className={cn("h-3 w-3", generating && "animate-spin")} />
+              {generating ? "Generating…" : "Generate from Last Run"}
+            </Button>
+          )}
+        </div>
+        <CollapsibleContent className="space-y-2 pt-1">
+          <SchemaBuilder
+            disabled={disabled}
+            onChange={(s) => onUpdateConfig("outputSchema", JSON.stringify(s))}
+            schema={schema}
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Define the expected response structure so downstream nodes can reference specific fields.
+          </p>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
 // HTTP Request fields component
 function HttpRequestFields({
   config,
@@ -292,6 +413,7 @@ function HttpRequestFields({
 }) {
   const [curlDialogOpen, setCurlDialogOpen] = useState(false);
   const [curlInput, setCurlInput] = useState("");
+  const [queryParamsModalOpen, setQueryParamsModalOpen] = useState(false);
   const [headersModalOpen, setHeadersModalOpen] = useState(false);
   const [bodyModalOpen, setBodyModalOpen] = useState(false);
 
@@ -402,6 +524,43 @@ function HttpRequestFields({
         />
       </div>
       <div className="space-y-2">
+        <Label htmlFor="httpQueryParams">Query Parameters (JSON)</Label>
+        <div className="relative overflow-hidden rounded-md border">
+          <CodeEditor
+            currentNodeId={currentNodeId}
+            defaultLanguage="json"
+            height="100px"
+            onChange={(value) => onUpdateConfig("httpQueryParams", value || "{}")}
+            options={{
+              minimap: { enabled: false },
+              lineNumbers: "off",
+              scrollBeyondLastLine: false,
+              fontSize: 12,
+              readOnly: disabled,
+              wordWrap: "off",
+            }}
+            value={(config?.httpQueryParams as string) || "{}"}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-1 right-1 h-6 w-6 opacity-50 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+            onClick={() => setQueryParamsModalOpen(true)}
+            title="Open expression editor"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      <ExpressionEditorModal
+        open={queryParamsModalOpen}
+        onOpenChange={setQueryParamsModalOpen}
+        title="Query Parameters (JSON)"
+        value={(config?.httpQueryParams as string) || "{}"}
+        onChange={(v) => onUpdateConfig("httpQueryParams", v || "{}")}
+        readOnly={disabled}
+      />
+      <div className="space-y-2">
         <Label htmlFor="httpHeaders">Headers (JSON)</Label>
         <div className="relative overflow-hidden rounded-md border">
           <CodeEditor
@@ -484,6 +643,13 @@ function HttpRequestFields({
         value={(config?.httpBody as string) || "{}"}
         onChange={(v) => onUpdateConfig("httpBody", v || "{}")}
         readOnly={config?.httpMethod === "GET" || disabled}
+      />
+
+      <OutputSchemaSection
+        config={config}
+        onUpdateConfig={onUpdateConfig}
+        disabled={disabled}
+        nodeId={currentNodeId}
       />
     </>
   );
@@ -848,6 +1014,13 @@ function CodeNodeFields({
 
       {/* Test execution */}
       <CodeTestPanel code={code ?? ""} mode={mode} disabled={disabled} />
+
+      <OutputSchemaSection
+        config={config}
+        onUpdateConfig={onUpdateConfig}
+        disabled={disabled}
+        nodeId={currentNodeId}
+      />
     </div>
   );
 }

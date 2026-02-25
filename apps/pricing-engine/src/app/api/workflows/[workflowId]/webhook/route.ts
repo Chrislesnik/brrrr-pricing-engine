@@ -52,7 +52,55 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Workflow has no nodes" }, { status: 400 });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const rawBody = await request.json().catch(() => ({}));
+
+    // Map incoming payload through the trigger's request schema so that the
+    // output keys match whatever the user named each schema field, and the
+    // values come from the corresponding input_code (or the field name itself).
+    let body = rawBody;
+    const triggerNode = (nodes as Array<{ data?: { config?: Record<string, unknown> } }>)
+      .find((n: any) => n.data?.config?.triggerType === "webhook" || n.data?.config?.webhookSchema);
+    if (triggerNode?.data?.config?.webhookSchema) {
+      try {
+        const schema = JSON.parse(triggerNode.data.config.webhookSchema as string) as Array<{
+          name: string;
+          inputId?: string;
+          inputCode?: string;
+        }>;
+        if (schema.length > 0) {
+          // Resolve inputCode for fields that have inputId but are missing inputCode
+          const needsResolve = schema.filter((f) => f.inputId && !f.inputCode);
+          if (needsResolve.length > 0) {
+            const webhookType = triggerNode.data?.config?.webhookType as string | undefined;
+            const table = webhookType === "pricing_engine" ? "pricing_engine_inputs" : "inputs";
+            const ids = needsResolve.map((f) => f.inputId!);
+            const { data: resolved } = await supabaseAdmin
+              .from(table)
+              .select("id, input_code")
+              .in("id", ids);
+            if (resolved) {
+              const codeMap = new Map(resolved.map((r: { id: number; input_code: string }) => [String(r.id), r.input_code]));
+              for (const field of needsResolve) {
+                field.inputCode = codeMap.get(field.inputId!) || undefined;
+              }
+            }
+          }
+
+          const mapped: Record<string, unknown> = {};
+          for (const field of schema) {
+            const lookupKey = field.inputCode || field.name;
+            if (lookupKey in rawBody) {
+              mapped[field.name] = rawBody[lookupKey];
+            } else if (field.name in rawBody) {
+              mapped[field.name] = rawBody[field.name];
+            }
+          }
+          body = mapped;
+        }
+      } catch {
+        // If schema parsing fails, pass the full body
+      }
+    }
 
     const { data: execution, error: execErr } = await supabaseAdmin
       .from("workflow_executions")

@@ -263,15 +263,128 @@ function CollapsibleSection({
   );
 }
 
+// Renders a clickable JSON tree where each key has a copy-reference button.
+// Clicking copies {{@nodeId:nodeName.path}} to the clipboard.
+function InteractiveJsonOutput({
+  data,
+  nodeId,
+  nodeName,
+}: {
+  data: unknown;
+  nodeId: string;
+  nodeName: string;
+}) {
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  const copyRef = async (path: string) => {
+    const template = `{{@${nodeId}:${nodeName}.${path}}}`;
+    try {
+      await navigator.clipboard.writeText(template);
+      setCopiedPath(path);
+      setTimeout(() => setCopiedPath(null), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  const renderValue = (value: unknown, path: string, indent: number): JSX.Element => {
+    const pad = "  ".repeat(indent);
+
+    if (value === null) return <span className="text-orange-500">null</span>;
+    if (typeof value === "boolean") return <span className="text-orange-500">{String(value)}</span>;
+    if (typeof value === "number") return <span className="text-blue-500">{String(value)}</span>;
+    if (typeof value === "string") {
+      if (isUrl(value)) {
+        return (
+          <a
+            className="text-blue-500 underline hover:text-blue-400"
+            href={value}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            &quot;{value}&quot;
+          </a>
+        );
+      }
+      const truncated = value.length > 120 ? `${value.slice(0, 120)}…` : value;
+      return <span className="text-green-600 dark:text-green-400">&quot;{truncated}&quot;</span>;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return <span>{"[]"}</span>;
+      return (
+        <>
+          {"[\n"}
+          {value.map((item, i) => (
+            <span key={i}>
+              {pad}{"  "}{renderValue(item, `${path}[${i}]`, indent + 1)}
+              {i < value.length - 1 ? ",\n" : "\n"}
+            </span>
+          ))}
+          {pad}{"]"}
+        </>
+      );
+    }
+
+    if (typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) return <span>{"{}"}</span>;
+      return (
+        <>
+          {"{\n"}
+          {entries.map(([key, val], i) => {
+            const childPath = path ? `${path}.${key}` : key;
+            const isCopied = copiedPath === childPath;
+            return (
+              <span key={key} className="group/line">
+                {pad}{"  "}
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded px-0.5 -mx-0.5 hover:bg-primary/10 transition-colors cursor-pointer"
+                  onClick={() => copyRef(childPath)}
+                  title={`Copy reference: {{@${nodeId}:${nodeName}.${childPath}}}`}
+                >
+                  <span className="text-foreground">&quot;{key}&quot;</span>
+                  {isCopied ? (
+                    <Check className="inline h-2.5 w-2.5 text-green-600" />
+                  ) : (
+                    <Copy className="inline h-2.5 w-2.5 opacity-0 group-hover/line:opacity-40 transition-opacity" />
+                  )}
+                </button>
+                {": "}
+                {renderValue(val, childPath, indent + 1)}
+                {i < entries.length - 1 ? ",\n" : "\n"}
+              </span>
+            );
+          })}
+          {pad}{"}"}
+        </>
+      );
+    }
+
+    return <span>{String(value)}</span>;
+  };
+
+  return (
+    <pre className="overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+      {renderValue(data, "", 0)}
+    </pre>
+  );
+}
+
 // Component for rendering output with rich display support
 function OutputDisplay({
   output,
   input,
   actionType,
+  nodeId,
+  nodeName,
 }: {
   output: unknown;
   input?: unknown;
   actionType?: string;
+  nodeId?: string;
+  nodeName?: string;
 }) {
   // Look up action from plugin registry to get outputConfig (including custom components)
   const action = actionType ? findActionById(actionType) : undefined;
@@ -385,11 +498,15 @@ function OutputDisplay({
 
   return (
     <>
-      {/* Always show JSON output */}
+      {/* Always show JSON output — interactive if nodeId/nodeName are available */}
       <CollapsibleSection copyData={output} title="Output">
-        <pre className="overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
-          <JsonWithLinks data={output} />
-        </pre>
+        {nodeId && nodeName ? (
+          <InteractiveJsonOutput data={output} nodeId={nodeId} nodeName={nodeName} />
+        ) : (
+          <pre className="overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+            <JsonWithLinks data={output} />
+          </pre>
+        )}
       </CollapsibleSection>
 
       {/* Show rich result if available */}
@@ -490,6 +607,8 @@ function ExecutionLogEntry({
                 actionType={log.nodeType}
                 input={log.input}
                 output={log.output}
+                nodeId={log.nodeId}
+                nodeName={log.nodeName}
               />
             )}
             {log.error && (

@@ -89,6 +89,45 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Sync workflow_nodes when workflow_data changes
+    if (body.workflow_data?.nodes && Array.isArray(body.workflow_data.nodes)) {
+      try {
+        const nodes = body.workflow_data.nodes as Array<{
+          id: string;
+          data?: { type?: string; label?: string; config?: { actionType?: string } };
+          position?: unknown;
+        }>;
+
+        const rows = nodes
+          .filter((n) => n.id)
+          .map((n) => ({
+            workflow_id: id,
+            flow_node_id: n.id,
+            node_type: n.data?.type || "action",
+            label: n.data?.label || "",
+            action_type: (n.data?.config?.actionType as string) || null,
+            position: n.position ?? null,
+            updated_at: new Date().toISOString(),
+          }));
+
+        if (rows.length > 0) {
+          await supabaseAdmin
+            .from("workflow_nodes")
+            .upsert(rows, { onConflict: "workflow_id,flow_node_id" });
+
+          // Prune nodes that are no longer in the workflow
+          const flowIds = rows.map((r) => r.flow_node_id);
+          await supabaseAdmin
+            .from("workflow_nodes")
+            .delete()
+            .eq("workflow_id", id)
+            .not("flow_node_id", "in", `(${flowIds.map((f) => `"${f}"`).join(",")})`);
+        }
+      } catch (syncErr) {
+        console.error("[PATCH /api/automations/[id]] Node sync error:", syncErr);
+      }
+    }
+
     return NextResponse.json({ automation: data });
   } catch (err) {
     console.error("[PATCH /api/automations/[id]]", err);

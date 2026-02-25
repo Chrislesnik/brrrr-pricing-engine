@@ -326,6 +326,9 @@ export function generateWorkflowSDKCode(
       `method: "${config.httpMethod || "POST"}"`,
       `headers: ${config.httpHeaders || "{}"}`,
     ];
+    if (config.httpQueryParams) {
+      params.push(`queryParams: ${config.httpQueryParams}`);
+    }
     if (config.httpBody) {
       params.push(`body: ${config.httpBody}`);
     }

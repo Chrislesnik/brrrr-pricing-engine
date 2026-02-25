@@ -25,6 +25,27 @@ export type LogStepStartResult = {
 export async function logStepStartDb(
   params: LogStepStartParams
 ): Promise<LogStepStartResult> {
+  // Resolve workflow_node_id from the execution's workflow_id + node flow ID
+  let workflowNodeId: string | null = null;
+  try {
+    const { data: exec } = await supabaseAdmin
+      .from("workflow_executions")
+      .select("workflow_id")
+      .eq("id", params.executionId)
+      .single();
+    if (exec?.workflow_id) {
+      const { data: wn } = await supabaseAdmin
+        .from("workflow_nodes")
+        .select("id")
+        .eq("workflow_id", exec.workflow_id)
+        .eq("flow_node_id", params.nodeId)
+        .single();
+      if (wn) workflowNodeId = wn.id as string;
+    }
+  } catch {
+    // Non-blocking — continue without the FK
+  }
+
   const { data, error } = await supabaseAdmin
     .from("workflow_execution_logs")
     .insert({
@@ -35,6 +56,7 @@ export async function logStepStartDb(
       status: "running",
       input: params.input ?? null,
       started_at: new Date().toISOString(),
+      workflow_node_id: workflowNodeId,
     })
     .select("id")
     .single();

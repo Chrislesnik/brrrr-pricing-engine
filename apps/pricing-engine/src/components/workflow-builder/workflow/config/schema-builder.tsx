@@ -36,6 +36,7 @@ export type SchemaField = {
   fields?: SchemaField[];
   description?: string;
   inputId?: string;
+  inputCode?: string;
 };
 
 export type InputOption = {
@@ -309,6 +310,7 @@ export function SchemaBuilder({
                           updates.name = selected.input_code;
                         }
                         updates.type = mapped;
+                        updates.inputCode = selected.input_code;
                       }
                       updateField(index, updates);
                     }}
