@@ -75,6 +75,22 @@ function resolveItemRefs(template: string, item: WorkflowItem): string {
 }
 
 /**
+ * Evaluate a JavaScript expression string in a sandboxed context.
+ * Provides the current item's json fields as top-level variables.
+ */
+function safeEvalExpression(expr: string, item: WorkflowItem): unknown {
+  try {
+    const vars = item.json ?? {};
+    const argNames = Object.keys(vars);
+    const argValues = Object.values(vars);
+    const fn = new Function(...argNames, `"use strict"; return (${expr});`);
+    return fn(...argValues);
+  } catch {
+    return expr;
+  }
+}
+
+/**
  * Coerce a raw string value to the declared type.
  */
 function coerceValue(raw: string, type: SetFieldRow["type"]): unknown {
@@ -168,23 +184,34 @@ function executeSetFields(input: SetFieldsInput): { items: WorkflowItem[] } {
 
       let rawValue: string;
 
+      let effectiveMode: "fixed" | "expression" = row.mode ?? "fixed";
+
       if (row.conditional && row.branches?.length) {
         let matched = false;
         for (const branch of row.branches) {
           if (evaluateRowCondition(branch.condition, item)) {
             rawValue = resolveItemRefs(branch.value ?? "", item);
+            effectiveMode = branch.mode ?? row.mode ?? "fixed";
             matched = true;
             break;
           }
         }
         if (!matched) {
           rawValue = resolveItemRefs(row.elseValue ?? "", item);
+          effectiveMode = row.elseMode ?? "fixed";
         }
       } else {
         rawValue = resolveItemRefs(row.value ?? "", item);
       }
 
-      base[row.name.trim()] = coerceValue(rawValue!, row.type);
+      if (effectiveMode === "expression") {
+        const evaluated = safeEvalExpression(rawValue!, item);
+        base[row.name.trim()] = typeof evaluated === "string"
+          ? coerceValue(evaluated, row.type)
+          : evaluated;
+      } else {
+        base[row.name.trim()] = coerceValue(rawValue!, row.type);
+      }
     }
 
     return { json: base };
