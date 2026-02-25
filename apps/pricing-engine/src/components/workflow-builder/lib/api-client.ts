@@ -113,27 +113,65 @@ export const aiApi = {
       reader.releaseLock();
     }
 
-    // Final parse of the complete response
-    const finalJson = extractJson(accumulated);
-    if (!finalJson) {
-      throw new ApiError(500, "AI did not return valid workflow JSON");
+    // Final parse: try multiple strategies
+    const cleaned = stripNonJson(accumulated);
+    let workflow: WorkflowData | null = null;
+
+    // Strategy 1: extract complete JSON object
+    const finalJson = extractJson(cleaned);
+    if (finalJson) {
+      try {
+        workflow = JSON.parse(finalJson) as WorkflowData;
+      } catch {
+        // Strategy 2: repair incomplete JSON (stream may have been cut off)
+        try {
+          const repaired = repairPartialJson(finalJson);
+          workflow = JSON.parse(repaired) as WorkflowData;
+        } catch { /* continue to strategy 3 */ }
+      }
     }
 
-    const workflow = JSON.parse(finalJson) as WorkflowData;
+    // Strategy 3: try parsing the last successful partial result
+    if (!workflow) {
+      const partial = tryParsePartialWorkflow(accumulated);
+      if (partial?.nodes && partial.nodes.length > 0) {
+        workflow = partial;
+      }
+    }
+
+    if (!workflow || !workflow.nodes) {
+      console.error("[AI] Could not extract workflow JSON. Response (first 500 chars):", accumulated.slice(0, 500));
+      throw new ApiError(500, "AI did not return valid workflow JSON — please try again");
+    }
+
     onUpdate(workflow);
     return workflow;
   },
 };
 
 /**
+ * Strip markdown fences, preamble text, and other non-JSON content
+ * that the model may wrap around the JSON response.
+ */
+function stripNonJson(text: string): string {
+  let cleaned = text.trim();
+  // Remove markdown code fences: ```json ... ``` or ``` ... ```
+  cleaned = cleaned.replace(/^```(?:json|JSON)?\s*\n?/gm, "");
+  cleaned = cleaned.replace(/\n?```\s*$/gm, "");
+  cleaned = cleaned.trim();
+  return cleaned;
+}
+
+/**
  * Try to parse a partial JSON workflow from accumulated stream text.
  * Closes any unclosed brackets/braces and arrays to get a valid parse.
  */
 function tryParsePartialWorkflow(text: string): WorkflowData | null {
-  const jsonStart = text.indexOf("{");
+  const cleaned = stripNonJson(text);
+  const jsonStart = cleaned.indexOf("{");
   if (jsonStart === -1) return null;
 
-  let json = text.slice(jsonStart);
+  let json = cleaned.slice(jsonStart);
 
   // First try direct parse (works when stream is complete)
   try {

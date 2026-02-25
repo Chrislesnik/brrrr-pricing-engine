@@ -2,10 +2,9 @@
 
 import { useReactFlow } from "@xyflow/react";
 import { useAtom, useAtomValue } from "jotai";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Shimmer } from "@/components/workflow-builder/ai-elements/shimmer";
 import { Button } from "@repo/ui/shadcn/button";
 import { api } from "@/components/workflow-builder/lib/api-client";
 import { diffWorkflow } from "@/components/workflow-builder/lib/ai-diff";
@@ -29,6 +28,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   const [prompt, setPrompt] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodes = useAtomValue(nodesAtom);
@@ -94,6 +94,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       }
 
       setIsGenerating(true);
+      setStreamStatus("Thinking...");
 
       try {
         const existingWorkflow = hasNodes
@@ -103,8 +104,11 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         const workflowData = await api.ai.generateStream(
           prompt,
           (partialData) => {
-            // For fresh canvases, show streaming preview directly
+            const nodeCount = (partialData.nodes || []).length;
+            const edgeCount = (partialData.edges || []).length;
+
             if (!hasNodes) {
+              // Fresh canvas: show streaming preview directly
               const edgesWithAnimatedType = (partialData.edges || []).map(
                 (edge) => ({ ...edge, type: "animated" }),
               );
@@ -114,11 +118,25 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
                 setCurrentWorkflowName(partialData.name);
               }
               setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 0);
+              setStreamStatus(
+                nodeCount > 0
+                  ? `Building workflow — ${nodeCount} node${nodeCount !== 1 ? "s" : ""}...`
+                  : "Thinking...",
+              );
+            } else {
+              // Existing workflow: show progress in the bar
+              setStreamStatus(
+                nodeCount > 0
+                  ? `Analyzing ${nodeCount} node${nodeCount !== 1 ? "s" : ""}, ${edgeCount} connection${edgeCount !== 1 ? "s" : ""}...`
+                  : "Analyzing workflow...",
+              );
             }
           },
           existingWorkflow,
           integrationsRef.current ?? [],
         );
+
+        setStreamStatus("Applying changes...");
 
         const finalEdges = (workflowData.edges || []).map((edge) => ({
           ...edge,
@@ -216,6 +234,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         );
       } finally {
         setIsGenerating(false);
+        setStreamStatus(null);
       }
     },
     [
@@ -238,6 +257,8 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
     ],
   );
 
+  const barExpanded = isExpanded || isGenerating;
+
   return (
     <>
       {/* Always visible prompt input */}
@@ -245,22 +266,21 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         ref={containerRef}
         className="pointer-events-auto absolute bottom-4 left-1/2 z-10 -translate-x-1/2 px-4"
         style={{
-          width: isExpanded ? "min(100%, 42rem)" : "20rem",
+          width: barExpanded ? "min(100%, 42rem)" : "20rem",
           transition: "width 150ms ease-out",
         }}
       >
         <form
           aria-busy={isGenerating}
           aria-label="AI workflow prompt"
-          className="relative flex items-center gap-2 rounded-lg border bg-background pl-3 pr-2 py-2 shadow-lg cursor-text"
+          className={`relative flex items-center gap-2 rounded-lg border bg-background pl-3 pr-2 py-2 shadow-lg cursor-text transition-all duration-200 ${isGenerating ? "border-primary/50 shadow-primary/10 shadow-xl" : ""}`}
           onClick={(e) => {
-            // Focus textarea when clicking anywhere in the form (including padding)
+            if (isGenerating) return;
             if (e.target === e.currentTarget || (e.target as HTMLElement).tagName !== 'BUTTON') {
               inputRef.current?.focus();
             }
           }}
           onMouseDown={(e) => {
-            // Prevent textarea from losing focus when clicking form padding
             if (e.target === e.currentTarget) {
               e.preventDefault();
             }
@@ -268,10 +288,18 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
           onSubmit={handleGenerate}
           role="search"
         >
-          {isGenerating && prompt ? (
-            <Shimmer className="flex-1 text-sm whitespace-pre-wrap" duration={2}>
-              {prompt}
-            </Shimmer>
+          {isGenerating ? (
+            <div className="flex flex-1 items-center gap-2.5 py-0.5 min-w-0 overflow-hidden">
+              <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="text-sm font-medium truncate text-foreground">
+                  {streamStatus || "Thinking..."}
+                </p>
+                <p className="text-xs text-muted-foreground truncate max-w-full">
+                  {prompt}
+                </p>
+              </div>
+            </div>
           ) : (
             <textarea
               aria-label="Describe your workflow"

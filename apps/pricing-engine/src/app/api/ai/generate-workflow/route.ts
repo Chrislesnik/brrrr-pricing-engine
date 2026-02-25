@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { streamText } from "ai";
-import { createAnthropic } from "@ai-sdk/anthropic";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateAIActionPrompts } from "@/components/workflow-builder/plugins";
 
 export const maxDuration = 120;
@@ -228,6 +228,23 @@ Rules for modification:
   return message;
 }
 
+function extractErrorMessage(err: unknown): string {
+  if (!err) return "Unknown error";
+  if (err instanceof Error) {
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause && typeof cause === "object") {
+      const c = cause as Record<string, unknown>;
+      if (typeof c.message === "string") return c.message;
+      if (typeof c.error === "object" && c.error && typeof (c.error as Record<string, unknown>).message === "string") {
+        return (c.error as Record<string, unknown>).message as string;
+      }
+    }
+    return err.message || String(err);
+  }
+  if (typeof err === "string") return err;
+  return String(err);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -249,32 +266,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
       return NextResponse.json(
-        { error: "ANTHROPIC_API_KEY is not configured" },
+        { error: "OPENAI_API_KEY is not configured" },
         { status: 500 },
       );
     }
 
-    const anthropic = createAnthropic({ apiKey });
+    const openai = createOpenAI({ apiKey: openaiKey });
 
     const systemPrompt = buildSystemPrompt(availableIntegrations ?? []);
     const userMessage = buildUserMessage(prompt, existingWorkflow);
 
-    const result = streamText({
-      model: anthropic("claude-sonnet-4-20250514"),
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-      temperature: 0.3,
-      maxTokens: 16384,
+    let text = "";
+    try {
+      console.log(`[AI generate-workflow] Calling gpt-4o. Prompt length: ${userMessage.length}`);
+      const result = await generateText({
+        model: openai("gpt-4o"),
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+        temperature: 0.3,
+        maxOutputTokens: 16384,
+      });
+      text = result.text;
+      console.log(`[AI generate-workflow] gpt-4o responded. Length: ${text.length}`);
+    } catch (err) {
+      const msg = extractErrorMessage(err);
+      console.error("[AI generate-workflow] gpt-4o failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 503 });
+    }
+
+    if (!text.trim()) {
+      return NextResponse.json({ error: "Model returned empty response" }, { status: 503 });
+    }
+
+    // Stream the text to the client in chunks for incremental parsing
+    const encoder = new TextEncoder();
+    const chunkSize = 200;
+    const stream = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < text.length; i += chunkSize) {
+          controller.enqueue(encoder.encode(text.slice(i, i + chunkSize)));
+        }
+        controller.close();
+      },
     });
 
-    return result.toTextStreamResponse();
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    });
   } catch (err) {
     console.error("[POST /api/ai/generate-workflow]", err);
+    const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: message },
       { status: 500 },
     );
   }

@@ -283,21 +283,7 @@ export async function readScenarioInputs(
     else if (row.value_bool !== null && row.value_bool !== undefined) value = row.value_bool
     else if (row.value_array) {
       const parsed = typeof row.value_array === "string" ? JSON.parse(row.value_array) : row.value_array
-      if (Array.isArray(parsed)) {
-        value = parsed.map((item: Record<string, unknown>) => {
-          if (item && typeof item === "object" && ("gross" in item || "market" in item)) {
-            const { gross, market, ...rest } = item as Record<string, unknown>
-            return {
-              ...rest,
-              ...("gross" in item && !("gross_rent" in item) ? { gross_rent: gross } : {}),
-              ...("market" in item && !("market_rent" in item) ? { market_rent: market } : {}),
-            }
-          }
-          return item
-        })
-      } else {
-        value = parsed
-      }
+      value = parsed
     }
     else if (row.value_numeric !== null && row.value_numeric !== undefined) value = row.value_numeric
     else value = row.value_text
