@@ -105,6 +105,14 @@ function VariableTypeSelect({ variableTypes }: { variableTypes: VariableType[] }
   )
 }
 
+function SearchFilter({ query, children }: { query: string; children: React.ReactNode }) {
+  const itemData = useKeyValueItemContext("SearchFilter")
+  if (query && !itemData.key.toLowerCase().includes(query.toLowerCase())) {
+    return null
+  }
+  return <>{children}</>
+}
+
 function PathInput({
   pathMap,
   onPathChange,
@@ -321,15 +329,17 @@ export function VariableEditorModal({
               className="p-2"
             >
               <KeyValueList>
-                <KeyValueItem className="flex flex-wrap items-center gap-2">
-                  <KeyValueKeyInput className="flex-1 min-w-[120px]" />
-                  <VariableTypeSelect variableTypes={variableTypes} />
-                  <KeyValueRemove className="shrink-0" />
-                  <PathInput
-                    pathMap={pathMap}
-                    onPathChange={handlePathChange}
-                  />
-                </KeyValueItem>
+                <SearchFilter query={searchQuery}>
+                  <KeyValueItem className="flex flex-wrap items-center gap-2">
+                    <KeyValueKeyInput className="flex-1 min-w-[120px]" />
+                    <VariableTypeSelect variableTypes={variableTypes} />
+                    <KeyValueRemove className="shrink-0" />
+                    <PathInput
+                      pathMap={pathMap}
+                      onPathChange={handlePathChange}
+                    />
+                  </KeyValueItem>
+                </SearchFilter>
               </KeyValueList>
               <KeyValueAdd className="w-full" />
             </KeyValue>

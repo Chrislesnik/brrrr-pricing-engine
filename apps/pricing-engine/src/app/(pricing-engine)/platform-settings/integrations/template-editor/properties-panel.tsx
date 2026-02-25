@@ -70,6 +70,20 @@ function buildShorthand(top: string, right: string, bottom: string, left: string
   return `${t} ${r} ${b} ${l}`
 }
 
+const FLEX_CHILD_TYPES = new Set([
+  "column", "flex-column", "cell", "gs-column", "gs-cell",
+])
+
+function isFlexChild(component: any): boolean {
+  const type = (component?.get?.("type") || "").toLowerCase()
+  if (FLEX_CHILD_TYPES.has(type)) return true
+  const parent = component?.parent?.()
+  if (!parent) return false
+  const parentStyle = parent.getStyle?.() || {}
+  const parentDisplay = parentStyle.display || ""
+  return parentDisplay === "flex" || parentDisplay === "inline-flex"
+}
+
 const TEXT_COMPONENT_TYPES = new Set([
   "text", "textnode", "heading", "paragraph", "link", "label", "span",
 ])
@@ -237,6 +251,7 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
             "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
             "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
             "width", "height", "display",
+            "flex-basis", "flex-grow", "flex-shrink",
             "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
             "border-top-style", "border-right-style", "border-bottom-style", "border-left-style",
             "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
@@ -419,9 +434,13 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
   const isDataVariable = componentType === "data-variable"
   const isInlineOnly = isDataVariable
   const stringVariables = variables.filter(v => v.type === "String")
+  const flexChild = selected ? isFlexChild(selected) : false
 
-  // Parse current values
-  const width = parseStyleValue(styles["width"])
+  // Parse current values – for flex children prefer flex-basis over width
+  const widthSource = flexChild && styles["flex-basis"] && styles["flex-basis"] !== "auto"
+    ? styles["flex-basis"]
+    : styles["width"]
+  const width = parseStyleValue(widthSource)
   const height = parseStyleValue(styles["height"])
 
   const padding = parseShorthand(styles["padding"])
@@ -621,6 +640,47 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
                   </Select>
                 </div>
 
+                {!["inline", "none"].includes(styles["display"] || "block") && (
+                  <div className="space-y-1.5 mt-3">
+                    <Label className="text-xs text-muted-foreground">Alignment</Label>
+                    <ToggleGroup
+                      type="single"
+                      value={
+                        styles["margin-left"] === "auto" && styles["margin-right"] === "auto"
+                          ? "center"
+                          : styles["margin-left"] === "auto"
+                            ? "right"
+                            : "left"
+                      }
+                      onValueChange={(v) => {
+                        if (!v) return
+                        if (v === "center") {
+                          setStyle("margin-left", "auto")
+                          setStyle("margin-right", "auto")
+                        } else if (v === "right") {
+                          setStyle("margin-left", "auto")
+                          setStyle("margin-right", "0")
+                        } else {
+                          setStyle("margin-left", "0")
+                          setStyle("margin-right", "auto")
+                        }
+                      }}
+                      className="justify-start"
+                      size="sm"
+                    >
+                      <ToggleGroupItem value="left" className="h-8 w-8 p-0">
+                        <AlignLeft className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="center" className="h-8 w-8 p-0">
+                        <AlignCenter className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="right" className="h-8 w-8 p-0">
+                        <AlignRight className="h-3.5 w-3.5" />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                )}
+
                 {(styles["display"] === "flex" || styles["display"] === "inline-flex") && (
                   <>
                     <div className="space-y-1.5 mt-3">
@@ -704,12 +764,24 @@ export function PropertiesPanel({ editor, variables = [], orgLogos }: Properties
                     label="Width"
                     value={width.num}
                     unit={width.unit}
-                    onValueChange={(v) =>
-                      setStyle("width", buildStyleValue(v, width.unit))
-                    }
-                    onUnitChange={(u) =>
-                      setStyle("width", buildStyleValue(width.num, u))
-                    }
+                    onValueChange={(v) => {
+                      const val = buildStyleValue(v, width.unit)
+                      setStyle("width", val)
+                      if (flexChild) {
+                        setStyle("flex-basis", val)
+                        setStyle("flex-grow", "0")
+                        setStyle("flex-shrink", "0")
+                      }
+                    }}
+                    onUnitChange={(u) => {
+                      const val = buildStyleValue(width.num, u)
+                      setStyle("width", val)
+                      if (flexChild) {
+                        setStyle("flex-basis", val)
+                        setStyle("flex-grow", "0")
+                        setStyle("flex-shrink", "0")
+                      }
+                    }}
                   />
                   <SizeInput
                     label="Height"

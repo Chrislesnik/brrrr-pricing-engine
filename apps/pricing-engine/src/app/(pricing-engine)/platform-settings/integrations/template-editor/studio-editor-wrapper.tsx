@@ -599,24 +599,26 @@ export function StudioEditorWrapper({
                       return state.doc.rangeHasMark(from, to, markType)
                     }
 
-                    const markButton = (id: string, names: string[], label: string, icon: string) => ({
-                      id,
-                      type: "button" as const,
-                      icon,
-                      tooltip: label,
-                      active: () => isMarkActive(...names),
-                      onClick: () => toggleMark(...names),
-                    })
+                    const markOverrides: Record<string, string[]> = {
+                      bold: ["bold", "strong"],
+                      italic: ["italic", "em"],
+                      underline: ["underline"],
+                      strikethrough: ["strike", "strikethrough"],
+                      strike: ["strike", "strikethrough"],
+                    }
 
                     return [
-                      markButton("bold", ["bold", "strong"], "Bold", "format_bold"),
-                      markButton("italic", ["italic", "em"], "Italic", "format_italic"),
-                      markButton("underline", ["underline"], "Underline", "format_underlined"),
-                      markButton("strikethrough", ["strike", "strikethrough"], "Strikethrough", "strikethrough_s"),
-                      layouts.separator,
-                      ...items.filter((item: any) =>
-                        !["bold", "italic", "underline", "strikethrough", "strike"].includes(item.id)
-                      ),
+                      ...items.map((item: any) => {
+                        const names = markOverrides[item.id]
+                        if (names) {
+                          return {
+                            ...item,
+                            active: () => isMarkActive(...names),
+                            onClick: () => toggleMark(...names),
+                          }
+                        }
+                        return item
+                      }),
                       layouts.separator,
                       {
                         id: "variables",
@@ -886,11 +888,11 @@ export function StudioEditorWrapper({
                 [data-variable], [data-gjs-type="data-variable"] {
                   display: inline-flex !important;
                   align-items: center !important;
-                  padding: 1px 8px !important;
+                  padding: 0.05em 0.5em !important;
                   border-radius: 4px !important;
-                  font-size: 0.75rem !important;
+                  font-size: inherit !important;
                   font-weight: 500 !important;
-                  line-height: 1.5 !important;
+                  line-height: inherit !important;
                   white-space: nowrap !important;
                   vertical-align: baseline !important;
                   background-color: ${typeColorConfig["String"].bgHex} !important;

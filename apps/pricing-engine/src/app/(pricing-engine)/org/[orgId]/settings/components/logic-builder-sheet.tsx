@@ -1578,35 +1578,20 @@ function ActionValueInput({
     );
   }
 
-  // Number input → NumberField with +/- buttons
   if (inputType === "number") {
     return (
       <div className="relative flex-1">
-        <NumberField
-          value={action.value_text ? Number(action.value_text) : undefined}
-          onChange={(val) => onChangeText(isNaN(val) ? "" : String(val))}
-          minValue={0}
-          className="w-full"
-        >
-          <Group className="border-input data-focus-within:ring-ring relative inline-flex h-8 w-full items-center overflow-hidden rounded-md border bg-transparent shadow-xs transition-colors outline-none data-disabled:opacity-50 data-focus-within:ring-1">
-            <AriaInput
-              placeholder="0"
-              className="placeholder:text-muted-foreground w-full grow bg-transparent px-3 py-1 text-xs outline-none"
-            />
-            <AriaButton
-              slot="decrement"
-              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-            >
-              <MinusIcon className="size-3" />
-            </AriaButton>
-            <AriaButton
-              slot="increment"
-              className="border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground flex aspect-square h-[inherit] items-center justify-center border-l text-sm transition-colors disabled:opacity-50"
-            >
-              <PlusIcon className="size-3" />
-            </AriaButton>
-          </Group>
-        </NumberField>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="0"
+          value={action.value_text ?? ""}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9.\-]/g, "")
+            onChangeText(v)
+          }}
+          className="border-input h-8 w-full rounded-md border bg-transparent px-3 py-1 text-xs shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+        />
         {threeDotButton}
       </div>
     );
