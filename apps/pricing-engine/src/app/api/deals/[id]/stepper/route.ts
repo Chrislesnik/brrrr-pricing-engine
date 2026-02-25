@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     const { data, error } = await supabaseAdmin
       .from("deal_stepper")
-      .select("id, deal_id, input_stepper_id, current_step, step_order, created_at")
+      .select("id, deal_id, input_stepper_id, current_step, step_order, created_at, completed_at, is_frozen")
       .eq("deal_id", dealId)
       .maybeSingle();
 
@@ -40,49 +40,63 @@ export async function GET(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ stepper: null });
     }
 
-    // Sync current_step from the deal's actual input value
-    try {
-      // Get the input_id attached to the stepper config
-      const { data: stepperConfig } = await supabaseAdmin
-        .from("input_stepper")
-        .select("input_id")
-        .eq("id", data.input_stepper_id)
-        .single();
+    // Skip current_step sync when the stepper is frozen (completed deals are protected)
+    if (!data.is_frozen) {
+      try {
+        const { data: stepperConfig } = await supabaseAdmin
+          .from("input_stepper")
+          .select("input_id")
+          .eq("id", data.input_stepper_id)
+          .single();
 
-      if (stepperConfig) {
-        // Get the deal's actual value for this input
-        const { data: dealInput } = await supabaseAdmin
-          .from("deal_inputs")
-          .select("value_text")
-          .eq("deal_id", dealId)
-          .eq("input_id", stepperConfig.input_id)
-          .maybeSingle();
+        if (stepperConfig) {
+          const { data: dealInput } = await supabaseAdmin
+            .from("deal_inputs")
+            .select("value_text")
+            .eq("deal_id", dealId)
+            .eq("input_id", stepperConfig.input_id)
+            .maybeSingle();
 
-        const actualValue = dealInput?.value_text;
+          const actualValue = dealInput?.value_text;
 
-        // If the deal input has a value and it differs from current_step, sync it
-        if (actualValue && actualValue !== data.current_step && data.step_order.includes(actualValue)) {
-          const prevStep = data.current_step;
+          if (actualValue && actualValue !== data.current_step && data.step_order.includes(actualValue)) {
+            const prevStep = data.current_step;
 
-          await supabaseAdmin
-            .from("deal_stepper")
-            .update({ current_step: actualValue })
-            .eq("id", data.id);
+            // Check if syncing to the final step
+            const stepOrder: string[] = data.step_order ?? [];
+            const lastStep = stepOrder[stepOrder.length - 1];
+            const reachedFinalStep = actualValue === lastStep;
 
-          await supabaseAdmin.from("deal_stepper_history").insert({
-            deal_id: dealId,
-            deal_stepper_id: data.id,
-            previous_step: prevStep,
-            new_step: actualValue,
-            changed_by: null,
-            change_source: "sync",
-          });
+            await supabaseAdmin
+              .from("deal_stepper")
+              .update({
+                current_step: actualValue,
+                ...(reachedFinalStep
+                  ? { completed_at: new Date().toISOString(), is_frozen: true }
+                  : {}),
+              })
+              .eq("id", data.id);
 
-          data.current_step = actualValue;
+            await supabaseAdmin.from("deal_stepper_history").insert({
+              deal_id: dealId,
+              deal_stepper_id: data.id,
+              previous_step: prevStep,
+              new_step: actualValue,
+              changed_by: null,
+              change_source: "sync",
+              reached_final_step: reachedFinalStep,
+            });
+
+            data.current_step = actualValue;
+            if (reachedFinalStep) {
+              data.completed_at = new Date().toISOString();
+              data.is_frozen = true;
+            }
+          }
         }
+      } catch {
+        // Sync is non-critical — return the existing data
       }
-    } catch {
-      // Sync is non-critical — return the existing data
     }
 
     return NextResponse.json({ stepper: data });
@@ -97,8 +111,8 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
 /* -------------------------------------------------------------------------- */
 /*  PATCH /api/deals/[id]/stepper                                              */
-/*  Update the current step                                                    */
-/*  Body: { current_step: string }                                             */
+/*  Update the current step or unfreeze the stepper                            */
+/*  Body: { current_step: string } | { unfreeze: true }                        */
 /* -------------------------------------------------------------------------- */
 
 export async function PATCH(request: Request, { params }: RouteContext) {
@@ -110,6 +124,53 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const { id: dealId } = await params;
     const body = await request.json();
+
+    /* ---- Unfreeze path ---- */
+    if (body.unfreeze === true) {
+      const { data: existing } = await supabaseAdmin
+        .from("deal_stepper")
+        .select("id, input_stepper_id, is_frozen")
+        .eq("deal_id", dealId)
+        .maybeSingle();
+
+      if (!existing) {
+        return NextResponse.json(
+          { error: "No stepper found for this deal" },
+          { status: 404 }
+        );
+      }
+
+      // Re-sync step_order from the current input_stepper config
+      const { data: config } = await supabaseAdmin
+        .from("input_stepper")
+        .select("step_order")
+        .eq("id", existing.input_stepper_id)
+        .single();
+
+      const updatePayload: Record<string, unknown> = { is_frozen: false };
+      if (config?.step_order) {
+        updatePayload.step_order = config.step_order;
+      }
+
+      const { data: updated, error: unfreezeErr } = await supabaseAdmin
+        .from("deal_stepper")
+        .update(updatePayload)
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (unfreezeErr) {
+        console.error("[PATCH /api/deals/[id]/stepper] unfreeze error:", unfreezeErr);
+        return NextResponse.json(
+          { error: "Failed to unfreeze stepper" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ stepper: updated });
+    }
+
+    /* ---- Normal step-change path ---- */
     const { current_step } = body;
 
     if (!current_step || typeof current_step !== "string") {
@@ -143,8 +204,21 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       );
     }
 
+    // Check if the deal just reached the final step — auto-freeze
+    const stepOrder: string[] = data.step_order ?? [];
+    const lastStep = stepOrder[stepOrder.length - 1];
+    const reachedFinalStep = current_step === lastStep;
+
+    if (reachedFinalStep && !data.is_frozen) {
+      await supabaseAdmin
+        .from("deal_stepper")
+        .update({ completed_at: new Date().toISOString(), is_frozen: true })
+        .eq("id", data.id);
+      data.completed_at = new Date().toISOString();
+      data.is_frozen = true;
+    }
+
     // Also update the deal's stage input to keep in sync
-    // Find the stepper config to get the input_id (the dropdown that drives the stepper)
     const { data: stepperConfig } = await supabaseAdmin
       .from("input_stepper")
       .select("input_id")
@@ -152,7 +226,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       .single();
 
     if (stepperConfig) {
-      // Get the input type to know how to store the value
       const { data: input } = await supabaseAdmin
         .from("inputs")
         .select("id, input_type")
@@ -160,7 +233,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         .single();
 
       if (input) {
-        // Upsert into deal_inputs to update the deal's stage value
         await supabaseAdmin
           .from("deal_inputs")
           .upsert(
@@ -184,6 +256,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         new_step: current_step,
         changed_by: userId,
         change_source: "manual",
+        reached_final_step: reachedFinalStep,
       });
     }
 

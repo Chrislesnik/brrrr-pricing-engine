@@ -155,8 +155,8 @@ export function ProgramsSettings() {
         <AddProgramDialog
             action={async (formData) => {
               const result = await addProgramAction(formData);
-              if (!("error" in result)) {
-                refreshPrograms();
+              if (result.ok) {
+                await refreshPrograms();
               }
               return result;
             }}
@@ -226,12 +226,16 @@ export function ProgramsSettings() {
                     program={p}
                     updateAction={async (formData) => {
                       const result = await updateProgramAction(formData);
-                      refreshPrograms();
+                      if (result.ok) {
+                        await refreshPrograms();
+                      }
                       return result;
                     }}
                     deleteAction={async (formData) => {
                       const result = await deleteProgramAction(formData);
-                      refreshPrograms();
+                      if (result.ok) {
+                        await refreshPrograms();
+                      }
                       return result;
                     }}
                     orgId={orgId ?? null}

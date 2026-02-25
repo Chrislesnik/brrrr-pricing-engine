@@ -3464,27 +3464,33 @@ export type Database = {
       }
       deal_stepper: {
         Row: {
+          completed_at: string | null
           created_at: string
           current_step: string
           deal_id: string
           id: number
           input_stepper_id: number
+          is_frozen: boolean
           step_order: string[]
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           current_step: string
           deal_id: string
           id?: number
           input_stepper_id: number
+          is_frozen?: boolean
           step_order: string[]
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           current_step?: string
           deal_id?: string
           id?: number
           input_stepper_id?: number
+          is_frozen?: boolean
           step_order?: string[]
         }
         Relationships: [
@@ -3506,34 +3512,37 @@ export type Database = {
       }
       deal_stepper_history: {
         Row: {
-          id: number
+          change_source: string
+          changed_by: string | null
+          created_at: string
           deal_id: string
           deal_stepper_id: number
-          previous_step: string | null
+          id: number
           new_step: string
-          changed_by: string | null
-          change_source: string
-          created_at: string
+          previous_step: string | null
+          reached_final_step: boolean
         }
         Insert: {
-          id?: number
+          change_source: string
+          changed_by?: string | null
+          created_at?: string
           deal_id: string
           deal_stepper_id: number
-          previous_step?: string | null
+          id?: number
           new_step: string
-          changed_by?: string | null
-          change_source: string
-          created_at?: string
+          previous_step?: string | null
+          reached_final_step?: boolean
         }
         Update: {
-          id?: number
+          change_source?: string
+          changed_by?: string | null
+          created_at?: string
           deal_id?: string
           deal_stepper_id?: number
-          previous_step?: string | null
+          id?: number
           new_step?: string
-          changed_by?: string | null
-          change_source?: string
-          created_at?: string
+          previous_step?: string | null
+          reached_final_step?: boolean
         }
         Relationships: [
           {
@@ -5014,6 +5023,7 @@ export type Database = {
       }
       email_templates: {
         Row: {
+          blocknote_document: Json | null
           created_at: string
           editor_json: Json
           email_output_html: string | null
@@ -5031,8 +5041,10 @@ export type Database = {
           styles: Json
           subject: string
           updated_at: string
+          uuid: string
         }
         Insert: {
+          blocknote_document?: Json | null
           created_at?: string
           editor_json?: Json
           email_output_html?: string | null
@@ -5050,8 +5062,10 @@ export type Database = {
           styles?: Json
           subject?: string
           updated_at?: string
+          uuid?: string
         }
         Update: {
+          blocknote_document?: Json | null
           created_at?: string
           editor_json?: Json
           email_output_html?: string | null
@@ -5069,6 +5083,7 @@ export type Database = {
           styles?: Json
           subject?: string
           updated_at?: string
+          uuid?: string
         }
         Relationships: [
           {
@@ -5789,6 +5804,56 @@ export type Database = {
             columns: ["integration_settings_id"]
             isOneToOne: false
             referencedRelation: "integration_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landing_page_templates: {
+        Row: {
+          created_at: string
+          gjs_data: Json
+          html_content: string
+          id: number
+          name: string
+          organization_id: string
+          published_at: string | null
+          slug: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gjs_data?: Json
+          html_content?: string
+          id?: number
+          name?: string
+          organization_id: string
+          published_at?: string | null
+          slug?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gjs_data?: Json
+          html_content?: string
+          id?: number
+          name?: string
+          organization_id?: string
+          published_at?: string | null
+          slug?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landing_page_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -7075,6 +7140,50 @@ export type Database = {
         }
         Relationships: []
       }
+      program_rows_ids: {
+        Row: {
+          compute_spreadsheet_id: string | null
+          compute_table_id: string | null
+          created_at: string
+          id: number
+          primary: boolean | null
+          program_id: string | null
+          rent_spreadsheet_id: string | null
+          rent_table_id: string | null
+          rows_order: string | null
+        }
+        Insert: {
+          compute_spreadsheet_id?: string | null
+          compute_table_id?: string | null
+          created_at?: string
+          id?: number
+          primary?: boolean | null
+          program_id?: string | null
+          rent_spreadsheet_id?: string | null
+          rent_table_id?: string | null
+          rows_order?: string | null
+        }
+        Update: {
+          compute_spreadsheet_id?: string | null
+          compute_table_id?: string | null
+          created_at?: string
+          id?: number
+          primary?: boolean | null
+          program_id?: string | null
+          rent_spreadsheet_id?: string | null
+          rent_table_id?: string | null
+          rows_order?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_rows_ids_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       programs: {
         Row: {
           archived_at: string | null
@@ -8066,6 +8175,7 @@ export type Database = {
           output: Json | null
           started_at: string | null
           status: string
+          workflow_node_id: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -8080,6 +8190,7 @@ export type Database = {
           output?: Json | null
           started_at?: string | null
           status?: string
+          workflow_node_id?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -8094,8 +8205,16 @@ export type Database = {
           output?: Json | null
           started_at?: string | null
           status?: string
+          workflow_node_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_execution_logs_workflow_node"
+            columns: ["workflow_node_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_nodes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workflow_execution_logs_execution_id_fkey"
             columns: ["execution_id"]
@@ -8145,7 +8264,59 @@ export type Database = {
           user_id?: string
           workflow_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_workflow_executions_workflow"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["uuid"]
+          },
+        ]
+      }
+      workflow_nodes: {
+        Row: {
+          action_type: string | null
+          created_at: string
+          flow_node_id: string
+          id: string
+          label: string | null
+          node_type: string
+          position: Json | null
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          action_type?: string | null
+          created_at?: string
+          flow_node_id: string
+          id?: string
+          label?: string | null
+          node_type: string
+          position?: Json | null
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          action_type?: string | null
+          created_at?: string
+          flow_node_id?: string
+          id?: string
+          label?: string | null
+          node_type?: string
+          position?: Json | null
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_workflow_nodes_workflow"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["uuid"]
+          },
+        ]
       }
     }
     Views: {
@@ -8362,6 +8533,12 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_node_last_output: {
+        Args: { p_node_id: string; p_workflow_id: string }
+        Returns: {
+          output: Json
+        }[]
       }
       get_primary_key_column: {
         Args: { p_table_name: string }

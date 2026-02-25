@@ -191,7 +191,7 @@ export async function PATCH(req: NextRequest) {
             .update({ step_order: newOpts })
             .eq("input_id", id)
 
-          // Cascade to deal_stepper rows
+          // Cascade to deal_stepper rows (skip frozen/completed steppers)
           const { data: steppers } = await supabaseAdmin
             .from("input_stepper")
             .select("id")
@@ -202,6 +202,7 @@ export async function PATCH(req: NextRequest) {
               .from("deal_stepper")
               .update({ step_order: newOpts })
               .in("input_stepper_id", stepperIds)
+              .eq("is_frozen", false)
           }
 
           // Sync deal_stages with updated step order

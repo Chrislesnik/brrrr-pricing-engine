@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
-import { ArrowLeft, Check, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Lock, LockOpen, MessageSquare } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
@@ -40,6 +40,8 @@ function DealRecordContent() {
     id: number;
     current_step: string;
     step_order: string[];
+    completed_at: string | null;
+    is_frozen: boolean;
   } | null>(null);
   const [stepperUpdating, setStepperUpdating] = useState(false);
   const [stepperAnimatingTo, setStepperAnimatingTo] = useState<number>(0);
@@ -323,8 +325,43 @@ function DealRecordContent() {
             const stepPct = 100 / totalSteps;
             const activeCenterPct = activeIdx * stepPct + stepPct / 2;
             const shift = Math.min(0, Math.max(-(100 - 100), 50 - activeCenterPct));
+            const isFrozen = dealStepper.is_frozen;
             return (
               <div className="pb-3 px-6 overflow-x-auto w-full" style={{ scrollbarWidth: "none" }}>
+                {isFrozen && (
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Lock className="size-3" />
+                      <span>Stepper locked — this deal completed all steps</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs gap-1"
+                      onClick={async () => {
+                        try {
+                          setStepperUpdating(true);
+                          const res = await fetch(`/api/deals/${dealId}/stepper`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ unfreeze: true }),
+                          });
+                          if (res.ok) {
+                            const { stepper } = await res.json();
+                            setDealStepper(stepper);
+                          }
+                        } catch {
+                          // Non-critical
+                        } finally {
+                          setStepperUpdating(false);
+                        }
+                      }}
+                    >
+                      <LockOpen className="size-3" />
+                      Unlock
+                    </Button>
+                  </div>
+                )}
                 <div
                   className="flex transition-transform duration-500 ease-in-out"
                   style={{
