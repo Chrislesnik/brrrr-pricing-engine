@@ -3184,36 +3184,39 @@ function ResultCard({
     }
   }
 
-  function cleanCloneForPdf(root: HTMLElement | Document) {
-    root.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
-    root.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
-    root.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
-    root.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
-    root.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
+  function printIframeTermSheet(srcIframe: HTMLIFrameElement) {
+    const srcDoc = srcIframe.contentDocument || srcIframe.contentWindow?.document
+    if (!srcDoc) return
+    const printFrame = document.createElement("iframe")
+    printFrame.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;border:none;opacity:0;pointer-events:none;"
+    document.body.appendChild(printFrame)
+    const pDoc = printFrame.contentDocument || printFrame.contentWindow?.document
+    if (!pDoc) { document.body.removeChild(printFrame); return }
+    const srcHtml = srcDoc.documentElement.outerHTML
+    pDoc.open()
+    pDoc.write(srcHtml)
+    pDoc.close()
+    pDoc.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
+    pDoc.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
+    pDoc.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
+    pDoc.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
+    pDoc.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
+    const overflowStyle = pDoc.createElement("style")
+    overflowStyle.textContent = "html,body{overflow:visible!important}"
+    pDoc.head.appendChild(overflowStyle)
+    setTimeout(() => {
+      printFrame.contentWindow?.focus()
+      printFrame.contentWindow?.print()
+      setTimeout(() => { try { document.body.removeChild(printFrame) } catch {} }, 2000)
+    }, 250)
   }
 
   // Render the currently open preview into a PDF File
   const renderPreviewToPdf = async (): Promise<File | null> => {
     const iframe = previewRef.current?.querySelector("iframe") as HTMLIFrameElement | null
     if (iframe) {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-      if (!iframeDoc?.body) return null
-      try {
-        const canvas = await html2canvas(iframeDoc.body, {
-          scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false,
-          width: 816, height: 1056,
-          onclone: (_clonedDoc: Document, clonedEl: HTMLElement) => { cleanCloneForPdf(clonedEl) },
-        })
-        const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
-        const img = canvas.toDataURL("image/jpeg", 0.88)
-        pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
-        const blob = pdf.output("blob")
-        const filename = `term-sheet-${Date.now()}.pdf`
-        return new File([blob], filename, { type: "application/pdf" })
-      } catch (e) {
-        console.error("Term sheet PDF capture failed:", e)
-        return null
-      }
+      printIframeTermSheet(iframe)
+      return null
     }
     const root = (previewRef.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
     if (!root) return null
@@ -3705,7 +3708,7 @@ function ResultCard({
         setTimeout(async () => {
           try {
             const file = await renderPreviewToPdf()
-            if (!file) throw new Error("Could not render PDF")
+            if (!file) return
             if (opts?.autoShare) {
               const canShareFiles =
                 typeof navigator !== "undefined" &&
@@ -4040,7 +4043,7 @@ function ResultCard({
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
-                if (!file) throw new Error("Could not render PDF")
+                if (!file) return
                 const canShareFiles =
                   typeof navigator !== "undefined" &&
                   "canShare" in navigator &&
@@ -4070,7 +4073,7 @@ function ResultCard({
             onClick={async () => {
               try {
                 const file = await renderPreviewToPdf()
-                if (!file) throw new Error("Could not render PDF")
+                if (!file) return
                 await saveFileWithPrompt(file)
                 void logCardTermSheetActivity("downloaded", file)
               } catch (e) {
@@ -4315,24 +4318,8 @@ function ResultsPanel({
   const renderPreviewToPdfMain = async (): Promise<File | null> => {
     const iframe = previewRefMain.current?.querySelector("iframe") as HTMLIFrameElement | null
     if (iframe) {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-      if (!iframeDoc?.body) return null
-      try {
-        const canvas = await html2canvas(iframeDoc.body, {
-          scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false,
-          width: 816, height: 1056,
-          onclone: (_clonedDoc: Document, clonedEl: HTMLElement) => { cleanCloneForPdf(clonedEl) },
-        })
-        const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
-        const img = canvas.toDataURL("image/jpeg", 0.88)
-        pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
-        const blob = pdf.output("blob")
-        const filename = `term-sheet-${Date.now()}.pdf`
-        return new File([blob], filename, { type: "application/pdf" })
-      } catch (e) {
-        console.error("Term sheet PDF capture failed:", e)
-        return null
-      }
+      printIframeTermSheet(iframe)
+      return null
     }
     const root = (previewRefMain.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
     if (!root) return null
@@ -4705,7 +4692,7 @@ function ResultsPanel({
         setTimeout(async () => {
           try {
             const file = await renderPreviewToPdfMain()
-            if (!file) throw new Error("Could not render PDF")
+            if (!file) return
             if (opts?.autoShare) {
               const canShareFiles =
                 typeof navigator !== "undefined" &&
@@ -5002,7 +4989,7 @@ function ResultsPanel({
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
-                    if (!file) throw new Error("Could not render PDF")
+                    if (!file) return
                     const canShareFiles =
                       typeof navigator !== "undefined" &&
                       "canShare" in navigator &&
@@ -5032,7 +5019,7 @@ function ResultsPanel({
                 onClick={async () => {
                   try {
                     const file = await renderPreviewToPdfMain()
-                    if (!file) throw new Error("Could not render PDF")
+                    if (!file) return
                     await saveFileWithPrompt(file)
                     void logPanelTermSheetActivity("downloaded", file)
                   } catch (e) {
@@ -5294,7 +5281,7 @@ function ResultsPanel({
               onClick={async () => {
                 try {
                   const file = await renderPreviewToPdfMain()
-                  if (!file) throw new Error("Could not render PDF")
+                  if (!file) return
                   const canShareFiles =
                     typeof navigator !== "undefined" &&
                     "canShare" in navigator &&
@@ -5323,7 +5310,7 @@ function ResultsPanel({
               onClick={async () => {
                 try {
                   const file = await renderPreviewToPdfMain()
-                  if (!file) throw new Error("Could not render PDF")
+                  if (!file) return
                   await saveFileWithPrompt(file)
                   void logPanelTermSheetActivity("downloaded", file)
                 } catch (e) {
