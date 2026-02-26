@@ -3184,43 +3184,35 @@ function ResultCard({
     }
   }
 
+  function cleanCloneForPdf(root: HTMLElement | Document) {
+    root.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
+    root.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
+    root.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
+    root.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
+    root.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
+  }
+
   // Render the currently open preview into a PDF File
   const renderPreviewToPdf = async (): Promise<File | null> => {
     const iframe = previewRef.current?.querySelector("iframe") as HTMLIFrameElement | null
     if (iframe) {
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
       if (!iframeDoc?.body) return null
-      const container = document.createElement("div")
-      container.style.position = "fixed"
-      container.style.left = "-10000px"
-      container.style.top = "0"
-      container.style.width = "816px"
-      container.style.height = "1056px"
-      container.style.overflow = "hidden"
-      container.style.background = "#ffffff"
-      container.style.fontFamily = "Arial, Helvetica, sans-serif"
-      container.style.padding = "20px"
-      container.style.lineHeight = "1.4"
-      container.innerHTML = iframeDoc.body.innerHTML
-      const styles = iframeDoc.querySelectorAll("style")
-      styles.forEach((s) => container.appendChild(s.cloneNode(true)))
-      container.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
-      container.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
-      container.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
-      container.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
-      container.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
-      document.body.appendChild(container)
       try {
-        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
-        const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
+        const canvas = await html2canvas(iframeDoc.body, {
+          scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false,
+          width: 816, height: 1056,
+          onclone: (_clonedDoc: Document, clonedEl: HTMLElement) => { cleanCloneForPdf(clonedEl) },
+        })
         const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
         const img = canvas.toDataURL("image/jpeg", 0.88)
         pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
         const blob = pdf.output("blob")
         const filename = `term-sheet-${Date.now()}.pdf`
         return new File([blob], filename, { type: "application/pdf" })
-      } finally {
-        document.body.removeChild(container)
+      } catch (e) {
+        console.error("Term sheet PDF capture failed:", e)
+        return null
       }
     }
     const root = (previewRef.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
@@ -4325,37 +4317,21 @@ function ResultsPanel({
     if (iframe) {
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
       if (!iframeDoc?.body) return null
-      const container = document.createElement("div")
-      container.style.position = "fixed"
-      container.style.left = "-10000px"
-      container.style.top = "0"
-      container.style.width = "816px"
-      container.style.height = "1056px"
-      container.style.overflow = "hidden"
-      container.style.background = "#ffffff"
-      container.style.fontFamily = "Arial, Helvetica, sans-serif"
-      container.style.padding = "20px"
-      container.style.lineHeight = "1.4"
-      container.innerHTML = iframeDoc.body.innerHTML
-      const styles = iframeDoc.querySelectorAll("style")
-      styles.forEach((s) => container.appendChild(s.cloneNode(true)))
-      container.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
-      container.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
-      container.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
-      container.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
-      container.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
-      document.body.appendChild(container)
       try {
-        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
-        const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
+        const canvas = await html2canvas(iframeDoc.body, {
+          scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false,
+          width: 816, height: 1056,
+          onclone: (_clonedDoc: Document, clonedEl: HTMLElement) => { cleanCloneForPdf(clonedEl) },
+        })
         const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
         const img = canvas.toDataURL("image/jpeg", 0.88)
         pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
         const blob = pdf.output("blob")
         const filename = `term-sheet-${Date.now()}.pdf`
         return new File([blob], filename, { type: "application/pdf" })
-      } finally {
-        document.body.removeChild(container)
+      } catch (e) {
+        console.error("Term sheet PDF capture failed:", e)
+        return null
       }
     }
     const root = (previewRefMain.current?.querySelector("[data-termsheet-root]") as HTMLElement | null) ?? null
