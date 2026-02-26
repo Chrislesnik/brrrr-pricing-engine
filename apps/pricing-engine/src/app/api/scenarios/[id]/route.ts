@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
-import { writeScenarioInputs, writeScenarioOutputs, readScenarioInputs } from "@/lib/scenario-helpers"
+import { writeScenarioInputs, writeScenarioOutputs, readScenarioInputs, readScenarioOutputs } from "@/lib/scenario-helpers"
 
 export const runtime = "nodejs"
 
@@ -22,8 +22,11 @@ export async function GET(
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Read inputs from normalized table
-    const inputs = await readScenarioInputs(id)
+    // Read inputs and outputs from normalized tables in parallel
+    const [inputs, outputs] = await Promise.all([
+      readScenarioInputs(id),
+      readScenarioOutputs(id),
+    ])
 
     // Read selected from the rate option FK
     let selected: Record<string, unknown> | null = null
@@ -56,6 +59,7 @@ export async function GET(
         loan_id: data?.loan_id,
         primary: data?.primary,
         inputs,
+        outputs,
         selected,
       },
     })

@@ -243,6 +243,96 @@ export async function writeScenarioOutputs(
 }
 
 /**
+ * Read program results + rate options for a scenario, returning them in the
+ * shape the frontend `ProgramResult[]` expects so the UI can fully restore
+ * a saved scenario without re-calculating.
+ */
+export async function readScenarioOutputs(
+  scenarioId: string
+): Promise<Array<Record<string, unknown>>> {
+  const { data: results } = await supabaseAdmin
+    .from("scenario_program_results")
+    .select("id, program_id, program_name, pass, loan_amount, ltv, validations, warnings, raw_response")
+    .eq("loan_scenario_id", scenarioId)
+    .order("id", { ascending: true })
+
+  if (!results || results.length === 0) return []
+
+  const resultIds = results.map((r) => r.id as number)
+  const { data: allRateOpts } = await supabaseAdmin
+    .from("scenario_rate_options")
+    .select("scenario_program_result_id, row_index, loan_price, interest_rate, pitia, dscr, initial_loan_amount, rehab_holdback, total_loan_amount, initial_pitia, funded_pitia")
+    .in("scenario_program_result_id", resultIds)
+    .order("row_index", { ascending: true })
+
+  const optsByResult = new Map<number, Array<Record<string, unknown>>>()
+  for (const opt of allRateOpts ?? []) {
+    const rid = opt.scenario_program_result_id as number
+    if (!optsByResult.has(rid)) optsByResult.set(rid, [])
+    optsByResult.get(rid)!.push(opt)
+  }
+
+  const out: Array<Record<string, unknown>> = []
+
+  for (const r of results) {
+    const rid = r.id as number
+    const opts = optsByResult.get(rid) ?? []
+
+    // Prefer raw_response when available since it preserves the exact original shape
+    if (r.raw_response && typeof r.raw_response === "object") {
+      const raw = r.raw_response as Record<string, unknown>
+      out.push({
+        id: r.program_id ?? undefined,
+        internal_name: r.program_name ?? undefined,
+        external_name: r.program_name ?? undefined,
+        ok: true,
+        status: 200,
+        data: {
+          ...raw,
+          program_id: r.program_id ?? raw.program_id ?? null,
+          program_name: r.program_name ?? raw.program_name ?? null,
+        },
+      })
+      continue
+    }
+
+    // Fall back to reconstructing from normalized columns
+    const collectColumn = (col: string) =>
+      opts.map((o) => o[col]).filter((v) => v != null)
+
+    const data: Record<string, unknown> = {
+      pass: r.pass ?? true,
+      loan_amount: r.loan_amount ?? null,
+      ltv: r.ltv ?? null,
+      validations: r.validations ?? [],
+      warnings: r.warnings ?? [],
+      program_id: r.program_id ?? null,
+      program_name: r.program_name ?? null,
+      loan_price: collectColumn("loan_price"),
+      interest_rate: collectColumn("interest_rate"),
+      pitia: collectColumn("pitia"),
+      dscr: collectColumn("dscr"),
+      initial_loan_amount: collectColumn("initial_loan_amount"),
+      rehab_holdback: collectColumn("rehab_holdback"),
+      total_loan_amount: collectColumn("total_loan_amount"),
+      initial_pitia: collectColumn("initial_pitia"),
+      funded_pitia: collectColumn("funded_pitia"),
+    }
+
+    out.push({
+      id: r.program_id ?? undefined,
+      internal_name: r.program_name ?? undefined,
+      external_name: r.program_name ?? undefined,
+      ok: true,
+      status: 200,
+      data,
+    })
+  }
+
+  return out
+}
+
+/**
  * Read scenario inputs from `loan_scenario_inputs` rows,
  * returning a flat object keyed by input_code.
  */

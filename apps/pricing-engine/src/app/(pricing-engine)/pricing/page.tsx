@@ -1064,6 +1064,7 @@ export default function PricingEnginePage() {
   const [resultsStale, setResultsStale] = useState<boolean>(false)
   const [currentLoanId, setCurrentLoanId] = useState<string | undefined>(undefined)
   const [selectedMainRow, setSelectedMainRow] = useState<SelectedRow | null>(null)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success">("idle")
   // Scenario naming UI state
   const [isNamingScenario, setIsNamingScenario] = useState<boolean>(false)
   const [scenarioName, setScenarioName] = useState<string>("")
@@ -1419,6 +1420,7 @@ export default function PricingEnginePage() {
   const predictionsMenuRef = useRef<HTMLDivElement | null>(null)
   const pointerInMenuRef = useRef<boolean>(false)
   const suppressPredictionsRef = useRef<boolean>(false)
+  const skipNextScenarioLoadRef = useRef<boolean>(false)
   const sessionTokenRef = useRef<unknown>(undefined)
   const effectiveMapsError = useMemo(
     () => mapsError || (mapsLoadError ? "Unable to load Google Maps" : null),
@@ -1878,6 +1880,7 @@ export default function PricingEnginePage() {
     try {
       const name = nameFromUi ?? (typeof window !== "undefined" ? window.prompt("Scenario name:") : undefined)
       if (!name || !name.trim()) return
+      setSaveStatus("saving")
       const inputs = buildPayload()
       const selectedWithMeta = selectedMainRow
         ? {
@@ -1924,10 +1927,17 @@ export default function PricingEnginePage() {
         }
       }
       if (j?.scenarioId) {
+        // We just saved the current state; skip the scenario-load effect re-fetch
+        skipNextScenarioLoadRef.current = true
         setSelectedScenarioId(j.scenarioId)
       }
-      toast({ title: "Saved", description: `Scenario saved${j?.scenarioId ? ` (#${j.scenarioId})` : ""}.` })
+      // Sync lastCalculatedKey so stale detection stays quiet after save
+      try { setLastCalculatedKey(JSON.stringify(inputs)) } catch { /* ignore */ }
+      setResultsStale(false)
+      setSaveStatus("success")
+      setTimeout(() => setSaveStatus("idle"), 1600)
     } catch (err) {
+      setSaveStatus("idle")
       const message = err instanceof Error ? err.message : "Unknown error"
       toast({ title: "Save failed", description: message, variant: "destructive" })
     }
@@ -1950,6 +1960,33 @@ export default function PricingEnginePage() {
     setIsNamingScenario(false)
     setScenarioName("")
   }
+
+  async function handleConfirmRename() {
+    const trimmed = renameDraft.trim()
+    if (!trimmed || !selectedScenarioId) {
+      setIsRenamingScenario(false)
+      return
+    }
+    setScenariosList((prev) => prev.map((s) => (s.id === selectedScenarioId ? { ...s, name: trimmed } : s)))
+    setIsRenamingScenario(false)
+    try {
+      const res = await fetch(`/api/scenarios/${selectedScenarioId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "")
+        throw new Error(msg || "Rename failed")
+      }
+      setPendingScenarioName(undefined)
+      toast({ title: "Renamed", description: `Scenario renamed to "${trimmed}".` })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      toast({ title: "Rename failed", description: message, variant: "destructive" })
+    }
+  }
+
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
 
 
@@ -2012,18 +2049,21 @@ export default function PricingEnginePage() {
       el.removeEventListener("change", markDirty, true)
     }
   }, [isDispatching, programResults, lastCalculatedKey])
-  // Also detect programmatic/default changes that don't emit input/change events
+  // Detect programmatic/default changes that don't emit input/change events.
+  // Uses a memoised payload key so we only re-evaluate when inputs actually change.
+  const currentPayloadKey = useMemo(() => {
+    try { return JSON.stringify(buildPayload()) } catch { return null }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues, extraFormValues, computedDefaults, peInputDefs])
+
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
     if (!programResults || programResults.length === 0) return
-    try {
-      const key = JSON.stringify(buildPayload())
-      if (key !== lastCalculatedKey) setResultsStale(true)
-    } catch {
+    if (currentPayloadKey && currentPayloadKey !== lastCalculatedKey) {
       setResultsStale(true)
     }
-  })
+  }, [currentPayloadKey, lastCalculatedKey, isDispatching, programResults])
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
@@ -2144,17 +2184,45 @@ export default function PricingEnginePage() {
     setExtraFormValues((prev) => ({ ...prev, ...hydrated }))
   }
 
-  // When scenario is selected, load inputs/selected and hydrate UI
+  // When scenario is selected, load inputs/outputs/selected and hydrate UI
   useEffect(() => {
     const sid = selectedScenarioId
     if (!sid) return
+    // After a save we already have the correct state; skip the redundant fetch
+    if (skipNextScenarioLoadRef.current) {
+      skipNextScenarioLoadRef.current = false
+      return
+    }
     ;(async () => {
       try {
         const res = await fetch(`/api/scenarios/${sid}`)
         if (!res.ok) return
-        const json = (await res.json()) as { scenario?: { inputs?: Record<string, unknown>; selected?: Record<string, unknown> } }
+        const json = (await res.json()) as {
+          scenario?: {
+            inputs?: Record<string, unknown>
+            outputs?: Array<Record<string, unknown>>
+            selected?: Record<string, unknown>
+          }
+        }
         const inputs = json.scenario?.inputs ?? {}
         applyInputsPayload(inputs as Record<string, unknown>)
+
+        // Restore program results so the user sees rate tables without re-calculating
+        const savedOutputs = json.scenario?.outputs
+        if (savedOutputs && Array.isArray(savedOutputs) && savedOutputs.length > 0) {
+          setProgramResults(savedOutputs as ProgramResult[])
+          // Sync lastCalculatedKey so stale detection doesn't immediately fire
+          try {
+            const key = JSON.stringify(buildPayload())
+            setLastCalculatedKey(key)
+            setResultsStale(false)
+          } catch { /* ignore */ }
+        } else {
+          setProgramResults([])
+          setLastCalculatedKey(null)
+          setResultsStale(false)
+        }
+
         const sel = (json.scenario?.selected ?? {}) as Record<string, unknown>
         // Normalize potential key variants saved previously
         const isBridgeSel =
@@ -2190,6 +2258,7 @@ export default function PricingEnginePage() {
         // ignore errors
       }
     })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedScenarioId])
 
   // Fetch predictions as the user types, using our own UI
@@ -2315,12 +2384,7 @@ export default function PricingEnginePage() {
                       if (isRenamingScenario) {
                         if (e.key === "Enter") {
                           e.preventDefault()
-                          const trimmed = renameDraft.trim()
-                          if (trimmed && selectedScenarioId) {
-                            setPendingScenarioName(trimmed)
-                            setScenariosList((prev) => prev.map((s) => (s.id === selectedScenarioId ? { ...s, name: trimmed } : s)))
-                          }
-                          setIsRenamingScenario(false)
+                          handleConfirmRename()
                         } else if (e.key === "Escape") {
                           e.preventDefault()
                           setIsRenamingScenario(false)
@@ -2363,14 +2427,7 @@ export default function PricingEnginePage() {
                           aria-label="Confirm rename"
                           size="icon"
                           variant="secondary"
-                          onClick={() => {
-                            const trimmed = renameDraft.trim()
-                            if (trimmed && selectedScenarioId) {
-                              setPendingScenarioName(trimmed)
-                              setScenariosList((prev) => prev.map((s) => (s.id === selectedScenarioId ? { ...s, name: trimmed } : s)))
-                            }
-                            setIsRenamingScenario(false)
-                          }}
+                          onClick={() => handleConfirmRename()}
                         >
                           <IconCheck />
                         </Button>
@@ -2388,10 +2445,16 @@ export default function PricingEnginePage() {
                       </>
                     ) : (
                       <>
-                        <Button aria-label="Save Scenario" size="icon" variant="secondary" onClick={handleConfirmSave}>
-                          <IconCheck />
+                        <Button aria-label="Save Scenario" size="icon" variant="secondary" disabled={saveStatus === "saving"} onClick={handleConfirmSave}>
+                          {saveStatus === "saving" && (
+                            <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+                          )}
+                          {saveStatus === "success" && (
+                            <IconCheck className="h-4 w-4 text-green-600 animate-in fade-in zoom-in" />
+                          )}
+                          {saveStatus === "idle" && <IconCheck />}
                         </Button>
-                        <Button aria-label="Cancel" size="icon" variant="outline" onClick={handleCancelSave}>
+                        <Button aria-label="Cancel" size="icon" variant="outline" disabled={saveStatus === "saving"} onClick={handleCancelSave}>
                           <IconX />
                         </Button>
                       </>
@@ -2497,8 +2560,9 @@ export default function PricingEnginePage() {
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
+                <Button aria-label="Save" size="icon" variant="secondary" disabled={saveStatus === "saving"} onClick={async () => {
                       try {
+                        setSaveStatus("saving")
                         const inputs = buildPayload()
                         const quickSaveSelected = selectedMainRow
                           ? {
@@ -2532,8 +2596,22 @@ export default function PricingEnginePage() {
                             }),
                           })
                           if (res.ok) {
-                            const json = (await res.json().catch(() => ({}))) as { scenarioId?: string }
+                            const json = (await res.json().catch(() => ({}))) as { loanId?: string; scenarioId?: string }
+                            if (json?.loanId) {
+                              setCurrentLoanId(json.loanId)
+                              // Refresh scenarios list so the new scenario appears
+                              try {
+                                const listRes = await fetch(`/api/loans/${json.loanId}/scenarios`)
+                                if (listRes.ok) {
+                                  const listJson = (await listRes.json().catch(() => ({}))) as {
+                                    scenarios?: { id: string; name?: string; primary?: boolean; created_at?: string }[]
+                                  }
+                                  setScenariosList(listJson.scenarios ?? [])
+                                }
+                              } catch { /* ignore */ }
+                            }
                             if (json?.scenarioId) {
+                              skipNextScenarioLoadRef.current = true
                               setSelectedScenarioId(json.scenarioId)
                             }
                           }
@@ -2555,18 +2633,29 @@ export default function PricingEnginePage() {
                           })
                           if (res.ok) {
                             setPendingScenarioName(undefined)
-                            toast({ title: "Saved", description: "Scenario updated." })
                           } else {
                             const msg = await res.text().catch(() => "")
                             throw new Error(msg || "Save failed")
                           }
                         }
+                        // Sync lastCalculatedKey so stale detection stays quiet after save
+                        try { setLastCalculatedKey(JSON.stringify(inputs)) } catch { /* ignore */ }
+                        setResultsStale(false)
+                        setSaveStatus("success")
+                        setTimeout(() => setSaveStatus("idle"), 1600)
                       } catch (err) {
+                        setSaveStatus("idle")
                         const message = err instanceof Error ? err.message : "Unknown error"
                         toast({ title: "Save failed", description: message, variant: "destructive" })
                       }
                     }}>
-                  <IconDeviceFloppy />
+                  {saveStatus === "saving" && (
+                    <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+                  )}
+                  {saveStatus === "success" && (
+                    <IconCheck className="h-4 w-4 text-green-600 animate-in fade-in zoom-in" />
+                  )}
+                  {saveStatus === "idle" && <IconDeviceFloppy />}
                 </Button>
                     </TooltipTrigger>
                     <TooltipContent>Save</TooltipContent>
