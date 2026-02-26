@@ -279,19 +279,36 @@ export async function readScenarioOutputs(
     optsByResult.get(rid)!.push(opt)
   }
 
+  // Look up real internal/external names from the programs table
+  const programIds = results.map((r) => r.program_id).filter(Boolean) as string[]
+  const programMap = new Map<string, { internal_name: string; external_name: string }>()
+  if (programIds.length > 0) {
+    const { data: programs } = await supabaseAdmin
+      .from("programs")
+      .select("id, internal_name, external_name")
+      .in("id", programIds)
+    for (const p of programs ?? []) {
+      programMap.set(p.id as string, {
+        internal_name: p.internal_name as string,
+        external_name: p.external_name as string,
+      })
+    }
+  }
+
   const out: Array<Record<string, unknown>> = []
 
   for (const r of results) {
     const rid = r.id as number
     const opts = optsByResult.get(rid) ?? []
+    const prog = programMap.get(r.program_id as string)
 
     // Prefer raw_response when available since it preserves the exact original shape
     if (r.raw_response && typeof r.raw_response === "object") {
       const raw = r.raw_response as Record<string, unknown>
       out.push({
         id: r.program_id ?? undefined,
-        internal_name: r.program_name ?? undefined,
-        external_name: r.program_name ?? undefined,
+        internal_name: prog?.internal_name ?? r.program_name ?? undefined,
+        external_name: prog?.external_name ?? r.program_name ?? undefined,
         ok: true,
         status: 200,
         data: {
@@ -328,8 +345,8 @@ export async function readScenarioOutputs(
 
     out.push({
       id: r.program_id ?? undefined,
-      internal_name: r.program_name ?? undefined,
-      external_name: r.program_name ?? undefined,
+      internal_name: prog?.internal_name ?? r.program_name ?? undefined,
+      external_name: prog?.external_name ?? r.program_name ?? undefined,
       ok: true,
       status: 200,
       data,

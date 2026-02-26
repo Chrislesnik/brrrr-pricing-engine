@@ -3273,6 +3273,28 @@ function ResultCard({
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetData>({})
   const previewRef = useRef<HTMLDivElement | null>(null)
 
+  // Live Active/Inactive status via server-side API + polling
+  const [liveRateSheetActive, setLiveRateSheetActive] = useState<boolean | null>(null)
+  const programVersionId = (r?.data as any)?.program_version_id
+  useEffect(() => {
+    if (programVersionId == null) return
+    let cancelled = false
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`/api/pricing/rate-sheet-status?versionId=${Number(programVersionId)}`)
+        if (res.ok && !cancelled) {
+          const data = await res.json()
+          if (data.active != null) setLiveRateSheetActive(data.active)
+        }
+      } catch { /* ignore */ }
+    }
+
+    fetchStatus()
+    const interval = setInterval(fetchStatus, 30_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [programVersionId])
+
   const logCardTermSheetActivity = async (action: "downloaded" | "shared", pdfFile: File) => {
     try {
       if (!loanId) return
@@ -3841,9 +3863,9 @@ function ResultCard({
           {(d as any)?.rate_sheet_date && (
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <span>Rate Sheet Date: {new Date((d as any).rate_sheet_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-              {(d as any)?.rate_sheet_active != null && (
-                <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", (d as any).rate_sheet_active ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
-                  {(d as any).rate_sheet_active ? "Active" : "Inactive"}
+              {(liveRateSheetActive ?? (d as any)?.rate_sheet_active) != null && (
+                <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", (liveRateSheetActive ?? (d as any)?.rate_sheet_active) ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                  {(liveRateSheetActive ?? (d as any)?.rate_sheet_active) ? "Active" : "Inactive"}
                 </Badge>
               )}
             </div>
