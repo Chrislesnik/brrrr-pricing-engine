@@ -126,6 +126,26 @@ export async function POST(req: NextRequest) {
     } catch {
       body = null
     }
+
+    if (body?.program_version_id) {
+      const versionId = Number(body.program_version_id)
+      if (Number.isFinite(versionId)) {
+        try {
+          const { data: row } = await supabaseAdmin
+            .from("program_rows_ids")
+            .select("rate_sheet_date, primary")
+            .eq("id", versionId)
+            .maybeSingle()
+          if (row?.rate_sheet_date) {
+            body.rate_sheet_date = row.rate_sheet_date
+          }
+          if (row) {
+            body.rate_sheet_active = row.primary === true
+          }
+        } catch { /* non-critical lookup */ }
+      }
+    }
+
     return NextResponse.json({
       id: (match as any).id,
       internal_name: match.internal_name,

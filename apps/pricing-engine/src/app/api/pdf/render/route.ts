@@ -69,10 +69,27 @@ export async function POST(request: NextRequest) {
         printBackground: true,
       });
       await page.close();
-      return new Response(pdf, {
+      const pdfBuf = Buffer.from(pdf);
+      if (pdfBuf.byteLength < 100) {
+        return NextResponse.json(
+          { error: "Puppeteer produced an empty PDF" },
+          { status: 500 },
+        );
+      }
+      const header = pdfBuf.subarray(0, 5).toString("ascii");
+      if (header !== "%PDF-") {
+        return NextResponse.json(
+          { error: "Puppeteer output is not a valid PDF" },
+          { status: 500 },
+        );
+      }
+      return new Response(pdfBuf, {
+        status: 200,
         headers: {
           "Content-Type": "application/pdf",
+          "Content-Length": String(pdfBuf.byteLength),
           "Content-Disposition": `attachment; filename="term-sheet.pdf"`,
+          "Cache-Control": "no-store",
         },
       });
     } finally {

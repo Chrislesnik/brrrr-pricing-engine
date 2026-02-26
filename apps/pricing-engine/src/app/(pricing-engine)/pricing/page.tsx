@@ -47,6 +47,7 @@ import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { ensureGoogleMaps } from "@/lib/google-maps"
@@ -93,20 +94,113 @@ function openSaveDialog(suggestedName: string): Promise<SaveFileHandle | null> {
 
 // Write a blob to a previously opened save handle, or fall back to auto-download.
 async function saveFileWithPrompt(file: File, handle?: SaveFileHandle | null): Promise<void> {
+  // Materialise the raw bytes once so every downstream path uses the same buffer
+  const buf = await file.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+
+  // Quick sanity check: valid PDFs always start with %PDF-
+  if (bytes.length < 5 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4]) !== "%PDF-") {
+    console.error("[saveFileWithPrompt] invalid PDF – first bytes:", bytes.slice(0, 20))
+    throw new Error("Generated file is not a valid PDF")
+  }
+
   if (handle) {
     const writable = await handle.createWritable()
-    await writable.write(file)
+    await writable.write(buf)
     await writable.close()
     return
   }
-  const url = URL.createObjectURL(file)
+  // Fallback: blob-URL auto-download
+  const blob = new Blob([buf], { type: "application/pdf" })
+  const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
   a.download = file.name
   document.body.appendChild(a)
   a.click()
   a.remove()
-  URL.revokeObjectURL(url)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+function getCleanHtmlFromIframe(srcIframe: HTMLIFrameElement): string | null {
+  const srcDoc = srcIframe.contentDocument || srcIframe.contentWindow?.document
+  if (!srcDoc) return null
+  const clone = srcDoc.documentElement.cloneNode(true) as HTMLElement
+  clone.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
+  clone.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
+  clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
+  clone.querySelectorAll("[data-ts-empty]").forEach((el) => el.removeAttribute("data-ts-empty"))
+  clone.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
+  const overflow = clone.querySelector("style")
+  if (!overflow) {
+    const style = srcDoc.createElement("style")
+    style.textContent = "html,body{overflow:visible!important}"
+    clone.querySelector("head")?.appendChild(style)
+  }
+  return `<!DOCTYPE html>${clone.outerHTML}`
+}
+
+async function renderIframeToPdfViaServer(htmlStr: string): Promise<File | null> {
+  const res = await fetch("/api/pdf/render", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html: htmlStr }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "PDF generation failed" }))
+    throw new Error(err.error || "PDF generation failed")
+  }
+  const ct = res.headers.get("content-type") ?? ""
+  if (!ct.includes("application/pdf")) throw new Error("Server returned non-PDF response")
+  const blob = await res.blob()
+  if (blob.size < 100) throw new Error("PDF generation returned an empty or corrupt file")
+  const ab = await blob.arrayBuffer()
+  const header = String.fromCharCode(...new Uint8Array(ab).slice(0, 5))
+  if (header !== "%PDF-") throw new Error("Server PDF has invalid header")
+  return new File([ab], `term-sheet-${Date.now()}.pdf`, { type: "application/pdf" })
+}
+
+function renderHtmlToPdfClientSide(htmlStr: string): Promise<File | null> {
+  return new Promise((resolve, reject) => {
+    const container = document.createElement("div")
+    container.style.position = "fixed"
+    container.style.left = "-10000px"
+    container.style.top = "0"
+    container.style.width = "816px"
+    container.style.height = "1056px"
+    container.style.overflow = "hidden"
+    container.style.background = "#ffffff"
+    const inner = document.createElement("div")
+    inner.style.width = "816px"
+    inner.innerHTML = htmlStr
+    container.appendChild(inner)
+    document.body.appendChild(container)
+    requestAnimationFrame(async () => {
+      try {
+        const canvas = await html2canvas(container, { scale: 1.75, backgroundColor: "#ffffff", useCORS: true, logging: false })
+        const pdf = new jsPDF({ unit: "px", format: [816, 1056], orientation: "portrait", compress: true })
+        const img = canvas.toDataURL("image/jpeg", 0.88)
+        pdf.addImage(img, "JPEG", 0, 0, 816, 1056)
+        const blob = pdf.output("blob")
+        resolve(new File([blob], `term-sheet-${Date.now()}.pdf`, { type: "application/pdf" }))
+      } catch (err) {
+        reject(err)
+      } finally {
+        document.body.removeChild(container)
+      }
+    })
+  })
+}
+
+async function renderIframeToPdf(srcIframe: HTMLIFrameElement): Promise<File | null> {
+  const html = getCleanHtmlFromIframe(srcIframe)
+  if (!html) return null
+  try {
+    return await renderIframeToPdfViaServer(html)
+  } catch (serverErr) {
+    console.warn("[renderIframeToPdf] server path failed, falling back to client-side:", serverErr)
+    return renderHtmlToPdfClientSide(html)
+  }
 }
 
 function formatDateOnly(date?: Date | string | null): string | null {
@@ -3197,40 +3291,6 @@ function ResultCard({
     }
   }
 
-  function getCleanHtmlFromIframe(srcIframe: HTMLIFrameElement): string | null {
-    const srcDoc = srcIframe.contentDocument || srcIframe.contentWindow?.document
-    if (!srcDoc) return null
-    const clone = srcDoc.documentElement.cloneNode(true) as HTMLElement
-    clone.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
-    clone.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
-    clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
-    clone.querySelectorAll("[data-ts-empty]").forEach((el) => el.removeAttribute("data-ts-empty"))
-    clone.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
-    const overflow = clone.querySelector("style")
-    if (!overflow) {
-      const style = srcDoc.createElement("style")
-      style.textContent = "html,body{overflow:visible!important}"
-      clone.querySelector("head")?.appendChild(style)
-    }
-    return `<!DOCTYPE html>${clone.outerHTML}`
-  }
-
-  async function renderIframeToPdf(srcIframe: HTMLIFrameElement): Promise<File | null> {
-    const html = getCleanHtmlFromIframe(srcIframe)
-    if (!html) return null
-    const res = await fetch("/api/pdf/render", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "PDF generation failed" }))
-      throw new Error(err.error || "PDF generation failed")
-    }
-    const blob = await res.blob()
-    return new File([blob], `term-sheet-${Date.now()}.pdf`, { type: "application/pdf" })
-  }
-
   // Render the currently open preview into a PDF File
   const renderPreviewToPdf = async (): Promise<File | null> => {
     const iframe = previewRef.current?.querySelector("iframe") as HTMLIFrameElement | null
@@ -3778,6 +3838,16 @@ function ResultCard({
             {programDisplayName(r, isBroker)}
           </div>
           {!isBroker ? <div className="text-xs font-semibold">{r.external_name}</div> : null}
+          {(d as any)?.rate_sheet_date && (
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span>Rate Sheet Date: {new Date((d as any).rate_sheet_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+              {(d as any)?.rate_sheet_active != null && (
+                <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", (d as any).rate_sheet_active ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                  {(d as any).rate_sheet_active ? "Active" : "Inactive"}
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <TooltipProvider delayDuration={0}>
@@ -3831,13 +3901,14 @@ function ResultCard({
                 <Popover>
                   <PopoverTrigger asChild>
                     <TooltipTrigger asChild>
-                      <div
-                        className="inline-flex cursor-pointer items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900 dark:text-amber-100"
+                      <Badge
+                        variant="outline"
+                        className={cn("cursor-pointer capitalize bg-warning-muted text-warning border-warning/30")}
                         aria-label="Warnings"
                         title="View warnings"
                       >
-                        WARNING
-                      </div>
+                        Warning
+                      </Badge>
                     </TooltipTrigger>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="max-w-xs p-2">
@@ -3858,15 +3929,12 @@ function ResultCard({
               </Tooltip>
             </TooltipProvider>
           ) : null}
-          <div
-          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
-            pass
-              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
-              : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100"
-          }`}
+          <Badge
+            variant="outline"
+            className={cn("capitalize", pass ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}
           >
-            {pass ? "PASS" : "FAIL"}
-          </div>
+            {pass ? "Pass" : "Fail"}
+          </Badge>
         </div>
       </div>
 

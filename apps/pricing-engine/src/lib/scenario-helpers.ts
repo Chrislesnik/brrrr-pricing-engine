@@ -153,11 +153,18 @@ export async function writeScenarioOutputs(
     // Validate UUID format
     if (programId && !/^[0-9a-f-]{36}$/i.test(programId)) programId = null
 
+    let programVersionId: number | null = null
+    if (o.program_version_id != null) {
+      const n = Number(o.program_version_id)
+      if (Number.isFinite(n)) programVersionId = n
+    }
+
     const { data: resultRow, error: resultErr } = await supabaseAdmin
       .from("scenario_program_results")
       .insert({
         loan_scenario_id: scenarioId,
         program_id: programId,
+        program_version_id: programVersionId,
         program_name: typeof o.program_name === "string" ? o.program_name : null,
         pass: typeof o.pass === "boolean" ? o.pass : null,
         loan_amount: o.loan_amount != null ? String(o.loan_amount) : null,

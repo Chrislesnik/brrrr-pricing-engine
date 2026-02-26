@@ -7526,6 +7526,7 @@ export type Database = {
           pass: boolean | null
           program_id: string | null
           program_name: string | null
+          program_version_id: number | null
           raw_response: Json | null
           validations: string[] | null
           warnings: string[] | null
@@ -7539,6 +7540,7 @@ export type Database = {
           pass?: boolean | null
           program_id?: string | null
           program_name?: string | null
+          program_version_id?: number | null
           raw_response?: Json | null
           validations?: string[] | null
           warnings?: string[] | null
@@ -7552,6 +7554,7 @@ export type Database = {
           pass?: boolean | null
           program_id?: string | null
           program_name?: string | null
+          program_version_id?: number | null
           raw_response?: Json | null
           validations?: string[] | null
           warnings?: string[] | null
@@ -7569,6 +7572,13 @@ export type Database = {
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scenario_program_results_program_version_id_fkey"
+            columns: ["program_version_id"]
+            isOneToOne: false
+            referencedRelation: "program_rows_ids"
             referencedColumns: ["id"]
           },
         ]

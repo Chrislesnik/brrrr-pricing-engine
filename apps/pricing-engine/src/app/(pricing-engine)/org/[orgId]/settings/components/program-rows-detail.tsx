@@ -34,8 +34,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover"
+import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@repo/lib/cn"
-import { ArrowLeft, Loader2, MoreHorizontal, Pencil, Plus, ArrowRightLeft } from "lucide-react"
+import { ArrowLeft, CalendarIcon, Loader2, MoreHorizontal, Pencil, Plus, ArrowRightLeft } from "lucide-react"
 
 interface ProgramRowRecord {
   id: number
@@ -46,6 +48,7 @@ interface ProgramRowRecord {
   compute_spreadsheet_id: string | null
   compute_table_id: string | null
   rows_order: string | null
+  rate_sheet_date: string | null
   primary: boolean | null
   created_at: string
 }
@@ -89,6 +92,8 @@ function RowFormDialog({
   const [computeSpreadsheetId, setComputeSpreadsheetId] = useState("")
   const [computeTableId, setComputeTableId] = useState("")
   const [rowsOrder, setRowsOrder] = useState("ascending")
+  const [rateSheetDate, setRateSheetDate] = useState<Date | undefined>(undefined)
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -99,6 +104,9 @@ function RowFormDialog({
     setComputeSpreadsheetId(row?.compute_spreadsheet_id ?? "")
     setComputeTableId(row?.compute_table_id ?? "")
     setRowsOrder(row?.rows_order ?? "ascending")
+    const parsed = row?.rate_sheet_date ? new Date(row.rate_sheet_date + "T00:00:00") : undefined
+    setRateSheetDate(parsed && !isNaN(parsed.getTime()) ? parsed : undefined)
+    setCalendarMonth(parsed && !isNaN(parsed.getTime()) ? parsed : new Date())
   }, [open, row])
 
   const handleSubmit = async () => {
@@ -111,6 +119,9 @@ function RowFormDialog({
         compute_spreadsheet_id: computeSpreadsheetId.trim() || null,
         compute_table_id: computeTableId.trim() || null,
         rows_order: rowsOrder,
+        rate_sheet_date: rateSheetDate
+          ? `${rateSheetDate.getFullYear()}-${String(rateSheetDate.getMonth() + 1).padStart(2, "0")}-${String(rateSheetDate.getDate()).padStart(2, "0")}`
+          : null,
       })
       onOpenChange(false)
     } catch {
@@ -187,6 +198,40 @@ function RowFormDialog({
                 <SelectItem value="descending">Descending</SelectItem>
               </SelectContent>
             </Select>
+
+            <Label>Rate Sheet Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !rateSheetDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {rateSheetDate
+                    ? rateSheetDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  captionLayout="dropdown"
+                  selected={rateSheetDate}
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  onSelect={(date) => {
+                    setRateSheetDate(date ?? undefined)
+                    if (date) setCalendarMonth(date)
+                  }}
+                  startMonth={new Date(2020, 0)}
+                  endMonth={new Date(2035, 11)}
+                  autoFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <DialogFooter className="flex-shrink-0">
@@ -305,9 +350,10 @@ export function ProgramRowsDetail({ programId, programName, onBack }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40%]">Display Name</TableHead>
-                <TableHead className="w-[20%]">Status</TableHead>
-                <TableHead className="w-[30%]">Created At</TableHead>
+                <TableHead className="w-[30%]">Display Name</TableHead>
+                <TableHead className="w-[15%]">Status</TableHead>
+                <TableHead className="w-[20%]">Rate Sheet Date</TableHead>
+                <TableHead className="w-[25%]">Created At</TableHead>
                 <TableHead className="w-[10%]" />
               </TableRow>
             </TableHeader>
@@ -329,6 +375,11 @@ export function ProgramRowsDetail({ programId, programName, onBack }: Props) {
                     >
                       {row.primary ? "Active" : "Inactive"}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {row.rate_sheet_date
+                      ? new Date(row.rate_sheet_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : <span className="italic">—</span>}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {formatDate(row.created_at)}
@@ -365,7 +416,7 @@ export function ProgramRowsDetail({ programId, programName, onBack }: Props) {
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground">
+                  <TableCell colSpan={5} className="text-muted-foreground">
                     No row configurations found for this program.
                   </TableCell>
                 </TableRow>

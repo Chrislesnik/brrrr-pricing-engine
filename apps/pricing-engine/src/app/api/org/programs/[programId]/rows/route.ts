@@ -15,7 +15,7 @@ export async function GET(
 
     const { data, error } = await supabaseAdmin
       .from("program_rows_ids")
-      .select("id, program_id, display_name, rent_spreadsheet_id, rent_table_id, compute_spreadsheet_id, compute_table_id, rows_order, primary, created_at")
+      .select("id, program_id, display_name, rent_spreadsheet_id, rent_table_id, compute_spreadsheet_id, compute_table_id, rows_order, rate_sheet_date, primary, created_at")
       .eq("program_id", programId)
       .order("created_at", { ascending: true })
 
@@ -47,6 +47,7 @@ export async function POST(
       compute_spreadsheet_id?: string | null
       compute_table_id?: string | null
       rows_order?: string
+      rate_sheet_date?: string | null
     } | null
 
     const { data, error } = await supabaseAdmin
@@ -59,9 +60,10 @@ export async function POST(
         compute_spreadsheet_id: body?.compute_spreadsheet_id ?? null,
         compute_table_id: body?.compute_table_id ?? null,
         rows_order: body?.rows_order ?? "ascending",
+        rate_sheet_date: body?.rate_sheet_date ?? null,
         primary: false,
       })
-      .select("id, program_id, display_name, rent_spreadsheet_id, rent_table_id, compute_spreadsheet_id, compute_table_id, rows_order, primary, created_at")
+      .select("id, program_id, display_name, rent_spreadsheet_id, rent_table_id, compute_spreadsheet_id, compute_table_id, rows_order, rate_sheet_date, primary, created_at")
       .single()
 
     if (error) {
@@ -132,6 +134,7 @@ export async function PATCH(
       compute_spreadsheet_id?: string
       compute_table_id?: string
       rows_order?: string
+      rate_sheet_date?: string | null
     } | null
 
     if (!body?.rowId) {
@@ -145,6 +148,7 @@ export async function PATCH(
     if (body.compute_spreadsheet_id !== undefined) update.compute_spreadsheet_id = body.compute_spreadsheet_id
     if (body.compute_table_id !== undefined) update.compute_table_id = body.compute_table_id
     if (body.rows_order !== undefined) update.rows_order = body.rows_order
+    if (body.rate_sheet_date !== undefined) update.rate_sheet_date = body.rate_sheet_date
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
