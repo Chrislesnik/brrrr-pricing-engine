@@ -5,7 +5,7 @@ import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import { Button } from "@repo/ui/shadcn/button";
 import { cn } from "@repo/lib/cn";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+
 
 interface PipelineTaskAssignee {
   user_id: string;
@@ -125,7 +125,6 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
       try {
         const actionRes = await fetch(`/api/automations/by-id/${task.buttonActionId}`);
         if (!actionRes.ok) {
-          toast.error("Failed to load action");
           return false;
         }
         const action = await actionRes.json();
@@ -170,17 +169,13 @@ export function DealPipelineTasks({ dealId }: DealPipelineTasksProps) {
         });
 
         if (!execRes.ok) {
-          const errData = await execRes.json().catch(() => ({}));
-          toast.error(errData.error || "Failed to execute action");
           return false;
         }
 
-        const result = await execRes.json();
-        toast.success(`Action started (ID: ${result.executionId})`);
+        await execRes.json();
         return true;
       } catch (err) {
         console.error("Error triggering action:", err);
-        toast.error("Failed to trigger action");
         return false;
       }
     },

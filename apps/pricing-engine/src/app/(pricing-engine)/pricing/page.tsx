@@ -570,16 +570,16 @@ function ScaledHtmlPreview({
       return m ? m[1] : stripped
     })()
     const editableStyles = isEditable ? `<style>
-      .ts-edit { border: 1px dashed rgba(245,158,11,0.6); background: rgba(245,158,11,0.06); border-radius: 2px; padding: 1px 2px; }
+      .ts-edit { outline: 1px dashed rgba(245,158,11,0.6); outline-offset: 0px; background: rgba(245,158,11,0.06); }
       .ts-edit:focus { outline: 2px solid #f59e0b; outline-offset: 0; }
       img.ts-replaceable { cursor: pointer; transition: opacity 0.15s; }
       img.ts-replaceable:hover { opacity: 0.8; outline: 2px dashed #f59e0b; outline-offset: 2px; }
+      img.ts-edit { object-fit: contain; }
     </style>` : ""
     doc.open()
     doc.write(`<!DOCTYPE html><html><head><style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: Arial, Helvetica, sans-serif; background: white; padding: 20px; line-height: 1.4; }
-      table { width: 100%; border-collapse: collapse; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: white; }
       html, body { overflow: hidden; }
     </style>${embeddedStyles.map((css) => `<style>${css}</style>`).join("")}${editableStyles}</head><body>${bodyContent}</body></html>`)
     doc.close()
@@ -590,9 +590,22 @@ function ScaledHtmlPreview({
         const textEls = doc.querySelectorAll("h1,h2,h3,h4,h5,h6,p,span,td,th,div,b,em,i,strong")
         textEls.forEach((el) => {
           const htmlEl = el as HTMLElement
-          if (htmlEl.childElementCount === 0 && (htmlEl.textContent || "").trim().length > 0) {
+          if (htmlEl.childElementCount !== 0) return
+          const hasText = (htmlEl.textContent || "").trim().length > 0
+          const isVariable = htmlEl.hasAttribute("data-type-data-variable")
+          if (hasText || isVariable) {
             htmlEl.setAttribute("contenteditable", "true")
             htmlEl.classList.add("ts-edit")
+            if (!hasText) {
+              htmlEl.textContent = "\u00A0"
+              htmlEl.setAttribute("data-ts-empty", "true")
+              htmlEl.addEventListener("focus", function onFocus() {
+                if (htmlEl.getAttribute("data-ts-empty") === "true") {
+                  htmlEl.textContent = ""
+                  htmlEl.removeAttribute("data-ts-empty")
+                }
+              }, { once: true })
+            }
           }
         })
 
@@ -636,8 +649,11 @@ function ScaledHtmlPreview({
           removeBtn.textContent = "Remove Image"
           removeBtn.style.cssText = "width:100%;background:#ef4444;color:#fff;border:none;border-radius:4px;padding:6px;font-size:12px;cursor:pointer;"
           removeBtn.addEventListener("click", () => {
-            img.src = ""
-            img.style.display = "none"
+            const w = img.offsetWidth
+            const h = img.offsetHeight
+            img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            if (w > 0) { img.style.width = `${w}px`; img.style.minWidth = `${w}px` }
+            if (h > 0) { img.style.height = `${h}px`; img.style.minHeight = `${h}px` }
             popover.remove()
           })
           popover.appendChild(removeBtn)
@@ -683,6 +699,13 @@ function ScaledHtmlPreview({
         const images = doc.querySelectorAll("img")
         images.forEach((img) => {
           img.classList.add("ts-replaceable")
+          if (img.hasAttribute("data-brand-logo")) {
+            const w = img.offsetWidth
+            const h = img.offsetHeight
+            if (w > 0) img.style.minWidth = `${w}px`
+            if (h > 0) img.style.minHeight = `${h}px`
+            img.classList.add("ts-edit")
+          }
           img.addEventListener("click", (e) => {
             e.stopPropagation()
             showImagePopover(img)
@@ -3176,12 +3199,14 @@ function ResultCard({
       container.style.height = "1056px"
       container.style.overflow = "hidden"
       container.style.background = "#ffffff"
-      container.style.fontFamily = "Arial, Helvetica, sans-serif"
-      container.style.padding = "20px"
-      container.style.lineHeight = "1.4"
       container.innerHTML = iframeDoc.body.innerHTML
       const styles = iframeDoc.querySelectorAll("style")
       styles.forEach((s) => container.appendChild(s.cloneNode(true)))
+      const pdfCleanup = document.createElement("style")
+      pdfCleanup.textContent = `.ts-edit{outline:none!important;background:none!important}img.ts-replaceable{outline:none!important;cursor:default!important}.ts-img-popover{display:none!important}`
+      container.appendChild(pdfCleanup)
+      container.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
+      container.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
       document.body.appendChild(container)
       try {
         await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
@@ -4307,12 +4332,14 @@ function ResultsPanel({
       container.style.height = "1056px"
       container.style.overflow = "hidden"
       container.style.background = "#ffffff"
-      container.style.fontFamily = "Arial, Helvetica, sans-serif"
-      container.style.padding = "20px"
-      container.style.lineHeight = "1.4"
       container.innerHTML = iframeDoc.body.innerHTML
       const styles = iframeDoc.querySelectorAll("style")
       styles.forEach((s) => container.appendChild(s.cloneNode(true)))
+      const pdfCleanup = document.createElement("style")
+      pdfCleanup.textContent = `.ts-edit{outline:none!important;background:none!important}img.ts-replaceable{outline:none!important;cursor:default!important}.ts-img-popover{display:none!important}`
+      container.appendChild(pdfCleanup)
+      container.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
+      container.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
       document.body.appendChild(container)
       try {
         await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))

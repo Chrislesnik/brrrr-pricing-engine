@@ -91,7 +91,7 @@ export async function writeScenarioInputs(
     } else if (pe.input_type === "boolean") {
       row.value_bool = val === "yes" || val === "Yes" || val === true || val === "true"
     } else if (pe.input_type === "table" || pe.input_type === "tags") {
-      row.value_array = Array.isArray(val) ? JSON.stringify(val) : null
+      row.value_array = Array.isArray(val) ? val : null
     } else {
       row.value_text = String(val)
     }

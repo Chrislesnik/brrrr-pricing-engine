@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "sonner";
+
 import { DealTaskTracker } from "./deal-task-tracker";
 import type { Task, TaskAssignee, TaskStatus, TaskPriority } from "./deal-task-tracker";
 
@@ -289,7 +289,6 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
         // 1. Look up the action by numeric ID to get uuid + workflow_data
         const actionRes = await fetch(`/api/automations/by-id/${task.buttonActionId}`);
         if (!actionRes.ok) {
-          toast.error("Failed to load action");
           return false;
         }
         const action = await actionRes.json();
@@ -356,17 +355,13 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
         });
 
         if (!execRes.ok) {
-          const errData = await execRes.json().catch(() => ({}));
-          toast.error(errData.error || "Failed to execute action");
           return false;
         }
 
-        const result = await execRes.json();
-        toast.success(`Action started (ID: ${result.executionId})`);
+        await execRes.json();
         return true;
       } catch (err) {
         console.error("Error triggering action:", err);
-        toast.error("Failed to trigger action");
         return false;
       }
     },

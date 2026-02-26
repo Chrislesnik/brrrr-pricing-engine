@@ -54,7 +54,7 @@ import {
   Archive,
 } from "lucide-react";
 import { Label } from "@repo/ui/shadcn/label";
-import { toast } from "@/hooks/use-toast";
+
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useDocumentLogicEngine } from "@/hooks/use-document-logic-engine";
 
@@ -198,11 +198,6 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
       setIsInternalOrg(docsJson.is_internal_org === true);
     } catch (error) {
       console.error("Error fetching document data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load document data",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -239,20 +234,9 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           }),
         });
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          toast({
-            title: "Error",
-            description: err.error || "Failed to update status",
-            variant: "destructive",
-          });
           await fetchAll();
         }
       } catch {
-        toast({
-          title: "Error",
-          description: "Failed to update status",
-          variant: "destructive",
-        });
         await fetchAll();
       }
     },
@@ -366,17 +350,8 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
 
         const data = await res.json();
         setDealDocuments((prev) => [...prev, data.document]);
-
-        toast({
-          title: "File uploaded",
-          description: `"${file.name}" has been uploaded successfully.`,
-        });
       } catch (error: any) {
-        toast({
-          title: "Upload failed",
-          description: error.message || "Failed to upload document",
-          variant: "destructive",
-        });
+        console.error("Upload failed:", error.message);
       } finally {
         setUploadingFiles((prev) => {
           const next = new Map(prev);
@@ -404,11 +379,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
 
         setDealDocuments((prev) => prev.filter((d) => d.id !== docId));
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to remove document",
-          variant: "destructive",
-        });
+        console.error("Failed to remove document:", error);
       }
     },
     [dealId]
@@ -434,11 +405,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         link.click();
         document.body.removeChild(link);
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to download document",
-          variant: "destructive",
-        });
+        console.error("Failed to download document:", error);
       }
     },
     [dealId]
@@ -461,17 +428,8 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         setDealDocuments((prev) =>
           prev.map((d) => (d.id === docId ? { ...d, file_name: newName } : d))
         );
-
-        toast({
-          title: "Renamed",
-          description: "Document name updated.",
-        });
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to rename document",
-          variant: "destructive",
-        });
+        console.error("Failed to rename document:", error);
       }
     },
     [dealId]
@@ -523,17 +481,8 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           }
           return [...prev, data.override];
         });
-
-        toast({
-          title: "Override updated",
-          description: "Document requirement has been updated for this deal.",
-        });
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update override",
-          variant: "destructive",
-        });
+        console.error("Failed to update override:", error);
       }
     },
     [dealId]
@@ -1669,11 +1618,7 @@ function FileManagerView({
           // Immediately add to documents & remove from uploading
           setDealDocuments((prev) => [...prev, data.document]);
         } catch {
-          toast({
-            title: "Error",
-            description: `Failed to upload "${file.name}"`,
-            variant: "destructive",
-          });
+          // upload failed
         } finally {
           setUploadingFileNames((prev) => {
             const next = new Map(prev);
@@ -1683,10 +1628,7 @@ function FileManagerView({
         }
       }
       if (uploaded.length > 0) {
-        toast({
-          title: "Files uploaded",
-          description: `${uploaded.length} file${uploaded.length !== 1 ? "s" : ""} uploaded to storage`,
-        });
+        // files uploaded successfully
       }
     },
     [dealId, setDealDocuments]
@@ -1706,17 +1648,8 @@ function FileManagerView({
         setDealDocuments((prev) =>
           prev.map((d) => (d.id === docId ? data.document : d))
         );
-        const typeName = typeMap.get(docTypeId)?.document_name ?? "Unknown";
-        toast({
-          title: "Tagged",
-          description: `File tagged as "${typeName}"`,
-        });
       } catch {
-        toast({
-          title: "Error",
-          description: "Failed to assign document type",
-          variant: "destructive",
-        });
+        console.error("Failed to assign document type");
       }
     },
     [dealId, setDealDocuments, typeMap]
@@ -1737,11 +1670,7 @@ function FileManagerView({
           prev.map((d) => (d.id === docId ? data.document : d))
         );
       } catch {
-        toast({
-          title: "Error",
-          description: "Failed to remove tag",
-          variant: "destructive",
-        });
+        console.error("Failed to remove tag");
       }
     },
     [dealId, setDealDocuments]

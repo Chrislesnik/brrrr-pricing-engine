@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { toast } from "sonner";
+
 import {
   EventCalendar,
   type CalendarEvent,
@@ -117,7 +117,6 @@ export function DealCalendarTab({ dealId, dealInputs }: DealCalendarTabProps) {
       setEvents(data.events ?? []);
     } catch (err) {
       console.error("Error fetching calendar events:", err);
-      toast.error("Failed to load calendar events");
     } finally {
       setLoading(false);
     }
@@ -163,11 +162,9 @@ export function DealCalendarTab({ dealId, dealInputs }: DealCalendarTabProps) {
 
         if (!res.ok) throw new Error("Failed to create event");
 
-        toast.success(`Event "${event.title}" created`);
         await fetchEvents();
       } catch (err) {
         console.error("Error creating event:", err);
-        toast.error("Failed to create event");
       }
     },
     [dealId, fetchEvents]
@@ -194,11 +191,9 @@ export function DealCalendarTab({ dealId, dealInputs }: DealCalendarTabProps) {
 
         if (!res.ok) throw new Error("Failed to update event");
 
-        toast.success(`Event "${event.title}" updated`);
         await fetchEvents();
       } catch (err) {
         console.error("Error updating event:", err);
-        toast.error("Failed to update event");
       }
     },
     [dealId, fetchEvents]
@@ -213,19 +208,12 @@ export function DealCalendarTab({ dealId, dealInputs }: DealCalendarTabProps) {
         );
 
         if (!res.ok) {
-          const data = await res.json();
-          if (res.status === 403 && data.error) {
-            toast.error(data.error);
-            return;
-          }
           throw new Error("Failed to delete event");
         }
 
-        toast.success("Event deleted");
         await fetchEvents();
       } catch (err) {
         console.error("Error deleting event:", err);
-        toast.error("Failed to delete event");
       }
     },
     [dealId, fetchEvents]

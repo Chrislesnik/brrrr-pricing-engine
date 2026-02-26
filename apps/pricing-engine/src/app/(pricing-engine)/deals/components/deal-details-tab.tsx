@@ -24,7 +24,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@repo/ui/shadcn/accordion";
-import { toast } from "@/hooks/use-toast";
+
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
 import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input";
@@ -282,12 +282,6 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         if (hiddenFields.has(inputId)) continue;
         const val = editedValues[inputId];
         if (val === undefined || val === null || val === "" || val === false) {
-          const label = inputFields.find((f) => f.id === inputId)?.input_label ?? inputId;
-          toast({
-            title: "Required field",
-            description: `"${label}" is required.`,
-            variant: "destructive",
-          });
           setIsSaving(false);
           return;
         }
@@ -303,10 +297,6 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
       }
 
       if (Object.keys(payload).length === 0) {
-        toast({
-          title: "No changes",
-          description: "No changes were detected.",
-        });
         setIsEditing(false);
         setIsSaving(false);
         return;
@@ -322,23 +312,13 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         throw new Error("Failed to update deal");
       }
 
-      toast({
-        title: "Deal updated",
-        description: "Your changes have been saved successfully.",
-      });
-
       setIsEditing(false);
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("app:deals:changed"));
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to update deal",
-        variant: "destructive",
-      });
+      console.error("Failed to update deal:", error);
     } finally {
       setIsSaving(false);
     }

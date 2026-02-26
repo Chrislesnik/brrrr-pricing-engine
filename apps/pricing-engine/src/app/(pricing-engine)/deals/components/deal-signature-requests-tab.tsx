@@ -57,7 +57,7 @@ import {
   TooltipTrigger,
 } from "@repo/ui/shadcn/tooltip";
 import { NewSignatureRequestDialog } from "./new-signature-request-dialog";
-import { toast } from "@/hooks/use-toast";
+
 
 interface DealSignatureRequestsTabProps {
   dealId: string;
@@ -157,23 +157,9 @@ export function DealSignatureRequestsTab({ dealId }: DealSignatureRequestsTabPro
       if (data.fallback && data.signingUrls?.length) {
         const url = data.signingUrls[0].url;
         await navigator.clipboard.writeText(url);
-        toast({
-          title: "Signing link copied",
-          description: "The signing link has been copied to your clipboard. Share it with the recipient.",
-        });
-      } else {
-        toast({
-          title: "Reminder sent",
-          description: "A signing reminder email has been sent to the recipient.",
-        });
       }
     } catch (err) {
       console.error("Remind error:", err);
-      toast({
-        variant: "destructive",
-        title: "Failed to send reminder",
-        description: err instanceof Error ? err.message : "An unexpected error occurred.",
-      });
     }
   };
 
