@@ -279,7 +279,7 @@ export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
                         className={cn(
                           "px-3 whitespace-nowrap text-left",
                           cell.column.columnDef.meta?.className ?? "",
-                          isPinned && "bg-background group-hover/row:bg-transparent !px-1"
+                          isPinned && "bg-background group-hover/row:bg-muted/50 !px-1"
                         )}
                         style={
                           isPinned
