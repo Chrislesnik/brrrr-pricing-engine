@@ -3186,7 +3186,6 @@ function ResultCard({
 
   // Render the currently open preview into a PDF File
   const renderPreviewToPdf = async (): Promise<File | null> => {
-    // New iframe-based term sheet: capture the previewRef container directly
     const iframe = previewRef.current?.querySelector("iframe") as HTMLIFrameElement | null
     if (iframe) {
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
@@ -3199,14 +3198,17 @@ function ResultCard({
       container.style.height = "1056px"
       container.style.overflow = "hidden"
       container.style.background = "#ffffff"
+      container.style.fontFamily = "Arial, Helvetica, sans-serif"
+      container.style.padding = "20px"
+      container.style.lineHeight = "1.4"
       container.innerHTML = iframeDoc.body.innerHTML
       const styles = iframeDoc.querySelectorAll("style")
       styles.forEach((s) => container.appendChild(s.cloneNode(true)))
-      const pdfCleanup = document.createElement("style")
-      pdfCleanup.textContent = `.ts-edit{outline:none!important;background:none!important}img.ts-replaceable{outline:none!important;cursor:default!important}.ts-img-popover{display:none!important}`
-      container.appendChild(pdfCleanup)
+      container.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
+      container.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
       container.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
       container.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
+      container.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
       document.body.appendChild(container)
       try {
         await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
@@ -4319,7 +4321,6 @@ function ResultsPanel({
   const TERMSHEET_WEBHOOK_MAIN = "https://n8n.axora.info/webhook/ac651502-6422-400c-892e-c268b8c66201"
 
   const renderPreviewToPdfMain = async (): Promise<File | null> => {
-    // New iframe-based term sheet: capture iframe content directly
     const iframe = previewRefMain.current?.querySelector("iframe") as HTMLIFrameElement | null
     if (iframe) {
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
@@ -4332,14 +4333,17 @@ function ResultsPanel({
       container.style.height = "1056px"
       container.style.overflow = "hidden"
       container.style.background = "#ffffff"
+      container.style.fontFamily = "Arial, Helvetica, sans-serif"
+      container.style.padding = "20px"
+      container.style.lineHeight = "1.4"
       container.innerHTML = iframeDoc.body.innerHTML
       const styles = iframeDoc.querySelectorAll("style")
       styles.forEach((s) => container.appendChild(s.cloneNode(true)))
-      const pdfCleanup = document.createElement("style")
-      pdfCleanup.textContent = `.ts-edit{outline:none!important;background:none!important}img.ts-replaceable{outline:none!important;cursor:default!important}.ts-img-popover{display:none!important}`
-      container.appendChild(pdfCleanup)
+      container.querySelectorAll(".ts-edit").forEach((el) => el.classList.remove("ts-edit"))
+      container.querySelectorAll(".ts-replaceable").forEach((el) => el.classList.remove("ts-replaceable"))
       container.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"))
       container.querySelectorAll("[data-ts-empty]").forEach((el) => { (el as HTMLElement).textContent = "" })
+      container.querySelectorAll(".ts-img-popover").forEach((el) => el.remove())
       document.body.appendChild(container)
       try {
         await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
