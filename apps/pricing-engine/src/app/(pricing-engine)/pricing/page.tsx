@@ -1362,6 +1362,13 @@ export default function PricingEnginePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const handleApplyFees = useCallback((lo?: string, la?: string) => {
+    const origCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("origination"))?.input_code
+    const adminCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("admin"))?.input_code
+    if (origCode && typeof lo === "string" && lo.trim().length > 0) updateValue(origCode, lo)
+    if (adminCode && typeof la === "string" && la.trim().length > 0) updateValue(adminCode, la)
+  }, [peInputDefs, updateValue])
+
   const handleAddressSelect = useCallback(
     (sourceInputCode: string, fields: AddressFields) => {
       const sourceDef = peInputDefs.find((d) => d.input_code === sourceInputCode)
@@ -2207,16 +2214,14 @@ export default function PricingEnginePage() {
         const inputs = json.scenario?.inputs ?? {}
         applyInputsPayload(inputs as Record<string, unknown>)
 
-        // Restore program results so the user sees rate tables without re-calculating
+        // Restore program results so the user sees rate tables without re-calculating.
+        // Set lastCalculatedKey to null during hydration; a follow-up effect syncs it
+        // after the committed state is available (avoids reading stale formValues here).
         const savedOutputs = json.scenario?.outputs
         if (savedOutputs && Array.isArray(savedOutputs) && savedOutputs.length > 0) {
           setProgramResults(savedOutputs as ProgramResult[])
-          // Sync lastCalculatedKey so stale detection doesn't immediately fire
-          try {
-            const key = JSON.stringify(buildPayload())
-            setLastCalculatedKey(key)
-            setResultsStale(false)
-          } catch { /* ignore */ }
+          setLastCalculatedKey(null)
+          setResultsStale(false)
         } else {
           setProgramResults([])
           setLastCalculatedKey(null)
@@ -2260,6 +2265,20 @@ export default function PricingEnginePage() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedScenarioId])
+
+  // After scenario hydration commits, sync lastCalculatedKey with the now-current
+  // formValues so stale detection uses the correct baseline.  During hydration
+  // lastCalculatedKey is set to null, so this fires once state has settled.
+  useEffect(() => {
+    if (!programResults || programResults.length === 0) return
+    if (lastCalculatedKey !== null) return
+    try {
+      const key = JSON.stringify(buildPayload())
+      setLastCalculatedKey(key)
+      setResultsStale(false)
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPayloadKey, programResults])
 
   // Fetch predictions as the user types, using our own UI
   useEffect(() => {
@@ -2866,12 +2885,7 @@ export default function PricingEnginePage() {
             selectedFromProps={selectedMainRow}
             getInputs={() => buildPayload()}
             memberId={selfMemberId}
-            onApplyFees={(lo, la) => {
-              const origCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("origination"))?.input_code
-              const adminCode = peInputDefs.find((d) => d.input_code.includes("lender") && d.input_code.includes("admin"))?.input_code
-              if (origCode && typeof lo === "string" && lo.trim().length > 0) updateValue(origCode, lo)
-              if (adminCode && typeof la === "string" && la.trim().length > 0) updateValue(adminCode, la)
-            }}
+            onApplyFees={handleApplyFees}
             loanId={currentLoanId}
             scenarioId={selectedScenarioId}
           />
@@ -4809,7 +4823,8 @@ function ResultsPanel({
 
   // Ensure the starred row matches the "selected option" exactly:
   // program id, loan price AND interest rate must all align.
-  // If not found, clear the star.
+  // If no exact match, remap to the closest valid row instead of clearing
+  // (clearing causes a ping-pong loop with the selectedFromProps sync effect).
   useEffect(() => {
     if (!selected) return
     if (!results || results.length === 0) return
@@ -4826,20 +4841,14 @@ function ResultsPanel({
     if (!d) return
     const ratesArr = Array.isArray(d.interest_rate) ? (d.interest_rate as Array<string | number>) : []
     const pricesArr = Array.isArray(d.loan_price) ? (d.loan_price as Array<string | number>) : []
-    if (pricesArr.length === 0 || ratesArr.length === 0) {
-      setSelected(null)
-      return
-    }
+    if (pricesArr.length === 0 || ratesArr.length === 0) return
     const parse = (v: unknown): number => {
       const n = Number(String(v ?? "").toString().replace(/[^0-9.-]/g, ""))
       return Number.isFinite(n) ? n : NaN
     }
     const targetRate = parse(selected.values.interestRate)
     const targetPrice = parse(mainLoanPriceDisplay)
-    if (!Number.isFinite(targetPrice)) {
-      setSelected(null)
-      return
-    }
+    if (!Number.isFinite(targetPrice)) return
     // Find exact matching row: price AND rate match within tolerance
     const tolPrice = 1e-3
     const tolRate = 1e-3
@@ -4856,10 +4865,18 @@ function ResultsPanel({
       chosenIdx = i
       break
     }
-    if (chosenIdx < 0 || chosenIdx >= pricesArr.length) {
-      setSelected(null)
-      return
+    // If no exact match, fall back to the closest row by rate to keep selection stable
+    if (chosenIdx < 0 && Number.isFinite(targetRate) && ratesArr.length > 0) {
+      let bestDiff = Infinity
+      ratesArr.forEach((rv, i) => {
+        const r = parse(rv)
+        if (Number.isFinite(r)) {
+          const diff = Math.abs(r - targetRate)
+          if (diff < bestDiff) { bestDiff = diff; chosenIdx = i }
+        }
+      })
     }
+    if (chosenIdx < 0 || chosenIdx >= pricesArr.length) return
     // If the program index itself is different (because we remapped by id), update it too.
     if (chosenIdx === selected.rowIdx && progIdx === selected.programIdx) return
     const isBridgeResp =

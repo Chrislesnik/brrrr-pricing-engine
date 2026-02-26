@@ -19,7 +19,11 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 const REALTIME_TABLES = ["loans", "loan_scenarios", "loan_scenario_inputs"] as const
 
 export default function PipelinePage() {
-  const { data, isLoading, mutate } = useSWR<PipelineResponse>("/api/pipeline", fetcher)
+  const { data, isLoading, mutate } = useSWR<PipelineResponse>("/api/pipeline", fetcher, {
+    revalidateOnMount: true,
+    revalidateOnFocus: true,
+    dedupingInterval: 0,
+  })
   const loans = data?.items ?? []
   const starredInputs = data?.starredInputs ?? []
   const addressInputs = data?.addressInputs ?? []
