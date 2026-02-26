@@ -5,9 +5,9 @@ const nextConfig: NextConfig = {
   turbopack: {},
   experimental: {
     serverActions: {
-      // Allow multi-file uploads via server actions
       bodySizeLimit: "25mb",
     },
+    serverExternalPackages: ["@sparticuz/chromium"],
   },
   images: {
     remotePatterns: [
