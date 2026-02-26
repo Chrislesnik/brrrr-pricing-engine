@@ -65,41 +65,40 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@clerk/nextjs"
 import { GoogleMap, Marker } from "@react-google-maps/api"
 
-// Prompt the user with a native Save dialog when supported.
-// Falls back to a standard download if the File System Access API is unavailable.
-async function saveFileWithPrompt(file: File): Promise<void> {
-  try {
-    const w = window as unknown as {
-      showSaveFilePicker?: (options: {
-        suggestedName?: string
-        types?: Array<{ description?: string; accept?: Record<string, string[]> }>
-      }) => Promise<{ createWritable: () => Promise<{ write: (data: Blob | BufferSource) => Promise<void>; close: () => Promise<void> }> }>
-    }
-    if (w?.showSaveFilePicker) {
-      const handle = await w.showSaveFilePicker({
-        suggestedName: file.name,
-        types: [
-          {
-            description: "PDF Document",
-            accept: { "application/pdf": [".pdf"] },
-          },
-        ],
-      })
-      const writable = await handle.createWritable()
-      // Write the file bytes and close
-      await writable.write(file)
-      await writable.close()
-      return
-    }
-  } catch (e) {
-    // If the user cancels the picker, return early without throwing or falling back.
+type SaveFileHandle = {
+  createWritable: () => Promise<{ write: (data: Blob | BufferSource) => Promise<void>; close: () => Promise<void> }>
+}
+
+// Open the native Save dialog immediately (must be called during a user gesture).
+// Returns a file handle to write to later, or null if unsupported / cancelled.
+function openSaveDialog(suggestedName: string): Promise<SaveFileHandle | null> {
+  const w = window as unknown as {
+    showSaveFilePicker?: (options: {
+      suggestedName?: string
+      types?: Array<{ description?: string; accept?: Record<string, string[]> }>
+    }) => Promise<SaveFileHandle>
+  }
+  if (!w?.showSaveFilePicker) return Promise.resolve(null)
+  return w.showSaveFilePicker({
+    suggestedName,
+    types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
+  }).catch((e) => {
     const name = (e as any)?.name ?? ""
     if (name === "AbortError" || /cancel/i.test(String((e as any)?.message ?? ""))) {
-      return // User cancelled, no action needed
+      throw e
     }
-    // Otherwise fall through to anchor-based download.
+    return null
+  })
+}
+
+// Write a blob to a previously opened save handle, or fall back to auto-download.
+async function saveFileWithPrompt(file: File, handle?: SaveFileHandle | null): Promise<void> {
+  if (handle) {
+    const writable = await handle.createWritable()
+    await writable.write(file)
+    await writable.close()
+    return
   }
-  // Fallback: standard download to the browser's default location
   const url = URL.createObjectURL(file)
   const a = document.createElement("a")
   a.href = url
@@ -4048,10 +4047,12 @@ function ResultCard({
             className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
+                const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
+                const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
                 const file = await renderPreviewToPdf()
                 if (!file) throw new Error("Could not render PDF")
                 const canShareFiles =
-                  typeof navigator !== "undefined" &&
+                  hasShareApi &&
                   "canShare" in navigator &&
                   (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
                 const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
@@ -4059,12 +4060,12 @@ function ResultCard({
                   await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                   void logCardTermSheetActivity("shared", file)
                 } else {
-                  await saveFileWithPrompt(file)
+                  await saveFileWithPrompt(file, handle)
                   toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
                   void logCardTermSheetActivity("downloaded", file)
                 }
               } catch (e) {
-                if ((e as Error).name === "AbortError") return
+                if ((e as any)?.name === "AbortError") return
                 const message = e instanceof Error ? e.message : "Unable to share"
                 toast({ title: "Share failed", description: message, variant: "destructive" })
               }
@@ -4078,11 +4079,13 @@ function ResultCard({
             className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             onClick={async () => {
               try {
+                const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
                 const file = await renderPreviewToPdf()
                 if (!file) throw new Error("Could not render PDF")
-                await saveFileWithPrompt(file)
+                await saveFileWithPrompt(file, handle)
                 void logCardTermSheetActivity("downloaded", file)
               } catch (e) {
+                if ((e as any)?.name === "AbortError") return
                 const message = e instanceof Error ? e.message : "Unknown error"
                 toast({ title: "Download failed", description: message, variant: "destructive" })
               }
@@ -4993,10 +4996,12 @@ function ResultsPanel({
                 className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
+                    const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
+                    const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
                     const file = await renderPreviewToPdfMain()
                     if (!file) throw new Error("Could not render PDF")
                     const canShareFiles =
-                      typeof navigator !== "undefined" &&
+                      hasShareApi &&
                       "canShare" in navigator &&
                       (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
                     const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
@@ -5004,12 +5009,12 @@ function ResultsPanel({
                       await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                       void logPanelTermSheetActivity("shared", file)
                     } else {
-                      await saveFileWithPrompt(file)
+                      await saveFileWithPrompt(file, handle)
                       toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
                       void logPanelTermSheetActivity("downloaded", file)
                     }
                   } catch (e) {
-                    if ((e as Error).name === "AbortError") return
+                    if ((e as any)?.name === "AbortError") return
                     const message = e instanceof Error ? e.message : "Unable to share"
                     toast({ title: "Share failed", description: message, variant: "destructive" })
                   }
@@ -5023,11 +5028,13 @@ function ResultsPanel({
                 className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 onClick={async () => {
                   try {
+                    const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
                     const file = await renderPreviewToPdfMain()
                     if (!file) throw new Error("Could not render PDF")
-                    await saveFileWithPrompt(file)
+                    await saveFileWithPrompt(file, handle)
                     void logPanelTermSheetActivity("downloaded", file)
                   } catch (e) {
+                    if ((e as any)?.name === "AbortError") return
                     const message = e instanceof Error ? e.message : "Unknown error"
                     toast({ title: "Download failed", description: message, variant: "destructive" })
                   }
@@ -5285,10 +5292,12 @@ function ResultsPanel({
               className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
               onClick={async () => {
                 try {
+                  const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
+                  const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
                   const file = await renderPreviewToPdfMain()
                   if (!file) throw new Error("Could not render PDF")
                   const canShareFiles =
-                    typeof navigator !== "undefined" &&
+                    hasShareApi &&
                     "canShare" in navigator &&
                     (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
                   const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
@@ -5296,11 +5305,12 @@ function ResultsPanel({
                     await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
                     void logPanelTermSheetActivity("shared", file)
                   } else {
-                    await saveFileWithPrompt(file)
+                    await saveFileWithPrompt(file, handle)
                     toast({ title: "Saved", description: "PDF saved to your device." })
                     void logPanelTermSheetActivity("downloaded", file)
                   }
                 } catch (e) {
+                  if ((e as any)?.name === "AbortError") return
                   const message = e instanceof Error ? e.message : "Unable to share"
                   toast({ title: "Share failed", description: message, variant: "destructive" })
                 }
@@ -5314,11 +5324,13 @@ function ResultsPanel({
               className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
               onClick={async () => {
                 try {
+                  const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
                   const file = await renderPreviewToPdfMain()
                   if (!file) throw new Error("Could not render PDF")
-                  await saveFileWithPrompt(file)
+                  await saveFileWithPrompt(file, handle)
                   void logPanelTermSheetActivity("downloaded", file)
                 } catch (e) {
+                  if ((e as any)?.name === "AbortError") return
                   const message = e instanceof Error ? e.message : "Unknown error"
                   toast({ title: "Download failed", description: message, variant: "destructive" })
                 }
