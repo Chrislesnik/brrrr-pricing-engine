@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { MoreHorizontal, Pencil, Archive } from "lucide-react"
+import { MoreHorizontal, Pencil, Archive, FolderOpenIcon } from "lucide-react"
 import { Button } from "@repo/ui/shadcn/button"
 import {
   DropdownMenu,
@@ -18,9 +18,10 @@ interface Props {
   updateAction: (formData: FormData) => Promise<{ ok: boolean; error?: string }>
   deleteAction: (formData: FormData) => Promise<{ ok: boolean; error?: string }>
   orgId?: string | null
+  onOpen?: (programId: string, programName: string) => void
 }
 
-export function ProgramRowActions({ program, updateAction, deleteAction, orgId }: Props) {
+export function ProgramRowActions({ program, updateAction, deleteAction, orgId, onOpen }: Props) {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -54,6 +55,15 @@ export function ProgramRowActions({ program, updateAction, deleteAction, orgId }
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
+          {onOpen && (
+            <DropdownMenuItem
+              onClick={() => onOpen(program.id, program.internal_name)}
+              className="gap-2"
+            >
+              <FolderOpenIcon size={16} className="opacity-60" />
+              Open
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => setEditOpen(true)} className="gap-2">
             <Pencil className="h-4 w-4" />
             Edit

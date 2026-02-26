@@ -1879,58 +1879,19 @@ export default function PricingEnginePage() {
       const name = nameFromUi ?? (typeof window !== "undefined" ? window.prompt("Scenario name:") : undefined)
       if (!name || !name.trim()) return
       const inputs = buildPayload()
-      let selected = selectedMainRow?.values
-      if (!selected) {
-        const first = programResults?.[0]?.data as ProgramResponseData | undefined
-        if (first) {
-          const hi = Number(first.highlight_display ?? 0)
-          const isBridgeStyle =
-            Array.isArray(first.total_loan_amount) ||
-            Array.isArray(first.initial_loan_amount) ||
-            Array.isArray(first.funded_pitia)
-          if (isBridgeStyle) {
-            const loanPrice = pick<string | number>(first.loan_price, hi) ?? null
-            const rate = pick<string | number>(first.interest_rate, hi) ?? null
-            const init = pick<string | number>(first.initial_loan_amount, hi) ?? null
-            const hold = pick<string | number>(first.rehab_holdback, hi) ?? null
-            const tot = pick<string | number>(first.total_loan_amount, hi) ?? null
-            const fpitia = pick<string | number>(first.funded_pitia, hi) ?? null
-            selected = {
-              loanPrice,
-              interestRate: rate,
-              initialLoanAmount: init,
-              rehabHoldback: hold,
-              loanAmount: tot,
-              pitia: fpitia,
-              ltv: null,
-              dscr: null,
-            }
-          } else {
-            selected = {
-              loanPrice: pick<string | number>(first.loan_price, hi) ?? null,
-              interestRate: pick<string | number>(first.interest_rate, hi) ?? null,
-              loanAmount: (first.loan_amount as string | number | null | undefined) ?? null,
-              ltv: (first.ltv as string | number | null | undefined) ?? null,
-              pitia: pick<string | number>(first.pitia, hi) ?? null,
-              dscr: pick<string | number>(first.dscr, hi) ?? null,
-            }
+      const selectedWithMeta = selectedMainRow
+        ? {
+            ...selectedMainRow.values,
+            program_name:
+              selectedMainRow.programName ??
+              (programResults?.[selectedMainRow.programIdx ?? 0]?.external_name ?? null),
+            program_id:
+              selectedMainRow.programId ??
+              (programResults?.[selectedMainRow.programIdx ?? 0]?.id ?? null),
+            program_index: selectedMainRow.programIdx ?? 0,
+            row_index: selectedMainRow.rowIdx ?? 0,
           }
-        }
-      }
-      // Attach metadata about which program/row was chosen when saving
-      const selectedWithMeta = {
-        ...selected,
-        // Always save external name for display
-        program_name:
-          selectedMainRow?.programName ??
-          (programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name ?? null),
-        // Always save UUID program id; never save name
-        program_id:
-          selectedMainRow?.programId ??
-          (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
-        program_index: selectedMainRow?.programIdx ?? 0,
-        row_index: selectedMainRow?.rowIdx ?? 0,
-      }
+        : null
       const res = await fetch("/api/pricing/scenario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2539,37 +2500,19 @@ export default function PricingEnginePage() {
                 <Button aria-label="Save" size="icon" variant="secondary" onClick={async () => {
                       try {
                         const inputs = buildPayload()
-                        let selected = selectedMainRow?.values
-                        if (!selected) {
-                          const first = programResults?.[0]?.data
-                          if (first) {
-                            const hi = Number(first.highlight_display ?? 0)
-                            const resp = first as ProgramResponseData
-                            const isBridgeStyle =
-                              Array.isArray(resp.total_loan_amount) ||
-                              Array.isArray(resp.initial_loan_amount) ||
-                              Array.isArray(resp.funded_pitia)
-                            selected = isBridgeStyle
-                              ? {
-                                  loanPrice: pick<string | number>(resp.loan_price, hi) ?? null,
-                                  interestRate: pick<string | number>(resp.interest_rate, hi) ?? null,
-                                  initialLoanAmount: pick<string | number>(resp.initial_loan_amount, hi) ?? null,
-                                  rehabHoldback: pick<string | number>(resp.rehab_holdback, hi) ?? null,
-                                  loanAmount: pick<string | number>(resp.total_loan_amount, hi) ?? null,
-                                  pitia: pick<string | number>(resp.funded_pitia, hi) ?? null,
-                                  ltv: null,
-                                  dscr: null,
-                                }
-                              : {
-                                  loanPrice: pick<string | number>(resp.loan_price, hi) ?? null,
-                                  interestRate: pick<string | number>(resp.interest_rate, hi) ?? null,
-                                  loanAmount: (resp.loan_amount as string | number | null | undefined) ?? null,
-                                  ltv: (resp.ltv as string | number | null | undefined) ?? null,
-                                  pitia: pick<string | number>(resp.pitia, hi) ?? null,
-                                  dscr: pick<string | number>(resp.dscr, hi) ?? null,
-                                }
-                          }
-                        }
+                        const quickSaveSelected = selectedMainRow
+                          ? {
+                              ...selectedMainRow.values,
+                              program_name:
+                                selectedMainRow.programName ??
+                                (programResults?.[selectedMainRow.programIdx ?? 0]?.external_name ?? null),
+                              program_id:
+                                selectedMainRow.programId ??
+                                (programResults?.[selectedMainRow.programIdx ?? 0]?.id ?? null),
+                              program_index: selectedMainRow.programIdx ?? 0,
+                              row_index: selectedMainRow.rowIdx ?? 0,
+                            }
+                          : null
                         const nameOverride =
                           pendingScenarioName ?? scenariosList.find((s) => s.id === selectedScenarioId)?.name ?? undefined
                         if (!selectedScenarioId) {
@@ -2584,18 +2527,7 @@ export default function PricingEnginePage() {
                                 if (!r.data) return null
                                 return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
                               }).filter(Boolean) ?? null,
-                              selected: {
-                                ...selected,
-                                // Always save external name and UUID for id
-                                program_name:
-                                  selectedMainRow?.programName ??
-                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name ?? null),
-                                program_id:
-                                  selectedMainRow?.programId ??
-                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
-                                program_index: selectedMainRow?.programIdx ?? 0,
-                                row_index: selectedMainRow?.rowIdx ?? 0,
-                              },
+                              selected: quickSaveSelected,
                               loanId: currentLoanId,
                             }),
                           })
@@ -2617,18 +2549,7 @@ export default function PricingEnginePage() {
                                 if (!r.data) return null
                                 return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
                               }).filter(Boolean) ?? null,
-                              selected: {
-                                ...selected,
-                                // Always save external name and UUID for id
-                                program_name:
-                                  selectedMainRow?.programName ??
-                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.external_name ?? null),
-                                program_id:
-                                  selectedMainRow?.programId ??
-                                  (programResults?.[selectedMainRow?.programIdx ?? 0]?.id ?? null),
-                                program_index: selectedMainRow?.programIdx ?? 0,
-                                row_index: selectedMainRow?.rowIdx ?? 0,
-                              },
+                              selected: quickSaveSelected,
                               loanId: currentLoanId,
                             }),
                           })
@@ -3057,18 +2978,8 @@ function SectionActionButton({
               return data
             })
           )
-          const anyFailed = results.some((r) => r.status === "rejected")
-          if (anyFailed) {
-            const errors = results
-              .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-              .map((r) => r.reason?.message ?? "Unknown")
-            console.error(`[SectionActionButton] "${btn.label}" partial failure:`, errors)
-            toast({ title: "Action failed", description: errors.join("; "), variant: "destructive" })
-          }
-        } catch (err) {
-          console.error(`[SectionActionButton] "${btn.label}" error:`, err)
-          const message = err instanceof Error ? err.message : "Unknown error"
-          toast({ title: "Action failed", description: message, variant: "destructive" })
+        } catch {
+          // silently ignore automation errors
         } finally {
           setLoading(false)
         }

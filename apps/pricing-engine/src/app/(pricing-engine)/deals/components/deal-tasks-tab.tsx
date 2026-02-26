@@ -360,8 +360,7 @@ export function DealTasksTab({ dealId }: DealTasksTabProps) {
 
         await execRes.json();
         return true;
-      } catch (err) {
-        console.error("Error triggering action:", err);
+      } catch {
         return false;
       }
     },

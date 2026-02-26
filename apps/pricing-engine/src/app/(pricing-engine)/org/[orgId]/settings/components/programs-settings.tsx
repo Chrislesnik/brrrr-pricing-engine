@@ -23,6 +23,7 @@ import {
 import { Loader2, Copy, Check, Settings2 } from "lucide-react";
 import { useCallback } from "react";
 import { ProgramConditionSheet } from "./program-condition-sheet";
+import { ProgramRowsDetail } from "./program-rows-detail";
 
 interface ProgramRow {
   id: string;
@@ -70,6 +71,8 @@ export function ProgramsSettings() {
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false);
   const [conditionProgramId, setConditionProgramId] = useState<string>("");
   const [conditionProgramName, setConditionProgramName] = useState<string>("");
+  const [openProgramId, setOpenProgramId] = useState<string | null>(null);
+  const [openProgramName, setOpenProgramName] = useState<string>("");
 
   useEffect(() => {
     async function checkAccessAndFetch() {
@@ -140,6 +143,19 @@ export function ProgramsSettings() {
           You don&apos;t have permission to manage programs.
         </p>
       </div>
+    );
+  }
+
+  if (openProgramId) {
+    return (
+      <ProgramRowsDetail
+        programId={openProgramId}
+        programName={openProgramName}
+        onBack={() => {
+          setOpenProgramId(null);
+          setOpenProgramName("");
+        }}
+      />
     );
   }
 
@@ -239,6 +255,10 @@ export function ProgramsSettings() {
                       return result;
                     }}
                     orgId={orgId ?? null}
+                    onOpen={(programId, programName) => {
+                      setOpenProgramId(programId);
+                      setOpenProgramName(programName);
+                    }}
                   />
                 </TableCell>
               </TableRow>
