@@ -26,7 +26,6 @@ import {
   IconTypography,
   IconTrash,
   IconLoader2,
-  IconRoute,
 } from "@tabler/icons-react"
 import { Variable, VariableType, typeColorConfig, getTypeColors } from "./variable-types"
 import {
@@ -113,29 +112,6 @@ function SearchFilter({ query, children }: { query: string; children: React.Reac
   return <>{children}</>
 }
 
-function PathInput({
-  pathMap,
-  onPathChange,
-}: {
-  pathMap: Record<string, string>
-  onPathChange: (id: string, path: string) => void
-}) {
-  const itemData = useKeyValueItemContext("PathInput")
-  const currentPath = pathMap[itemData.id] ?? ""
-
-  return (
-    <div className="flex w-full items-center gap-1.5 pl-1">
-      <IconRoute className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-      <input
-        value={currentPath}
-        onChange={(e) => onPathChange(itemData.id, e.target.value)}
-        placeholder="Data path (e.g. borrower_name)"
-        className="flex h-7 w-full rounded-md border border-input/50 bg-muted/30 px-2 py-1 text-xs font-mono text-muted-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring focus:border-input"
-      />
-    </div>
-  )
-}
-
 export function VariableEditorModal({
   open,
   onOpenChange,
@@ -145,25 +121,15 @@ export function VariableEditorModal({
 }: VariableEditorModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [localVariables, setLocalVariables] = useState<Variable[]>(variables)
-  const [pathMap, setPathMap] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setLocalVariables(variables)
-      const initialPaths: Record<string, string> = {}
-      variables.forEach(v => {
-        initialPaths[v.id] = v.path ?? ""
-      })
-      setPathMap(initialPaths)
     }
     onOpenChange(newOpen)
   }
-
-  const handlePathChange = useCallback((id: string, path: string) => {
-    setPathMap(prev => ({ ...prev, [id]: path }))
-  }, [])
 
   const keyValueItems = useMemo<KeyValueItemData[]>(() =>
     localVariables.map(v => ({ id: v.id, key: v.name, value: v.type })),
@@ -176,14 +142,14 @@ export function VariableEditorModal({
         id: i.id,
         name: i.key,
         type: i.value as VariableType,
-        path: pathMap[i.id] ?? undefined,
+        path: i.key,
       }))
       const prevCore = prev.map(v => ({ id: v.id, name: v.name, type: v.type }))
       const newCore = newVariables.map(v => ({ id: v.id, name: v.name, type: v.type }))
       if (JSON.stringify(prevCore) === JSON.stringify(newCore)) return prev
       return newVariables
     })
-  }, [pathMap])
+  }, [])
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return
@@ -229,7 +195,7 @@ export function VariableEditorModal({
 
     const variablesWithMeta = localVariables.map(v => ({
       ...v,
-      path: pathMap[v.id] || undefined,
+      path: v.name,
     }))
 
     if (templateId) {
@@ -330,14 +296,10 @@ export function VariableEditorModal({
             >
               <KeyValueList>
                 <SearchFilter query={searchQuery}>
-                  <KeyValueItem className="flex flex-wrap items-center gap-2">
+                  <KeyValueItem className="flex items-center gap-2">
                     <KeyValueKeyInput className="flex-1 min-w-[120px]" />
                     <VariableTypeSelect variableTypes={variableTypes} />
                     <KeyValueRemove className="shrink-0" />
-                    <PathInput
-                      pathMap={pathMap}
-                      onPathChange={handlePathChange}
-                    />
                   </KeyValueItem>
                 </SearchFilter>
               </KeyValueList>
