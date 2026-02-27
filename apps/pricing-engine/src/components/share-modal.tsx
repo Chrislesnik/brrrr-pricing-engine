@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Share2,
+  Check,
   Copy,
   Mail,
   MessageSquare,
@@ -10,8 +11,15 @@ import {
   Twitter,
   Linkedin,
   MessageCircle,
-  Check,
+  FileDown,
 } from "lucide-react";
+import {
+  EmailShareButton,
+  FacebookShareButton,
+  LinkedinShareButton,
+  TwitterShareButton,
+  WhatsappShareButton,
+} from "react-share";
 import {
   Popover,
   PopoverContent,
@@ -22,78 +30,74 @@ import { Button } from "@repo/ui/shadcn/button";
 interface ShareModalProps {
   url?: string;
   title?: string;
+  description?: string;
   disabled?: boolean;
   trigger?: React.ReactNode;
+  onPdfShare?: () => void | Promise<void>;
 }
 
-export function ShareModal({ 
-  url, 
+export function ShareModal({
+  url,
   title = "Share this page",
+  description,
   disabled = false,
-  trigger
+  trigger,
+  onPdfShare,
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
-  const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+  const [pdfLoading, setPdfLoading] = useState(false);
 
-  const handleCopyUrl = async () => {
-    if (!shareUrl) return;
+  const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+  const shareTitle = title;
+  const shareDescription = description ?? "";
+
+  const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => {
+        setCopied(false);
+        setOpen(false);
+      }, 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
+      console.error("Failed to copy URL:", err);
     }
   };
 
-  const handleNativeShare = async () => {
+  const shareNative = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: document.title,
+          title: shareTitle,
+          text: shareDescription,
           url: shareUrl,
         });
+        setOpen(false);
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           console.error("Error sharing:", err);
         }
       }
+    } else {
+      copyToClipboard();
     }
   };
 
-  const shareLinks = [
-    {
-      name: "Email",
-      icon: Mail,
-      href: `mailto:?subject=${encodeURIComponent(document.title || "Check this out")}&body=${encodeURIComponent(shareUrl)}`,
-    },
-    {
-      name: "WhatsApp",
-      icon: MessageSquare,
-      href: `https://wa.me/?text=${encodeURIComponent(shareUrl)}`,
-    },
-    {
-      name: "Facebook",
-      icon: Facebook,
-      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-    },
-    {
-      name: "Twitter",
-      icon: Twitter,
-      href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`,
-    },
-    {
-      name: "LinkedIn",
-      icon: Linkedin,
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
-    },
-    {
-      name: "SMS",
-      icon: MessageCircle,
-      href: `sms:?body=${encodeURIComponent(shareUrl)}`,
-    },
-  ];
+  const handlePdfShare = async () => {
+    if (!onPdfShare) return;
+    setPdfLoading(true);
+    try {
+      await onPdfShare();
+    } finally {
+      setPdfLoading(false);
+      setOpen(false);
+    }
+  };
+
+  const handleShareClick = () => {
+    setTimeout(() => setOpen(false), 100);
+  };
 
   const defaultTrigger = (
     <Button variant="outline" size="icon" className="rounded-full" disabled={disabled}>
@@ -107,52 +111,108 @@ export function ShareModal({
       <PopoverTrigger asChild disabled={disabled}>
         {trigger || defaultTrigger}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-3">
-        <div className="mb-2 text-center font-semibold">{title}</div>
-        <div className="flex flex-col gap-1">
-          {/* Native Share (mobile) */}
-          {typeof navigator !== "undefined" && !!navigator.share && (
-            <button
-              onClick={handleNativeShare}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+      <PopoverContent className="w-64 p-3" align="end">
+        <div className="space-y-3">
+          <h4 className="font-medium text-sm text-center">{shareTitle}</h4>
+
+          {onPdfShare && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              disabled={pdfLoading}
+              onClick={handlePdfShare}
             >
-              <Share2 className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">Share</span>
-            </button>
+              <FileDown className="mr-2 h-4 w-4" />
+              {pdfLoading ? "Preparing…" : "Share / Download PDF"}
+            </Button>
           )}
 
-          {/* Copy URL */}
-          <button
-            onClick={handleCopyUrl}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-          >
+          {typeof window !== "undefined" && "share" in navigator && (
+            <Button variant="ghost" size="sm" className="w-full justify-start" onClick={shareNative}>
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+          )}
+
+          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={copyToClipboard}>
             {copied ? (
-              <Check className="h-4 w-4 text-green-500" />
+              <>
+                <Check className="mr-2 h-4 w-4 text-green-600" />
+                <span className="text-green-600">Copied!</span>
+              </>
             ) : (
-              <Copy className="h-4 w-4 text-muted-foreground" />
+              <>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy URL
+              </>
             )}
-            <span className="font-medium">{copied ? "Copied!" : "Copy URL"}</span>
-          </button>
+          </Button>
 
-          {/* Divider */}
-          <div className="py-1">
-            <p className="text-xs text-muted-foreground">Share via:</p>
-          </div>
+          <div className="border-t pt-3">
+            <p className="text-xs text-muted-foreground mb-2">Share via:</p>
 
-          {/* Share Links Grid */}
-          <div className="grid grid-cols-2 gap-1">
-            {shareLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+            <div className="grid grid-cols-2 gap-2">
+              <EmailShareButton
+                url={shareUrl}
+                subject={shareTitle}
+                body={shareDescription}
+                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                onClick={handleShareClick}
               >
-                <link.icon className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{link.name}</span>
+                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">Email</span>
+              </EmailShareButton>
+
+              <WhatsappShareButton
+                url={shareUrl}
+                title={shareTitle}
+                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                onClick={handleShareClick}
+              >
+                <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">WhatsApp</span>
+              </WhatsappShareButton>
+
+              <FacebookShareButton
+                url={shareUrl}
+                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                onClick={handleShareClick}
+              >
+                <Facebook className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">Facebook</span>
+              </FacebookShareButton>
+
+              <TwitterShareButton
+                url={shareUrl}
+                title={shareTitle}
+                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                onClick={handleShareClick}
+              >
+                <Twitter className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">Twitter</span>
+              </TwitterShareButton>
+
+              <LinkedinShareButton
+                url={shareUrl}
+                title={shareTitle}
+                summary={shareDescription}
+                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                onClick={handleShareClick}
+              >
+                <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">LinkedIn</span>
+              </LinkedinShareButton>
+
+              <a
+                href={`sms:?body=${encodeURIComponent(shareUrl)}`}
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                onClick={handleShareClick}
+              >
+                <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium">SMS</span>
               </a>
-            ))}
+            </div>
           </div>
         </div>
       </PopoverContent>
