@@ -1071,6 +1071,14 @@ export default function PricingEnginePage() {
   interface PEInputDef extends PEInputField { category_id: number; display_order: number; config?: Record<string, unknown> | null }
   const [peInputDefs, setPeInputDefs] = useState<PEInputDef[]>([])
 
+  const recalcRequiredCodes = useMemo(() => {
+    const codes = new Set<string>()
+    for (const inp of peInputDefs) {
+      if (inp.require_recalculate) codes.add(inp.input_code)
+    }
+    return codes
+  }, [peInputDefs])
+
   // Dynamic helper to read any input value by code
   const fv = useCallback((code: string) => extraFormValues[code], [extraFormValues])
 
@@ -1156,6 +1164,12 @@ export default function PricingEnginePage() {
   // Track when shown results are out-of-sync with edited inputs
   const [lastCalculatedKey, setLastCalculatedKey] = useState<string | null>(null)
   const [resultsStale, setResultsStale] = useState<boolean>(false)
+  const [calcGlowDelay, setCalcGlowDelay] = useState("0ms")
+  useEffect(() => {
+    const periodMs = 2000
+    const offset = Date.now() % periodMs
+    setCalcGlowDelay(`-${offset}ms`)
+  }, [])
   const [currentLoanId, setCurrentLoanId] = useState<string | undefined>(undefined)
   const [selectedMainRow, setSelectedMainRow] = useState<SelectedRow | null>(null)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success">("idle")
@@ -1877,10 +1891,14 @@ export default function PricingEnginePage() {
       }
       const payload = buildPayload()
       try {
-        // Do not auto-calculate lender fees; preserve user-entered values.
-        setLastCalculatedKey(JSON.stringify(payload))
+        const payloadStr = JSON.stringify(payload)
+        setLastCalculatedKey(payloadStr)
+        if (recalcRequiredCodes.size > 0) {
+          const subset: Record<string, unknown> = {}
+          for (const code of recalcRequiredCodes) subset[code] = payload[code]
+          setLastRecalcKey(JSON.stringify(subset))
+        }
       } catch {
-        // ignore serialization issues
         setLastCalculatedKey(String(Date.now()))
       }
       const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -2033,7 +2051,14 @@ export default function PricingEnginePage() {
         setSelectedScenarioId(j.scenarioId)
       }
       // Sync lastCalculatedKey so stale detection stays quiet after save
-      try { setLastCalculatedKey(JSON.stringify(inputs)) } catch { /* ignore */ }
+      try {
+        setLastCalculatedKey(JSON.stringify(inputs))
+        if (recalcRequiredCodes.size > 0) {
+          const subset: Record<string, unknown> = {}
+          for (const code of recalcRequiredCodes) subset[code] = (inputs as Record<string, unknown>)[code]
+          setLastRecalcKey(JSON.stringify(subset))
+        }
+      } catch { /* ignore */ }
       setResultsStale(false)
       setSaveStatus("success")
       setTimeout(() => setSaveStatus("idle"), 1600)
@@ -2110,6 +2135,7 @@ export default function PricingEnginePage() {
   }, [peRequiredCodes, peHiddenCodes, formValues, peInputDefs])
 
   const canCalculate = missingFields.length === 0
+  const calcShouldGlow = canCalculate && !isDispatching && (!lastCalculatedKey || resultsStale)
 
   // Load Google Maps JS API (Places) once
   useEffect(() => {
@@ -2130,41 +2156,37 @@ export default function PricingEnginePage() {
       }
     })()
   }, [])
-  // Mark results as stale when user edits any input after we have results
-  useEffect(() => {
-    const el = inputsAreaRef.current
-    if (!el) return
-    const markDirty = () => {
-      // Defer comparison to the next tick so React has time to commit input state
-      setTimeout(() => {
-        if (isDispatching) return
-        if (!programResults || programResults.length === 0) return
-        // Any user edit after results are shown marks results as potentially stale.
-        setResultsStale(true)
-      }, 0)
-    }
-    el.addEventListener("input", markDirty, true)
-    el.addEventListener("change", markDirty, true)
-    return () => {
-      el.removeEventListener("input", markDirty, true)
-      el.removeEventListener("change", markDirty, true)
-    }
-  }, [isDispatching, programResults, lastCalculatedKey])
-  // Detect programmatic/default changes that don't emit input/change events.
-  // Uses a memoised payload key so we only re-evaluate when inputs actually change.
+  // Build payload keys for stale comparison
   const currentPayloadKey = useMemo(() => {
     try { return JSON.stringify(buildPayload()) } catch { return null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formValues, extraFormValues, computedDefaults, peInputDefs])
 
+  const recalcPayloadKey = useMemo(() => {
+    if (recalcRequiredCodes.size === 0) return null
+    const subset: Record<string, unknown> = {}
+    for (const code of recalcRequiredCodes) {
+      subset[code] = formValues[code] ?? computedDefaults[code]
+    }
+    return JSON.stringify(subset)
+  }, [formValues, computedDefaults, recalcRequiredCodes])
+
+  const [lastRecalcKey, setLastRecalcKey] = useState<string | null>(null)
+
+  // Derive stale state from comparing current values to the calculated baseline.
+  // Clears automatically when user reverts values back to what was calculated.
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
     if (!programResults || programResults.length === 0) return
-    if (currentPayloadKey && currentPayloadKey !== lastCalculatedKey) {
-      setResultsStale(true)
+    if (recalcRequiredCodes.size > 0) {
+      if (!lastRecalcKey || !recalcPayloadKey) return
+      setResultsStale(recalcPayloadKey !== lastRecalcKey)
+    } else {
+      if (!currentPayloadKey) return
+      setResultsStale(currentPayloadKey !== lastCalculatedKey)
     }
-  }, [currentPayloadKey, lastCalculatedKey, isDispatching, programResults])
+  }, [recalcPayloadKey, lastRecalcKey, currentPayloadKey, lastCalculatedKey, isDispatching, programResults, recalcRequiredCodes])
 
   // Load scenarios for a given loanId from query param
   useEffect(() => {
@@ -2315,10 +2337,12 @@ export default function PricingEnginePage() {
         if (savedOutputs && Array.isArray(savedOutputs) && savedOutputs.length > 0) {
           setProgramResults(savedOutputs as ProgramResult[])
           setLastCalculatedKey(null)
+          setLastRecalcKey(null)
           setResultsStale(false)
         } else {
           setProgramResults([])
           setLastCalculatedKey(null)
+          setLastRecalcKey(null)
           setResultsStale(false)
         }
 
@@ -2367,8 +2391,13 @@ export default function PricingEnginePage() {
     if (!programResults || programResults.length === 0) return
     if (lastCalculatedKey !== null) return
     try {
-      const key = JSON.stringify(buildPayload())
-      setLastCalculatedKey(key)
+      const payload = buildPayload()
+      setLastCalculatedKey(JSON.stringify(payload))
+      if (recalcRequiredCodes.size > 0) {
+        const subset: Record<string, unknown> = {}
+        for (const code of recalcRequiredCodes) subset[code] = payload[code]
+        setLastRecalcKey(JSON.stringify(subset))
+      }
       setResultsStale(false)
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2752,7 +2781,14 @@ export default function PricingEnginePage() {
                           }
                         }
                         // Sync lastCalculatedKey so stale detection stays quiet after save
-                        try { setLastCalculatedKey(JSON.stringify(inputs)) } catch { /* ignore */ }
+                        try {
+                          setLastCalculatedKey(JSON.stringify(inputs))
+                          if (recalcRequiredCodes.size > 0) {
+                            const subset: Record<string, unknown> = {}
+                            for (const code of recalcRequiredCodes) subset[code] = (inputs as Record<string, unknown>)[code]
+                            setLastRecalcKey(JSON.stringify(subset))
+                          }
+                        } catch { /* ignore */ }
                         setResultsStale(false)
                         setSaveStatus("success")
                         setTimeout(() => setSaveStatus("idle"), 1600)
@@ -2865,7 +2901,7 @@ export default function PricingEnginePage() {
                                     const tableData = (extraFormValues[field.input_code] as Record<string, unknown>[] | undefined) ?? []
 
                                     return (
-                                      <div key={String(field.id)} className="col-span-4">
+                                      <div key={String(field.id)} className="col-span-4" data-input-code={field.input_code}>
                                         <Label className="text-sm font-medium mb-1 block">{field.input_label}</Label>
                                         <ConfigurableGrid
                                           config={tableConf}
@@ -2880,7 +2916,7 @@ export default function PricingEnginePage() {
                                   return null
                                 }
                                 return (
-                                  <div key={String(field.id)} className={getDynWidthClass(field.layout_width)}>
+                                  <div key={String(field.id)} className={getDynWidthClass(field.layout_width)} data-input-code={field.input_code}>
                                     <DynamicPEInput
                                       field={field}
                                       value={computedDefaults[field.input_code] ?? formValues[field.input_code]}
@@ -2923,7 +2959,14 @@ export default function PricingEnginePage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span tabIndex={!canCalculate ? 0 : undefined}>
-                        <Button onClick={handleCalculate} disabled={!canCalculate || isDispatching}>
+                        <Button
+                          onClick={handleCalculate}
+                          disabled={!canCalculate || isDispatching}
+                          className={cn(
+                            calcShouldGlow && "border border-primary/50 animate-attention-glow",
+                          )}
+                          style={calcShouldGlow ? { animationDelay: calcGlowDelay } : undefined}
+                        >
                           Calculate
                         </Button>
                       </span>

@@ -112,15 +112,15 @@ export const baseConfig: Partial<Config> = {
           "90%": { transform: "translateX(1px)" },
         },
         "attention-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.45)" },
-          "50%": { boxShadow: "0 0 0 5px hsl(var(--primary) / 0)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.5)" },
+          "50%": { boxShadow: "0 0 8px 4px hsl(var(--primary) / 0.25)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         shake: "shake 0.4s ease-in-out",
-        "attention-glow": "attention-glow 3.5s ease-in-out infinite",
+        "attention-glow": "attention-glow 2s ease-in-out infinite",
       },
     },
   },

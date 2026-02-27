@@ -45,6 +45,7 @@ export interface PEInputField {
   linked_column?: string | null
   layout_row: number
   layout_width: string
+  require_recalculate?: boolean
 }
 
 export interface AddressFields {

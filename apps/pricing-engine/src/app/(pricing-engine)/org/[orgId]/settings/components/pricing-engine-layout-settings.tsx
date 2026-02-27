@@ -21,6 +21,7 @@ import {
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@repo/ui/shadcn/badge";
 import {
   Select,
@@ -102,6 +103,7 @@ interface InputField {
   tooltip?: string | null;
   placeholder?: string | null;
   default_value?: string | null;
+  require_recalculate?: boolean;
 }
 
 function formatTableLabel(name: string): string {
@@ -181,6 +183,7 @@ export function PricingEngineLayoutSettings() {
   const [newTooltip, setNewTooltip] = useState("");
   const [newPlaceholder, setNewPlaceholder] = useState("");
   const [newDefaultValue, setNewDefaultValue] = useState("");
+  const [newRequireRecalculate, setNewRequireRecalculate] = useState(false);
 
   // Boolean display type state
   const [newBooleanDisplay, setNewBooleanDisplay] = useState("dropdown");
@@ -443,6 +446,7 @@ export function PricingEngineLayoutSettings() {
           tooltip: newTooltip.trim() || null,
           placeholder: newPlaceholder.trim() || null,
           default_value: newDefaultValue.trim() || null,
+          require_recalculate: newRequireRecalculate,
         }),
       });
       if (res.ok) {
@@ -507,6 +511,7 @@ export function PricingEngineLayoutSettings() {
           tooltip: newTooltip.trim() || null,
           placeholder: newPlaceholder.trim() || null,
           default_value: newDefaultValue.trim() || null,
+          require_recalculate: newRequireRecalculate,
         }),
       });
       if (res.ok) {
@@ -551,6 +556,7 @@ export function PricingEngineLayoutSettings() {
     setNewPlaceholder("");
     setNewDefaultValue("");
     setNewBooleanDisplay("dropdown");
+    setNewRequireRecalculate(false);
     setNewAddressRole("");
     setNewAddressGroup("property");
     setPendingTableConfig(null);
@@ -1383,6 +1389,17 @@ export function PricingEngineLayoutSettings() {
                             />
                           </div>
 
+                          <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                            <Label htmlFor={`recalc-edit-${input.id}`} className="text-xs cursor-pointer">
+                              Require re-calculate on change
+                            </Label>
+                            <Switch
+                              id={`recalc-edit-${input.id}`}
+                              checked={newRequireRecalculate}
+                              onCheckedChange={setNewRequireRecalculate}
+                            />
+                          </div>
+
                           <div className="flex items-center gap-2 pt-1">
                             <Button
                               size="sm"
@@ -1538,6 +1555,7 @@ export function PricingEngineLayoutSettings() {
                                   setNewTooltip(input.tooltip ?? "");
                                   setNewPlaceholder(input.placeholder ?? "");
                                   setNewDefaultValue(input.default_value ?? "");
+                                  setNewRequireRecalculate(input.require_recalculate ?? false);
                                   if (input.input_type === "table" && input.config) {
                                     const tc = input.config as Record<string, unknown>;
                                     if (tc.columns) setPendingTableConfig(tc as unknown as TableConfig);
@@ -1728,6 +1746,17 @@ export function PricingEngineLayoutSettings() {
                           value={newTooltip}
                           onChange={(e) => setNewTooltip(e.target.value)}
                           className="h-8 text-sm"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <Label htmlFor="recalc-add" className="text-xs cursor-pointer">
+                          Require re-calculate on change
+                        </Label>
+                        <Switch
+                          id="recalc-add"
+                          checked={newRequireRecalculate}
+                          onCheckedChange={setNewRequireRecalculate}
                         />
                       </div>
 
