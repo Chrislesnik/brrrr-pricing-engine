@@ -23,6 +23,7 @@ interface ActionPayload {
   value_text?: string;
   value_visible?: boolean;
   value_required?: boolean;
+  value_recalculate?: boolean;
   value_field?: string;
   value_expression?: string;
 }
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     const { data: actionRows } = await supabaseAdmin
       .from("pe_input_logic_actions")
       .select(
-        "id, pe_input_logic_id, input_id, category_id, value_type, value_visible, value_required, value_text, value_field, value_expression"
+        "id, pe_input_logic_id, input_id, category_id, value_type, value_visible, value_required, value_recalculate, value_text, value_field, value_expression"
       )
       .in("pe_input_logic_id", allRuleIds);
 
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
           value_text: a.value_text ?? "",
           value_visible: a.value_visible ?? undefined,
           value_required: a.value_required ?? undefined,
+          value_recalculate: a.value_recalculate ?? undefined,
           value_field: a.value_field != null ? String(a.value_field) : undefined,
           value_expression: a.value_expression ?? undefined,
         })),
@@ -263,6 +265,13 @@ export async function POST(request: NextRequest) {
                 (vt === "required"
                   ? true
                   : vt === "not_required"
+                    ? false
+                    : null),
+              value_recalculate:
+                isCategory ? null :
+                (vt === "recalculate"
+                  ? true
+                  : vt === "no_recalculate"
                     ? false
                     : null),
               value_text: isCategory ? null : (vt === "value" ? (a.value_text || null) : null),

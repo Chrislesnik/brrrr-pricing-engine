@@ -1071,13 +1071,7 @@ export default function PricingEnginePage() {
   interface PEInputDef extends PEInputField { category_id: number; display_order: number; config?: Record<string, unknown> | null }
   const [peInputDefs, setPeInputDefs] = useState<PEInputDef[]>([])
 
-  const recalcRequiredCodes = useMemo(() => {
-    const codes = new Set<string>()
-    for (const inp of peInputDefs) {
-      if (inp.require_recalculate) codes.add(inp.input_code)
-    }
-    return codes
-  }, [peInputDefs])
+  // recalcRequiredCodes is derived from the logic engine after it evaluates (below)
 
   // Dynamic helper to read any input value by code
   const fv = useCallback((code: string) => extraFormValues[code], [extraFormValues])
@@ -1461,6 +1455,14 @@ export default function PricingEnginePage() {
     }
     return codes
   }, [peLogicResult.requiredFields, idToCodeMap])
+  const recalcRequiredCodes = useMemo(() => {
+    const codes = new Set<string>()
+    for (const id of peLogicResult.recalcFields) {
+      const code = idToCodeMap.get(id)
+      if (code) codes.add(code)
+    }
+    return codes
+  }, [peLogicResult.recalcFields, idToCodeMap])
 
   // All input changes go to extraFormValues (single source of truth)
   const updateValue = useCallback((code: string, value: unknown) => {
@@ -2174,18 +2176,18 @@ export default function PricingEnginePage() {
   const [lastRecalcKey, setLastRecalcKey] = useState<string | null>(null)
 
   // Derive stale state from comparing current values to the calculated baseline.
+  // Only triggers when inputs flagged via logic builder "Require Re-Calculate" change.
   // Clears automatically when user reverts values back to what was calculated.
   useEffect(() => {
     if (!lastCalculatedKey) return
     if (isDispatching) return
     if (!programResults || programResults.length === 0) return
-    if (recalcRequiredCodes.size > 0) {
-      if (!lastRecalcKey || !recalcPayloadKey) return
-      setResultsStale(recalcPayloadKey !== lastRecalcKey)
-    } else {
-      if (!currentPayloadKey) return
-      setResultsStale(currentPayloadKey !== lastCalculatedKey)
+    if (recalcRequiredCodes.size === 0) {
+      setResultsStale(false)
+      return
     }
+    if (!lastRecalcKey || !recalcPayloadKey) return
+    setResultsStale(recalcPayloadKey !== lastRecalcKey)
   }, [recalcPayloadKey, lastRecalcKey, currentPayloadKey, lastCalculatedKey, isDispatching, programResults, recalcRequiredCodes])
 
   // Load scenarios for a given loanId from query param

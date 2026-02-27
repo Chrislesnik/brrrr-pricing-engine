@@ -13,6 +13,7 @@ import type { LogicCondition, LogicRule } from "@/context/logic-rules-context";
 const EMPTY_RESULT: LogicResult = {
   hiddenFields: new Set<string>(),
   requiredFields: new Set<string>(),
+  recalcFields: new Set<string>(),
   computedValues: {},
 };
 
@@ -40,6 +41,7 @@ export function usePELogicEngine(
 
     const hiddenFields = new Set<string>();
     const requiredFields = new Set<string>();
+    const recalcFields = new Set<string>();
     const computedValues: Record<string, unknown> = {};
 
     const categoryInputMap = new Map<number, string[]>();
@@ -58,6 +60,7 @@ export function usePELogicEngine(
 
       hiddenFields.clear();
       requiredFields.clear();
+      recalcFields.clear();
 
       for (const rule of peRules) {
         const conditionsMet = evaluateRuleConditions(rule, workingValues);
@@ -91,6 +94,12 @@ export function usePELogicEngine(
             case "not_required":
               requiredFields.delete(targetId);
               break;
+            case "recalculate":
+              recalcFields.add(targetId);
+              break;
+            case "no_recalculate":
+              recalcFields.delete(targetId);
+              break;
             case "value":
               if (action.value_text !== undefined && action.value_text !== null) {
                 computedValues[targetId] = action.value_text;
@@ -119,7 +128,7 @@ export function usePELogicEngine(
       if (newSnapshot === prevSnapshot) break;
     }
 
-    return { hiddenFields, requiredFields, computedValues };
+    return { hiddenFields, requiredFields, recalcFields, computedValues };
   }, [peRules, defs, currentValues, loading]);
 
   return result;

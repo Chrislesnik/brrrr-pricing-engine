@@ -61,7 +61,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
@@ -161,7 +160,6 @@ export function InputsSettings() {
 
   // Tooltip state
   const [newTooltip, setNewTooltip] = useState("");
-  const [newRequireRecalculate, setNewRequireRecalculate] = useState(false);
 
   // Boolean display type state
   const [newBooleanDisplay, setNewBooleanDisplay] = useState("dropdown");
@@ -496,7 +494,6 @@ export function InputsSettings() {
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
-          require_recalculate: newRequireRecalculate,
         }),
       });
       if (res.ok) {
@@ -542,7 +539,6 @@ export function InputsSettings() {
           linked_table: newLinkedTable || null,
           linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
-          require_recalculate: newRequireRecalculate,
         }),
       });
       if (res.ok) {
@@ -586,7 +582,6 @@ export function InputsSettings() {
     setLinkableColumns([]);
     setNewTooltip("");
     setNewBooleanDisplay("dropdown");
-    setNewRequireRecalculate(false);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -1097,16 +1092,6 @@ export function InputsSettings() {
                               className="h-8 text-sm"
                             />
                           </div>
-                          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                            <Label htmlFor={`recalc-edit-${input.id}`} className="text-xs cursor-pointer">
-                              Require re-calculate on change
-                            </Label>
-                            <Switch
-                              id={`recalc-edit-${input.id}`}
-                              checked={newRequireRecalculate}
-                              onCheckedChange={setNewRequireRecalculate}
-                            />
-                          </div>
                           <div className="flex items-center gap-2 pt-1">
                             <Button
                               size="sm"
@@ -1241,7 +1226,6 @@ export function InputsSettings() {
                                 setNewLinkedTable(input.linked_table ?? "");
                                 setNewLinkedColumn(input.linked_column ?? "");
                                 setNewTooltip(input.tooltip ?? "");
-                                setNewRequireRecalculate(input.require_recalculate ?? false);
                                 if (input.input_type === "boolean" && input.config) {
                                   setNewBooleanDisplay((input.config as Record<string, unknown>).boolean_display as string ?? "dropdown");
                                 }
@@ -1466,17 +1450,6 @@ export function InputsSettings() {
                           value={newTooltip}
                           onChange={(e) => setNewTooltip(e.target.value)}
                           className="h-8 text-sm"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                        <Label htmlFor="recalc-add" className="text-xs cursor-pointer">
-                          Require re-calculate on change
-                        </Label>
-                        <Switch
-                          id="recalc-add"
-                          checked={newRequireRecalculate}
-                          onCheckedChange={setNewRequireRecalculate}
                         />
                       </div>
 

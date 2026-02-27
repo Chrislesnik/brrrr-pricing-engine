@@ -21,6 +21,8 @@ export interface LogicResult {
   hiddenFields: Set<string>;
   /** Fields that should be required */
   requiredFields: Set<string>;
+  /** Fields that require re-calculation when changed */
+  recalcFields: Set<string>;
   /** Computed values that should be set (input_id -> value) */
   computedValues: Record<string, unknown>;
 }
@@ -281,7 +283,7 @@ export function evaluateRules(
     if (newSnapshot === prevSnapshot) break;
   }
 
-  return { hiddenFields, requiredFields, computedValues };
+  return { hiddenFields, requiredFields, recalcFields: new Set<string>(), computedValues };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -457,7 +459,7 @@ export async function evaluateRulesAsync(
     if (newSnapshot === prevSnapshot) break;
   }
 
-  return { hiddenFields, requiredFields, computedValues };
+  return { hiddenFields, requiredFields, recalcFields: new Set<string>(), computedValues };
 }
 
 /**

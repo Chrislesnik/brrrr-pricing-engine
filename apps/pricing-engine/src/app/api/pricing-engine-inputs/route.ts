@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const { category_id, input_label, input_type, dropdown_options, config, linked_table, linked_column, tooltip, placeholder, default_value, require_recalculate } = body
+    const { category_id, input_label, input_type, dropdown_options, config, linked_table, linked_column, tooltip, placeholder, default_value } = body
 
     if (!category_id) return NextResponse.json({ error: "category_id is required" }, { status: 400 })
     if (!input_label?.trim()) return NextResponse.json({ error: "input_label is required" }, { status: 400 })
@@ -117,7 +117,6 @@ export async function POST(req: NextRequest) {
         tooltip: tooltip || null,
         placeholder: placeholder || null,
         default_value: default_value || null,
-        require_recalculate: require_recalculate ?? false,
       })
       .select("*")
       .single()
@@ -142,7 +141,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
 
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options, config, starred, linked_table, linked_column, tooltip, placeholder, default_value, require_recalculate } = body
+      const { id, input_label, input_type, dropdown_options, config, starred, linked_table, linked_column, tooltip, placeholder, default_value } = body
       const updatePayload: Record<string, unknown> = {}
 
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
@@ -178,7 +177,6 @@ export async function PATCH(req: NextRequest) {
       if (tooltip !== undefined) updatePayload.tooltip = tooltip || null
       if (placeholder !== undefined) updatePayload.placeholder = placeholder || null
       if (default_value !== undefined) updatePayload.default_value = default_value || null
-      if (typeof require_recalculate === "boolean") updatePayload.require_recalculate = require_recalculate
       if (body.layout_row !== undefined) updatePayload.layout_row = Number(body.layout_row)
       if (body.layout_width !== undefined) updatePayload.layout_width = String(body.layout_width)
 

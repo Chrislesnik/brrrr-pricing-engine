@@ -25,6 +25,8 @@ import {
   Check,
   ChevronsUpDown,
   AlertTriangle,
+  RefreshCcw,
+  RefreshCcwDot,
 } from "lucide-react";
 import { usePELogicRules } from "@/context/pe-logic-rules-context";
 import { detectInputLogicConflicts } from "@/lib/logic-contradiction-utils";
@@ -79,6 +81,8 @@ type ValueType =
   | "not_visible"
   | "required"
   | "not_required"
+  | "recalculate"
+  | "no_recalculate"
   | "value"
   | "field"
   | "expression";
@@ -204,6 +208,8 @@ const VALUE_TYPE_OPTIONS: {
   { value: "not_visible", label: "Not Visible", icon: EyeOff },
   { value: "required", label: "Required", icon: Asterisk },
   { value: "not_required", label: "Not Required", icon: Ban },
+  { value: "recalculate", label: "Require Re-Calculate", icon: RefreshCcw },
+  { value: "no_recalculate", label: "No Re-Calculate", icon: RefreshCcwDot },
   { value: "value", label: "Value", icon: Type },
   { value: "field", label: "Field", icon: Grid2x2 },
   { value: "expression", label: "Expression", icon: Sigma },
@@ -1442,7 +1448,9 @@ function ActionValueInput({
     vt === "visible" ||
     vt === "not_visible" ||
     vt === "required" ||
-    vt === "not_required"
+    vt === "not_required" ||
+    vt === "recalculate" ||
+    vt === "no_recalculate"
   ) {
     const displayText =
       VALUE_TYPE_OPTIONS.find((o) => o.value === vt)?.label ?? vt;
