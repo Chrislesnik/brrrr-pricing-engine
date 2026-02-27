@@ -3025,6 +3025,7 @@ export default function PricingEnginePage() {
             onApplyFees={handleApplyFees}
             loanId={currentLoanId}
             scenarioId={selectedScenarioId}
+            resultsStale={resultsStale}
           />
         </section>
       </div>
@@ -3297,6 +3298,7 @@ function ResultCard({
   memberId,
   loanId,
   scenarioId,
+  resultsStale,
 }: {
   r: ProgramResult
   programIdx: number
@@ -3306,6 +3308,7 @@ function ResultCard({
   memberId?: string | null
   loanId?: string
   scenarioId?: string
+  resultsStale?: boolean
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -3933,31 +3936,37 @@ function ResultCard({
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Share"
-            onClick={() => openTermSheetPreview(undefined, { autoShare: true })}
-          >
-            <IconShare3 className="h-4 w-4" />
-          </Button>
+                <span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Share"
+                    disabled={!!resultsStale}
+                    onClick={() => openTermSheetPreview(undefined, { autoShare: true })}
+                  >
+                    <IconShare3 className="h-4 w-4" />
+                  </Button>
+                </span>
               </TooltipTrigger>
-              <TooltipContent>Share</TooltipContent>
+              <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Download"
-            onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
-          >
-            <IconDownload className="h-4 w-4" />
-          </Button>
+                <span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Download"
+                    disabled={!!resultsStale}
+                    onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
+                  >
+                    <IconDownload className="h-4 w-4" />
+                  </Button>
+                </span>
               </TooltipTrigger>
-              <TooltipContent>Download</TooltipContent>
+              <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           {warningList.length > 0 ? (
@@ -4156,22 +4165,42 @@ function ResultCard({
                                 >
                                   <IconEye className="h-4 w-4" />
                                 </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Share row"
-                                onClick={() => openTermSheetPreview(i, { autoShare: true })}
-                              >
-                                <IconShare3 className="h-4 w-4" />
-                              </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  aria-label="Download row"
-                                  onClick={() => openTermSheetPreview(i, { autoDownloadPdf: true })}
-                                >
-                                  <IconDownload className="h-4 w-4" />
-                                </Button>
+                              <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label="Share row"
+                                        disabled={!!resultsStale}
+                                        onClick={() => openTermSheetPreview(i, { autoShare: true })}
+                                      >
+                                        <IconShare3 className="h-4 w-4" />
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          aria-label="Download row"
+                                          disabled={!!resultsStale}
+                                          onClick={() => openTermSheetPreview(i, { autoDownloadPdf: true })}
+                                        >
+                                          <IconDownload className="h-4 w-4" />
+                                        </Button>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             </td>
                           </tr>
@@ -4188,58 +4217,78 @@ function ResultCard({
           <DialogHeader className="mb-1">
             <DialogTitle className="text-base">Term Sheet</DialogTitle>
           </DialogHeader>
-          <button
-            type="button"
-            aria-label="Share term sheet"
-            className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            onClick={async () => {
-              try {
-                const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
-                const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                const file = await renderPreviewToPdf()
-                if (!file) throw new Error("Could not render PDF")
-                const canShareFiles =
-                  hasShareApi &&
-                  "canShare" in navigator &&
-                  (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                if (nav?.share && canShareFiles) {
-                  await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                  void logCardTermSheetActivity("shared", file)
-                } else {
-                  await saveFileWithPrompt(file, handle)
-                  toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
-                  void logCardTermSheetActivity("downloaded", file)
-                }
-              } catch (e) {
-                if ((e as any)?.name === "AbortError") return
-                const message = e instanceof Error ? e.message : "Unable to share"
-                toast({ title: "Share failed", description: message, variant: "destructive" })
-              }
-            }}
-          >
-            <IconShare3 />
-          </button>
-          <button
-            type="button"
-            aria-label="Download term sheet"
-            className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            onClick={async () => {
-              try {
-                const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                const file = await renderPreviewToPdf()
-                if (!file) throw new Error("Could not render PDF")
-                await saveFileWithPrompt(file, handle)
-                void logCardTermSheetActivity("downloaded", file)
-              } catch (e) {
-                if ((e as any)?.name === "AbortError") return
-                const message = e instanceof Error ? e.message : "Unknown error"
-                toast({ title: "Download failed", description: message, variant: "destructive" })
-              }
-            }}
-          >
-            <IconDownload />
-          </button>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="absolute right-[104px] top-2">
+                  <button
+                    type="button"
+                    aria-label="Share term sheet"
+                    disabled={!!resultsStale}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                    onClick={async () => {
+                      try {
+                        const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
+                        const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
+                        const file = await renderPreviewToPdf()
+                        if (!file) throw new Error("Could not render PDF")
+                        const canShareFiles =
+                          hasShareApi &&
+                          "canShare" in navigator &&
+                          (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+                        const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+                        if (nav?.share && canShareFiles) {
+                          await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                          void logCardTermSheetActivity("shared", file)
+                        } else {
+                          await saveFileWithPrompt(file, handle)
+                          toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
+                          void logCardTermSheetActivity("downloaded", file)
+                        }
+                      } catch (e) {
+                        if ((e as any)?.name === "AbortError") return
+                        const message = e instanceof Error ? e.message : "Unable to share"
+                        toast({ title: "Share failed", description: message, variant: "destructive" })
+                      }
+                    }}
+                  >
+                    <IconShare3 />
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="absolute right-[60px] top-2">
+                  <button
+                    type="button"
+                    aria-label="Download term sheet"
+                    disabled={!!resultsStale}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                    onClick={async () => {
+                      try {
+                        const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
+                        const file = await renderPreviewToPdf()
+                        if (!file) throw new Error("Could not render PDF")
+                        await saveFileWithPrompt(file, handle)
+                        void logCardTermSheetActivity("downloaded", file)
+                      } catch (e) {
+                        if ((e as any)?.name === "AbortError") return
+                        const message = e instanceof Error ? e.message : "Unknown error"
+                        toast({ title: "Download failed", description: message, variant: "destructive" })
+                      }
+                    }}
+                  >
+                    <IconDownload />
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <button
             type="button"
             aria-label="Close"
@@ -4348,6 +4397,7 @@ function ResultsPanel({
   onApplyFees,
   loanId,
   scenarioId,
+  resultsStale,
 }: {
   results: ProgramResult[]
   loading?: boolean
@@ -4359,6 +4409,7 @@ function ResultsPanel({
   onApplyFees?: (lenderOrig?: string, lenderAdminFee?: string) => void
   loanId?: string
   scenarioId?: string
+  resultsStale?: boolean
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -5086,31 +5137,37 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Share main"
-                onClick={() => openMainTermSheetPreview({ autoShare: true })}
-              >
-                <IconShare3 className="h-4 w-4" />
-              </Button>
+              <span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Share main"
+                  disabled={!!resultsStale}
+                  onClick={() => openMainTermSheetPreview({ autoShare: true })}
+                >
+                  <IconShare3 className="h-4 w-4" />
+                </Button>
+              </span>
                   </TooltipTrigger>
-                  <TooltipContent>Share</TooltipContent>
+                  <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Download main"
-                onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
-              >
-                <IconDownload className="h-4 w-4" />
-              </Button>
+              <span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Download main"
+                  disabled={!!resultsStale}
+                  onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
+                >
+                  <IconDownload className="h-4 w-4" />
+                </Button>
+              </span>
                   </TooltipTrigger>
-                  <TooltipContent>Download</TooltipContent>
+                  <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -5140,58 +5197,78 @@ function ResultsPanel({
               <DialogHeader className="mb-1">
                 <DialogTitle className="text-base">Term Sheet</DialogTitle>
               </DialogHeader>
-              <button
-                type="button"
-                aria-label="Share term sheet"
-                className="absolute right-[104px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-                onClick={async () => {
-                  try {
-                    const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
-                    const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                    const file = await renderPreviewToPdfMain()
-                    if (!file) throw new Error("Could not render PDF")
-                    const canShareFiles =
-                      hasShareApi &&
-                      "canShare" in navigator &&
-                      (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                    const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                    if (nav?.share && canShareFiles) {
-                      await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                      void logPanelTermSheetActivity("shared", file)
-                    } else {
-                      await saveFileWithPrompt(file, handle)
-                      toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
-                      void logPanelTermSheetActivity("downloaded", file)
-                    }
-                  } catch (e) {
-                    if ((e as any)?.name === "AbortError") return
-                    const message = e instanceof Error ? e.message : "Unable to share"
-                    toast({ title: "Share failed", description: message, variant: "destructive" })
-                  }
-                }}
-              >
-                <IconShare3 />
-              </button>
-              <button
-                type="button"
-                aria-label="Download term sheet"
-                className="absolute right-[60px] top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-                onClick={async () => {
-                  try {
-                    const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                    const file = await renderPreviewToPdfMain()
-                    if (!file) throw new Error("Could not render PDF")
-                    await saveFileWithPrompt(file, handle)
-                    void logPanelTermSheetActivity("downloaded", file)
-                  } catch (e) {
-                    if ((e as any)?.name === "AbortError") return
-                    const message = e instanceof Error ? e.message : "Unknown error"
-                    toast({ title: "Download failed", description: message, variant: "destructive" })
-                  }
-                }}
-              >
-                <IconDownload />
-              </button>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="absolute right-[104px] top-2">
+                      <button
+                        type="button"
+                        aria-label="Share term sheet"
+                        disabled={!!resultsStale}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                        onClick={async () => {
+                          try {
+                            const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
+                            const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
+                            const file = await renderPreviewToPdfMain()
+                            if (!file) throw new Error("Could not render PDF")
+                            const canShareFiles =
+                              hasShareApi &&
+                              "canShare" in navigator &&
+                              (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+                            const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+                            if (nav?.share && canShareFiles) {
+                              await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                              void logPanelTermSheetActivity("shared", file)
+                            } else {
+                              await saveFileWithPrompt(file, handle)
+                              toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
+                              void logPanelTermSheetActivity("downloaded", file)
+                            }
+                          } catch (e) {
+                            if ((e as any)?.name === "AbortError") return
+                            const message = e instanceof Error ? e.message : "Unable to share"
+                            toast({ title: "Share failed", description: message, variant: "destructive" })
+                          }
+                        }}
+                      >
+                        <IconShare3 />
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="absolute right-[60px] top-2">
+                      <button
+                        type="button"
+                        aria-label="Download term sheet"
+                        disabled={!!resultsStale}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                        onClick={async () => {
+                          try {
+                            const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
+                            const file = await renderPreviewToPdfMain()
+                            if (!file) throw new Error("Could not render PDF")
+                            await saveFileWithPrompt(file, handle)
+                            void logPanelTermSheetActivity("downloaded", file)
+                          } catch (e) {
+                            if ((e as any)?.name === "AbortError") return
+                            const message = e instanceof Error ? e.message : "Unknown error"
+                            toast({ title: "Download failed", description: message, variant: "destructive" })
+                          }
+                        }}
+                      >
+                        <IconDownload />
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <button
                 type="button"
                 aria-label="Close"
@@ -5282,31 +5359,37 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Share main"
-                onClick={() => openMainTermSheetPreview({ autoShare: true })}
-              >
-                <IconShare3 className="h-4 w-4" />
-              </Button>
+              <span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Share main"
+                  disabled={!!resultsStale}
+                  onClick={() => openMainTermSheetPreview({ autoShare: true })}
+                >
+                  <IconShare3 className="h-4 w-4" />
+                </Button>
+              </span>
                   </TooltipTrigger>
-                  <TooltipContent>Share</TooltipContent>
+                  <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Download main"
-                onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
-              >
-                <IconDownload className="h-4 w-4" />
-              </Button>
+              <span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Download main"
+                  disabled={!!resultsStale}
+                  onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
+                >
+                  <IconDownload className="h-4 w-4" />
+                </Button>
+              </span>
                   </TooltipTrigger>
-                  <TooltipContent>Download</TooltipContent>
+                  <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -5368,31 +5451,37 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Share main"
-                onClick={() => openMainTermSheetPreview({ autoShare: true })}
-              >
-                <IconShare3 className="h-4 w-4" />
-              </Button>
+              <span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Share main"
+                  disabled={!!resultsStale}
+                  onClick={() => openMainTermSheetPreview({ autoShare: true })}
+                >
+                  <IconShare3 className="h-4 w-4" />
+                </Button>
+              </span>
                   </TooltipTrigger>
-                  <TooltipContent>Share</TooltipContent>
+                  <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Download main"
-                onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
-              >
-                <IconDownload className="h-4 w-4" />
-              </Button>
+              <span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Download main"
+                  disabled={!!resultsStale}
+                  onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
+                >
+                  <IconDownload className="h-4 w-4" />
+                </Button>
+              </span>
                   </TooltipTrigger>
-                  <TooltipContent>Download</TooltipContent>
+                  <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -5429,6 +5518,7 @@ function ResultsPanel({
           memberId={memberId}
           loanId={loanId}
           scenarioId={scenarioId}
+          resultsStale={resultsStale}
         />
       ))}
         <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
@@ -5436,58 +5526,78 @@ function ResultsPanel({
             <DialogHeader className="mb-1">
               <DialogTitle className="text-base">Term Sheet</DialogTitle>
             </DialogHeader>
-            <button
-              type="button"
-              aria-label="Share term sheet"
-              className="absolute right-24 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-              onClick={async () => {
-                try {
-                  const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
-                  const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                  const file = await renderPreviewToPdfMain()
-                  if (!file) throw new Error("Could not render PDF")
-                  const canShareFiles =
-                    hasShareApi &&
-                    "canShare" in navigator &&
-                    (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                  const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                  if (nav?.share && canShareFiles) {
-                    await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                    void logPanelTermSheetActivity("shared", file)
-                  } else {
-                    await saveFileWithPrompt(file, handle)
-                    toast({ title: "Saved", description: "PDF saved to your device." })
-                    void logPanelTermSheetActivity("downloaded", file)
-                  }
-                } catch (e) {
-                  if ((e as any)?.name === "AbortError") return
-                  const message = e instanceof Error ? e.message : "Unable to share"
-                  toast({ title: "Share failed", description: message, variant: "destructive" })
-                }
-              }}
-            >
-              <IconShare3 />
-            </button>
-            <button
-              type="button"
-              aria-label="Download term sheet"
-              className="absolute right-14 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-              onClick={async () => {
-                try {
-                  const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                  const file = await renderPreviewToPdfMain()
-                  if (!file) throw new Error("Could not render PDF")
-                  await saveFileWithPrompt(file, handle)
-                  void logPanelTermSheetActivity("downloaded", file)
-                } catch (e) {
-                  if ((e as any)?.name === "AbortError") return
-                  const message = e instanceof Error ? e.message : "Unknown error"
-                  toast({ title: "Download failed", description: message, variant: "destructive" })
-                }
-              }}
-            >
-              <IconDownload />
-            </button>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="absolute right-24 top-2">
+                    <button
+                      type="button"
+                      aria-label="Share term sheet"
+                      disabled={!!resultsStale}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                      onClick={async () => {
+                        try {
+                          const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
+                          const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
+                          const file = await renderPreviewToPdfMain()
+                          if (!file) throw new Error("Could not render PDF")
+                          const canShareFiles =
+                            hasShareApi &&
+                            "canShare" in navigator &&
+                            (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
+                          const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
+                          if (nav?.share && canShareFiles) {
+                            await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
+                            void logPanelTermSheetActivity("shared", file)
+                          } else {
+                            await saveFileWithPrompt(file, handle)
+                            toast({ title: "Saved", description: "PDF saved to your device." })
+                            void logPanelTermSheetActivity("downloaded", file)
+                          }
+                        } catch (e) {
+                          if ((e as any)?.name === "AbortError") return
+                          const message = e instanceof Error ? e.message : "Unable to share"
+                          toast({ title: "Share failed", description: message, variant: "destructive" })
+                        }
+                      }}
+                    >
+                      <IconShare3 />
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{resultsStale ? "Recalculate to share term sheet" : "Share"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="absolute right-14 top-2">
+                    <button
+                      type="button"
+                      aria-label="Download term sheet"
+                      disabled={!!resultsStale}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                      onClick={async () => {
+                        try {
+                          const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
+                          const file = await renderPreviewToPdfMain()
+                          if (!file) throw new Error("Could not render PDF")
+                          await saveFileWithPrompt(file, handle)
+                          void logPanelTermSheetActivity("downloaded", file)
+                        } catch (e) {
+                          if ((e as any)?.name === "AbortError") return
+                          const message = e instanceof Error ? e.message : "Unknown error"
+                          toast({ title: "Download failed", description: message, variant: "destructive" })
+                        }
+                      }}
+                    >
+                      <IconDownload />
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {resolvedSheetsMain.length > 0 ? (
               <div className="flex gap-3 min-h-0">
                 {resolvedSheetsMain.length > 1 && (
