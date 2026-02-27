@@ -1,15 +1,34 @@
 "use client"
 
+import { Suspense, useEffect, useState } from "react"
 import { useEditor, EditorContent, ReactRenderer, Editor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
 import { Extension } from "@tiptap/core"
 import Suggestion from "@tiptap/suggestion"
 import tippy, { Instance as TippyInstance } from "tippy.js"
-import { SlashCommandList, SlashCommandListHandle, slashCommandItems } from "./slash-commands"
+import {
+  useLiveblocksExtension,
+  AiToolbar,
+  Toolbar,
+  FloatingToolbar,
+  FloatingComposer,
+  FloatingThreads,
+  AnchoredThreads,
+} from "@liveblocks/react-tiptap"
+import { useThreads } from "@liveblocks/react/suspense"
+import {
+  SlashCommandList,
+  SlashCommandListHandle,
+  slashCommandItems,
+  InsertHtmlDialog,
+  InsertLinkDialog,
+  InsertButtonDialog,
+} from "./slash-commands"
 import { MergeTagExtension } from "./merge-tag-extension"
+import { RawHtmlBlock } from "./raw-html-block"
 import type { EmailTemplateStyles } from "./types"
-import { useLiveblocksExtension } from "@liveblocks/react-tiptap"
+import { Sparkles, Languages, PenLine, Search, Minimize2 } from "lucide-react"
 import "tippy.js/dist/tippy.css"
 
 type Props = {
@@ -17,13 +36,16 @@ type Props = {
   onEditorReady?: (editor: Editor) => void
 }
 
+// ─── Slash command extension ──────────────────────────────────────────────────
+
 function createSlashExtension(): Extension {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const suggestion: Partial<any> = {
     char: "/",
+    startOfLine: false,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     command: ({ editor, range, props }: any) => {
-      props.command(editor, range)
+      props.command({ editor, range })
     },
     items: ({ query }: { query: string }) => {
       return slashCommandItems.filter(
@@ -51,6 +73,16 @@ function createSlashExtension(): Extension {
             interactive: true,
             trigger: "manual",
             placement: "bottom-start",
+            animation: false,
+            onMount(instance) {
+              const box = instance.popper.querySelector<HTMLElement>(".tippy-box")
+              const content = instance.popper.querySelector<HTMLElement>(".tippy-content")
+              if (box) {
+                box.style.cssText =
+                  "background:transparent;border:none;box-shadow:none;padding:0;max-width:none"
+              }
+              if (content) content.style.padding = "0"
+            },
           })
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,16 +124,60 @@ function createSlashExtension(): Extension {
   })
 }
 
+// ─── Thread overlay ───────────────────────────────────────────────────────────
+// Wrapped in its own Suspense so thread-loading suspension / fetch errors
+// don't propagate up and affect the editor itself.
+
+function ThreadsContent({ editor }: { editor: Editor | null }) {
+  const { threads } = useThreads({ query: { resolved: false } })
+  return (
+    <>
+      <FloatingThreads
+        editor={editor}
+        threads={threads}
+        className="w-[350px] xl:hidden"
+      />
+      <AnchoredThreads
+        editor={editor}
+        threads={threads}
+        className="absolute -right-[380px] top-0 hidden w-[350px] xl:block"
+      />
+    </>
+  )
+}
+
+function ThreadsOverlay({ editor }: { editor: Editor | null }) {
+  return (
+    <Suspense fallback={null}>
+      <ThreadsContent editor={editor} />
+    </Suspense>
+  )
+}
+
+// ─── Main editor ──────────────────────────────────────────────────────────────
+
 export function EmailEditor({ styles, onEditorReady }: Props) {
-  const liveblocks = useLiveblocksExtension()
+  const liveblocks = useLiveblocksExtension({
+    ai: {
+      name: "AI",
+    },
+  })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       liveblocks,
-      StarterKit,
+      StarterKit.configure({
+        // Liveblocks provides its own collaborative undo/redo via Yjs
+        undoRedo: false,
+        link: {
+          openOnClick: false,
+          HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+        },
+      }),
       MergeTagExtension,
+      RawHtmlBlock,
       Placeholder.configure({
         placeholder: ({ node }: { node: { type: { name: string } } }) => {
           if (node.type.name === "heading") return "Heading..."
@@ -120,8 +196,21 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
     },
   })
 
+  // Defer rendering of Liveblocks floating components until the editor view
+  // is mounted by EditorContent. Without this, accessing view.dom during the
+  // first render triggers tiptap v3's "[tiptap error] view not available" warning.
+  const [viewReady, setViewReady] = useState(false)
+  useEffect(() => {
+    if (!editor) {
+      setViewReady(false)
+      return
+    }
+    const frame = requestAnimationFrame(() => setViewReady(true))
+    return () => cancelAnimationFrame(frame)
+  }, [editor])
+
   const containerStyle = {
-    maxWidth: `${styles.container.width}px`,
+    maxWidth: "100%",
     paddingLeft: `${styles.container.paddingLeft}px`,
     paddingRight: `${styles.container.paddingRight}px`,
     fontSize: `${styles.typography.fontSize}px`,
@@ -129,11 +218,68 @@ export function EmailEditor({ styles, onEditorReady }: Props) {
   } as React.CSSProperties
 
   return (
-    <div className="email-editor-container mx-auto bg-card" style={containerStyle}>
+    <div className="relative email-editor-container mx-auto bg-card" style={containerStyle}>
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-8 py-6 text-card-foreground [&_.ProseMirror]:caret-current [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:float-left [&_.ProseMirror_p.is-editor-empty:first-child]:before:h-0 [&_.ProseMirror_p.is-editor-empty:first-child]:before:text-muted-foreground/40 [&_.ProseMirror_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]"
+        className="prose prose-sm max-w-none py-6 text-card-foreground [&_.ProseMirror]:caret-current [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:float-left [&_.ProseMirror_p.is-editor-empty:first-child]:before:h-0 [&_.ProseMirror_p.is-editor-empty:first-child]:before:text-muted-foreground/40 [&_.ProseMirror_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]"
+        style={{
+          paddingLeft: "var(--email-content-x-padding, 1.5rem)",
+          paddingRight: "var(--email-content-x-padding, 1.5rem)",
+        }}
       />
+
+      {viewReady && (
+        <>
+          <FloatingToolbar
+            editor={editor}
+            after={
+              <Toolbar.Button
+                name="Ask AI"
+                icon={<Sparkles className="size-3.5" />}
+                shortcut="CMD+J"
+                onClick={() => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ;(editor as any)?.chain().focus().askAi().run()
+                }}
+              />
+            }
+          />
+
+          <AiToolbar
+            editor={editor}
+            suggestions={
+              <>
+                <AiToolbar.SuggestionsLabel>AI</AiToolbar.SuggestionsLabel>
+                <AiToolbar.Suggestion icon={<Languages className="size-3.5" />}>
+                  Translate to
+                </AiToolbar.Suggestion>
+                <AiToolbar.Suggestion icon={<PenLine className="size-3.5" />} prompt="Continue writing">
+                  Continue writing
+                </AiToolbar.Suggestion>
+                <AiToolbar.Suggestion icon={<Search className="size-3.5" />} prompt="Ask a question about this selection">
+                  Ask a question
+                </AiToolbar.Suggestion>
+                <AiToolbar.Suggestion icon={<Search className="size-3.5" />} prompt="Ask about this page">
+                  Ask about this page
+                </AiToolbar.Suggestion>
+                <AiToolbar.Suggestion icon={<Minimize2 className="size-3.5" />} prompt="Make this shorter">
+                  Make shorter
+                </AiToolbar.Suggestion>
+              </>
+            }
+          />
+
+          <FloatingComposer editor={editor} style={{ width: "350px" }} />
+
+          <ThreadsOverlay editor={editor} />
+        </>
+      )}
+
+      {/* HTML slash command dialog */}
+      <InsertHtmlDialog />
+      <InsertLinkDialog />
+      <InsertButtonDialog />
+
       <style>{`
         .email-editor-container a {
           color: ${styles.link.color};

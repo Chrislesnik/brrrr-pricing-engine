@@ -28,7 +28,7 @@ export default async function DashboardLayout({ children }: Props) {
               <div
                 id="content"
                 className={cn(
-                  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
+                  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden my-8",
                   "has-[div[data-layout=fixed]]:overflow-hidden"
                 )}
               >

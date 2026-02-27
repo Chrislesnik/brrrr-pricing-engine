@@ -42,6 +42,7 @@ import {
   TagsInputList,
   TagsInputInput,
   TagsInputItem,
+  getTagVariant,
 } from "@/components/ui/tags-input";
 import {
   AlertDialog,
@@ -1066,6 +1067,7 @@ export function InputsSettings() {
                                       </span>
                                       <TagsInputItem
                                         value={opt}
+                                        variant={getTagVariant(opt)}
                                         className="text-xs px-1.5 py-0.5"
                                       >
                                         {opt}
@@ -1424,6 +1426,7 @@ export function InputsSettings() {
                                   </span>
                                   <TagsInputItem
                                     value={opt}
+                                    variant={getTagVariant(opt)}
                                     className="text-xs px-1.5 py-0.5"
                                   >
                                     {opt}

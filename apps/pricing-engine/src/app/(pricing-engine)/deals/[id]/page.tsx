@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
-import { ArrowLeft, Check, Loader2, Lock, LockOpen, MessageSquare } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Lock, LockOpen, MessageSquare, Send } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { DealDetailsTab } from "../components/deal-details-tab";
 import { DealDocumentsTab } from "../components/deal-documents-tab";
@@ -15,6 +15,8 @@ import { DealCalendarTab } from "../components/deal-calendar-tab";
 import { DealTasksTab } from "../components/deal-tasks-tab";
 import { DealAssignedToRoster } from "../components/deal-assigned-to-tab";
 import { CommentsPanel } from "@/components/liveblocks/comments-panel";
+import { ComposeEmailDialog, type ComposeEmailData } from "@/components/email-builder/compose-email-dialog";
+import { toast } from "sonner";
 
 interface DealData {
   id: string;
@@ -34,6 +36,33 @@ function DealRecordContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("details");
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+
+  const handleSendEmail = useCallback(async (data: ComposeEmailData) => {
+    const res = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: data.to,
+        from: data.from,
+        cc: data.cc || undefined,
+        bcc: data.bcc || undefined,
+        subject: data.subject,
+        html: data.bodyHtml,
+        dealId,
+      }),
+    })
+
+    const result = await res.json()
+
+    if (!res.ok) {
+      toast.error(result.error || "Failed to send email")
+      throw new Error(result.error)
+    }
+
+    console.log("[send-email] debug:", result._debug)
+    toast.success("Email sent")
+  }, [dealId]);
 
   // Stepper state
   const [dealStepper, setDealStepper] = useState<{
@@ -315,6 +344,15 @@ function DealRecordContent() {
                 {evaluatedSubheading || deal.id}
               </p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0 h-[38px] px-2.5"
+              title="Compose Email"
+              onClick={() => setComposeOpen(true)}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </Button>
             <DealAssignedToRoster dealId={dealId} />
           </div>
 
@@ -499,6 +537,13 @@ function DealRecordContent() {
         dealId={dealId}
         open={commentsOpen}
         onClose={() => setCommentsOpen(false)}
+      />
+
+      {/* Compose Email Dialog */}
+      <ComposeEmailDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        onSend={handleSendEmail}
       />
 
     </div>

@@ -16,6 +16,7 @@ import {
 import Image from "next/image";
 import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { api } from "@/components/workflow-builder/lib/api-client";
 import {
   OUTPUT_DISPLAY_CONFIGS,
@@ -640,6 +641,7 @@ export function WorkflowRuns({
   onRefreshRef,
   onStartRun,
 }: WorkflowRunsProps) {
+  const { isLoaded: isAuthLoaded } = useAuth();
   const [currentWorkflowId] = useAtom(currentWorkflowIdAtom);
   const [selectedExecutionId, setSelectedExecutionId] = useAtom(
     selectedExecutionIdAtom
@@ -656,7 +658,7 @@ export function WorkflowRuns({
 
   const loadExecutions = useCallback(
     async (showLoading = true) => {
-      if (!currentWorkflowId) {
+      if (!currentWorkflowId || !isAuthLoaded) {
         setLoading(false);
         return;
       }
@@ -676,7 +678,7 @@ export function WorkflowRuns({
         }
       }
     },
-    [currentWorkflowId]
+    [currentWorkflowId, isAuthLoaded]
   );
 
   // Expose refresh function via ref

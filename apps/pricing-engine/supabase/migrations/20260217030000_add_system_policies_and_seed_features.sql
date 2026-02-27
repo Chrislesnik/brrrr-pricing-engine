@@ -16,6 +16,21 @@ ALTER TABLE public.organization_policies
 COMMENT ON COLUMN public.organization_policies.is_protected_policy IS
 'When true, the policy is protected and cannot be edited, disabled, or archived through the UI without elevated approval.';
 
+-- Ensure legacy checks allow new feature policy rows in replayed environments.
+ALTER TABLE public.organization_policies
+  DROP CONSTRAINT IF EXISTS organization_policies_resource_type_check;
+
+ALTER TABLE public.organization_policies
+  DROP CONSTRAINT IF EXISTS organization_policies_action_check;
+
+ALTER TABLE public.organization_policies
+  ADD CONSTRAINT organization_policies_resource_type_check
+  CHECK (resource_type = ANY (ARRAY['table'::text, 'storage_bucket'::text, 'route'::text, 'feature'::text])) NOT VALID;
+
+ALTER TABLE public.organization_policies
+  ADD CONSTRAINT organization_policies_action_check
+  CHECK (char_length(action) > 0) NOT VALID;
+
 -- =====================================================
 -- STEP 2: Seed global default feature policies
 -- These are org_id IS NULL (global) so they apply to

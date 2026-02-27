@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 // Re-export types from constants (type-only re-exports are fine in "use server")
 export type {
   ConditionInput,
+  ConditionGroupInput,
   PolicyScope,
   PolicyEffect,
   PolicyDefinitionInput,
@@ -14,6 +15,8 @@ export type {
   OrgPolicyRow,
   NamedScopeRow,
   IntegrationFeatureResource,
+  RoomScopeInput,
+  DealRoleTypeRow,
 } from "./constants";
 
 import type {
@@ -23,8 +26,9 @@ import type {
   OrgPolicyRow,
   PolicyScope,
   NamedScopeRow,
+  DealRoleTypeRow,
 } from "./constants";
-import { FEATURE_RESOURCES, type IntegrationFeatureResource, type PolicyAction as PA } from "./constants";
+import { FEATURE_RESOURCES, LIVEBLOCKS_RESOURCES, type IntegrationFeatureResource, type PolicyAction as PA } from "./constants";
 
 type SavePolicyInput = {
   resourceType: ResourceType;
@@ -148,6 +152,16 @@ function compilePolicy(definition: PolicyDefinitionInput) {
     operator: c.operator,
     values: c.values.map((v) => v.toLowerCase()),
   }));
+  const conditionGroups = (definition.conditionGroups ?? [])
+    .filter((g) => g.conditions.length > 0)
+    .map((g) => ({
+      connector: g.connector,
+      conditions: g.conditions.map((c) => ({
+        field: c.field,
+        operator: c.operator,
+        values: c.values.map((v) => v.toLowerCase()),
+      })),
+    }));
   const scopeConditions = (definition.scopeConditions ?? []).map((c) => ({
     column: c.column,
     operator: c.operator,
@@ -155,9 +169,6 @@ function compilePolicy(definition: PolicyDefinitionInput) {
   }));
   const namedScopes = definition.namedScopeConditions ?? [];
 
-  // Named scopes override column-level scope conditions.
-  // Scope becomes 'named:<scopeName>' so check_org_access() returns it as-is,
-  // and RLS policies can dispatch to check_named_scope() accordingly.
   const ruleScope = namedScopes.length > 0
     ? `named:${namedScopes[0].name}`
     : legacyScope;
@@ -167,27 +178,52 @@ function compilePolicy(definition: PolicyDefinitionInput) {
     scope: ruleScope,
     conditions,
   };
+  if (conditionGroups.length > 0) {
+    ruleObj.condition_groups = conditionGroups;
+  }
   if (namedScopes.length > 0) {
     ruleObj.named_scope_conditions = namedScopes.map((n) => ({ name: n.name }));
   }
+  if (definition.roomScope) {
+    ruleObj.room_scope = {
+      level: definition.roomScope.level,
+      deal_role_type_ids: definition.roomScope.dealRoleTypeIds,
+    };
+  }
 
-  return {
+  const compiled: Record<string, unknown> = {
     version: 3,
     allow_internal_users: !!definition.allowInternalUsers,
-    // V3 rules array — what the policy engine reads for version >= 3
     rules: [ruleObj],
-    // Legacy V2 fields kept for backwards-compatible reads and UI display
     conditions,
+    condition_groups: conditionGroups.length > 0 ? conditionGroups : undefined,
     connector: definition.connector || "AND",
     scope: legacyScope,
     scope_conditions: scopeConditions,
     scope_connector: definition.scopeConnector || "OR",
   };
+  if (definition.roomScope) {
+    compiled.room_scope = {
+      level: definition.roomScope.level,
+      deal_role_type_ids: definition.roomScope.dealRoleTypeIds,
+    };
+  }
+  return compiled;
 }
 
 function buildDefinition(definition: PolicyDefinitionInput) {
   const namedScopes = definition.namedScopeConditions ?? [];
-  const base = {
+  const conditionGroups = (definition.conditionGroups ?? [])
+    .filter((g) => g.conditions.length > 0)
+    .map((g) => ({
+      connector: g.connector,
+      conditions: g.conditions.map((c) => ({
+        field: c.field,
+        operator: c.operator,
+        values: c.values,
+      })),
+    }));
+  const base: Record<string, unknown> = {
     version: 3,
     effect: definition.effect || "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
@@ -205,8 +241,17 @@ function buildDefinition(definition: PolicyDefinitionInput) {
     })),
     scope_connector: definition.scopeConnector || "OR",
   };
+  if (conditionGroups.length > 0) {
+    base.condition_groups = conditionGroups;
+  }
   if (namedScopes.length > 0) {
-    return { ...base, named_scope_conditions: namedScopes.map((n) => ({ name: n.name })) };
+    base.named_scope_conditions = namedScopes.map((n) => ({ name: n.name }));
+  }
+  if (definition.roomScope) {
+    base.room_scope = {
+      level: definition.roomScope.level,
+      deal_role_type_ids: definition.roomScope.dealRoleTypeIds,
+    };
   }
   return base;
 }
@@ -478,6 +523,7 @@ export async function getAvailableResources(): Promise<{
   buckets: string[];
   features: typeof FEATURE_RESOURCES;
   integrationFeatures: IntegrationFeatureResource[];
+  liveblocksRooms: typeof LIVEBLOCKS_RESOURCES;
 }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
@@ -520,6 +566,7 @@ export async function getAvailableResources(): Promise<{
     buckets: bucketsRes.data?.map((b) => b.name).sort() ?? [],
     features: FEATURE_RESOURCES,
     integrationFeatures,
+    liveblocksRooms: LIVEBLOCKS_RESOURCES,
   };
 }
 
@@ -596,4 +643,18 @@ export async function deleteOrgPolicy(input: {
   if (error) throw new Error(error.message);
 
   return { ok: true };
+}
+
+/** Fetches deal role types for the room scope selector. */
+export async function getDealRoleTypes(): Promise<DealRoleTypeRow[]> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { data } = await supabase
+    .from("deal_role_types")
+    .select("id,name,code")
+    .eq("is_active", true)
+    .order("name");
+
+  return (data ?? []) as DealRoleTypeRow[];
 }

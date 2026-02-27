@@ -500,6 +500,13 @@ export function StudioEditorWrapper({
                             type: "panelLayers",
                           },
                         },
+                        {
+                          id: "ai-chat",
+                          label: "AI",
+                          children: {
+                            type: "aiChatPanel",
+                          },
+                        },
                       ],
                     },
                   ],
@@ -636,7 +643,24 @@ export function StudioEditorWrapper({
             qrCodePlugin,
             (editor: any) => brandLogoPlugin(editor, orgLogos),
             ...(aiChat?.init
-              ? [aiChat.init({ chatApi: "/api/ai-chat" })]
+              ? [aiChat.init({
+                  chatApi: "/api/ai-chat",
+                  getAccessToken: async () => {
+                    const res = await fetch("/api/grapesjs-token", { method: "POST" })
+                    if (!res.ok) return undefined
+                    return res.json()
+                  },
+                  layoutComponents: {
+                    aiChatEmptyState: () => ({
+                      suggestions: [
+                        { id: "hero", label: "Create a hero section with headline and CTA" },
+                        { id: "features", label: "Add a features grid with icons" },
+                        { id: "contact", label: "Create a contact form" },
+                        { id: "footer", label: "Add a footer with links" },
+                      ],
+                    }),
+                  },
+                })]
               : []),
           ],
 

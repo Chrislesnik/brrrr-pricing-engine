@@ -2,21 +2,19 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Save, RotateCcw, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Save, RotateCcw } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@repo/ui/shadcn/card";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@repo/ui/shadcn/collapsible";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui/shadcn/tabs";
 import {
   Table,
   TableBody,
@@ -72,43 +70,6 @@ export function DocumentCategoryPermissionMatrix({
   saving,
 }: DocumentCategoryPermissionMatrixProps) {
   const [hasChanges, setHasChanges] = useState(false);
-  
-  // Track which roles are expanded (start with all expanded)
-  const [expandedRoles, setExpandedRoles] = useState<Record<string, boolean>>(
-    () => {
-      const initial: Record<string, boolean> = {};
-      roles.forEach((role) => {
-        initial[role.id] = true; // All expanded by default
-      });
-      return initial;
-    }
-  );
-
-  const toggleRole = (roleId: string) => {
-    setExpandedRoles((prev) => ({
-      ...prev,
-      [roleId]: !prev[roleId],
-    }));
-  };
-
-  // Toggle all roles at once
-  const toggleAllRoles = () => {
-    const allExpanded = Object.values(expandedRoles).every((v) => v === true);
-    const newState: Record<string, boolean> = {};
-    roles.forEach((role) => {
-      newState[role.id] = !allExpanded;
-    });
-    setExpandedRoles(newState);
-  };
-
-  const allExpanded = Object.values(expandedRoles).every((v) => v === true);
-
-  console.log("DocumentCategoryPermissionMatrix rendering with:", {
-    rolesCount: roles.length,
-    categoriesCount: categories.length,
-    roles: roles.map(r => r.name),
-    categories: categories.map(c => c.name),
-  });
 
   const handlePermissionChange = (
     roleId: string,
@@ -186,6 +147,28 @@ export function DocumentCategoryPermissionMatrix({
     return perms.can_view && perms.can_insert && perms.can_upload && perms.can_delete;
   };
 
+  const isAllChecked = (roleId: string): boolean => {
+    if (!value[roleId]) return false;
+    return Object.values(value[roleId]).every(
+      (p) => p.can_view && p.can_insert && p.can_upload && p.can_delete
+    );
+  };
+
+  const handleSelectAll = (roleId: string, checked: boolean) => {
+    const newState = { ...value };
+    if (!newState[roleId]) return;
+    Object.keys(newState[roleId]).forEach((catId) => {
+      newState[roleId][catId] = {
+        can_view: checked,
+        can_insert: checked,
+        can_upload: checked,
+        can_delete: checked,
+      };
+    });
+    onChange(newState);
+    setHasChanges(true);
+  };
+
   const handleSave = () => {
     onSave();
     setHasChanges(false);
@@ -204,6 +187,8 @@ export function DocumentCategoryPermissionMatrix({
     return acc;
   }, {} as Record<string, Category[]>);
 
+  const defaultTab = roles[0]?.id ?? "";
+
   return (
     <div className="space-y-6">
       {/* Action buttons */}
@@ -214,25 +199,6 @@ export function DocumentCategoryPermissionMatrix({
               <div className="size-2 rounded-full bg-amber-500 animate-pulse" />
               You have unsaved changes
             </div>
-          )}
-          {!hasChanges && (
-            <Button
-              variant="outline"
-              onClick={toggleAllRoles}
-              className="gap-2"
-            >
-              {allExpanded ? (
-                <>
-                  <ChevronsUpDown className="size-4" />
-                  Collapse All
-                </>
-              ) : (
-                <>
-                  <ChevronsDownUp className="size-4" />
-                  Expand All
-                </>
-              )}
-            </Button>
           )}
         </div>
         <div className="flex gap-2">
@@ -254,148 +220,123 @@ export function DocumentCategoryPermissionMatrix({
         </div>
       </div>
 
-      {/* Roles */}
-      {roles.map((role) => {
-        const isExpanded = expandedRoles[role.id] ?? true;
-        
-        return (
-          <Collapsible
-            key={role.id}
-            open={isExpanded}
-            onOpenChange={() => toggleRole(role.id)}
-          >
+      {/* Tabbed roles */}
+      <Tabs defaultValue={defaultTab}>
+        <TabsList className="flex h-auto gap-1 overflow-x-auto justify-start w-full">
+          {roles.map((role) => (
+            <TabsTrigger key={role.id} value={role.id} className="gap-1.5">
+              {role.name}
+              {role.isSystem && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                  System
+                </Badge>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {roles.map((role) => (
+          <TabsContent key={role.id} value={role.id}>
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      {role.name}
-                      {role.isSystem && (
-                        <Badge variant="secondary" className="text-xs">
-                          System
-                        </Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground font-normal ml-2">
-                        ({categories.length} categories)
-                      </span>
-                    </CardTitle>
-                    {role.description && (
-                      <CardDescription className="mt-1">
-                        {role.description}
-                      </CardDescription>
-                    )}
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                    >
-                      <ChevronsUpDown className="size-4" />
-                      <span className="sr-only">Toggle permissions</span>
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[300px]">Document Category</TableHead>
-                  {(Object.keys(actionLabels) as ActionKey[]).map((action) => (
-                    <TableHead key={action} className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-xs font-medium">
-                          {actionLabels[action]}
-                        </span>
-                        <Checkbox
-                          checked={isColumnAllChecked(role.id, action)}
-                          onCheckedChange={(checked) =>
-                            handleColumnSelectAll(role.id, action, checked === true)
-                          }
-                          disabled={role.isSystem}
-                          className="mt-1"
-                          title={`Select all ${actionLabels[action]}`}
-                        />
-                      </div>
-                    </TableHead>
-                  ))}
-                  <TableHead className="w-[80px] text-center">
-                    <span className="text-xs font-medium">All</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.entries(groupedCategories).map(([group, cats]) => (
-                  <React.Fragment key={group}>
-                    {/* Group header row */}
-                    <TableRow className="bg-muted/50">
-                      <TableCell colSpan={6} className="font-semibold">
-                        {group}
-                      </TableCell>
-                    </TableRow>
-                    {/* Category rows */}
-                    {cats.map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{category.name}</div>
-                            {category.description && (
-                              <div className="text-xs text-muted-foreground">
-                                {category.description}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        {(Object.keys(actionLabels) as ActionKey[]).map((action) => (
-                          <TableCell key={action} className="text-center">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={
-                                  value[role.id]?.[category.id]?.[action] || false
-                                }
-                                onCheckedChange={(checked) =>
-                                  handlePermissionChange(
-                                    role.id,
-                                    category.id,
-                                    action,
-                                    checked === true
-                                  )
-                                }
-                                disabled={role.isSystem}
-                              />
-                            </div>
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
+              <CardContent className="overflow-x-auto pt-6 pb-8">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[360px] align-bottom">Document Category</TableHead>
+                      {(Object.keys(actionLabels) as ActionKey[]).map((action) => (
+                        <TableHead key={action} className="w-[100px] text-center align-bottom">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-sm font-medium">
+                              {actionLabels[action]}
+                            </span>
                             <Checkbox
-                              checked={isRowAllChecked(role.id, category.id)}
+                              checked={isColumnAllChecked(role.id, action)}
                               onCheckedChange={(checked) =>
-                                handleRowSelectAll(
-                                  role.id,
-                                  category.id,
-                                  checked === true
-                                )
+                                handleColumnSelectAll(role.id, action, checked === true)
                               }
                               disabled={role.isSystem}
-                              title="Select all actions for this category"
+                              title={`Select all ${actionLabels[action]}`}
                             />
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </TableHead>
+                      ))}
+                      <TableHead className="w-[100px] text-center align-bottom">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-sm font-medium">All</span>
+                          <Checkbox
+                            checked={isAllChecked(role.id)}
+                            onCheckedChange={(checked) =>
+                              handleSelectAll(role.id, checked === true)
+                            }
+                            disabled={role.isSystem}
+                            title="Select all permissions"
+                          />
+                        </div>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Object.entries(groupedCategories).map(([group, cats]) => (
+                      <React.Fragment key={group}>
+                        {cats.map((category) => (
+                          <TableRow key={category.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{category.name}</div>
+                                {category.description && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {category.description}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            {(Object.keys(actionLabels) as ActionKey[]).map((action) => (
+                              <TableCell key={action} className="text-center">
+                                <div className="flex justify-center">
+                                  <Checkbox
+                                    checked={
+                                      value[role.id]?.[category.id]?.[action] || false
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      handlePermissionChange(
+                                        role.id,
+                                        category.id,
+                                        action,
+                                        checked === true
+                                      )
+                                    }
+                                    disabled={role.isSystem}
+                                  />
+                                </div>
+                              </TableCell>
+                            ))}
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Checkbox
+                                  checked={isRowAllChecked(role.id, category.id)}
+                                  onCheckedChange={(checked) =>
+                                    handleRowSelectAll(
+                                      role.id,
+                                      category.id,
+                                      checked === true
+                                    )
+                                  }
+                                  disabled={role.isSystem}
+                                  title="Select all actions for this category"
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
                     ))}
-                  </React.Fragment>
-                ))}
-              </TableBody>
-            </Table>
-                </CardContent>
-              </CollapsibleContent>
+                  </TableBody>
+                </Table>
+              </CardContent>
             </Card>
-          </Collapsible>
-        );
-      })}
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }

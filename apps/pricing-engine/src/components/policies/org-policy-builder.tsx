@@ -16,11 +16,14 @@ import {
   getAvailableResources,
   getColumnFilters,
   getNamedScopeRegistry,
+  getDealRoleTypes,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/actions";
 import {
   FEATURE_RESOURCES,
+  LIVEBLOCKS_RESOURCES,
   type OrgPolicyRow,
   type ConditionInput,
+  type ConditionGroupInput,
   type ScopeConditionInput,
   type PolicyDefinitionInput,
   type PolicyScope,
@@ -28,6 +31,8 @@ import {
   type PolicyAction,
   type ResourceType,
   type NamedScopeRow,
+  type RoomScopeInput,
+  type DealRoleTypeRow,
 } from "@/app/(pricing-engine)/org/[orgId]/settings/policies/constants";
 import {
   PolicyConditionRow,
@@ -118,6 +123,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
+import { PolicyDiagramView } from "@/components/policies/policy-diagram-view";
 
 // ============================================================================
 // Constants
@@ -157,11 +163,19 @@ const featureActionOptions = [
   { value: "view", label: "View" },
 ];
 
+const liveblocksActionOptions = [
+  { value: "room_write", label: "Write", description: "Full access — view, edit, and presence" },
+  { value: "room_read", label: "Read", description: "View the room's storage (no editing)" },
+  { value: "room_presence_write", label: "Presence Write", description: "Edit presence only (cursors, selections)" },
+  { value: "room_private", label: "Private", description: "No access — deny entry to the room" },
+];
+
 const resourceScopeOptions = [
   { value: "table:*", label: "All Tables" },
   { value: "storage_bucket:*", label: "All Storage Buckets" },
   { value: "feature:settings_*", label: "All Settings" },
   { value: "route:*", label: "All Routes" },
+  { value: "liveblocks:*", label: "All Liveblocks Resources" },
 ];
 
 const SCOPE_SUBJECTS: Array<{ value: string; label: string; description: string }> = [
@@ -265,6 +279,11 @@ const defaultCondition: ConditionState = {
   values: [],
 };
 
+type ConditionGroupState = {
+  connector: "AND" | "OR";
+  conditions: ConditionState[];
+};
+
 // ============================================================================
 // Multi-Select Chips Component (reused for SET and ON)
 // ============================================================================
@@ -294,16 +313,16 @@ function ChipsSelect({
         <Button
           variant="outline"
           role="combobox"
-          className="justify-between font-normal h-auto min-h-9 shadow-xs"
+          className="justify-between font-normal h-auto min-h-9 rounded-md shadow-xs px-2 py-1.5"
         >
-          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+          <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
             {selected.length === 0 ? (
               <span className="text-sm text-muted-foreground">{placeholder}</span>
             ) : (
               selected.map((v) => {
                 const opt = options.find((o) => o.value === v);
                 return (
-                  <Badge key={v} variant="secondary" className="text-xs gap-1 pr-1">
+                  <Badge key={v} variant="secondary" className="rounded-sm px-2.5 py-1 text-sm gap-2 pr-1.5">
                     {opt?.label ?? v}
                     <span
                       role="button"
@@ -321,7 +340,7 @@ function ChipsSelect({
                         }
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </span>
                   </Badge>
                 );
@@ -404,6 +423,7 @@ function ResourceChipsSelect({
     if (value.startsWith("storage_bucket:")) return `Bucket: ${label}`;
     if (value.startsWith("feature:")) return `Feature: ${label}`;
     if (value.startsWith("route:")) return `Route: ${label}`;
+    if (value.startsWith("liveblocks:")) return `Liveblocks: ${label}`;
     return label;
   }
 
@@ -422,6 +442,9 @@ function ResourceChipsSelect({
   );
   const routes = options.filter(
     (o) => o.value.startsWith("route:") && !isWildcard(o)
+  );
+  const liveblocksRooms = options.filter(
+        (o) => o.value.startsWith("liveblocks:") && !isWildcard(o)
   );
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
@@ -505,9 +528,9 @@ function ResourceChipsSelect({
         <Button
           variant="outline"
           role="combobox"
-          className="justify-between font-normal h-auto min-h-9 shadow-xs"
+          className="justify-between font-normal h-auto min-h-9 rounded-md shadow-xs px-2 py-1.5"
         >
-          <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+          <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
             {selected.length === 0 ? (
               <span className="text-sm text-muted-foreground">{placeholder}</span>
             ) : (
@@ -515,7 +538,7 @@ function ResourceChipsSelect({
                 const opt = options.find((o) => o.value === v);
                 const display = opt ? chipLabel(v, opt.label) : v;
                 return (
-                  <Badge key={v} variant="secondary" className="text-xs gap-1 pr-1">
+                  <Badge key={v} variant="secondary" className="rounded-sm px-2.5 py-1 text-sm gap-2 pr-1.5">
                     {display}
                     <span
                       role="button"
@@ -533,7 +556,7 @@ function ResourceChipsSelect({
                         }
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </span>
                   </Badge>
                 );
@@ -562,6 +585,7 @@ function ResourceChipsSelect({
             {renderCollapsibleGroup("buckets", "Storage Buckets", buckets, wildcards.length > 0 || tables.length > 0)}
             {renderCollapsibleGroup("features", "Features", features, wildcards.length > 0 || tables.length > 0 || buckets.length > 0)}
             {renderCollapsibleGroup("routes", "Routes", routes, wildcards.length > 0 || tables.length > 0 || buckets.length > 0 || features.length > 0)}
+            {renderCollapsibleGroup("liveblocks", "Liveblocks Rooms", liveblocksRooms, wildcards.length > 0 || tables.length > 0 || buckets.length > 0 || features.length > 0 || routes.length > 0)}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -831,11 +855,17 @@ function ScopeConditionBuilder({
 // ============================================================================
 
 type RuleCondition = { field: string; operator: string; values: string[] };
-type RuleGroup = { conditions?: RuleCondition[]; connector?: string; scope?: string };
+type RuleGroup = {
+  conditions?: RuleCondition[];
+  condition_groups?: Array<{ connector: string; conditions: RuleCondition[] }>;
+  connector?: string;
+  scope?: string;
+};
 
 function summarizeConditions(policy: OrgPolicyRow): string {
   const def = policy.definition_json as {
     conditions?: RuleCondition[];
+    condition_groups?: Array<{ connector: string; conditions: RuleCondition[] }>;
     rules?: RuleGroup[];
     connector?: string;
     allow_internal_users?: boolean;
@@ -861,36 +891,60 @@ function summarizeConditions(policy: OrgPolicyRow): string {
     return parts.join(` ${connector} `);
   }
 
-  // V3: prefer compiled_config.rules, fall back to definition_json.rules
+  function ruleText(r: RuleGroup): string {
+    const conn = r.connector ?? "AND";
+    const parts: string[] = [];
+    if (r.conditions?.length) {
+      parts.push(conditionText(r.conditions, conn));
+    }
+    if (r.condition_groups?.length) {
+      for (const g of r.condition_groups) {
+        parts.push(`(${conditionText(g.conditions, g.connector ?? "OR")})`);
+      }
+    }
+    return parts.join(` ${conn} `);
+  }
+
   const rules: RuleGroup[] | undefined = compiled?.rules ?? def?.rules;
 
   if (rules?.length) {
-    const nonEmptyRules = rules.filter((r) => r.conditions?.length);
+    const nonEmptyRules = rules.filter((r) => r.conditions?.length || r.condition_groups?.length);
     if (!nonEmptyRules.length) {
       return compiled?.allow_internal_users ? "Internal users only" : "No conditions";
     }
     if (nonEmptyRules.length === 1) {
-      const r = nonEmptyRules[0];
-      return conditionText(r.conditions!, r.connector ?? "AND");
+      return ruleText(nonEmptyRules[0]);
     }
-    // Multi-rule (Tier 1-3 style): show each rule's conditions separated by " OR "
-    return nonEmptyRules
-      .map((r) => `(${conditionText(r.conditions!, r.connector ?? "AND")})`)
-      .join(" OR ");
+    return nonEmptyRules.map((r) => `(${ruleText(r)})`).join(" OR ");
   }
 
-  // V2 fallback: top-level conditions array
-  if (!def?.conditions?.length) {
+  if (!def?.conditions?.length && !def?.condition_groups?.length) {
     return def?.allow_internal_users ? "Internal users only" : "No conditions";
   }
-  const joined = conditionText(def.conditions, def.connector ?? "AND");
+  const parts: string[] = [];
+  const conn = def.connector ?? "AND";
+  if (def.conditions?.length) {
+    parts.push(conditionText(def.conditions, conn));
+  }
+  if (def.condition_groups?.length) {
+    for (const g of def.condition_groups) {
+      parts.push(`(${conditionText(g.conditions, g.connector ?? "OR")})`);
+    }
+  }
+  const joined = parts.join(` ${conn} `);
   if (def.allow_internal_users) return `${joined} (+ internal bypass)`;
   return joined;
 }
 
 // Represents a single V3 rule group as stored in compiled_config / definition_json
+type V3ConditionGroup = {
+  connector: "AND" | "OR";
+  conditions: Array<{ field: string; operator: string; values: string[] }>;
+};
+
 type V3Rule = {
   conditions?: Array<{ field: string; operator: string; values: string[] }>;
+  condition_groups?: V3ConditionGroup[];
   connector?: "AND" | "OR";
   scope?: string;
   named_scope_conditions?: Array<{ name: string }>;
@@ -900,6 +954,7 @@ function loadPolicyIntoForm(
   policy: OrgPolicyRow,
   setters: {
     setConditions: (c: ConditionState[]) => void;
+    setConditionGroups: (g: ConditionGroupState[]) => void;
     setConnector: (c: "AND" | "OR") => void;
     setAllowInternalUsers: (b: boolean) => void;
     setSelectedActions: (a: string[]) => void;
@@ -910,10 +965,13 @@ function loadPolicyIntoForm(
     setSelectedEffect: (e: PolicyEffect) => void;
     setEditingPolicyId: (id: string | null) => void;
     setSelectedNamedScopes: (s: string[]) => void;
+    setRoomScopeLevel: (l: "user" | "org") => void;
+    setRoomScopeDealRoleTypeIds: (ids: number[]) => void;
   }
 ) {
   const def = policy.definition_json as {
     conditions?: Array<{ field: string; operator: string; values: string[] }>;
+    condition_groups?: V3ConditionGroup[];
     rules?: V3Rule[];
     connector?: "AND" | "OR";
     allow_internal_users?: boolean;
@@ -922,6 +980,7 @@ function loadPolicyIntoForm(
     scope_conditions?: Array<{ column: string; operator: string; reference: string }>;
     scope_connector?: "AND" | "OR";
     named_scope_conditions?: Array<{ name: string }>;
+    room_scope?: { level: "user" | "org"; deal_role_type_ids: number[] | null };
   };
 
   const compiled = policy.compiled_config as {
@@ -964,6 +1023,20 @@ function loadPolicyIntoForm(
       : [{ ...defaultCondition }]
   );
   setters.setConnector(resolvedConnector as "AND" | "OR");
+
+  const resolvedGroups: V3ConditionGroup[] =
+    def?.condition_groups ?? firstRule?.condition_groups ?? [];
+  setters.setConditionGroups(
+    resolvedGroups.map((g) => ({
+      connector: g.connector,
+      conditions: g.conditions.map((c) => ({
+        field: c.field,
+        operator: c.operator,
+        values: c.values,
+      })),
+    }))
+  );
+
   setters.setAllowInternalUsers(
     def?.allow_internal_users ?? compiled?.allow_internal_users ?? false
   );
@@ -996,6 +1069,18 @@ function loadPolicyIntoForm(
     setters.setScopeConditions(legacyScopeToConditions(resolvedLegacyScope));
     setters.setScopeConnector("OR");
   }
+
+  // Restore room scope (Liveblocks deal room scoping)
+  const roomScope = def?.room_scope ?? (firstRule as Record<string, unknown> | undefined)?.room_scope as
+    | { level: "user" | "org"; deal_role_type_ids: number[] | null }
+    | undefined;
+  if (roomScope) {
+    setters.setRoomScopeLevel(roomScope.level ?? "user");
+    setters.setRoomScopeDealRoleTypeIds(roomScope.deal_role_type_ids ?? []);
+  } else {
+    setters.setRoomScopeLevel("user");
+    setters.setRoomScopeDealRoleTypeIds([]);
+  }
 }
 
 // ============================================================================
@@ -1019,6 +1104,7 @@ export default function OrgPolicyBuilder({
   const [conditions, setConditions] = useState<ConditionState[]>([
     { ...defaultCondition },
   ]);
+  const [conditionGroups, setConditionGroups] = useState<ConditionGroupState[]>([]);
   const [connector, setConnector] = useState<"AND" | "OR">("AND");
 
   // THEN state
@@ -1041,6 +1127,11 @@ export default function OrgPolicyBuilder({
   // Named scope state
   const [selectedNamedScopes, setSelectedNamedScopes] = useState<string[]>([]);
   const [namedScopeRegistry, setNamedScopeRegistry] = useState<NamedScopeRow[]>([]);
+
+  // Room scope state (Liveblocks deal room scoping)
+  const [roomScopeLevel, setRoomScopeLevel] = useState<"user" | "org">("user");
+  const [roomScopeDealRoleTypeIds, setRoomScopeDealRoleTypeIds] = useState<number[]>([]);
+  const [dealRoleTypes, setDealRoleTypes] = useState<DealRoleTypeRow[]>([]);
 
   // Column filters (for conditional scope selector)
   const [columnFilters, setColumnFilters] = useState<
@@ -1066,6 +1157,11 @@ export default function OrgPolicyBuilder({
   const [resourceOptions, setResourceOptions] = useState<
     Array<{ value: string; label: string }>
   >([...resourceScopeOptions]);
+
+  // Dynamic integration features (with their allowed actions)
+  const [dynamicIntegrationFeatures, setDynamicIntegrationFeatures] = useState<
+    Array<{ name: string; actions: string[] }>
+  >([]);
 
   useEffect(() => {
     async function loadDynamicData() {
@@ -1118,19 +1214,31 @@ export default function OrgPolicyBuilder({
             label: feat.label,
           });
         }
+        setDynamicIntegrationFeatures(
+          resources.integrationFeatures.map((f) => ({ name: f.name, actions: f.actions }))
+        );
+        // Add Liveblocks resources
+        for (const room of resources.liveblocksRooms) {
+          opts.push({
+            value: `liveblocks:${room.name}`,
+            label: room.label,
+          });
+        }
         setResourceOptions(opts);
       } catch (err) {
         console.error("Failed to load available resources:", err);
       }
 
-      // Load column filters and named scope registry
+      // Load column filters, named scope registry, and deal role types
       try {
-        const [filters, namedScopes] = await Promise.all([
+        const [filters, namedScopes, roleTypes] = await Promise.all([
           getColumnFilters(),
           getNamedScopeRegistry(),
+          getDealRoleTypes(),
         ]);
         setColumnFilters(filters);
         setNamedScopeRegistry(namedScopes);
+        setDealRoleTypes(roleTypes);
       } catch (err) {
         console.error("Failed to load column filters / named scope registry:", err);
       }
@@ -1181,11 +1289,59 @@ export default function OrgPolicyBuilder({
     setConditions((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Determine if any selected resource is a feature
+  function addConditionGroup() {
+    setConditionGroups((prev) => [
+      ...prev,
+      { connector: "OR", conditions: [{ ...defaultCondition }] },
+    ]);
+  }
+
+  function removeConditionGroup(groupIndex: number) {
+    setConditionGroups((prev) => prev.filter((_, i) => i !== groupIndex));
+  }
+
+  function updateGroupConnector(groupIndex: number, conn: "AND" | "OR") {
+    setConditionGroups((prev) =>
+      prev.map((g, i) => (i === groupIndex ? { ...g, connector: conn } : g))
+    );
+  }
+
+  function addGroupCondition(groupIndex: number) {
+    setConditionGroups((prev) =>
+      prev.map((g, i) =>
+        i === groupIndex
+          ? { ...g, conditions: [...g.conditions, { ...defaultCondition }] }
+          : g
+      )
+    );
+  }
+
+  function updateGroupCondition(groupIndex: number, condIndex: number, updated: ConditionState) {
+    setConditionGroups((prev) =>
+      prev.map((g, i) =>
+        i === groupIndex
+          ? { ...g, conditions: g.conditions.map((c, j) => (j === condIndex ? updated : c)) }
+          : g
+      )
+    );
+  }
+
+  function removeGroupCondition(groupIndex: number, condIndex: number) {
+    setConditionGroups((prev) =>
+      prev.map((g, i) =>
+        i === groupIndex
+          ? { ...g, conditions: g.conditions.filter((_, j) => j !== condIndex) }
+          : g
+      ).filter((g) => g.conditions.length > 0)
+    );
+  }
+
+  // Determine if any selected resource is a feature, data, or liveblocks room
   const hasFeatureSelected = selectedResources.some((r) => r.startsWith("feature:"));
   const hasDataSelected = selectedResources.some(
     (r) => r.startsWith("table:") || r.startsWith("storage_bucket:")
   );
+  const hasLiveblocksSelected = selectedResources.some((r) => r.startsWith("liveblocks:"));
 
   // Derive allowed actions from the specific selected feature resources
   const activeFeatureActionOptions = useMemo(() => {
@@ -1195,36 +1351,52 @@ export default function OrgPolicyBuilder({
 
     const actionSet = new Set<string>();
     for (const name of selectedFeatureNames) {
-      const feat = FEATURE_RESOURCES.find((f) => f.name === name);
+      const feat =
+        FEATURE_RESOURCES.find((f) => f.name === name) ??
+        dynamicIntegrationFeatures.find((f) => f.name === name);
       feat?.actions.forEach((a) => actionSet.add(a));
     }
-    // Fallback for unregistered features
     if (actionSet.size === 0) actionSet.add("submit");
 
     return [...actionSet].map((a) => ({
       value: a,
       label: a.charAt(0).toUpperCase() + a.slice(1),
     }));
-  }, [selectedResources]);
+  }, [selectedResources, dynamicIntegrationFeatures]);
 
-  // Contextual action options: features get their registered actions, data gets CRUD
-  const activeActionOptions = hasFeatureSelected && !hasDataSelected
-    ? activeFeatureActionOptions
-    : hasDataSelected && !hasFeatureSelected
-      ? dataActionOptions
-      : [...dataActionOptions, ...activeFeatureActionOptions];
+  // Contextual action options based on which resource types are selected
+  const activeActionOptions = useMemo(() => {
+    if (hasLiveblocksSelected && !hasDataSelected && !hasFeatureSelected) {
+      return liveblocksActionOptions;
+    }
+    if (hasFeatureSelected && !hasDataSelected && !hasLiveblocksSelected) {
+      return activeFeatureActionOptions;
+    }
+    if (hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected) {
+      return dataActionOptions;
+    }
+    // Mixed: combine all applicable option sets
+    const combined = [...dataActionOptions];
+    if (hasFeatureSelected) combined.push(...activeFeatureActionOptions);
+    if (hasLiveblocksSelected) combined.push(...liveblocksActionOptions);
+    return combined;
+  }, [hasDataSelected, hasFeatureSelected, hasLiveblocksSelected, activeFeatureActionOptions]);
 
-  // Reset selected actions when switching between data and feature modes
+  // Reset selected actions when the resource type mix changes
   useEffect(() => {
-    if (hasFeatureSelected && !hasDataSelected) {
-      // Only keep actions valid for the selected features
+    if (hasLiveblocksSelected && !hasDataSelected && !hasFeatureSelected) {
+      const lbVals = new Set(liveblocksActionOptions.map((o) => o.value));
+      setSelectedActions((prev) => {
+        const valid = prev.filter((a) => lbVals.has(a));
+        return valid.length > 0 ? valid : ["room_write"];
+      });
+    } else if (hasFeatureSelected && !hasDataSelected && !hasLiveblocksSelected) {
       const featureVals = new Set(activeFeatureActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => featureVals.has(a));
         return valid.length > 0 ? valid : [activeFeatureActionOptions[0]?.value ?? "submit"];
       });
-    } else if (hasDataSelected && !hasFeatureSelected) {
-      // Only keep data-valid actions
+    } else if (hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected) {
       const dataVals = new Set(dataActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => dataVals.has(a));
@@ -1232,7 +1404,7 @@ export default function OrgPolicyBuilder({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasFeatureSelected, hasDataSelected, selectedResources]);
+  }, [hasFeatureSelected, hasDataSelected, hasLiveblocksSelected, selectedResources]);
 
   // Determine if row-level scope selector should be enabled based on selected data resources.
   // Features never have row-level scope; when mixed with data resources, only the data
@@ -1253,27 +1425,47 @@ export default function OrgPolicyBuilder({
       });
   })();
 
-  // For feature resources: show the "Applies To" org-level scope selector alongside the row-level builder
-  const featureScopeEnabled = hasFeatureSelected;
+  // For feature/liveblocks resources: show the "Applies To" org-level scope selector
+  const featureScopeEnabled = hasFeatureSelected || hasLiveblocksSelected;
+
+  // For liveblocks resources: show the "SCOPED TO" section
+  const hasLiveblocksDeals = selectedResources.some(
+    (r) => r === "liveblocks:room:deal" || r === "liveblocks:room:deal_task"
+  );
+  const roomScopeEnabled = hasLiveblocksSelected;
 
   function resetForm() {
     setEditingPolicyId(null);
     setConditions([{ ...defaultCondition }]);
+    setConditionGroups([]);
     setConnector("AND");
     setSelectedActions([]);
     setSelectedResources([]);
     setScopeConditions([]);
     setScopeConnector("OR");
     setSelectedNamedScopes([]);
+    setRoomScopeLevel("user");
+    setRoomScopeDealRoleTypeIds([]);
     setSelectedEffect("ALLOW");
     setAllowInternalUsers(false);
     setError(null);
     setStatus(null);
   }
 
+  const hasValidConditions =
+    allowInternalUsers ||
+    conditions.some((c) => c.values.length > 0) ||
+    conditionGroups.some((g) => g.conditions.some((c) => c.values.length > 0));
+
   async function handleSave() {
     setError(null);
     setStatus(null);
+
+    if (!hasValidConditions) {
+      setError("At least one condition with selected values is required.");
+      return;
+    }
+
     startTransition(async () => {
       try {
         const conditionInputs: ConditionInput[] = conditions.map((c) => ({
@@ -1281,6 +1473,17 @@ export default function OrgPolicyBuilder({
           operator: c.operator as "is" | "is_not",
           values: c.values,
         }));
+
+        const conditionGroupInputs: ConditionGroupInput[] = conditionGroups
+          .filter((g) => g.conditions.length > 0)
+          .map((g) => ({
+            connector: g.connector,
+            conditions: g.conditions.map((c) => ({
+              field: c.field,
+              operator: c.operator as "is" | "is_not",
+              values: c.values,
+            })),
+          }));
 
         const scopeConditionInputs: ScopeConditionInput[] = scopeConditions
           .filter((c) => c.targetColumn)
@@ -1293,13 +1496,21 @@ export default function OrgPolicyBuilder({
         const definition: PolicyDefinitionInput = {
           allowInternalUsers,
           conditions: conditionInputs,
+          conditionGroups: conditionGroupInputs.length > 0 ? conditionGroupInputs : undefined,
           connector,
           scope: selectedScope,
           effect: selectedEffect,
-          // Named scopes take priority; suppress column conditions if any are selected
           scopeConditions: selectedNamedScopes.length > 0 ? [] : scopeConditionInputs,
           scopeConnector: scopeConnector,
           namedScopeConditions: selectedNamedScopes.map((name) => ({ name })),
+          roomScope: roomScopeEnabled
+            ? {
+                level: hasLiveblocksDeals ? roomScopeLevel : "org",
+                dealRoleTypeIds: hasLiveblocksDeals && roomScopeDealRoleTypeIds.length > 0
+                  ? roomScopeDealRoleTypeIds
+                  : null,
+              }
+            : undefined,
         };
 
         if (editingPolicyId) {
@@ -1345,6 +1556,12 @@ export default function OrgPolicyBuilder({
     setStatus(null);
     const previous = policies.find((p) => p.id === id);
     if (!previous) return;
+
+    if (previous.is_protected_policy && !isActive) {
+      setError("Protected policies cannot be deactivated.");
+      return;
+    }
+
     setPolicies((prev) =>
       prev.map((p) => (p.id === id ? { ...p, is_active: isActive } : p))
     );
@@ -1382,6 +1599,7 @@ export default function OrgPolicyBuilder({
   function handleEdit(policy: OrgPolicyRow) {
     loadPolicyIntoForm(policy, {
       setConditions,
+      setConditionGroups,
       setConnector,
       setAllowInternalUsers,
       setSelectedActions,
@@ -1392,6 +1610,8 @@ export default function OrgPolicyBuilder({
       setSelectedEffect,
       setEditingPolicyId,
       setSelectedNamedScopes,
+      setRoomScopeLevel,
+      setRoomScopeDealRoleTypeIds,
     });
     setError(null);
     setStatus(null);
@@ -1444,43 +1664,11 @@ export default function OrgPolicyBuilder({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <RadioGroup
-          value={selectedEffect}
-          onValueChange={(v) => setSelectedEffect(v as PolicyEffect)}
-          className="flex gap-2"
-        >
-          <label className={cn(
-            "flex items-center rounded-md border px-4 py-2 cursor-pointer transition-colors text-sm font-semibold",
-            selectedEffect === "ALLOW"
-              ? "bg-success-muted text-success border-success/30"
-              : "bg-transparent text-muted-foreground border-border hover:bg-muted/50"
-          )}>
-            <RadioGroupItem value="ALLOW" className="sr-only" />
-            Allow
-          </label>
-          <label className={cn(
-            "flex items-center rounded-md border px-4 py-2 cursor-pointer transition-colors text-sm font-semibold",
-            selectedEffect === "DENY"
-              ? "bg-danger-muted text-danger border-danger/30"
-              : "bg-transparent text-muted-foreground border-border hover:bg-muted/50"
-          )}>
-            <RadioGroupItem value="DENY" className="sr-only" />
-            Deny
-          </label>
-        </RadioGroup>
-        <span className="text-xs text-muted-foreground">
-          {selectedEffect === "DENY"
-            ? "Deny policies override Allow policies"
-            : "Grant access when conditions match"}
-        </span>
-      </div>
-
       <Separator />
 
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">IF</h3>
+          <h3 className="text-sm font-semibold">CONDITION(S)</h3>
         </div>
 
         <div className="space-y-2 rounded-lg border p-4">
@@ -1506,41 +1694,132 @@ export default function OrgPolicyBuilder({
                 fieldOptions={fieldOptions}
                 onChange={(updated) => updateCondition(index, updated)}
                 onRemove={() => removeCondition(index)}
-                canRemove={conditions.length > 1}
+                canRemove={conditions.length > 1 || conditionGroups.length > 0}
               />
             </div>
           ))}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={addCondition}
-            className="mt-2 gap-1 text-muted-foreground"
-          >
-            <Plus className="h-4 w-4" />
-            Add Condition
-          </Button>
+          {conditionGroups.map((group, gi) => (
+            <div key={`group-${gi}`}>
+              <div className="flex items-center gap-2 py-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConnector(connector === "AND" ? "OR" : "AND")
+                  }
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  {connector}
+                </button>
+                <Separator className="flex-1" />
+              </div>
+
+              <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3 space-y-2 relative">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    Condition Group
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0"
+                    onClick={() => removeConditionGroup(gi)}
+                    aria-label="Remove group"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+
+                {group.conditions.map((gc, ci) => (
+                  <div key={`group-${gi}-cond-${ci}`}>
+                    {ci > 0 && (
+                      <div className="flex items-center gap-2 py-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateGroupConnector(gi, group.connector === "AND" ? "OR" : "AND")
+                          }
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          {group.connector}
+                        </button>
+                        <Separator className="flex-1" />
+                      </div>
+                    )}
+
+                    <PolicyConditionRow
+                      condition={gc}
+                      fieldOptions={fieldOptions}
+                      onChange={(updated) => updateGroupCondition(gi, ci, updated)}
+                      onRemove={() => removeGroupCondition(gi, ci)}
+                      canRemove={true}
+                    />
+                  </div>
+                ))}
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addGroupCondition(gi)}
+                  className="mt-1 gap-1 text-muted-foreground text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Condition
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex gap-2 mt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={addCondition}
+              className="gap-1 text-muted-foreground"
+            >
+              <Plus className="h-4 w-4" />
+              Add Condition
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={addConditionGroup}
+              className="gap-1 text-muted-foreground"
+            >
+              <Plus className="h-4 w-4" />
+              Add Group
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Separator />
-
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">THEN</h3>
+        <h3 className="text-lg font-semibold">PERMISSION(S)</h3>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-semibold shrink-0">SET PERMISSIONS TO</span>
+      <div className="flex items-center gap-2 flex-wrap mb-6">
+        <button
+          type="button"
+          onClick={() => setSelectedEffect(selectedEffect === "ALLOW" ? "DENY" : "ALLOW")}
+          className={cn(
+            "inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold transition-colors shrink-0 min-w-[80px]",
+            selectedEffect === "ALLOW"
+              ? "bg-success-muted text-success border-success/30"
+              : "bg-danger-muted text-danger border-danger/30"
+          )}
+        >
+          {selectedEffect === "ALLOW" ? "Allow" : "Deny"}
+        </button>
         <div className="min-w-[160px]">
           <ChipsSelect
             options={activeActionOptions}
             selected={selectedActions}
             onChange={setSelectedActions}
-            placeholder="Select actions..."
+            placeholder="Select permissions..."
           />
         </div>
         <span className="text-sm font-semibold shrink-0">ON</span>
-        <div className="min-w-[200px] flex-1">
+        <div className="w-fit">
           <ResourceChipsSelect
             options={resourceOptions}
             selected={selectedResources}
@@ -1599,21 +1878,169 @@ export default function OrgPolicyBuilder({
         </div>
       )}
 
+      {roomScopeEnabled && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">SCOPED TO</h3>
+            <span className="text-xs text-muted-foreground">
+              {hasLiveblocksDeals
+                ? "which deal rooms does this policy apply to?"
+                : "organization-level resource — applies to all rooms within the org"}
+            </span>
+          </div>
+
+          {hasLiveblocksDeals ? (
+            <>
+              <RadioGroup
+                value={roomScopeLevel}
+                onValueChange={(v) => setRoomScopeLevel(v as "user" | "org")}
+                className="space-y-2"
+              >
+                <label
+                  className={cn(
+                    "flex items-start gap-3 rounded-md p-3 cursor-pointer border transition-colors",
+                    roomScopeLevel === "user"
+                      ? "bg-accent/50 border-primary/30"
+                      : "hover:bg-muted/50 border-border"
+                  )}
+                >
+                  <RadioGroupItem value="user" className="mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Deals I&apos;m assigned to</div>
+                    <div className="text-xs text-muted-foreground">
+                      Only rooms for deals where the user holds a deal role
+                    </div>
+                  </div>
+                </label>
+                <label
+                  className={cn(
+                    "flex items-start gap-3 rounded-md p-3 cursor-pointer border transition-colors",
+                    roomScopeLevel === "org"
+                      ? "bg-accent/50 border-primary/30"
+                      : "hover:bg-muted/50 border-border"
+                  )}
+                >
+                  <RadioGroupItem value="org" className="mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Deals my organization is involved in</div>
+                    <div className="text-xs text-muted-foreground">
+                      Rooms for any deal where a member of the user&apos;s org holds a deal role
+                    </div>
+                  </div>
+                </label>
+              </RadioGroup>
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Deal Role Filter
+                </p>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Optionally restrict to deals where the {roomScopeLevel === "user" ? "user" : "org member"} holds
+                  a specific deal role type. Leave empty for any deal role.
+                </p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="justify-between font-normal h-auto min-h-9 shadow-xs w-full"
+                >
+                  {roomScopeDealRoleTypeIds.length === 0 ? (
+                    <span className="text-muted-foreground">Any deal role</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {roomScopeDealRoleTypeIds.map((id) => {
+                        const role = dealRoleTypes.find((r) => r.id === id);
+                        return (
+                          <Badge
+                            key={id}
+                            variant="secondary"
+                            className="text-xs gap-1 pr-1"
+                          >
+                            {role?.name ?? `ID ${id}`}
+                            <button
+                              type="button"
+                              className="ml-0.5 hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRoomScopeDealRoleTypeIds((prev) =>
+                                  prev.filter((rid) => rid !== id)
+                                );
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 z-[10000]" align="start">
+                <Command>
+                  <CommandInput placeholder="Search deal roles..." />
+                  <CommandList>
+                    <CommandEmpty>No roles found.</CommandEmpty>
+                    <CommandGroup>
+                      {dealRoleTypes.map((role) => {
+                        const isSelected = roomScopeDealRoleTypeIds.includes(role.id);
+                        return (
+                          <CommandItem
+                            key={role.id}
+                            onSelect={() => {
+                              setRoomScopeDealRoleTypeIds((prev) =>
+                                isSelected
+                                  ? prev.filter((id) => id !== role.id)
+                                  : [...prev, role.id]
+                              );
+                            }}
+                            className="text-xs"
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                isSelected ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {role.name}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+              This resource is scoped at the organization level. The policy applies to all
+              rooms of this type within the organization.
+            </div>
+          )}
+        </div>
+      )}
+
+      {scopeEnabled && (
         <ScopeConditionBuilder
           scopeConditions={scopeConditions}
           setScopeConditions={setScopeConditions}
           scopeConnector={scopeConnector}
           setScopeConnector={setScopeConnector}
           scopeEnabled={scopeEnabled}
-          hasOnlyFeatures={hasFeatureSelected && !hasDataSelected}
+          hasOnlyFeatures={false}
           selectedResources={selectedResources}
           columnFilters={columnFilters}
           namedScopeRegistry={namedScopeRegistry}
           selectedNamedScopes={selectedNamedScopes}
           setSelectedNamedScopes={setSelectedNamedScopes}
         />
+      )}
 
-      <Separator />
+      <Separator className="mb-6" />
 
       <div className="flex items-center gap-3">
         <Switch
@@ -1654,14 +2081,17 @@ export default function OrgPolicyBuilder({
             selectedActions.length === 0 ||
             selectedResources.length === 0 ||
             isProtectedPolicy ||
-            isMultiRulePolicy
+            isMultiRulePolicy ||
+            !hasValidConditions
           }
           title={
             isProtectedPolicy
               ? "System-protected policies cannot be edited via the UI"
               : isMultiRulePolicy
                 ? "Multi-rule policies must be edited via SQL migration"
-                : undefined
+                : !hasValidConditions
+                  ? "At least one condition with selected values is required"
+                  : undefined
           }
         >
           {isPending
@@ -1676,7 +2106,7 @@ export default function OrgPolicyBuilder({
 
   return (
     <div className="space-y-8 pb-12">
-      <Card>
+      <Card className="bg-transparent shadow-none">
         <CardHeader>
           <CardTitle>Create Access Policy</CardTitle>
           <CardDescription>
@@ -1745,13 +2175,14 @@ const POLICY_DISPLAY_COLUMNS: { key: DisplayColumn; label: string }[] = [
   { key: "isActive", label: "Is Active" },
 ];
 
-type PolicyViewType = "table" | "board";
+type PolicyViewType = "table" | "board" | "diagram";
 type GroupByField = DisplayColumn | "none";
 type OrderByField = DisplayColumn;
 
 const VIEW_OPTIONS: { value: PolicyViewType; label: string; icon: typeof Table2 }[] = [
   { value: "table", label: "Table", icon: Table2 },
   { value: "board", label: "Board", icon: LayoutGrid },
+  { value: "diagram", label: "Diagram", icon: Workflow },
 ];
 
 const GROUPABLE_COLUMNS: { value: GroupByField; label: string }[] = [
@@ -1782,6 +2213,7 @@ const RESOURCE_TYPE_TABS: { value: string; label: string }[] = [
   { value: "storage_bucket", label: "Buckets" },
   { value: "feature", label: "Features" },
   { value: "route", label: "Routes" },
+  { value: "liveblocks", label: "Liveblocks" },
 ];
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
@@ -1789,6 +2221,30 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   storage_bucket: "Storage Bucket",
   feature: "Feature",
   route: "Route",
+  liveblocks: "Liveblocks",
+};
+
+const RESOURCE_TYPE_DESCRIPTIONS: Record<string, { governs: string; examples: string }> = {
+  table: {
+    governs: "Direct database table access (RLS-level row/column operations)",
+    examples: "deals, contacts, organizations",
+  },
+  storage_bucket: {
+    governs: "Supabase Storage bucket file operations",
+    examples: "document uploads, profile images",
+  },
+  feature: {
+    governs: "Application-level UI features and settings pages",
+    examples: "Settings — Members, Permanent Delete, integration:slack",
+  },
+  route: {
+    governs: "API route access for server-side endpoints",
+    examples: "/api/org/*, /api/deals/*",
+  },
+  liveblocks: {
+    governs: "Real-time collaboration room permissions",
+    examples: "room:deal, room:deal_task, room:email_template",
+  },
 };
 
 // ============================================================================
@@ -1863,7 +2319,8 @@ function PolicyToolbar({
   useEffect(() => {
     if (settingsOpen && settingsBtnRef.current) {
       const rect = settingsBtnRef.current.getBoundingClientRect();
-      setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+      const popoverWidth = 320;
+      setPopoverPos({ top: rect.bottom + 4, left: rect.right - popoverWidth });
     }
   }, [settingsOpen]);
 
@@ -1904,6 +2361,35 @@ function PolicyToolbar({
             </button>
           );
         })}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="inline-flex items-center justify-center rounded-md h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="start" className="w-[420px] p-0">
+            <div className="px-3 py-2 border-b">
+              <p className="text-xs font-semibold text-foreground">Resource Types</p>
+              <p className="text-[11px] text-muted-foreground">What each policy type governs</p>
+            </div>
+            <div className="divide-y">
+              {RESOURCE_TYPE_TABS.filter((t) => t.value !== "all").map((tab) => {
+                const desc = RESOURCE_TYPE_DESCRIPTIONS[tab.value];
+                if (!desc) return null;
+                const colorKey = tab.value === "storage_bucket" ? "storage" : tab.value;
+                return (
+                  <div key={tab.value} className="px-3 py-2 space-y-0.5">
+                    <Badge variant="outline" className={cn("capitalize text-[10px]", `badge-resource-${colorKey}`)}>
+                      {tab.label}
+                    </Badge>
+                    <p className="text-xs text-foreground">{desc.governs}</p>
+                    <p className="text-[11px] text-muted-foreground">e.g. {desc.examples}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="flex items-center gap-1">
@@ -2095,6 +2581,9 @@ function resolveResourceName(policy: OrgPolicyRow): string {
   if (policy.resource_type === "feature") {
     return FEATURE_RESOURCES.find((f) => f.name === policy.resource_name)?.label ?? policy.resource_name;
   }
+  if (policy.resource_type === "liveblocks") {
+    return LIVEBLOCKS_RESOURCES.find((r) => r.name === policy.resource_name)?.label ?? policy.resource_name;
+  }
   if (policy.resource_name === "*") return "Wildcard";
   return policy.resource_name;
 }
@@ -2129,6 +2618,7 @@ const RESOURCE_TYPE_BORDER_L: Record<string, string> = {
   storage_bucket: "border-l-resource-storage",
   feature: "border-l-resource-feature",
   route: "border-l-resource-route",
+  liveblocks: "border-l-resource-liveblocks",
 };
 
 const RESOURCE_TYPE_BADGE_CLS: Record<string, string> = {
@@ -2136,6 +2626,7 @@ const RESOURCE_TYPE_BADGE_CLS: Record<string, string> = {
   storage_bucket: "badge-resource-storage",
   feature: "badge-resource-feature",
   route: "badge-resource-route",
+  liveblocks: "badge-resource-liveblocks",
 };
 
 // ============================================================================
@@ -2195,6 +2686,19 @@ const CONDITION_FIELD_LABELS: Record<string, string> = {
   internal_user: "User Type",
 };
 
+function ConditionChip({ c, className }: { c: RuleCondition; className?: string }) {
+  const label = CONDITION_FIELD_LABELS[c.field] ?? c.field;
+  const op = c.operator === "is_not" ? "≠" : "=";
+  const vals = c.values.join(", ");
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap", className)}>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground/70 mx-0.5">{op}</span>
+      <span className="text-foreground">{vals}</span>
+    </span>
+  );
+}
+
 function PolicyConditionChips({
   policy,
   isMultiRule,
@@ -2207,22 +2711,24 @@ function PolicyConditionChips({
   const compiled = policy.compiled_config as { rules?: RuleGroup[]; allow_internal_users?: boolean } | undefined;
   const def = policy.definition_json as {
     conditions?: RuleCondition[];
+    condition_groups?: Array<{ connector: string; conditions: RuleCondition[] }>;
     rules?: RuleGroup[];
     connector?: string;
     allow_internal_users?: boolean;
   } | undefined;
 
-  // Get first rule's conditions for display (V3 compiled → V3 def → V2 def)
   const firstRule = compiled?.rules?.[0] ?? def?.rules?.[0];
   const conditions: RuleCondition[] = firstRule?.conditions ?? def?.conditions ?? [];
+  const conditionGroups = firstRule?.condition_groups ?? def?.condition_groups ?? [];
   const connector: string = firstRule?.connector ?? def?.connector ?? "AND";
   const namedScopes: Array<{ name: string }> =
     (firstRule as unknown as { named_scope_conditions?: Array<{ name: string }> })?.named_scope_conditions ??
     (def as unknown as { named_scope_conditions?: Array<{ name: string }> })?.named_scope_conditions ??
     [];
 
+  const hasGroups = conditionGroups.length > 0;
   const allowInternalOnly =
-    (compiled?.allow_internal_users || def?.allow_internal_users) && !conditions.length && !namedScopes.length;
+    (compiled?.allow_internal_users || def?.allow_internal_users) && !conditions.length && !namedScopes.length && !hasGroups;
 
   if (allowInternalOnly) {
     return (
@@ -2230,9 +2736,22 @@ function PolicyConditionChips({
     );
   }
 
-  if (!conditions.length && !namedScopes.length && !isMultiRule) {
+  if (!conditions.length && !namedScopes.length && !hasGroups && !isMultiRule) {
     return <span className="text-[11px] text-muted-foreground italic">No conditions</span>;
   }
+
+  const MAX_VISIBLE = 2;
+  const totalChipCount = namedScopes.length + conditions.length + conditionGroups.length;
+  const hiddenCount = isMultiRule
+    ? ruleCount - 1
+    : Math.max(0, totalChipCount - MAX_VISIBLE);
+
+  let visibleBudget = isMultiRule ? totalChipCount : MAX_VISIBLE;
+  const visibleNamedScopes = namedScopes.slice(0, visibleBudget);
+  visibleBudget -= visibleNamedScopes.length;
+  const visibleConditions = conditions.slice(0, Math.max(0, visibleBudget));
+  visibleBudget -= visibleConditions.length;
+  const visibleGroups = conditionGroups.slice(0, Math.max(0, visibleBudget));
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -2241,7 +2760,7 @@ function PolicyConditionChips({
           {ruleCount} rules
         </span>
       )}
-      {namedScopes.map((ns) => (
+      {visibleNamedScopes.map((ns) => (
         <Badge
           key={ns.name}
           variant="outline"
@@ -2250,28 +2769,42 @@ function PolicyConditionChips({
           {ns.name.replace(/_/g, " ")}
         </Badge>
       ))}
-      {conditions.map((c, i) => {
-        const label = CONDITION_FIELD_LABELS[c.field] ?? c.field;
-        const op = c.operator === "is_not" ? "≠" : "=";
-        const vals = c.values.join(", ");
-        return (
-          <React.Fragment key={i}>
-            {i > 0 && !isMultiRule && (
-              <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase leading-none px-0.5">
-                {connector}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-0.5 rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap">
-              <span className="text-muted-foreground">{label}</span>
-              <span className="text-muted-foreground/70 mx-0.5">{op}</span>
-              <span className="text-foreground">{vals}</span>
+      {visibleConditions.map((c, i) => (
+        <React.Fragment key={i}>
+          {(i > 0 || visibleNamedScopes.length > 0) && !isMultiRule && (
+            <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase leading-none px-0.5">
+              {connector}
             </span>
-          </React.Fragment>
-        );
-      })}
-      {isMultiRule && conditions.length > 0 && (
+          )}
+          <ConditionChip c={c} />
+        </React.Fragment>
+      ))}
+      {visibleGroups.map((g, gi) => (
+        <React.Fragment key={`g-${gi}`}>
+          {(visibleConditions.length > 0 || visibleNamedScopes.length > 0 || gi > 0) && (
+            <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase leading-none px-0.5">
+              {connector}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-0.5 rounded border border-dashed border-border bg-muted/30 px-1 py-0.5 text-[10px]">
+            <span className="text-muted-foreground/60">(</span>
+            {g.conditions.map((gc, ci) => (
+              <React.Fragment key={ci}>
+                {ci > 0 && (
+                  <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase leading-none px-0.5">
+                    {g.connector}
+                  </span>
+                )}
+                <ConditionChip c={gc} />
+              </React.Fragment>
+            ))}
+            <span className="text-muted-foreground/60">)</span>
+          </span>
+        </React.Fragment>
+      ))}
+      {hiddenCount > 0 && (
         <span className="text-[10px] text-muted-foreground italic whitespace-nowrap">
-          +{ruleCount - 1} more
+          +{hiddenCount} more
         </span>
       )}
     </div>
@@ -2312,8 +2845,7 @@ function PolicyTableRow({
     <tr
       className={cn(
         "border-b border-border cursor-pointer transition-colors group",
-        isEditing ? "bg-primary/5" : "hover:bg-accent/50",
-        isProtected && "bg-amber-50/30 dark:bg-amber-950/10"
+        isEditing ? "bg-primary/5" : "hover:bg-accent/50"
       )}
     >
       {visibleColumns.resourceType && (
@@ -2483,8 +3015,9 @@ function GroupHeaderRow({
   resourceType?: string;
 }) {
   const borderCls = resourceType ? RESOURCE_TYPE_BORDER_L[resourceType] : undefined;
+  const resourceShortName = resourceType === "storage_bucket" ? "storage" : resourceType;
   const textCls = resourceType
-    ? `text-resource-${resourceType === "storage_bucket" ? "storage" : resourceType}`
+    ? `text-resource-${resourceShortName}`
     : undefined;
 
   return (
@@ -2923,7 +3456,7 @@ function ExistingPoliciesCard({
   }, [filteredPolicies]);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+    <div className="flex flex-col overflow-hidden rounded-xl border shadow-none">
       <PolicyToolbar
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
@@ -2946,7 +3479,9 @@ function ExistingPoliciesCard({
       />
 
       <div className="flex-1 min-h-0 overflow-auto">
-        {viewType === "board" ? (
+        {viewType === "diagram" ? (
+          <PolicyDiagramView policies={tabPolicies} />
+        ) : viewType === "board" ? (
           <PolicyBoardView
             policies={tabPolicies}
             editingPolicyId={editingPolicyId}

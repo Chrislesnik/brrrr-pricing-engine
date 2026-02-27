@@ -67,9 +67,13 @@ export default function TemplateEditorPage() {
     return <EmailsTab />
   }
 
+  if (activeTab === "sites" && isEditorMode) {
+    return <WebsitesTab />
+  }
+
   return (
-    <div className="w-full flex justify-center px-4 py-8 md:px-6">
-      <div className="w-full max-w-6xl">
+    <div className="w-full px-4 py-8 md:px-6">
+      <div className="w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Template Studio</h1>
           <p className="mt-1 text-muted-foreground">

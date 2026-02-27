@@ -102,6 +102,13 @@ interface DealDocument {
   document_file_uuid: string | null;
   document_category_id: number | null;
   document_status_id: number | null;
+  document_status_detail?: {
+    id: number;
+    code: string;
+    label: string;
+    color: string | null;
+    is_terminal: boolean;
+  } | null;
   uploaded_by_name: string | null;
   uploaded_by_avatar: string | null;
 }

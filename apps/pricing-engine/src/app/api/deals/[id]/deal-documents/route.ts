@@ -1,8 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { getOrgUuidFromClerkId } from "@/lib/orgs";
 import { nanoid } from "nanoid";
+import { checkRouteAccess, getOrgUuidFromClerkId } from "@/lib/orgs";
+
+type DocumentStatusDetail = {
+  id: number;
+  code: string;
+  label: string;
+  color: string | null;
+  is_terminal: boolean;
+};
+
+async function resolveStatusTableName(): Promise<"document_status" | "document_statuses"> {
+  const { error } = await supabaseAdmin
+    .from("document_status")
+    .select("id")
+    .limit(1);
+
+  if (!error) return "document_status";
+  if ((error as any)?.code === "42P01") return "document_statuses";
+
+  // Default to final name and let callers surface any non-table-not-found errors.
+  return "document_status";
+}
+
+async function resolveCurrentUserPk(clerkUserId: string): Promise<number | null> {
+  const { data: userRow } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+  return (userRow?.id as number | undefined) ?? null;
+}
+
+const DEAL_DOCUMENTS_ROUTE_RESOURCE = "/api/deals/[id]/deal-documents";
 
 /* -------------------------------------------------------------------------- */
 /*  GET /api/deals/[id]/deal-documents                                         */
@@ -16,15 +48,24 @@ export async function GET(
 ) {
   try {
     const { userId, orgId } = await auth();
-    if (!userId) {
+    if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const orgUuid = await getOrgUuidFromClerkId(orgId);
+    if (!orgUuid) {
+      return NextResponse.json({ error: "No organization context" }, { status: 401 });
+    }
+    const canAccessRoute = await checkRouteAccess(DEAL_DOCUMENTS_ROUTE_RESOURCE, "select").catch(
+      () => false
+    );
+    if (!canAccessRoute) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id: dealId } = await params;
 
     // Resolve whether the caller belongs to an internal org
     let isInternalOrg = false;
-    const orgUuid = await getOrgUuidFromClerkId(orgId);
     if (orgUuid) {
       const { data: orgRow } = await supabaseAdmin
         .from("organizations")
@@ -70,6 +111,60 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Enrich with org-scoped status assignments.
+    const documentFileIds = [
+      ...new Set((data ?? []).map((d: any) => d.document_file_id).filter(Boolean)),
+    ];
+    const statusByDocumentFileId = new Map<number, DocumentStatusDetail>();
+
+    if (documentFileIds.length > 0) {
+      const { data: assignmentRows, error: assignmentError } = await supabaseAdmin
+        .from("document_file_statuses")
+        .select("document_file_id, document_status_id")
+        .eq("organization_id", orgUuid)
+        .in("document_file_id", documentFileIds);
+
+      if (assignmentError) {
+        return NextResponse.json({ error: assignmentError.message }, { status: 500 });
+      }
+
+      const statusIds = [
+        ...new Set((assignmentRows ?? []).map((r: any) => r.document_status_id).filter(Boolean)),
+      ];
+
+      if (statusIds.length > 0) {
+        const statusTable = await resolveStatusTableName();
+        const { data: statusRows, error: statusError } = await supabaseAdmin
+          .from(statusTable)
+          .select("id, code, label, color, is_terminal")
+          .in("id", statusIds);
+
+        if (statusError) {
+          return NextResponse.json({ error: statusError.message }, { status: 500 });
+        }
+
+        const statusById = new Map<number, DocumentStatusDetail>(
+          (statusRows ?? []).map((row: any) => [
+            row.id,
+            {
+              id: row.id,
+              code: row.code,
+              label: row.label,
+              color: row.color,
+              is_terminal: row.is_terminal,
+            },
+          ])
+        );
+
+        for (const row of assignmentRows ?? []) {
+          const detail = statusById.get(row.document_status_id);
+          if (detail) {
+            statusByDocumentFileId.set(row.document_file_id, detail);
+          }
+        }
+      }
+    }
+
     // Enrich with uploader info
     const uploaderIds = [
       ...new Set(
@@ -108,6 +203,9 @@ export async function GET(
         avatarUrl: null,
       };
       const df = d.document_files;
+      const statusDetail = d.document_file_id
+        ? statusByDocumentFileId.get(d.document_file_id) ?? null
+        : null;
       return {
         id: d.id,
         deal_id: d.deal_id,
@@ -127,6 +225,7 @@ export async function GET(
         document_file_uuid: df?.uuid ?? null,
         document_category_id: df?.document_category_id ?? null,
         document_status_id: df?.document_status_id ?? null,
+        document_status_detail: statusDetail ?? null,
         // Uploader info
         uploaded_by_name: uploader.name,
         uploaded_by_avatar: uploader.avatarUrl,
@@ -157,8 +256,18 @@ export async function POST(
 ) {
   try {
     const { userId, orgId } = await auth();
-    if (!userId) {
+    if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const orgUuid = await getOrgUuidFromClerkId(orgId);
+    if (!orgUuid) {
+      return NextResponse.json({ error: "No organization context" }, { status: 401 });
+    }
+    const canAccessRoute = await checkRouteAccess(DEAL_DOCUMENTS_ROUTE_RESOURCE, "insert").catch(
+      () => false
+    );
+    if (!canAccessRoute) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id: dealId } = await params;
@@ -402,6 +511,38 @@ export async function POST(
       }
     }
 
+    // 4e. document_file_statuses (org-scoped default status assignment)
+    const statusTable = await resolveStatusTableName();
+    const { data: draftStatus, error: draftStatusError } = await supabaseAdmin
+      .from(statusTable)
+      .select("id")
+      .eq("code", "draft")
+      .or(`organization_id.eq.${orgUuid},organization_id.is.null`)
+      .order("organization_id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (draftStatusError) {
+      console.error("Error resolving default status (non-fatal):", draftStatusError);
+    } else if (draftStatus?.id) {
+      const currentUserPk = await resolveCurrentUserPk(userId);
+      const { error: statusUpsertError } = await supabaseAdmin
+        .from("document_file_statuses")
+        .upsert(
+          {
+            document_file_id: docFile.id,
+            organization_id: orgUuid,
+            document_status_id: draftStatus.id,
+            created_by: currentUserPk,
+            updated_by: currentUserPk,
+          },
+          { onConflict: "document_file_id,organization_id" }
+        );
+      if (statusUpsertError) {
+        console.error("Error creating document_file_statuses row (non-fatal):", statusUpsertError);
+      }
+    }
+
     // ---- Build complete response matching GET shape ----
     const uploaderName = userRow
       ? [userRow.first_name, userRow.last_name].filter(Boolean).join(" ") ||
@@ -430,6 +571,7 @@ export async function POST(
         document_file_uuid: docFile.uuid,
         document_category_id: documentCategoryId,
         document_status_id: defaultStatusId,
+        document_status_detail: null,
         // Uploader info
         uploaded_by_name: uploaderName,
         uploaded_by_avatar: uploaderAvatar,
@@ -455,14 +597,24 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const { userId, orgId } = await auth();
+    if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const orgUuid = await getOrgUuidFromClerkId(orgId);
+    if (!orgUuid) {
+      return NextResponse.json({ error: "No organization context" }, { status: 401 });
+    }
+    const canAccessRoute = await checkRouteAccess(DEAL_DOCUMENTS_ROUTE_RESOURCE, "update").catch(
+      () => false
+    );
+    if (!canAccessRoute) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id: dealId } = await params;
     const body = await request.json().catch(() => ({}));
-    const { id: docId, document_type_id, file_name } = body;
+    const { id: docId, document_type_id, file_name, document_status_id, document_status_code } = body;
 
     if (!docId) {
       return NextResponse.json(
@@ -539,6 +691,46 @@ export async function PATCH(
           .update(docFilesUpdate)
           .eq("id", data.document_file_id);
       }
+
+      // Upsert org-scoped status assignment if status was provided.
+      let nextStatusId: number | null = typeof document_status_id === "number" ? document_status_id : null;
+      if (!nextStatusId && typeof document_status_code === "string" && document_status_code.trim()) {
+        const statusTable = await resolveStatusTableName();
+        const { data: statusRow, error: statusLookupError } = await supabaseAdmin
+          .from(statusTable)
+          .select("id")
+          .eq("code", document_status_code.trim())
+          .or(`organization_id.eq.${orgUuid},organization_id.is.null`)
+          .order("organization_id", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (statusLookupError) {
+          return NextResponse.json({ error: statusLookupError.message }, { status: 500 });
+        }
+        if (!statusRow?.id) {
+          return NextResponse.json({ error: "Invalid document status code" }, { status: 400 });
+        }
+        nextStatusId = statusRow.id;
+      }
+
+      if (nextStatusId) {
+        const currentUserPk = await resolveCurrentUserPk(userId);
+        const { error: statusUpsertError } = await supabaseAdmin
+          .from("document_file_statuses")
+          .upsert(
+            {
+              document_file_id: data.document_file_id,
+              organization_id: orgUuid,
+              document_status_id: nextStatusId,
+              updated_by: currentUserPk,
+            },
+            { onConflict: "document_file_id,organization_id" }
+          );
+        if (statusUpsertError) {
+          return NextResponse.json({ error: statusUpsertError.message }, { status: 500 });
+        }
+      }
     }
 
     return NextResponse.json({ document: data });
@@ -562,9 +754,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const { userId, orgId } = await auth();
+    if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const canAccessRoute = await checkRouteAccess(DEAL_DOCUMENTS_ROUTE_RESOURCE, "delete").catch(
+      () => false
+    );
+    if (!canAccessRoute) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id: dealId } = await params;

@@ -49,7 +49,7 @@ const ORG_SETTINGS_ITEMS = [
     id: "permissions",
     label: "Permissions",
     icon: Shield,
-    path: "/permissions",
+    path: "/documents/permissions",
   },
   {
     id: "policies",

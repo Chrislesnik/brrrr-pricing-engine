@@ -3,6 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getOrgUuidFromClerkId } from "@/lib/orgs";
 import { notifyDealAssignment } from "@/lib/notifications";
+import {
+  syncDealRoomPermissions,
+  syncOrgAdminDealRoomPermissions,
+} from "@/lib/liveblocks";
 
 export const runtime = "nodejs";
 
@@ -220,6 +224,24 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Legacy sync is best-effort
+    }
+
+    // Sync Liveblocks deal room permissions (non-blocking)
+    if (resource_type === "deal") {
+      Promise.all([
+        syncDealRoomPermissions({
+          clerkUserId: targetUserId,
+          dealId: resource_id,
+          orgUuid,
+          assigned: true,
+        }),
+        syncOrgAdminDealRoomPermissions({
+          dealId: resource_id,
+          orgUuid,
+        }),
+      ]).catch((err) =>
+        console.error("[role-assignments] Liveblocks sync error:", err)
+      );
     }
 
     // Enrich with role name and member name for response

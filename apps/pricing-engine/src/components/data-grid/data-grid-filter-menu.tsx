@@ -8,7 +8,7 @@ import {
   ChevronsUpDown,
   GripVertical,
   ListFilter,
-  Trash2,
+  X,
 } from "lucide-react";
 import * as React from "react";
 
@@ -74,6 +74,7 @@ export function DataGridFilterMenu<TData>({
   const labelId = React.useId();
   const descriptionId = React.useId();
   const [open, setOpen] = React.useState(false);
+  const [joinOperator, setJoinOperator] = React.useState<"and" | "or">("and");
   const addButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const columnFilters = table.getState().columnFilters;
@@ -123,6 +124,12 @@ export function DataGridFilterMenu<TData>({
       },
     ]);
   }, [columns, columnVariants, table]);
+
+  React.useEffect(() => {
+    if (open && columnFilters.length === 0) {
+      onFilterAdd();
+    }
+  }, [open, columnFilters.length, onFilterAdd]);
 
   const onFilterUpdate = React.useCallback(
     (filterId: string, updates: Partial<ColumnFilter>) => {
@@ -219,32 +226,20 @@ export function DataGridFilterMenu<TData>({
           aria-describedby={descriptionId}
           dir={dir}
           className={cn(
-            "flex w-full max-w-(--radix-popover-content-available-width) flex-col gap-3.5 p-4 sm:min-w-[480px]",
+            "flex w-auto max-w-(--radix-popover-content-available-width) flex-col p-1.5",
             className,
           )}
           {...props}
         >
-          <div className="flex flex-col gap-1">
-            <h4 id={labelId} className="font-medium leading-none">
-              {columnFilters.length > 0 ? "Filter by" : "No filters applied"}
-            </h4>
-            <p
-              id={descriptionId}
-              className={cn(
-                "text-muted-foreground text-sm",
-                columnFilters.length > 0 && "sr-only",
-              )}
-            >
-              {columnFilters.length > 0
-                ? "Modify filters to narrow down your data."
-                : "Add filters to narrow down your data."}
-            </p>
-          </div>
+          <span id={labelId} className="sr-only">Filters</span>
+          <span id={descriptionId} className="sr-only">
+            Modify filters to narrow down your data.
+          </span>
           {columnFilters.length > 0 && (
             <SortableContent asChild>
               <div
                 role="list"
-                className="flex max-h-[400px] flex-col gap-2 overflow-y-auto p-1"
+                className="flex max-h-[400px] flex-col gap-0.5 overflow-y-auto"
               >
                 {columnFilters.map((filter, index) => (
                   <DataGridFilterItem
@@ -257,6 +252,10 @@ export function DataGridFilterMenu<TData>({
                     columnLabels={columnLabels}
                     columnVariants={columnVariants}
                     table={table}
+                    joinOperator={joinOperator}
+                    onJoinOperatorToggle={() =>
+                      setJoinOperator((prev) => (prev === "and" ? "or" : "and"))
+                    }
                     onFilterUpdate={onFilterUpdate}
                     onFilterRemove={onFilterRemove}
                   />
@@ -264,35 +263,38 @@ export function DataGridFilterMenu<TData>({
               </div>
             </SortableContent>
           )}
-          <div className="flex w-full items-center gap-2">
-            <Button
-              className="h-8 rounded"
+          <div className="flex items-center gap-2 px-1 py-1">
+            <button
               ref={addButtonRef}
               onClick={onFilterAdd}
               disabled={columns.length === 0}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
             >
-              Add filter
-            </Button>
+              <span className="text-sm leading-none">+</span>
+              <span>Filter</span>
+            </button>
             {columnFilters.length > 0 && (
-              <Button
-                variant="outline"
-                className="h-8 rounded"
-                onClick={onFiltersReset}
-              >
-                Reset filters
-              </Button>
+              <>
+                <span className="text-muted-foreground/40 text-xs">·</span>
+                <button
+                  onClick={onFiltersReset}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset
+                </button>
+              </>
             )}
           </div>
         </PopoverContent>
       </Popover>
       <SortableOverlay>
-        <div dir={dir} className="flex items-center gap-2">
-          <div className="h-8 min-w-[72px] rounded-sm bg-primary/10" />
-          <div className="h-8 w-32 rounded-sm bg-primary/10" />
-          <div className="h-8 w-32 rounded-sm bg-primary/10" />
-          <div className="h-8 w-36 rounded-sm bg-primary/10" />
-          <div className="size-8 shrink-0 rounded-sm bg-primary/10" />
-          <div className="size-8 shrink-0 rounded-sm bg-primary/10" />
+        <div dir={dir} className="flex items-center gap-1.5 rounded-md border border-border/40 bg-card px-1.5 py-1.5">
+          <div className="h-7 w-5 rounded-sm bg-primary/10" />
+          <div className="h-7 w-8 rounded-sm bg-primary/10" />
+          <div className="h-7 w-24 rounded-sm bg-primary/10" />
+          <div className="h-7 w-16 rounded-sm bg-primary/10" />
+          <div className="h-7 w-24 rounded-sm bg-primary/10" />
+          <div className="h-7 w-7 shrink-0 rounded-sm bg-primary/10" />
         </div>
       </SortableOverlay>
     </Sortable>
@@ -308,6 +310,8 @@ interface DataGridFilterItemProps<TData> {
   columnLabels: Map<string, string>;
   columnVariants: Map<string, string>;
   table: Table<TData>;
+  joinOperator: "and" | "or";
+  onJoinOperatorToggle: () => void;
   onFilterUpdate: (filterId: string, updates: Partial<ColumnFilter>) => void;
   onFilterRemove: (filterId: string) => void;
 }
@@ -321,6 +325,8 @@ function DataGridFilterItem<TData>({
   columnLabels,
   columnVariants,
   table,
+  joinOperator,
+  onJoinOperatorToggle,
   onFilterUpdate,
   onFilterRemove,
 }: DataGridFilterItemProps<TData>) {
@@ -407,28 +413,38 @@ function DataGridFilterItem<TData>({
         role="listitem"
         id={filterItemId}
         tabIndex={-1}
-        className="flex items-center gap-2"
+        className="flex items-center gap-1.5 rounded-md border border-border/40 bg-card px-1.5 py-1.5"
         onKeyDown={onItemKeyDown}
       >
-        <div className="min-w-[72px] text-center">
-          {index === 0 ? (
-            <span className="text-muted-foreground text-sm">Where</span>
-          ) : (
-            <span className="text-muted-foreground text-sm">And</span>
-          )}
-        </div>
+        <SortableItemHandle asChild>
+          <button className="flex h-7 w-5 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing">
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        </SortableItemHandle>
+        {index === 0 ? (
+          <span className="w-8 shrink-0 text-center text-[11px] text-muted-foreground">
+            Where
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onJoinOperatorToggle}
+            className="w-8 shrink-0 rounded px-1 py-0.5 text-center text-[11px] font-medium text-primary/80 hover:bg-primary/10 hover:text-primary transition-colors"
+          >
+            {joinOperator}
+          </button>
+        )}
         <Popover open={showFieldSelector} onOpenChange={setShowFieldSelector}>
           <PopoverTrigger asChild>
-            <Button
+            <button
               id={fieldTriggerId}
               aria-controls={fieldListboxId}
               dir={dir}
-              variant="outline"
-              className="h-8 w-32 justify-between rounded font-normal"
+              className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border bg-muted/60 px-2 text-xs font-medium transition-colors hover:bg-accent"
             >
-              <span className="truncate">{columnLabels.get(filter.id)}</span>
-              <ChevronsUpDown className="opacity-50" />
-            </Button>
+              <span className="truncate max-w-[120px]">{columnLabels.get(filter.id)}</span>
+              <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-40" />
+            </button>
           </PopoverTrigger>
           <PopoverContent
             id={fieldListboxId}
@@ -488,7 +504,7 @@ function DataGridFilterItem<TData>({
         >
           <SelectTrigger
             aria-controls={operatorListboxId}
-            className="h-8 w-32 rounded lowercase"
+            className="h-7 w-auto shrink-0 gap-1 rounded-md border bg-muted/60 px-2 text-xs font-medium lowercase [&>svg]:h-3 [&>svg]:w-3"
           >
             <div className="truncate">
               <SelectValue />
@@ -502,7 +518,7 @@ function DataGridFilterItem<TData>({
             ))}
           </SelectContent>
         </Select>
-        <div className="min-w-36 max-w-60 flex-1">
+        <div className="min-w-[100px] max-w-[180px] flex-1">
           {needsValue && column ? (
             <DataGridFilterInput
               key={filter.id}
@@ -522,24 +538,17 @@ function DataGridFilterItem<TData>({
               role="status"
               aria-label={`${columnLabels.get(filter.id)} filter is empty`}
               aria-live="polite"
-              className="h-8 w-full rounded border bg-transparent dark:bg-input/30"
+              className="h-7 w-full rounded-md border bg-muted/60"
             />
           )}
         </div>
-        <Button
+        <button
           aria-controls={filterItemId}
-          variant="outline"
-          size="icon"
-          className="size-8 rounded"
           onClick={() => onFilterRemove(filter.id)}
+          className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
         >
-          <Trash2 />
-        </Button>
-        <SortableItemHandle asChild>
-          <Button variant="outline" size="icon" className="size-8 rounded">
-            <GripVertical />
-          </Button>
-        </SortableItemHandle>
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
     </SortableItem>
   );
@@ -615,7 +624,7 @@ function DataGridFilterInput<TData>({
               setLocalValue(newValue);
               debouncedOnChange(newValue);
             }}
-            className="h-8 w-full flex-1 rounded"
+            className="h-7 w-full flex-1 rounded-md border bg-muted/60 px-2 text-xs"
           />
           <Input
             id={`${inputId}-end`}
@@ -629,7 +638,7 @@ function DataGridFilterInput<TData>({
               setLocalEndValue(newValue);
               debouncedOnEndValueChange(newValue);
             }}
-            className="h-8 w-full flex-1 rounded"
+            className="h-7 w-full flex-1 rounded-md border bg-muted/60 px-2 text-xs"
           />
         </div>
       );
@@ -648,7 +657,7 @@ function DataGridFilterInput<TData>({
           setLocalValue(newValue);
           debouncedOnChange(newValue);
         }}
-        className="h-8 w-full rounded"
+        className="h-7 w-full rounded-md border bg-muted/60 px-2 text-xs"
       />
     );
   }
@@ -687,7 +696,7 @@ function DataGridFilterInput<TData>({
               dir={dir}
               variant="outline"
               className={cn(
-                "h-8 w-full justify-start rounded font-normal",
+                "h-7 w-full justify-start rounded-md border bg-muted/60 px-2 text-xs font-normal shadow-none",
                 !startDate && "text-muted-foreground",
               )}
             >
@@ -741,7 +750,7 @@ function DataGridFilterInput<TData>({
             dir={dir}
             variant="outline"
             className={cn(
-              "h-8 w-full justify-start rounded font-normal",
+              "h-7 w-full justify-start rounded-md border bg-muted/60 px-2 text-xs font-normal shadow-none",
               !dateValue && "text-muted-foreground",
             )}
           >
@@ -800,7 +809,7 @@ function DataGridFilterInput<TData>({
               aria-controls={inputListboxId}
               dir={dir}
               variant="outline"
-              className="h-8 w-full justify-start rounded font-normal"
+              className="h-7 w-full justify-start rounded-md border bg-muted/60 px-2 text-xs font-normal shadow-none"
             >
               {selectedOptions.length === 0 ? (
                 <span className="text-muted-foreground">{placeholder}</span>
@@ -892,9 +901,9 @@ function DataGridFilterInput<TData>({
             aria-controls={inputListboxId}
             dir={dir}
             variant="outline"
-            className="h-8 w-full justify-start rounded font-normal"
-          >
-            {selectedOption ? (
+              className="h-7 w-full justify-start rounded-md border bg-muted/60 px-2 text-xs font-normal shadow-none"
+            >
+              {selectedOption ? (
               <>
                 {selectedOption.icon && <selectedOption.icon />}
                 <span className="truncate">{selectedOption.label}</span>
@@ -954,7 +963,7 @@ function DataGridFilterInput<TData>({
           id={inputId}
           type="text"
           placeholder="Start"
-          className="h-8 w-full flex-1 rounded"
+          className="h-7 w-full flex-1 rounded-md border bg-muted/60 px-2 text-xs"
           value={(localValue as string | undefined) ?? ""}
           onChange={(event) => {
             const val = event.target.value;
@@ -967,7 +976,7 @@ function DataGridFilterInput<TData>({
           id={`${inputId}-end`}
           type="text"
           placeholder="End"
-          className="h-8 w-full flex-1 rounded"
+          className="h-7 w-full flex-1 rounded-md border bg-muted/60 px-2 text-xs"
           value={(localEndValue as string | undefined) ?? ""}
           onChange={(event) => {
             const val = event.target.value;
@@ -985,7 +994,7 @@ function DataGridFilterInput<TData>({
       id={inputId}
       type="text"
       placeholder={placeholder}
-      className="h-8 w-full rounded"
+      className="h-7 w-full rounded-md border bg-muted/60 px-2 text-xs"
       value={(localValue as string | undefined) ?? ""}
       onChange={(event) => {
         const val = event.target.value;

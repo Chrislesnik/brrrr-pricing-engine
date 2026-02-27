@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getOrgUuidFromClerkId } from "@/lib/orgs";
+import { checkDealAccess } from "@/lib/orgs";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -18,45 +18,6 @@ interface CalendarEventRow {
   deal_input_id: number | null;
   etiquette: string | null;
   created_at: string;
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-async function checkDealAccess(
-  dealId: string,
-  userId: string,
-  orgId: string | null | undefined
-): Promise<{ hasAccess: boolean; deal: { organization_id: string } | null }> {
-  const [{ data: deal }, { data: userRow }, userOrgUuid] = await Promise.all([
-    supabaseAdmin
-      .from("deals")
-      .select("organization_id, assigned_to_user_id, primary_user_id")
-      .eq("id", dealId)
-      .single(),
-    supabaseAdmin
-      .from("users")
-      .select("id, is_internal_yn")
-      .eq("clerk_user_id", userId)
-      .maybeSingle(),
-    orgId ? getOrgUuidFromClerkId(orgId) : Promise.resolve(null),
-  ]);
-
-  if (!deal) return { hasAccess: false, deal: null };
-
-  const hasOrgAccess = userOrgUuid && deal.organization_id === userOrgUuid;
-  const assignedUsers = Array.isArray(deal.assigned_to_user_id)
-    ? deal.assigned_to_user_id
-    : [];
-  const isAssigned = assignedUsers.includes(userId);
-  const isPrimaryUser = deal.primary_user_id === userId;
-  const isInternal = Boolean(userRow?.is_internal_yn);
-
-  return {
-    hasAccess: Boolean(hasOrgAccess || isAssigned || isPrimaryUser || isInternal),
-    deal: { organization_id: deal.organization_id },
-  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -77,7 +38,17 @@ export async function GET(
 
     const { id: dealId } = await params;
 
-    const { hasAccess } = await checkDealAccess(dealId, userId, orgId);
+    const { data: deal, error: dealError } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id")
+      .eq("id", dealId)
+      .single();
+
+    if (dealError || !deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    const hasAccess = await checkDealAccess(deal, userId, orgId, "select");
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -210,7 +181,17 @@ export async function POST(
 
     const { id: dealId } = await params;
 
-    const { hasAccess } = await checkDealAccess(dealId, userId, orgId);
+    const { data: deal, error: dealError } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id")
+      .eq("id", dealId)
+      .single();
+
+    if (dealError || !deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    const hasAccess = await checkDealAccess(deal, userId, orgId, "insert");
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -271,7 +252,17 @@ export async function PUT(
 
     const { id: dealId } = await params;
 
-    const { hasAccess } = await checkDealAccess(dealId, userId, orgId);
+    const { data: deal, error: dealError } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id")
+      .eq("id", dealId)
+      .single();
+
+    if (dealError || !deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    const hasAccess = await checkDealAccess(deal, userId, orgId, "update");
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -351,7 +342,17 @@ export async function DELETE(
 
     const { id: dealId } = await params;
 
-    const { hasAccess } = await checkDealAccess(dealId, userId, orgId);
+    const { data: deal, error: dealError } = await supabaseAdmin
+      .from("deals")
+      .select("organization_id, assigned_to_user_id, primary_user_id")
+      .eq("id", dealId)
+      .single();
+
+    if (dealError || !deal) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+
+    const hasAccess = await checkDealAccess(deal, userId, orgId, "delete");
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }

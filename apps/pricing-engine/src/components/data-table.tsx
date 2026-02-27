@@ -806,7 +806,7 @@ export function DataTable() {
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="w-full space-y-6"
+        className="w-full space-y-2"
       >
         <div className="flex items-center justify-between">
           <Label htmlFor="view-selector" className="sr-only">

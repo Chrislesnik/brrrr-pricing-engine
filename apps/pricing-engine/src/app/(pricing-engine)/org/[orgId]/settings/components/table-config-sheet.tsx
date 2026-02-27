@@ -33,12 +33,11 @@ import {
   TagsInputList,
   TagsInputInput,
   TagsInputItem,
+  getTagVariant,
 } from "@/components/ui/tags-input";
-import type {
-  TableConfig,
-  TableColumnDef,
-} from "@/types/table-config";
 import {
+  type TableConfig,
+  type TableColumnDef,
   TABLE_COLUMN_TYPES,
   generateColumnKey,
 } from "@/types/table-config";
@@ -422,7 +421,7 @@ export function TableConfigSheet({
                                 })
                               }
                               placeholder="data_key"
-                              className="h-8 text-sm font-mono text-xs"
+                              className="h-8 font-mono text-xs md:text-xs"
                             />
                           </div>
                         </div>
@@ -566,6 +565,7 @@ function OptionsEditor({
           <TagsInputItem
             key={`${opt}-${idx}`}
             value={opt}
+            variant={getTagVariant(opt)}
             className="text-xs px-1.5 py-0.5"
           >
             {opt}

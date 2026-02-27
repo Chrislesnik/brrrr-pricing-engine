@@ -9,6 +9,7 @@ export type EmailTemplateStyles = {
     paddingRight: number
   }
   typography: {
+    fontFamily: string
     fontSize: number
     lineHeight: number
     fontWeight?: number
@@ -57,6 +58,7 @@ export const defaultEmailStyles: EmailTemplateStyles = {
     paddingRight: 0,
   },
   typography: {
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     fontSize: 14,
     lineHeight: 155,
   },

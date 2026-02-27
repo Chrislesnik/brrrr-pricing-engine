@@ -181,7 +181,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="w-full flex justify-center px-4 py-8 md:px-6">
+    <div className="w-full px-4 py-8 mx-7 md:px-8">
       <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="mb-8">

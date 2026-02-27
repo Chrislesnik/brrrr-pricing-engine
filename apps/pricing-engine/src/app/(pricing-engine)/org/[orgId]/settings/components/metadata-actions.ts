@@ -120,7 +120,6 @@ export async function setOrgMemberRole(input: {
   const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  // Policy-engine check: write access on organization_members table
   await assertPolicyAccess("table", "organization_members", "update");
   const { orgPk } = await getOrgPk(orgId);
 
@@ -131,6 +130,30 @@ export async function setOrgMemberRole(input: {
     .eq("user_id", input.clerkUserId);
 
   if (error) throw new Error(error.message);
+
+  // Sync updated role to Clerk metadata so the user's JWT is refreshed
+  // with the new claim on the next token rotation.
+  try {
+    const clerk = await clerkClient();
+    const memberships = await clerk.organizations.getOrganizationMembershipList({
+      organizationId: orgId,
+    });
+    const membership = memberships.data?.find(
+      (m) => m.publicUserData?.userId === input.clerkUserId
+    );
+    if (membership) {
+      await clerk.organizations.updateOrganizationMembership({
+        organizationId: orgId,
+        userId: input.clerkUserId,
+        publicMetadata: {
+          ...(membership.publicMetadata ?? {}),
+          org_member_role: input.memberRole,
+        },
+      });
+    }
+  } catch (syncErr) {
+    console.error("Failed to sync member role to Clerk metadata:", syncErr);
+  }
 
   return { ok: true };
 }

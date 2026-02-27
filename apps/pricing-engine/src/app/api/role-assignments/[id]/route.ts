@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getOrgUuidFromClerkId } from "@/lib/orgs";
+import { syncDealRoomPermissions } from "@/lib/liveblocks";
 
 export const runtime = "nodejs";
 
@@ -81,7 +82,7 @@ export async function DELETE(
         .eq("user_id", removedUserId)
         .limit(1);
 
-      // If no other assignments, remove from deal_users
+      // If no other assignments, remove from deal_users and revoke room access
       if (!remaining || remaining.length === 0) {
         try {
           await supabaseAdmin
@@ -91,6 +92,18 @@ export async function DELETE(
             .eq("user_id", removedUserId);
         } catch {
           // best-effort
+        }
+
+        // Revoke Liveblocks deal room permissions
+        if (resourceType === "deal") {
+          syncDealRoomPermissions({
+            clerkUserId: removedUserId,
+            dealId: resourceId,
+            orgUuid,
+            assigned: false,
+          }).catch((err) =>
+            console.error("[role-assignments] Liveblocks revoke error:", err)
+          );
         }
 
         // Update legacy assigned_to column (deals only; loans column removed)

@@ -37,9 +37,9 @@ export function TemplateCard({
       onClick={onEdit}
     >
       {/* Preview Thumbnail */}
-      <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-muted">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-muted/60 flex items-center justify-center">
         <TemplatePreview html={template.html_content} />
-        
+
         {/* Hover Overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
           <Button
@@ -68,7 +68,7 @@ export function TemplateCard({
               Created {format(new Date(template.created_at), "MMM d, yyyy")}
             </p>
           </div>
-          
+
           {/* Actions Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -109,6 +109,13 @@ export function TemplateCard({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+
+        {/* Status chip */}
+        <div className="mt-2">
+          <span className="inline-flex items-center rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap text-muted-foreground">
+            Draft
+          </span>
         </div>
       </div>
     </div>

@@ -1,39 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getOrgUuidFromClerkId } from "@/lib/orgs";
-
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-async function checkDealAccess(
-  deal: { organization_id: string; assigned_to_user_id: unknown; primary_user_id: string | null },
-  userId: string,
-  orgId: string | null | undefined
-): Promise<boolean> {
-  const userOrgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null;
-  const hasOrgAccess = userOrgUuid && deal.organization_id === userOrgUuid;
-
-  const assignedUsers = Array.isArray(deal.assigned_to_user_id)
-    ? deal.assigned_to_user_id
-    : [];
-  const isAssigned = assignedUsers.includes(userId);
-  const isPrimaryUser = deal.primary_user_id === userId;
-
-  let isInternal = false;
-  const { data: userRow } = await supabaseAdmin
-    .from("users")
-    .select("id, is_internal_yn")
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
-
-  if (userRow) {
-    isInternal = Boolean(userRow.is_internal_yn);
-  }
-
-  return Boolean(hasOrgAccess || isAssigned || isPrimaryUser || isInternal);
-}
+import { checkDealAccess, getOrgUuidFromClerkId } from "@/lib/orgs";
+import { ensureLiveblocksRoom, syncDealTaskRoomPermissions } from "@/lib/liveblocks";
 
 /* -------------------------------------------------------------------------- */
 /*  GET /api/deals/[id]/tasks                                                  */
@@ -62,7 +31,7 @@ export async function GET(
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
 
-    const hasAccess = await checkDealAccess(deal, userId, orgId);
+    const hasAccess = await checkDealAccess(deal, userId, orgId, "select");
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -252,7 +221,7 @@ export async function POST(
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
 
-    const hasAccess = await checkDealAccess(deal, userId, orgId);
+    const hasAccess = await checkDealAccess(deal, userId, orgId, "insert");
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -313,6 +282,31 @@ export async function POST(
     if (error) {
       console.error("Error creating deal task:", error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (newTask && orgId) {
+      const taskEntityId = String(newTask.uuid ?? newTask.id);
+      const assignedIds = Array.isArray(body.assigned_to_user_ids) ? body.assigned_to_user_ids : [];
+
+      ensureLiveblocksRoom({
+        roomType: "deal_task",
+        entityId: taskEntityId,
+        organizationId: orgId,
+        creatorUserId: userId,
+        assignedUserIds: assignedIds,
+      }).catch(() => {});
+
+      const orgUuid = await getOrgUuidFromClerkId(orgId);
+      if (orgUuid) {
+        for (const uid of [userId, ...assignedIds]) {
+          syncDealTaskRoomPermissions({
+            clerkUserId: uid,
+            taskId: taskEntityId,
+            orgUuid,
+            assigned: true,
+          }).catch(() => {});
+        }
+      }
     }
 
     return NextResponse.json({ task: newTask }, { status: 201 });

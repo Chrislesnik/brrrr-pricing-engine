@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server"
 import { createClient } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
+export { isPrivilegedRole } from "@/lib/utils"
+
 /**
  * Create a Supabase client authenticated with the caller's Clerk JWT.
  * RPC calls through this client carry the org_id/org_role/member_role
@@ -63,6 +65,19 @@ export async function checkFeatureAccess(
 }
 
 /**
+ * Check whether the current caller can access a route resource via
+ * organization_policies. Falls back to the wildcard route policy.
+ */
+export async function checkRouteAccess(
+  routeName: string,
+  action: "select" | "insert" | "update" | "delete",
+): Promise<boolean> {
+  const allowedSpecific = await checkPolicyAccess("route", routeName, action)
+  if (allowedSpecific) return true
+  return checkPolicyAccess("route", "*", action)
+}
+
+/**
  * Assert the current caller has access to a feature. Throws an Error
  * with a 403-appropriate message if denied.
  */
@@ -74,6 +89,22 @@ export async function assertFeatureAccess(
   if (!allowed) {
     throw Object.assign(
       new Error(`Access denied: you do not have permission to ${action} ${featureName}`),
+      { status: 403 },
+    )
+  }
+}
+
+/**
+ * Assert the current caller has access to a route resource. Throws on denial.
+ */
+export async function assertRouteAccess(
+  routeName: string,
+  action: "select" | "insert" | "update" | "delete",
+): Promise<void> {
+  const allowed = await checkRouteAccess(routeName, action)
+  if (!allowed) {
+    throw Object.assign(
+      new Error(`Access denied: ${action} on route:${routeName}`),
       { status: 403 },
     )
   }
@@ -94,6 +125,29 @@ export async function assertPolicyAccess(
       { status: 403 },
     )
   }
+}
+
+/**
+ * Middleware-style resource access guard for API routes.
+ * Evaluates the policy engine and returns a 403 NextResponse on denial,
+ * or null if access is granted. Usage:
+ *
+ *   const denied = await assertResourceAccess("table", "deals", "select");
+ *   if (denied) return denied;
+ */
+export async function assertResourceAccess(
+  resourceType: string,
+  resourceName: string,
+  action: string,
+): Promise<Response | null> {
+  const allowed = await checkPolicyAccess(resourceType, resourceName, action)
+  if (!allowed) {
+    return Response.json(
+      { error: `Access denied: ${action} on ${resourceType}:${resourceName}` },
+      { status: 403 },
+    )
+  }
+  return null
 }
 
 export async function getOrgUuidFromClerkId(clerkOrgId: string | null | undefined): Promise<string | null> {
@@ -127,14 +181,43 @@ export async function getUserRoleInOrg(orgUuid: string, userId: string): Promise
   return (data?.clerk_org_role as string) ?? null
 }
 
+
 /**
- * Check if a role has privileged access (owner or admin)
+ * Policy-engine-aware deal access check. Combines:
+ *   Layer 1 – Coarse-grained org policy (table:deals action)
+ *   Layer 2 – Fine-grained domain logic (org membership, assignment, primary user, internal)
+ *
+ * Call sites pass the HTTP-method-appropriate action so that
+ * DENY policies on specific actions (e.g. DELETE) are enforced.
  */
-export function isPrivilegedRole(role: string | null): boolean {
-  if (!role) return false
-  // Handle both "owner" and "org:owner" formats
-  const normalizedRole = role.replace(/^org:/, "")
-  return normalizedRole === "owner" || normalizedRole === "admin"
+export async function checkDealAccess(
+  deal: { organization_id: string; assigned_to_user_id: unknown; primary_user_id: string | null },
+  userId: string,
+  orgId: string | null | undefined,
+  action: "select" | "insert" | "update" | "delete",
+): Promise<boolean> {
+  const policyAllowed = await checkPolicyAccess("table", "deals", action)
+  if (!policyAllowed) return false
+
+  const userOrgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null
+  const hasOrgAccess = userOrgUuid && deal.organization_id === userOrgUuid
+
+  const assignedUsers = Array.isArray(deal.assigned_to_user_id)
+    ? deal.assigned_to_user_id
+    : []
+  const isAssigned = assignedUsers.includes(userId)
+  const isPrimaryUser = deal.primary_user_id === userId
+
+  let isInternal = false
+  const { data: userRow } = await supabaseAdmin
+    .from("users")
+    .select("id, is_internal_yn")
+    .eq("clerk_user_id", userId)
+    .maybeSingle()
+
+  if (userRow) {
+    isInternal = Boolean(userRow.is_internal_yn)
+  }
+
+  return Boolean(hasOrgAccess || isAssigned || isPrimaryUser || isInternal)
 }
-
-

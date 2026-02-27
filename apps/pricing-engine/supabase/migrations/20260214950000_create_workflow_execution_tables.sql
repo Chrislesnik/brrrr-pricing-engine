@@ -40,10 +40,12 @@ GRANT ALL ON public.workflow_execution_logs TO service_role;
 GRANT SELECT ON public.workflow_executions TO authenticated;
 GRANT SELECT ON public.workflow_execution_logs TO authenticated;
 
+DROP POLICY IF EXISTS "workflow_executions_select" ON public.workflow_executions;
 CREATE POLICY "workflow_executions_select"
   ON public.workflow_executions FOR SELECT TO authenticated
   USING (user_id = auth.jwt() ->> 'sub');
 
+DROP POLICY IF EXISTS "workflow_execution_logs_select" ON public.workflow_execution_logs;
 CREATE POLICY "workflow_execution_logs_select"
   ON public.workflow_execution_logs FOR SELECT TO authenticated
   USING (
@@ -54,6 +56,6 @@ CREATE POLICY "workflow_execution_logs_select"
   );
 
 -- Indexes
-CREATE INDEX idx_workflow_executions_workflow_id ON public.workflow_executions (workflow_id);
-CREATE INDEX idx_workflow_executions_user_id ON public.workflow_executions (user_id);
-CREATE INDEX idx_workflow_execution_logs_execution_id ON public.workflow_execution_logs (execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_id ON public.workflow_executions (workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_user_id ON public.workflow_executions (user_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_execution_logs_execution_id ON public.workflow_execution_logs (execution_id);

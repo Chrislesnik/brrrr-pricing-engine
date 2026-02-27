@@ -9,6 +9,7 @@ import {
   Loader2,
   User,
 } from "lucide-react";
+import { isPrivilegedRole } from "@/lib/utils";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Badge } from "@repo/ui/shadcn/badge";
@@ -61,6 +62,7 @@ export function MembersSettings() {
     { value: string; label: string }[]
   >([]);
   const [memberRoleError, setMemberRoleError] = useState<string | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
   const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
   const [isSavingMemberRole, startMemberRoleTransition] = useTransition();
 
@@ -113,13 +115,31 @@ export function MembersSettings() {
   });
 
   const handleRemoveMember = async (membershipId: string) => {
+    setRemovalError(null);
     try {
       const memberToRemove = membersList.find((m) => m.id === membershipId);
-      if (memberToRemove) {
-        await memberToRemove.destroy();
+      if (!memberToRemove) return;
+
+      const isSelf =
+        memberToRemove.publicUserData?.userId === user?.id;
+      if (isSelf) {
+        const otherAdmins = membersList.filter(
+          (m) => m.id !== membershipId && isPrivilegedRole(m.role)
+        );
+        if (otherAdmins.length === 0) {
+          setRemovalError(
+            "You cannot leave the organization because you are the only Admin/Owner. " +
+              "Promote another member to Admin first."
+          );
+          return;
+        }
       }
+
+      await memberToRemove.destroy();
     } catch (error) {
-      console.error("Failed to remove member:", error);
+      setRemovalError(
+        error instanceof Error ? error.message : "Failed to remove member."
+      );
     }
   };
 
@@ -193,6 +213,9 @@ export function MembersSettings() {
 
       {memberRoleError && (
         <p className="text-sm text-destructive">{memberRoleError}</p>
+      )}
+      {removalError && (
+        <p className="text-sm text-destructive">{removalError}</p>
       )}
 
       {/* Members table */}
@@ -300,23 +323,23 @@ export function MembersSettings() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      {!isCurrentUser && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleRemoveMember(member.id)}
-                            >
-                              Remove from organization
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => handleRemoveMember(member.id)}
+                          >
+                            {isCurrentUser
+                              ? "Leave organization"
+                              : "Remove from organization"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );

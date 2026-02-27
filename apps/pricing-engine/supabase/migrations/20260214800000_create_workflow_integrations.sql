@@ -23,6 +23,7 @@ ALTER TABLE public.workflow_integrations ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.workflow_integrations TO authenticated;
 GRANT ALL ON public.workflow_integrations TO service_role;
 
+DROP POLICY IF EXISTS "workflow_integrations_select" ON public.workflow_integrations;
 CREATE POLICY "workflow_integrations_select"
   ON public.workflow_integrations FOR SELECT TO authenticated
   USING (
@@ -32,6 +33,7 @@ CREATE POLICY "workflow_integrations_select"
     )
   );
 
+DROP POLICY IF EXISTS "workflow_integrations_insert" ON public.workflow_integrations;
 CREATE POLICY "workflow_integrations_insert"
   ON public.workflow_integrations FOR INSERT TO authenticated
   WITH CHECK (
@@ -41,6 +43,7 @@ CREATE POLICY "workflow_integrations_insert"
     )
   );
 
+DROP POLICY IF EXISTS "workflow_integrations_update" ON public.workflow_integrations;
 CREATE POLICY "workflow_integrations_update"
   ON public.workflow_integrations FOR UPDATE TO authenticated
   USING (
@@ -50,6 +53,7 @@ CREATE POLICY "workflow_integrations_update"
     )
   );
 
+DROP POLICY IF EXISTS "workflow_integrations_delete" ON public.workflow_integrations;
 CREATE POLICY "workflow_integrations_delete"
   ON public.workflow_integrations FOR DELETE TO authenticated
   USING (
@@ -60,14 +64,15 @@ CREATE POLICY "workflow_integrations_delete"
   );
 
 -- Auto-update updated_at
-CREATE OR REPLACE TRIGGER workflow_integrations_updated_at
+DROP TRIGGER IF EXISTS workflow_integrations_updated_at ON public.workflow_integrations;
+CREATE TRIGGER workflow_integrations_updated_at
   BEFORE UPDATE ON public.workflow_integrations
   FOR EACH ROW
   EXECUTE FUNCTION public.set_current_timestamp_updated_at();
 
 -- Index for common queries
-CREATE INDEX idx_workflow_integrations_org_user
+CREATE INDEX IF NOT EXISTS idx_workflow_integrations_org_user
   ON public.workflow_integrations (organization_id, user_id);
 
-CREATE INDEX idx_workflow_integrations_type
+CREATE INDEX IF NOT EXISTS idx_workflow_integrations_type
   ON public.workflow_integrations (type);

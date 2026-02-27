@@ -1,12 +1,41 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Plus, Minus, Type, Palette, Underline, Weight } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover"
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  Minus,
+  Type,
+  Palette,
+  LayoutTemplate,
+  ImageIcon,
+  RectangleHorizontal,
+  Code2,
+  FileCode,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+} from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import type { EmailTemplateStyles } from "./types"
 
-// ─── NumberInput ────────────────────────────────────────────────────────────
+// ─── Email-safe font stacks ─────────────────────────────────────────────────
+
+const EMAIL_FONTS = [
+  { label: "Inter",       value: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+  { label: "Arial",       value: "Arial, Helvetica, sans-serif" },
+  { label: "Helvetica",   value: "Helvetica, Arial, sans-serif" },
+  { label: "Georgia",     value: "Georgia, 'Times New Roman', Times, serif" },
+  { label: "Times",       value: "'Times New Roman', Times, Georgia, serif" },
+  { label: "Verdana",     value: "Verdana, Geneva, sans-serif" },
+  { label: "Trebuchet",   value: "'Trebuchet MS', Helvetica, sans-serif" },
+  { label: "Tahoma",      value: "Tahoma, Verdana, Geneva, sans-serif" },
+  { label: "Courier",     value: "'Courier New', Courier, monospace" },
+  { label: "System UI",   value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+]
+
+// ─── NumberInput ─────────────────────────────────────────────────────────────
 
 function NumberInput({
   value,
@@ -22,7 +51,7 @@ function NumberInput({
   max?: number
 }) {
   return (
-    <div className="flex h-6 items-center overflow-hidden rounded border border-border bg-muted/40">
+    <div className="flex h-7 items-center overflow-hidden rounded-md border border-border bg-muted/30 transition-colors focus-within:border-foreground/30">
       <input
         type="number"
         value={value}
@@ -31,12 +60,12 @@ function NumberInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-10 bg-transparent px-1.5 text-right text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
-      <span className="px-0.5 text-[10px] text-muted-foreground">{suffix}</span>
+      <span className="pr-0.5 text-[10px] text-muted-foreground/60">{suffix}</span>
       <div className="ml-auto flex flex-col border-l border-border">
         <button
           type="button"
           onClick={() => onChange(Math.min(max, value + 1))}
-          className="flex h-3 w-5 items-center justify-center text-muted-foreground hover:bg-accent"
+          className="flex h-[13px] w-5 items-center justify-center text-muted-foreground/50 hover:bg-accent hover:text-foreground"
           aria-label="Increment"
         >
           <ChevronUp className="size-2.5" />
@@ -44,7 +73,7 @@ function NumberInput({
         <button
           type="button"
           onClick={() => onChange(Math.max(min, value - 1))}
-          className="flex h-3 w-5 items-center justify-center border-t border-border text-muted-foreground hover:bg-accent"
+          className="flex h-[13px] w-5 items-center justify-center border-t border-border text-muted-foreground/50 hover:bg-accent hover:text-foreground"
           aria-label="Decrement"
         >
           <ChevronDown className="size-2.5" />
@@ -54,16 +83,16 @@ function NumberInput({
   )
 }
 
-// ─── ColorInput ─────────────────────────────────────────────────────────────
+// ─── ColorInput ──────────────────────────────────────────────────────────────
 
 function ColorInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex h-6 items-center gap-1.5 overflow-hidden rounded border border-border bg-muted/40 px-1.5">
+    <div className="flex h-7 items-center gap-1.5 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
       <input
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="size-3.5 cursor-pointer rounded-sm border-0 bg-transparent p-0"
+        className="size-4 cursor-pointer rounded border-0 bg-transparent p-0"
       />
       <input
         type="text"
@@ -76,7 +105,7 @@ function ColorInput({ value, onChange }: { value: string; onChange: (v: string) 
   )
 }
 
-// ─── SelectInput ────────────────────────────────────────────────────────────
+// ─── SelectInput ─────────────────────────────────────────────────────────────
 
 function SelectInput({
   value,
@@ -88,7 +117,7 @@ function SelectInput({
   onChange: (v: string) => void
 }) {
   return (
-    <div className="flex h-6 items-center overflow-hidden rounded border border-border bg-muted/40 px-1.5">
+    <div className="flex h-7 items-center overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -104,7 +133,158 @@ function SelectInput({
   )
 }
 
-// ─── StyleRow ───────────────────────────────────────────────────────────────
+// ─── AlignmentToggle ─────────────────────────────────────────────────────────
+
+function AlignmentToggle({
+  value,
+  onChange,
+}: {
+  value: "left" | "center" | "right"
+  onChange: (v: "left" | "center" | "right") => void
+}) {
+  const opts: { v: "left" | "center" | "right"; icon: React.ReactNode }[] = [
+    { v: "left", icon: <AlignLeft className="size-3" /> },
+    { v: "center", icon: <AlignCenter className="size-3" /> },
+    { v: "right", icon: <AlignRight className="size-3" /> },
+  ]
+
+  return (
+    <div className="flex h-7 overflow-hidden rounded-md border border-border">
+      {opts.map((o, i) => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => onChange(o.v)}
+          className={cn(
+            "flex flex-1 items-center justify-center transition-colors",
+            i > 0 && "border-l border-border",
+            value === o.v
+              ? "bg-accent text-accent-foreground"
+              : "bg-muted/30 text-muted-foreground/60 hover:bg-accent/50 hover:text-foreground"
+          )}
+          title={o.v.charAt(0).toUpperCase() + o.v.slice(1)}
+        >
+          {o.icon}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Padding side icons (Figma-style directional indicators) ─────────────────
+
+function PadIcon({ side }: { side: "T" | "R" | "B" | "L" | "H" | "V" }) {
+  const shared = "size-3 text-muted-foreground/50"
+  switch (side) {
+    case "T": return <svg className={shared} viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="1.5" rx="0.5" fill="currentColor" /><rect x="3" y="4" width="6" height="5" rx="1" fill="currentColor" opacity="0.25" /></svg>
+    case "B": return <svg className={shared} viewBox="0 0 12 12"><rect x="1" y="9.5" width="10" height="1.5" rx="0.5" fill="currentColor" /><rect x="3" y="3" width="6" height="5" rx="1" fill="currentColor" opacity="0.25" /></svg>
+    case "L": return <svg className={shared} viewBox="0 0 12 12"><rect x="1" y="1" width="1.5" height="10" rx="0.5" fill="currentColor" /><rect x="4" y="3" width="5" height="6" rx="1" fill="currentColor" opacity="0.25" /></svg>
+    case "R": return <svg className={shared} viewBox="0 0 12 12"><rect x="9.5" y="1" width="1.5" height="10" rx="0.5" fill="currentColor" /><rect x="3" y="3" width="5" height="6" rx="1" fill="currentColor" opacity="0.25" /></svg>
+    case "H": return <svg className={shared} viewBox="0 0 12 12"><rect x="1" y="1" width="1.5" height="10" rx="0.5" fill="currentColor" /><rect x="9.5" y="1" width="1.5" height="10" rx="0.5" fill="currentColor" /><rect x="4" y="3" width="4" height="6" rx="1" fill="currentColor" opacity="0.25" /></svg>
+    case "V": return <svg className={shared} viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="1.5" rx="0.5" fill="currentColor" /><rect x="1" y="9.5" width="10" height="1.5" rx="0.5" fill="currentColor" /><rect x="3" y="4" width="6" height="4" rx="1" fill="currentColor" opacity="0.25" /></svg>
+  }
+}
+
+// ─── PaddingControl ──────────────────────────────────────────────────────────
+
+function PaddingControl({
+  top,
+  right,
+  bottom,
+  left,
+  onTop,
+  onRight,
+  onBottom,
+  onLeft,
+}: {
+  top: number; right: number; bottom: number; left: number
+  onTop: (v: number) => void; onRight: (v: number) => void
+  onBottom: (v: number) => void; onLeft: (v: number) => void
+}) {
+  const [perSide, setPerSide] = useState(false)
+
+  if (!perSide) {
+    return (
+      <div className="flex items-center gap-1.5">
+        {/* H (left + right) */}
+        <div className="flex h-7 flex-1 items-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
+          <PadIcon side="H" />
+          <input
+            type="number"
+            value={left}
+            min={0}
+            onChange={(e) => { const v = Number(e.target.value); onLeft(v); onRight(v) }}
+            className="w-full bg-transparent text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </div>
+        {/* V (top + bottom) */}
+        <div className="flex h-7 flex-1 items-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
+          <PadIcon side="V" />
+          <input
+            type="number"
+            value={top}
+            min={0}
+            onChange={(e) => { const v = Number(e.target.value); onTop(v); onBottom(v) }}
+            className="w-full bg-transparent text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </div>
+        {/* Toggle */}
+        <button
+          type="button"
+          onClick={() => setPerSide(true)}
+          className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted/30 text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+          title="Per-side padding"
+        >
+          <svg className="size-3.5" viewBox="0 0 14 14"><rect x="0.5" y="0.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-1.5">
+      <div className="grid flex-1 grid-cols-2 gap-1">
+        {/* Top-left: Left padding */}
+        <div className="flex h-7 items-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
+          <PadIcon side="L" />
+          <input type="number" value={left} min={0} onChange={(e) => onLeft(Number(e.target.value))}
+            className="w-full bg-transparent text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        </div>
+        {/* Top-right: Top padding */}
+        <div className="flex h-7 items-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
+          <PadIcon side="T" />
+          <input type="number" value={top} min={0} onChange={(e) => onTop(Number(e.target.value))}
+            className="w-full bg-transparent text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        </div>
+        {/* Bottom-left: Right padding */}
+        <div className="flex h-7 items-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
+          <PadIcon side="R" />
+          <input type="number" value={right} min={0} onChange={(e) => onRight(Number(e.target.value))}
+            className="w-full bg-transparent text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        </div>
+        {/* Bottom-right: Bottom padding */}
+        <div className="flex h-7 items-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-1.5 transition-colors focus-within:border-foreground/30">
+          <PadIcon side="B" />
+          <input type="number" value={bottom} min={0} onChange={(e) => onBottom(Number(e.target.value))}
+            className="w-full bg-transparent text-[11px] text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        </div>
+      </div>
+      {/* Toggle */}
+      <button
+        type="button"
+        onClick={() => setPerSide(false)}
+        className="flex size-7 shrink-0 items-center justify-center rounded-md border border-primary/50 bg-accent text-accent-foreground transition-colors hover:bg-accent/80"
+        title="Linked padding"
+      >
+        <svg className="size-3.5" viewBox="0 0 14 14">
+          <rect x="0.5" y="0.5" width="13" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="3 2" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+// ─── StyleRow ────────────────────────────────────────────────────────────────
 
 function StyleRow({
   label,
@@ -116,16 +296,16 @@ function StyleRow({
   onRemove?: () => void
 }) {
   return (
-    <div className="group flex items-center justify-between gap-2 py-0.5">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
+    <div className="group flex items-center justify-between gap-3 py-1">
+      <span className="shrink-0 text-[11px] text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1">
-        <div className="w-[90px]">{children}</div>
+        <div className="w-[100px]">{children}</div>
         {onRemove && (
           <button
             type="button"
             onClick={onRemove}
             title="Remove property"
-            className="flex size-4 items-center justify-center rounded text-muted-foreground/30 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100"
+            className="flex size-4 items-center justify-center rounded text-muted-foreground/30 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
           >
             <Minus className="size-3" />
           </button>
@@ -135,123 +315,53 @@ function StyleRow({
   )
 }
 
-// ─── Optional field definitions ─────────────────────────────────────────────
-
-type OptionalField = {
-  key: string
-  label: string
-  icon: React.ReactNode
-}
-
-const SECTION_OPTIONAL_FIELDS: Record<string, OptionalField[]> = {
-  typography: [
-    { key: "fontWeight", label: "Font weight", icon: <Weight className="size-3.5 text-[#888]" /> },
-    { key: "textColor", label: "Text color", icon: <Palette className="size-3.5 text-[#888]" /> },
-    { key: "textDecoration", label: "Text decoration", icon: <Underline className="size-3.5 text-[#888]" /> },
-  ],
-  container: [
-    { key: "background", label: "Background", icon: <Palette className="size-3.5 text-[#888]" /> },
-  ],
-  body: [
-    { key: "fontFamily", label: "Font family", icon: <Type className="size-3.5 text-[#888]" /> },
-  ],
-}
-
-// ─── Section ────────────────────────────────────────────────────────────────
+// ─── Section ─────────────────────────────────────────────────────────────────
 
 function Section({
   title,
-  sectionId,
-  activeExtras,
-  onAddExtra,
+  icon,
+  defaultOpen = true,
   children,
 }: {
   title: string
-  sectionId: string
-  activeExtras: string[]
-  onAddExtra: (field: string) => void
+  icon: React.ReactNode
+  defaultOpen?: boolean
   children: React.ReactNode
 }) {
-  const available = (SECTION_OPTIONAL_FIELDS[sectionId] ?? []).filter(
-    (f) => !activeExtras.includes(f.key)
-  )
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
     <div className="border-b border-border">
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-[13px] font-semibold text-foreground">{title}</span>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              title="Add property"
-              className={cn(
-                "flex size-5 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-accent hover:text-accent-foreground",
-                available.length === 0 && "invisible"
-              )}
-            >
-              <Plus className="size-3.5" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="right" align="start" className="w-44 p-1">
-            <p className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">{title}</p>
-            {available.map((field) => (
-              <button
-                key={field.key}
-                type="button"
-                onClick={() => onAddExtra(field.key)}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-foreground transition-colors hover:bg-accent"
-              >
-                {field.icon}
-                {field.label}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="flex flex-col gap-0.5 px-4 pb-4">{children}</div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
+      >
+        <ChevronRight
+          className={cn(
+            "size-3 shrink-0 text-muted-foreground/50 transition-transform duration-150",
+            open && "rotate-90"
+          )}
+        />
+        <span className="text-muted-foreground/70">{icon}</span>
+        <span className="text-[12px] font-medium text-foreground">{title}</span>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-0.5 px-3 pb-3">{children}</div>
+      )}
     </div>
   )
 }
 
-// ─── StylesPanel ────────────────────────────────────────────────────────────
+// ─── StylesPanel ─────────────────────────────────────────────────────────────
 
 type Props = {
   styles: EmailTemplateStyles
   onChange: (styles: EmailTemplateStyles) => void
   onReset?: () => void
-  onClose?: () => void
 }
 
-export function StylesPanel({ styles, onChange, onReset, onClose }: Props) {
-  // Track which optional fields are active per section
-  const [extras, setExtras] = useState<Record<string, string[]>>({
-    body: [],
-    container: [],
-    typography: [
-      // Auto-show optional fields that already have non-default values
-      ...(styles.typography.fontWeight !== undefined ? ["fontWeight"] : []),
-      ...(styles.typography.textColor !== undefined ? ["textColor"] : []),
-      ...(styles.typography.textDecoration !== undefined ? ["textDecoration"] : []),
-    ],
-    link: [],
-    image: [],
-    button: [],
-    codeBlock: [],
-    inlineCode: [],
-  })
-
-  const addExtra = (section: string, field: string) => {
-    setExtras((prev) => ({ ...prev, [section]: [...(prev[section] ?? []), field] }))
-  }
-
-  const removeExtra = (section: string, field: string) => {
-    setExtras((prev) => ({
-      ...prev,
-      [section]: (prev[section] ?? []).filter((f) => f !== field),
-    }))
-  }
-
+export function StylesPanel({ styles, onChange, onReset }: Props) {
   const set = <K extends keyof EmailTemplateStyles>(
     category: K,
     key: keyof EmailTemplateStyles[K],
@@ -264,85 +374,75 @@ export function StylesPanel({ styles, onChange, onReset, onClose }: Props) {
     <div className="flex h-full w-full flex-col bg-background">
       <div className="flex-1 overflow-y-auto">
 
-        {/* Body */}
-        <Section title="Body" sectionId="body" activeExtras={extras.body} onAddExtra={(f) => addExtra("body", f)}>
-          <StyleRow label="Background">
-            <ColorInput value={styles.body.background} onChange={(v) => set("body", "background", v)} />
-          </StyleRow>
-        </Section>
-
-        {/* Container */}
-        <Section title="Container" sectionId="container" activeExtras={extras.container} onAddExtra={(f) => addExtra("container", f)}>
-          <StyleRow label="Align">
-            <SelectInput
-              value={styles.container.align}
-              options={[
-                { label: "Left", value: "left" },
-                { label: "Center", value: "center" },
-                { label: "Right", value: "right" },
-              ]}
-              onChange={(v) => set("container", "align", v as "left" | "center" | "right")}
-            />
-          </StyleRow>
+        {/* ── Layout ────────────────────────────────────────────────────────── */}
+        <Section title="Layout" icon={<LayoutTemplate className="size-3.5" />}>
           <StyleRow label="Width">
             <NumberInput value={styles.container.width} onChange={(v) => set("container", "width", v)} min={320} max={900} />
           </StyleRow>
-          <StyleRow label="Padding Left">
-            <NumberInput value={styles.container.paddingLeft} onChange={(v) => set("container", "paddingLeft", v)} />
+          <StyleRow label="Align">
+            <AlignmentToggle
+              value={styles.container.align}
+              onChange={(v) => set("container", "align", v)}
+            />
           </StyleRow>
-          <StyleRow label="Padding Right">
-            <NumberInput value={styles.container.paddingRight} onChange={(v) => set("container", "paddingRight", v)} />
-          </StyleRow>
+          <div className="mt-1">
+            <span className="text-[10px] font-medium text-muted-foreground/50">Padding</span>
+            <div className="mt-1">
+              <PaddingControl
+                top={0}
+                right={styles.container.paddingRight}
+                bottom={0}
+                left={styles.container.paddingLeft}
+                onTop={() => {}}
+                onRight={(v) => set("container", "paddingRight", v)}
+                onBottom={() => {}}
+                onLeft={(v) => set("container", "paddingLeft", v)}
+              />
+            </div>
+          </div>
         </Section>
 
-        {/* Typography */}
-        <Section title="Typography" sectionId="typography" activeExtras={extras.typography} onAddExtra={(f) => addExtra("typography", f)}>
-          <StyleRow label="Font size">
+        {/* ── Typography ────────────────────────────────────────────────────── */}
+        <Section title="Typography" icon={<Type className="size-3.5" />}>
+          <StyleRow label="Font">
+            <SelectInput
+              value={styles.typography.fontFamily}
+              options={EMAIL_FONTS}
+              onChange={(v) => set("typography", "fontFamily", v)}
+            />
+          </StyleRow>
+          <StyleRow label="Size">
             <NumberInput value={styles.typography.fontSize} onChange={(v) => set("typography", "fontSize", v)} min={8} max={72} />
           </StyleRow>
-          <StyleRow label="Line Height">
+          <StyleRow label="Height">
             <NumberInput value={styles.typography.lineHeight} onChange={(v) => set("typography", "lineHeight", v)} suffix="%" min={100} max={300} />
           </StyleRow>
-          {extras.typography.includes("fontWeight") && (
-            <StyleRow label="Font weight" onRemove={() => removeExtra("typography", "fontWeight")}>
-              <NumberInput
-                value={styles.typography.fontWeight ?? 400}
-                onChange={(v) => set("typography", "fontWeight", v)}
-                suffix=""
-                min={100}
-                max={900}
-              />
-            </StyleRow>
-          )}
-          {extras.typography.includes("textColor") && (
-            <StyleRow label="Text color" onRemove={() => removeExtra("typography", "textColor")}>
-              <ColorInput
-                value={styles.typography.textColor ?? "#000000"}
-                onChange={(v) => set("typography", "textColor", v)}
-              />
-            </StyleRow>
-          )}
-          {extras.typography.includes("textDecoration") && (
-            <StyleRow label="Decoration" onRemove={() => removeExtra("typography", "textDecoration")}>
-              <SelectInput
-                value={styles.typography.textDecoration ?? "none"}
-                options={[
-                  { label: "None", value: "none" },
-                  { label: "Underline", value: "underline" },
-                  { label: "Strike", value: "line-through" },
-                ]}
-                onChange={(v) => set("typography", "textDecoration", v as "none" | "underline" | "line-through")}
-              />
-            </StyleRow>
-          )}
+          <StyleRow label="Weight">
+            <NumberInput
+              value={styles.typography.fontWeight ?? 400}
+              onChange={(v) => set("typography", "fontWeight", v)}
+              suffix=""
+              min={100}
+              max={900}
+            />
+          </StyleRow>
+          <StyleRow label="Color">
+            <ColorInput
+              value={styles.typography.textColor ?? "#000000"}
+              onChange={(v) => set("typography", "textColor", v)}
+            />
+          </StyleRow>
         </Section>
 
-        {/* Link */}
-        <Section title="Link" sectionId="link" activeExtras={extras.link} onAddExtra={(f) => addExtra("link", f)}>
-          <StyleRow label="Color">
+        {/* ── Colors ────────────────────────────────────────────────────────── */}
+        <Section title="Colors" icon={<Palette className="size-3.5" />}>
+          <StyleRow label="Background">
+            <ColorInput value={styles.body.background} onChange={(v) => set("body", "background", v)} />
+          </StyleRow>
+          <StyleRow label="Link">
             <ColorInput value={styles.link.color} onChange={(v) => set("link", "color", v)} />
           </StyleRow>
-          <StyleRow label="Decoration">
+          <StyleRow label="Link style">
             <SelectInput
               value={styles.link.decoration}
               options={[
@@ -354,103 +454,96 @@ export function StylesPanel({ styles, onChange, onReset, onClose }: Props) {
           </StyleRow>
         </Section>
 
-        {/* Image */}
-        <Section title="Image" sectionId="image" activeExtras={extras.image} onAddExtra={(f) => addExtra("image", f)}>
-          <StyleRow label="Border radius">
-            <NumberInput value={styles.image.borderRadius} onChange={(v) => set("image", "borderRadius", v)} />
-          </StyleRow>
-        </Section>
-
-        {/* Button */}
-        <Section title="Button" sectionId="button" activeExtras={extras.button} onAddExtra={(f) => addExtra("button", f)}>
+        {/* ── Button ────────────────────────────────────────────────────────── */}
+        <Section title="Button" icon={<RectangleHorizontal className="size-3.5" />}>
           <StyleRow label="Background">
             <ColorInput value={styles.button.background} onChange={(v) => set("button", "background", v)} />
           </StyleRow>
-          <StyleRow label="Text color">
+          <StyleRow label="Text">
             <ColorInput value={styles.button.textColor} onChange={(v) => set("button", "textColor", v)} />
           </StyleRow>
           <StyleRow label="Radius">
             <NumberInput value={styles.button.radius} onChange={(v) => set("button", "radius", v)} />
           </StyleRow>
-          <StyleRow label="Padding Top">
-            <NumberInput value={styles.button.paddingTop} onChange={(v) => set("button", "paddingTop", v)} />
-          </StyleRow>
-          <StyleRow label="Padding Right">
-            <NumberInput value={styles.button.paddingRight} onChange={(v) => set("button", "paddingRight", v)} />
-          </StyleRow>
-          <StyleRow label="Padding Bottom">
-            <NumberInput value={styles.button.paddingBottom} onChange={(v) => set("button", "paddingBottom", v)} />
-          </StyleRow>
-          <StyleRow label="Padding Left">
-            <NumberInput value={styles.button.paddingLeft} onChange={(v) => set("button", "paddingLeft", v)} />
+          <div className="mt-1">
+            <span className="text-[10px] font-medium text-muted-foreground/50">Padding</span>
+            <div className="mt-1">
+              <PaddingControl
+                top={styles.button.paddingTop}
+                right={styles.button.paddingRight}
+                bottom={styles.button.paddingBottom}
+                left={styles.button.paddingLeft}
+                onTop={(v) => set("button", "paddingTop", v)}
+                onRight={(v) => set("button", "paddingRight", v)}
+                onBottom={(v) => set("button", "paddingBottom", v)}
+                onLeft={(v) => set("button", "paddingLeft", v)}
+              />
+            </div>
+          </div>
+        </Section>
+
+        {/* ── Image ─────────────────────────────────────────────────────────── */}
+        <Section title="Image" icon={<ImageIcon className="size-3.5" />} defaultOpen={false}>
+          <StyleRow label="Radius">
+            <NumberInput value={styles.image.borderRadius} onChange={(v) => set("image", "borderRadius", v)} />
           </StyleRow>
         </Section>
 
-        {/* Code Block */}
-        <Section title="Code Block" sectionId="codeBlock" activeExtras={extras.codeBlock} onAddExtra={(f) => addExtra("codeBlock", f)}>
-          <StyleRow label="Border Radius">
+        {/* ── Code ──────────────────────────────────────────────────────────── */}
+        <Section title="Code" icon={<Code2 className="size-3.5" />} defaultOpen={false}>
+          <span className="mb-1 text-[10px] font-medium text-muted-foreground/50">Block</span>
+          <StyleRow label="Radius">
             <NumberInput value={styles.codeBlock.borderRadius} onChange={(v) => set("codeBlock", "borderRadius", v)} />
-          </StyleRow>
-          <StyleRow label="Padding Top">
-            <NumberInput value={styles.codeBlock.paddingV} onChange={(v) => set("codeBlock", "paddingV", v)} />
-          </StyleRow>
-          <StyleRow label="Padding H">
-            <NumberInput value={styles.codeBlock.paddingH} onChange={(v) => set("codeBlock", "paddingH", v)} />
           </StyleRow>
           <StyleRow label="Background">
             <ColorInput value={styles.codeBlock.background} onChange={(v) => set("codeBlock", "background", v)} />
           </StyleRow>
-          <StyleRow label="Text color">
+          <StyleRow label="Text">
             <ColorInput value={styles.codeBlock.textColor} onChange={(v) => set("codeBlock", "textColor", v)} />
           </StyleRow>
-        </Section>
+          <StyleRow label="Padding H">
+            <NumberInput value={styles.codeBlock.paddingH} onChange={(v) => set("codeBlock", "paddingH", v)} />
+          </StyleRow>
+          <StyleRow label="Padding V">
+            <NumberInput value={styles.codeBlock.paddingV} onChange={(v) => set("codeBlock", "paddingV", v)} />
+          </StyleRow>
 
-        {/* Inline Code */}
-        <Section title="Inline Code" sectionId="inlineCode" activeExtras={extras.inlineCode} onAddExtra={(f) => addExtra("inlineCode", f)}>
-          <StyleRow label="Border Radius">
+          <div className="my-1.5 border-t border-border" />
+
+          <span className="mb-1 text-[10px] font-medium text-muted-foreground/50">Inline</span>
+          <StyleRow label="Radius">
             <NumberInput value={styles.inlineCode.borderRadius} onChange={(v) => set("inlineCode", "borderRadius", v)} />
           </StyleRow>
           <StyleRow label="Background">
             <ColorInput value={styles.inlineCode.background} onChange={(v) => set("inlineCode", "background", v)} />
           </StyleRow>
-          <StyleRow label="Text color">
+          <StyleRow label="Text">
             <ColorInput value={styles.inlineCode.textColor} onChange={(v) => set("inlineCode", "textColor", v)} />
           </StyleRow>
         </Section>
 
-        {/* Global CSS */}
-        <Section title="Global CSS" sectionId="globalCss" activeExtras={[]} onAddExtra={() => {}}>
-          <div className="pt-1">
-            <textarea
-              value={styles.globalCss}
-              onChange={(e) => onChange({ ...styles, globalCss: e.target.value })}
-              placeholder={"/* Custom CSS */\n.email-body {\n  font-family: sans-serif;\n}"}
-              rows={8}
-              spellCheck={false}
-              className="w-full resize-none rounded border border-border bg-muted/40 p-2 font-mono text-[10px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-muted-foreground/30"
-            />
-          </div>
+        {/* ── Custom CSS ────────────────────────────────────────────────────── */}
+        <Section title="Custom CSS" icon={<FileCode className="size-3.5" />} defaultOpen={false}>
+          <textarea
+            value={styles.globalCss}
+            onChange={(e) => onChange({ ...styles, globalCss: e.target.value })}
+            placeholder={"/* Custom CSS */\n.email-body {\n  font-family: sans-serif;\n}"}
+            rows={8}
+            spellCheck={false}
+            className="w-full resize-none rounded-md border border-border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-foreground/30"
+          />
         </Section>
       </div>
 
       {/* Footer */}
-      <div className="flex flex-shrink-0 items-center justify-between border-t border-border px-4 py-2.5">
+      <div className="flex flex-shrink-0 items-center border-t border-border px-3 py-2">
         <button
           type="button"
           onClick={onReset}
-          className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          className="text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground"
         >
-          Reset Styles
+          Reset to defaults
         </button>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Close
-          </button>
-        )}
       </div>
     </div>
   )

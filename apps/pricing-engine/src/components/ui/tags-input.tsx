@@ -61,16 +61,32 @@ function TagsInputInput({
   );
 }
 
+const tagVariants = {
+  default: "",
+  success:
+    "border-success/30 bg-success-muted text-success [&[data-highlighted]:not([data-editing])]:bg-success/20 [&[data-highlighted]:not([data-editing])]:text-success",
+  destructive:
+    "border-destructive/30 bg-destructive/10 text-destructive [&[data-highlighted]:not([data-editing])]:bg-destructive/20 [&[data-highlighted]:not([data-editing])]:text-destructive",
+  warning:
+    "border-warning/30 bg-warning-muted text-warning [&[data-highlighted]:not([data-editing])]:bg-warning/20 [&[data-highlighted]:not([data-editing])]:text-warning",
+} as const;
+
+type TagVariant = keyof typeof tagVariants;
+
 function TagsInputItem({
   className,
   children,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof TagsInputPrimitive.Item>) {
+}: React.ComponentProps<typeof TagsInputPrimitive.Item> & {
+  variant?: TagVariant;
+}) {
   return (
     <TagsInputPrimitive.Item
       data-slot="tags-input-item"
       className={cn(
         "inline-flex max-w-[calc(100%-8px)] items-center gap-1.5 rounded border bg-transparent px-2.5 py-1 text-sm focus:outline-hidden data-disabled:cursor-not-allowed data-editable:select-none data-editing:bg-transparent data-disabled:opacity-50 data-editing:ring-1 data-editing:ring-ring [&:not([data-editing])]:pr-1.5 [&[data-highlighted]:not([data-editing])]:bg-accent [&[data-highlighted]:not([data-editing])]:text-accent-foreground",
+        tagVariants[variant],
         className,
       )}
       {...props}
@@ -91,6 +107,28 @@ function TagsInputClear({
   return <TagsInputPrimitive.Clear data-slot="tags-input-clear" {...props} />;
 }
 
+const STATUS_VARIANT_MAP: Record<string, TagVariant> = {
+  active: "success",
+  open: "success",
+  approved: "success",
+  completed: "success",
+  done: "success",
+  dead: "destructive",
+  denied: "destructive",
+  rejected: "destructive",
+  cancelled: "destructive",
+  closed: "destructive",
+  "on hold": "warning",
+  pending: "warning",
+  paused: "warning",
+  review: "warning",
+  suspended: "warning",
+};
+
+function getTagVariant(value: string): TagVariant {
+  return STATUS_VARIANT_MAP[value.toLowerCase().trim()] ?? "default";
+}
+
 export {
   TagsInput,
   TagsInputLabel,
@@ -98,4 +136,7 @@ export {
   TagsInputInput,
   TagsInputItem,
   TagsInputClear,
+  tagVariants,
+  getTagVariant,
 };
+export type { TagVariant };

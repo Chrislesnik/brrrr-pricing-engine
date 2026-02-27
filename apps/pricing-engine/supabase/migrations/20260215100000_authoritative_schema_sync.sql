@@ -70,115 +70,102 @@ drop policy "org_policy_select" on "public"."term_sheets";
 
 drop policy "org_policy_update" on "public"."term_sheets";
 
-revoke delete on table "public"."document_files_inputs" from "anon";
+do $$
+begin
+  if to_regclass('public.document_files_inputs') is not null then
+    revoke delete on table "public"."document_files_inputs" from "anon";
+    revoke insert on table "public"."document_files_inputs" from "anon";
+    revoke references on table "public"."document_files_inputs" from "anon";
+    revoke select on table "public"."document_files_inputs" from "anon";
+    revoke trigger on table "public"."document_files_inputs" from "anon";
+    revoke truncate on table "public"."document_files_inputs" from "anon";
+    revoke update on table "public"."document_files_inputs" from "anon";
 
-revoke insert on table "public"."document_files_inputs" from "anon";
+    revoke delete on table "public"."document_files_inputs" from "authenticated";
+    revoke insert on table "public"."document_files_inputs" from "authenticated";
+    revoke references on table "public"."document_files_inputs" from "authenticated";
+    revoke select on table "public"."document_files_inputs" from "authenticated";
+    revoke trigger on table "public"."document_files_inputs" from "authenticated";
+    revoke truncate on table "public"."document_files_inputs" from "authenticated";
+    revoke update on table "public"."document_files_inputs" from "authenticated";
 
-revoke references on table "public"."document_files_inputs" from "anon";
+    revoke delete on table "public"."document_files_inputs" from "service_role";
+    revoke insert on table "public"."document_files_inputs" from "service_role";
+    revoke references on table "public"."document_files_inputs" from "service_role";
+    revoke select on table "public"."document_files_inputs" from "service_role";
+    revoke trigger on table "public"."document_files_inputs" from "service_role";
+    revoke truncate on table "public"."document_files_inputs" from "service_role";
+    revoke update on table "public"."document_files_inputs" from "service_role";
+  end if;
+end $$;
 
-revoke select on table "public"."document_files_inputs" from "anon";
+alter table if exists "public"."background_report_applications" drop constraint if exists "background_report_application_background_report_id_applicat_key";
 
-revoke trigger on table "public"."document_files_inputs" from "anon";
+alter table if exists "public"."credit_report_data_links" drop constraint if exists "credit_report_data_links_credit_report_id_aggregator_key";
 
-revoke truncate on table "public"."document_files_inputs" from "anon";
+alter table if exists "public"."deal_clerk_orgs" drop constraint if exists "deals_clerk_orgs_clerk_org_id_fkey";
 
-revoke update on table "public"."document_files_inputs" from "anon";
+alter table if exists "public"."deal_clerk_orgs" drop constraint if exists "deals_clerk_orgs_deal_id_fkey";
 
-revoke delete on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."deal_clerk_orgs" drop constraint if exists "deals_orgs_deal_id_clerk_org_id_key";
 
-revoke insert on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."deal_document_ai_condition" drop constraint if exists "deal_document_ai_condition_deal_document_id_document_type_a_key";
 
-revoke references on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."deal_document_ai_input" drop constraint if exists "deal_document_ai_input_deal_document_id_document_type_ai_in_key";
 
-revoke select on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."deal_inputs" drop constraint if exists "deal_inputs_deal_id_input_id_key";
 
-revoke trigger on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."deals" drop constraint if exists "deals_program_id_fkey";
 
-revoke truncate on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."document_files_inputs" drop constraint if exists "document_files_inputs_document_file_id_fkey";
 
-revoke update on table "public"."document_files_inputs" from "authenticated";
+alter table if exists "public"."document_files_inputs" drop constraint if exists "document_files_inputs_document_file_id_input_id_key";
 
-revoke delete on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."document_files_inputs" drop constraint if exists "document_files_inputs_input_id_fkey";
 
-revoke insert on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."inputs" drop constraint if exists "inputs_input_code_key";
 
-revoke references on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."programs" drop constraint if exists "programs_organization_id_fkey";
 
-revoke select on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."task_templates" drop constraint if exists "task_templates_org_code_key";
 
-revoke trigger on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."task_templates" drop constraint if exists "task_templates_organization_id_fkey";
 
-revoke truncate on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."workflow_integrations" drop constraint if exists "workflow_integrations_organization_id_user_id_type_name_key";
 
-revoke update on table "public"."document_files_inputs" from "service_role";
+alter table if exists "public"."application_signings" drop constraint if exists "application_signings_loan_id_fkey";
 
-alter table "public"."background_report_applications" drop constraint "background_report_application_background_report_id_applicat_key";
+alter table if exists "public"."applications" drop constraint if exists "applications_loan_id_fkey";
 
-alter table "public"."credit_report_data_links" drop constraint "credit_report_data_links_credit_report_id_aggregator_key";
+alter table if exists "public"."deal_documents" drop constraint if exists "deal_documents_document_type_id_fkey";
 
-alter table "public"."deal_clerk_orgs" drop constraint "deals_clerk_orgs_clerk_org_id_fkey";
+alter table if exists "public"."document_logic_actions" drop constraint if exists "document_logic_actions_document_type_id_fkey";
 
-alter table "public"."deal_clerk_orgs" drop constraint "deals_clerk_orgs_deal_id_fkey";
+alter table if exists "public"."document_logic_conditions" drop constraint if exists "document_logic_conditions_field_fkey";
 
-alter table "public"."deal_clerk_orgs" drop constraint "deals_orgs_deal_id_clerk_org_id_key";
+alter table if exists "public"."document_logic_conditions" drop constraint if exists "document_logic_conditions_value_field_fkey";
 
-alter table "public"."deal_document_ai_condition" drop constraint "deal_document_ai_condition_deal_document_id_document_type_a_key";
+alter table if exists "public"."document_type_ai_input" drop constraint if exists "document_type_ai_input_input_id_fkey";
 
-alter table "public"."deal_document_ai_input" drop constraint "deal_document_ai_input_deal_document_id_document_type_ai_in_key";
+alter table if exists "public"."document_types" drop constraint if exists "document_types_document_category_id_fkey";
 
-alter table "public"."deal_inputs" drop constraint "deal_inputs_deal_id_input_id_key";
+alter table if exists "public"."loan_scenarios" drop constraint if exists "loan_scenarios_loan_id_fkey";
 
-alter table "public"."deals" drop constraint "deals_program_id_fkey";
+alter table if exists "public"."pricing_activity_log" drop constraint if exists "pricing_activity_log_loan_id_fkey";
 
-alter table "public"."document_files_inputs" drop constraint "document_files_inputs_document_file_id_fkey";
-
-alter table "public"."document_files_inputs" drop constraint "document_files_inputs_document_file_id_input_id_key";
-
-alter table "public"."document_files_inputs" drop constraint "document_files_inputs_input_id_fkey";
-
-alter table "public"."inputs" drop constraint "inputs_input_code_key";
-
-alter table "public"."programs" drop constraint "programs_organization_id_fkey";
-
-alter table "public"."task_templates" drop constraint "task_templates_org_code_key";
-
-alter table "public"."task_templates" drop constraint "task_templates_organization_id_fkey";
-
-alter table "public"."workflow_integrations" drop constraint "workflow_integrations_organization_id_user_id_type_name_key";
-
-alter table "public"."application_signings" drop constraint "application_signings_loan_id_fkey";
-
-alter table "public"."applications" drop constraint "applications_loan_id_fkey";
-
-alter table "public"."deal_documents" drop constraint "deal_documents_document_type_id_fkey";
-
-alter table "public"."document_logic_actions" drop constraint "document_logic_actions_document_type_id_fkey";
-
-alter table "public"."document_logic_conditions" drop constraint "document_logic_conditions_field_fkey";
-
-alter table "public"."document_logic_conditions" drop constraint "document_logic_conditions_value_field_fkey";
-
-alter table "public"."document_type_ai_input" drop constraint "document_type_ai_input_input_id_fkey";
-
-alter table "public"."document_types" drop constraint "document_types_document_category_id_fkey";
-
-alter table "public"."loan_scenarios" drop constraint "loan_scenarios_loan_id_fkey";
-
-alter table "public"."pricing_activity_log" drop constraint "pricing_activity_log_loan_id_fkey";
-
-alter table "public"."term_sheets" drop constraint "term_sheets_loan_id_fkey";
+alter table if exists "public"."term_sheets" drop constraint if exists "term_sheets_loan_id_fkey";
 
 drop view if exists "public"."entities_view";
 
 drop function if exists "public"."match_documents"(query_embedding public.vector, match_count integer, filter jsonb);
 
-alter table "public"."deal_clerk_orgs" drop constraint "deals_orgs_pkey";
+alter table if exists "public"."deal_clerk_orgs" drop constraint if exists "deals_orgs_pkey";
 
-alter table "public"."document_files_inputs" drop constraint "document_files_inputs_pkey";
+alter table if exists "public"."document_files_inputs" drop constraint if exists "document_files_inputs_pkey";
 
-alter table "public"."llama_document_parsed" drop constraint "llama_document_parsed_pkey";
+alter table if exists "public"."llama_document_parsed" drop constraint if exists "llama_document_parsed_pkey";
 
-alter table "public"."document_files_deals" drop constraint "document_files_deals_pkey";
+alter table if exists "public"."document_files_deals" drop constraint if exists "document_files_deals_pkey";
 
 drop index if exists "public"."background_report_application_background_report_id_applicat_key";
 
@@ -242,7 +229,7 @@ drop index if exists "public"."workflow_integrations_organization_id_user_id_typ
 
 drop index if exists "public"."document_files_deals_pkey";
 
-drop table "public"."document_files_inputs";
+drop table if exists "public"."document_files_inputs";
 
 
   create table "public"."loans" (
@@ -266,33 +253,33 @@ alter table "public"."application_background" enable row level security;
 
 alter table "public"."application_credit" enable row level security;
 
-alter table "public"."applications" add column "external_defaults" jsonb default '{}'::jsonb;
+alter table if exists "public"."applications" add column if not exists "external_defaults" jsonb default '{}'::jsonb;
 
-alter table "public"."applications" add column "form_data" jsonb default '{}'::jsonb;
+alter table if exists "public"."applications" add column if not exists "form_data" jsonb default '{}'::jsonb;
 
-alter table "public"."applications" add column "merged_data" jsonb default '{}'::jsonb;
+alter table if exists "public"."applications" add column if not exists "merged_data" jsonb default '{}'::jsonb;
 
-alter table "public"."appraisal" add column "amc_id" bigint;
+alter table if exists "public"."appraisal" add column if not exists "amc_id" bigint;
 
-alter table "public"."appraisal" add column "borrower_id" uuid;
+alter table if exists "public"."appraisal" add column if not exists "borrower_id" uuid;
 
-alter table "public"."appraisal" add column "borrower_name" text;
+alter table if exists "public"."appraisal" add column if not exists "borrower_name" text;
 
-alter table "public"."appraisal" add column "created_by" text;
+alter table if exists "public"."appraisal" add column if not exists "created_by" text;
 
-alter table "public"."appraisal" add column "date_due" date;
+alter table if exists "public"."appraisal" add column if not exists "date_due" date;
 
-alter table "public"."appraisal" add column "loan_number" text;
+alter table if exists "public"."appraisal" add column if not exists "loan_number" text;
 
-alter table "public"."appraisal" add column "organization_id" uuid;
+alter table if exists "public"."appraisal" add column if not exists "organization_id" uuid;
 
-alter table "public"."appraisal" add column "property_address" text;
+alter table if exists "public"."appraisal" add column if not exists "property_address" text;
 
-alter table "public"."appraisal" add column "property_city" text;
+alter table if exists "public"."appraisal" add column if not exists "property_city" text;
 
-alter table "public"."appraisal" add column "property_state" text;
+alter table if exists "public"."appraisal" add column if not exists "property_state" text;
 
-alter table "public"."appraisal" add column "property_zip" text;
+alter table if exists "public"."appraisal" add column if not exists "property_zip" text;
 
 alter table "public"."appraisal_amcs" enable row level security;
 
@@ -302,7 +289,7 @@ alter table "public"."background_reports" enable row level security;
 
 alter table "public"."credit_report_data_links" enable row level security;
 
-alter table "public"."credit_report_data_xactus" add column "organization_id" uuid;
+alter table if exists "public"."credit_report_data_xactus" add column if not exists "organization_id" uuid;
 
 alter table "public"."deal_calendar_events" enable row level security;
 
@@ -312,41 +299,41 @@ alter table "public"."deal_document_ai_condition" enable row level security;
 
 alter table "public"."deal_document_ai_input" enable row level security;
 
-alter table "public"."deal_documents" add column "document_file_id" bigint;
+alter table if exists "public"."deal_documents" add column if not exists "document_file_id" bigint;
 
 alter table "public"."deal_stepper" enable row level security;
 
-alter table "public"."deals" drop column "borrower_first_name";
+alter table if exists "public"."deals" drop column if exists "borrower_first_name";
 
-alter table "public"."deals" drop column "borrower_last_name";
+alter table if exists "public"."deals" drop column if exists "borrower_last_name";
 
-alter table "public"."deals" drop column "inputs";
+alter table if exists "public"."deals" drop column if exists "inputs";
 
-alter table "public"."deals" drop column "loan_amount";
+alter table if exists "public"."deals" drop column if exists "loan_amount";
 
-alter table "public"."deals" drop column "loan_type";
+alter table if exists "public"."deals" drop column if exists "loan_type";
 
-alter table "public"."deals" drop column "meta";
+alter table if exists "public"."deals" drop column if exists "meta";
 
-alter table "public"."deals" drop column "program_id";
+alter table if exists "public"."deals" drop column if exists "program_id";
 
-alter table "public"."deals" drop column "property_address";
+alter table if exists "public"."deals" drop column if exists "property_address";
 
-alter table "public"."deals" drop column "rate";
+alter table if exists "public"."deals" drop column if exists "rate";
 
-alter table "public"."deals" drop column "selected";
+alter table if exists "public"."deals" drop column if exists "selected";
 
-alter table "public"."deals" drop column "status";
+alter table if exists "public"."deals" drop column if exists "status";
 
-alter table "public"."deals" drop column "transaction_type";
+alter table if exists "public"."deals" drop column if exists "transaction_type";
 
-alter table "public"."document_files_deals" add column "id" bigint generated by default as identity not null;
+alter table if exists "public"."document_files_deals" add column if not exists "id" bigint generated by default as identity not null;
 
 alter table "public"."document_files_deals" alter column "source_table" set default 'document_files'::text;
 
-alter table "public"."entities" drop column "account_balances";
+alter table if exists "public"."entities" drop column if exists "account_balances";
 
-alter table "public"."entities" drop column "bank_name";
+alter table if exists "public"."entities" drop column if exists "bank_name";
 
 alter table "public"."input_logic" enable row level security;
 
@@ -364,23 +351,23 @@ alter table "public"."organization_member_roles" enable row level security;
 
 alter table "public"."organization_members" enable row level security;
 
-alter table "public"."organizations" add column "whitelabel_logo_url" text;
+alter table if exists "public"."organizations" add column if not exists "whitelabel_logo_url" text;
 
-alter table "public"."programs" drop column "organization_id";
+alter table if exists "public"."programs" drop column if exists "organization_id";
 
-alter table "public"."task_logic_actions" add column "required_for_stage_id" bigint;
+alter table if exists "public"."task_logic_actions" add column if not exists "required_for_stage_id" bigint;
 
-alter table "public"."task_logic_actions" add column "required_status_id" bigint;
+alter table if exists "public"."task_logic_actions" add column if not exists "required_status_id" bigint;
 
-alter table "public"."task_logic_conditions" add column "db_column" text;
+alter table if exists "public"."task_logic_conditions" add column if not exists "db_column" text;
 
-alter table "public"."task_logic_conditions" add column "db_match_type" text;
+alter table if exists "public"."task_logic_conditions" add column if not exists "db_match_type" text;
 
-alter table "public"."task_logic_conditions" add column "db_table" text;
+alter table if exists "public"."task_logic_conditions" add column if not exists "db_table" text;
 
-alter table "public"."task_logic_conditions" add column "source_type" text not null default 'input'::text;
+alter table if exists "public"."task_logic_conditions" add column if not exists "source_type" text not null default 'input'::text;
 
-alter table "public"."task_templates" drop column "organization_id";
+alter table if exists "public"."task_templates" drop column if exists "organization_id";
 
 alter table "public"."workflow_execution_logs" enable row level security;
 
@@ -388,61 +375,138 @@ alter table "public"."workflow_executions" enable row level security;
 
 alter table "public"."workflow_integrations" enable row level security;
 
-CREATE UNIQUE INDEX background_report_applications_unique ON public.background_report_applications USING btree (background_report_id, application_id);
+CREATE UNIQUE INDEX IF NOT EXISTS background_report_applications_unique ON public.background_report_applications USING btree (background_report_id, application_id);
 
-CREATE UNIQUE INDEX credit_report_data_links_unique ON public.credit_report_data_links USING btree (credit_report_id, aggregator);
+CREATE UNIQUE INDEX IF NOT EXISTS credit_report_data_links_unique ON public.credit_report_data_links USING btree (credit_report_id, aggregator);
 
-CREATE UNIQUE INDEX deal_orgs_deal_id_clerk_org_id_key ON public.deal_clerk_orgs USING btree (deal_id, clerk_org_id);
+CREATE UNIQUE INDEX IF NOT EXISTS deal_orgs_deal_id_clerk_org_id_key ON public.deal_clerk_orgs USING btree (deal_id, clerk_org_id);
 
-CREATE UNIQUE INDEX deal_orgs_pkey ON public.deal_clerk_orgs USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS deal_orgs_pkey ON public.deal_clerk_orgs USING btree (id);
 
-CREATE INDEX deals_created_at_idx ON public.deals USING btree (created_at);
+CREATE INDEX IF NOT EXISTS deals_created_at_idx ON public.deals USING btree (created_at);
 
-CREATE UNIQUE INDEX document_files_deals_doc_deal_uq ON public.document_files_deals USING btree (document_file_id, deal_id);
+CREATE UNIQUE INDEX IF NOT EXISTS document_files_deals_doc_deal_uq ON public.document_files_deals USING btree (document_file_id, deal_id);
 
-CREATE UNIQUE INDEX document_parsed_pkey ON public.llama_document_parsed USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS document_parsed_pkey ON public.llama_document_parsed USING btree (id);
 
-CREATE INDEX idx_appraisal_borrower ON public.appraisal USING btree (borrower_id);
+CREATE INDEX IF NOT EXISTS idx_appraisal_borrower ON public.appraisal USING btree (borrower_id);
 
-CREATE INDEX idx_appraisal_deal ON public.appraisal USING btree (deal_id);
+CREATE INDEX IF NOT EXISTS idx_appraisal_deal ON public.appraisal USING btree (deal_id);
 
-CREATE INDEX idx_appraisal_org ON public.appraisal USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS idx_appraisal_org ON public.appraisal USING btree (organization_id);
 
-CREATE INDEX idx_deal_documents_deal_doc_type ON public.deal_documents USING btree (deal_id, document_type_id);
+CREATE INDEX IF NOT EXISTS idx_deal_documents_deal_doc_type ON public.deal_documents USING btree (deal_id, document_type_id);
 
-CREATE INDEX idx_deal_documents_document_file_id ON public.deal_documents USING btree (document_file_id);
+CREATE INDEX IF NOT EXISTS idx_deal_documents_document_file_id ON public.deal_documents USING btree (document_file_id);
 
-CREATE INDEX idx_deal_signature_requests_deal_id ON public.deal_signature_requests USING btree (deal_id);
+CREATE INDEX IF NOT EXISTS idx_deal_signature_requests_deal_id ON public.deal_signature_requests USING btree (deal_id);
 
-CREATE INDEX idx_deal_signature_requests_documenso_id ON public.deal_signature_requests USING btree (documenso_document_id);
+CREATE INDEX IF NOT EXISTS idx_deal_signature_requests_documenso_id ON public.deal_signature_requests USING btree (documenso_document_id);
 
-CREATE INDEX idx_deal_signature_requests_org_id ON public.deal_signature_requests USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS idx_deal_signature_requests_org_id ON public.deal_signature_requests USING btree (organization_id);
 
-CREATE INDEX idx_loans_assigned_gin ON public.loans USING gin (assigned_to_user_id jsonb_path_ops);
+CREATE INDEX IF NOT EXISTS idx_loans_assigned_gin ON public.loans USING gin (assigned_to_user_id jsonb_path_ops);
 
-CREATE INDEX idx_loans_org ON public.loans USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS idx_loans_org ON public.loans USING btree (organization_id);
 
-CREATE INDEX idx_loans_primary_user ON public.loans USING btree (primary_user_id);
+CREATE INDEX IF NOT EXISTS idx_loans_primary_user ON public.loans USING btree (primary_user_id);
 
-CREATE INDEX idx_loans_status ON public.loans USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_loans_status ON public.loans USING btree (status);
 
-CREATE UNIQUE INDEX inputs_input_code_unique ON public.inputs USING btree (input_code);
+CREATE UNIQUE INDEX IF NOT EXISTS inputs_input_code_unique ON public.inputs USING btree (input_code);
 
-CREATE UNIQUE INDEX loans_pkey ON public.loans USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS loans_pkey ON public.loans USING btree (id);
 
-CREATE UNIQUE INDEX organization_themes_organization_id_key ON public.organization_themes USING btree (organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS organization_themes_organization_id_key ON public.organization_themes USING btree (organization_id);
 
-CREATE UNIQUE INDEX task_templates_code_key ON public.task_templates USING btree (code);
+CREATE UNIQUE INDEX IF NOT EXISTS task_templates_code_key ON public.task_templates USING btree (code);
 
-CREATE UNIQUE INDEX uq_deal_doc_ai_condition ON public.deal_document_ai_condition USING btree (deal_document_id, document_type_ai_condition);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_deal_doc_ai_condition ON public.deal_document_ai_condition USING btree (deal_document_id, document_type_ai_condition);
 
-CREATE UNIQUE INDEX uq_deal_doc_ai_input ON public.deal_document_ai_input USING btree (deal_document_id, document_type_ai_input_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_deal_doc_ai_input ON public.deal_document_ai_input USING btree (deal_document_id, document_type_ai_input_id);
 
-CREATE UNIQUE INDEX uq_deal_inputs_deal_id_input_id ON public.deal_inputs USING btree (deal_id, input_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_deal_inputs_deal_id_input_id ON public.deal_inputs USING btree (deal_id, input_id);
 
-CREATE UNIQUE INDEX workflow_integrations_unique_per_user ON public.workflow_integrations USING btree (organization_id, user_id, type, name);
+CREATE UNIQUE INDEX IF NOT EXISTS workflow_integrations_unique_per_user ON public.workflow_integrations USING btree (organization_id, user_id, type, name);
 
-CREATE UNIQUE INDEX document_files_deals_pkey ON public.document_files_deals USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS document_files_deals_pkey ON public.document_files_deals USING btree (id);
+
+do $$
+declare
+  rec record;
+begin
+  for rec in
+    select *
+    from (
+      values
+        ('deal_clerk_orgs', 'deal_orgs_pkey'),
+        ('llama_document_parsed', 'document_parsed_pkey'),
+        ('loans', 'loans_pkey'),
+        ('document_files_deals', 'document_files_deals_pkey'),
+        ('appraisal', 'appraisal_amc_id_fkey'),
+        ('appraisal', 'appraisal_borrower_id_fkey'),
+        ('appraisal', 'appraisal_organization_id_fkey'),
+        ('background_report_applications', 'background_report_applications_unique'),
+        ('credit_report_data_links', 'credit_report_data_links_unique'),
+        ('credit_report_data_xactus', 'credit_report_data_xactus_organization_id_fkey'),
+        ('deal_clerk_orgs', 'deal_orgs_deal_id_clerk_org_id_key'),
+        ('deal_document_ai_chat', 'deal_document_ai_chat_deal_document_id_fkey'),
+        ('deal_document_ai_condition', 'deal_document_ai_condition_deal_document_id_fkey'),
+        ('deal_document_ai_condition', 'deal_document_ai_condition_document_type_ai_condition_fkey'),
+        ('deal_document_ai_condition', 'uq_deal_doc_ai_condition'),
+        ('deal_document_ai_input', 'deal_document_ai_input_deal_document_id_fkey'),
+        ('deal_document_ai_input', 'deal_document_ai_input_document_type_ai_input_id_fkey'),
+        ('deal_document_ai_input', 'uq_deal_doc_ai_input'),
+        ('deal_documents', 'deal_documents_document_file_id_fkey'),
+        ('deal_inputs', 'uq_deal_inputs_deal_id_input_id'),
+        ('document_files_deals', 'document_files_deals_doc_deal_uq'),
+        ('inputs', 'inputs_input_code_unique'),
+        ('llama_document_parsed', 'document_parsed_document_id_fkey'),
+        ('loans', 'loans_organization_id_fkey'),
+        ('loans', 'loans_status_check'),
+        ('organization_themes', 'organization_themes_organization_id_key'),
+        ('task_logic_actions', 'task_logic_actions_required_for_stage_id_fkey'),
+        ('task_logic_actions', 'task_logic_actions_required_status_id_fkey'),
+        ('task_logic_conditions', 'task_logic_conditions_db_match_type_check'),
+        ('task_logic_conditions', 'task_logic_conditions_source_type_check'),
+        ('task_templates', 'task_templates_code_key'),
+        ('workflow_integrations', 'workflow_integrations_unique_per_user'),
+        ('application_signings', 'application_signings_loan_id_fkey'),
+        ('applications', 'applications_loan_id_fkey'),
+        ('deal_documents', 'deal_documents_document_type_id_fkey'),
+        ('document_logic_actions', 'document_logic_actions_document_type_id_fkey'),
+        ('document_logic_conditions', 'document_logic_conditions_field_fkey'),
+        ('document_logic_conditions', 'document_logic_conditions_value_field_fkey'),
+        ('document_type_ai_input', 'document_type_ai_input_input_id_fkey'),
+        ('document_types', 'document_types_document_category_id_fkey'),
+        ('loan_scenarios', 'loan_scenarios_loan_id_fkey'),
+        ('pricing_activity_log', 'pricing_activity_log_loan_id_fkey'),
+        ('term_sheets', 'term_sheets_loan_id_fkey')
+    ) as t(tbl, con)
+  loop
+    execute format(
+      'alter table if exists public.%I drop constraint if exists %I',
+      rec.tbl,
+      rec.con
+    );
+  end loop;
+end $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS background_report_applications_unique ON public.background_report_applications USING btree (background_report_id, application_id);
+CREATE UNIQUE INDEX IF NOT EXISTS credit_report_data_links_unique ON public.credit_report_data_links USING btree (credit_report_id, aggregator);
+CREATE UNIQUE INDEX IF NOT EXISTS deal_orgs_deal_id_clerk_org_id_key ON public.deal_clerk_orgs USING btree (deal_id, clerk_org_id);
+CREATE UNIQUE INDEX IF NOT EXISTS deal_orgs_pkey ON public.deal_clerk_orgs USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS document_files_deals_doc_deal_uq ON public.document_files_deals USING btree (document_file_id, deal_id);
+CREATE UNIQUE INDEX IF NOT EXISTS document_parsed_pkey ON public.llama_document_parsed USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS inputs_input_code_unique ON public.inputs USING btree (input_code);
+CREATE UNIQUE INDEX IF NOT EXISTS loans_pkey ON public.loans USING btree (id);
+CREATE UNIQUE INDEX IF NOT EXISTS organization_themes_organization_id_key ON public.organization_themes USING btree (organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS task_templates_code_key ON public.task_templates USING btree (code);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_deal_doc_ai_condition ON public.deal_document_ai_condition USING btree (deal_document_id, document_type_ai_condition);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_deal_doc_ai_input ON public.deal_document_ai_input USING btree (deal_document_id, document_type_ai_input_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_deal_inputs_deal_id_input_id ON public.deal_inputs USING btree (deal_id, input_id);
+CREATE UNIQUE INDEX IF NOT EXISTS workflow_integrations_unique_per_user ON public.workflow_integrations USING btree (organization_id, user_id, type, name);
+CREATE UNIQUE INDEX IF NOT EXISTS document_files_deals_pkey ON public.document_files_deals USING btree (id);
 
 alter table "public"."deal_clerk_orgs" add constraint "deal_orgs_pkey" PRIMARY KEY using index "deal_orgs_pkey";
 
@@ -1109,6 +1173,24 @@ grant trigger on table "public"."loans" to "service_role";
 grant truncate on table "public"."loans" to "service_role";
 
 grant update on table "public"."loans" to "service_role";
+
+do $$
+declare
+  r record;
+begin
+  for r in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+  loop
+    execute format(
+      'drop policy if exists %I on %I.%I',
+      r.policyname,
+      r.schemaname,
+      r.tablename
+    );
+  end loop;
+end $$;
 
 
   create policy "actions_select_authenticated"
@@ -2444,6 +2526,23 @@ CASE (public.check_org_access('table'::text, 'term_sheets'::text, 'update'::text
       WHERE ((loans.id = term_sheets.loan_id) AND (loans.organization_id = public.get_active_org_id()))))
     ELSE false
 END));
+
+do $$
+declare
+  r record;
+begin
+  for r in
+    select distinct event_object_table as table_name, trigger_name
+    from information_schema.triggers
+    where trigger_schema = 'public'
+  loop
+    execute format(
+      'drop trigger if exists %I on public.%I',
+      r.trigger_name,
+      r.table_name
+    );
+  end loop;
+end $$;
 
 
 CREATE TRIGGER actions_updated_at BEFORE UPDATE ON public.actions FOR EACH ROW EXECUTE FUNCTION public.set_current_timestamp_updated_at();
