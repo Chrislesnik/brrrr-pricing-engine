@@ -96,6 +96,12 @@ export interface AddressInput {
   config?: { address_role?: string; address_group?: string; [k: string]: unknown }
 }
 
+export interface ColumnRoleInput {
+  id: string
+  input_code: string
+  config?: { column_role?: string; [k: string]: unknown }
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Dynamic cell renderer for starred input columns                            */
 /* -------------------------------------------------------------------------- */
@@ -207,31 +213,44 @@ function assembleAddress(row: LoanRow, addressInputs: AddressInput[]): string | 
 export function createPipelineColumns(
   starredInputs: StarredInput[],
   addressInputs: AddressInput[],
+  columnRoleInputs: ColumnRoleInput[] = [],
 ): ColumnDef<LoanRow>[] {
+  const borrowerInputId = columnRoleInputs.find((i) => i.config?.column_role === "borrower_name")?.id
+  const guarantorsInputId = columnRoleInputs.find((i) => i.config?.column_role === "guarantors")?.id
+
+  const getBorrowerName = (row: LoanRow): string => {
+    const byId = (row as { inputsById?: Record<string, unknown> }).inputsById
+    if (borrowerInputId && byId?.[borrowerInputId]) return String(byId[borrowerInputId])
+    const firstName =
+      (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
+      (row as { firstName?: string; borrowerFirstName?: string }).borrowerFirstName
+    const lastName =
+      (row as { lastName?: string; borrowerLastName?: string }).lastName ??
+      (row as { lastName?: string; borrowerLastName?: string }).borrowerLastName
+    return [firstName, lastName].filter(Boolean).join(" ").trim()
+  }
+
+  const getGuarantors = (row: LoanRow): string[] => {
+    const byId = (row as { inputsById?: Record<string, unknown> }).inputsById
+    if (guarantorsInputId && byId?.[guarantorsInputId]) {
+      const val = byId[guarantorsInputId]
+      if (Array.isArray(val)) return val as string[]
+      if (typeof val === "string") {
+        try { const p = JSON.parse(val); if (Array.isArray(p)) return p } catch { /* ignore */ }
+        return val ? [val] : []
+      }
+    }
+    const raw = (row as { guarantors?: string[] }).guarantors
+    return Array.isArray(raw) ? raw : []
+  }
+
   // --- Fixed start columns ---
   const fixedStart: ColumnDef<LoanRow>[] = [
     {
       id: "search",
       accessorFn: (row) => {
-        const borrowerFirst =
-          (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
-          (row as { firstName?: string; borrowerFirstName?: string })
-            .borrowerFirstName ??
-          ""
-        const borrowerLast =
-          (row as { lastName?: string; borrowerLastName?: string }).lastName ??
-          (row as { lastName?: string; borrowerLastName?: string })
-            .borrowerLastName ??
-          ""
-        const borrower = [borrowerFirst, borrowerLast]
-          .filter(Boolean)
-          .join(" ")
-          .trim()
-        const guarantors = Array.isArray(
-          (row as { guarantors?: string[] }).guarantors
-        )
-          ? ((row as { guarantors?: string[] }).guarantors as string[]).join(", ")
-          : ""
+        const borrower = getBorrowerName(row)
+        const guarantors = getGuarantors(row).join(", ")
         const address = assembleAddress(row, addressInputs) ?? ""
         const id = (row as { id?: string }).id ?? ""
         return [id, address, borrower, guarantors]
@@ -289,58 +308,35 @@ export function createPipelineColumns(
     },
     {
       id: "borrower",
-      accessorFn: (row) => {
-        const firstName =
-          (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
-          (row as { firstName?: string; borrowerFirstName?: string })
-            .borrowerFirstName
-        const lastName =
-          (row as { lastName?: string; borrowerLastName?: string }).lastName ??
-          (row as { lastName?: string; borrowerLastName?: string })
-            .borrowerLastName
-        return [firstName, lastName].filter(Boolean).join(" ").trim()
-      },
+      accessorFn: (row) => getBorrowerName(row),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Borrower" />
       ),
       cell: ({ row }) => {
-        const firstName =
-          (row.original as { firstName?: string; borrowerFirstName?: string })
-            .firstName ??
-          (row.original as { firstName?: string; borrowerFirstName?: string })
-            .borrowerFirstName
-        const lastName =
-          (row.original as { lastName?: string; borrowerLastName?: string })
-            .lastName ??
-          (row.original as { lastName?: string; borrowerLastName?: string })
-            .borrowerLastName
-        const display =
-          [firstName, lastName].filter(Boolean).join(" ").trim() || "-"
+        const display = getBorrowerName(row.original) || "-"
         return <div>{display}</div>
       },
       enableSorting: false,
     },
     {
-      accessorKey: "guarantors",
+      id: "guarantors",
+      accessorFn: (row) => getGuarantors(row),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Guarantor(s)" />
       ),
       cell: ({ row }) => {
-        const raw = row.getValue("guarantors")
-        const gs: string[] = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] } })() : []
+        const gs = getGuarantors(row.original)
         return (
           <LongText className="max-w-48">
             {gs.length ? gs.join(", ") : "-"}
           </LongText>
         )
       },
-      filterFn: (row, columnId, filterValue) => {
+      filterFn: (row, _columnId, filterValue) => {
         const term = String(filterValue ?? "").toLowerCase()
         if (!term) return true
-        const raw = row.getValue(columnId)
-        const gs: string[] = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] } })() : []
-        const joined = gs.join(", ").toLowerCase()
-        return joined.includes(term)
+        const gs = getGuarantors(row.original)
+        return gs.join(", ").toLowerCase().includes(term)
       },
       enableSorting: false,
     },
@@ -452,7 +448,7 @@ export function createPipelineColumns(
         const id = (row.original as Record<string, unknown>).id as string
         return <RowActions id={id} status={status} />
       },
-      meta: { className: "w-10 text-right sticky right-0 bg-background group-hover/row:bg-transparent z-10" },
+      meta: { className: "w-10 text-right sticky right-0 z-10" },
       enableSorting: false,
       enableHiding: false,
     },

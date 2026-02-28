@@ -17,6 +17,7 @@ import {
   PanelTopOpen,
   PanelTopClose,
   Settings,
+  Users,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -156,6 +157,11 @@ const ADDRESS_ROLES = [
   { value: "apt", label: "Apt / Unit" },
 ] as const;
 
+const COLUMN_ROLES = [
+  { value: "borrower_name", label: "Borrower Name" },
+  { value: "guarantors", label: "Guarantor(s)" },
+] as const;
+
 /* -------------------------------------------------------------------------- */
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
@@ -189,6 +195,7 @@ export function PricingEngineLayoutSettings() {
   // Address config state
   const [newAddressRole, setNewAddressRole] = useState("");
   const [newAddressGroup, setNewAddressGroup] = useState("property");
+  const [newColumnRole, setNewColumnRole] = useState("");
 
   // Database link state
   const [newLinkedTable, setNewLinkedTable] = useState<string>("");
@@ -437,6 +444,9 @@ export function PricingEngineLayoutSettings() {
               c.address_role = newAddressRole;
               c.address_group = newAddressGroup || "property";
             }
+            if (newColumnRole) {
+              c.column_role = newColumnRole;
+            }
             return Object.keys(c).length > 0 ? c : undefined;
           })(),
           linked_table: newLinkedTable || null,
@@ -490,8 +500,12 @@ export function PricingEngineLayoutSettings() {
           base.address_role = newAddressRole;
           base.address_group = newAddressGroup || "property";
         }
+        if (newColumnRole) {
+          base.column_role = newColumnRole;
+        }
         const hadAddress = !!(input.config as Record<string, unknown> | undefined)?.address_role;
-        const needsClear = hadAddress && !newAddressRole;
+        const hadColumnRole = !!(input.config as Record<string, unknown> | undefined)?.column_role;
+        const needsClear = (hadAddress && !newAddressRole) || (hadColumnRole && !newColumnRole);
         return Object.keys(base).length > 0 || needsClear ? base : undefined;
       })();
       const res = await fetch("/api/pricing-engine-inputs", {
@@ -554,6 +568,7 @@ export function PricingEngineLayoutSettings() {
     setNewBooleanDisplay("dropdown");
     setNewAddressRole("");
     setNewAddressGroup("property");
+    setNewColumnRole("");
     setPendingTableConfig(null);
     setPendingNumberConfig(null);
     setPendingDateConfig(null);
@@ -978,6 +993,34 @@ export function PricingEngineLayoutSettings() {
     );
   };
 
+  const renderColumnRole = () => (
+    <div className="space-y-1.5">
+      <Label className="text-xs flex items-center gap-1">
+        <Users className="size-3" />
+        Column Role
+      </Label>
+      <Select
+        value={newColumnRole || "none"}
+        onValueChange={(v) => setNewColumnRole(v === "none" ? "" : v)}
+      >
+        <SelectTrigger className="h-8 text-sm">
+          <SelectValue placeholder="None" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">None</SelectItem>
+          {COLUMN_ROLES.map((r) => (
+            <SelectItem key={r.value} value={r.value}>
+              {r.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-[10px] text-muted-foreground">
+        Tags this input for display in the Scenarios table columns.
+      </p>
+    </div>
+  );
+
   const isFormValid =
     newInputLabel.trim() &&
     newInputType &&
@@ -1358,6 +1401,7 @@ export function PricingEngineLayoutSettings() {
                           )}
 
                           {renderAddressConfig()}
+                          {renderColumnRole()}
 
                           {newInputType !== "table" && renderDatabaseLink()}
                           {renderOptionsEditor()}
@@ -1559,6 +1603,9 @@ export function PricingEngineLayoutSettings() {
                                       setNewAddressRole(String(ac.address_role));
                                       setNewAddressGroup(String(ac.address_group ?? "property"));
                                     }
+                                    if (ac.column_role) {
+                                      setNewColumnRole(String(ac.column_role));
+                                    }
                                   }
                                 }}
                               >
@@ -1706,6 +1753,7 @@ export function PricingEngineLayoutSettings() {
                       )}
 
                       {renderAddressConfig()}
+                      {renderColumnRole()}
 
                       {newInputType !== "table" && renderDatabaseLink()}
                       {renderOptionsEditor()}

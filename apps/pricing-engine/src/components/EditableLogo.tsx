@@ -102,7 +102,10 @@ export function EditableLogo({
             type="button"
             className="ts-edit"
             style={{
-              display: "inline-block",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: maxHeight,
               border: "1px dashed #f59e0b",
               background: "rgba(245, 158, 11, 0.06)",
               borderRadius: 4,
@@ -198,7 +201,10 @@ export function EditableLogo({
           type="button"
           className="ts-edit"
           style={{
-            display: "inline-block",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: maxHeight,
             border: "1px dashed rgba(245, 158, 11, 0.6)",
             background: "rgba(245, 158, 11, 0.06)",
             borderRadius: 4,
@@ -213,8 +219,7 @@ export function EditableLogo({
             alt="Logo"
             className={className}
             style={{
-              height: "100%",
-              maxHeight: maxHeight - 4,
+              height: maxHeight - 4,
               width: "auto",
               objectFit: "contain",
               display: "block",

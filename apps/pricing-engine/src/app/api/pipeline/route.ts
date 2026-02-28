@@ -268,10 +268,10 @@ export async function GET(req: NextRequest) {
 
     // ── Non-deals pipeline view ─────────────────────────────────────────
     if (!orgId || !userId) {
-      return NextResponse.json({ items: [], starredInputs: [], addressInputs: [] })
+      return NextResponse.json({ items: [], starredInputs: [], addressInputs: [], columnRoleInputs: [] })
     }
 
-    const [data, starredRes, addressRes] = await Promise.all([
+    const [data, starredRes, allInputsRes] = await Promise.all([
       getPipelineLoansForOrg(orgId, userId),
       supabaseAdmin
         .from("pricing_engine_inputs")
@@ -282,15 +282,16 @@ export async function GET(req: NextRequest) {
       supabaseAdmin
         .from("pricing_engine_inputs")
         .select("id, input_label, input_code, input_type, config")
-        .filter("config->>address_group", "eq", "property")
         .is("archived_at", null)
         .order("display_order", { ascending: true }),
     ])
 
+    const allInputs = (allInputsRes.data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
     const starredInputs = (starredRes.data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
-    const addressInputs = (addressRes.data ?? []).map((d: any) => ({ ...d, id: String(d.id) }))
+    const addressInputs = allInputs.filter((d: any) => d.config?.address_role)
+    const columnRoleInputs = allInputs.filter((d: any) => d.config?.column_role)
 
-    return NextResponse.json({ items: data, starredInputs, addressInputs })
+    return NextResponse.json({ items: data, starredInputs, addressInputs, columnRoleInputs })
   } catch (error) {
     console.error("Pipeline API error:", error)
     return NextResponse.json({ items: [], error: "Failed to fetch pipeline data" }, { status: 500 })

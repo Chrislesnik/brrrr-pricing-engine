@@ -44,7 +44,7 @@ import { cn } from "@repo/lib/cn"
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { LoanRow } from "../data/fetch-loans"
-import { createPipelineColumns, type StarredInput, type AddressInput } from "./pipeline-columns"
+import { createPipelineColumns, type StarredInput, type AddressInput, type ColumnRoleInput } from "./pipeline-columns"
 import { PipelineToolbar } from "./pipeline-toolbar"
 import { Badge } from "@repo/ui/shadcn/badge"
 import * as React from "react"
@@ -93,12 +93,13 @@ interface Props {
   data: LoanRow[]
   starredInputs: StarredInput[]
   addressInputs: AddressInput[]
+  columnRoleInputs?: ColumnRoleInput[]
 }
 
-export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
+export function PipelineTable({ data, starredInputs, addressInputs, columnRoleInputs = [] }: Props) {
   const columns = React.useMemo(
-    () => createPipelineColumns(starredInputs, addressInputs),
-    [starredInputs, addressInputs],
+    () => createPipelineColumns(starredInputs, addressInputs, columnRoleInputs),
+    [starredInputs, addressInputs, columnRoleInputs],
   )
   const [tableData, setTableData] = useState<LoanRow[]>(data)
   const [rowSelection, setRowSelection] = useState({})
@@ -279,7 +280,7 @@ export function PipelineTable({ data, starredInputs, addressInputs }: Props) {
                         className={cn(
                           "px-3 whitespace-nowrap text-left",
                           cell.column.columnDef.meta?.className ?? "",
-                          isPinned && "bg-background group-hover/row:bg-muted/50 !px-1"
+                          isPinned && "bg-background group-hover/row:bg-muted !px-1"
                         )}
                         style={
                           isPinned

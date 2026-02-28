@@ -6,12 +6,13 @@ import { PipelineTable } from "./components/pipeline-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
 import { createSupabaseBrowser } from "@/lib/supabase-browser"
 import type { LoanRow } from "./data/fetch-loans"
-import type { StarredInput, AddressInput } from "./components/pipeline-columns"
+import type { StarredInput, AddressInput, ColumnRoleInput } from "./components/pipeline-columns"
 
 interface PipelineResponse {
   items: LoanRow[]
   starredInputs: StarredInput[]
   addressInputs: AddressInput[]
+  columnRoleInputs: ColumnRoleInput[]
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -27,6 +28,7 @@ export default function PipelinePage() {
   const loans = data?.items ?? []
   const starredInputs = data?.starredInputs ?? []
   const addressInputs = data?.addressInputs ?? []
+  const columnRoleInputs = data?.columnRoleInputs ?? []
 
   const supabase = useMemo(() => createSupabaseBrowser(), [])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -71,6 +73,7 @@ export default function PipelinePage() {
         data={loans}
         starredInputs={starredInputs}
         addressInputs={addressInputs}
+        columnRoleInputs={columnRoleInputs}
       />
     </div>
   )
