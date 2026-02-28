@@ -350,7 +350,7 @@ export async function GET(req: NextRequest) {
       selfBrokerId = null
     }
 
-    return NextResponse.json({ members: deduped, editable, self_member_id: myMemberId, self_broker_id: selfBrokerId })
+    return NextResponse.json({ members: deduped, editable, self_member_id: myMemberId, self_broker_id: selfBrokerId, is_internal: isInternalOrg })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error"
     return NextResponse.json({ error: msg }, { status: 500 })

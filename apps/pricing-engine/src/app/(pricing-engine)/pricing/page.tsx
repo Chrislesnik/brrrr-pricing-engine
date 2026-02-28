@@ -248,10 +248,42 @@ function parseDateLocal(value: unknown): Date | undefined {
 
 function programDisplayName(
   p: { internal_name?: string; external_name?: string } | null | undefined,
-  isBroker: boolean
+  isInternal: boolean
 ): string {
   if (!p) return "Program"
-  return isBroker ? (p.external_name ?? "Program") : (p.internal_name ?? p.external_name ?? "Program")
+  return isInternal ? (p.internal_name ?? p.external_name ?? "Program") : (p.external_name ?? "Program")
+}
+
+function serializeOutputs(results: ProgramResult[]): Array<Record<string, unknown>> | null {
+  const out = results
+    .map((r) =>
+      r.data
+        ? { id: r.id, internal_name: r.internal_name, external_name: r.external_name, ok: r.ok, status: r.status, data: r.data }
+        : null
+    )
+    .filter(Boolean)
+  return out.length > 0 ? out : null
+}
+
+function normalizeOutputs(
+  raw: Array<Record<string, unknown>>,
+  placeholders: Array<{ id?: string; internal_name?: string; external_name?: string }>
+): ProgramResult[] {
+  return raw.map((entry, idx) => {
+    if (entry.data && typeof entry.data === "object" && !Array.isArray(entry.data)) {
+      return entry as unknown as ProgramResult
+    }
+    const programId = (entry.program_id ?? entry.id) as string | undefined
+    const ph = placeholders.find((p) => p.id === programId) ?? placeholders[idx]
+    const { program_id, program_name, ...rest } = entry as Record<string, unknown>
+    return {
+      id: programId ?? ph?.id,
+      internal_name: ph?.internal_name,
+      external_name: (program_name as string | undefined) ?? ph?.external_name,
+      ok: true,
+      data: rest as ProgramResponseData,
+    } as ProgramResult
+  })
 }
 
 function toYesNoDeepGlobal(value: unknown): unknown {
@@ -964,11 +996,12 @@ export default function PricingEnginePage() {
     ;(async () => {
       try {
         const res = await fetch("/api/org/members", { cache: "no-store" })
-        const j = (await res.json().catch(() => ({}))) as { editable?: boolean; self_member_id?: string | null; self_broker_id?: string | null }
+        const j = (await res.json().catch(() => ({}))) as { editable?: boolean; self_member_id?: string | null; self_broker_id?: string | null; is_internal?: boolean }
         if (!active) return
         setIsBrokerMember(j?.editable === false)
         setSelfMemberId(j?.self_member_id ?? null)
         setSelfBrokerId(j?.self_broker_id ?? null)
+        setIsInternalOrg(j?.is_internal === true)
       } catch {
         // ignore
       }
@@ -976,6 +1009,7 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [])
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
+  const [isInternalOrg, setIsInternalOrg] = useState<boolean>(false)
 
   const initialLoanId = searchParams.get("loanId") ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
@@ -2023,7 +2057,7 @@ export default function PricingEnginePage() {
         body: JSON.stringify({
           name: name.trim(),
           inputs,
-          outputs: programResults?.map(r => r.data ?? null).filter(Boolean) ?? null,
+          outputs: serializeOutputs(programResults ?? []),
           selected: selectedWithMeta,
           loanId: currentLoanId,
         }),
@@ -2338,7 +2372,7 @@ export default function PricingEnginePage() {
         // after the committed state is available (avoids reading stale formValues here).
         const savedOutputs = json.scenario?.outputs
         if (savedOutputs && Array.isArray(savedOutputs) && savedOutputs.length > 0) {
-          setProgramResults(savedOutputs as ProgramResult[])
+          setProgramResults(normalizeOutputs(savedOutputs as Array<Record<string, unknown>>, programPlaceholders))
           setLastCalculatedKey(null)
           setLastRecalcKey(null)
           setResultsStale(false)
@@ -2386,6 +2420,26 @@ export default function PricingEnginePage() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedScenarioId])
+
+  // When program placeholders arrive (or update), backfill missing names in already-loaded results.
+  useEffect(() => {
+    if (programPlaceholders.length === 0 || programResults.length === 0) return
+    const needsEnrichment = programResults.some((r) => r.data && (!r.internal_name || !r.external_name))
+    if (!needsEnrichment) return
+    setProgramResults((prev) =>
+      prev.map((r, idx) => {
+        if (r.internal_name && r.external_name) return r
+        const ph = programPlaceholders.find((p) => p.id === r.id) ?? programPlaceholders[idx]
+        if (!ph) return r
+        return {
+          ...r,
+          id: r.id ?? ph.id,
+          internal_name: r.internal_name ?? ph.internal_name,
+          external_name: r.external_name ?? ph.external_name,
+        }
+      })
+    )
+  }, [programPlaceholders, programResults])
 
   // After scenario hydration commits, sync lastCalculatedKey with the now-current
   // formValues so stale detection uses the correct baseline.  During hydration
@@ -2732,10 +2786,7 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride ?? "Scenario",
                               inputs,
-                              outputs: programResults?.map(r => {
-                                if (!r.data) return null
-                                return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
-                              }).filter(Boolean) ?? null,
+                              outputs: serializeOutputs(programResults ?? []),
                               selected: quickSaveSelected,
                               loanId: currentLoanId,
                             }),
@@ -2768,10 +2819,7 @@ export default function PricingEnginePage() {
                             body: JSON.stringify({
                               name: nameOverride,
                               inputs,
-                              outputs: programResults?.map(r => {
-                                if (!r.data) return null
-                                return { ...r.data, program_id: r.id ?? null, program_name: r.external_name ?? null }
-                              }).filter(Boolean) ?? null,
+                              outputs: serializeOutputs(programResults ?? []),
                               selected: quickSaveSelected,
                               loanId: currentLoanId,
                             }),
@@ -3029,6 +3077,7 @@ export default function PricingEnginePage() {
             loanId={currentLoanId}
             scenarioId={selectedScenarioId}
             resultsStale={resultsStale}
+            isInternalOrg={isInternalOrg}
           />
         </section>
       </div>
@@ -3302,6 +3351,7 @@ function ResultCard({
   loanId,
   scenarioId,
   resultsStale,
+  isInternalOrg: isInternalOrgProp,
 }: {
   r: ProgramResult
   programIdx: number
@@ -3312,9 +3362,11 @@ function ResultCard({
   loanId?: string
   scenarioId?: string
   resultsStale?: boolean
+  isInternalOrg?: boolean
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
+  const isInternal = isInternalOrgProp ?? false
   const [mcpOpen, setMcpOpen] = useState<boolean>(false)
   const [resolvedSheets, setResolvedSheets] = useState<ResolvedTermSheet[]>([])
   const [activeSheetIdx, setActiveSheetIdx] = useState<number>(0)
@@ -3724,7 +3776,7 @@ function ResultCard({
   }
   // If this program hasn't returned yet, keep showing the generating loader inside the same container.
   if (!r?.data) {
-    return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} isBroker={isBroker} />
+    return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} isInternalOrg={isInternal} />
   }
   const d = (r?.data ?? {}) as ProgramResponseData
   const pass = d?.pass === true
@@ -3735,7 +3787,7 @@ function ResultCard({
     Array.isArray(d?.initial_loan_amount) ||
     Array.isArray(d?.funded_pitia)
   // Also detect Bridge by program name to be robust
-  const programName = (isBroker ? (r?.external_name ?? "") : (r?.internal_name ?? r?.external_name ?? "")) as string
+  const programName = (isInternal ? (r?.internal_name ?? r?.external_name ?? "") : (r?.external_name ?? "")) as string
   const isBridgeProgramName = String(programName).toLowerCase().includes("bridge")
   // Program card widgets should always reflect the original highlight index from the API.
   const loanPrice = pick<string | number>(d?.loan_price, hi)
@@ -3823,7 +3875,7 @@ function ResultCard({
 
       // 2. Call the n8n webhook for variable values
       const webhookBody = {
-        program: isBroker ? (r.external_name ?? "Program") : (r.internal_name ?? r.external_name ?? "Program"),
+        program: isInternal ? (r.internal_name ?? r.external_name ?? "Program") : (r.external_name ?? "Program"),
         program_id: r.id ?? null,
         row_index: idx,
         inputs,
@@ -3906,9 +3958,9 @@ function ResultCard({
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-bold">
-            {programDisplayName(r, isBroker)}
+            {programDisplayName(r, isInternal)}
           </div>
-          {!isBroker ? <div className="text-xs font-semibold">{r.external_name}</div> : null}
+          {isInternal ? <div className="text-xs font-semibold">{r.external_name}</div> : null}
           {(d as any)?.rate_sheet_date && (
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <span>Rate Sheet Date: {new Date((d as any).rate_sheet_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
@@ -4099,7 +4151,7 @@ function ResultCard({
                                   onSelect({
                                     programIdx,
                                     rowIdx: i,
-                                  programName: isBroker ? (r.external_name ?? `Program ${programIdx + 1}`) : (r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`),
+                                  programName: isInternal ? (r.internal_name ?? r.external_name ?? `Program ${programIdx + 1}`) : (r.external_name ?? `Program ${programIdx + 1}`),
                                   programId: r.id ?? null,
                                     values: {
                                       loanPrice: typeof lp === "number" ? lp : String(lp),
@@ -4336,13 +4388,13 @@ function Widget({ label, value }: { label: string; value: string | number | null
   )
 }
 
-function ResultCardLoader({ meta, isBroker }: { meta?: { internal_name?: string; external_name?: string }; isBroker: boolean }) {
+function ResultCardLoader({ meta, isInternalOrg }: { meta?: { internal_name?: string; external_name?: string }; isInternalOrg: boolean }) {
   return (
     <div className="mb-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-bold">{isBroker ? (meta?.external_name ?? "Program") : (meta?.internal_name ?? meta?.external_name ?? "Program")}</div>
-          {!isBroker ? <div className="text-xs font-semibold">{meta?.external_name ?? ""}</div> : null}
+          <div className="text-sm font-bold">{isInternalOrg ? (meta?.internal_name ?? meta?.external_name ?? "Program") : (meta?.external_name ?? "Program")}</div>
+          {isInternalOrg ? <div className="text-xs font-semibold">{meta?.external_name ?? ""}</div> : null}
         </div>
         <div className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border text-black border-white dark:text-white dark:border-black bg-transparent">
           Generating
@@ -4381,6 +4433,7 @@ function ResultsPanel({
   loanId,
   scenarioId,
   resultsStale,
+  isInternalOrg,
 }: {
   results: ProgramResult[]
   loading?: boolean
@@ -4393,6 +4446,7 @@ function ResultsPanel({
   loanId?: string
   scenarioId?: string
   resultsStale?: boolean
+  isInternalOrg?: boolean
 }) {
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
@@ -4846,7 +4900,7 @@ function ResultsPanel({
       // 2. Call n8n webhook for variable values
       const r = results?.[selected.programIdx]
       const webhookBody = {
-        program: (isBroker ? (r?.external_name ?? "Program") : (r?.internal_name ?? r?.external_name ?? "Program")),
+        program: (isInternalOrg ? (r?.internal_name ?? r?.external_name ?? "Program") : (r?.external_name ?? "Program")),
         program_id: r?.id ?? null,
         row_index: idx,
         inputs,
@@ -5099,10 +5153,12 @@ function ResultsPanel({
                 <div className="text-sm font-bold">Main</div>
                 <div className="text-xs font-semibold text-muted-foreground">
                   {(() => {
-                  const byResultsExt = results?.[selected.programIdx ?? 0]?.external_name
+                  const rr = results?.[selected.programIdx ?? 0]
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
-                  const name = byResultsExt ?? byPh?.external_name ?? selected.programName ?? "Program"
-                    return `Selected: ${name ?? `Program`}`
+                  const name = isInternalOrg
+                    ? (rr?.internal_name ?? rr?.external_name ?? byPh?.internal_name ?? byPh?.external_name ?? selected.programName ?? "Program")
+                    : (rr?.external_name ?? byPh?.external_name ?? selected.programName ?? "Program")
+                    return `Selected: ${name}`
                   })()}
                 </div>
               </div>
@@ -5293,7 +5349,7 @@ function ResultsPanel({
           </>
         ) : null}
         {filtered.map((p, idx) => (
-          <ResultCardLoader key={idx} meta={p} isBroker={isBroker} />
+          <ResultCardLoader key={idx} meta={p} isInternalOrg={isInternalOrg ?? false} />
         ))}
         <LoaderStyles />
       </div>
@@ -5310,10 +5366,12 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
-                  const byResultsExt = results?.[selected.programIdx]?.external_name
+                  const rr = results?.[selected.programIdx]
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
-                  const name = byResultsExt ?? byPh?.external_name ?? selected.programName
-                  return `Selected: ${name ?? `Program`}`
+                  const name = isInternalOrg
+                    ? (rr?.internal_name ?? rr?.external_name ?? byPh?.internal_name ?? byPh?.external_name ?? selected.programName ?? "Program")
+                    : (rr?.external_name ?? byPh?.external_name ?? selected.programName ?? "Program")
+                  return `Selected: ${name}`
                 })()}
               </div>
             </div>
@@ -5393,10 +5451,12 @@ function ResultsPanel({
               <div className="text-sm font-bold">Main</div>
               <div className="text-xs font-semibold text-muted-foreground">
                 {(() => {
-                  const byResultsExt = results?.[selected.programIdx]?.external_name
+                  const rr = results?.[selected.programIdx]
                   const byPh = placeholders?.find?.((p) => p.id === selected.programId || p.internal_name === selected.programId || p.external_name === selected.programId)
-                  const name = byResultsExt ?? byPh?.external_name ?? selected.programName
-                  return `Selected: ${name ?? `Program`}`
+                  const name = isInternalOrg
+                    ? (rr?.internal_name ?? rr?.external_name ?? byPh?.internal_name ?? byPh?.external_name ?? selected.programName ?? "Program")
+                    : (rr?.external_name ?? byPh?.external_name ?? selected.programName ?? "Program")
+                  return `Selected: ${name}`
                 })()}
               </div>
             </div>
@@ -5473,6 +5533,7 @@ function ResultsPanel({
           loanId={loanId}
           scenarioId={scenarioId}
           resultsStale={resultsStale}
+          isInternalOrg={isInternalOrg}
         />
       ))}
         <Dialog open={mcpOpenMain} onOpenChange={setMcpOpenMain}>
