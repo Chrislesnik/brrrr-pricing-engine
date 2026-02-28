@@ -102,6 +102,14 @@ export interface ColumnRoleInput {
   config?: { column_role?: string; [k: string]: unknown }
 }
 
+export interface PEInputMeta {
+  id: string
+  input_label: string
+  input_code: string
+  input_type: string
+  config?: Record<string, unknown>
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Dynamic cell renderer for starred input columns                            */
 /* -------------------------------------------------------------------------- */
@@ -214,20 +222,20 @@ export function createPipelineColumns(
   starredInputs: StarredInput[],
   addressInputs: AddressInput[],
   columnRoleInputs: ColumnRoleInput[] = [],
+  allInputs: PEInputMeta[] = [],
 ): ColumnDef<LoanRow>[] {
-  const borrowerInputId = columnRoleInputs.find((i) => i.config?.column_role === "borrower_name")?.id
-  const guarantorsInputId = columnRoleInputs.find((i) => i.config?.column_role === "guarantors")?.id
+  // Resolve borrower/guarantor input IDs: first by column_role config, then by label heuristic
+  const borrowerInputId =
+    columnRoleInputs.find((i) => i.config?.column_role === "borrower_name")?.id ??
+    allInputs.find((i) => /borrower.*name|borrower$/i.test(i.input_label))?.id
+  const guarantorsInputId =
+    columnRoleInputs.find((i) => i.config?.column_role === "guarantors")?.id ??
+    allInputs.find((i) => /guarantor/i.test(i.input_label))?.id
 
   const getBorrowerName = (row: LoanRow): string => {
     const byId = (row as { inputsById?: Record<string, unknown> }).inputsById
     if (borrowerInputId && byId?.[borrowerInputId]) return String(byId[borrowerInputId])
-    const firstName =
-      (row as { firstName?: string; borrowerFirstName?: string }).firstName ??
-      (row as { firstName?: string; borrowerFirstName?: string }).borrowerFirstName
-    const lastName =
-      (row as { lastName?: string; borrowerLastName?: string }).lastName ??
-      (row as { lastName?: string; borrowerLastName?: string }).borrowerLastName
-    return [firstName, lastName].filter(Boolean).join(" ").trim()
+    return ""
   }
 
   const getGuarantors = (row: LoanRow): string[] => {
@@ -240,8 +248,7 @@ export function createPipelineColumns(
         return val ? [val] : []
       }
     }
-    const raw = (row as { guarantors?: string[] }).guarantors
-    return Array.isArray(raw) ? raw : []
+    return []
   }
 
   // --- Fixed start columns ---

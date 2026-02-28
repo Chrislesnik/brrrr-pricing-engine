@@ -100,13 +100,23 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
     }
   }
 
-  // Batch-load inputs for the selected scenarios
+  // Batch-load inputs for the selected scenarios (paginate to bypass Supabase row limit)
   const scenarioIds = [...loanIdToScenario.values()].map((s) => s.id)
   if (scenarioIds.length > 0) {
-    const { data: allInputRows } = await supabaseAdmin
-      .from("loan_scenario_inputs")
-      .select("loan_scenario_id, pricing_engine_input_id, value_text, value_date, value_array, value_bool")
-      .in("loan_scenario_id", scenarioIds)
+    const PAGE_SIZE = 1000
+    let allInputRows: Record<string, unknown>[] = []
+    let offset = 0
+    while (true) {
+      const { data: page } = await supabaseAdmin
+        .from("loan_scenario_inputs")
+        .select("loan_scenario_id, pricing_engine_input_id, value_text, value_date, value_array, value_bool")
+        .in("loan_scenario_id", scenarioIds)
+        .range(offset, offset + PAGE_SIZE - 1)
+      const rows = page ?? []
+      allInputRows = allInputRows.concat(rows)
+      if (rows.length < PAGE_SIZE) break
+      offset += PAGE_SIZE
+    }
 
     // Fetch PE input metadata (code + config for address resolution)
     const { data: peInputs } = await supabaseAdmin
@@ -244,14 +254,6 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
       createdAt: l.created_at as string,
       updatedAt: l.updated_at as string,
       inputsById,
-      borrowerFirstName: (inputs["borrower_name"] as string | undefined)?.split(" ")[0],
-      borrowerLastName: (() => {
-        const name = inputs["borrower_name"] as string | undefined
-        if (!name) return undefined
-        const parts = name.trim().split(/\s+/)
-        return parts.length > 1 ? parts.slice(1).join(" ") : undefined
-      })(),
-      guarantors: Array.isArray(inputs["guarantors"]) ? (inputs["guarantors"] as string[]) : [],
       loanAmount: (() => {
         const v = (selected["loan_amount"] ?? selected["loanAmount"]) as string | number | undefined
         const num = typeof v === "string" ? Number(v.toString().replace(/[$,]/g, "")) : (v as number | undefined)

@@ -291,7 +291,7 @@ export async function GET(req: NextRequest) {
     const addressInputs = allInputs.filter((d: any) => d.config?.address_role)
     const columnRoleInputs = allInputs.filter((d: any) => d.config?.column_role)
 
-    return NextResponse.json({ items: data, starredInputs, addressInputs, columnRoleInputs })
+    return NextResponse.json({ items: data, starredInputs, addressInputs, columnRoleInputs, allInputs })
   } catch (error) {
     console.error("Pipeline API error:", error)
     return NextResponse.json({ items: [], error: "Failed to fetch pipeline data" }, { status: 500 })
