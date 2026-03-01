@@ -153,7 +153,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
 
   return (
     <>
-      <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 rounded-tl-xl rounded-tr-xl">
+      <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-11 md:px-6 sticky top-0 rounded-tl-xl rounded-tr-xl">
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"
@@ -211,7 +211,7 @@ export function SiteHeader({ breadcrumb, dealName }: SiteHeaderProps) {
   return (
     <Suspense
       fallback={
-        <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 rounded-tl-xl rounded-tr-xl">
+        <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-11 md:px-6 sticky top-0 rounded-tl-xl rounded-tr-xl">
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"

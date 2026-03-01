@@ -189,7 +189,7 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="w-full px-4 py-8 mx-7 md:px-8">
+    <div className="w-full px-4 pt-3 pb-3 mx-7 md:px-8 md:pt-9 md:pb-9">
       <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="mb-8">
