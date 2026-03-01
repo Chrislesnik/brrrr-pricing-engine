@@ -3350,7 +3350,7 @@ function ResultCard({
   const [activeSheetIdx, setActiveSheetIdx] = useState<number>(0)
   const [isInternalOrg, setIsInternalOrg] = useState(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetData>({})
-  const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfBusy, setPdfBusy] = useState<number | null>(null)
   const previewRef = useRef<HTMLDivElement | null>(null)
 
   // Live Active/Inactive status via server-side API + polling
@@ -4052,19 +4052,19 @@ function ResultCard({
                     size="icon"
                     variant="ghost"
                     aria-label="Download"
-                    disabled={cardDisabled || pdfBusy}
+                    disabled={cardDisabled || pdfBusy !== null}
                     onClick={async () => {
-                      setPdfBusy(true)
+                      setPdfBusy(-1)
                       try {
                         const file = await generatePdfDirect()
                         await saveFileWithPrompt(file)
                         void logCardTermSheetActivity("downloaded", file)
                       } catch (e) {
                         toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
-                      } finally { setPdfBusy(false) }
+                      } finally { setPdfBusy(null) }
                     }}
                   >
-                    {pdfBusy ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
+                    {pdfBusy === -1 ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -4284,19 +4284,19 @@ function ResultCard({
                                           size="icon"
                                           variant="ghost"
                                           aria-label="Download row"
-                                          disabled={cardDisabled || pdfBusy}
+                                          disabled={cardDisabled || pdfBusy !== null}
                                           onClick={async () => {
-                                            setPdfBusy(true)
+                                            setPdfBusy(i)
                                             try {
                                               const file = await generatePdfDirect(i)
                                               await saveFileWithPrompt(file)
                                               void logCardTermSheetActivity("downloaded", file)
                                             } catch (e) {
                                               toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
-                                            } finally { setPdfBusy(false) }
+                                            } finally { setPdfBusy(null) }
                                           }}
                                         >
-                                          {pdfBusy ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
+                                          {pdfBusy === i ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
