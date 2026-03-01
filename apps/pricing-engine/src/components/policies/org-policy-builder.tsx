@@ -21,6 +21,7 @@ import {
 import {
   FEATURE_RESOURCES,
   LIVEBLOCKS_RESOURCES,
+  API_RESOURCES,
   type OrgPolicyRow,
   type ConditionInput,
   type ConditionGroupInput,
@@ -168,6 +169,11 @@ const liveblocksActionOptions = [
   { value: "room_read", label: "Read", description: "View the room's storage (no editing)" },
   { value: "room_presence_write", label: "Presence Write", description: "Edit presence only (cursors, selections)" },
   { value: "room_private", label: "Private", description: "No access — deny entry to the room" },
+];
+
+const apiResourceActionOptions = [
+  { value: "read", label: "Read", description: "API keys can read this resource via GET requests" },
+  { value: "write", label: "Write", description: "API keys can create/update/delete via POST/PATCH/DELETE" },
 ];
 
 const resourceScopeOptions = [
@@ -1224,6 +1230,13 @@ export default function OrgPolicyBuilder({
             label: room.label,
           });
         }
+        // Add API resources
+        for (const apiRes of resources.apiResources) {
+          opts.push({
+            value: `api_key:${apiRes.name}`,
+            label: apiRes.label,
+          });
+        }
         setResourceOptions(opts);
       } catch (err) {
         console.error("Failed to load available resources:", err);
@@ -1336,12 +1349,13 @@ export default function OrgPolicyBuilder({
     );
   }
 
-  // Determine if any selected resource is a feature, data, or liveblocks room
+  // Determine if any selected resource is a feature, data, liveblocks room, or API resource
   const hasFeatureSelected = selectedResources.some((r) => r.startsWith("feature:"));
   const hasDataSelected = selectedResources.some(
     (r) => r.startsWith("table:") || r.startsWith("storage_bucket:")
   );
   const hasLiveblocksSelected = selectedResources.some((r) => r.startsWith("liveblocks:"));
+  const hasApiResourceSelected = selectedResources.some((r) => r.startsWith("api_key:"));
 
   // Derive allowed actions from the specific selected feature resources
   const activeFeatureActionOptions = useMemo(() => {
@@ -1366,37 +1380,42 @@ export default function OrgPolicyBuilder({
 
   // Contextual action options based on which resource types are selected
   const activeActionOptions = useMemo(() => {
-    if (hasLiveblocksSelected && !hasDataSelected && !hasFeatureSelected) {
-      return liveblocksActionOptions;
-    }
-    if (hasFeatureSelected && !hasDataSelected && !hasLiveblocksSelected) {
-      return activeFeatureActionOptions;
-    }
-    if (hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected) {
-      return dataActionOptions;
+    const onlyOne = [hasDataSelected, hasFeatureSelected, hasLiveblocksSelected, hasApiResourceSelected].filter(Boolean).length === 1;
+    if (onlyOne) {
+      if (hasLiveblocksSelected) return liveblocksActionOptions;
+      if (hasFeatureSelected) return activeFeatureActionOptions;
+      if (hasApiResourceSelected) return apiResourceActionOptions;
+      if (hasDataSelected) return dataActionOptions;
     }
     // Mixed: combine all applicable option sets
     const combined = [...dataActionOptions];
     if (hasFeatureSelected) combined.push(...activeFeatureActionOptions);
     if (hasLiveblocksSelected) combined.push(...liveblocksActionOptions);
+    if (hasApiResourceSelected) combined.push(...apiResourceActionOptions);
     return combined;
-  }, [hasDataSelected, hasFeatureSelected, hasLiveblocksSelected, activeFeatureActionOptions]);
+  }, [hasDataSelected, hasFeatureSelected, hasLiveblocksSelected, hasApiResourceSelected, activeFeatureActionOptions]);
 
   // Reset selected actions when the resource type mix changes
   useEffect(() => {
-    if (hasLiveblocksSelected && !hasDataSelected && !hasFeatureSelected) {
+    if (hasApiResourceSelected && !hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected) {
+      const apiVals = new Set(apiResourceActionOptions.map((o) => o.value));
+      setSelectedActions((prev) => {
+        const valid = prev.filter((a) => apiVals.has(a));
+        return valid.length > 0 ? valid : ["read", "write"];
+      });
+    } else if (hasLiveblocksSelected && !hasDataSelected && !hasFeatureSelected && !hasApiResourceSelected) {
       const lbVals = new Set(liveblocksActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => lbVals.has(a));
         return valid.length > 0 ? valid : ["room_write"];
       });
-    } else if (hasFeatureSelected && !hasDataSelected && !hasLiveblocksSelected) {
+    } else if (hasFeatureSelected && !hasDataSelected && !hasLiveblocksSelected && !hasApiResourceSelected) {
       const featureVals = new Set(activeFeatureActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => featureVals.has(a));
         return valid.length > 0 ? valid : [activeFeatureActionOptions[0]?.value ?? "submit"];
       });
-    } else if (hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected) {
+    } else if (hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected && !hasApiResourceSelected) {
       const dataVals = new Set(dataActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => dataVals.has(a));
@@ -1404,7 +1423,7 @@ export default function OrgPolicyBuilder({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasFeatureSelected, hasDataSelected, hasLiveblocksSelected, selectedResources]);
+  }, [hasFeatureSelected, hasDataSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
 
   // Determine if row-level scope selector should be enabled based on selected data resources.
   // Features never have row-level scope; when mixed with data resources, only the data
@@ -1425,8 +1444,8 @@ export default function OrgPolicyBuilder({
       });
   })();
 
-  // For feature/liveblocks resources: show the "Applies To" org-level scope selector
-  const featureScopeEnabled = hasFeatureSelected || hasLiveblocksSelected;
+  // For feature/liveblocks/api_key: show the "Applies To" org-level scope selector
+  const featureScopeEnabled = hasFeatureSelected || hasLiveblocksSelected || hasApiResourceSelected;
 
   // For liveblocks resources: show the "SCOPED TO" section
   const hasLiveblocksDeals = selectedResources.some(
@@ -2214,6 +2233,7 @@ const RESOURCE_TYPE_TABS: { value: string; label: string }[] = [
   { value: "feature", label: "Features" },
   { value: "route", label: "Routes" },
   { value: "liveblocks", label: "Liveblocks" },
+  { value: "api_key", label: "API Access" },
 ];
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
@@ -2222,6 +2242,7 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   feature: "Feature",
   route: "Route",
   liveblocks: "Liveblocks",
+  api_key: "API Resource",
 };
 
 const RESOURCE_TYPE_DESCRIPTIONS: Record<string, { governs: string; examples: string }> = {
@@ -2244,6 +2265,10 @@ const RESOURCE_TYPE_DESCRIPTIONS: Record<string, { governs: string; examples: st
   liveblocks: {
     governs: "Real-time collaboration room permissions",
     examples: "room:deal, room:deal_task, room:email_template",
+  },
+  api_key: {
+    governs: "API key access — controls which resources accept external API key authentication and which scopes are available",
+    examples: "deals (read/write), loans (read), borrowers (read/write)",
   },
 };
 
@@ -2583,6 +2608,9 @@ function resolveResourceName(policy: OrgPolicyRow): string {
   }
   if (policy.resource_type === "liveblocks") {
     return LIVEBLOCKS_RESOURCES.find((r) => r.name === policy.resource_name)?.label ?? policy.resource_name;
+  }
+  if (policy.resource_type === "api_key") {
+    return API_RESOURCES.find((r) => r.name === policy.resource_name)?.label ?? policy.resource_name;
   }
   if (policy.resource_name === "*") return "Wildcard";
   return policy.resource_name;

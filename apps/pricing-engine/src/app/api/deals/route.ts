@@ -1,8 +1,7 @@
 import { z } from "zod"
-import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
 import { ensureLiveblocksRoom } from "@/lib/liveblocks"
 
 /* -------------------------------------------------------------------------- */
@@ -51,10 +50,16 @@ function resolveExpression(
 
 export async function GET(_req: NextRequest) {
   try {
-    const { userId, orgId } = await auth()
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let authResult: { userId: string; orgId: string; isApiKey: boolean }
+    try {
+      authResult = await authForApiRoute("deals", "read")
+    } catch (e) {
+      const status = (e as { status?: number })?.status
+      if (status === 401) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      if (status === 403) return NextResponse.json({ error: (e as Error).message }, { status: 403 })
+      throw e
     }
+    const { userId, orgId } = authResult
 
     const organizationId = await getOrgUuidFromClerkId(orgId)
     if (!organizationId) {
@@ -235,13 +240,16 @@ function buildDealInputRow(
 
 export async function POST(req: Request) {
   try {
-    const { userId, orgId } = await auth()
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let authResult: { userId: string; orgId: string; isApiKey: boolean }
+    try {
+      authResult = await authForApiRoute("deals", "write")
+    } catch (e) {
+      const status = (e as { status?: number })?.status
+      if (status === 401) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      if (status === 403) return NextResponse.json({ error: (e as Error).message }, { status: 403 })
+      throw e
     }
-    if (!orgId) {
-      return NextResponse.json({ error: "No active organization" }, { status: 400 })
-    }
+    const { userId, orgId } = authResult
 
     const organizationId = await getOrgUuidFromClerkId(orgId)
     if (!organizationId) {

@@ -17,6 +17,7 @@ const VALID_TABS = new Set([
   "documents",
   "tasks",
   "themes",
+  "api-keys",
 ]);
 
 export async function GET(req: NextRequest) {
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     const tab = req.nextUrl.searchParams.get("tab");
-    const featureName = tab && VALID_TABS.has(tab) ? `settings_${tab}` : null;
+    const featureName = tab && VALID_TABS.has(tab) ? `settings_${tab.replace(/-/g, "_")}` : null;
 
     if (featureName) {
       const canAccess = await checkFeatureAccess(featureName, "view").catch(

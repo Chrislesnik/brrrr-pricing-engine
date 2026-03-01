@@ -1,6 +1,6 @@
-import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { authForApiRoute } from "@/lib/orgs"
 import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 
 export const runtime = "nodejs"
@@ -34,9 +34,13 @@ export async function PATCH(
 ) {
   try {
     const { id } = await context.params
-    const { userId } = await auth()
-    if (!userId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string
+    try {
+      ({ userId } = await authForApiRoute("loans", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const body = (await req.json().catch(() => null)) as {
       status?: "active" | "inactive"
       action?: "restore"
@@ -98,9 +102,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params
-    const { userId } = await auth()
-    if (!userId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string
+    try {
+      ({ userId } = await authForApiRoute("loans", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
 
     // Fetch current status before archiving

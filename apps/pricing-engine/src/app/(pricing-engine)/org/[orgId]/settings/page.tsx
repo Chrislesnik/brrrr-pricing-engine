@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   Workflow,
   Plug,
+  Key,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -32,8 +33,9 @@ import { DealsSettings } from "./components/deals-settings";
 import { AutomationsSettings } from "./components/automations-settings";
 import { IntegrationsSettings } from "./components/integrations-settings";
 import { DashboardSettings } from "./components/dashboard-settings";
+import { APIKeysSettings } from "./components/api-keys-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "dashboard" | "automations" | "integrations";
+type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "dashboard" | "automations" | "integrations" | "api-keys";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -99,6 +101,12 @@ const settingsNavItems: NavItem[] = [
     label: "Automations",
     icon: Workflow,
     description: "Manage workflow automations",
+  },
+  {
+    id: "api-keys",
+    label: "API Keys",
+    icon: Key,
+    description: "Manage API keys for integrations",
   },
   {
     id: "integrations",
@@ -282,6 +290,7 @@ export default function OrganizationSettingsPage() {
             {activeTab === "dashboard" && <DashboardSettings />}
             {activeTab === "automations" && <AutomationsSettings />}
             {activeTab === "integrations" && <IntegrationsSettings />}
+            {activeTab === "api-keys" && <APIKeysSettings />}
           </div>
         </div>
       </div>

@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   Workflow,
   GlobeLock,
+  Key,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/shadcn/popover";
 import {
@@ -61,6 +62,7 @@ const ORG_SETTINGS_ITEMS = [
   { id: "deals", label: "Deals", icon: Briefcase, path: "?tab=deals" },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "?tab=dashboard" },
   { id: "automations", label: "Automations", icon: Workflow, path: "?tab=automations" },
+  { id: "api-keys", label: "API Keys", icon: Key, path: "?tab=api-keys" },
   { id: "integrations", label: "Integrations", icon: Plug, path: "?tab=integrations" },
   { id: "themes", label: "Themes", icon: SunMoon, path: "?tab=themes" },
 ] as const;

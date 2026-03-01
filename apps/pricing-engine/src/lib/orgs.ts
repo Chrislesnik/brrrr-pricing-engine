@@ -183,6 +183,116 @@ export async function getUserRoleInOrg(orgUuid: string, userId: string): Promise
 
 
 /**
+ * Authenticate an API route that may accept Clerk API keys in addition
+ * to session tokens.  The decision of whether to accept API keys is
+ * driven by the organization's `api_key` policies.
+ *
+ * Flow:
+ *   1. Call `auth({ acceptsToken: ['session_token', 'api_key'] })`
+ *   2. If the token is an API key:
+ *      a. Look up the org's active `api_key` policy for (resourceName, action)
+ *      b. Verify the API key carries the required scope (`read:<resource>` or `write:<resource>`)
+ *   3. If the token is a session, proceed as normal.
+ *
+ * Returns the resolved auth context. Throws on 401/403.
+ */
+export async function authForApiRoute(
+  resourceName: string,
+  action: "read" | "write",
+): Promise<{
+  userId: string
+  orgId: string
+  isApiKey: boolean
+}> {
+  // Clerk returns { isAuthenticated, userId, orgId, tokenType, scopes }
+  // when acceptsToken includes 'api_key'.
+  const session = await auth({ acceptsToken: ["session_token", "api_key"] }) as {
+    userId: string | null
+    orgId: string | null
+    sessionId: string | null
+    tokenType?: string
+    scopes?: string[]
+    isAuthenticated?: boolean
+    sessionClaims: Record<string, unknown> | null
+  }
+
+  const userId = session.userId
+  const orgId = session.orgId
+  if (!userId || !orgId) {
+    throw Object.assign(new Error("Unauthorized"), { status: 401 })
+  }
+
+  const isApiKey = session.tokenType === "api_key"
+
+  if (isApiKey) {
+    const orgUuid = await getOrgUuidFromClerkId(orgId)
+
+    const { data: policyRow } = await supabaseAdmin
+      .from("organization_policies")
+      .select("id")
+      .eq("resource_type", "api_key")
+      .eq("resource_name", resourceName)
+      .eq("action", action)
+      .eq("is_active", true)
+      .is("archived_at", null)
+      .or(
+        orgUuid
+          ? `org_id.eq.${orgUuid},org_id.is.null`
+          : "org_id.is.null"
+      )
+      .limit(1)
+      .maybeSingle()
+
+    if (!policyRow) {
+      throw Object.assign(
+        new Error(`API key access is not enabled for ${action}:${resourceName}`),
+        { status: 403 },
+      )
+    }
+
+    const requiredScope = `${action}:${resourceName}`
+    const scopes = session.scopes ?? []
+
+    if (!scopes.includes(requiredScope)) {
+      throw Object.assign(
+        new Error(`Missing required scope: ${requiredScope}`),
+        { status: 403 },
+      )
+    }
+  }
+
+  return { userId, orgId, isApiKey }
+}
+
+/**
+ * Checks whether API key access is enabled for a given resource and action
+ * in the caller's current organization. Uses the service-role client since
+ * API key requests don't carry a Supabase JWT.
+ */
+export async function isApiResourceEnabled(
+  orgId: string,
+  resourceName: string,
+  action: "read" | "write",
+): Promise<boolean> {
+  const orgUuid = await getOrgUuidFromClerkId(orgId)
+  if (!orgUuid) return false
+
+  const { data } = await supabaseAdmin
+    .from("organization_policies")
+    .select("id")
+    .eq("resource_type", "api_key")
+    .eq("resource_name", resourceName)
+    .eq("action", action)
+    .eq("is_active", true)
+    .is("archived_at", null)
+    .or(`org_id.eq.${orgUuid},org_id.is.null`)
+    .limit(1)
+    .maybeSingle()
+
+  return !!data
+}
+
+/**
  * Policy-engine-aware deal access check. Combines:
  *   Layer 1 – Coarse-grained org policy (table:deals action)
  *   Layer 2 – Fine-grained domain logic (org membership, assignment, primary user, internal)

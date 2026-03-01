@@ -28,7 +28,7 @@ import type {
   NamedScopeRow,
   DealRoleTypeRow,
 } from "./constants";
-import { FEATURE_RESOURCES, LIVEBLOCKS_RESOURCES, type IntegrationFeatureResource, type PolicyAction as PA } from "./constants";
+import { FEATURE_RESOURCES, LIVEBLOCKS_RESOURCES, API_RESOURCES, type IntegrationFeatureResource, type PolicyAction as PA } from "./constants";
 
 type SavePolicyInput = {
   resourceType: ResourceType;
@@ -524,6 +524,7 @@ export async function getAvailableResources(): Promise<{
   features: typeof FEATURE_RESOURCES;
   integrationFeatures: IntegrationFeatureResource[];
   liveblocksRooms: typeof LIVEBLOCKS_RESOURCES;
+  apiResources: typeof API_RESOURCES;
 }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
@@ -567,6 +568,7 @@ export async function getAvailableResources(): Promise<{
     features: FEATURE_RESOURCES,
     integrationFeatures,
     liveblocksRooms: LIVEBLOCKS_RESOURCES,
+    apiResources: API_RESOURCES,
   };
 }
 
@@ -657,4 +659,38 @@ export async function getDealRoleTypes(): Promise<DealRoleTypeRow[]> {
     .order("name");
 
   return (data ?? []) as DealRoleTypeRow[];
+}
+
+/**
+ * Returns the list of API resource scopes that are currently enabled for this
+ * organization. An "enabled" scope is one backed by an active, non-archived
+ * `api_key` policy.
+ *
+ * Used by the API Keys creation UI to populate the scope picker, and by the
+ * route-level auth helper to decide whether to accept API keys.
+ */
+export async function getActiveApiScopes(): Promise<
+  Array<{ resource: string; action: "read" | "write"; label: string }>
+> {
+  const { token } = await requireAuthAndOrg();
+  const supabase = supabaseForUser(token);
+
+  const { data } = await supabase
+    .from("organization_policies")
+    .select("resource_name, action")
+    .eq("resource_type", "api_key")
+    .eq("is_active", true)
+    .is("archived_at", null);
+
+  if (!data || data.length === 0) return [];
+
+  const labelMap = new Map(API_RESOURCES.map((r) => [r.name, r.label]));
+
+  return (data as Array<{ resource_name: string; action: string }>)
+    .filter((row) => row.action === "read" || row.action === "write")
+    .map((row) => ({
+      resource: row.resource_name,
+      action: row.action as "read" | "write",
+      label: labelMap.get(row.resource_name) ?? row.resource_name,
+    }));
 }
