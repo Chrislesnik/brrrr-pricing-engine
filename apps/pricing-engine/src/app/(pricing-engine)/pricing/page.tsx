@@ -3779,6 +3779,10 @@ function ResultCard({
     return <ResultCardLoader meta={{ internal_name: r?.internal_name, external_name: r?.external_name }} isInternalOrg={isInternal} />
   }
   const d = (r?.data ?? {}) as ProgramResponseData
+  const rateSheetStatus = liveRateSheetActive ?? (d as any)?.rate_sheet_active
+  const isRateSheetInactive = rateSheetStatus === false
+  const cardDisabled = !!resultsStale || isRateSheetInactive
+  const cardDisabledTooltip = resultsStale ? "Recalculate to download term sheet" : isRateSheetInactive ? "Rate sheet is inactive" : ""
   const pass = d?.pass === true
   const hi = Number(d?.highlight_display ?? 0)
   // Detect bridge-style response vs DSCR
@@ -3989,10 +3993,10 @@ function ResultCard({
             </Tooltip>
           </TooltipProvider>
           <ShareModal
-            disabled={!!resultsStale}
+            disabled={cardDisabled}
             onPdfShare={() => openTermSheetPreview(undefined, { autoShare: true })}
             trigger={
-              <Button size="icon" variant="ghost" aria-label="Share" disabled={!!resultsStale}>
+              <Button size="icon" variant="ghost" aria-label="Share" disabled={cardDisabled}>
                 <IconShare3 className="h-4 w-4" />
               </Button>
             }
@@ -4005,14 +4009,14 @@ function ResultCard({
                     size="icon"
                     variant="ghost"
                     aria-label="Download"
-                    disabled={!!resultsStale}
+                    disabled={cardDisabled}
                     onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
                   >
                     <IconDownload className="h-4 w-4" />
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+              <TooltipContent>{cardDisabled ? (cardDisabledTooltip || "Unavailable") : "Download"}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           {warningList.length > 0 ? (
@@ -4212,10 +4216,10 @@ function ResultCard({
                                   <IconEye className="h-4 w-4" />
                                 </Button>
                               <ShareModal
-                                disabled={!!resultsStale}
+                                disabled={cardDisabled}
                                 onPdfShare={() => openTermSheetPreview(i, { autoShare: true })}
                                 trigger={
-                                  <Button size="icon" variant="ghost" aria-label="Share row" disabled={!!resultsStale}>
+                                  <Button size="icon" variant="ghost" aria-label="Share row" disabled={cardDisabled}>
                                     <IconShare3 className="h-4 w-4" />
                                   </Button>
                                 }
@@ -4228,14 +4232,14 @@ function ResultCard({
                                           size="icon"
                                           variant="ghost"
                                           aria-label="Download row"
-                                          disabled={!!resultsStale}
+                                          disabled={cardDisabled}
                                           onClick={() => openTermSheetPreview(i, { autoDownloadPdf: true })}
                                         >
                                           <IconDownload className="h-4 w-4" />
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
-                                    <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+                                    <TooltipContent>{cardDisabled ? (cardDisabledTooltip || "Unavailable") : "Download"}</TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
                               </div>
@@ -4256,7 +4260,7 @@ function ResultCard({
           </DialogHeader>
           <div className="absolute right-4 top-2 flex items-center gap-1.5">
             <ShareModal
-              disabled={!!resultsStale}
+              disabled={cardDisabled}
               onPdfShare={async () => {
                 try {
                   const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
@@ -4286,7 +4290,7 @@ function ResultCard({
                 <button
                   type="button"
                   aria-label="Share term sheet"
-                  disabled={!!resultsStale}
+                  disabled={cardDisabled}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                 >
                   <IconShare3 />
@@ -4300,7 +4304,7 @@ function ResultCard({
                     <button
                       type="button"
                       aria-label="Download term sheet"
-                      disabled={!!resultsStale}
+                      disabled={cardDisabled}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
                       onClick={async () => {
                         try {
@@ -4320,7 +4324,7 @@ function ResultCard({
                     </button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
+                <TooltipContent>{cardDisabled ? (cardDisabledTooltip || "Unavailable") : "Download"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <button
