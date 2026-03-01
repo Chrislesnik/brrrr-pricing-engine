@@ -17,6 +17,7 @@ const ROOM_POLICY_MAP: Array<{ pattern: string; resource: string }> = [
   { pattern: "deal_task:*", resource: "room:deal_task" },
   { pattern: "task:*", resource: "room:deal_task" },
   { pattern: "email_template:*", resource: "room:email_template" },
+  { pattern: "appraisal:*", resource: "room:appraisal" },
 ];
 
 function supabaseForUser(token: string) {
