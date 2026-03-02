@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
         console.error("[linked-records] Query error for", tableName, error);
       }
       if (data) {
-        rows = data as Record<string, unknown>[];
+        rows = data as unknown as Record<string, unknown>[];
       }
     } else {
       // Table does not have organization_id — fetch all rows (limited)
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
         console.error("[linked-records] Query error for", tableName, error);
       }
       if (data) {
-        rows = data as Record<string, unknown>[];
+        rows = data as unknown as Record<string, unknown>[];
       }
     }
 

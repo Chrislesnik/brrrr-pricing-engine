@@ -5708,16 +5708,7 @@ function ResultsPanel({
                 onPdfShare={async () => {
                   const file = await renderPreviewToPdfMain()
                   if (!file) throw new Error("Could not render PDF")
-                  const canShareFiles = typeof navigator !== "undefined" && "canShare" in navigator && (navigator as any).canShare?.({ files: [file] })
-                  const nav = navigator as any
-                  if (nav?.share && canShareFiles) {
-                    await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                    void logPanelTermSheetActivity("shared", file)
-                  } else {
-                    await saveFileWithPrompt(file)
-                    toast({ title: "Saved", description: "PDF saved to your device." })
-                    void logPanelTermSheetActivity("downloaded", file)
-                  }
+                  return file
                 }}
                 trigger={
                   <button

@@ -39,7 +39,7 @@ async function getBrowser() {
   return puppeteer.default.launch({
     args: chromium.args,
     executablePath: await chromium.executablePath(),
-    headless: chromium.headless,
+    headless: true,
   });
 }
 

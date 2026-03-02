@@ -82,13 +82,13 @@ export const stepRegistry: Record<string, StepFunction> = {
 
   // ── GitHub ──
   "Create Issue": async (input) =>
-    (await import("../../plugins/github/steps/create-issue")).githubCreateIssueStep(input as never),
+    (await import("../../plugins/github/steps/create-issue")).createIssueStep(input as never),
   "List Issues": async (input) =>
-    (await import("../../plugins/github/steps/list-issues")).githubListIssuesStep(input as never),
+    (await import("../../plugins/github/steps/list-issues")).listIssuesStep(input as never),
   "Get Issue": async (input) =>
-    (await import("../../plugins/github/steps/get-issue")).githubGetIssueStep(input as never),
+    (await import("../../plugins/github/steps/get-issue")).getIssueStep(input as never),
   "Update Issue": async (input) =>
-    (await import("../../plugins/github/steps/update-issue")).githubUpdateIssueStep(input as never),
+    (await import("../../plugins/github/steps/update-issue")).updateIssueStep(input as never),
 
   // ── Stripe ──
   "Create Customer": async (input) =>
@@ -132,11 +132,11 @@ export const stepRegistry: Record<string, StepFunction> = {
 
   // ── Webflow ──
   "List Sites": async (input) =>
-    (await import("../../plugins/webflow/steps/list-sites")).webflowListSitesStep(input as never),
+    (await import("../../plugins/webflow/steps/list-sites")).listSitesStep(input as never),
   "Get Site": async (input) =>
-    (await import("../../plugins/webflow/steps/get-site")).webflowGetSiteStep(input as never),
+    (await import("../../plugins/webflow/steps/get-site")).getSiteStep(input as never),
   "Publish Site": async (input) =>
-    (await import("../../plugins/webflow/steps/publish-site")).webflowPublishSiteStep(input as never),
+    (await import("../../plugins/webflow/steps/publish-site")).publishSiteStep(input as never),
 
   // ── Supabase ──
   "Get Row": async (input) =>

@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (record) {
-        const path = (record as Record<string, unknown>)[storageConfig.pathColumn]
+        const path = (record as unknown as Record<string, unknown>)[storageConfig.pathColumn]
         if (typeof path === "string" && path) {
           await supabaseAdmin.storage.from(storageConfig.bucket).remove([path])
         }

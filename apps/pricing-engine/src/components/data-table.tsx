@@ -980,7 +980,7 @@ function ColumnVisibilityDropdown({
   appsVisibility: VisibilityState
   onAppsVisibilityChange: (v: VisibilityState) => void
 }) {
-  const getTable = () => {
+  const config = (() => {
     switch (activeTab) {
       case "deals":
         return {
@@ -1004,12 +1004,14 @@ function ColumnVisibilityDropdown({
           onChange: onAppsVisibilityChange,
         }
       default:
-        return null
+        return {
+          columns: [] as ColumnDef<unknown, unknown>[],
+          data: [] as unknown[],
+          visibility: {} as VisibilityState,
+          onChange: (() => {}) as (v: VisibilityState) => void,
+        }
     }
-  }
-
-  const config = getTable()
-  if (!config) return null
+  })()
 
   const table = useReactTable({
     data: config.data,

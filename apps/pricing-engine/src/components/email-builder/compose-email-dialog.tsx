@@ -570,7 +570,7 @@ function ComposeEmailDialogInner({
       try {
         const cursor = editor.getTextCursorPosition()
         const current = cursor.block
-        const content = current.content
+        const content: any = current.content
         const isEmpty =
           Array.isArray(content) &&
           (content.length === 0 ||
@@ -642,7 +642,7 @@ function ComposeEmailDialogInner({
       try {
         const cursor = editor.getTextCursorPosition()
         const current = cursor.block
-        const content = current.content
+        const content: any = current.content
         const isSlash =
           Array.isArray(content) &&
           content.length === 1 &&
@@ -840,7 +840,7 @@ function ComposeEmailDialogInner({
             onFocusCapture={() => setActiveField(null)}
             onClick={() => {
               setActiveField(null)
-              editor.focus("end")
+              editor.focus()
             }}
           >
           <BlockNoteView

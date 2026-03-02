@@ -22,14 +22,18 @@ export async function POST(request: Request) {
     return new Response(null, { status: 200 });
   }
 
-  const { channel, kind, userId, roomId, inboxNotificationId } = event.data;
+  const { channel } = event.data;
+  const kind = event.data.kind ?? "";
+  const userId = event.data.userId ?? "";
+  const roomId = event.data.roomId ?? "";
+  const inboxNotificationId = event.data.inboxNotificationId ?? "";
 
   console.log(
     `[liveblocks-notifications] channel=${channel} kind=${kind} user=${userId} room=${roomId} notif=${inboxNotificationId}`
   );
 
   try {
-    switch (channel) {
+    switch (channel as string) {
       case "email":
         await dispatchEmail(kind, userId, roomId, inboxNotificationId);
         break;

@@ -367,7 +367,7 @@ export function StylesPanel({ styles, onChange, onReset }: Props) {
     key: keyof EmailTemplateStyles[K],
     value: EmailTemplateStyles[K][typeof key]
   ) => {
-    onChange({ ...styles, [category]: { ...styles[category], [key]: value } })
+    onChange({ ...styles, [category]: { ...(styles[category] as Record<string, unknown>), [key]: value } })
   }
 
   return (

@@ -12,6 +12,7 @@ import {
 const EMPTY_RESULT: LogicResult = {
   hiddenFields: new Set<string>(),
   requiredFields: new Set<string>(),
+  recalcFields: new Set<string>(),
   computedValues: {},
 };
 

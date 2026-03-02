@@ -170,7 +170,7 @@ export async function writeScenarioOutputs(
         loan_amount: o.loan_amount != null ? String(o.loan_amount) : null,
         ltv: o.ltv != null ? String(o.ltv) : null,
         validations: Array.isArray(o.validations) ? o.validations.filter(Boolean).map(String) : null,
-        warnings: Array.isArray(o.warnings ?? o.warning) ? (o.warnings ?? o.warning as unknown[]).filter(Boolean).map(String) : null,
+        warnings: Array.isArray(o.warnings ?? o.warning) ? ((o.warnings ?? o.warning) as unknown[]).filter(Boolean).map(String) : null,
         raw_response: o,
       })
       .select("id")

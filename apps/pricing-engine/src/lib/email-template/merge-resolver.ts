@@ -148,7 +148,7 @@ export async function resolveMergeValues(loanId: string): Promise<MergeValues> {
     "property:county":               propCounty,
     "property:full_address":         propFullAddress,
 
-    "loans:display_id":              (loanAny.display_id as string | undefined) ?? (loan.id as string),
+    "loans:display_id":              (loanAny.display_id as string | undefined) ?? (loanAny.id as string),
     "loans:status":                  (loanAny.status as string | undefined) ?? "",
 
     "loan_inputs:loan_type":          (inputs["loan_type"] as string | undefined) ?? "",
