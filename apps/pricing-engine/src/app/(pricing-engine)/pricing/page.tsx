@@ -5268,6 +5268,22 @@ function ResultsPanel({
                     return `Selected: ${name}`
                   })()}
                 </div>
+                {(() => {
+                  const md = (results?.[selected.programIdx ?? 0]?.data ?? {}) as any
+                  const rsDate = md?.rate_sheet_date
+                  const rsActive = md?.rate_sheet_active
+                  if (!rsDate && rsActive == null) return null
+                  return (
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                      {rsDate && <span>Rate Sheet Date: {new Date(rsDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                      {rsActive != null && (
+                        <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", rsActive ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                          {rsActive ? "Active" : "Inactive"}
+                        </Badge>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
@@ -5459,6 +5475,22 @@ function ResultsPanel({
                   return `Selected: ${name}`
                 })()}
               </div>
+              {(() => {
+                const md = (results?.[selected.programIdx]?.data ?? {}) as any
+                const rsDate = md?.rate_sheet_date
+                const rsActive = md?.rate_sheet_active
+                if (!rsDate && rsActive == null) return null
+                return (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                    {rsDate && <span>Rate Sheet Date: {new Date(rsDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                    {rsActive != null && (
+                      <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", rsActive ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                        {rsActive ? "Active" : "Inactive"}
+                      </Badge>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
@@ -5553,6 +5585,22 @@ function ResultsPanel({
                   return `Selected: ${name}`
                 })()}
               </div>
+              {(() => {
+                const md = (results?.[selected.programIdx]?.data ?? {}) as any
+                const rsDate = md?.rate_sheet_date
+                const rsActive = md?.rate_sheet_active
+                if (!rsDate && rsActive == null) return null
+                return (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                    {rsDate && <span>Rate Sheet Date: {new Date(rsDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                    {rsActive != null && (
+                      <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", rsActive ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                        {rsActive ? "Active" : "Inactive"}
+                      </Badge>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
