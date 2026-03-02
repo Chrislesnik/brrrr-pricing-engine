@@ -6,15 +6,10 @@
  * - Dark & light mode base chrome overrides
  */
 export const grapejsThemeStyles = `
-  /* Preview mode: hide all editor chrome */
-  .gs-preview-mode .gjs-cv-canvas__frames,
-  .gs-preview-mode [class*="gs-canvas"] {
-    pointer-events: none !important;
-  }
+  /* Preview mode: hide component-level editor chrome (spots, badges, resizers)
+     but keep the top canvas toolbar (zoom/save) visible and the iframe scrollable */
   .gs-preview-mode [class*="spot"],
   .gs-preview-mode [class*="Spot"],
-  .gs-preview-mode [class*="toolbar"],
-  .gs-preview-mode [class*="Toolbar"],
   .gs-preview-mode [class*="resizer"],
   .gs-preview-mode [class*="Resizer"],
   .gs-preview-mode [class*="badge"],
@@ -22,17 +17,22 @@ export const grapejsThemeStyles = `
   .gs-preview-mode [class*="highlight"],
   .gs-preview-mode [class*="Highlight"],
   .gs-preview-mode [class*="offset-v"],
-  .gs-preview-mode [class*="offset-fixed"] {
+  .gs-preview-mode [class*="offset-fixed"],
+  .gs-preview-mode [class*="gs-cmp-toolbar"],
+  .gs-preview-mode [class*="gs-canvas-spot"] [class*="toolbar"] {
     display: none !important;
     opacity: 0 !important;
     visibility: hidden !important;
   }
-  .gs-preview-mode iframe {
-    pointer-events: none !important;
-  }
+  /* Preview mode: hide left and right sidebars */
   .gs-preview-mode .blocks-panel-left,
   .gs-preview-mode .right-sidebar-panel {
     display: none !important;
+  }
+  /* Preview mode: hide the RTE toolbar that appears when editing text */
+  .gs-preview-mode [class*="gs-rte"],
+  .gs-preview-mode [class*="ProseMirror"] {
+    caret-color: transparent !important;
   }
 
   #headlessui-portal-root {

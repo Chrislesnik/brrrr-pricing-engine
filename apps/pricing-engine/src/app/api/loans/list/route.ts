@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { authForApiRoute } from "@/lib/orgs"
 
 export const runtime = "nodejs"
 
@@ -13,8 +13,13 @@ export const runtime = "nodejs"
  * regardless of whether Clerk's orgId is set in the session.
  */
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  let userId: string
+  try {
+    ({ userId } = await authForApiRoute("loans", "read"))
+  } catch (e: unknown) {
+    const status = (e as { status?: number }).status ?? 401
+    return NextResponse.json({ error: (e as Error).message }, { status })
+  }
 
   // Resolve org UUID from the caller's membership — more reliable than orgId from Clerk session
   const { data: membership, error: memberErr } = await supabaseAdmin

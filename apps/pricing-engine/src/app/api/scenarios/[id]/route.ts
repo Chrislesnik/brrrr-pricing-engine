@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { authForApiRoute } from "@/lib/orgs"
 import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 import { writeScenarioInputs, writeScenarioOutputs, readScenarioInputs, readScenarioOutputs } from "@/lib/scenario-helpers"
 
@@ -11,8 +11,13 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string
+    try {
+      ({ userId } = await authForApiRoute("scenarios", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
     const { data, error } = await supabaseAdmin
@@ -74,8 +79,13 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string
+    try {
+      ({ userId } = await authForApiRoute("scenarios", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
     const body = (await req.json().catch(() => ({}))) as {
@@ -218,8 +228,13 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string
+    try {
+      ({ userId } = await authForApiRoute("scenarios", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const { id } = await context.params
     if (!id) return NextResponse.json({ error: "Missing scenario id" }, { status: 400 })
 

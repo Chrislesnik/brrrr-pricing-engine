@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export const runtime = "nodejs"
@@ -11,8 +10,13 @@ export const runtime = "nodejs"
  */
 export async function GET() {
   try {
-    const { userId, orgId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("background_reports", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
@@ -114,8 +118,13 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { userId, orgId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("background_reports", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })

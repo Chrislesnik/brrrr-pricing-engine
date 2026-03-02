@@ -23,8 +23,8 @@ export default async function PermissionsPage({
   }
 
   return (
-    <div className="w-full min-h-full flex justify-center px-6 py-6 md:px-8 md:py-8">
-      <div className="w-full max-w-6xl">
+    <div className="w-full min-h-full px-4 pt-3 pb-3 mx-7 md:px-8 md:pt-9 md:pb-9">
+      <div className="w-full max-w-6xl mx-auto">
           {/* Header with back button */}
           <div className="mb-8">
             <Link

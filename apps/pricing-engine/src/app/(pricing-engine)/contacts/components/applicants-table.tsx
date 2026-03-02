@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
 	ColumnDef,
 	ColumnFiltersState,
@@ -26,7 +26,7 @@ import {
 } from "@repo/ui/shadcn/table"
 import { DataTablePagination } from "../../users/components/data-table-pagination"
 import { ApplicantsToolbar } from "./applicants-toolbar"
-import { createSupabaseBrowser } from "@/lib/supabase-browser"
+import { useSupabaseBrowser } from "@/lib/supabase-browser"
 
 declare module "@tanstack/react-table" {
 	 
@@ -68,7 +68,7 @@ export function ApplicantsTable<TData>({
 	const [memberMap, setMemberMap] = useState<Map<string, string>>(new Map())
 
 	// Reuse a single Supabase browser client for refetches
-	const supabase = useMemo(() => createSupabaseBrowser(), [])
+	const supabase = useSupabaseBrowser()
 
 	// Load org members on mount to resolve user_id -> "First Last"
 	useEffect(() => {
@@ -129,11 +129,11 @@ export function ApplicantsTable<TData>({
 	// Helper: refetch current rows (used by realtime subscription and manual refresh events)
 	const refetchRows = useCallback(async () => {
 		if (!realtime?.organizationId || !realtime?.table || !realtime?.view) return
-		const { data: rows } = await supabase
-			.from(realtime.view)
+		const { data: rows } = (await supabase
+			.from(realtime.view as "borrowers")
 			.select("*")
 			.eq("organization_id", realtime.organizationId)
-			.order("created_at", { ascending: false })
+			.order("created_at", { ascending: false })) as { data: any[] | null }
 		if (rows) {
 			let mapped: any[] = rows as any[]
 			// Shape raw base-table rows to table-friendly structure when not using a view

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { getOrgUuidFromClerkId } from "@/lib/orgs";
+import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs";
 
 export const runtime = "nodejs";
 
@@ -9,22 +8,21 @@ export async function GET(req: NextRequest) {
   console.log("[API /programs] Request received");
   
   try {
-    console.log("[API /programs] Calling auth()...");
-    const { userId, orgId: authOrgId } = await auth();
-    console.log("[API /programs] Auth result:", { userId: !!userId, orgId: authOrgId });
-    
-    if (!userId) {
-      console.log("[API /programs] No userId, returning 401");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let userId: string, orgId: string;
+    try {
+      ({ userId, orgId } = await authForApiRoute("programs", "read"));
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401;
+      return NextResponse.json({ error: (e as Error).message }, { status });
     }
 
     // Get orgId from query params or auth
     const { searchParams } = new URL(req.url);
     const queryOrgId = searchParams.get("orgId");
-    const orgId = queryOrgId || authOrgId;
-    console.log("[API /programs] Using orgId:", orgId);
+    const effectiveOrgId = queryOrgId || orgId;
+    console.log("[API /programs] Using orgId:", effectiveOrgId);
 
-    if (!orgId) {
+    if (!effectiveOrgId) {
       console.log("[API /programs] No orgId, returning 400");
       return NextResponse.json(
         { error: "No active organization" },
@@ -34,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     // Get organization UUID
     console.log("[API /programs] Resolving org UUID...");
-    const orgUuid = await getOrgUuidFromClerkId(orgId);
+    const orgUuid = await getOrgUuidFromClerkId(effectiveOrgId);
     console.log("[API /programs] Org UUID:", orgUuid);
     
     if (!orgUuid) {

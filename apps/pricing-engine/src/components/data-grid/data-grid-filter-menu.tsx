@@ -205,7 +205,8 @@ export function DataGridFilterMenu<TData>({
           <Button
             dir={dir}
             variant="outline"
-            className="h-8 font-normal"
+            size="default"
+            className="font-normal"
             onKeyDown={onTriggerKeyDown}
             disabled={disabled}
           >

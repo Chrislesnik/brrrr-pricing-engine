@@ -71,11 +71,12 @@ export type PolicyDefinitionInput = {
   roomScope?: RoomScopeInput;
 };
 
-export type ResourceType = "table" | "storage_bucket" | "feature" | "route" | "liveblocks";
+export type ResourceType = "table" | "storage_bucket" | "feature" | "route" | "liveblocks" | "api_key";
 export type PolicyAction =
   | "select" | "insert" | "update" | "delete" | "all"
   | "submit" | "view"
-  | "room_write" | "room_read" | "room_presence_write" | "room_private";
+  | "room_write" | "room_read" | "room_presence_write" | "room_private"
+  | "read" | "write";
 
 export type OrgPolicyRow = {
   id: string;
@@ -181,6 +182,12 @@ export const FEATURE_RESOURCES: Array<{
     description: "Manage integration settings",
     actions: ["view", "insert", "update", "delete"],
   },
+  {
+    name: "settings_api_keys",
+    label: "Settings — API Keys",
+    description: "Manage organization API keys for third-party integrations",
+    actions: ["view", "insert", "delete"],
+  },
 ];
 
 /**
@@ -212,6 +219,12 @@ export const LIVEBLOCKS_RESOURCES: Array<{
     description: "Collaborative editing rooms for email templates",
     actions: ["room_write", "room_read", "room_presence_write", "room_private"],
   },
+  {
+    name: "room:appraisal",
+    label: "Appraisal Rooms",
+    description: "Real-time collaboration rooms for appraisal orders (comments, presence)",
+    actions: ["room_write", "room_read", "room_presence_write", "room_private"],
+  },
 ];
 
 /**
@@ -227,3 +240,113 @@ export type IntegrationFeatureResource = {
   slug: string;
   integrationSettingsId: number;
 };
+
+/**
+ * API-accessible resources that can be exposed via Clerk API keys.
+ *
+ * Each entry maps to `resource_type = 'api_key'` rows in organization_policies.
+ * When an active policy exists for a given resource + action, two things happen:
+ *   1. The corresponding scope (e.g. `read:deals`) appears in the API key creation UI
+ *   2. The matching route(s) call `auth({ acceptsToken: ['session_token','api_key'] })`
+ *
+ * `routePatterns` lists the API route prefixes covered by each resource.
+ */
+export const API_RESOURCES: Array<{
+  name: string;
+  label: string;
+  description: string;
+  actions: PolicyAction[];
+  routePatterns: string[];
+}> = [
+  {
+    name: "deals",
+    label: "Deals",
+    description: "Deal records, tasks, comments, calendar events, and stepper state",
+    actions: ["read", "write"],
+    routePatterns: ["/api/deals"],
+  },
+  {
+    name: "loans",
+    label: "Loans",
+    description: "Loan records, activity, assignees, guarantors, and scenarios",
+    actions: ["read", "write"],
+    routePatterns: ["/api/loans", "/api/applications"],
+  },
+  {
+    name: "borrowers",
+    label: "Borrowers",
+    description: "Borrower applicant records and assignees",
+    actions: ["read", "write"],
+    routePatterns: ["/api/applicants/borrowers", "/api/borrowers"],
+  },
+  {
+    name: "entities",
+    label: "Entities",
+    description: "Entity applicant records, owners, and assignees",
+    actions: ["read", "write"],
+    routePatterns: ["/api/applicants/entities"],
+  },
+  {
+    name: "scenarios",
+    label: "Scenarios",
+    description: "Pricing scenarios and primary scenario selection",
+    actions: ["read", "write"],
+    routePatterns: ["/api/scenarios"],
+  },
+  {
+    name: "programs",
+    label: "Programs",
+    description: "Loan programs and program documents",
+    actions: ["read", "write"],
+    routePatterns: ["/api/programs"],
+  },
+  {
+    name: "appraisals",
+    label: "Appraisals",
+    description: "Appraisal orders, documents, and statuses",
+    actions: ["read", "write"],
+    routePatterns: ["/api/appraisal-orders"],
+  },
+  {
+    name: "documents",
+    label: "Documents",
+    description: "Deal documents, document templates, and AI results",
+    actions: ["read", "write"],
+    routePatterns: ["/api/document-templates"],
+  },
+  {
+    name: "credit_reports",
+    label: "Credit Reports",
+    description: "Credit report records (not trigger operations)",
+    actions: ["read", "write"],
+    routePatterns: ["/api/credit-reports"],
+  },
+  {
+    name: "background_reports",
+    label: "Background Reports",
+    description: "Background report records (not trigger operations)",
+    actions: ["read", "write"],
+    routePatterns: ["/api/background-reports"],
+  },
+  {
+    name: "pipeline",
+    label: "Pipeline",
+    description: "Pipeline view data and loan summary",
+    actions: ["read"],
+    routePatterns: ["/api/pipeline"],
+  },
+  {
+    name: "signature_requests",
+    label: "Signature Requests",
+    description: "E-signature requests and signed document downloads",
+    actions: ["read", "write"],
+    routePatterns: ["/api/signature-requests"],
+  },
+  {
+    name: "contacts",
+    label: "Contacts",
+    description: "Contact records via borrowers and entities",
+    actions: ["read", "write"],
+    routePatterns: ["/api/applicants/borrowers", "/api/applicants/entities"],
+  },
+];

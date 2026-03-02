@@ -550,8 +550,9 @@ function DealsDisplaySettings({
       <Button
         ref={btnRef}
         variant="outline"
+        size="default"
         onClick={() => setOpen(!open)}
-        className="h-8 font-normal"
+        className="font-normal"
       >
         <SlidersHorizontal className="text-muted-foreground" />
         Display
@@ -1098,8 +1099,7 @@ export function DealsDataTable({
               onSetSubGroupBy={setSubGroupBy}
             />
             <Button
-              size="sm"
-              className="h-8"
+              size="default"
               onClick={() =>
                 onNewDeal
                   ? onNewDeal()

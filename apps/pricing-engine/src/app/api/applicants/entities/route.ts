@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId, getUserRoleInOrg, isPrivilegedRole } from "@/lib/orgs"
+import {
+  authForApiRoute,
+  getOrgUuidFromClerkId,
+  getUserRoleInOrg,
+  isPrivilegedRole,
+} from "@/lib/orgs"
 import { buildOwnerRows } from "./owner-helpers"
 
 const ownerSchema = z.object({
@@ -40,8 +44,13 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, userId } = await auth()
-    if (!orgId || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("entities", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 
@@ -211,7 +220,13 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { orgId, userId } = await auth()
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("entities", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "No organization" }, { status: 401 })
 

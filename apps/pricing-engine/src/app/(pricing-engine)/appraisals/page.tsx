@@ -16,7 +16,7 @@ function AppraisalsPageContent() {
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto p-4 pr-5">
+    <div className="flex flex-1 flex-col overflow-auto p-6">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
           <div>
@@ -28,7 +28,7 @@ function AppraisalsPageContent() {
           <AppraisalsTable
             key={refreshKey}
             actionButton={
-              <Button size="sm" className="h-8" onClick={() => setSheetOpen(true)}>
+              <Button size="default" onClick={() => setSheetOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Order
               </Button>

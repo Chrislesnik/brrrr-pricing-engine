@@ -1485,23 +1485,23 @@ export function PricingEngineLayoutSettings() {
                                 {input.linked_table}
                               </Badge>
                             )}
-                            {input.input_type === "boolean" && (input.config as Record<string, unknown>)?.boolean_display && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
+                            {input.input_type === "boolean" && Boolean((input.config as Record<string, unknown>)?.boolean_display) && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                                 variant="secondary"
                               >
-                                {String((input.config as Record<string, unknown>).boolean_display)}
+                                {String((input.config as Record<string, unknown>).boolean_display ?? "")}
                               </Badge>
                             )}
-                            {input.config && (input.config as Record<string, unknown>).address_role && (
+                            {input.config && Boolean((input.config as Record<string, unknown>).address_role) && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
                                 variant="secondary"
                               >
                                 <MapPin className="size-2.5 mr-0.5" />
-                                {String((input.config as Record<string, unknown>).address_role)}
+                                {String((input.config as Record<string, unknown>).address_role ?? "")}
                                 {(input.config as Record<string, unknown>).address_group && (input.config as Record<string, unknown>).address_group !== "property"
-                                  ? ` (${(input.config as Record<string, unknown>).address_group})`
+                                  ? ` (${String((input.config as Record<string, unknown>).address_group)})`
                                   : ""}
                               </Badge>
                             )}
@@ -1510,7 +1510,7 @@ export function PricingEngineLayoutSettings() {
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
                                 variant="secondary"
                               >
-                                {String((input.config as Record<string, unknown>).group)}
+                                {String((input.config as Record<string, unknown>).group ?? "")}
                               </Badge>
                             )}
                             {input.input_type === "table" && Array.isArray((input.config as Record<string, unknown>)?.columns) && (

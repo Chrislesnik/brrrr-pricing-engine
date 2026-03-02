@@ -1,8 +1,8 @@
 import { z } from "zod"
-import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { encryptToHex } from "@/lib/crypto"
 import {
+  authForApiRoute,
   getOrgUuidFromClerkId,
   getUserRoleInOrg,
   isPrivilegedRole,
@@ -61,7 +61,13 @@ function toE164(us: string | undefined | null) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, userId } = await auth()
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("borrowers", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) {
       return NextResponse.json({ error: "No organization" }, { status: 401 })
@@ -187,7 +193,13 @@ export async function POST(req: NextRequest) {
 
 export const GET = async (req: NextRequest) => {
   try {
-    const { orgId, userId } = await auth()
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("borrowers", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) {
       return NextResponse.json({ error: "No organization" }, { status: 401 })

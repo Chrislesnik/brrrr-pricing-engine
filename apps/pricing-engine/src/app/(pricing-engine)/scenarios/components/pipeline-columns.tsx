@@ -27,7 +27,7 @@ import {
   CircleX,
 } from "lucide-react"
 import Link from "next/link"
-import { createSupabaseBrowser } from "@/lib/supabase-browser"
+import { useSupabaseBrowser } from "@/lib/supabase-browser"
 import { cn } from "@repo/lib/cn"
 import { toast } from "@/hooks/use-toast"
 import {
@@ -1203,6 +1203,7 @@ const ACTIVITY_TYPE_OPTIONS = [
 type ActivityType = (typeof ACTIVITY_TYPE_OPTIONS)[number]["value"]
 
 function ActivityLogContent({ loanId }: { loanId: string }) {
+  const supabase = useSupabaseBrowser()
   const { userId, orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
   const [logs, setLogs] = React.useState<ActivityLog[]>([])
@@ -1251,8 +1252,6 @@ function ActivityLogContent({ loanId }: { loanId: string }) {
 
   // Real-time subscription
   React.useEffect(() => {
-    const supabase = createSupabaseBrowser()
-
     const channel = supabase
       .channel(`activity-log-${loanId}`)
       .on(
@@ -1279,7 +1278,7 @@ function ActivityLogContent({ loanId }: { loanId: string }) {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [loanId])
+  }, [loanId, supabase])
 
   const groupedLogs = React.useMemo(() => {
     let filtered = logs

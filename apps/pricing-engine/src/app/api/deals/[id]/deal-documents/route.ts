@@ -785,10 +785,8 @@ export async function DELETE(
       .single();
 
     if (fetchError || !dealDoc) {
-      return NextResponse.json(
-        { error: "Document not found" },
-        { status: 404 }
-      );
+      // Idempotent archive/delete semantics: if already gone, consider operation successful.
+      return NextResponse.json({ ok: true, already_missing: true });
     }
 
     // Check for restore action

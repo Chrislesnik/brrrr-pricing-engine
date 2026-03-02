@@ -31,16 +31,10 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, Columns2, Search } from "lucide-react"
+import { ChevronDown, Search } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Button } from "@repo/ui/shadcn/button"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@repo/ui/shadcn/dropdown-menu"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
@@ -51,6 +45,7 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings"
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 
 declare module "@tanstack/react-table" {
@@ -85,6 +80,17 @@ function formatDate(iso: string | null | undefined) {
 function formatRole(role: string | null | undefined) {
   if (!role) return "-"
   return role.replace(/^org:/, "").replace(/_/g, " ")
+}
+
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    last_name: "Name",
+    clerk_org_role: "Org Role",
+    clerk_member_role: "Member Role",
+    org_count: "Organizations",
+    created_at: "Joined",
+  }
+  return map[columnId] ?? columnId.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()
 }
 
 export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
@@ -330,29 +336,7 @@ export function BrokerIndividualsTable({ data, initialOrgsMap }: Props) {
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 bg-background">
-                <Columns2 className="w-4 h-4 mr-2" />
-                <span className="text-xs font-medium">Customize Columns</span>
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              {table
-                .getAllColumns()
-                .filter((col) => col.getCanHide())
-                .map((col) => (
-                  <DropdownMenuCheckboxItem
-                    key={col.id}
-                    checked={col.getIsVisible()}
-                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                  >
-                    {col.id.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
         </div>
       </div>
       <div className="rounded-md border overflow-x-auto">

@@ -1,8 +1,7 @@
 "use client"
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import React, { use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import { SearchIcon, LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
 import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
@@ -240,7 +239,7 @@ function serializeOutputs(results: ProgramResult[]): Array<Record<string, unknow
         : null
     )
     .filter(Boolean)
-  return out.length > 0 ? out : null
+  return out.length > 0 ? out as Array<Record<string, unknown>> : null
 }
 
 function normalizeOutputs(
@@ -665,7 +664,7 @@ function ScaledHtmlPreview({
     const doc = iframe.contentDocument || iframe.contentWindow?.document
     if (!doc) return
     const embeddedStyles: string[] = []
-    let stripped = html.replace(/<style>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
+    const stripped = html.replace(/<style>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
       embeddedStyles.push(css)
       return ""
     })
@@ -690,8 +689,9 @@ function ScaledHtmlPreview({
 
     if (isEditable) {
       requestAnimationFrame(() => {
-        if (!doc.body) return
-        const textEls = doc.querySelectorAll("h1,h2,h3,h4,h5,h6,p,span,td,th,div,b,em,i,strong")
+        if (!doc || !doc.body) return
+        const d = doc
+        const textEls = d.querySelectorAll("h1,h2,h3,h4,h5,h6,p,span,td,th,div,b,em,i,strong")
         textEls.forEach((el) => {
           const htmlEl = el as HTMLElement
           if (htmlEl.childElementCount !== 0) return
@@ -714,34 +714,34 @@ function ScaledHtmlPreview({
         })
 
         function showImagePopover(img: HTMLImageElement) {
-          doc.querySelector(".ts-img-popover")?.remove()
-          const popover = doc.createElement("div")
+          d.querySelector(".ts-img-popover")?.remove()
+          const popover = d.createElement("div")
           popover.className = "ts-img-popover"
           const rect = img.getBoundingClientRect()
-          const scrollY = doc.documentElement.scrollTop || doc.body.scrollTop
-          const scrollX = doc.documentElement.scrollLeft || doc.body.scrollLeft
+          const scrollY = d.documentElement.scrollTop || d.body.scrollTop
+          const scrollX = d.documentElement.scrollLeft || d.body.scrollLeft
           popover.style.cssText = `position:absolute;top:${rect.bottom + scrollY + 6}px;left:${rect.left + scrollX}px;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);width:220px;font-family:Arial,sans-serif;`
-          const preview = doc.createElement("div")
+          const preview = d.createElement("div")
           preview.style.cssText = "display:flex;justify-content:center;padding:8px;background:#f9fafb;border-radius:6px;margin-bottom:8px;"
-          const previewImg = doc.createElement("img")
+          const previewImg = d.createElement("img")
           previewImg.src = img.src
           previewImg.style.cssText = "max-height:50px;max-width:100%;object-fit:contain;"
           preview.appendChild(previewImg)
           popover.appendChild(preview)
 
-          const dropZone = doc.createElement("div")
+          const dropZone = d.createElement("div")
           dropZone.style.cssText = "border:2px dashed #d1d5db;border-radius:6px;padding:12px;text-align:center;transition:all 0.15s;margin-bottom:8px;"
-          const dropText = doc.createElement("div")
+          const dropText = d.createElement("div")
           dropText.textContent = "Drag & drop to replace"
           dropText.style.cssText = "font-size:11px;color:#6b7280;margin-bottom:6px;"
           dropZone.appendChild(dropText)
 
-          const fileInput = doc.createElement("input")
+          const fileInput = d.createElement("input")
           fileInput.type = "file"
           fileInput.accept = "image/*"
           fileInput.style.display = "none"
 
-          const chooseBtn = doc.createElement("button")
+          const chooseBtn = d.createElement("button")
           chooseBtn.textContent = "Choose File"
           chooseBtn.style.cssText = "background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;color:#000;"
           chooseBtn.addEventListener("click", () => fileInput.click())
@@ -749,7 +749,7 @@ function ScaledHtmlPreview({
           dropZone.appendChild(fileInput)
           popover.appendChild(dropZone)
 
-          const removeBtn = doc.createElement("button")
+          const removeBtn = d.createElement("button")
           removeBtn.textContent = "Remove Image"
           removeBtn.style.cssText = "width:100%;background:#ef4444;color:#fff;border:none;border-radius:4px;padding:6px;font-size:12px;cursor:pointer;"
           removeBtn.addEventListener("click", () => {
@@ -790,17 +790,17 @@ function ScaledHtmlPreview({
             if (f) handleFile(f)
           })
 
-          doc.body.appendChild(popover)
+          d.body.appendChild(popover)
           const closeOnOutside = (e: MouseEvent) => {
             if (!popover.contains(e.target as Node) && e.target !== img) {
               popover.remove()
-              doc.removeEventListener("click", closeOnOutside)
+              d.removeEventListener("click", closeOnOutside)
             }
           }
-          setTimeout(() => doc.addEventListener("click", closeOnOutside), 10)
+          setTimeout(() => d.addEventListener("click", closeOnOutside), 10)
         }
 
-        const images = doc.querySelectorAll("img")
+        const images = d.querySelectorAll("img")
         images.forEach((img) => {
           img.classList.add("ts-replaceable")
           if (img.hasAttribute("data-brand-logo")) {
@@ -941,8 +941,12 @@ const getPlaces = (): GPlaces | undefined => {
   return win.google?.maps?.places
 }
 
-export default function PricingEnginePage() {
-  const searchParams = useSearchParams()
+export default function PricingEnginePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const resolvedSearchParams = use(searchParams)
   const { orgRole } = useAuth()
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
@@ -989,7 +993,10 @@ export default function PricingEnginePage() {
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
   const [isInternalOrg, setIsInternalOrg] = useState<boolean>(false)
 
-  const initialLoanId = searchParams.get("loanId") ?? undefined
+  const initialLoanId =
+    (Array.isArray(resolvedSearchParams?.loanId)
+      ? resolvedSearchParams?.loanId?.[0]
+      : resolvedSearchParams?.loanId) ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
   // Collapse the left app sidebar by default when entering this page.
@@ -1398,6 +1405,8 @@ export default function PricingEnginePage() {
       }
     })()
     return () => { active = false }
+    // formValuesByIdKey is stable serialized form of formValuesById to avoid excessive refetches
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formValuesByIdKey])
 
   // Evaluate expression-based defaults from current form values
@@ -1482,7 +1491,6 @@ export default function PricingEnginePage() {
     setTouched((prev) => prev[code] ? prev : { ...prev, [code]: true })
     clearSignalColor(code)
     setExtraFormValues((prev) => prev[code] === value ? prev : { ...prev, [code]: value })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleApplyFees = useCallback((lo?: string, la?: string) => {
@@ -4584,6 +4592,8 @@ function ResultsPanel({
         setSelected(selectedFromProps)
       }
     }
+    // selected used only for guard to avoid redundant setState; intentionally exclude to run only when props/results change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFromProps, results])
 
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)

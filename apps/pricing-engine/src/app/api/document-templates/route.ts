@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 /**
@@ -9,9 +8,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
  */
 export async function GET() {
   try {
-    const { orgId, userId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("documents", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })
@@ -37,9 +40,13 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, userId } = await auth()
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!orgId) return NextResponse.json({ error: "No active organization" }, { status: 400 })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("documents", "write"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)
     if (!orgUuid) return NextResponse.json({ error: "Organization not found" }, { status: 404 })

@@ -1,14 +1,15 @@
-import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
+import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
 import { getEntitiesForOrg } from "@/app/(pricing-engine)/contacts/data/fetch-entities"
 
 export async function GET() {
   try {
-    const { orgId, userId } = await auth()
-
-    if (!orgId || !userId) {
-      return NextResponse.json({ items: [], ownersMap: {} })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("entities", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
     }
 
     const orgUuid = await getOrgUuidFromClerkId(orgId)

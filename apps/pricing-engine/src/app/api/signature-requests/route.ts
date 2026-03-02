@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
+import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 /**
  * GET /api/signature-requests
@@ -10,10 +9,12 @@ import { getOrgUuidFromClerkId } from "@/lib/orgs"
  */
 export async function GET(req: NextRequest) {
   try {
-    const { userId, orgId: clerkOrgId } = await auth()
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("signature_requests", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
     }
 
     const { searchParams } = new URL(req.url)
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 })
     }
 
-    const orgUuid = clerkOrgId ? await getOrgUuidFromClerkId(clerkOrgId) : null
+    const orgUuid = orgId ? await getOrgUuidFromClerkId(orgId) : null
     const hasOrgAccess = orgUuid && deal.organization_id === orgUuid
 
     const assignedUsers = Array.isArray(deal.assigned_to_user_id)

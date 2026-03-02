@@ -1,6 +1,6 @@
-import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { authForApiRoute } from "@/lib/orgs"
 import { getPipelineLoansForOrg } from "@/app/(pricing-engine)/scenarios/data/fetch-loans"
 
 /* -------------------------------------------------------------------------- */
@@ -91,15 +91,18 @@ function buildInputsMap(
 
 export async function GET(req: NextRequest) {
   try {
-    const { orgId, userId } = await auth()
+    let userId: string, orgId: string
+    try {
+      ({ userId, orgId } = await authForApiRoute("pipeline", "read"))
+    } catch (e: unknown) {
+      const status = (e as { status?: number }).status ?? 401
+      return NextResponse.json({ error: (e as Error).message }, { status })
+    }
     const { searchParams } = new URL(req.url)
     const view = searchParams.get("view")
 
     if (view === "deals") {
       console.log("[Pipeline] userId:", userId, "orgId:", orgId)
-      if (!userId) {
-        return NextResponse.json({ deals: [] }, { status: 401 })
-      }
 
       const { data: userRow, error: userErr } = await supabaseAdmin
         .from("users")
@@ -267,10 +270,6 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Non-deals pipeline view ─────────────────────────────────────────
-    if (!orgId || !userId) {
-      return NextResponse.json({ items: [], starredInputs: [], addressInputs: [], columnRoleInputs: [] })
-    }
-
     const [data, starredRes, allInputsRes] = await Promise.all([
       getPipelineLoansForOrg(orgId, userId),
       supabaseAdmin

@@ -3,6 +3,7 @@
 import React, { Fragment, useEffect, useState } from "react";
 import {
   ColumnDef,
+  ColumnFiltersState,
   ColumnOrderState,
   flexRender,
   getCoreRowModel,
@@ -29,14 +30,13 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, Columns2, Loader2, MessageCircle, MoreHorizontal, Pencil, Search, Users } from "lucide-react";
+import { ChevronDown, Loader2, MessageCircle, MoreHorizontal, Pencil, Search, Users } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -50,7 +50,10 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/shadcn/table";
+import { DataGridFilterMenu } from "@/components/data-grid/data-grid-filter-menu";
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings";
+import { getFilterFn } from "@/lib/data-grid-filters";
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 import {
   Sheet,
@@ -148,6 +151,18 @@ function formatDate(dateStr: string | null): string {
   return `${m}/${d}/${y}`;
 }
 
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    amc: "AMC",
+    file_number: "File #",
+    address: "Address",
+    status: "Status",
+    file_type: "File Type",
+    deal_id: "Deal ID",
+  };
+  return map[columnId] ?? columnId.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+}
+
 const STATUS_COLORS: Record<string, string> = {
   Ordered: "border-blue-500/50 text-blue-600 dark:text-blue-400",
   Assigned: "border-purple-500/50 text-purple-600 dark:text-purple-400",
@@ -208,6 +223,8 @@ function buildColumns(
       id: "amc",
       accessorFn: (row) => getAmcName(row),
       header: "AMC",
+      meta: { label: "AMC", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<AppraisalOrder>(),
       cell: ({ row }) => (
         <span className="text-sm font-medium">{getAmcName(row.original)}</span>
       ),
@@ -216,6 +233,8 @@ function buildColumns(
       id: "file_number",
       accessorKey: "file_number",
       header: "File #",
+      meta: { label: "File #", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<AppraisalOrder>(),
       cell: ({ row }) => (
         <span className="text-sm font-mono">{row.original.file_number || "—"}</span>
       ),
@@ -224,6 +243,8 @@ function buildColumns(
       id: "address",
       accessorFn: (row) => getAddress(row),
       header: "Address",
+      meta: { label: "Address", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<AppraisalOrder>(),
       cell: ({ row }) => (
         <span className="text-sm truncate max-w-[200px] block">{getAddress(row.original)}</span>
       ),
@@ -232,6 +253,8 @@ function buildColumns(
       id: "status",
       accessorKey: "order_status",
       header: "Status",
+      meta: { label: "Status", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<AppraisalOrder>(),
       cell: ({ row }) => {
         const status = row.original.order_status || "—";
         return (
@@ -248,6 +271,8 @@ function buildColumns(
       id: "file_type",
       accessorKey: "order_type",
       header: "File Type",
+      meta: { label: "File Type", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<AppraisalOrder>(),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{row.original.order_type || "—"}</span>
       ),
@@ -256,6 +281,8 @@ function buildColumns(
       id: "deal_id",
       accessorKey: "deal_id",
       header: "Deal ID",
+      meta: { label: "Deal ID", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<AppraisalOrder>(),
       cell: ({ row }) => (
         <span className="text-sm font-mono text-muted-foreground">
           {row.original.deal_id ? row.original.deal_id.slice(0, 8) + "..." : "—"}
@@ -354,6 +381,7 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -416,10 +444,11 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, columnOrder, columnVisibility, rowSelection },
+    state: { sorting, columnFilters, globalFilter, columnOrder, columnVisibility, rowSelection },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onColumnOrderChange: setColumnOrder,
@@ -482,29 +511,8 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 bg-background">
-                <Columns2 className="w-4 h-4 mr-2" />
-                <span className="text-xs font-medium">Customize Columns</span>
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              {table
-                .getAllColumns()
-                .filter((col) => col.getCanHide())
-                .map((col) => (
-                  <DropdownMenuCheckboxItem
-                    key={col.id}
-                    checked={col.getIsVisible()}
-                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                  >
-                    {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <DataGridFilterMenu table={table} align="end" />
+          <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
           {actionButton}
         </div>
       </div>
