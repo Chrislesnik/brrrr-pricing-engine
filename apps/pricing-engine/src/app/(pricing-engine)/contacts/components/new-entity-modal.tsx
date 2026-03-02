@@ -477,8 +477,6 @@ export function NewEntityModal({
 					<DialogTitle>Borrowing Entity</DialogTitle>
 					{!entityId ? (
 						<ShareModal
-							url={shareUrl || undefined}
-							title="Share Entity Invite"
 							disabled={shareLoading || !shareUrl}
 							trigger={
 								<Button

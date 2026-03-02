@@ -69,7 +69,7 @@ import {
   SchemaViewer,
   type JsonSchema,
 } from "@/components/elements/schema-viewer";
-import { JsonViewer } from "@/components/elements/json-viewer";
+import { JsonViewer, type JsonValue } from "@/components/elements/json-viewer";
 import {
   ApiResponseViewer,
   type ApiResponse,
@@ -1154,8 +1154,8 @@ export function APIKeysSettings() {
                                     endpoint: log.endpoint,
                                     method: log.method,
                                     headers: log.request_headers ?? {},
-                                    body: log.request_body,
-                                  }}
+                                    body: log.request_body ?? null,
+                                  } as JsonValue}
                                   collapsed={1}
                                   searchable
                                   className="rounded-md border bg-background p-2 text-xs"
@@ -1193,7 +1193,7 @@ export function APIKeysSettings() {
                     Latest row JSON
                   </p>
                   <JsonViewer
-                    data={requestLogs[0] as unknown as Record<string, unknown>}
+                    data={requestLogs[0] as unknown as JsonValue}
                     collapsed={1}
                     searchable
                     className="text-xs"
@@ -1242,9 +1242,9 @@ export function APIKeysSettings() {
                     <h4 className="font-medium text-sm">Latest Request Payload</h4>
                     <JsonViewer
                       data={
-                        latestWebhookPayload && typeof latestWebhookPayload === "object"
-                          ? (latestWebhookPayload as Record<string, unknown>)
-                          : { payload: latestWebhookPayload ?? "No request sent yet." }
+                        (latestWebhookPayload && typeof latestWebhookPayload === "object"
+                          ? latestWebhookPayload
+                          : { payload: latestWebhookPayload ?? "No request sent yet." }) as JsonValue
                       }
                       collapsed={1}
                       searchable

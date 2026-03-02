@@ -66,15 +66,8 @@ export function MembersSettings() {
   const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
   const [isSavingMemberRole, startMemberRoleTransition] = useTransition();
 
-  if (!isLoaded || !organization) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   useEffect(() => {
+    if (!isLoaded || !organization) return;
     let isMounted = true;
     async function loadMemberRoles() {
       setIsMemberRoleLoading(true);
@@ -104,7 +97,15 @@ export function MembersSettings() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isLoaded, organization]);
+
+  if (!isLoaded || !organization) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const membersList = memberships?.data || [];
   const filteredMembers = membersList.filter((m) => {

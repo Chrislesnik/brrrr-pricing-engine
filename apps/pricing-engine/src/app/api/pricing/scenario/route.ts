@@ -139,31 +139,35 @@ export async function POST(req: Request) {
             for (const ba of brokerOrgAssignments ?? []) {
               const baUserId = ba.user_id as string
               if (baUserId === userId) continue // Already assigned above
-              await supabaseAdmin.from("role_assignments").insert({
-                resource_type: "loan",
-                resource_id: loanId,
-                role_type_id: ba.role_type_id,
-                user_id: baUserId,
-                organization_id: orgUuid,
-                created_by: userId,
-              }).then(() => {
+              try {
+                await supabaseAdmin.from("role_assignments").insert({
+                  resource_type: "loan",
+                  resource_id: loanId,
+                  role_type_id: ba.role_type_id,
+                  user_id: baUserId,
+                  organization_id: orgUuid,
+                  created_by: userId,
+                })
                 assignedUserIds.push(baUserId)
-              }).catch(() => {
+              } catch {
                 // Skip duplicates or errors
-              })
+              }
             }
           }
         }
 
         // Sync deal_users for chat filtering
         if (assignedUserIds.length > 0) {
-          await supabaseAdmin
-            .from("deal_users")
-            .upsert(
-              assignedUserIds.map((uid) => ({ deal_id: loanId!, user_id: uid })),
-              { onConflict: "deal_id,user_id" }
-            )
-            .catch(() => {})
+          try {
+            await supabaseAdmin
+              .from("deal_users")
+              .upsert(
+                assignedUserIds.map((uid) => ({ deal_id: loanId!, user_id: uid })),
+                { onConflict: "deal_id,user_id" }
+              )
+          } catch {
+            // ignore
+          }
         }
       } catch {
         // Auto-assignment should not block loan creation

@@ -763,6 +763,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
           isInternalOrg={isInternalOrg}
           onStatusChange={handleStatusChange}
           statusFilters={statusFilters}
+          uploadDocumentWithRetry={uploadDocumentWithRetry}
         />
       ) : (
         <>
@@ -1166,7 +1167,7 @@ function DocumentTypeRow({
           try {
             // Normalize drag/drop File objects to avoid browser-specific stale blob handles.
             const bytes = await f.arrayBuffer();
-            const normalized = new File([bytes], f.name, {
+            const normalized = new globalThis.File([new Uint8Array(bytes)], f.name, {
               type: f.type,
               lastModified: f.lastModified,
             });
@@ -1208,7 +1209,7 @@ function DocumentTypeRow({
           const f = droppedFiles[i];
           try {
             const bytes = await f.arrayBuffer();
-            const normalized = new File([bytes], f.name, {
+            const normalized = new globalThis.File([new Uint8Array(bytes)], f.name, {
               type: f.type,
               lastModified: f.lastModified,
             });
@@ -1582,6 +1583,7 @@ interface FileManagerViewProps {
   isInternalOrg: boolean;
   onStatusChange: (docId: number, documentFileId: number, newStatusId: number) => void;
   statusFilters: Set<number>;
+  uploadDocumentWithRetry: (file: File, documentTypeId?: number | null) => Promise<Response>;
 }
 
 function FileManagerView({
@@ -1601,6 +1603,7 @@ function FileManagerView({
   isInternalOrg,
   onStatusChange,
   statusFilters,
+  uploadDocumentWithRetry,
 }: FileManagerViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadDragOver, setUploadDragOver] = useState(false);

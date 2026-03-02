@@ -129,9 +129,6 @@ export async function POST(
       if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
       data = existing as Record<string, unknown>
     }
-    const error = null
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
     // Write to normalized tables
     if (body.inputs !== undefined) {
       await writeScenarioInputs(id, body.inputs as Record<string, unknown>)

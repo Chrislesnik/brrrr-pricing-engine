@@ -1,15 +1,14 @@
 /**
  * Test Supabase connection
  */
-export async function testSupabase(config: Record<string, string>): Promise<void> {
+export async function testSupabase(config: Record<string, string>): Promise<{ success: boolean; error?: string }> {
   const url = config.supabaseUrl;
   const key = config.supabaseKey;
 
   if (!url || !key) {
-    throw new Error("Supabase URL and key are required");
+    return { success: false, error: "Supabase URL and key are required" };
   }
 
-  // Test by fetching the health endpoint
   const res = await fetch(`${url}/rest/v1/`, {
     headers: {
       apikey: key,
@@ -18,6 +17,8 @@ export async function testSupabase(config: Record<string, string>): Promise<void
   });
 
   if (!res.ok) {
-    throw new Error(`Connection failed: HTTP ${res.status}`);
+    return { success: false, error: `Connection failed: HTTP ${res.status}` };
   }
+
+  return { success: true };
 }

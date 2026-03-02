@@ -15,6 +15,16 @@ import {
   SelectValue,
 } from "@repo/ui/shadcn/select"
 import { toast } from "sonner"
+import {
+  Stepper,
+  StepperItem,
+  StepperTrigger,
+  StepperIndicator,
+  StepperSeparator,
+  StepperTitle,
+  StepperDescription,
+  StepperNav,
+} from "@/components/ui/stepper"
 
 const STEPS = [
   { label: "Borrower", description: "Primary borrower information" },
@@ -261,6 +271,16 @@ export function LoanApplicationForm({ className }: { className?: string }) {
     return Object.keys(errs).length === 0
   }, [step, form])
 
+  const handleStepChange = useCallback((newStep: number) => {
+    if (newStep < step) {
+      if (newStep === 2 && form.vesting_type === "individual") {
+        setStep(1)
+        return
+      }
+      setStep(newStep)
+    }
+  }, [step, form.vesting_type])
+
   const next = useCallback(() => {
     if (entityStepSkipped) {
       setStep((s) => Math.min(s + 2, STEPS.length - 1))
@@ -415,53 +435,46 @@ export function LoanApplicationForm({ className }: { className?: string }) {
   ]
 
   return (
-    <div className={cn("flex flex-col overflow-hidden", className)}>
-      {/* Stepper */}
-      <div className="border-b bg-muted/30 px-6 py-4">
-        <div className="flex items-center gap-1">
-          {STEPS.map((s, i) => {
-            const isSkipped = i === 2 && form.vesting_type === "individual"
-            return (
-              <div key={i} className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    if (i < step && !isSkipped) setStep(i)
-                  }}
+    <div className={cn("flex overflow-hidden", className)}>
+      {/* Vertical Stepper Sidebar */}
+      <aside className="w-60 shrink-0 border-r bg-muted/10 overflow-y-auto p-6">
+        <Stepper
+          value={step + 1}
+          onValueChange={(v) => handleStepChange(v - 1)}
+          orientation="vertical"
+          indicators={{ completed: <Check className="h-4 w-4" /> }}
+        >
+          <StepperNav>
+            {STEPS.map((s, i) => {
+              const isSkipped = i === 2 && form.vesting_type === "individual"
+              return (
+                <StepperItem
+                  key={i}
+                  step={i + 1}
                   disabled={i > step || isSkipped}
-                  className={cn(
-                    "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                    i === step &&
-                      "bg-primary text-primary-foreground",
-                    i < step && !isSkipped &&
-                      "bg-primary/10 text-primary cursor-pointer hover:bg-primary/20",
-                    isSkipped &&
-                      "bg-muted/50 text-muted-foreground/40 cursor-default line-through",
-                    i > step && !isSkipped &&
-                      "bg-muted text-muted-foreground cursor-default"
-                  )}
+                  className={cn("relative items-start", isSkipped && "opacity-40")}
                 >
-                  <span
-                    className={cn(
-                      "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
-                      i === step && "bg-primary-foreground/20",
-                      i < step && !isSkipped && "bg-primary/20",
-                      (i > step || isSkipped) && "bg-muted-foreground/20"
-                    )}
-                  >
-                    {i < step && !isSkipped ? <Check className="h-3 w-3" /> : i + 1}
-                  </span>
-                  <span className="hidden sm:inline">{s.label}</span>
-                </button>
-                {i < STEPS.length - 1 && (
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                  <StepperTrigger className="items-start pb-8">
+                    <StepperIndicator>{i + 1}</StepperIndicator>
+                    <div className="flex flex-col gap-0.5 text-left">
+                      <StepperTitle className={cn(isSkipped && "line-through")}>
+                        {s.label}
+                      </StepperTitle>
+                      <StepperDescription>{s.description}</StepperDescription>
+                    </div>
+                  </StepperTrigger>
+                  {i < STEPS.length - 1 && (
+                    <StepperSeparator className="absolute left-4 top-8 -z-10 -order-1 h-[calc(100%-8px)] w-0.5 flex-none -translate-x-1/2" />
+                  )}
+                </StepperItem>
+              )
+            })}
+          </StepperNav>
+        </Stepper>
+      </aside>
 
-      {/* Step Content */}
+      {/* Form Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-2xl space-y-6">
           <div>
@@ -1136,6 +1149,7 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

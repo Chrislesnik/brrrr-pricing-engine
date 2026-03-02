@@ -492,7 +492,7 @@ export const workflowApi = {
       created_at: string;
       updated_at: string;
     }> }>("/api/automations");
-    return (res.automations ?? []).map((a) => ({
+    return (res.actions ?? []).map((a: (typeof res.actions)[number]) => ({
       id: a.uuid,
       name: a.name,
       description: a.description || undefined,
@@ -515,7 +515,7 @@ export const workflowApi = {
       created_at: string;
       updated_at: string;
     } }>(`/api/automations/${id}`);
-    const a = res.automation;
+    const a = res.action;
     return {
       id: a.uuid,
       name: a.name,
@@ -544,7 +544,7 @@ export const workflowApi = {
         description: workflow.description || null,
       }),
     });
-    const a = res.automation;
+    const a = res.action;
     return {
       id: a.uuid,
       name: a.name,
@@ -588,7 +588,7 @@ export const workflowApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
-    const a = res.automation;
+    const a = res.action;
     return {
       id: a.uuid,
       name: a.name,

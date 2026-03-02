@@ -92,9 +92,7 @@ export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  // Support POST for status updates, per consumer requirement
-  return PATCH(req, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return PATCH(req, context);
 }
 
 export async function DELETE(
