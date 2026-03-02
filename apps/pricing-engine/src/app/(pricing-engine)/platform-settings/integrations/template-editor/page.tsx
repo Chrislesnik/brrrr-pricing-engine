@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { use, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FileCode2, Mail, GlobeLock, Sparkles } from "lucide-react"
 import { cn } from "@repo/lib/cn"
@@ -42,14 +42,27 @@ const studioNavItems: NavItem[] = [
   },
 ]
 
-export default function TemplateEditorPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+function getSearchParam(
+  sp: { [key: string]: string | string[] | undefined },
+  key: string
+): string | null {
+  const v = sp?.[key]
+  return Array.isArray(v) ? v[0] ?? null : (v ?? null)
+}
 
-  const tabParam = searchParams.get("tab") as StudioTab | null
-  const activeTab: StudioTab = tabParam && ["documents", "emails", "sites"].includes(tabParam)
-    ? tabParam
-    : "documents"
+export default function TemplateEditorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const router = useRouter()
+  const resolvedSearchParams = use(searchParams)
+
+  const tabParam = getSearchParam(resolvedSearchParams, "tab") as StudioTab | null
+  const activeTab: StudioTab =
+    tabParam && ["documents", "emails", "sites"].includes(tabParam)
+      ? tabParam
+      : "documents"
 
   useEffect(() => {
     if (!tabParam) {
@@ -57,7 +70,9 @@ export default function TemplateEditorPage() {
     }
   }, [tabParam, router])
 
-  const isEditorMode = searchParams.get("template") !== null || searchParams.get("new") === "true"
+  const isEditorMode =
+    getSearchParam(resolvedSearchParams, "template") !== null ||
+    getSearchParam(resolvedSearchParams, "new") === "true"
 
   if (activeTab === "documents" && isEditorMode) {
     return <DocumentsTab />

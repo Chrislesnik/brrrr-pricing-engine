@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { use, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useOrganization, useOrganizationList } from "@clerk/nextjs";
@@ -122,18 +122,34 @@ const settingsNavItems: NavItem[] = [
   },
 ];
 
-export default function OrganizationSettingsPage() {
-  const params = useParams();
+type PageProps = {
+  params: Promise<{ orgId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+function getSearchParam(
+  sp: { [key: string]: string | string[] | undefined },
+  key: string
+): string | null {
+  const v = sp?.[key];
+  return Array.isArray(v) ? v[0] ?? null : (v ?? null);
+}
+
+export default function OrganizationSettingsPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const resolvedParams = use(params);
+  const resolvedSearchParams = use(searchParams);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const orgIdFromUrl = params.orgId as string;
-  
+  const orgIdFromUrl = resolvedParams.orgId;
+
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { setActive } = useOrganizationList();
   const [isValidating, setIsValidating] = useState(true);
-  
+
   // Get active tab from URL search params, default to "general"
-  const tabParam = searchParams.get("tab");
+  const tabParam = getSearchParam(resolvedSearchParams, "tab");
   const activeTab = (tabParam as SettingsTab) || "general";
 
   // Validate that the URL org matches the active org, or switch to it

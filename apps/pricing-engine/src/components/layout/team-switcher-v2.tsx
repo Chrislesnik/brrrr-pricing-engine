@@ -153,8 +153,8 @@ export function TeamSwitcherV2() {
               >
                 {/* EXACT same structure as nav-user.tsx - just with organization data */}
 
-                {/* Organization icon - same size as nav-user avatar */}
-                <div className="h-8 w-8 flex items-center justify-center rounded-lg border shrink-0 overflow-hidden">
+                {/* Organization icon - aspect-square size-8 per shadcn sidebar-07 */}
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg shrink-0 overflow-hidden border">
                   {currentOrg.imageUrl ? (
                     <Image
                       src={currentOrg.imageUrl}

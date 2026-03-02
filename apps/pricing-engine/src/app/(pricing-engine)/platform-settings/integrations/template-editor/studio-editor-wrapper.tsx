@@ -56,21 +56,21 @@ function qrCodePlugin(editor: any) {
         resizable: true,
         droppable: false,
       },
-      init() {
+      init(this: { on: (e: string, cb: () => void) => void; updateQrSrc: () => void }) {
         this.on("change:attributes:data-qr-data", this.updateQrSrc)
         this.on("change:attributes:data-qr-size", this.updateQrSrc)
         this.on("change:attributes:data-qr-mode", this.updateQrSrc)
         this.on("change:attributes:data-qr-variable", this.updateQrSrc)
         this.updateQrSrc()
       },
-      updateQrSrc() {
+      updateQrSrc(this: { getAttributes: () => Record<string, string>; set: (k: string, v: string) => void; addAttributes: (a: Record<string, string>) => void }) {
         const src = buildQrSrc(this.getAttributes())
         this.set("src", src)
         this.addAttributes({ src })
       },
     },
     view: {
-      onRender() {
+      onRender(this: { model: { getAttributes: () => Record<string, string> }; el: HTMLElement }) {
         const attrs = this.model.getAttributes()
         const src = buildQrSrc(attrs)
         const size = attrs["data-qr-size"] || "150"
@@ -201,11 +201,11 @@ function brandLogoPlugin(editor: any, orgLogos: { light: string | null; dark: st
         resizable: true,
         droppable: false,
       },
-      init() {
+      init(this: { on: (e: string, cb: () => void) => void; updateLogoSrc: () => void }) {
         this.on("change:attributes:data-brand-logo", this.updateLogoSrc)
         this.updateLogoSrc()
       },
-      updateLogoSrc() {
+      updateLogoSrc(this: { getAttributes: () => Record<string, string>; set: (k: string, v: string) => void; addAttributes: (a: Record<string, string>) => void }) {
         const mode = this.getAttributes()["data-brand-logo"] || "light"
         const src = getLogoSrc(mode)
         this.set("src", src)
@@ -213,7 +213,7 @@ function brandLogoPlugin(editor: any, orgLogos: { light: string | null; dark: st
       },
     },
     view: {
-      onRender() {
+      onRender(this: { model: { getAttributes: () => Record<string, string> }; el: HTMLElement }) {
         const attrs = this.model.getAttributes()
         const mode = attrs["data-brand-logo"] || "light"
         const src = getLogoSrc(mode)
@@ -503,9 +503,7 @@ export function StudioEditorWrapper({
                         {
                           id: "ai-chat",
                           label: "AI",
-                          children: {
-                            type: "aiChatPanel",
-                          },
+                          children: { type: "aiChatPanel" } as never,
                         },
                       ],
                     },

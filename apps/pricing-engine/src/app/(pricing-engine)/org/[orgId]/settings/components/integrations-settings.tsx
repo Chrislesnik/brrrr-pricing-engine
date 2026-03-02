@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { Settings2, Trash2, Loader2 } from "lucide-react";
 
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { useSupabaseBrowser } from "@/lib/supabase-browser";
 import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon";
 import { IntegrationSettingsSheet } from "./integration-settings-sheet";
 
@@ -67,13 +67,13 @@ function IntegrationLogo({ slug, name }: { slug: string; name: string }) {
 }
 
 export function IntegrationsSettings() {
+  const supabase = useSupabaseBrowser();
   const [integrations, setIntegrations] = useState<IntegrationSettingsRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingIntegration, setEditingIntegration] = useState<IntegrationSettingsRow | null>(null);
 
   const loadIntegrations = useCallback(async () => {
     try {
-      const supabase = createSupabaseBrowser();
       const [{ data: settings }, { data: tagRows }] = await Promise.all([
         supabase.from("integration_settings").select("*").order("name"),
         supabase.from("integration_tags").select("integration_settings_id, tag"),
@@ -95,7 +95,7 @@ export function IntegrationsSettings() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     loadIntegrations();

@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export { isPrivilegedRole } from "@/lib/utils"
@@ -9,12 +10,12 @@ export { isPrivilegedRole } from "@/lib/utils"
  * RPC calls through this client carry the org_id/org_role/member_role
  * claims that the can_access_org_resource() function needs.
  */
-async function supabaseForCaller(): Promise<ReturnType<typeof createClient>> {
+async function supabaseForCaller() {
   const { getToken } = await auth()
   const token = await getToken({ template: "supabase" })
   if (!token) throw new Error("Missing Supabase JWT from Clerk session")
 
-  return createClient(
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,

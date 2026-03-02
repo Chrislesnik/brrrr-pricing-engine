@@ -145,7 +145,13 @@ function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
   return "all";
 }
 
-function compilePolicy(definition: PolicyDefinitionInput) {
+type CompiledCondition = { field: string; operator: string; values: string[] };
+
+function compilePolicy(definition: PolicyDefinitionInput): {
+  allow_internal_users: boolean;
+  conditions: CompiledCondition[];
+  [key: string]: unknown;
+} {
   const legacyScope = deriveLegacyScope(definition);
   const conditions = (definition.conditions ?? []).map((c) => ({
     field: c.field,
@@ -191,7 +197,11 @@ function compilePolicy(definition: PolicyDefinitionInput) {
     };
   }
 
-  const compiled: Record<string, unknown> = {
+  const compiled: {
+    allow_internal_users: boolean;
+    conditions: CompiledCondition[];
+    [key: string]: unknown;
+  } = {
     version: 3,
     allow_internal_users: !!definition.allowInternalUsers,
     rules: [ruleObj],

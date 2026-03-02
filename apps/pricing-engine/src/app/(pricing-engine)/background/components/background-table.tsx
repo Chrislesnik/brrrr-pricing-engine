@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
+  ColumnFiltersState,
   ColumnOrderState,
   flexRender,
   getCoreRowModel,
@@ -51,7 +52,10 @@ import {
 } from "@repo/ui/shadcn/dropdown-menu";
 import { cn } from "@repo/lib/cn";
 import { ArchiveConfirmDialog } from "@/components/archive/archive-confirm-dialog";
+import { DataGridFilterMenu } from "@/components/data-grid/data-grid-filter-menu";
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings";
+import { getFilterFn } from "@/lib/data-grid-filters";
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 import { BackgroundDetailSheet } from "./background-detail-sheet";
 
@@ -123,6 +127,16 @@ function formatDate(dateStr: string | null): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    name: "Name",
+    type: "Type",
+    status: "Status",
+    created_at: "Created",
+  };
+  return map[columnId] ?? columnId.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
 }
 
 /* -------------------------------------------------------------------------- */
@@ -246,6 +260,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundRepor
       id: "name",
       accessorFn: (row) => getDisplayName(row),
       header: "Name",
+      meta: { label: "Name", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<BackgroundReport>(),
       cell: ({ row }) => {
         const name = getDisplayName(row.original);
         return (
@@ -257,6 +273,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundRepor
       id: "type",
       accessorFn: (row) => row.type ?? (row.is_entity ? "entity" : "person"),
       header: "Type",
+      meta: { label: "Type", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<BackgroundReport>(),
       cell: ({ row }) => {
         const t = row.original.type ?? (row.original.is_entity ? "entity" : "person");
         return (
@@ -270,6 +288,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundRepor
       id: "status",
       accessorKey: "status",
       header: "Status",
+      meta: { label: "Status", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<BackgroundReport>(),
       cell: ({ row }) => {
         const status = row.original.status || "pending";
         return (
@@ -291,6 +311,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<BackgroundRepor
       id: "created_at",
       accessorKey: "created_at",
       header: "Created",
+      meta: { label: "Created", cell: { variant: "date" as const } },
+      filterFn: getFilterFn<BackgroundReport>(),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.created_at)}
@@ -319,6 +341,7 @@ export function BackgroundTable({ actionButton }: { actionButton?: React.ReactNo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [selectedReport, setSelectedReport] = useState<BackgroundReport | null>(null);
@@ -373,10 +396,11 @@ export function BackgroundTable({ actionButton }: { actionButton?: React.ReactNo
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, columnOrder, columnVisibility, rowSelection },
+    state: { sorting, columnFilters, globalFilter, columnOrder, columnVisibility, rowSelection },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onColumnOrderChange: setColumnOrder,
@@ -426,9 +450,9 @@ export function BackgroundTable({ actionButton }: { actionButton?: React.ReactNo
         <div className="flex items-center space-x-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 bg-background">
+              <Button variant="outline" size="default" className="font-normal bg-background">
                 <Columns2 className="w-4 h-4 mr-2" />
-                <span className="text-xs font-medium">Customize Columns</span>
+                Customize Columns
                 <ChevronDown className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
@@ -442,11 +466,13 @@ export function BackgroundTable({ actionButton }: { actionButton?: React.ReactNo
                     checked={col.getIsVisible()}
                     onCheckedChange={(value) => col.toggleVisibility(!!value)}
                   >
-                    {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                    {formatColumnName(col.id)}
                   </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <DataGridFilterMenu table={table} align="end" />
+          <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
           {actionButton}
         </div>
       </div>

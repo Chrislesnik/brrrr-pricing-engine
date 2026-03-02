@@ -194,7 +194,7 @@ export function MembersSettings() {
         <InviteMemberDialog
           open={showInviteDialog}
           onOpenChange={setShowInviteDialog}
-          onSuccess={() => memberships?.revalidate()}
+          onSuccess={() => memberships?.revalidate?.()}
           orgName={organization.name}
           orgReadOnly
         />

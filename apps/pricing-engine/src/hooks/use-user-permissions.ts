@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useUser, useAuth } from "@clerk/nextjs"
 import type { ContactType, UserPermissions, UserRole } from "@/types/auth"
 
 type HookState = {
@@ -12,6 +12,7 @@ type HookState = {
 
 export function useUserPermissions(): HookState {
   const { user, isLoaded, isSignedIn } = useUser()
+  const { orgId } = useAuth()
 
   const permissions = useMemo<UserPermissions | null>(() => {
     if (!isLoaded || !isSignedIn || !user) return null
@@ -26,8 +27,23 @@ export function useUserPermissions(): HookState {
       metadata.contact_type ??
       "Borrower") as ContactType
 
-    const role = (metadata.role ??
-      user.organizationMemberships?.[0]?.role?.replace("org:", "") ??
+    const activeMembership = orgId
+      ? user.organizationMemberships?.find(
+          (m) => m.organization?.id === orgId,
+        )
+      : user.organizationMemberships?.[0]
+
+    const membershipMeta = (activeMembership?.publicMetadata ?? {}) as Record<
+      string,
+      unknown
+    >
+    const orgMemberRole =
+      typeof membershipMeta.org_member_role === "string"
+        ? membershipMeta.org_member_role
+        : null
+
+    const role = (orgMemberRole ??
+      activeMembership?.role?.replace("org:", "") ??
       "member") as UserRole
 
     return {
@@ -35,7 +51,7 @@ export function useUserPermissions(): HookState {
       role,
       ...permissionFlags,
     }
-  }, [isLoaded, isSignedIn, user])
+  }, [isLoaded, isSignedIn, user, orgId])
 
   return {
     permissions,

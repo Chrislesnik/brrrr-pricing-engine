@@ -110,7 +110,7 @@ const integrationIcons = {
   ),
 }
 
-type IntegrationType = {
+type PlatformIntegration = {
   name: string
   description: string
   icon: keyof typeof integrationIcons
@@ -119,7 +119,7 @@ type IntegrationType = {
   link?: string
 }
 
-const baseIntegrations: IntegrationType[] = [
+const baseIntegrations: PlatformIntegration[] = [
   {
     name: "Floify",
     description: "Manage loan applications, documents, and borrower communication.",
@@ -184,7 +184,7 @@ const PLATFORM_TYPES = ["floify", "xactus", "clear", "nadlan"]
 const WORKFLOW_TYPES = Object.keys(allIntegrationMeta).filter((t) => !PLATFORM_TYPES.includes(t))
 
 export default function SettingsIntegrationsPage() {
-  const [activeIntegrations, setActiveIntegrations] = React.useState<IntegrationType[]>(baseIntegrations)
+  const [activeIntegrations, setActiveIntegrations] = React.useState<PlatformIntegration[]>(baseIntegrations)
   const [tab, setTab] = React.useState<"all" | "active" | "inactive">("all")
   const [query, setQuery] = React.useState("")
   const [_loading, setLoading] = React.useState(false)

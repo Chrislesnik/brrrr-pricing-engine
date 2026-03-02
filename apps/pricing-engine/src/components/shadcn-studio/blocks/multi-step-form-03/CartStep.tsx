@@ -6,7 +6,7 @@ import { IconEye, IconEyeOff } from "@tabler/icons-react"
 import { motion, AnimatePresence } from "motion/react"
 import { FaFeatherAlt } from "react-icons/fa"
 import { GiStoneBlock } from "react-icons/gi"
-import { createSupabaseBrowser } from "@/lib/supabase-browser"
+import { useSupabaseBrowser } from "@/lib/supabase-browser"
 import { cn } from "@repo/lib/cn"
 import { isUuid } from "@/lib/uuid"
 import { useToast } from "@/hooks/use-toast"
@@ -269,7 +269,7 @@ const CartStep = ({
   const [appraisalDueDateCalMonth, setAppraisalDueDateCalMonth] = useState<
     Date | undefined
   >(new Date())
-  const supabase = useMemo(() => createSupabaseBrowser(), [])
+  const supabase = useSupabaseBrowser()
   const refreshAbortRef = useRef<AbortController | null>(null)
   const appraisalIdMapsRef = useRef<Record<string, Record<string, number>>>({})
 

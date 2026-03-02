@@ -1156,12 +1156,12 @@ export function InputsSettings() {
                                 {input.linked_table}
                               </Badge>
                             )}
-                            {input.input_type === "boolean" && (input.config as Record<string, unknown>)?.boolean_display && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
+                            {input.input_type === "boolean" && Boolean((input.config as Record<string, unknown>)?.boolean_display) && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                                 variant="secondary"
                               >
-                                {String((input.config as Record<string, unknown>).boolean_display)}
+                                {String((input.config as Record<string, unknown>).boolean_display ?? "")}
                               </Badge>
                             )}
                             <div className="ml-auto flex items-center gap-1 shrink-0">

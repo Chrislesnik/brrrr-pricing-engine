@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { use } from "react";
+import { useRouter } from "next/navigation";
 import {
   PDFViewer,
   type PDFViewerHandle,
@@ -10,13 +11,17 @@ import {
 import { TestChatPanel, type ParseStatus } from "@/components/test-chat-panel";
 import { Button } from "@repo/ui/shadcn/button";
 import { ArrowLeft, Loader2, FileWarning } from "lucide-react";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { useSupabaseBrowser } from "@/lib/supabase-browser";
 
-export default function DocumentViewerPage() {
-  const params = useParams();
+export default function DocumentViewerPage({
+  params,
+}: {
+  params: Promise<{ id: string; docId: string }>;
+}) {
+  const resolvedParams = use(params);
   const router = useRouter();
-  const dealId = params.id as string;
-  const docId = params.docId as string;
+  const dealId = resolvedParams.id;
+  const docId = resolvedParams.docId;
 
   const [pdfUrl, setPdfUrl] = React.useState<string | null>(null);
   const [fileName, setFileName] = React.useState<string>("");
@@ -32,12 +37,11 @@ export default function DocumentViewerPage() {
   );
   const [isRetrying, setIsRetrying] = React.useState(false);
 
+  const supabase = useSupabaseBrowser();
+
   // Keep a stable ref to the Supabase Realtime channel so we can clean up
   const channelRef = React.useRef<ReturnType<
-    ReturnType<typeof createSupabaseBrowser>["channel"]
-  > | null>(null);
-  const supabaseRef = React.useRef<ReturnType<
-    typeof createSupabaseBrowser
+    typeof supabase.channel
   > | null>(null);
 
   // Fetch signed URL on mount
@@ -107,11 +111,7 @@ export default function DocumentViewerPage() {
         channelRef.current = null;
       }
 
-      if (!supabaseRef.current) {
-        supabaseRef.current = createSupabaseBrowser();
-      }
-
-      const channel = supabaseRef.current
+      const channel = supabase
         .channel(`llama-parse-status-${fileId}`)
         .on(
           "postgres_changes",
@@ -137,7 +137,7 @@ export default function DocumentViewerPage() {
 
       channelRef.current = channel;
     },
-    []
+    [supabase]
   );
 
   // Start Realtime subscription when status is not COMPLETE and we have a fileId

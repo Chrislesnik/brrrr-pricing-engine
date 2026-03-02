@@ -131,26 +131,17 @@ export async function setOrgMemberRole(input: {
 
   if (error) throw new Error(error.message);
 
-  // Sync updated role to Clerk metadata so the user's JWT is refreshed
-  // with the new claim on the next token rotation.
+  // Sync updated role to Clerk membership metadata so the user's JWT
+  // includes the new org_member_role claim on the next token rotation.
   try {
     const clerk = await clerkClient();
-    const memberships = await clerk.organizations.getOrganizationMembershipList({
+    await clerk.organizations.updateOrganizationMembershipMetadata({
       organizationId: orgId,
+      userId: input.clerkUserId,
+      publicMetadata: {
+        org_member_role: input.memberRole,
+      },
     });
-    const membership = memberships.data?.find(
-      (m) => m.publicUserData?.userId === input.clerkUserId
-    );
-    if (membership) {
-      await clerk.organizations.updateOrganizationMembership({
-        organizationId: orgId,
-        userId: input.clerkUserId,
-        publicMetadata: {
-          ...(membership.publicMetadata ?? {}),
-          org_member_role: input.memberRole,
-        },
-      });
-    }
   } catch (syncErr) {
     console.error("Failed to sync member role to Clerk metadata:", syncErr);
   }

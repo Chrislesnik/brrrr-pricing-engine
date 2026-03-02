@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   RoomProvider,
   ClientSideSuspense,
@@ -10,7 +10,7 @@ import { Thread, Comment, Composer } from "@liveblocks/react-ui";
 import { Button } from "@repo/ui/shadcn/button";
 import { MessageSquare, X, Loader2, ArrowLeft, MessageCircle } from "lucide-react";
 import type { ThreadData } from "@liveblocks/client";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { useSupabaseBrowser } from "@/lib/supabase-browser";
 
 const COMPOSER_OVERRIDES = {
   COMPOSER_PLACEHOLDER: "Write a message...",
@@ -308,7 +308,7 @@ interface CommentsPanelProps {
 
 function useDealUsersVersion(dealId: string, enabled: boolean) {
   const [version, setVersion] = useState(0);
-  const supabase = useMemo(() => createSupabaseBrowser(), []);
+  const supabase = useSupabaseBrowser();
 
   useEffect(() => {
     if (!enabled) return;
