@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,19 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table";
 import { cn } from "@repo/lib/cn";
+import {
+  WebhookTester,
+  type WebhookResponse,
+} from "@/components/elements/webhook-tester";
+import {
+  SchemaViewer,
+  type JsonSchema,
+} from "@/components/elements/schema-viewer";
+import { JsonViewer } from "@/components/elements/json-viewer";
+import {
+  ApiResponseViewer,
+  type ApiResponse,
+} from "@/components/elements/api-response-viewer";
 
 interface APIKeyData {
   id: string;
@@ -80,6 +94,35 @@ interface ScopeOption {
   value: string;
   label: string;
   group: string;
+}
+
+interface APIToolsCapabilities {
+  canViewKeys: boolean;
+  canCreateKeys: boolean;
+  canRevokeKeys: boolean;
+  canManageKeys: boolean;
+  canViewRequestLogs: boolean;
+  canViewWebhookTester: boolean;
+  canRunWebhookTests: boolean;
+}
+
+type APIToolsTab = "keys" | "request-logs" | "webhook-tester";
+type RequestLogMethod = "ALL" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+interface APIRequestLogRow {
+  id: string;
+  endpoint: string;
+  method: string;
+  status_code: number | null;
+  duration_ms: number | null;
+  api_key_id: string | null;
+  source: string;
+  error_message: string | null;
+  request_headers: Record<string, string> | null;
+  request_body: unknown;
+  response_headers: Record<string, string> | null;
+  response_body: unknown;
+  created_at: string;
 }
 
 type KeyStatus = "active" | "expiring_soon" | "expired" | "revoked";
@@ -126,6 +169,20 @@ function truncateKeyId(id: string): string {
   return `${id.slice(0, 8)}...${id.slice(-6)}`;
 }
 
+function statusTone(statusCode: number | null) {
+  if (!statusCode) return "bg-muted text-muted-foreground border-border";
+  if (statusCode >= 200 && statusCode < 300) {
+    return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400";
+  }
+  if (statusCode >= 400 && statusCode < 500) {
+    return "bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-400";
+  }
+  if (statusCode >= 500) {
+    return "bg-red-500/10 text-red-700 border-red-500/20 dark:text-red-400";
+  }
+  return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-400";
+}
+
 const STATUS_CONFIG: Record<
   KeyStatus,
   { label: string; className: string }
@@ -164,6 +221,35 @@ const EXPIRATION_OPTIONS = [
   { value: "31536000", label: "1 year" },
 ];
 
+const SAMPLE_WEBHOOK_SCHEMA: JsonSchema = {
+  type: "object",
+  title: "Webhook Payload Schema",
+  description: "Expected request body for pricing event webhooks.",
+  required: ["event", "timestamp", "data"],
+  properties: {
+    event: {
+      type: "string",
+      description: "Event name dispatched by the sender.",
+      example: "pricing.updated",
+    },
+    timestamp: {
+      type: "string",
+      format: "date-time",
+      description: "ISO timestamp of the source event.",
+      example: "2026-03-02T12:34:56Z",
+    },
+    data: {
+      type: "object",
+      required: ["dealId", "status"],
+      properties: {
+        dealId: { type: "string", example: "deal_123" },
+        status: { type: "string", example: "active" },
+        amount: { type: "number", example: 1250000 },
+      },
+    },
+  },
+};
+
 function StatusBadge({ status }: { status: KeyStatus }) {
   const config = STATUS_CONFIG[status];
   return (
@@ -177,10 +263,12 @@ function KeyRow({
   apiKey,
   onRevoke,
   onCopyId,
+  canRevoke,
 }: {
   apiKey: APIKeyData;
   onRevoke: (key: APIKeyData) => void;
   onCopyId: (text: string) => void;
+  canRevoke: boolean;
 }) {
   const status = getKeyStatus(apiKey);
   const isInactive = status === "revoked" || status === "expired";
@@ -393,10 +481,10 @@ function KeyRow({
             <DropdownMenuItem
               className="text-destructive focus:text-destructive focus:bg-destructive/10"
               onClick={() => onRevoke(apiKey)}
-              disabled={isInactive}
+              disabled={isInactive || !canRevoke}
             >
               <Trash2 className="size-4 mr-2" />
-              Revoke key
+              {canRevoke ? "Revoke key" : "No revoke permission"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -411,6 +499,11 @@ export function APIKeysSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availableScopes, setAvailableScopes] = useState<ScopeOption[]>([]);
+  const [capabilities, setCapabilities] = useState<APIToolsCapabilities | null>(
+    null
+  );
+  const [capabilitiesLoading, setCapabilitiesLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<APIToolsTab>("keys");
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -425,6 +518,20 @@ export function APIKeysSettings() {
 
   const [revokeTarget, setRevokeTarget] = useState<APIKeyData | null>(null);
   const [isRevoking, setIsRevoking] = useState(false);
+  const [latestWebhookPayload, setLatestWebhookPayload] = useState<unknown>(
+    null
+  );
+  const [latestWebhookResponse, setLatestWebhookResponse] =
+    useState<ApiResponse | null>(null);
+  const [requestLogs, setRequestLogs] = useState<APIRequestLogRow[]>([]);
+  const [requestLogsLoading, setRequestLogsLoading] = useState(false);
+  const [requestLogQuery, setRequestLogQuery] = useState("");
+  const [requestLogStatusFilter, setRequestLogStatusFilter] = useState("all");
+  const [requestLogMethodFilter, setRequestLogMethodFilter] =
+    useState<RequestLogMethod>("ALL");
+  const [expandedRequestLogId, setExpandedRequestLogId] = useState<string | null>(
+    null
+  );
 
   const stats = useMemo(() => {
     const active = apiKeys.filter(
@@ -463,11 +570,166 @@ export function APIKeysSettings() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isLoaded && organization) {
-      fetchKeys();
+  const fetchCapabilities = useCallback(async () => {
+    try {
+      const res = await fetch("/api/org/api-keys/capabilities");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to load API tools capabilities");
+      }
+      const { data } = await res.json();
+      setCapabilities(data);
+      return data as APIToolsCapabilities;
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load API tools capabilities"
+      );
+      return null;
+    } finally {
+      setCapabilitiesLoading(false);
     }
-  }, [isLoaded, organization, fetchKeys]);
+  }, []);
+
+  const fetchRequestLogs = useCallback(async () => {
+    if (!capabilities?.canViewRequestLogs) return;
+    setRequestLogsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "100");
+      if (requestLogQuery.trim()) params.set("q", requestLogQuery.trim());
+      if (requestLogStatusFilter !== "all") {
+        params.set("status", requestLogStatusFilter);
+      }
+      if (requestLogMethodFilter !== "ALL") {
+        params.set("method", requestLogMethodFilter);
+      }
+
+      const res = await fetch(`/api/org/api-keys/request-logs?${params.toString()}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to load API request logs");
+      }
+
+      const { data } = await res.json();
+      setRequestLogs(Array.isArray(data) ? data : []);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load API request logs"
+      );
+    } finally {
+      setRequestLogsLoading(false);
+    }
+  }, [
+    capabilities?.canViewRequestLogs,
+    requestLogMethodFilter,
+    requestLogQuery,
+    requestLogStatusFilter,
+  ]);
+
+  useEffect(() => {
+    async function loadSettings() {
+      if (!isLoaded || !organization) return;
+      const caps = await fetchCapabilities();
+
+      if (caps?.canViewKeys) {
+        await fetchKeys();
+      } else {
+        setIsLoading(false);
+      }
+    }
+
+    loadSettings();
+  }, [isLoaded, organization, fetchCapabilities, fetchKeys]);
+
+  const visibleTabs = useMemo(() => {
+    const tabs: APIToolsTab[] = [];
+    if (capabilities?.canViewKeys) tabs.push("keys");
+    if (capabilities?.canViewRequestLogs) tabs.push("request-logs");
+    if (capabilities?.canViewWebhookTester) tabs.push("webhook-tester");
+    return tabs;
+  }, [capabilities]);
+
+  useEffect(() => {
+    if (visibleTabs.length === 0) return;
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0]);
+    }
+  }, [activeTab, visibleTabs]);
+
+  useEffect(() => {
+    if (activeTab !== "request-logs") return;
+    if (!capabilities?.canViewRequestLogs) return;
+
+    const timer = setTimeout(() => {
+      fetchRequestLogs();
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [
+    activeTab,
+    capabilities?.canViewRequestLogs,
+    fetchRequestLogs,
+    requestLogMethodFilter,
+    requestLogQuery,
+    requestLogStatusFilter,
+  ]);
+
+  const handleWebhookSend = useCallback(
+    async (request: {
+      url: string;
+      method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+      headers: Record<string, string>;
+      body?: string;
+    }): Promise<WebhookResponse> => {
+      if (!capabilities?.canRunWebhookTests) {
+        throw new Error("You don't have permission to run webhook tests.");
+      }
+
+      const res = await fetch("/api/org/api-keys/webhook-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to run webhook test");
+      }
+      const { data } = await res.json();
+
+      let parsedPayload: unknown = request.body ?? null;
+      if (request.body) {
+        try {
+          parsedPayload = JSON.parse(request.body);
+        } catch {
+          parsedPayload = request.body;
+        }
+      }
+
+      setLatestWebhookPayload(parsedPayload);
+      setLatestWebhookResponse({
+        status: data.status,
+        statusText: data.statusText,
+        headers: data.headers,
+        body: data.body,
+        timing: { total: data.timing },
+      });
+
+      if (activeTab === "request-logs") {
+        fetchRequestLogs();
+      }
+
+      return {
+        status: data.status,
+        statusText: data.statusText,
+        headers: data.headers,
+        body: data.body,
+        timing: data.timing,
+      };
+    },
+    [activeTab, capabilities?.canRunWebhookTests, fetchRequestLogs]
+  );
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) return;
@@ -561,6 +823,24 @@ export function APIKeysSettings() {
     );
   }
 
+  if (capabilitiesLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!capabilities || visibleTabs.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">
+          You don&apos;t have permission to access API tools settings.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -568,19 +848,50 @@ export function APIKeysSettings() {
         <div className="space-y-1">
           <h2 className="text-xl font-semibold tracking-tight">API Keys</h2>
           <p className="text-sm text-muted-foreground max-w-lg">
-            Create and manage API keys for third-party integrations. Keys
-            authenticate external services to interact with your
-            organization&apos;s data.
+            Manage API authentication and tooling for external integrations.
+            Access to each section is controlled dynamically by Policy Builder
+            rules.
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} size="sm">
-          <Plus className="size-4 mr-1.5" />
-          Create Key
-        </Button>
+        {activeTab === "keys" && capabilities.canCreateKeys && (
+          <Button onClick={() => setShowCreateDialog(true)} size="sm">
+            <Plus className="size-4 mr-1.5" />
+            Create Key
+          </Button>
+        )}
       </div>
 
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as APIToolsTab)}
+      >
+        <TabsList className="grid h-auto w-full grid-cols-3">
+          <TabsTrigger
+            value="keys"
+            disabled={!capabilities.canViewKeys}
+            className="text-xs sm:text-sm"
+          >
+            Keys
+          </TabsTrigger>
+          <TabsTrigger
+            value="request-logs"
+            disabled={!capabilities.canViewRequestLogs}
+            className="text-xs sm:text-sm"
+          >
+            Request Logs
+          </TabsTrigger>
+          <TabsTrigger
+            value="webhook-tester"
+            disabled={!capabilities.canViewWebhookTester}
+            className="text-xs sm:text-sm"
+          >
+            Webhook Tester
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="keys" className="space-y-6 pt-4">
       {/* Stats bar (only when keys exist) */}
-      {!isLoading && apiKeys.length > 0 && (
+      {capabilities.canViewKeys && !isLoading && apiKeys.length > 0 && (
         <div className="flex items-center gap-5 text-sm">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <span className="font-medium text-foreground">{stats.total}</span>
@@ -617,7 +928,7 @@ export function APIKeysSettings() {
       )}
 
       {/* Table / Empty / Loading */}
-      {isLoading ? (
+      {capabilities.canViewKeys && isLoading ? (
         <Card>
           <CardContent className="flex items-center justify-center py-16">
             <div className="flex flex-col items-center gap-3">
@@ -628,7 +939,7 @@ export function APIKeysSettings() {
             </div>
           </CardContent>
         </Card>
-      ) : apiKeys.length === 0 ? (
+      ) : capabilities.canViewKeys && apiKeys.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="flex size-14 items-center justify-center rounded-full bg-muted mb-4">
@@ -639,14 +950,16 @@ export function APIKeysSettings() {
               Create an API key to allow external services to access your
               organization&apos;s data via authenticated requests.
             </p>
-            <Button
-              size="sm"
-              className="mt-5"
-              onClick={() => setShowCreateDialog(true)}
-            >
-              <Plus className="size-4 mr-1.5" />
-              Create your first key
-            </Button>
+            {capabilities.canCreateKeys && (
+              <Button
+                size="sm"
+                className="mt-5"
+                onClick={() => setShowCreateDialog(true)}
+              >
+                <Plus className="size-4 mr-1.5" />
+                Create your first key
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -669,6 +982,7 @@ export function APIKeysSettings() {
                   apiKey={key}
                   onRevoke={setRevokeTarget}
                   onCopyId={copyText}
+                  canRevoke={capabilities.canRevokeKeys}
                 />
               ))}
             </TableBody>
@@ -686,6 +1000,270 @@ export function APIKeysSettings() {
           </p>
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="request-logs" className="space-y-4 pt-4">
+          <Card className="overflow-hidden">
+            <CardContent className="space-y-4 py-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="font-semibold text-sm">API Request Activity</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Filter and inspect recent API calls in an ngrok-style log stream.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={fetchRequestLogs}
+                  disabled={requestLogsLoading}
+                >
+                  {requestLogsLoading && (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  )}
+                  Refresh
+                </Button>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-4">
+                <Input
+                  value={requestLogQuery}
+                  onChange={(e) => setRequestLogQuery(e.target.value)}
+                  placeholder="Search endpoint or key"
+                  className="md:col-span-2"
+                />
+                <Select
+                  value={requestLogMethodFilter}
+                  onValueChange={(v) =>
+                    setRequestLogMethodFilter(v as RequestLogMethod)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All methods</SelectItem>
+                    <SelectItem value="GET">GET</SelectItem>
+                    <SelectItem value="POST">POST</SelectItem>
+                    <SelectItem value="PUT">PUT</SelectItem>
+                    <SelectItem value="PATCH">PATCH</SelectItem>
+                    <SelectItem value="DELETE">DELETE</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={requestLogStatusFilter}
+                  onValueChange={setRequestLogStatusFilter}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All status</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                    <SelectItem value="201">201</SelectItem>
+                    <SelectItem value="400">400</SelectItem>
+                    <SelectItem value="401">401</SelectItem>
+                    <SelectItem value="403">403</SelectItem>
+                    <SelectItem value="404">404</SelectItem>
+                    <SelectItem value="500">500</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="rounded-lg border">
+                <div className="grid grid-cols-12 border-b bg-muted/30 px-3 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                  <div className="col-span-2">Method</div>
+                  <div className="col-span-4">Endpoint</div>
+                  <div className="col-span-2">Status</div>
+                  <div className="col-span-2">Latency</div>
+                  <div className="col-span-2 text-right">Time</div>
+                </div>
+
+                {requestLogsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : requestLogs.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    No request logs found for the current filters.
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {requestLogs.map((log) => (
+                      <div key={log.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedRequestLogId((prev) =>
+                              prev === log.id ? null : log.id
+                            )
+                          }
+                          className="grid w-full grid-cols-12 items-center px-3 py-2 text-left text-xs hover:bg-muted/20"
+                        >
+                          <div className="col-span-2">
+                            <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                              {log.method}
+                            </span>
+                          </div>
+                          <div className="col-span-4 truncate font-mono text-[11px]">
+                            {log.endpoint}
+                          </div>
+                          <div className="col-span-2">
+                            <span
+                              className={cn(
+                                "rounded border px-1.5 py-0.5 font-mono text-[10px]",
+                                statusTone(log.status_code)
+                              )}
+                            >
+                              {log.status_code ?? "ERR"}
+                            </span>
+                          </div>
+                          <div className="col-span-2 font-mono text-[11px] text-muted-foreground">
+                            {log.duration_ms ? `${log.duration_ms}ms` : "—"}
+                          </div>
+                          <div className="col-span-2 text-right text-muted-foreground">
+                            {formatRelativeDate(new Date(log.created_at).getTime())}
+                          </div>
+                        </button>
+
+                        {expandedRequestLogId === log.id && (
+                          <div className="border-t bg-muted/10 p-3">
+                            <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                              <span className="rounded border px-1.5 py-0.5 font-mono">
+                                id: {truncateKeyId(log.id)}
+                              </span>
+                              {log.api_key_id && (
+                                <span className="rounded border px-1.5 py-0.5 font-mono">
+                                  key: {log.api_key_id}
+                                </span>
+                              )}
+                              {log.error_message && (
+                                <span className="rounded border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-red-600 dark:text-red-400">
+                                  {log.error_message}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid gap-3 lg:grid-cols-2">
+                              <div className="space-y-2">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                  Request
+                                </p>
+                                <JsonViewer
+                                  data={{
+                                    endpoint: log.endpoint,
+                                    method: log.method,
+                                    headers: log.request_headers ?? {},
+                                    body: log.request_body,
+                                  }}
+                                  collapsed={1}
+                                  searchable
+                                  className="rounded-md border bg-background p-2 text-xs"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                  Response
+                                </p>
+                                <ApiResponseViewer
+                                  response={{
+                                    status: log.status_code ?? 0,
+                                    statusText: log.status_code ? "Logged" : "Error",
+                                    headers: log.response_headers ?? {},
+                                    body: log.response_body,
+                                    timing: {
+                                      total: log.duration_ms ?? 0,
+                                    },
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {requestLogs.length > 0 && (
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
+                    Latest row JSON
+                  </p>
+                  <JsonViewer
+                    data={requestLogs[0] as unknown as Record<string, unknown>}
+                    collapsed={1}
+                    searchable
+                    className="text-xs"
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="webhook-tester" className="space-y-4 pt-4">
+          <Card>
+            <CardContent className="space-y-4 py-6">
+              <h3 className="font-semibold text-sm">Mock Webhook Tester</h3>
+              <p className="text-sm text-muted-foreground">
+                This uses `@elements/webhook-tester`, `@elements/schema-viewer`,
+                and `@elements/api-response-viewer` with Policy Builder gating.
+              </p>
+
+              <WebhookTester
+                defaultMethod="POST"
+                defaultBody={JSON.stringify(
+                  {
+                    event: "pricing.updated",
+                    timestamp: new Date().toISOString(),
+                    data: { dealId: "deal_123", status: "active" },
+                  },
+                  null,
+                  2
+                )}
+                defaultHeaders={{ "Content-Type": "application/json" }}
+                onSend={handleWebhookSend}
+                className={!capabilities.canRunWebhookTests ? "opacity-70" : ""}
+              />
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="border-dashed">
+                  <CardContent className="space-y-2 py-4">
+                    <h4 className="font-medium text-sm">Request Schema</h4>
+                    <SchemaViewer schema={SAMPLE_WEBHOOK_SCHEMA} />
+                  </CardContent>
+                </Card>
+
+                <Card className="border-dashed">
+                  <CardContent className="space-y-2 py-4">
+                    <h4 className="font-medium text-sm">Latest Request Payload</h4>
+                    <JsonViewer
+                      data={
+                        latestWebhookPayload && typeof latestWebhookPayload === "object"
+                          ? (latestWebhookPayload as Record<string, unknown>)
+                          : { payload: latestWebhookPayload ?? "No request sent yet." }
+                      }
+                      collapsed={1}
+                      searchable
+                      className="text-xs"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {latestWebhookResponse && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Latest Response</h4>
+                  <ApiResponseViewer response={latestWebhookResponse} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create API Key Dialog */}
       <Dialog

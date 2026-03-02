@@ -25,6 +25,7 @@
       "headers": {
         "Authorization": "Bearer ${TAILARK_API_KEY}"
       }
-    }
+    },
+    "@elements": "https://www.tryelements.dev/r/{name}.json"
   }
 }
