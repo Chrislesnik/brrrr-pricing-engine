@@ -37,8 +37,6 @@ import {
   Download,
   MoreHorizontal,
   Archive,
-  Columns2,
-  ChevronDown,
 } from "lucide-react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
@@ -53,7 +51,6 @@ import {
 } from "@repo/ui/shadcn/table";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -531,29 +528,6 @@ export function CreditTable({ actionButton }: { actionButton?: React.ReactNode }
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="default" className="font-normal bg-background">
-                  <Columns2 className="w-4 h-4 mr-2" />
-                  Customize Columns
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                {table
-                  .getAllColumns()
-                  .filter((col) => col.getCanHide())
-                  .map((col) => (
-                    <DropdownMenuCheckboxItem
-                      key={col.id}
-                      checked={col.getIsVisible()}
-                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                    >
-                      {formatColumnName(col.id)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
             <DataGridFilterMenu table={table} align="end" />
             <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
             {actionButton}

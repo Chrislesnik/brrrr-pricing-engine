@@ -330,6 +330,86 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   /* ----- Upload progress tracking ----- */
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { fileName: string; docTypeId: number | null }>>(new Map());
 
+  const uploadDocumentWithRetry = useCallback(
+    async (file: File, documentTypeId?: number | null): Promise<Response> => {
+      const maxAttempts = 3;
+      const requestTimeoutMs = 20000;
+      let lastError: unknown = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          if (documentTypeId !== null && documentTypeId !== undefined) {
+            formData.append("documentTypeId", String(documentTypeId));
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+          const response = await fetch(`/api/deals/${dealId}/deal-documents`, {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error: any) {
+          lastError = error;
+          const isTransientNetworkError =
+            error?.name === "AbortError" ||
+            /failed to fetch/i.test(String(error?.message ?? ""));
+
+          if (!isTransientNetworkError) {
+            throw error;
+          }
+
+          if (attempt === maxAttempts) {
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        }
+      }
+
+      // Fallback path: some browsers/dev-runtime states can abort fetch uploads.
+      // XHR is more tolerant in those cases while still sending multipart/form-data.
+      const fallbackFormData = new FormData();
+      fallbackFormData.append("file", file);
+      if (documentTypeId !== null && documentTypeId !== undefined) {
+        fallbackFormData.append("documentTypeId", String(documentTypeId));
+      }
+
+      try {
+        const xhrResult = await new Promise<{ status: number; body: string }>(
+          (resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", `/api/deals/${dealId}/deal-documents`);
+            xhr.withCredentials = true;
+            xhr.responseType = "text";
+            xhr.timeout = requestTimeoutMs;
+
+            xhr.onerror = () => reject(new Error("XHR upload failed"));
+            xhr.onabort = () => reject(new Error("XHR upload aborted"));
+            xhr.ontimeout = () => reject(new Error("XHR upload timed out"));
+            xhr.onload = () => {
+              resolve({
+                status: xhr.status,
+                body: typeof xhr.responseText === "string" ? xhr.responseText : "",
+              });
+            };
+
+            xhr.send(fallbackFormData);
+          }
+        );
+
+        return new Response(xhrResult.body, { status: xhrResult.status });
+      } catch (xhrError) {
+        throw xhrError ?? lastError ?? new Error("Failed to upload document");
+      }
+    },
+    [dealId]
+  );
+
   /* ----- File upload handler (uploads to Supabase Storage) ----- */
   const handleFileSelect = useCallback(
     async (docTypeId: number, file: File) => {
@@ -341,14 +421,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
       });
 
       try {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("documentTypeId", String(docTypeId));
-
-        const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
-          method: "POST",
-          body: formData,
-        });
+        const res = await uploadDocumentWithRetry(file, docTypeId);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -367,7 +440,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         });
       }
     },
-    [dealId]
+    [uploadDocumentWithRetry]
   );
 
   /* ----- Delete document handler ----- */
@@ -381,7 +454,10 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
         });
 
         if (!res.ok) {
-          throw new Error("Failed to delete document");
+          // Treat missing rows as already-archived to keep archive idempotent in the UI.
+          if (res.status !== 404) {
+            throw new Error("Failed to delete document");
+          }
         }
 
         setDealDocuments((prev) => prev.filter((d) => d.id !== docId));
@@ -1039,6 +1115,7 @@ function DocumentTypeRow({
 }: DocumentTypeRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
+  const suppressClickUntilRef = useRef(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDragOver, setModalDragOver] = useState(false);
@@ -1067,12 +1144,45 @@ function DocumentTypeRow({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0) {
+    // Prevent the click handler from opening the modal right after a drop.
+    suppressClickUntilRef.current = Date.now() + 400;
+
+    const files: File[] = [];
+    const { items, files: droppedFiles } = e.dataTransfer;
+    if (items && items.length > 0) {
+      for (let i = 0; i < items.length; i++) {
+        const maybeFile = items[i].kind === "file" ? items[i].getAsFile() : null;
+        if (maybeFile) files.push(maybeFile);
+      }
+    } else {
       for (let i = 0; i < droppedFiles.length; i++) {
-        onFileSelect(docType.id, droppedFiles[i]);
+        files.push(droppedFiles[i]);
       }
     }
+
+    if (files.length > 0) {
+      void (async () => {
+        for (const f of files) {
+          try {
+            // Normalize drag/drop File objects to avoid browser-specific stale blob handles.
+            const bytes = await f.arrayBuffer();
+            const normalized = new File([bytes], f.name, {
+              type: f.type,
+              lastModified: f.lastModified,
+            });
+            onFileSelect(docType.id, normalized);
+          } catch {
+            onFileSelect(docType.id, f);
+          }
+        }
+      })();
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -1093,9 +1203,21 @@ function DocumentTypeRow({
     setModalDragOver(false);
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles.length > 0) {
-      for (let i = 0; i < droppedFiles.length; i++) {
-        onFileSelect(docType.id, droppedFiles[i]);
-      }
+      void (async () => {
+        for (let i = 0; i < droppedFiles.length; i++) {
+          const f = droppedFiles[i];
+          try {
+            const bytes = await f.arrayBuffer();
+            const normalized = new File([bytes], f.name, {
+              type: f.type,
+              lastModified: f.lastModified,
+            });
+            onFileSelect(docType.id, normalized);
+          } catch {
+            onFileSelect(docType.id, f);
+          }
+        }
+      })();
     }
   };
 
@@ -1118,8 +1240,12 @@ function DocumentTypeRow({
             ? "bg-primary/10 border-primary"
             : "bg-muted/20 hover:bg-muted/40"
         }`}
-        onClick={() => setModalOpen(true)}
+        onClick={() => {
+          if (Date.now() < suppressClickUntilRef.current) return;
+          setModalOpen(true);
+        }}
         onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
@@ -1610,22 +1736,18 @@ function FileManagerView({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-          const formData = new FormData();
-          formData.append("file", file);
-          // No documentTypeId = unclassified upload
-
-          const res = await fetch(`/api/deals/${dealId}/deal-documents`, {
-            method: "POST",
-            body: formData,
-          });
-          if (!res.ok) throw new Error();
+          const res = await uploadDocumentWithRetry(file, null);
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to upload document");
+          }
           const data = await res.json();
           uploaded.push(data.document);
 
           // Immediately add to documents & remove from uploading
           setDealDocuments((prev) => [...prev, data.document]);
-        } catch {
-          // upload failed
+        } catch (error: any) {
+          console.error("Upload failed:", error?.message ?? "Unknown upload error");
         } finally {
           setUploadingFileNames((prev) => {
             const next = new Map(prev);
@@ -1638,7 +1760,7 @@ function FileManagerView({
         // files uploaded successfully
       }
     },
-    [dealId, setDealDocuments]
+    [dealId, setDealDocuments, uploadDocumentWithRetry]
   );
 
   /* ----- Assign document type via PATCH ----- */

@@ -31,15 +31,8 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, Columns2, Search } from "lucide-react"
-import { Button } from "@repo/ui/shadcn/button"
+import { Search } from "lucide-react"
 import { Checkbox } from "@repo/ui/shadcn/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@repo/ui/shadcn/dropdown-menu"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
@@ -51,6 +44,7 @@ import {
 } from "@repo/ui/shadcn/table"
 import { cn } from "@repo/lib/cn"
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings"
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { Borrower } from "../data/types"
 import { BorrowerRowActions } from "./borrower-row-actions"
@@ -98,6 +92,19 @@ function formatDate(ymd: string | null | undefined): string {
   ]
   const mon = months[(m || 1) - 1] ?? ""
   return `${String(d).padStart(2, "0")} ${mon}, ${y}`
+}
+
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    display_id: "ID",
+    full_name: "Full Name",
+    email: "Email",
+    primary_phone: "Primary Phone",
+    date_of_birth: "Date of Birth",
+    fico_score: "FICO",
+    assigned_to_names: "Assigned To",
+  }
+  return map[columnId] ?? columnId.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())
 }
 
 export function BorrowersTable({ data, actionButton }: { data: BorrowerRow[]; actionButton?: React.ReactNode }) {
@@ -291,29 +298,7 @@ export function BorrowersTable({ data, actionButton }: { data: BorrowerRow[]; ac
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 bg-background">
-                  <Columns2 className="w-4 h-4 mr-2" />
-                  <span className="text-xs font-medium">Customize Columns</span>
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                {table
-                  .getAllColumns()
-                  .filter((col) => col.getCanHide())
-                  .map((col) => (
-                    <DropdownMenuCheckboxItem
-                      key={col.id}
-                      checked={col.getIsVisible()}
-                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                    >
-                      {col.id.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
             {actionButton}
           </div>
         </div>

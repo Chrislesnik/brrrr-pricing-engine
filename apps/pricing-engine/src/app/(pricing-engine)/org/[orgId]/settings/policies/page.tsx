@@ -32,7 +32,7 @@ export default async function PoliciesPage({
 
   return (
     <div className="w-full min-h-full px-4 pt-3 pb-3 mx-7 md:px-8 md:pt-9 md:pb-9">
-      <div className="w-full max-w-6xl space-y-8">
+      <div className="w-full max-w-6xl mx-auto space-y-8">
         <div>
           <Link
             href={`/org/${orgId}/settings`}

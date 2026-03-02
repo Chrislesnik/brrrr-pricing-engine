@@ -35,7 +35,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, Columns2, Settings2, Trash2, Upload } from "lucide-react"
+import { ChevronDown, Plus, Settings2, Trash2, Upload } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
 import { Button } from "@repo/ui/shadcn/button"
@@ -58,10 +58,7 @@ import {
 } from "@repo/ui/shadcn/dialog"
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
 import {
@@ -88,7 +85,9 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { ApplicationPartyEditor } from "@/components/application-party-editor"
+import { DataGridFilterMenu } from "@/components/data-grid/data-grid-filter-menu"
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings"
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 import { ApplicationRow } from "../data/fetch-applications"
 
@@ -490,7 +489,12 @@ export function ApplicationsTable({ data }: Props) {
           <Filter column={table.getColumn("search")!} />
         </div>
         <div className="flex items-center gap-3">
-          <ColumnVisibilityToggle table={table} />
+          <DataGridFilterMenu table={table} align="end" />
+          <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
+          <Button onClick={() => router.push("/applications/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Application
+          </Button>
         </div>
       </div>
       {/* Desktop table */}
@@ -836,47 +840,15 @@ function StatusFilterMenu({
   )
 }
 
-const COLUMN_LABELS: Record<string, string> = {
-  appDisplayId: "Application ID",
-  displayId: "Loan ID",
-  propertyAddress: "Property Address",
-  status: "Status",
-  progress: "Progress",
-}
-
-function ColumnVisibilityToggle<TData>({
-  table,
-}: { table: import("@tanstack/react-table").Table<TData> }) {
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 bg-background">
-          <Columns2 className="w-4 h-4 mr-2" />
-          <span className="text-xs font-medium">Customize Columns</span>
-          <ChevronDown className="w-4 h-4 ml-2" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[150px]">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {table
-          .getAllColumns()
-          .filter(
-            (column) => column.getCanHide() && column.id !== "search" && column.id !== "expand" && column.id !== "row_actions" && column.id !== "select"
-          )
-          .map((column) => (
-            <DropdownMenuCheckboxItem
-              key={column.id}
-              checked={column.getIsVisible()}
-              onSelect={(e) => e.preventDefault()}
-              onCheckedChange={(value) => column.toggleVisibility(!!value)}
-            >
-              {COLUMN_LABELS[column.id] ?? column.id}
-            </DropdownMenuCheckboxItem>
-          ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    appDisplayId: "Application ID",
+    displayId: "Loan ID",
+    propertyAddress: "Property Address",
+    status: "Status",
+    progress: "Progress",
+  }
+  return map[columnId] ?? columnId.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())
 }
 
 function UploadWidget() {

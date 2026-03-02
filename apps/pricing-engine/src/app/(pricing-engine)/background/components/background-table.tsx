@@ -30,7 +30,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, Columns2, Loader2, Search, MoreHorizontal, Download, Archive } from "lucide-react";
+import { Loader2, Search, MoreHorizontal, Download, Archive } from "lucide-react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
 import { Checkbox } from "@repo/ui/shadcn/checkbox";
@@ -44,7 +44,6 @@ import {
 } from "@repo/ui/shadcn/table";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -448,29 +447,6 @@ export function BackgroundTable({ actionButton }: { actionButton?: React.ReactNo
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="default" className="font-normal bg-background">
-                <Columns2 className="w-4 h-4 mr-2" />
-                Customize Columns
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              {table
-                .getAllColumns()
-                .filter((col) => col.getCanHide())
-                .map((col) => (
-                  <DropdownMenuCheckboxItem
-                    key={col.id}
-                    checked={col.getIsVisible()}
-                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                  >
-                    {formatColumnName(col.id)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
           <DataGridFilterMenu table={table} align="end" />
           <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
           {actionButton}

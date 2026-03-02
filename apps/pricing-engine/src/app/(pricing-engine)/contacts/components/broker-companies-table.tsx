@@ -31,7 +31,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, Columns2, MoreHorizontal, Plus, Search, Settings, UserPlus, Archive } from "lucide-react"
+import { ChevronDown, MoreHorizontal, Search, Settings, UserPlus } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import { Badge } from "@repo/ui/shadcn/badge"
 import { Button } from "@repo/ui/shadcn/button"
@@ -40,11 +40,8 @@ import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
@@ -56,6 +53,7 @@ import {
   TableRow,
 } from "@repo/ui/shadcn/table"
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header"
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings"
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination"
 
 declare module "@tanstack/react-table" {
@@ -142,6 +140,17 @@ function ActionsCell({
       </DropdownMenu>
     </div>
   )
+}
+
+function formatColumnName(columnId: string): string {
+  const map: Record<string, string> = {
+    name: "Organization Name",
+    slug: "Slug",
+    member_count: "Members",
+    permissions: "Permissions",
+    created_at: "Date Added",
+  }
+  return map[columnId] ?? columnId.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()
 }
 
 export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChanged, onInviteMembers, actionButton }: Props & { actionButton?: React.ReactNode }) {
@@ -409,29 +418,7 @@ export function BrokerCompaniesTable({ data, initialMembersMap, onSettingsChange
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 bg-background">
-                <Columns2 className="w-4 h-4 mr-2" />
-                <span className="text-xs font-medium">Customize Columns</span>
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              {table
-                .getAllColumns()
-                .filter((col) => col.getCanHide())
-                .map((col) => (
-                  <DropdownMenuCheckboxItem
-                    key={col.id}
-                    checked={col.getIsVisible()}
-                    onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                  >
-                    {col.id.replace(/([A-Z_])/g, " $1").replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()).trim()}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
           {actionButton}
         </div>
       </div>
