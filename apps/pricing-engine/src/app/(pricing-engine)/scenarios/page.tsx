@@ -64,7 +64,7 @@ export default function PipelinePage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6">
+    <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Scenarios</h1>
         <p className="text-muted-foreground">
