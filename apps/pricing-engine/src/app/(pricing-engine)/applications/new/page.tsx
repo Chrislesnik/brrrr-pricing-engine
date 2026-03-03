@@ -1,18 +1,9 @@
 "use client"
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { RouteProtection } from "@/components/auth/route-protection"
 import { Button } from "@repo/ui/shadcn/button"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@repo/ui/shadcn/breadcrumb"
 import { LoanApplicationForm } from "../components/loan-application-form"
 
 function NewApplicationContent() {
@@ -21,25 +12,6 @@ function NewApplicationContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-4 flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/applications">Applications</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>New Application</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
