@@ -117,8 +117,7 @@ export function TeamSwitcherV2() {
         <SidebarMenuItem>
           <SidebarMenuButton
             size={isCollapsed ? "default" : "lg"}
-            className="rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            style={isCollapsed ? { width: 32, height: 32, padding: 0 } : undefined}
+            className={`rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isCollapsed ? "justify-center !p-0" : ""}`}
             onClick={handleCreateOrganization}
           >
             <div className="size-8 flex items-center justify-center rounded-lg border shrink-0 overflow-hidden">
@@ -148,8 +147,7 @@ export function TeamSwitcherV2() {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size={isCollapsed ? "default" : "lg"}
-                className={`rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isCollapsed ? "justify-center" : ""}`}
-                style={isCollapsed ? { width: 32, height: 32, padding: 0 } : undefined}
+                className={`rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isCollapsed ? "justify-center !p-0" : ""}`}
                 data-testid="org-switcher"
               >
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg shrink-0 overflow-hidden border">
