@@ -48,7 +48,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" className="border-none" {...props}>
-      <SidebarHeader className="pt-3">
+      <SidebarHeader className="items-center justify-start pt-3">
         <TeamSwitcherV2 />
         <WorkspaceSwitcher />
         <NavSearch />
