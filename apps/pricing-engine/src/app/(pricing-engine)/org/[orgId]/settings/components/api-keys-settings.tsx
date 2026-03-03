@@ -865,25 +865,25 @@ export function APIKeysSettings() {
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as APIToolsTab)}
       >
-        <TabsList className="grid h-auto w-full grid-cols-3">
+        <TabsList className="grid h-auto w-full grid-cols-3 dark:bg-muted/30">
           <TabsTrigger
             value="keys"
             disabled={!capabilities.canViewKeys}
-            className="text-xs sm:text-sm"
+            className="text-xs sm:text-sm dark:data-[state=active]:bg-background dark:data-[state=active]:border-border"
           >
             Keys
           </TabsTrigger>
           <TabsTrigger
             value="request-logs"
             disabled={!capabilities.canViewRequestLogs}
-            className="text-xs sm:text-sm"
+            className="text-xs sm:text-sm dark:data-[state=active]:bg-background dark:data-[state=active]:border-border"
           >
             Request Logs
           </TabsTrigger>
           <TabsTrigger
             value="webhook-tester"
             disabled={!capabilities.canViewWebhookTester}
-            className="text-xs sm:text-sm"
+            className="text-xs sm:text-sm dark:data-[state=active]:bg-background dark:data-[state=active]:border-border"
           >
             Webhook Tester
           </TabsTrigger>
