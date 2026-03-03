@@ -20,18 +20,15 @@ import {
   StepperItem,
   StepperTrigger,
   StepperIndicator,
-  StepperSeparator,
   StepperTitle,
-  StepperDescription,
   StepperNav,
 } from "@/components/ui/stepper"
 
 const STEPS = [
-  { label: "Borrower", description: "Primary borrower information" },
-  { label: "Guarantors", description: "Personal guarantors" },
-  { label: "Entity Details", description: "Entity information (if applicable)" },
+  { label: "Borrower & Guarantor(s)", description: "Primary borrower and guarantor information" },
+  { label: "Entity", description: "Entity information (if applicable)" },
   { label: "Loan Structure", description: "Loan terms and parameters" },
-  { label: "Subject Property", description: "Property address and type" },
+  { label: "Property", description: "Property address and type" },
   { label: "3rd Party Contacts", description: "Attorney, title, insurance contacts" },
   { label: "Review & Sign", description: "Review and send for e-signature" },
 ] as const
@@ -58,9 +55,30 @@ const LOAN_PURPOSES = [
   "Bridge", "Fix & Flip", "DSCR", "Other",
 ]
 
+const CITIZENSHIP_OPTIONS = ["U.S. Citizen", "Permanent Resident", "Non-Resident"]
+
 interface Guarantor {
   name: string
+  ssn: string
+  dob: string
+  mid_fico: string
   email: string
+  primary_phone: string
+  alternate_phone: string
+  address_line_1: string
+  address_line_2: string
+  city: string
+  state: string
+  zip: string
+  county: string
+  citizenship: string
+  green_card: string
+  visa: string
+  visa_type: string
+  rentals_owned: string
+  fix_and_flips: string
+  ground_ups: string
+  is_licensed_professional: string
 }
 
 interface ThirdPartyContact {
@@ -76,7 +94,7 @@ const THIRD_PARTY_ROLES = [
 ]
 
 interface FormData {
-  // Step 0: Borrower
+  // Step 0: Borrower & Guarantor(s)
   vesting_type: "individual" | "entity"
   first_name: string
   last_name: string
@@ -84,18 +102,16 @@ interface FormData {
   borrower_phone: string
   borrower_ssn: string
   borrower_dob: string
-
-  // Step 1: Guarantors
   guarantors: Guarantor[]
 
-  // Step 2: Entity Details
+  // Step 1: Entity
   entity_name: string
   entity_type: string
   ein: string
   state_of_formation: string
   entity_address: string
 
-  // Step 3: Loan Structure
+  // Step 2: Loan Structure
   loan_amount: string
   loan_purpose: string
   loan_term: string
@@ -103,7 +119,7 @@ interface FormData {
   ltv: string
   amortization: string
 
-  // Step 4: Subject Property
+  // Step 3: Property
   property_street: string
   property_city: string
   property_state: string
@@ -112,10 +128,10 @@ interface FormData {
   purchase_price: string
   appraised_value: string
 
-  // Step 5: 3rd Party Contacts
+  // Step 4: 3rd Party Contacts
   third_party_contacts: ThirdPartyContact[]
 
-  // Step 6: Review & Sign
+  // Step 5: Review & Sign
   template_id: string
   signer_email: string
 }
@@ -128,7 +144,14 @@ const INITIAL_FORM: FormData = {
   borrower_phone: "",
   borrower_ssn: "",
   borrower_dob: "",
-  guarantors: [{ name: "", email: "" }],
+  guarantors: [{
+    name: "", ssn: "", dob: "", mid_fico: "",
+    email: "", primary_phone: "", alternate_phone: "",
+    address_line_1: "", address_line_2: "", city: "", state: "", zip: "", county: "",
+    citizenship: "", green_card: "", visa: "", visa_type: "",
+    rentals_owned: "", fix_and_flips: "", ground_ups: "",
+    is_licensed_professional: "No",
+  }],
   entity_name: "",
   entity_type: "",
   ein: "",
@@ -160,7 +183,7 @@ export function LoanApplicationForm({ className }: { className?: string }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [createdLoanId, setCreatedLoanId] = useState<string | null>(null)
 
-  const isEntityStep = step === 2
+  const isEntityStep = step === 1
   const entityStepSkipped = isEntityStep && form.vesting_type === "individual"
 
   const set = useCallback(
@@ -178,7 +201,14 @@ export function LoanApplicationForm({ className }: { className?: string }) {
   const addGuarantor = useCallback(() => {
     setForm((prev) => ({
       ...prev,
-      guarantors: [...prev.guarantors, { name: "", email: "" }],
+      guarantors: [...prev.guarantors, {
+        name: "", ssn: "", dob: "", mid_fico: "",
+        email: "", primary_phone: "", alternate_phone: "",
+        address_line_1: "", address_line_2: "", city: "", state: "", zip: "", county: "",
+        citizenship: "", green_card: "", visa: "", visa_type: "",
+        rentals_owned: "", fix_and_flips: "", ground_ups: "",
+        is_licensed_professional: "No",
+      }],
     }))
   }, [])
 
@@ -239,9 +269,6 @@ export function LoanApplicationForm({ className }: { className?: string }) {
       if (!form.borrower_email.trim()) errs.borrower_email = "Required"
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.borrower_email))
         errs.borrower_email = "Invalid email"
-    }
-
-    if (step === 1) {
       form.guarantors.forEach((g, i) => {
         if (!g.name.trim()) errs[`guarantor_name_${i}`] = "Required"
         if (!g.email.trim()) errs[`guarantor_email_${i}`] = "Required"
@@ -250,16 +277,16 @@ export function LoanApplicationForm({ className }: { className?: string }) {
       })
     }
 
-    if (step === 2 && form.vesting_type === "entity") {
+    if (step === 1 && form.vesting_type === "entity") {
       if (!form.entity_name.trim()) errs.entity_name = "Required"
     }
 
-    if (step === 3) {
+    if (step === 2) {
       if (!form.loan_amount.trim()) errs.loan_amount = "Required"
       if (!form.loan_purpose) errs.loan_purpose = "Required"
     }
 
-    if (step === 4) {
+    if (step === 3) {
       if (!form.property_street.trim()) errs.property_street = "Required"
       if (!form.property_city.trim()) errs.property_city = "Required"
       if (!form.property_state) errs.property_state = "Required"
@@ -273,8 +300,8 @@ export function LoanApplicationForm({ className }: { className?: string }) {
 
   const handleStepChange = useCallback((newStep: number) => {
     if (newStep < step) {
-      if (newStep === 2 && form.vesting_type === "individual") {
-        setStep(1)
+      if (newStep === 1 && form.vesting_type === "individual") {
+        setStep(0)
         return
       }
       setStep(newStep)
@@ -291,8 +318,8 @@ export function LoanApplicationForm({ className }: { className?: string }) {
   }, [validate, entityStepSkipped])
 
   const back = useCallback(() => {
-    if (step === 3 && form.vesting_type === "individual") {
-      setStep(1)
+    if (step === 2 && form.vesting_type === "individual") {
+      setStep(0)
       return
     }
     setStep((s) => Math.max(s - 1, 0))
@@ -446,26 +473,20 @@ export function LoanApplicationForm({ className }: { className?: string }) {
         >
           <StepperNav>
             {STEPS.map((s, i) => {
-              const isSkipped = i === 2 && form.vesting_type === "individual"
+              const isSkipped = i === 1 && form.vesting_type === "individual"
               return (
                 <StepperItem
                   key={i}
                   step={i + 1}
                   disabled={i > step || isSkipped}
-                  className={cn("relative items-start", isSkipped && "opacity-40")}
+                  className={cn("items-start", isSkipped && "opacity-40")}
                 >
-                  <StepperTrigger className="items-start pb-8">
+                  <StepperTrigger className="items-center text-left">
                     <StepperIndicator>{i + 1}</StepperIndicator>
-                    <div className="flex flex-col gap-0.5 text-left">
-                      <StepperTitle className={cn(isSkipped && "line-through")}>
-                        {s.label}
-                      </StepperTitle>
-                      <StepperDescription>{s.description}</StepperDescription>
-                    </div>
+                    <StepperTitle className={cn("text-left", isSkipped && "line-through")}>
+                      {s.label}
+                    </StepperTitle>
                   </StepperTrigger>
-                  {i < STEPS.length - 1 && (
-                    <StepperSeparator className="absolute left-4 top-8 -z-10 -order-1 h-[calc(100%-8px)] w-0.5 flex-none -translate-x-1/2" />
-                  )}
                 </StepperItem>
               )
             })}
@@ -484,147 +505,266 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             </p>
           </div>
 
-          {/* Step 0: Borrower */}
+          {/* Step 0: Borrower & Guarantor(s) */}
           {step === 0 && (
-            <div className="space-y-4">
-              <Field label="Vesting Type">
-                <Select
-                  value={form.vesting_type}
-                  onValueChange={(v) =>
-                    set("vesting_type", v as "individual" | "entity")
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="entity">Entity</SelectItem>
-                    <SelectItem value="individual">Individual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="First Name" error={errors.first_name} required>
-                  <Input
-                    value={form.first_name}
-                    onChange={(e) => set("first_name", e.target.value)}
-                    placeholder="John"
-                  />
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <Field label="Vesting Type">
+                  <Select
+                    value={form.vesting_type}
+                    onValueChange={(v) =>
+                      set("vesting_type", v as "individual" | "entity")
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="entity">Entity</SelectItem>
+                      <SelectItem value="individual">Individual</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
-                <Field label="Last Name" error={errors.last_name} required>
-                  <Input
-                    value={form.last_name}
-                    onChange={(e) => set("last_name", e.target.value)}
-                    placeholder="Doe"
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Email" error={errors.borrower_email} required>
-                  <Input
-                    type="email"
-                    value={form.borrower_email}
-                    onChange={(e) => set("borrower_email", e.target.value)}
-                    placeholder="john@example.com"
-                  />
-                </Field>
-                <Field label="Phone">
-                  <Input
-                    type="tel"
-                    value={form.borrower_phone}
-                    onChange={(e) => set("borrower_phone", e.target.value)}
-                    placeholder="(555) 123-4567"
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="SSN (last 4)">
-                  <Input
-                    value={form.borrower_ssn}
-                    onChange={(e) => set("borrower_ssn", e.target.value)}
-                    placeholder="XXXX"
-                    maxLength={4}
-                  />
-                </Field>
-                <Field label="Date of Birth">
-                  <Input
-                    type="date"
-                    value={form.borrower_dob}
-                    onChange={(e) => set("borrower_dob", e.target.value)}
-                  />
-                </Field>
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Guarantors */}
-          {step === 1 && (
-            <div className="space-y-4">
-              {form.guarantors.map((g, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg border bg-muted/20 p-4 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      Guarantor {i + 1}
-                    </span>
-                    {form.guarantors.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeGuarantor(i)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field
-                      label="Full Name"
-                      error={errors[`guarantor_name_${i}`]}
-                      required
-                    >
-                      <Input
-                        value={g.name}
-                        onChange={(e) =>
-                          updateGuarantor(i, "name", e.target.value)
-                        }
-                        placeholder="Jane Doe"
-                      />
-                    </Field>
-                    <Field
-                      label="Email"
-                      error={errors[`guarantor_email_${i}`]}
-                      required
-                    >
-                      <Input
-                        type="email"
-                        value={g.email}
-                        onChange={(e) =>
-                          updateGuarantor(i, "email", e.target.value)
-                        }
-                        placeholder="jane@example.com"
-                      />
-                    </Field>
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="First Name" error={errors.first_name} required>
+                    <Input
+                      value={form.first_name}
+                      onChange={(e) => set("first_name", e.target.value)}
+                      placeholder="John"
+                    />
+                  </Field>
+                  <Field label="Last Name" error={errors.last_name} required>
+                    <Input
+                      value={form.last_name}
+                      onChange={(e) => set("last_name", e.target.value)}
+                      placeholder="Doe"
+                    />
+                  </Field>
                 </div>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addGuarantor}
-                className="w-full"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Guarantor
-              </Button>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Email" error={errors.borrower_email} required>
+                    <Input
+                      type="email"
+                      value={form.borrower_email}
+                      onChange={(e) => set("borrower_email", e.target.value)}
+                      placeholder="john@example.com"
+                    />
+                  </Field>
+                  <Field label="Phone">
+                    <Input
+                      type="tel"
+                      value={form.borrower_phone}
+                      onChange={(e) => set("borrower_phone", e.target.value)}
+                      placeholder="(555) 123-4567"
+                    />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="SSN (last 4)">
+                    <Input
+                      value={form.borrower_ssn}
+                      onChange={(e) => set("borrower_ssn", e.target.value)}
+                      placeholder="XXXX"
+                      maxLength={4}
+                    />
+                  </Field>
+                  <Field label="Date of Birth">
+                    <Input
+                      type="date"
+                      value={form.borrower_dob}
+                      onChange={(e) => set("borrower_dob", e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Guarantors</h3>
+                {form.guarantors.map((g, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border bg-muted/20 p-5 space-y-5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">
+                        Guarantor {i + 1}
+                      </span>
+                      {form.guarantors.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeGuarantor(i)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Personal Info */}
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Full Name" error={errors[`guarantor_name_${i}`]} required>
+                          <Input value={g.name} onChange={(e) => updateGuarantor(i, "name", e.target.value)} placeholder="Jane Doe" />
+                        </Field>
+                        <Field label="SSN">
+                          <Input value={g.ssn} onChange={(e) => updateGuarantor(i, "ssn", e.target.value)} placeholder="XXX-XX-XXXX" />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Date of Birth">
+                          <Input type="date" value={g.dob} onChange={(e) => updateGuarantor(i, "dob", e.target.value)} />
+                        </Field>
+                        <Field label="Mid-FICO Estimate">
+                          <Input type="number" value={g.mid_fico} onChange={(e) => updateGuarantor(i, "mid_fico", e.target.value)} placeholder="720" />
+                        </Field>
+                      </div>
+                    </div>
+
+                    <hr className="border-border/50" />
+
+                    {/* Contact */}
+                    <div className="space-y-3">
+                      <Field label="Email Address" error={errors[`guarantor_email_${i}`]} required>
+                        <Input type="email" value={g.email} onChange={(e) => updateGuarantor(i, "email", e.target.value)} placeholder="jane@example.com" />
+                      </Field>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Primary Phone">
+                          <Input type="tel" value={g.primary_phone} onChange={(e) => updateGuarantor(i, "primary_phone", e.target.value)} placeholder="(555) 123-4567" />
+                        </Field>
+                        <Field label="Alternate Phone">
+                          <Input type="tel" value={g.alternate_phone} onChange={(e) => updateGuarantor(i, "alternate_phone", e.target.value)} placeholder="(555) 987-6543" />
+                        </Field>
+                      </div>
+                    </div>
+
+                    <hr className="border-border/50" />
+
+                    {/* Address */}
+                    <div className="space-y-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Primary Residence</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Address Line 1">
+                          <Input value={g.address_line_1} onChange={(e) => updateGuarantor(i, "address_line_1", e.target.value)} placeholder="123 Main St" />
+                        </Field>
+                        <Field label="Address Line 2">
+                          <Input value={g.address_line_2} onChange={(e) => updateGuarantor(i, "address_line_2", e.target.value)} placeholder="Apt 4B" />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-6 gap-4">
+                        <div className="col-span-2">
+                          <Field label="City">
+                            <Input value={g.city} onChange={(e) => updateGuarantor(i, "city", e.target.value)} placeholder="New York" />
+                          </Field>
+                        </div>
+                        <div className="col-span-1">
+                          <Field label="State">
+                            <Select value={g.state || undefined} onValueChange={(v) => updateGuarantor(i, "state", v)}>
+                              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectContent>
+                                {US_STATES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
+                          </Field>
+                        </div>
+                        <div className="col-span-1">
+                          <Field label="Zip">
+                            <Input value={g.zip} onChange={(e) => updateGuarantor(i, "zip", e.target.value)} placeholder="10001" maxLength={10} />
+                          </Field>
+                        </div>
+                        <div className="col-span-2">
+                          <Field label="County">
+                            <Input value={g.county} onChange={(e) => updateGuarantor(i, "county", e.target.value)} placeholder="County" />
+                          </Field>
+                        </div>
+                      </div>
+                    </div>
+
+                    <hr className="border-border/50" />
+
+                    {/* Citizenship & Immigration */}
+                    <div className="space-y-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Citizenship & Immigration</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Citizenship">
+                          <Select value={g.citizenship || undefined} onValueChange={(v) => updateGuarantor(i, "citizenship", v)}>
+                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                            <SelectContent>
+                              {CITIZENSHIP_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field label="Green Card (Y/N)">
+                          <Select value={g.green_card || undefined} onValueChange={(v) => updateGuarantor(i, "green_card", v)}>
+                            <SelectTrigger><SelectValue placeholder="n/a" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="n/a">n/a</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                              <SelectItem value="No">No</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="VISA (Y/N)">
+                          <Select value={g.visa || undefined} onValueChange={(v) => updateGuarantor(i, "visa", v)}>
+                            <SelectTrigger><SelectValue placeholder="n/a" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="n/a">n/a</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                              <SelectItem value="No">No</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field label="VISA Type">
+                          <Input value={g.visa_type} onChange={(e) => updateGuarantor(i, "visa_type", e.target.value)} placeholder="n/a" />
+                        </Field>
+                      </div>
+                    </div>
+
+                    <hr className="border-border/50" />
+
+                    {/* Real Estate Experience */}
+                    <div className="space-y-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Real Estate Experience</span>
+                      <div className="grid grid-cols-3 gap-4">
+                        <Field label="# Rentals Owned">
+                          <Input type="number" value={g.rentals_owned} onChange={(e) => updateGuarantor(i, "rentals_owned", e.target.value)} placeholder="0" />
+                        </Field>
+                        <Field label="# Fix & Flips (3 Yrs)">
+                          <Input type="number" value={g.fix_and_flips} onChange={(e) => updateGuarantor(i, "fix_and_flips", e.target.value)} placeholder="0" />
+                        </Field>
+                        <Field label="# Ground Ups (3 Yrs)">
+                          <Input type="number" value={g.ground_ups} onChange={(e) => updateGuarantor(i, "ground_ups", e.target.value)} placeholder="0" />
+                        </Field>
+                      </div>
+                      <Field label="Licensed GC, RE Broker/Agent, Lender, Appraiser, or other RE professional?">
+                        <Select value={g.is_licensed_professional} onValueChange={(v) => updateGuarantor(i, "is_licensed_professional", v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="No">No</SelectItem>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addGuarantor}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Guarantor
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* Step 2: Entity Details */}
-          {step === 2 && (
+          {/* Step 1: Entity */}
+          {step === 1 && (
             <>
               {form.vesting_type === "individual" ? (
                 <div className="rounded-lg border border-dashed bg-muted/30 px-6 py-12 text-center">
@@ -712,8 +852,8 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             </>
           )}
 
-          {/* Step 3: Loan Structure */}
-          {step === 3 && (
+          {/* Step 2: Loan Structure */}
+          {step === 2 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <Field
@@ -807,8 +947,8 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             </div>
           )}
 
-          {/* Step 4: Subject Property */}
-          {step === 4 && (
+          {/* Step 3: Property */}
+          {step === 3 && (
             <div className="space-y-4">
               <Field label="Street Address" error={errors.property_street} required>
                 <Input
@@ -907,8 +1047,8 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             </div>
           )}
 
-          {/* Step 5: 3rd Party Contacts */}
-          {step === 5 && (
+          {/* Step 4: 3rd Party Contacts */}
+          {step === 4 && (
             <div className="space-y-4">
               {form.third_party_contacts.map((c, i) => (
                 <div
@@ -988,8 +1128,8 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             </div>
           )}
 
-          {/* Step 6: Review & Sign */}
-          {step === 6 && (
+          {/* Step 5: Review & Sign */}
+          {step === 5 && (
             <div className="space-y-6">
               {/* Summary */}
               <div className="rounded-lg border divide-y">
@@ -1115,13 +1255,13 @@ export function LoanApplicationForm({ className }: { className?: string }) {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            {step < 6 && (
+            {step < 5 && (
               <Button onClick={next}>
                 {entityStepSkipped ? "Skip" : "Next"}
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             )}
-            {step === 6 && !createdLoanId && (
+            {step === 5 && !createdLoanId && (
               <Button onClick={handleCreateApplication} disabled={submitting}>
                 {submitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1129,7 +1269,7 @@ export function LoanApplicationForm({ className }: { className?: string }) {
                 Create Application
               </Button>
             )}
-            {step === 6 && createdLoanId && (
+            {step === 5 && createdLoanId && (
               <>
                 <Button
                   variant="outline"
