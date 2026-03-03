@@ -762,12 +762,17 @@ function ScaledHtmlPreview({
           })
           popover.appendChild(removeBtn)
 
+          const origW = img.getAttribute("data-orig-w")
+          const origH = img.getAttribute("data-orig-h")
+
           function handleFile(file: File) {
             if (!file.type.startsWith("image/")) return
             const reader = new FileReader()
             reader.onload = () => {
               if (typeof reader.result === "string") {
                 img.src = reader.result
+                if (origW) img.setAttribute("width", origW)
+                if (origH) img.setAttribute("height", origH)
                 previewImg.src = reader.result
               }
             }
@@ -803,11 +808,16 @@ function ScaledHtmlPreview({
         const images = d.querySelectorAll("img")
         images.forEach((img) => {
           img.classList.add("ts-replaceable")
+          const w = img.offsetWidth
+          const h = img.offsetHeight
+          if (w > 0 && h > 0) {
+            img.setAttribute("data-orig-w", String(w))
+            img.setAttribute("data-orig-h", String(h))
+            img.setAttribute("width", String(w))
+            img.setAttribute("height", String(h))
+            img.style.cssText += `;width:${w}px !important;height:${h}px !important;max-width:${w}px !important;max-height:${h}px !important;object-fit:contain !important;display:block !important;`
+          }
           if (img.hasAttribute("data-brand-logo")) {
-            const w = img.offsetWidth
-            const h = img.offsetHeight
-            if (w > 0) img.style.minWidth = `${w}px`
-            if (h > 0) img.style.minHeight = `${h}px`
             img.classList.add("ts-edit")
           }
           img.addEventListener("click", (e) => {
