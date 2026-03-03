@@ -177,14 +177,14 @@ export function WebhookTester({
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://api.example.com/webhook"
             aria-label="Webhook URL"
-            className="flex-1 px-3 py-2 border border-border rounded bg-background font-mono text-sm"
+            className="flex-1 h-9 rounded-md border border-input bg-background px-3 py-1 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={loading || !url}
             aria-label={loading ? "Sending request" : "Send request"}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded font-medium text-sm hover:bg-primary/90 disabled:opacity-50"
+            className="flex h-9 items-center gap-2 px-4 py-1 rounded-md bg-primary text-primary-foreground font-medium text-sm shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -219,7 +219,7 @@ export function WebhookTester({
                   }
                   placeholder="Header name"
                   aria-label="Header name"
-                  className="flex-1 px-2 py-1 border border-border rounded bg-background font-mono text-sm"
+                  className="flex-1 h-9 rounded-md border border-input bg-background px-3 py-1 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
                 <input
                   type="text"
@@ -229,7 +229,7 @@ export function WebhookTester({
                   }
                   placeholder="Header value"
                   aria-label={`Value for ${header.key || "header"}`}
-                  className="flex-[2] px-2 py-1 border border-border rounded bg-background font-mono text-sm"
+                  className="flex-[2] h-9 rounded-md border border-input bg-background px-3 py-1 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
                 <button
                   type="button"
@@ -252,7 +252,7 @@ export function WebhookTester({
               onChange={(e) => setBody(e.target.value)}
               placeholder='{"key": "value"}'
               aria-label="Request body"
-              className="w-full h-32 px-3 py-2 border border-border rounded bg-background font-mono text-sm resize-none"
+              className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 font-mono text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             />
           </div>
         )}
