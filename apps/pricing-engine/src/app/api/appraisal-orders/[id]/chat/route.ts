@@ -6,9 +6,15 @@ export const runtime = "nodejs";
 const CHAT_API_KEY = process.env.APPRAISAL_CHAT_API_KEY;
 const SYSTEM_USER_ID = "system-amc-bot";
 
-const liveblocks = new Liveblocks({
-  secret: process.env.LIVEBLOCKS_SECRET_KEY!,
-});
+let _liveblocks: Liveblocks | null = null;
+function getLiveblocks() {
+  if (!_liveblocks) {
+    const secret = process.env.LIVEBLOCKS_SECRET_KEY;
+    if (!secret) throw new Error("LIVEBLOCKS_SECRET_KEY is not configured");
+    _liveblocks = new Liveblocks({ secret });
+  }
+  return _liveblocks;
+}
 
 /**
  * POST /api/appraisal-orders/[id]/chat
@@ -46,7 +52,7 @@ export async function POST(
     };
 
     // Create a new thread in the appraisal room with the system user
-    const thread = await liveblocks.createThread({
+    const thread = await getLiveblocks().createThread({
       roomId,
       data: {
         comment: {
