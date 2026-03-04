@@ -667,6 +667,7 @@ export function PricingEngineLayoutSettings() {
               >
                 <span
                   draggable
+                  onPointerDown={(e) => e.stopPropagation()}
                   onDragStart={(e) => {
                     dragTagIdx.current = idx;
                     e.dataTransfer.effectAllowed = "move";
