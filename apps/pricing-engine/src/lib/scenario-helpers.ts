@@ -68,6 +68,7 @@ export async function writeScenarioInputs(
     max_leverage_requested: "request_max_leverage",
     closing_date: "projected_closing_date",
     projected_note_date: "projected_closing_date",
+    target_closing_date: "projected_closing_date",
     hoi_effective_date: "hoi_effective",
     flood_effective_date: "flood_effective",
     unit_data: "leased_units",
