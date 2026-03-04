@@ -2225,12 +2225,16 @@ export default function PricingEnginePage({
 
   const recalcPayloadKey = useMemo(() => {
     if (recalcRequiredCodes.size === 0) return null
-    const subset: Record<string, unknown> = {}
-    for (const code of recalcRequiredCodes) {
-      subset[code] = formValues[code] ?? computedDefaults[code]
-    }
-    return JSON.stringify(subset)
-  }, [formValues, computedDefaults, recalcRequiredCodes])
+    try {
+      const payload = buildPayload()
+      const subset: Record<string, unknown> = {}
+      for (const code of recalcRequiredCodes) {
+        subset[code] = payload[code]
+      }
+      return JSON.stringify(subset)
+    } catch { return null }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues, extraFormValues, computedDefaults, peInputDefs, recalcRequiredCodes])
 
   const [lastRecalcKey, setLastRecalcKey] = useState<string | null>(null)
 
