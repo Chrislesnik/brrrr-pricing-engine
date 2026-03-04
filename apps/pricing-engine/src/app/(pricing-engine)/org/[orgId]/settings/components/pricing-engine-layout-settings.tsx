@@ -157,6 +157,19 @@ const COLUMN_ROLES = [
 ] as const;
 
 /* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function slugifyCode(label: string, prefix = "pe_"): string {
+  const slug = label.toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  return slug ? `${prefix}${slug}` : "";
+}
+
+const INPUT_CODE_PATTERN = /^[a-z0-9_]+$/;
+
+/* -------------------------------------------------------------------------- */
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
@@ -177,6 +190,13 @@ export function PricingEngineLayoutSettings() {
   const [newInputType, setNewInputType] = useState("");
   const [newDropdownOptions, setNewDropdownOptions] = useState<string[]>([]);
   const [savingInput, setSavingInput] = useState(false);
+
+  // Input code state
+  const [newInputCode, setNewInputCode] = useState("");
+  const [inputCodeManuallyEdited, setInputCodeManuallyEdited] = useState(false);
+  const [inputCodeTaken, setInputCodeTaken] = useState(false);
+  const [inputCodeInvalidFormat, setInputCodeInvalidFormat] = useState(false);
+  const inputCodeCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Tooltip / placeholder / default value state
   const [newTooltip, setNewTooltip] = useState("");
@@ -266,6 +286,32 @@ export function PricingEngineLayoutSettings() {
   const [sectionButtonsOpen, setSectionButtonsOpen] = useState(false);
   const [sectionButtonsCategoryId, setSectionButtonsCategoryId] = useState<number | null>(null);
 
+
+  // Debounced input code uniqueness check
+  const checkInputCodeAvailability = useCallback((code: string, excludeId?: string) => {
+    if (inputCodeCheckRef.current) clearTimeout(inputCodeCheckRef.current);
+    if (!code.trim()) {
+      setInputCodeTaken(false);
+      return;
+    }
+    if (!INPUT_CODE_PATTERN.test(code)) {
+      setInputCodeInvalidFormat(true);
+      setInputCodeTaken(false);
+      return;
+    }
+    setInputCodeInvalidFormat(false);
+    inputCodeCheckRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ code, table: "pricing_engine_inputs" });
+        if (excludeId) params.set("exclude_id", excludeId);
+        const res = await fetch(`/api/input-code-check?${params.toString()}`);
+        const json = await res.json();
+        setInputCodeTaken(!json.available);
+      } catch {
+        setInputCodeTaken(false);
+      }
+    }, 300);
+  }, []);
 
   const dragTagIdx = useRef<number | null>(null);
 
@@ -414,6 +460,7 @@ export function PricingEngineLayoutSettings() {
         body: JSON.stringify({
           category_id: categoryId,
           input_label: newInputLabel.trim(),
+          input_code: newInputCode.trim() || undefined,
           input_type: newInputType,
           dropdown_options: TYPES_WITH_OPTIONS.has(newInputType) ? newDropdownOptions : null,
           config: (() => {
@@ -518,6 +565,7 @@ export function PricingEngineLayoutSettings() {
         body: JSON.stringify({
           id: input.id,
           input_label: newInputLabel.trim(),
+          input_code: newInputCode.trim() || undefined,
           input_type: newInputType,
           dropdown_options: TYPES_WITH_OPTIONS.has(newInputType) ? newDropdownOptions : null,
           config: configPayload,
@@ -573,6 +621,10 @@ export function PricingEngineLayoutSettings() {
     setPendingDateConfig(null);
     setPendingLinkRules([]);
     setPendingAutofillRules([]);
+    setNewInputCode("");
+    setInputCodeManuallyEdited(false);
+    setInputCodeTaken(false);
+    setInputCodeInvalidFormat(false);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -1257,10 +1309,38 @@ export function PricingEngineLayoutSettings() {
                             <Input
                               placeholder="e.g. Loan Amount"
                               value={newInputLabel}
-                              onChange={(e) => setNewInputLabel(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewInputLabel(val);
+                                if (!inputCodeManuallyEdited) {
+                                  const code = slugifyCode(val);
+                                  setNewInputCode(code);
+                                  checkInputCodeAvailability(code, input.id);
+                                }
+                              }}
                               className="h-8 text-sm"
                               autoFocus
                             />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Input Code</Label>
+                            <Input
+                              placeholder="e.g. pe_loan_amount"
+                              value={newInputCode}
+                              onChange={(e) => {
+                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                                setNewInputCode(val);
+                                setInputCodeManuallyEdited(true);
+                                checkInputCodeAvailability(val, input.id);
+                              }}
+                              className={`h-8 text-sm font-mono ${inputCodeTaken || inputCodeInvalidFormat ? "border-destructive ring-1 ring-destructive" : ""}`}
+                            />
+                            {inputCodeTaken && (
+                              <p className="text-[10px] text-destructive">This code is already in use.</p>
+                            )}
+                            {inputCodeInvalidFormat && newInputCode && (
+                              <p className="text-[10px] text-destructive">Only lowercase letters, numbers, and underscores allowed.</p>
+                            )}
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-xs">Type</Label>
@@ -1461,7 +1541,7 @@ export function PricingEngineLayoutSettings() {
                               size="sm"
                               className="h-7 text-xs"
                               onClick={() => handleSaveInputEdit(input)}
-                              disabled={savingInput || !isFormValid}
+                              disabled={savingInput || !isFormValid || inputCodeTaken || inputCodeInvalidFormat}
                             >
                               {savingInput ? (
                                 <Loader2 className="size-3 animate-spin mr-1" />
@@ -1602,6 +1682,8 @@ export function PricingEngineLayoutSettings() {
                                   resetInputForm();
                                   setEditingInputId(input.id);
                                   setNewInputLabel(input.input_label);
+                                  setNewInputCode(input.input_code);
+                                  setInputCodeManuallyEdited(true);
                                   setNewInputType(input.input_type);
                                   setNewDropdownOptions(
                                     input.dropdown_options ?? [],
@@ -1668,10 +1750,39 @@ export function PricingEngineLayoutSettings() {
                         <Input
                           placeholder="e.g. Loan Amount"
                           value={newInputLabel}
-                          onChange={(e) => setNewInputLabel(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewInputLabel(val);
+                            if (!inputCodeManuallyEdited) {
+                              const code = slugifyCode(val);
+                              setNewInputCode(code);
+                              checkInputCodeAvailability(code);
+                            }
+                          }}
                           className="h-8 text-sm"
                           autoFocus
                         />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Input Code</Label>
+                        <Input
+                          placeholder="e.g. pe_loan_amount"
+                          value={newInputCode}
+                          onChange={(e) => {
+                            const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                            setNewInputCode(val);
+                            setInputCodeManuallyEdited(true);
+                            checkInputCodeAvailability(val);
+                          }}
+                          className={`h-8 text-sm font-mono ${inputCodeTaken || inputCodeInvalidFormat ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        />
+                        {inputCodeTaken && (
+                          <p className="text-[10px] text-destructive">This code is already in use.</p>
+                        )}
+                        {inputCodeInvalidFormat && newInputCode && (
+                          <p className="text-[10px] text-destructive">Only lowercase letters, numbers, and underscores allowed.</p>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -1842,7 +1953,7 @@ export function PricingEngineLayoutSettings() {
                           size="sm"
                           className="h-7 text-xs"
                           onClick={() => handleAddInput(cat.id)}
-                          disabled={savingInput || !isFormValid}
+                          disabled={savingInput || !isFormValid || inputCodeTaken || inputCodeInvalidFormat}
                         >
                           {savingInput ? (
                             <Loader2 className="size-3 animate-spin mr-1" />

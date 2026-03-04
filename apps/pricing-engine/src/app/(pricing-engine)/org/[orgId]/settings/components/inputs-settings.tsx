@@ -129,6 +129,19 @@ const BOOLEAN_DISPLAY_TYPES = [
 ] as const;
 
 /* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function slugifyCode(label: string): string {
+  const slug = label.toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  return slug || "";
+}
+
+const INPUT_CODE_PATTERN = /^[a-z0-9_]+$/;
+
+/* -------------------------------------------------------------------------- */
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
@@ -149,6 +162,13 @@ export function InputsSettings() {
   const [newInputType, setNewInputType] = useState("");
   const [newDropdownOptions, setNewDropdownOptions] = useState<string[]>([]);
   const [savingInput, setSavingInput] = useState(false);
+
+  // Input code state
+  const [newInputCode, setNewInputCode] = useState("");
+  const [inputCodeManuallyEdited, setInputCodeManuallyEdited] = useState(false);
+  const [inputCodeTaken, setInputCodeTaken] = useState(false);
+  const [inputCodeInvalidFormat, setInputCodeInvalidFormat] = useState(false);
+  const inputCodeCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Tooltip state
   const [newTooltip, setNewTooltip] = useState("");
@@ -210,6 +230,32 @@ export function InputsSettings() {
 
   // Native drag-and-drop for reordering dropdown option tags
   const dragTagIdx = useRef<number | null>(null);
+
+  // Debounced input code uniqueness check
+  const checkInputCodeAvailability = useCallback((code: string, excludeId?: string) => {
+    if (inputCodeCheckRef.current) clearTimeout(inputCodeCheckRef.current);
+    if (!code.trim()) {
+      setInputCodeTaken(false);
+      return;
+    }
+    if (!INPUT_CODE_PATTERN.test(code)) {
+      setInputCodeInvalidFormat(true);
+      setInputCodeTaken(false);
+      return;
+    }
+    setInputCodeInvalidFormat(false);
+    inputCodeCheckRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ code, table: "inputs" });
+        if (excludeId) params.set("exclude_id", excludeId);
+        const res = await fetch(`/api/input-code-check?${params.toString()}`);
+        const json = await res.json();
+        setInputCodeTaken(!json.available);
+      } catch {
+        setInputCodeTaken(false);
+      }
+    }, 300);
+  }, []);
 
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
@@ -473,6 +519,7 @@ export function InputsSettings() {
         body: JSON.stringify({
           category_id: categoryId,
           input_label: newInputLabel.trim(),
+          input_code: newInputCode.trim() || undefined,
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
           config: newInputType === "boolean" ? { boolean_display: newBooleanDisplay } : undefined,
@@ -536,6 +583,7 @@ export function InputsSettings() {
         body: JSON.stringify({
           id: input.id,
           input_label: newInputLabel.trim(),
+          input_code: newInputCode.trim() || undefined,
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
           config: Object.keys(baseConfig).length > 0 ? baseConfig : undefined,
@@ -582,6 +630,10 @@ export function InputsSettings() {
     setNewBooleanDisplay("dropdown");
     setPendingLinkRules([]);
     setPendingAutofillRules([]);
+    setNewInputCode("");
+    setInputCodeManuallyEdited(false);
+    setInputCodeTaken(false);
+    setInputCodeInvalidFormat(false);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -906,10 +958,38 @@ export function InputsSettings() {
                             <Input
                               placeholder="e.g. Loan Amount"
                               value={newInputLabel}
-                              onChange={(e) => setNewInputLabel(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewInputLabel(val);
+                                if (!inputCodeManuallyEdited) {
+                                  const code = slugifyCode(val);
+                                  setNewInputCode(code);
+                                  checkInputCodeAvailability(code, input.id);
+                                }
+                              }}
                               className="h-8 text-sm"
                               autoFocus
                             />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Input Code</Label>
+                            <Input
+                              placeholder="e.g. loan_amount"
+                              value={newInputCode}
+                              onChange={(e) => {
+                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                                setNewInputCode(val);
+                                setInputCodeManuallyEdited(true);
+                                checkInputCodeAvailability(val, input.id);
+                              }}
+                              className={`h-8 text-sm font-mono ${inputCodeTaken || inputCodeInvalidFormat ? "border-destructive ring-1 ring-destructive" : ""}`}
+                            />
+                            {inputCodeTaken && (
+                              <p className="text-[10px] text-destructive">This code is already in use.</p>
+                            )}
+                            {inputCodeInvalidFormat && newInputCode && (
+                              <p className="text-[10px] text-destructive">Only lowercase letters, numbers, and underscores allowed.</p>
+                            )}
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-xs">Type</Label>
@@ -1098,6 +1178,8 @@ export function InputsSettings() {
                             savingInput ||
                             !newInputLabel.trim() ||
                             !newInputType ||
+                            inputCodeTaken ||
+                            inputCodeInvalidFormat ||
                             (newInputType === "dropdown" &&
                               (linkedRulesCounts[editingInputId ?? ''] ?? 0) === 0 &&
                               newDropdownOptions.length === 0)
@@ -1216,6 +1298,8 @@ export function InputsSettings() {
                                 resetInputForm();
                                 setEditingInputId(input.id);
                                 setNewInputLabel(input.input_label);
+                                setNewInputCode(input.input_code);
+                                setInputCodeManuallyEdited(true);
                                 setNewInputType(input.input_type);
                                 setNewDropdownOptions(
                                   input.dropdown_options ?? [],
@@ -1259,10 +1343,39 @@ export function InputsSettings() {
                         <Input
                           placeholder="e.g. Loan Amount"
                           value={newInputLabel}
-                          onChange={(e) => setNewInputLabel(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewInputLabel(val);
+                            if (!inputCodeManuallyEdited) {
+                              const code = slugifyCode(val);
+                              setNewInputCode(code);
+                              checkInputCodeAvailability(code);
+                            }
+                          }}
                           className="h-8 text-sm"
                           autoFocus
                         />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Input Code</Label>
+                        <Input
+                          placeholder="e.g. loan_amount"
+                          value={newInputCode}
+                          onChange={(e) => {
+                            const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                            setNewInputCode(val);
+                            setInputCodeManuallyEdited(true);
+                            checkInputCodeAvailability(val);
+                          }}
+                          className={`h-8 text-sm font-mono ${inputCodeTaken || inputCodeInvalidFormat ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        />
+                        {inputCodeTaken && (
+                          <p className="text-[10px] text-destructive">This code is already in use.</p>
+                        )}
+                        {inputCodeInvalidFormat && newInputCode && (
+                          <p className="text-[10px] text-destructive">Only lowercase letters, numbers, and underscores allowed.</p>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -1457,6 +1570,8 @@ export function InputsSettings() {
                             savingInput ||
                             !newInputLabel.trim() ||
                             !newInputType ||
+                            inputCodeTaken ||
+                            inputCodeInvalidFormat ||
                             (newInputType === "dropdown" &&
                               pendingLinkRules.length === 0 &&
                               newDropdownOptions.length === 0)

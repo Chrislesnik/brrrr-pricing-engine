@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const { category_id, input_label, input_type, dropdown_options, config, tooltip } = body
+    const { category_id, input_label, input_type, dropdown_options, config, tooltip, input_code } = body
 
     if (!category_id) return NextResponse.json({ error: "category_id is required" }, { status: 400 })
     if (!input_label?.trim()) return NextResponse.json({ error: "input_label is required" }, { status: 400 })
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         category_id,
         category: catRow.category,
         input_label: input_label.trim(),
-        input_code: generateInputCode(input_label),
+        input_code: (typeof input_code === "string" && input_code.trim()) ? input_code.trim() : generateInputCode(input_label),
         input_type,
         dropdown_options: input_type === "dropdown" ? (dropdown_options ?? []) : null,
         display_order: nextOrder,
@@ -126,9 +126,10 @@ export async function PATCH(req: NextRequest) {
 
     // Single input update (edit label, type, dropdown_options, starred)
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options, config, starred, tooltip } = body
+      const { id, input_label, input_type, dropdown_options, config, starred, tooltip, input_code } = body
       const updatePayload: Record<string, unknown> = {}
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
+      if (typeof input_code === "string" && input_code.trim()) updatePayload.input_code = input_code.trim()
       if (input_type !== undefined) {
         const validTypes = ["text", "dropdown", "number", "currency", "percentage", "date", "boolean"]
         if (!validTypes.includes(input_type)) {
