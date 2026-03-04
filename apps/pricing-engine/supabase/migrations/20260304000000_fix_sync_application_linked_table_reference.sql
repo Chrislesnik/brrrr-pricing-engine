@@ -1,5 +1,9 @@
--- Fix sync_application_from_primary_scenario to use input_linked_rules
--- instead of the now-dropped linked_table column on pricing_engine_inputs.
+-- Fix sync_application_from_primary_scenario:
+-- 1. Use input_linked_rules instead of the dropped linked_table column
+-- 2. Add recursion guard to prevent the reverse sync from overwriting
+--    application data when triggered by the forward sync
+-- 3. Preserve manually-entered guarantor data on the application
+--    (application is the source of truth for guarantors, not PE inputs)
 
 CREATE OR REPLACE FUNCTION public.sync_application_from_primary_scenario(p_loan_id uuid)
 RETURNS void
@@ -8,6 +12,14 @@ SECURITY DEFINER
 AS $$
 declare
 begin
+  -- Recursion guard: if the forward sync (app -> scenario) is already running,
+  -- do NOT run the reverse sync back, as it would overwrite the data that was
+  -- just written to the application.
+  IF current_setting('app.sync_in_progress', true) = 'true' THEN
+    RETURN;
+  END IF;
+  PERFORM set_config('app.sync_in_progress', 'true', true);
+
   INSERT INTO public.applications (loan_id, organization_id, borrower_name, status)
   SELECT l.id, l.organization_id, null, 'draft'
   FROM public.loans l
@@ -67,11 +79,23 @@ begin
     WHERE input_code = 'borrower_name'
     LIMIT 1
   ),
+  existing_app AS (
+    SELECT guarantor_ids, guarantor_names, guarantor_emails
+    FROM public.applications
+    WHERE loan_id = p_loan_id
+    LIMIT 1
+  ),
   src AS (
     SELECT
       el.entity_id,
-      bl.guarantor_ids,
-      bl.guarantor_names,
+      CASE WHEN ea.guarantor_ids IS NOT NULL OR ea.guarantor_names IS NOT NULL
+           THEN ea.guarantor_ids
+           ELSE bl.guarantor_ids
+      END AS guarantor_ids,
+      CASE WHEN ea.guarantor_ids IS NOT NULL OR ea.guarantor_names IS NOT NULL
+           THEN ea.guarantor_names
+           ELSE bl.guarantor_names
+      END AS guarantor_names,
       ad.property_street,
       ad.property_city,
       ad.property_state,
@@ -82,6 +106,7 @@ begin
     LEFT JOIN borrower_links bl ON true
     LEFT JOIN address_data ad ON true
     LEFT JOIN borrower_name_input bn ON true
+    LEFT JOIN existing_app ea ON true
     WHERE EXISTS (SELECT 1 FROM primary_scenario)
     UNION ALL
     SELECT
