@@ -1323,6 +1323,29 @@ export function InputsSettings() {
                         </p>
                       </div>
 
+                      {/* Auto-Fill Rules (available after saving) */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs flex items-center gap-1">
+                          <Database className="size-3" />
+                          Auto-Fill Rules
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs h-9 justify-start gap-2 opacity-50"
+                          disabled
+                        >
+                          <Settings className="size-3.5" />
+                          <span className="flex-1 text-left">
+                            Configure Auto-Fill
+                          </span>
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground">
+                          Save the input first, then configure auto-fill from the edit form.
+                        </p>
+                      </div>
+
                       {newInputType === "dropdown" && pendingLinkRules.length === 0 && (
                         <div className="space-y-1.5 p-2">
                           <Label className="text-xs">
