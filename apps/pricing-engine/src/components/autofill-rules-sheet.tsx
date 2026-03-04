@@ -28,6 +28,13 @@ import {
   CommandItem,
   CommandList,
 } from "@repo/ui/shadcn/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/shadcn/select";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
 
 /* -------------------------------------------------------------------------- */
