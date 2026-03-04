@@ -276,7 +276,7 @@ export function AutofillRulesSheet({
 
           const tables = new Set(rules.map((r: SourceLinkedRule) => r.linked_table).filter(Boolean));
           for (const table of tables) {
-            fetchColumnsForTable(table);
+            fetchColumnsForTable(table as string);
           }
         }
       } catch {
