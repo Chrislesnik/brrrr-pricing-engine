@@ -1,7 +1,14 @@
 import { WebhookHandler } from "@liveblocks/node";
 
-const WEBHOOK_SECRET = process.env.LIVEBLOCKS_WEBHOOK_SECRET!;
-const webhookHandler = new WebhookHandler(WEBHOOK_SECRET);
+let _webhookHandler: WebhookHandler | null = null;
+function getWebhookHandler() {
+  if (!_webhookHandler) {
+    const secret = process.env.LIVEBLOCKS_WEBHOOK_SECRET;
+    if (!secret) throw new Error("LIVEBLOCKS_WEBHOOK_SECRET is not configured");
+    _webhookHandler = new WebhookHandler(secret);
+  }
+  return _webhookHandler;
+}
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -9,7 +16,7 @@ export async function POST(request: Request) {
 
   let event;
   try {
-    event = webhookHandler.verifyRequest({
+    event = getWebhookHandler().verifyRequest({
       headers,
       rawBody: JSON.stringify(body),
     });
