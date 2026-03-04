@@ -1439,24 +1439,34 @@ export function PricingEngineLayoutSettings() {
                           {renderAddressConfig()}
                           {renderColumnRole()}
 
-                          {newInputType !== "table" && renderDatabaseLink()}
                           {newInputType !== "table" && (
                             <div className="space-y-1.5">
+                              <Label className="text-xs flex items-center gap-1">
+                                <Link2 className="size-3" />
+                                Database Link
+                              </Label>
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="w-full text-xs h-8"
+                                className="w-full text-xs h-9 justify-start gap-2"
                                 onClick={() => openLinkedRulesSheet(input.id, input.input_label)}
                               >
-                                <Settings className="size-3 mr-1.5" />
-                                Configure Conditional Link Rules
+                                <Settings className="size-3.5" />
+                                <span className="flex-1 text-left">
+                                  {(linkedRulesCounts[input.id] ?? 0) > 0 || input.linked_table
+                                    ? "Edit Database Link Rules"
+                                    : "Configure Database Link"}
+                                </span>
                                 {(linkedRulesCounts[input.id] ?? 0) > 0 && (
-                                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                     {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
                                   </Badge>
                                 )}
                               </Button>
+                              <p className="text-[10px] text-muted-foreground">
+                                Link this input to a database table. Configure conditions to dynamically switch tables based on other input values.
+                              </p>
                             </div>
                           )}
                           {renderOptionsEditor()}
@@ -2068,6 +2078,7 @@ export function PricingEngineLayoutSettings() {
         onOpenChange={setLinkedRulesOpen}
         inputId={linkedRulesInputId ?? ""}
         inputLabel={linkedRulesInputLabel}
+        inputsEndpoint="/api/pricing-engine-inputs"
         onSaved={() => {
           if (linkedRulesInputId) {
             refreshLinkedRulesCounts([linkedRulesInputId]);

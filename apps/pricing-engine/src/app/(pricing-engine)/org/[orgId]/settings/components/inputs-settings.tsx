@@ -988,86 +988,38 @@ export function InputsSettings() {
                             </div>
                           )}
 
-                          {/* Database Link */}
+                          {/* Database Link Configuration */}
                           <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs flex items-center gap-1">
-                                <Link2 className="size-3" />
-                                Database Link
-                              </Label>
-                              {newLinkedTable ? (
-                                <button
-                                  type="button"
-                                  className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5"
-                                  onClick={() => {
-                                    setNewLinkedTable("");
-                                    setNewLinkedColumn("");
-                                  }}
-                                >
-                                  <Unlink className="size-2.5" />
-                                  Remove
-                                </button>
-                              ) : null}
-                            </div>
-                            <Select
-                              value={newLinkedTable || undefined}
-                              onValueChange={(val) => {
-                                setNewLinkedTable(val);
-                                setNewLinkedColumn("");
-                              }}
-                            >
-                              <SelectTrigger className="h-8 text-sm">
-                                <SelectValue placeholder="None (standalone input)" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {loadingTables ? (
-                                  <div className="px-2 py-1.5 text-xs text-muted-foreground">Loading tables…</div>
-                                ) : linkableTables.length === 0 ? (
-                                  <div className="px-2 py-1.5 text-xs text-muted-foreground">No tables found</div>
-                                ) : (
-                                  linkableTables.map((t) => (
-                                    <SelectItem key={t.value} value={t.value}>
-                                      {t.label}
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                            {newLinkedTable && (
-                              <>
-                                <Label className="text-[10px] text-muted-foreground mt-1">
-                                  Display Expression (shown in dropdown)
-                                </Label>
-                                <ColumnExpressionInput
-                                  value={newLinkedColumn}
-                                  onChange={setNewLinkedColumn}
-                                  columns={linkableColumns}
-                                  loading={loadingColumns}
-                                  placeholder="e.g. @first_name @last_name"
-                                />
-                              </>
-                            )}
-                          </div>
-
-                          {/* Conditional Database Link Rules */}
-                          <div className="space-y-1.5">
+                            <Label className="text-xs flex items-center gap-1">
+                              <Link2 className="size-3" />
+                              Database Link
+                            </Label>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="w-full text-xs h-8"
+                              className="w-full text-xs h-9 justify-start gap-2"
                               onClick={() => openLinkedRulesSheet(input.id, input.input_label)}
                             >
-                              <Settings className="size-3 mr-1.5" />
-                              Configure Conditional Link Rules
+                              <Settings className="size-3.5" />
+                              <span className="flex-1 text-left">
+                                {(linkedRulesCounts[input.id] ?? 0) > 0 || input.linked_table
+                                  ? "Edit Database Link Rules"
+                                  : "Configure Database Link"}
+                              </span>
                               {(linkedRulesCounts[input.id] ?? 0) > 0 && (
-                                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                   {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
+                                </Badge>
+                              )}
+                              {!(linkedRulesCounts[input.id] ?? 0) && input.linked_table && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  {formatTableLabel(input.linked_table)}
                                 </Badge>
                               )}
                             </Button>
                             <p className="text-[10px] text-muted-foreground">
-                              Set conditions to dynamically switch which table and expression to use based on other input values.
+                              Link this input to a database table. Configure conditions to dynamically switch tables based on other input values.
                             </p>
                           </div>
 

@@ -12,7 +12,6 @@ import {
   Sigma,
   GripVertical,
   ChevronsUpDown,
-  Check,
   Database,
   ArrowRight,
   MinusIcon,
@@ -222,31 +221,26 @@ function SearchableInputSelect({
           <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
+      <PopoverContent className="w-64 p-0 z-[100]" align="start" side="bottom" sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <Command>
           <CommandInput placeholder="Search inputs..." className="h-8" />
-          <CommandList>
+          <CommandList className="max-h-60 overflow-y-auto" style={{ maxHeight: "240px", overflowY: "auto" }}>
             <CommandEmpty>No inputs found.</CommandEmpty>
             <CommandGroup>
               {inputs.map((inp) => (
                 <CommandItem
                   key={inp.id}
-                  value={`${inp.input_label} ${inp.category}`}
+                  value={inp.input_label}
                   onSelect={() => {
                     onValueChange(inp.id);
                     setOpen(false);
                   }}
+                  className="px-2 py-1.5 text-xs cursor-pointer"
                 >
-                  <Check
-                    className={cn(
-                      "mr-2 h-3 w-3",
-                      value === inp.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-xs">{inp.input_label}</span>
-                    <span className="text-[10px] text-muted-foreground">{inp.category}</span>
-                  </div>
+                  {inp.input_label}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -266,12 +260,15 @@ export function LinkedRulesSheet({
   onOpenChange,
   inputId,
   inputLabel,
+  inputsEndpoint = "/api/inputs",
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inputId: string;
   inputLabel: string;
+  /** API endpoint to fetch the list of inputs for condition fields. Defaults to "/api/inputs" (deal inputs). */
+  inputsEndpoint?: string;
   onSaved?: () => void;
 }) {
   const [inputs, setInputs] = useState<InputField[]>([]);
@@ -294,7 +291,7 @@ export function LinkedRulesSheet({
       setLoading(true);
       try {
         const [inputsRes, rulesRes, tablesRes] = await Promise.all([
-          fetch("/api/inputs"),
+          fetch(inputsEndpoint),
           fetch(`/api/input-linked-rules?input_id=${inputId}`),
           fetch("/api/supabase-schema?type=tables"),
         ]);
@@ -316,15 +313,14 @@ export function LinkedRulesSheet({
                 }))
               : [defaultRule()]
           );
-          if (Array.isArray(tablesJson)) {
+          if (tablesJson && Array.isArray(tablesJson.tables)) {
             setLinkableTables(
-              tablesJson.map((t: any) => ({
-                value: typeof t === "string" ? t : t.table_name ?? t.name ?? "",
-                label:
-                  typeof t === "string"
-                    ? formatTableLabel(t)
-                    : formatTableLabel(t.table_name ?? t.name ?? ""),
-              }))
+              tablesJson.tables
+                .sort((a: string, b: string) => a.localeCompare(b))
+                .map((t: string) => ({
+                  value: t,
+                  label: formatTableLabel(t),
+                }))
             );
           }
         }
@@ -340,17 +336,17 @@ export function LinkedRulesSheet({
 
     fetchData();
     return () => { cancelled = true; };
-  }, [open, inputId]);
+  }, [open, inputId, inputsEndpoint]);
 
   const fetchColumnsForTable = useCallback(async (table: string) => {
     if (!table || columnsByTable[table]) return;
     setLoadingColumnsFor(table);
     try {
       const res = await fetch(`/api/supabase-schema?type=columns&table=${encodeURIComponent(table)}`);
-      const json = await res.json().catch(() => []);
+      const json = await res.json().catch(() => ({}));
       setColumnsByTable((prev) => ({
         ...prev,
-        [table]: Array.isArray(json) ? json : [],
+        [table]: Array.isArray(json.columns) ? json.columns : Array.isArray(json) ? json : [],
       }));
     } catch {
       // ignore
@@ -631,8 +627,8 @@ function RuleCard({
       </div>
 
       {/* Target: Table + Expression */}
-      <div className="p-3 pt-0 space-y-2 border-t mt-1">
-        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+      <div className="p-3 pt-0 space-y-2 border-t mt-3">
+        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1 pt-2">
           <ArrowRight className="size-3" />
           Then link to
         </Label>

@@ -1297,39 +1297,6 @@ export default function PricingEnginePage({
     return () => { active = false }
   }, [initialLoanId])
 
-  // Fetch linked records for inputs with linked_table (static or resolved via rules)
-  useEffect(() => {
-    const tableColumnPairs = peResolvedTableColumnPairs()
-
-    // Also include static links for inputs without rules
-    for (const inp of peInputDefs) {
-      if (inp.linked_table && !tableColumnPairs.has(inp.linked_table)) {
-        tableColumnPairs.set(inp.linked_table, inp.linked_column ?? null)
-      }
-    }
-
-    if (tableColumnPairs.size === 0) return
-    let cancelled = false
-    ;(async () => {
-      const results: Record<string, { id: string; label: string }[]> = {}
-      await Promise.all(
-        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
-          try {
-            const params = new URLSearchParams({ table })
-            if (column) params.set("expression", column)
-            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
-            const data = await res.json()
-            if (!cancelled && Array.isArray(data.records)) {
-              results[table] = data.records
-            }
-          } catch { /* ignore */ }
-        }),
-      )
-      if (!cancelled) setLinkedRecordsByTable(results)
-    })()
-    return () => { cancelled = true }
-  }, [peInputDefs, peResolvedLinks, peResolvedTableColumnPairs])
-
   // Map input_code → input_id for the logic engine
   const codeToIdMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -1393,6 +1360,39 @@ export default function PricingEnginePage({
 
   // Conditional linked rules evaluation for PE inputs
   const { resolvedLinks: peResolvedLinks, getResolvedLink: getPEResolvedLink, resolvedTableColumnPairs: peResolvedTableColumnPairs } = useLinkedRules(peInputDefs, formValuesById)
+
+  // Fetch linked records for inputs with linked_table (static or resolved via rules)
+  useEffect(() => {
+    const tableColumnPairs = peResolvedTableColumnPairs()
+
+    // Also include static links for inputs without rules
+    for (const inp of peInputDefs) {
+      if (inp.linked_table && !tableColumnPairs.has(inp.linked_table)) {
+        tableColumnPairs.set(inp.linked_table, inp.linked_column ?? null)
+      }
+    }
+
+    if (tableColumnPairs.size === 0) return
+    let cancelled = false
+    ;(async () => {
+      const results: Record<string, { id: string; label: string }[]> = {}
+      await Promise.all(
+        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
+          try {
+            const params = new URLSearchParams({ table })
+            if (column) params.set("expression", column)
+            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
+            const data = await res.json()
+            if (!cancelled && Array.isArray(data.records)) {
+              results[table] = data.records
+            }
+          } catch { /* ignore */ }
+        }),
+      )
+      if (!cancelled) setLinkedRecordsByTable(results)
+    })()
+    return () => { cancelled = true }
+  }, [peInputDefs, peResolvedLinks, peResolvedTableColumnPairs])
 
   // Stable serialized key for formValuesById to avoid excessive refetches
   const formValuesByIdKey = useMemo(() => {
