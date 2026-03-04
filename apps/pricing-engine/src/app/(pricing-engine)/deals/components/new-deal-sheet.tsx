@@ -390,7 +390,10 @@ export function NewDealSheet({
                 defaultValue={categories.filter((c) => c.default_open !== false).map((c) => String(c.id))}
                 className="w-full space-y-4"
               >
-                {inputsByCategory.map(({ category, fields }) => (
+                {inputsByCategory.map(({ category, fields }) => {
+                  const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+                  if (visibleFields.length === 0) return null;
+                  return (
                   <AccordionItem
                     key={category.id}
                     value={String(category.id)}
@@ -400,14 +403,8 @@ export function NewDealSheet({
                       <span>{category.category}</span>
                     </AccordionTrigger>
                     <AccordionContent className="px-4 pb-4 pt-0">
-                      {fields.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No inputs in this category.
-                        </p>
-                      ) : (
                         <div className="grid gap-4 sm:grid-cols-2">
-                          {fields
-                            .filter((f) => !hiddenFields.has(f.id))
+                          {visibleFields
                             .map((field) => (
                             <DynamicInput
                               key={field.id}
@@ -429,10 +426,10 @@ export function NewDealSheet({
                             />
                           ))}
                         </div>
-                      )}
                     </AccordionContent>
                   </AccordionItem>
-                ))}
+                  );
+                })}
               </Accordion>
             </div>
           )}

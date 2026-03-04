@@ -669,6 +669,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   /** Render a category column */
   const renderCategory = ({ category, fields }: { category: InputCategory; fields: InputField[] }) => {
     const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+    if (visibleFields.length === 0) return null;
     return (
       <Accordion
         key={category.id}
@@ -684,11 +685,6 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
             <span>{category.category}</span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 pt-0">
-            {visibleFields.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No inputs in this category.
-              </p>
-            ) : (
               <div className="space-y-1">
                 {visibleFields.map((field) => {
                   const rawValue = editedValues[field.id] ?? null;
@@ -723,7 +719,6 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                   );
                 })}
               </div>
-            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>
