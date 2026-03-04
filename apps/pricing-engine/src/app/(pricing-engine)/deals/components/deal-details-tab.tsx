@@ -28,6 +28,7 @@ import {
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
 import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input";
+import { useLinkedRules } from "@/hooks/use-linked-rules";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -120,6 +121,9 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, LinkedRecord[]>>({});
   const [loadingLinkedRecords, setLoadingLinkedRecords] = useState(false);
 
+  // Conditional linked rules evaluation
+  const { resolvedLinks, getResolvedLink, resolvedTableColumnPairs } = useLinkedRules(inputFields, editedValues);
+
   // Sync editable values from the deal prop
   useEffect(() => {
     setEditedValues(deal.inputs ?? {});
@@ -161,22 +165,22 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     };
   }, []);
 
-  // Fetch linked records for all linked tables used by inputs
-  // This endpoint now applies org + role scoping server-side
+  // Fetch linked records for all resolved linked tables
   useEffect(() => {
     if (!deal.id || inputFields.length === 0) return;
     let cancelled = false;
 
-    // Collect unique table + column combos needed
-    const linkedInputs = inputFields.filter((f) => f.linked_table);
-    if (linkedInputs.length === 0) return;
+    // Use resolved links (from conditional rules) to build table/column pairs
+    const tableColumnPairs = resolvedTableColumnPairs();
 
-    const tableColumnPairs = new Map<string, string | null>();
-    for (const inp of linkedInputs) {
-      if (!tableColumnPairs.has(inp.linked_table!)) {
-        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null);
+    // Also include static links for inputs that have no rules
+    for (const inp of inputFields) {
+      if (inp.linked_table && !tableColumnPairs.has(inp.linked_table)) {
+        tableColumnPairs.set(inp.linked_table, inp.linked_column ?? null);
       }
     }
+
+    if (tableColumnPairs.size === 0) return;
 
     const fetchLinkedRecords = async () => {
       setLoadingLinkedRecords(true);
@@ -210,7 +214,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [deal.id, inputFields]);
+  }, [deal.id, inputFields, resolvedLinks, resolvedTableColumnPairs]);
 
   // Group inputs by category_id
   const inputsByCategory = useMemo(
@@ -358,10 +362,14 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     if (rawValue === null || rawValue === undefined || rawValue === "") return "—";
 
     // For linked inputs, show the record label instead of the raw PK
-    if (field.linked_table) {
-      const records = linkedRecordsByTable[field.linked_table] ?? [];
-      const match = records.find((r) => r.id === String(rawValue));
-      if (match) return match.label;
+    if (field.linked_table || getResolvedLink(field.id)) {
+      const resolved = getResolvedLink(field.id);
+      const table = resolved?.linked_table ?? field.linked_table;
+      if (table) {
+        const records = linkedRecordsByTable[table] ?? [];
+        const match = records.find((r) => r.id === String(rawValue));
+        if (match) return match.label;
+      }
       // Fall back to PK display if no match
       return String(rawValue);
     }
@@ -388,8 +396,10 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   /** Render an edit control based on input_type */
   const renderEditControl = (field: InputField, rawValue: unknown) => {
     // For linked inputs: render a searchable text input with autocomplete from linked records
-    if (field.linked_table) {
-      const records = linkedRecordsByTable[field.linked_table] ?? [];
+    if (field.linked_table || getResolvedLink(field.id)) {
+      const resolved = getResolvedLink(field.id);
+      const table = resolved?.linked_table ?? field.linked_table;
+      const records = table ? (linkedRecordsByTable[table] ?? []) : [];
       const currentVal = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
 
       if (loadingLinkedRecords) {

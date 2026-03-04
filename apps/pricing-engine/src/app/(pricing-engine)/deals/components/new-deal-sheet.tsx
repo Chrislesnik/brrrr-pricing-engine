@@ -36,6 +36,7 @@ import {
 import { DatePickerField } from "@/components/date-picker-field"
 import { CalcInput } from "@/components/calc-input"
 import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input"
+import { useLinkedRules } from "@/hooks/use-linked-rules"
 import { Switch } from "@/components/ui/switch"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -96,6 +97,9 @@ export function NewDealSheet({
   const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, LinkedRecord[]>>({})
   const [loadingLinkedRecords, setLoadingLinkedRecords] = useState(false)
 
+  // Conditional linked rules evaluation
+  const { resolvedLinks, getResolvedLink, resolvedTableColumnPairs } = useLinkedRules(inputs, formValues)
+
   // Fetch categories + inputs when sheet opens
   useEffect(() => {
     if (!open) return
@@ -154,21 +158,22 @@ export function NewDealSheet({
     }
   }, [open])
 
-  // Fetch linked records for all inputs that have a linked_table
+  // Fetch linked records for all inputs that have a linked_table (static or resolved via rules)
   useEffect(() => {
     if (!open || inputs.length === 0) return
     let cancelled = false
 
-    const linkedInputs = inputs.filter((f) => f.linked_table)
-    if (linkedInputs.length === 0) return
+    // Use resolved links from conditional rules
+    const tableExprPairs = resolvedTableColumnPairs()
 
-    // Collect unique table + expression combos
-    const tableExprPairs = new Map<string, string | null>()
-    for (const inp of linkedInputs) {
-      if (!tableExprPairs.has(inp.linked_table!)) {
-        tableExprPairs.set(inp.linked_table!, inp.linked_column ?? null)
+    // Also include static links for inputs without rules
+    for (const inp of inputs) {
+      if (inp.linked_table && !tableExprPairs.has(inp.linked_table)) {
+        tableExprPairs.set(inp.linked_table, inp.linked_column ?? null)
       }
     }
+
+    if (tableExprPairs.size === 0) return
 
     const fetchLinkedRecords = async () => {
       setLoadingLinkedRecords(true)
@@ -197,7 +202,7 @@ export function NewDealSheet({
 
     fetchLinkedRecords()
     return () => { cancelled = true }
-  }, [open, inputs])
+  }, [open, inputs, resolvedLinks, resolvedTableColumnPairs])
 
   const updateValue = useCallback((inputId: string, value: string | boolean) => {
     setFormValues((prev) => ({ ...prev, [inputId]: value }))
@@ -393,8 +398,8 @@ export function NewDealSheet({
                               onChange={(val) => updateValue(field.id, val)}
                               isRequired={requiredFields.has(field.id)}
                               isComputed={computedFieldIds.has(field.id)}
-                              linkedRecords={field.linked_table ? (linkedRecordsByTable[field.linked_table] ?? []) : []}
-                              loadingLinked={field.linked_table ? loadingLinkedRecords : false}
+                              linkedRecords={(() => { const r = getResolvedLink(field.id); const t = r?.linked_table ?? field.linked_table; return t ? (linkedRecordsByTable[t] ?? []) : []; })()}
+                              loadingLinked={(field.linked_table || getResolvedLink(field.id)) ? loadingLinkedRecords : false}
                             />
                           ))}
                         </div>

@@ -56,6 +56,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
+import { LinkedRulesSheet } from "@/components/linked-rules-sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -213,6 +214,35 @@ export function PricingEngineLayoutSettings() {
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
 
+  // Linked rules sheet state
+  const [linkedRulesOpen, setLinkedRulesOpen] = useState(false);
+  const [linkedRulesInputId, setLinkedRulesInputId] = useState<string | null>(null);
+  const [linkedRulesInputLabel, setLinkedRulesInputLabel] = useState("");
+  const [linkedRulesCounts, setLinkedRulesCounts] = useState<Record<string, number>>({});
+
+  const openLinkedRulesSheet = useCallback((inputId: string, label: string) => {
+    setLinkedRulesInputId(inputId);
+    setLinkedRulesInputLabel(label);
+    setLinkedRulesOpen(true);
+  }, []);
+
+  const refreshLinkedRulesCounts = useCallback(async (inputIds: string[]) => {
+    if (inputIds.length === 0) return;
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      inputIds.map(async (id) => {
+        try {
+          const res = await fetch(`/api/input-linked-rules?input_id=${id}`);
+          const json = await res.json();
+          counts[id] = Array.isArray(json.rules) ? json.rules.length : 0;
+        } catch {
+          counts[id] = 0;
+        }
+      })
+    );
+    setLinkedRulesCounts((prev) => ({ ...prev, ...counts }));
+  }, []);
+
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
   const [logicBuilderInputId, setLogicBuilderInputId] = useState<string | null>(null);
@@ -312,6 +342,12 @@ export function PricingEngineLayoutSettings() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (inputs.length > 0) {
+      refreshLinkedRulesCounts(inputs.map((i) => i.id));
+    }
+  }, [inputs, refreshLinkedRulesCounts]);
 
   useEffect(() => {
     async function checkAccessAndFetch() {
@@ -1404,6 +1440,25 @@ export function PricingEngineLayoutSettings() {
                           {renderColumnRole()}
 
                           {newInputType !== "table" && renderDatabaseLink()}
+                          {newInputType !== "table" && (
+                            <div className="space-y-1.5">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-8"
+                                onClick={() => openLinkedRulesSheet(input.id, input.input_label)}
+                              >
+                                <Settings className="size-3 mr-1.5" />
+                                Configure Conditional Link Rules
+                                {(linkedRulesCounts[input.id] ?? 0) > 0 && (
+                                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                                    {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
+                                  </Badge>
+                                )}
+                              </Button>
+                            </div>
+                          )}
                           {renderOptionsEditor()}
 
                           <div className="space-y-1.5">
@@ -2007,6 +2062,18 @@ export function PricingEngineLayoutSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LinkedRulesSheet
+        open={linkedRulesOpen}
+        onOpenChange={setLinkedRulesOpen}
+        inputId={linkedRulesInputId ?? ""}
+        inputLabel={linkedRulesInputLabel}
+        onSaved={() => {
+          if (linkedRulesInputId) {
+            refreshLinkedRulesCounts([linkedRulesInputId]);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -64,6 +64,7 @@ import {
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
+import { LinkedRulesSheet } from "@/components/linked-rules-sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -179,6 +180,35 @@ export function InputsSettings() {
 
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
+
+  // Linked rules sheet state
+  const [linkedRulesOpen, setLinkedRulesOpen] = useState(false);
+  const [linkedRulesInputId, setLinkedRulesInputId] = useState<string | null>(null);
+  const [linkedRulesInputLabel, setLinkedRulesInputLabel] = useState("");
+  const [linkedRulesCounts, setLinkedRulesCounts] = useState<Record<string, number>>({});
+
+  const openLinkedRulesSheet = useCallback((inputId: string, label: string) => {
+    setLinkedRulesInputId(inputId);
+    setLinkedRulesInputLabel(label);
+    setLinkedRulesOpen(true);
+  }, []);
+
+  const refreshLinkedRulesCounts = useCallback(async (inputIds: string[]) => {
+    if (inputIds.length === 0) return;
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      inputIds.map(async (id) => {
+        try {
+          const res = await fetch(`/api/input-linked-rules?input_id=${id}`);
+          const json = await res.json();
+          counts[id] = Array.isArray(json.rules) ? json.rules.length : 0;
+        } catch {
+          counts[id] = 0;
+        }
+      })
+    );
+    setLinkedRulesCounts((prev) => ({ ...prev, ...counts }));
+  }, []);
 
   // Fetch all public tables for the Database Link dropdown
   useEffect(() => {
@@ -322,6 +352,13 @@ export function InputsSettings() {
       setLoading(false);
     }
   }, []);
+
+  // Refresh linked rule counts when inputs change
+  useEffect(() => {
+    if (inputs.length > 0) {
+      refreshLinkedRulesCounts(inputs.map((i) => i.id));
+    }
+  }, [inputs, refreshLinkedRulesCounts]);
 
   // Load deal settings when the sheet opens
   useEffect(() => {
@@ -1012,6 +1049,28 @@ export function InputsSettings() {
                             )}
                           </div>
 
+                          {/* Conditional Database Link Rules */}
+                          <div className="space-y-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs h-8"
+                              onClick={() => openLinkedRulesSheet(input.id, input.input_label)}
+                            >
+                              <Settings className="size-3 mr-1.5" />
+                              Configure Conditional Link Rules
+                              {(linkedRulesCounts[input.id] ?? 0) > 0 && (
+                                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                                  {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
+                                </Badge>
+                              )}
+                            </Button>
+                            <p className="text-[10px] text-muted-foreground">
+                              Set conditions to dynamically switch which table and expression to use based on other input values.
+                            </p>
+                          </div>
+
                           {newInputType === "dropdown" && !newLinkedTable && (
                             <div className="space-y-1.5 p-2">
                               <Label className="text-xs">
@@ -1676,6 +1735,18 @@ export function InputsSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LinkedRulesSheet
+        open={linkedRulesOpen}
+        onOpenChange={setLinkedRulesOpen}
+        inputId={linkedRulesInputId ?? ""}
+        inputLabel={linkedRulesInputLabel}
+        onSaved={() => {
+          if (linkedRulesInputId) {
+            refreshLinkedRulesCounts([linkedRulesInputId]);
+          }
+        }}
+      />
     </div>
   );
 }

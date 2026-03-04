@@ -54,6 +54,7 @@ import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
+import { useLinkedRules } from "@/hooks/use-linked-rules"
 import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
 import { evaluateExpression } from "@/lib/expression-evaluator"
 import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
@@ -1296,17 +1297,19 @@ export default function PricingEnginePage({
     return () => { active = false }
   }, [initialLoanId])
 
-  // Fetch linked records for inputs with linked_table
+  // Fetch linked records for inputs with linked_table (static or resolved via rules)
   useEffect(() => {
-    const linkedInputs = peInputDefs.filter((inp) => inp.linked_table)
-    if (linkedInputs.length === 0) return
-    let cancelled = false
-    const tableColumnPairs = new Map<string, string | null>()
-    for (const inp of linkedInputs) {
-      if (!tableColumnPairs.has(inp.linked_table!)) {
-        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null)
+    const tableColumnPairs = peResolvedTableColumnPairs()
+
+    // Also include static links for inputs without rules
+    for (const inp of peInputDefs) {
+      if (inp.linked_table && !tableColumnPairs.has(inp.linked_table)) {
+        tableColumnPairs.set(inp.linked_table, inp.linked_column ?? null)
       }
     }
+
+    if (tableColumnPairs.size === 0) return
+    let cancelled = false
     ;(async () => {
       const results: Record<string, { id: string; label: string }[]> = {}
       await Promise.all(
@@ -1325,7 +1328,7 @@ export default function PricingEnginePage({
       if (!cancelled) setLinkedRecordsByTable(results)
     })()
     return () => { cancelled = true }
-  }, [peInputDefs])
+  }, [peInputDefs, peResolvedLinks, peResolvedTableColumnPairs])
 
   // Map input_code → input_id for the logic engine
   const codeToIdMap = useMemo(() => {
@@ -1387,6 +1390,9 @@ export default function PricingEnginePage({
     }
     return byId
   }, [formValues, codeToIdMap])
+
+  // Conditional linked rules evaluation for PE inputs
+  const { resolvedLinks: peResolvedLinks, getResolvedLink: getPEResolvedLink, resolvedTableColumnPairs: peResolvedTableColumnPairs } = useLinkedRules(peInputDefs, formValuesById)
 
   // Stable serialized key for formValuesById to avoid excessive refetches
   const formValuesByIdKey = useMemo(() => {
@@ -2982,7 +2988,7 @@ export default function PricingEnginePage({
                                       touched={!!touched[field.input_code]}
                                       formValues={formValuesMerged}
                                       signalColor={signalColors[field.input_code] ?? null}
-                                      linkedRecords={field.linked_table ? linkedRecordsByTable[field.linked_table] : undefined}
+                                      linkedRecords={(() => { const r = getPEResolvedLink(String(field.id)); const t = r?.linked_table ?? field.linked_table; return t ? linkedRecordsByTable[t] : undefined; })()}
                                     />
                                   </div>
                                 )
