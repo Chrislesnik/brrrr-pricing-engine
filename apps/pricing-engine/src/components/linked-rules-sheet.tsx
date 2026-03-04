@@ -418,7 +418,6 @@ export function LinkedRulesSheet({
       const updated = [...prev];
       const rule = { ...updated[ruleIndex] };
       rule.conditions = rule.conditions.filter((_, i) => i !== condIndex);
-      if (rule.conditions.length === 0) rule.conditions = [defaultCondition()];
       updated[ruleIndex] = rule;
       return updated;
     });
@@ -629,18 +628,24 @@ function RuleCard({
         <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">
           When
         </Label>
-        {rule.conditions.map((cond, condIndex) => (
-          <ConditionRow
-            key={condIndex}
-            condition={cond}
-            condIndex={condIndex}
-            ruleIndex={ruleIndex}
-            inputs={inputs}
-            updateCondition={updateCondition}
-            removeCondition={removeCondition}
-            canRemove={rule.conditions.length > 1}
-          />
-        ))}
+        {rule.conditions.length === 0 ? (
+          <p className="text-[10px] text-muted-foreground italic">
+            No conditions — this rule always applies (default).
+          </p>
+        ) : (
+          rule.conditions.map((cond, condIndex) => (
+            <ConditionRow
+              key={condIndex}
+              condition={cond}
+              condIndex={condIndex}
+              ruleIndex={ruleIndex}
+              inputs={inputs}
+              updateCondition={updateCondition}
+              removeCondition={removeCondition}
+              canRemove={true}
+            />
+          ))
+        )}
         <Button
           variant="ghost"
           size="sm"
