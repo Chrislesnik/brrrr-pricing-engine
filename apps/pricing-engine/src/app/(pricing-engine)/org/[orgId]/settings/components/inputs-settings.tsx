@@ -970,8 +970,7 @@ export function InputsSettings() {
                           </div>
 
                           {/* Auto-Fill Rules */}
-                          {(linkedRulesCounts[input.id] ?? 0) === 0 && (
-                            <div className="space-y-1.5">
+                          <div className="space-y-1.5">
                               <Label className="text-xs flex items-center gap-1">
                                 <Database className="size-3" />
                                 Auto-Fill Rules
@@ -996,7 +995,6 @@ export function InputsSettings() {
                                 Populate this field with values from a linked record, with per-rule column expressions.
                               </p>
                             </div>
-                          )}
 
                           {newInputType === "dropdown" && (linkedRulesCounts[editingInputId ?? ''] ?? 0) === 0 && (
                             <div className="space-y-1.5 p-2">
