@@ -1,0 +1,727 @@
+/* Import shared UI styles */
+@import "@repo/ui/globals.css";
+
+/* Liveblocks default + dark-mode styles */
+@import "@liveblocks/react-ui/styles.css";
+@import "@liveblocks/react-ui/styles/dark/attributes.css";
+@import "@liveblocks/react-tiptap/styles.css";
+@import "@liveblocks/react-blocknote/styles.css";
+@import "@blocknote/core/fonts/inter.css";
+@import "@blocknote/mantine/style.css";
+
+/* ── App-level token extensions ───────────────────────────────────────────── */
+/* These supplement the shared design tokens in @repo/ui/globals.css.        */
+
+:root {
+  /* Neutral (hue-0, 0% saturation) canvas background for the email editor.
+     Kept separate from --muted which carries a 240° blue hue tint.          */
+  --canvas-background: 0 0% 93%;
+}
+
+.dark {
+  --canvas-background: 0 0% 11%;
+}
+
+/* App-specific styles can be added below */
+
+/* -----------------------------------------------------------------------
+   Liveblocks Comments — dark-mode overrides
+   Strip blocky backgrounds and make the UI feel native / minimal
+   ----------------------------------------------------------------------- */
+
+/* Map Liveblocks accent to the app's primary color */
+.lb-root {
+  --lb-accent: hsl(var(--primary));
+  --lb-accent-foreground: hsl(var(--primary-foreground));
+  --lb-dynamic-background: hsl(var(--background));
+  --lb-foreground: hsl(var(--foreground));
+}
+
+/* Composer send / submit button — use app primary, not Liveblocks blue */
+.lb-composer-action[type="submit"],
+.lb-button[type="submit"],
+button.lb-composer-action:last-child,
+.lb-composer [data-submit],
+.lb-icon-button[type="submit"] {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+}
+
+.lb-composer-action[type="submit"]:hover,
+.lb-button[type="submit"]:hover,
+button.lb-composer-action:last-child:hover,
+.lb-composer [data-submit]:hover,
+.lb-icon-button[type="submit"]:hover {
+  background: hsl(var(--primary) / 0.8) !important;
+}
+
+/* Any remaining accent-colored elements — links, active states */
+.lb-accent,
+.lb-comment a,
+.lb-thread a {
+  color: hsl(var(--primary)) !important;
+}
+
+.lb-comment,
+.lb-thread {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove card-like background from individual comment containers */
+.lb-comment-content {
+  background: transparent !important;
+}
+
+/* Clean up the composer — no heavy box-shadow or background block */
+.lb-composer {
+  background: hsl(var(--muted) / 0.3) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: none !important;
+  border-radius: 0.75rem !important;
+}
+
+.lb-composer:focus-within {
+  border-color: hsl(var(--ring)) !important;
+  background: hsl(var(--muted) / 0.5) !important;
+}
+
+/* Composer editor placeholder */
+.lb-composer-editor [data-placeholder]::before {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Reaction badges — subtle, not blocky */
+.lb-comment-reaction {
+  background: hsl(var(--muted) / 0.4) !important;
+  border: 1px solid hsl(var(--border) / 0.5) !important;
+  border-radius: 9999px !important;
+}
+
+.lb-comment-reaction:hover {
+  background: hsl(var(--muted) / 0.7) !important;
+}
+
+.lb-comment-reaction[data-active] {
+  background: hsl(var(--primary) / 0.15) !important;
+  border-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Toolbar / action buttons — keep them subtle */
+.lb-comment-actions,
+.lb-toolbar {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.25) !important;
+}
+
+/* Thread component in detail view — no extra card styling */
+.lb-thread-comments {
+  background: transparent !important;
+}
+
+/* Thread reply composer — match the spacing of the main chat composer
+   wrapper (px-3 py-3 = 0.75rem). Adds margin around the form so the
+   composer box has the same distance from the panel walls. */
+.lb-thread-composer {
+  margin: 0.75rem !important;
+  margin-top: 2px !important;
+}
+
+/* Composer formatting toolbar */
+.lb-composer-toolbar {
+  background: transparent !important;
+  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+}
+
+/* Composer submit button area */
+.lb-composer-footer {
+  background: transparent !important;
+}
+
+/* Keep submit button visually active and clickable when the composer has
+   attachments, even if the text editor is empty. The JS hook in
+   comments-panel.tsx handles the actual submission logic. */
+.lb-composer:has(.lb-composer-attachment) button[type="submit"]:disabled,
+.lb-composer:has(.lb-composer-attachments) button[type="submit"]:disabled,
+.lb-composer-form:has(.lb-composer-attachment) button[type="submit"]:disabled,
+.lb-composer-form:has(.lb-composer-attachments) button[type="submit"]:disabled {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Hide the empty text body area in comments that only have attachments */
+.lb-comment-body:empty,
+.lb-comment-content > .lb-comment-body:has(> p:only-child:empty),
+.lb-comment-content > .lb-comment-body:has(> :only-child:not(.lb-attachments)):empty {
+  display: none !important;
+}
+
+/* Also collapse the body when it only contains a zero-width space (injected
+   by our attachment-only submission workaround) */
+.lb-comment-body > p:only-child:empty {
+  display: none !important;
+}
+
+/* -----------------------------------------------------------------------
+   Liveblocks Mentions — popover, suggestion items, avatars, mention pills.
+   Selectors are doubled (.lb-root .lb-*) to beat built-in specificity.
+   ----------------------------------------------------------------------- */
+
+/* ── Floating suggestions container ─────────────────────────────────── */
+.lb-root .lb-composer-suggestions,
+.lb-root .lb-composer-mention-suggestions,
+.lb-composer-suggestions[class],
+.lb-composer-mention-suggestions[class] {
+  z-index: 9999 !important;
+  min-width: 240px !important;
+  max-width: 300px !important;
+  max-height: 260px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow:
+    0 0 0 1px hsl(var(--border) / 0.5),
+    0 4px 16px hsl(0 0% 0% / 0.35),
+    0 12px 32px hsl(0 0% 0% / 0.2) !important;
+  padding: 4px !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* Inner list — reset so container handles spacing */
+.lb-root .lb-composer-suggestions-list,
+.lb-composer-suggestions-list[class] {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+/* ── Individual suggestion row ──────────────────────────────────────── */
+.lb-root .lb-composer-suggestions-list-item,
+.lb-root .lb-composer-mention-suggestion,
+.lb-composer-suggestions-list-item[class],
+.lb-composer-mention-suggestion[class] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.625rem !important;
+  padding: 8px 10px !important;
+  border-radius: 0.375rem !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.35 !important;
+  color: hsl(var(--foreground)) !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease !important;
+  background: transparent !important;
+}
+
+.lb-root .lb-composer-suggestions-list-item:hover,
+.lb-root .lb-composer-suggestions-list-item[data-selected],
+.lb-root .lb-composer-mention-suggestion:hover,
+.lb-root .lb-composer-mention-suggestion[data-selected],
+.lb-composer-suggestions-list-item[data-selected],
+.lb-composer-mention-suggestion[data-selected] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* ── Avatar inside suggestion rows ──────────────────────────────────── */
+.lb-root .lb-composer-mention-suggestion-avatar,
+.lb-root .lb-composer-suggestions-list-item .lb-avatar,
+.lb-composer-mention-suggestion-avatar[class],
+.lb-composer-suggestions-list-item .lb-avatar[class] {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  border-radius: 50% !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Avatar fallback initials */
+.lb-root .lb-composer-mention-suggestion-avatar .lb-avatar-fallback,
+.lb-root .lb-composer-suggestions-list-item .lb-avatar .lb-avatar-fallback {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Group description ──────────────────────────────────────────────── */
+.lb-root .lb-composer-mention-suggestion-group-description,
+.lb-composer-mention-suggestion-group-description[class] {
+  font-size: 0.6875rem !important;
+  color: hsl(var(--muted-foreground)) !important;
+  padding: 6px 10px 2px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 600 !important;
+}
+
+/* ── Mention pills inside editor & rendered comments ────────────────── */
+.lb-root .lb-mention,
+.lb-root .lb-composer-mention,
+.lb-mention[class],
+.lb-composer-mention[class] {
+  background: hsl(var(--primary) / 0.12) !important;
+  color: hsl(var(--primary)) !important;
+  border-radius: 0.25rem !important;
+  padding: 0.1em 0.3em !important;
+  font-weight: 500 !important;
+  font-size: inherit !important;
+}
+
+.lb-root .lb-mention-symbol,
+.lb-mention-symbol[class] {
+  opacity: 0.7 !important;
+}
+
+/* -----------------------------------------------------------------------
+   BlockNote email builder overrides
+   Theme-aware slash menu styling to match card-based policy toolbar surface.
+   ----------------------------------------------------------------------- */
+
+.email-blocknote-surface {
+  --bn-font-family: inherit;
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: hsl(var(--card-foreground));
+  --bn-colors-menu-background: hsl(var(--card));
+  --bn-colors-menu-text: hsl(var(--card-foreground));
+  --bn-colors-tooltip-background: hsl(var(--popover));
+  --bn-colors-tooltip-text: hsl(var(--popover-foreground));
+  --bn-colors-hovered-background: hsl(var(--accent));
+  --bn-colors-hovered-text: hsl(var(--accent-foreground));
+  --bn-colors-selected-background: hsl(var(--accent));
+  --bn-colors-selected-text: hsl(var(--accent-foreground));
+  --bn-colors-disabled-background: hsl(var(--muted));
+  --bn-colors-disabled-text: hsl(var(--muted-foreground));
+  --bn-colors-border: hsl(var(--border));
+  --bn-colors-side-menu: hsl(var(--muted-foreground));
+  --bn-border: 1px solid hsl(var(--border));
+  --bn-shadow-medium:
+    0 10px 15px -3px hsl(0 0% 0% / 0.1),
+    0 4px 6px -4px hsl(0 0% 0% / 0.1);
+}
+
+.email-blocknote-surface .bn-editor {
+  color: hsl(var(--card-foreground));
+  caret-color: currentColor;
+  background: transparent !important;
+  padding: 0 !important;
+  padding-inline: 0 !important;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.email-blocknote-surface.bn-mantine,
+.email-blocknote-surface .bn-container {
+  background: transparent !important;
+}
+
+.email-blocknote-surface .bn-editor p,
+.email-blocknote-surface .bn-editor li {
+  margin: 0.35rem 0;
+}
+
+.email-blocknote-surface .bn-editor h1,
+.email-blocknote-surface .bn-editor h2,
+.email-blocknote-surface .bn-editor h3 {
+  margin-top: 0.85rem;
+  margin-bottom: 0.45rem;
+  line-height: 1.3;
+}
+
+.email-blocknote-surface .bn-editor [data-is-empty-and-focused]::before,
+.email-blocknote-surface .bn-editor [data-is-empty]::before {
+  color: hsl(var(--muted-foreground) / 0.4) !important;
+}
+
+.email-blocknote-surface .bn-editor a {
+  color: hsl(var(--primary));
+}
+
+.email-blocknote-surface .bn-editor code {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-radius: 0.25rem;
+  padding: 0.08rem 0.32rem;
+}
+
+/* HTML embed block: fill parent width, never clip selection border */
+.email-blocknote-surface .bn-block-content[data-content-type="htmlEmbed"] {
+  width: 100% !important;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.email-blocknote-surface .bn-block-content[data-content-type="htmlEmbed"] .html-embed-block {
+  width: 100%;
+  max-width: 100%;
+}
+
+.email-blocknote-surface .html-embed-container {
+  max-width: 100% !important;
+}
+
+.email-blocknote-surface .bn-block-outer:has(.bn-block-content[data-content-type="htmlEmbed"]),
+.email-blocknote-surface .bn-block:has(.bn-block-content[data-content-type="htmlEmbed"]),
+.email-blocknote-surface .react-renderer.node-htmlEmbed {
+  overflow: visible !important;
+}
+
+/* ── HTML embed toolbar ─────────────────────────────────────────────────── */
+.html-embed-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: hsl(var(--popover) / 0.88);
+  -webkit-backdrop-filter: blur(10px) saturate(1.6);
+  backdrop-filter: blur(10px) saturate(1.6);
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border) / 0.45);
+  padding: 3px 4px;
+  box-shadow:
+    0 1px 3px hsl(0 0% 0% / 0.12),
+    0 4px 12px hsl(0 0% 0% / 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.html-embed-container:hover .html-embed-toolbar,
+.html-embed-toolbar:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Dimension inputs */
+.html-embed-dim-input {
+  font-family: inherit;
+}
+
+.html-embed-dim-input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.45);
+}
+
+.html-embed-dim-input:focus {
+  border-color: hsl(var(--ring)) !important;
+  background: hsl(var(--muted) / 0.8) !important;
+}
+
+/* Icon buttons */
+.html-embed-icon-btn {
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.html-embed-icon-btn:hover {
+  background: hsl(var(--accent)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.html-embed-icon-btn--destructive:hover {
+  background: hsl(var(--destructive) / 0.12) !important;
+  border-color: hsl(var(--destructive) / 0.3) !important;
+  color: hsl(var(--destructive)) !important;
+}
+
+/* Resize handles: only show on hover */
+.html-embed-container > [style*="cursor"][style*="resize"] {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.html-embed-container:hover > [style*="cursor"][style*="resize"] {
+  opacity: 1;
+}
+
+/* BlockNote inserted blocks: enforce theme-aware colors */
+.email-blocknote-surface .bn-block-content[data-content-type="codeBlock"] {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border));
+}
+
+.email-blocknote-surface .bn-block-content[data-content-type="codeBlock"] > pre {
+  color: inherit !important;
+}
+
+.email-blocknote-surface .bn-block-content[data-content-type="quote"] {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.email-blocknote-surface .bn-block-content[data-content-type="table"] th,
+.email-blocknote-surface .bn-block-content[data-content-type="table"] td {
+  border-color: hsl(var(--border)) !important;
+}
+
+.email-blocknote-surface .bn-block-content[data-content-type="table"] th {
+  background: hsl(var(--muted) / 0.45);
+  color: hsl(var(--foreground));
+}
+
+.email-blocknote-surface [data-file-block] .bn-file-block-content-wrapper {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.email-blocknote-surface [data-file-block] .bn-file-name-with-icon {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  min-height: 40px;
+  padding: 8px 12px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.email-blocknote-surface .bn-editor[contenteditable="true"] [data-file-block] .bn-file-name-with-icon:hover,
+.email-blocknote-surface .ProseMirror-selectednode .bn-file-name-with-icon {
+  background: hsl(var(--accent)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.email-blocknote-surface [data-file-block] .bn-file-icon {
+  position: relative;
+  color: transparent !important;
+}
+
+.email-blocknote-surface [data-file-block] .bn-file-icon svg {
+  display: none;
+}
+
+.email-blocknote-surface [data-file-block] .bn-file-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  /* Rectangular "uploaded file" icon with folded corner + up arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 3h10l4 4v14H5z'/%3E%3Cpath d='M15 3v4h4'/%3E%3Cpath d='M12 16v-6'/%3E%3Cpath d='M9.8 12.6 12 10.4l2.2 2.2'/%3E%3C/svg%3E");
+}
+
+/* Embed/file panel popover */
+.email-blocknote-surface .bn-popover-content.bn-panel-popover {
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 10px !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow:
+    0 10px 15px -3px hsl(0 0% 0% / 0.1),
+    0 4px 6px -4px hsl(0 0% 0% / 0.1) !important;
+  min-width: 280px;
+  max-width: 340px;
+  padding: 0.35rem;
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover button,
+.email-blocknote-surface .bn-popover-content.bn-panel-popover [role="button"],
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-UnstyledButton-root {
+  width: 100%;
+  border-radius: 8px;
+  color: hsl(var(--foreground));
+  min-height: 36px;
+  justify-content: flex-start;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover button:hover,
+.email-blocknote-surface .bn-popover-content.bn-panel-popover [role="button"]:hover,
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-UnstyledButton-root:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  border-color: hsl(var(--border));
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .bn-panel .mantine-Text-root {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover [data-test="embed-tab"] {
+  order: 1;
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover [data-test="upload-tab"] {
+  order: 2;
+}
+
+/* File panel tabs (shadcn-like: horizontal, fit-content triggers) */
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-Tabs-root {
+  align-items: flex-start;
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-Tabs-list {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  width: max-content !important;
+  min-width: 0 !important;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 1px);
+  background: hsl(var(--muted));
+  padding: 0.2rem;
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-Tabs-tab {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 28px;
+  flex: 0 0 auto !important;
+  border-radius: calc(var(--radius) - 3px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-Tabs-tab:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent) / 0.6);
+}
+
+.email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-Tabs-tab[data-active="true"] {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.06);
+}
+
+.email-blocknote-surface [data-file-block] .bn-file-name {
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email-blocknote-surface [data-content-type="checkListItem"] input[type="checkbox"] {
+  accent-color: hsl(var(--primary));
+}
+
+/* Code block language selector */
+.email-blocknote-surface .bn-block-content[data-content-type="codeBlock"] select {
+  position: absolute;
+  left: auto !important;
+  right: 12px !important;
+  top: 8px !important;
+  z-index: 4;
+  opacity: 0.95 !important;
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--background) / 0.7) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 6px !important;
+  padding: 2px 8px !important;
+}
+
+.email-blocknote-surface .bn-suggestion-menu {
+  z-index: 9999 !important;
+  width: 320px !important;
+  min-width: 320px !important;
+  max-width: 320px !important;
+  max-height: 427px !important;
+  overflow-y: auto !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: calc(var(--radius) + 2px) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow:
+    0 10px 15px -3px hsl(0 0% 0% / 0.1),
+    0 4px 6px -4px hsl(0 0% 0% / 0.1) !important;
+  padding: 0.375rem !important;
+}
+
+.email-blocknote-surface .bn-suggestion-menu-label {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  padding: 0.4rem 0.55rem 0.2rem !important;
+}
+
+.email-blocknote-surface .bn-suggestion-menu-item {
+  border-radius: calc(var(--radius) - 2px) !important;
+  color: hsl(var(--foreground)) !important;
+  min-height: 44px !important;
+  padding: 0.45rem 0.5rem !important;
+}
+
+.email-blocknote-surface .bn-suggestion-menu-item[aria-selected="true"],
+.email-blocknote-surface .bn-suggestion-menu-item:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.email-blocknote-surface .bn-mt-suggestion-menu-item-title {
+  color: inherit !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+}
+
+.email-blocknote-surface .bn-mt-suggestion-menu-item-subtitle {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.75rem !important;
+}
+
+.email-blocknote-surface
+  .bn-suggestion-menu-item[aria-selected="true"]
+  .bn-mt-suggestion-menu-item-subtitle,
+.email-blocknote-surface
+  .bn-suggestion-menu-item:hover
+  .bn-mt-suggestion-menu-item-subtitle {
+  color: hsl(var(--accent-foreground) / 0.75) !important;
+}
+
+.email-blocknote-surface .bn-mt-suggestion-menu-item-section[data-position="left"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.email-blocknote-surface
+  .bn-suggestion-menu-item[aria-selected="true"]
+  .bn-mt-suggestion-menu-item-section[data-position="left"],
+.email-blocknote-surface
+  .bn-suggestion-menu-item:hover
+  .bn-mt-suggestion-menu-item-section[data-position="left"] {
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* ── GrapesJS left panel: overflow + z-index fixes are applied via
+   JavaScript in studio-editor-wrapper.tsx onReady, because the SDK's
+   internal Tailwind utilities and inline styles defeat external CSS. ────── */
+

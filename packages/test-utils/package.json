@@ -1,0 +1,17 @@
+{
+  "name": "@repo/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./playwright": "./src/playwright-utils.ts"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.53.1"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

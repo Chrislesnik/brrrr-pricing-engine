@@ -1,0 +1,274 @@
+"use client";
+
+import * as React from "react";
+import { use } from "react";
+import { useRouter } from "next/navigation";
+import {
+  PDFViewer,
+  type PDFViewerHandle,
+  type BBox,
+} from "@/components/pdf-viewer";
+import { TestChatPanel, type ParseStatus } from "@/components/test-chat-panel";
+import { Button } from "@repo/ui/shadcn/button";
+import { ArrowLeft, Loader2, FileWarning } from "lucide-react";
+import { useSupabaseBrowser } from "@/lib/supabase-browser";
+
+export default function DocumentViewerPage({
+  params,
+}: {
+  params: Promise<{ id: string; docId: string }>;
+}) {
+  const resolvedParams = use(params);
+  const router = useRouter();
+  const dealId = resolvedParams.id;
+  const docId = resolvedParams.docId;
+
+  const [pdfUrl, setPdfUrl] = React.useState<string | null>(null);
+  const [fileName, setFileName] = React.useState<string>("");
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const pdfViewerRef = React.useRef<PDFViewerHandle>(null);
+
+  /* ----- Parse status state ----- */
+  const [parseStatus, setParseStatus] = React.useState<ParseStatus>("LOADING");
+  const [documentFileId, setDocumentFileId] = React.useState<number | null>(
+    null
+  );
+  const [isRetrying, setIsRetrying] = React.useState(false);
+
+  const supabase = useSupabaseBrowser();
+
+  // Keep a stable ref to the Supabase Realtime channel so we can clean up
+  const channelRef = React.useRef<ReturnType<
+    typeof supabase.channel
+  > | null>(null);
+
+  // Fetch signed URL on mount
+  React.useEffect(() => {
+    async function fetchUrl() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(
+          `/api/deals/${dealId}/deal-documents/${docId}/url`
+        );
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to load document");
+        }
+
+        const data = await res.json();
+        setPdfUrl(data.url);
+        setFileName(data.fileName || "Document");
+      } catch (err: any) {
+        setError(err.message || "Failed to load document");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (dealId && docId) {
+      fetchUrl();
+    }
+  }, [dealId, docId]);
+
+  /* ----- Fetch parse status on mount ----- */
+  React.useEffect(() => {
+    async function fetchParseStatus() {
+      try {
+        setParseStatus("LOADING");
+        const res = await fetch(
+          `/api/deals/${dealId}/deal-documents/${docId}/parse-status`
+        );
+        if (!res.ok) {
+          // If we can't check status, default to COMPLETE to not block the UI
+          setParseStatus("COMPLETE");
+          return;
+        }
+        const data = await res.json();
+        setDocumentFileId(data.documentFileId ?? null);
+        setParseStatus(data.status ?? null);
+      } catch {
+        // On error, allow usage
+        setParseStatus("COMPLETE");
+      }
+    }
+
+    if (dealId && docId) {
+      fetchParseStatus();
+    }
+  }, [dealId, docId]);
+
+  /* ----- Subscribe to Supabase Realtime when not COMPLETE ----- */
+  const subscribeToRealtime = React.useCallback(
+    (fileId: number) => {
+      // Clean up any existing channel
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+
+      const channel = supabase
+        .channel(`llama-parse-status-${fileId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "llama_document_parsed",
+            filter: `document_id=eq.${fileId}`,
+          },
+          (payload: any) => {
+            const newStatus = payload.new?.status;
+            if (newStatus) {
+              setParseStatus(newStatus);
+              // Auto-unsubscribe when COMPLETE
+              if (newStatus === "COMPLETE") {
+                channel.unsubscribe();
+                channelRef.current = null;
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      channelRef.current = channel;
+    },
+    [supabase]
+  );
+
+  // Start Realtime subscription when status is not COMPLETE and we have a fileId
+  React.useEffect(() => {
+    if (
+      documentFileId &&
+      parseStatus !== "COMPLETE" &&
+      parseStatus !== "LOADING"
+    ) {
+      subscribeToRealtime(documentFileId);
+    }
+
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+    };
+  }, [documentFileId, parseStatus, subscribeToRealtime]);
+
+  /* ----- Retry handler ----- */
+  const handleRetry = React.useCallback(async () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+
+    try {
+      const res = await fetch(
+        `/api/deals/${dealId}/deal-documents/${docId}/retry-parse`,
+        { method: "POST" }
+      );
+
+      if (!res.ok) {
+        console.error("Retry failed:", await res.text().catch(() => ""));
+        return;
+      }
+
+      // Transition to PENDING while we wait for processing
+      setParseStatus("PENDING");
+
+      // Ensure Realtime subscription is active
+      if (documentFileId) {
+        subscribeToRealtime(documentFileId);
+      }
+    } catch (err) {
+      console.error("Retry error:", err);
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [dealId, docId, documentFileId, isRetrying, subscribeToRealtime]);
+
+  // Handle citation click from chat panel
+  const handleCitationClick = (page: number, bbox: BBox) => {
+    if (pdfViewerRef.current) {
+      pdfViewerRef.current.goToPage(page, bbox);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading document...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !pdfUrl) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <FileWarning className="h-12 w-12 text-muted-foreground" />
+          <div>
+            <h2 className="text-lg font-semibold">Unable to load document</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {error || "This document has no file attached."}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/deals/${dealId}`)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Deal
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Main viewer layout
+  return (
+    <div className="flex h-screen w-full flex-col overflow-hidden">
+      {/* Top bar with back button and file name */}
+      <div className="flex items-center gap-3 border-b px-4 py-2 shrink-0 bg-background">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => router.push(`/deals/${dealId}`)}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Deal
+        </Button>
+        <div className="h-4 w-px bg-border" />
+        <span className="text-sm font-medium truncate">{fileName}</span>
+      </div>
+
+      {/* Content: PDF + Chat */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* PDF Viewer - 75% */}
+        <div className="w-3/4 h-full">
+          <PDFViewer ref={pdfViewerRef} url={pdfUrl} className="h-full" />
+        </div>
+
+        {/* AI Chat Panel - 25% */}
+        <div className="w-1/4 h-full min-w-[300px]">
+          <TestChatPanel
+            title="Document Assistant"
+            dealId={dealId}
+            dealDocumentId={docId}
+            onCitationClick={handleCitationClick}
+            parseStatus={parseStatus}
+            onRetry={handleRetry}
+            isRetrying={isRetrying}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

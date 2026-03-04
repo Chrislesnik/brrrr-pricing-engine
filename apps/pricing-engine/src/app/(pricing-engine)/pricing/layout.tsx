@@ -1,0 +1,14 @@
+
+interface Props {
+  children: React.ReactNode
+}
+
+export default function PricingLayout({ children }: Props) {
+  return (
+    <main id="main-content" className="flex min-h-0 h-full flex-1 flex-col overflow-hidden">
+      {children}
+    </main>
+  )
+}
+
+

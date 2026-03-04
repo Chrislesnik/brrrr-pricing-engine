@@ -1,0 +1,511 @@
+"use client"
+
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
+import { Button } from "@/components/ui/button"
+import { IconDatabase, IconArrowLeft, IconLoader2, IconTestPipe, IconDeviceFloppy, IconCheck } from "@tabler/icons-react"
+import { Variable, defaultVariables, variablesToGlobalData } from "./variable-types"
+import { VariableEditorModal } from "./variable-editor-modal"
+import { TemplateGallery } from "./template-gallery"
+import { VariablePreviewPanel } from "./variable-preview-panel"
+import { DocumentTemplate, defaultTemplateHtml } from "./template-types"
+import { grapejsThemeStyles } from "./grapesjs-theme-styles"
+
+const StudioEditorWrapper = dynamic(
+  () => import("./studio-editor-wrapper").then(mod => ({ default: mod.StudioEditorWrapper })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-muted-foreground">Loading editor...</div>
+      </div>
+    )
+  }
+)
+
+export function DocumentsTab() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  const templateId = searchParams.get("template")
+  const isNewTemplate = searchParams.get("new") === "true"
+  const templateName = searchParams.get("name") || "Untitled Template"
+  const isEditorMode = templateId !== null || isNewTemplate
+
+  const [variables, setVariables] = useState<Variable[]>(defaultVariables)
+  const [variableEditorOpen, setVariableEditorOpen] = useState(false)
+  const [currentTemplate, setCurrentTemplate] = useState<DocumentTemplate | null>(null)
+  const [orgLogos, setOrgLogos] = useState<{ light: string | null; dark: string | null }>({ light: null, dark: null })
+  const [loadingTemplate, setLoadingTemplate] = useState(false)
+  const [templateError, setTemplateError] = useState<string | null>(null)
+  const [showTestPanel, setShowTestPanel] = useState(false)
+  const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<any>(null)
+  const handleEditorReady = useCallback((editor: any) => {
+    editorRef.current = editor
+  }, [])
+
+  const handleApplyPreviewValues = useCallback((values: Record<string, string>) => {
+    setPreviewValues(values)
+    if (!editorRef.current) return
+    const editor = editorRef.current
+    try {
+      const wrapper = editor.DomComponents.getWrapper()
+      const hasAnyValue = Object.values(values).some(v => v.trim())
+
+      // Update data-variable text components
+      const varComponents = wrapper.findType("data-variable")
+      varComponents.forEach((comp: any) => {
+        const el = comp.getEl()
+        if (!el) return
+
+        if (!hasAnyValue && el.hasAttribute("data-preview-active")) {
+          el.innerHTML = el.getAttribute("data-preview-original") || ""
+          el.style.cssText = el.getAttribute("data-preview-original-style") || ""
+          el.removeAttribute("data-preview-active")
+          el.removeAttribute("data-preview-original")
+          el.removeAttribute("data-preview-original-style")
+          return
+        }
+
+        const resolver = comp.get("dataResolver") || {}
+        const varName = resolver.defaultValue || resolver.path || ""
+        const testValue = values[varName]?.trim()
+        if (!testValue) return
+
+        if (!el.hasAttribute("data-preview-original")) {
+          el.setAttribute("data-preview-original", el.innerHTML)
+          el.setAttribute("data-preview-original-style", el.getAttribute("style") || "")
+        }
+        el.setAttribute("data-preview-active", "true")
+        el.textContent = testValue
+        el.style.cssText = "display:inline !important;background:none !important;border:none !important;padding:0 !important;font-size:inherit !important;font-weight:inherit !important;font-family:inherit !important;color:inherit !important;line-height:inherit !important;white-space:normal !important;border-radius:0 !important;vertical-align:baseline !important;"
+      })
+
+      // Update QR code components bound to a variable
+      const qrComponents = wrapper.findType("qr-code")
+      qrComponents.forEach((comp: any) => {
+        const attrs = comp.getAttributes?.() || {}
+        if (attrs["data-qr-mode"] !== "variable") return
+        const varName = attrs["data-qr-variable"] || ""
+        if (!varName) return
+
+        const testValue = values[varName]?.trim()
+        const size = attrs["data-qr-size"] || "150"
+        const qrData = testValue || `{{${varName}}}`
+        const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(qrData)}`
+        comp.addAttributes({ src })
+        const el = comp.getEl()
+        if (el) el.setAttribute("src", src)
+      })
+    } catch (e) {
+      console.warn("Failed to apply preview values:", e)
+    }
+  }, [])
+
+  const globalData = useMemo(() => variablesToGlobalData(variables), [variables])
+
+  const handleInsertVariable = useCallback((variableName: string) => {
+    const editor = editorRef.current
+    if (!editor) return
+    const selected = editor.getSelected() || editor.getWrapper()
+    if (selected) {
+      const variable = variables.find(v => v.name === variableName)
+      const resolverPath = variable?.path || variableName
+      selected.append({
+        type: "data-variable",
+        dataResolver: {
+          path: resolverPath,
+          defaultValue: variableName,
+        },
+      })
+    }
+  }, [variables])
+
+  const variableOptions = useMemo(() => 
+    variables.map(variable => ({
+      id: `{{${variable.name}}}`,
+      label: variable.name
+    })),
+    [variables]
+  )
+
+  useEffect(() => {
+    if (!templateId) return
+
+    let cancelled = false
+    setLoadingTemplate(true)
+    setTemplateError(null)
+    setCurrentTemplate(null)
+    setVariables(defaultVariables)
+
+    Promise.all([
+      fetch(`/api/document-templates/${templateId}`).then(res => {
+        if (!res.ok) throw new Error("Template not found")
+        return res.json()
+      }),
+      fetch(`/api/document-templates/${templateId}/variables`).then(res => {
+        if (!res.ok) throw new Error("Failed to load variables")
+        return res.json()
+      })
+    ])
+      .then(([templateData, variablesData]) => {
+        if (cancelled) return
+        setCurrentTemplate(templateData.template)
+        setVariables(variablesData.variables || [])
+      })
+      .catch(e => {
+        if (cancelled) return
+        setTemplateError(e.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTemplate(false)
+      })
+
+    return () => { cancelled = true }
+  }, [templateId])
+
+  useEffect(() => {
+    fetch("/api/org/whitelabel-logo")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data) setOrgLogos({ light: data.light_url ?? null, dark: data.dark_url ?? null })
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleSelectTemplate = useCallback((template: DocumentTemplate) => {
+    router.push(`/platform-settings/integrations/template-editor?tab=documents&template=${template.id}`)
+  }, [router])
+
+  const handleCreateTemplate = useCallback(async (name: string) => {
+    try {
+      const res = await fetch("/api/document-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          html_content: defaultTemplateHtml,
+          gjs_data: {},
+        }),
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to create template")
+      }
+      
+      const data = await res.json()
+      setCurrentTemplate(data.template)
+      router.push(`/platform-settings/integrations/template-editor?tab=documents&template=${data.template.id}`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to create template")
+    }
+  }, [router])
+
+  const handleBackToGallery = useCallback(() => {
+    setCurrentTemplate(null)
+    setTemplateError(null)
+    router.push("/platform-settings/integrations/template-editor?tab=documents")
+  }, [router])
+
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [editableName, setEditableName] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+  const editableNameRef = useRef<string | null>(null)
+
+  const loadedTemplateName = currentTemplate?.name ?? null
+  useEffect(() => {
+    if (loadedTemplateName) {
+      setEditableName(loadedTemplateName)
+      editableNameRef.current = loadedTemplateName
+    }
+  }, [loadedTemplateName])
+
+  const handleNameChange = useCallback((val: string) => {
+    setEditableName(val)
+    editableNameRef.current = val
+  }, [])
+
+  const saveTemplateName = useCallback(async () => {
+    const id = currentTemplate?.id ?? templateId
+    const name = editableNameRef.current
+    if (!id || id.startsWith("new-") || !name?.trim()) return
+    try {
+      const res = await fetch(`/api/document-templates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+      if (!res.ok) console.error("Failed to save name:", await res.text())
+    } catch (e) {
+      console.error("Failed to save template name:", e)
+    }
+  }, [currentTemplate?.id, templateId])
+
+  const handleEditorSave = useCallback(async (html: string, projectData: object) => {
+    const id = currentTemplate?.id ?? templateId
+    if (!id || id.startsWith("new-")) return
+    try {
+      await fetch(`/api/document-templates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html_content: html,
+          gjs_data: projectData,
+        }),
+      })
+    } catch (e) {
+      console.error("Failed to persist template:", e)
+    }
+  }, [currentTemplate?.id, templateId])
+
+  const handleManualSave = useCallback(async () => {
+    const editor = editorRef.current
+    if (!editor) return
+    setSaving(true)
+    setSaveSuccess(false)
+    try {
+      await saveTemplateName()
+      await editor.store()
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    } catch (e) {
+      console.error("Failed to save template:", e)
+    } finally {
+      setSaving(false)
+    }
+  }, [saveTemplateName])
+
+  const handleSaveAndExit = useCallback(async () => {
+    const editor = editorRef.current
+    if (!editor) return
+    setSaving(true)
+    try {
+      await saveTemplateName()
+      await editor.store()
+      router.push("/platform-settings/integrations/template-editor?tab=documents")
+    } catch (e) {
+      console.error("Failed to save template:", e)
+      setSaving(false)
+    }
+  }, [router, saveTemplateName])
+
+  const editorTemplate = useMemo(() => {
+    if (currentTemplate) return currentTemplate
+    if (isNewTemplate) {
+      return {
+        id: `new-${Date.now()}`,
+        name: templateName,
+        html_content: defaultTemplateHtml,
+        gjs_data: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_id: "",
+      }
+    }
+    return null
+  }, [currentTemplate, isNewTemplate, templateName])
+
+  if (!isEditorMode) {
+    return (
+      <div className="flex flex-1 flex-col overflow-auto">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <TemplateGallery
+            onSelectTemplate={handleSelectTemplate}
+            onCreateTemplate={handleCreateTemplate}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (loadingTemplate) {
+    return (
+      <div className="flex flex-1 flex-col overflow-auto">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <IconLoader2 className="h-5 w-5 animate-spin" />
+            <span>Loading template...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (templateError) {
+    return (
+      <div className="flex flex-1 flex-col overflow-auto">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-4">
+          <p className="text-destructive">{templateError}</p>
+          <Button variant="outline" onClick={handleBackToGallery}>
+            Back to Templates
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full w-full max-w-none flex-col overflow-hidden">
+      <style dangerouslySetInnerHTML={{ __html: grapejsThemeStyles }} />
+      
+      <div className="px-4 py-3 flex-none flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToGallery}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <IconArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div>
+            {editingName ? (
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={editableName ?? ""}
+                onChange={(e) => handleNameChange(e.target.value)}
+                onBlur={() => setEditingName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { setEditingName(false); e.currentTarget.blur() }
+                  if (e.key === "Escape") { setEditingName(false); e.currentTarget.blur() }
+                }}
+                className="text-lg font-medium bg-transparent border-0 border-b-2 border-primary outline-none px-0 py-0.5 w-auto min-w-[120px] max-w-[400px]"
+                style={{ width: `${Math.max(120, (editableName?.length ?? 10) * 10 + 20)}px` }}
+                placeholder="Template name"
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingName(true)
+                  setTimeout(() => nameInputRef.current?.select(), 0)
+                }}
+                className="text-lg font-medium text-left rounded px-1.5 py-0.5 -ml-1.5 hover:bg-accent transition-colors cursor-text"
+              >
+                {editableName || "Untitled Template"}
+              </button>
+            )}
+            <p className="text-muted-foreground text-sm">
+              Edit template design
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showTestPanel ? "secondary" : "outline"}
+            className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+            onClick={() => {
+              const next = !showTestPanel
+              setShowTestPanel(next)
+              const editor = editorRef.current
+              if (!editor) return
+
+              if (next) {
+                editor.select(null)
+                editor.__previewMode = true
+                const root = document.querySelector(".gs-studio-root")
+                root?.classList.add("gs-preview-mode")
+              } else {
+                // Restore original variable tags in the canvas
+                try {
+                  const wrapper = editor.DomComponents.getWrapper()
+                  wrapper.findType("data-variable").forEach((comp: any) => {
+                    const el = comp.getEl()
+                    if (!el || !el.hasAttribute("data-preview-active")) return
+                    el.innerHTML = el.getAttribute("data-preview-original") || ""
+                    el.style.cssText = el.getAttribute("data-preview-original-style") || ""
+                    el.removeAttribute("data-preview-active")
+                    el.removeAttribute("data-preview-original")
+                    el.removeAttribute("data-preview-original-style")
+                  })
+                } catch {}
+                editor.__previewMode = false
+                const root = document.querySelector(".gs-studio-root")
+                root?.classList.remove("gs-preview-mode")
+              }
+            }}
+          >
+            <IconTestPipe className="h-4 w-4 mr-1.5" />
+            Test Data
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setVariableEditorOpen(true)}
+            className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+          >
+            <IconDatabase className="h-4 w-4 mr-2" />
+            Edit Variables
+          </Button>
+          <div className="w-px h-6 bg-border" />
+          <Button
+            variant="outline"
+            onClick={handleManualSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <IconLoader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : saveSuccess ? (
+              <IconCheck className="h-4 w-4 mr-1.5 text-green-600" />
+            ) : (
+              <IconDeviceFloppy className="h-4 w-4 mr-1.5" />
+            )}
+            {saveSuccess ? "Saved" : "Save"}
+          </Button>
+          <Button
+            onClick={handleSaveAndExit}
+            disabled={saving}
+          >
+            {saving ? (
+              <IconLoader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <IconDeviceFloppy className="h-4 w-4 mr-1.5" />
+            )}
+            Save & Exit
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex min-h-0 gap-0 px-4 pb-4">
+        <div className="flex-1 min-w-0 h-full rounded-lg border bg-background overflow-hidden isolate">
+          <StudioEditorWrapper
+            key={`editor-${templateId}-${variables.length}`}
+            globalData={globalData}
+            variableOptions={variableOptions}
+            variables={variables}
+            template={editorTemplate}
+            onSave={handleEditorSave}
+            onEditorReady={handleEditorReady}
+            orgLogos={orgLogos}
+          />
+        </div>
+
+        {showTestPanel && (
+          <div className="w-[280px] flex-shrink-0 h-full pl-2">
+            <VariablePreviewPanel
+              variables={variables}
+              values={previewValues}
+              onValuesChange={handleApplyPreviewValues}
+            />
+          </div>
+        )}
+      </div>
+
+      <VariableEditorModal
+        open={variableEditorOpen}
+        onOpenChange={setVariableEditorOpen}
+        variables={variables}
+        onVariablesChange={setVariables}
+        templateId={templateId || undefined}
+      />
+    </div>
+  )
+}

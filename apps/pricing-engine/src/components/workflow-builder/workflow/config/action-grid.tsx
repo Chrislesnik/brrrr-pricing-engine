@@ -1,0 +1,579 @@
+"use client";
+
+import {
+  ArrowUpDown,
+  BarChart3,
+  Calendar,
+  ChevronRight,
+  ChevronsDownUp,
+  Code,
+  CopyX,
+  Database,
+  Eye,
+  EyeOff,
+  Filter,
+  GitBranch,
+  GitFork,
+  Globe,
+  Grid3X3,
+  List,
+  ListChecks,
+  Merge,
+  MoreHorizontal,
+  Repeat,
+  Reply,
+  Search,
+  Settings,
+  Timer,
+  Ungroup,
+  Zap,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@repo/ui/shadcn/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui/shadcn/dropdown-menu";
+import { Input } from "@repo/ui/shadcn/input";
+import { IntegrationIcon } from "@/components/workflow-builder/ui/integration-icon";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useIsTouch } from "@/components/workflow-builder/hooks/use-touch";
+import { cn } from "@/components/workflow-builder/lib/utils";
+import { getAllActions } from "@/components/workflow-builder/plugins";
+
+type ActionType = {
+  id: string;
+  label: string;
+  description: string;
+  category: string;
+  integration?: string;
+};
+
+// System actions that don't have plugins
+const SYSTEM_ACTIONS: ActionType[] = [
+  {
+    id: "HTTP Request",
+    label: "HTTP Request",
+    description: "Make an HTTP request to any API",
+    category: "System",
+  },
+  {
+    id: "Database Query",
+    label: "Database Query",
+    description: "Query your database",
+    category: "System",
+  },
+  {
+    id: "Condition",
+    label: "Condition",
+    description: "Branch based on a condition",
+    category: "System",
+  },
+  {
+    id: "Set Fields",
+    label: "Set Fields",
+    description: "Define output fields with values or expressions",
+    category: "System",
+  },
+  {
+    id: "Wait",
+    label: "Wait",
+    description: "Pause execution for a set duration",
+    category: "System",
+  },
+  {
+    id: "Code",
+    label: "Code",
+    description: "Write custom JavaScript code",
+    category: "System",
+  },
+  {
+    id: "Switch",
+    label: "Switch",
+    description: "Route to different branches by value",
+    category: "System",
+  },
+  {
+    id: "Filter",
+    label: "Filter",
+    description: "Remove items that don't match conditions",
+    category: "System",
+  },
+  {
+    id: "DateTime",
+    label: "DateTime",
+    description: "Parse, format, and manipulate dates",
+    category: "System",
+  },
+  {
+    id: "Split Out",
+    label: "Split Out",
+    description: "Explode an array field into individual items",
+    category: "System",
+  },
+  {
+    id: "Limit",
+    label: "Limit",
+    description: "Take first or last N items",
+    category: "System",
+  },
+  {
+    id: "Aggregate",
+    label: "Aggregate",
+    description: "Sum, count, average, min, max, group by",
+    category: "System",
+  },
+  {
+    id: "Merge",
+    label: "Merge",
+    description: "Combine data from multiple branches",
+    category: "System",
+  },
+  {
+    id: "Sort",
+    label: "Sort",
+    description: "Sort items by a field",
+    category: "System",
+  },
+  {
+    id: "Remove Duplicates",
+    label: "Remove Duplicates",
+    description: "Deduplicate items by a key field",
+    category: "System",
+  },
+  {
+    id: "Loop Over Batches",
+    label: "Loop Over Batches",
+    description: "Process items in configurable batch sizes",
+    category: "System",
+  },
+  {
+    id: "Respond to Webhook",
+    label: "Respond to Webhook",
+    description: "Write values to inputs and respond to the webhook caller",
+    category: "System",
+  },
+];
+
+// Combine System actions with plugin actions
+function useAllActions(): ActionType[] {
+  return useMemo(() => {
+    const pluginActions = getAllActions();
+
+    // Map plugin actions to ActionType format
+    const mappedPluginActions: ActionType[] = pluginActions.map((action) => ({
+      id: action.id,
+      label: action.label,
+      description: action.description,
+      category: action.category,
+      integration: action.integration,
+    }));
+
+    return [...SYSTEM_ACTIONS, ...mappedPluginActions];
+  }, []);
+}
+
+type ActionGridProps = {
+  onSelectAction: (actionType: string) => void;
+  disabled?: boolean;
+  isNewlyCreated?: boolean;
+};
+
+function GroupIcon({
+  group,
+}: {
+  group: { category: string; actions: ActionType[] };
+}) {
+  // For plugin categories, use the integration icon from the first action
+  const firstAction = group.actions[0];
+  if (firstAction?.integration) {
+    return (
+      <IntegrationIcon
+        className="size-4"
+        integration={firstAction.integration}
+      />
+    );
+  }
+  // For System category
+  if (group.category === "System") {
+    return <Settings className="size-4" />;
+  }
+  return <Zap className="size-4" />;
+}
+
+const SYSTEM_ACTION_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  "HTTP Request": { icon: Globe, color: "text-amber-500" },
+  "Database Query": { icon: Database, color: "text-blue-500" },
+  Condition: { icon: GitBranch, color: "text-pink-500" },
+  "Set Fields": { icon: ListChecks, color: "text-violet-500" },
+  Wait: { icon: Timer, color: "text-orange-500" },
+  Code: { icon: Code, color: "text-green-500" },
+  Switch: { icon: GitFork, color: "text-blue-400" },
+  Filter: { icon: Filter, color: "text-cyan-500" },
+  DateTime: { icon: Calendar, color: "text-teal-500" },
+  "Split Out": { icon: Ungroup, color: "text-indigo-500" },
+  Limit: { icon: ChevronsDownUp, color: "text-rose-500" },
+  Aggregate: { icon: BarChart3, color: "text-purple-500" },
+  Merge: { icon: Merge, color: "text-emerald-500" },
+  Sort: { icon: ArrowUpDown, color: "text-sky-500" },
+  "Remove Duplicates": { icon: CopyX, color: "text-amber-500" },
+  "Loop Over Batches": { icon: Repeat, color: "text-lime-500" },
+  "Respond to Webhook": { icon: Reply, color: "text-blue-600" },
+};
+
+function ActionIcon({
+  action,
+  className,
+}: {
+  action: ActionType;
+  className?: string;
+}) {
+  if (action.integration) {
+    return (
+      <IntegrationIcon className={className} integration={action.integration} />
+    );
+  }
+  if (action.category === "System") {
+    const entry = SYSTEM_ACTION_ICONS[action.id];
+    if (entry) {
+      const Icon = entry.icon;
+      return <Icon className={cn(className, entry.color)} />;
+    }
+    return <Settings className={cn(className, "text-muted-foreground")} />;
+  }
+  return <Zap className={cn(className, "text-muted-foreground")} />;
+}
+
+// Local storage keys
+const HIDDEN_GROUPS_KEY = "workflow-action-grid-hidden-groups";
+const VIEW_MODE_KEY = "workflow-action-grid-view-mode";
+
+type ViewMode = "list" | "grid";
+
+function getInitialHiddenGroups(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const stored = localStorage.getItem(HIDDEN_GROUPS_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function getInitialViewMode(): ViewMode {
+  if (typeof window === "undefined") return "list";
+  try {
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    return stored === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+export function ActionGrid({
+  onSelectAction,
+  disabled,
+  isNewlyCreated,
+}: ActionGridProps) {
+  const [filter, setFilter] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set()
+  );
+  const [hiddenGroups, setHiddenGroups] = useState<Set<string>>(
+    getInitialHiddenGroups
+  );
+  const [showHidden, setShowHidden] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
+  const actions = useAllActions();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isTouch = useIsTouch();
+
+  const toggleViewMode = () => {
+    const newMode = viewMode === "list" ? "grid" : "list";
+    setViewMode(newMode);
+    localStorage.setItem(VIEW_MODE_KEY, newMode);
+  };
+
+  const toggleGroup = (category: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
+
+  const toggleHideGroup = (category: string) => {
+    setHiddenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      // Persist to localStorage
+      localStorage.setItem(HIDDEN_GROUPS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    // Only focus after touch detection is complete (isTouch !== undefined)
+    // and only on non-touch devices to avoid opening the keyboard
+    if (isNewlyCreated && isTouch === false && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isNewlyCreated, isTouch]);
+
+  const filteredActions = actions.filter((action) => {
+    const searchTerm = filter.toLowerCase();
+    return (
+      action.label.toLowerCase().includes(searchTerm) ||
+      action.description.toLowerCase().includes(searchTerm) ||
+      action.category.toLowerCase().includes(searchTerm)
+    );
+  });
+
+  // Group actions by category
+  const groupedActions = useMemo(() => {
+    const groups: Record<string, ActionType[]> = {};
+
+    for (const action of filteredActions) {
+      const category = action.category;
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(action);
+    }
+
+    // Sort categories: System first, then alphabetically
+    const sortedCategories = Object.keys(groups).sort((a, b) => {
+      if (a === "System") return -1;
+      if (b === "System") return 1;
+      return a.localeCompare(b);
+    });
+
+    return sortedCategories.map((category) => ({
+      category,
+      actions: groups[category],
+    }));
+  }, [filteredActions]);
+
+  // Filter groups based on hidden state
+  const visibleGroups = useMemo(() => {
+    if (showHidden) return groupedActions;
+    return groupedActions.filter((g) => !hiddenGroups.has(g.category));
+  }, [groupedActions, hiddenGroups, showHidden]);
+
+  const hiddenCount = hiddenGroups.size;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            data-testid="action-search-input"
+            disabled={disabled}
+            id="action-filter"
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search actions..."
+            ref={inputRef}
+            value={filter}
+          />
+        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className="shrink-0"
+                onClick={toggleViewMode}
+                size="icon"
+                variant="ghost"
+              >
+                {viewMode === "list" ? (
+                  <Grid3X3 className="size-4" />
+                ) : (
+                  <List className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {viewMode === "list" ? "Grid view" : "List view"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {hiddenCount > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className={cn("shrink-0", showHidden && "bg-muted")}
+                  onClick={() => setShowHidden(!showHidden)}
+                  size="icon"
+                  variant="ghost"
+                >
+                  {showHidden ? (
+                    <Eye className="size-4" />
+                  ) : (
+                    <EyeOff className="size-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showHidden
+                  ? "Hide hidden groups"
+                  : `Show ${hiddenCount} hidden group${hiddenCount > 1 ? "s" : ""}`}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+
+      <div
+        className="min-h-0 flex-1 overflow-y-auto pb-4"
+        data-testid="action-grid"
+      >
+        {filteredActions.length === 0 && (
+          <p className="py-4 text-center text-muted-foreground text-sm">
+            No actions found
+          </p>
+        )}
+        {filteredActions.length > 0 && visibleGroups.length === 0 && (
+          <p className="py-4 text-center text-muted-foreground text-sm">
+            All groups are hidden
+          </p>
+        )}
+
+        {/* Grid View */}
+        {viewMode === "grid" && visibleGroups.length > 0 && (
+          <div
+            className="grid gap-2 p-1"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))",
+            }}
+          >
+            {filteredActions
+              .filter(
+                (action) => showHidden || !hiddenGroups.has(action.category)
+              )
+              .map((action) => (
+                <button
+                  className={cn(
+                    "flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg border border-transparent p-2 text-center transition-colors hover:border-border hover:bg-muted",
+                    disabled && "pointer-events-none opacity-50"
+                  )}
+                  data-testid={`action-option-${action.id.toLowerCase().replace(/\s+/g, "-")}`}
+                  disabled={disabled}
+                  key={action.id}
+                  onClick={() => onSelectAction(action.id)}
+                  type="button"
+                >
+                  <ActionIcon action={action} className="size-6" />
+                  <span className="line-clamp-2 font-medium text-xs leading-tight">
+                    {action.label}
+                  </span>
+                </button>
+              ))}
+          </div>
+        )}
+
+        {/* List View */}
+        {viewMode === "list" &&
+          visibleGroups.length > 0 &&
+          visibleGroups.map((group, groupIndex) => {
+            const isCollapsed = collapsedGroups.has(group.category);
+            const isHidden = hiddenGroups.has(group.category);
+            return (
+              <div key={group.category}>
+                {groupIndex > 0 && <div className="my-2 h-px bg-border" />}
+                <div
+                  className={cn(
+                    "sticky top-0 z-10 mb-1 flex items-center gap-2 bg-background px-3 py-2 font-medium text-muted-foreground text-xs uppercase tracking-wider",
+                    isHidden && "opacity-50"
+                  )}
+                >
+                  <button
+                    className="flex flex-1 items-center gap-2 text-left hover:text-foreground"
+                    onClick={() => toggleGroup(group.category)}
+                    type="button"
+                  >
+                    <ChevronRight
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        !isCollapsed && "rotate-90"
+                      )}
+                    />
+                    <GroupIcon group={group} />
+                    {group.category}
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="rounded p-0.5 hover:bg-muted hover:text-foreground"
+                        type="button"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => toggleHideGroup(group.category)}
+                      >
+                        {isHidden ? (
+                          <>
+                            <Eye className="mr-2 size-4" />
+                            Show group
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="mr-2 size-4" />
+                            Hide group
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {!isCollapsed &&
+                  group.actions.map((action) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                        disabled && "pointer-events-none opacity-50"
+                      )}
+                      data-testid={`action-option-${action.id.toLowerCase().replace(/\s+/g, "-")}`}
+                      disabled={disabled}
+                      key={action.id}
+                      onClick={() => onSelectAction(action.id)}
+                      type="button"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="font-medium">{action.label}</span>
+                        {action.description && (
+                          <span className="text-muted-foreground text-xs">
+                            {" "}
+                            - {action.description}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+}

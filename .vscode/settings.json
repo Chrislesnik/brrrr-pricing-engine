@@ -1,4 +1,5 @@
 {
+  "deno.enable": false,
   "editor.tabSize": 2,
   "editor.detectIndentation": false,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -14,5 +15,9 @@
   },
   "search.exclude": {
     "package-lock.json": true
-  }
+  },
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "css.lint.unknownAtRules": "ignore"
 }

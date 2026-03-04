@@ -1,0 +1,619 @@
+/**
+ * Workflow Executor - walks the node graph and executes each step
+ * Uses existing plugin step functions from the workflow builder
+ */
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import {
+  stepRegistry,
+  hasStep,
+} from "@/components/workflow-builder/lib/steps/index";
+import { triggerStep } from "@/components/workflow-builder/lib/steps/trigger";
+import type { StepContext } from "@/components/workflow-builder/lib/steps/step-handler";
+import { findActionById } from "@/components/workflow-builder/plugins";
+import { type WorkflowItem, normalizeToItems } from "@/components/workflow-builder/lib/types/items";
+
+// Types matching the workflow store
+type WorkflowNode = {
+  id: string;
+  type?: string;
+  data: {
+    label?: string;
+    description?: string;
+    type: string;
+    config?: Record<string, unknown>;
+    status?: string;
+    enabled?: boolean;
+  };
+  position: { x: number; y: number };
+};
+
+type WorkflowEdge = {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+};
+
+type ExecutionResult = {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+};
+
+type NodeOutputs = Record<string, { label: string; items: WorkflowItem[]; data: unknown }>;
+
+export type WorkflowExecutionInput = {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  triggerInput?: Record<string, unknown>;
+  executionId: string;
+  workflowId: string;
+};
+
+/**
+ * Process template variables in config values
+ * Replaces {{@nodeId:Label.field}} with actual values from previous node outputs
+ */
+/**
+ * Traverse a nested object/array by a dot-separated field path.
+ * Supports array index notation like "rows[0].name".
+ */
+function traversePath(root: unknown, fields: string[]): unknown {
+  let current: unknown = root;
+  for (const field of fields) {
+    if (current === null || current === undefined) return undefined;
+
+    const arrayMatch = field.match(/^(.*)\[(\d+)\]$/);
+    if (arrayMatch) {
+      const [, arrayField, indexStr] = arrayMatch;
+      if (arrayField) {
+        if (typeof current === "object") {
+          current = (current as Record<string, unknown>)[arrayField];
+        } else {
+          return undefined;
+        }
+      }
+      if (Array.isArray(current)) {
+        current = current[parseInt(indexStr, 10)];
+      } else {
+        return undefined;
+      }
+    } else if (typeof current === "object") {
+      current = (current as Record<string, unknown>)[field];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
+function processTemplates(
+  config: Record<string, unknown>,
+  outputs: NodeOutputs,
+  rawKeys?: Set<string>,
+): Record<string, unknown> {
+  const processed: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(config)) {
+    if (typeof value === "string") {
+      const templatePattern = /\{\{@([^:]+):([^}]+)\}\}/g;
+      let processedValue = value;
+
+      // Check if the entire string is a single template (no surrounding text)
+      const isSoleTemplate =
+        value.startsWith("{{@") &&
+        value.endsWith("}}") &&
+        (value.match(templatePattern) || []).length === 1;
+
+      // rawKeys bypass double-escaping (needed for Code node's code field
+      // where resolved JSON is embedded directly in JavaScript, not a JSON string)
+      const useRaw = rawKeys?.has(key) ?? false;
+
+      // When a resolved object is embedded within a larger string (e.g. inside
+      // a JSON-encoded config field), its quotes must be escaped so the
+      // enclosing JSON stays valid. When the template IS the entire value,
+      // return raw JSON so downstream consumers can parse it directly.
+      const stringify = (obj: unknown): string => {
+        const raw = JSON.stringify(obj);
+        if (isSoleTemplate || useRaw) return raw;
+        return raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      };
+
+      processedValue = processedValue.replace(
+        templatePattern,
+        (_match, nodeId: string, rest: string) => {
+          const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
+          const output = outputs[sanitizedNodeId];
+          if (!output) return _match;
+
+          const dotIndex = rest.indexOf(".");
+          if (dotIndex === -1) {
+            const data = output.data;
+            if (data === null || data === undefined) return "";
+            if (typeof data === "object") return stringify(data);
+            return String(data);
+          }
+
+          const fieldPath = rest.substring(dotIndex + 1);
+          const fields = fieldPath.split(".");
+
+          // Path 1: Items-based resolution (first item's json)
+          const firstItem = output.items[0];
+          if (firstItem) {
+            const fromItems = traversePath(firstItem.json, fields);
+            if (fromItems !== undefined) {
+              if (typeof fromItems === "object" && fromItems !== null) return stringify(fromItems);
+              return String(fromItems);
+            }
+          }
+
+          // Path 2: Legacy resolution from raw data
+          let current: unknown = output.data;
+          if (current === null || current === undefined) return "";
+
+          if (
+            current &&
+            typeof current === "object" &&
+            "success" in (current as Record<string, unknown>) &&
+            "data" in (current as Record<string, unknown>) &&
+            fields[0] !== "success" &&
+            fields[0] !== "data" &&
+            fields[0] !== "error"
+          ) {
+            current = (current as Record<string, unknown>).data;
+          }
+
+          const resolved = traversePath(current, fields);
+          if (resolved === null || resolved === undefined) return "";
+          if (typeof resolved === "object") return stringify(resolved);
+          return String(resolved);
+        }
+      );
+
+      processed[key] = processedValue;
+    } else {
+      processed[key] = value;
+    }
+  }
+
+  return processed;
+}
+
+/**
+ * Get a meaningful display name for a node
+ */
+function getNodeName(node: WorkflowNode): string {
+  if (node.data.label) return node.data.label;
+  if (node.data.type === "action") {
+    const actionType = node.data.config?.actionType as string;
+    return actionType || "Action";
+  }
+  if (node.data.type === "trigger") {
+    return (node.data.config?.triggerType as string) || "Trigger";
+  }
+  return node.data.type;
+}
+
+/**
+ * Resolve an action type to its registry label.
+ * Supports both namespaced IDs ("perplexity/search") and labels ("Search Web").
+ */
+function resolveActionType(actionType: string): string {
+  // If it's already a registry key (label), return as-is
+  if (hasStep(actionType)) return actionType;
+
+  // Try resolving via plugin registry (handles "perplexity/search" -> label "Search Web")
+  const action = findActionById(actionType);
+  if (action && hasStep(action.label)) return action.label;
+
+  return actionType;
+}
+
+/**
+ * Look up and call a step function from the registry
+ */
+async function callPluginStep(
+  actionType: string,
+  input: Record<string, unknown>
+): Promise<unknown> {
+  const resolved = resolveActionType(actionType);
+
+  if (hasStep(resolved)) {
+    const step = stepRegistry[resolved];
+    return step(input);
+  }
+
+  return {
+    success: false,
+    error: { message: `Unknown action type: "${actionType}" (resolved: "${resolved}"). Available actions: ${Object.keys(stepRegistry).join(", ")}` },
+  };
+}
+
+/**
+ * Main workflow executor
+ * Walks the node graph from trigger nodes, executing each step in order
+ */
+export async function executeWorkflow(input: WorkflowExecutionInput) {
+  const { nodes, edges, triggerInput = {}, executionId, workflowId } = input;
+
+  console.log("[Executor] Starting workflow execution:", {
+    executionId,
+    workflowId,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+  });
+
+  const outputs: NodeOutputs = {};
+  const results: Record<string, ExecutionResult> = {};
+  let webhookResponse: { statusCode: number; body: unknown } | null = null;
+
+  // Build graph maps
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  type EdgeInfo = { target: string; sourceHandle?: string | null };
+  const edgesBySource = new Map<string, EdgeInfo[]>();
+  const edgesByTarget = new Map<string, string[]>();
+  for (const edge of edges) {
+    const targets = edgesBySource.get(edge.source) || [];
+    targets.push({ target: edge.target, sourceHandle: (edge as { sourceHandle?: string | null }).sourceHandle ?? null });
+    edgesBySource.set(edge.source, targets);
+
+    const sources = edgesByTarget.get(edge.target) || [];
+    sources.push(edge.source);
+    edgesByTarget.set(edge.target, sources);
+  }
+
+  // Find trigger nodes (no incoming edges, type "trigger")
+  const nodesWithIncoming = new Set(edges.map((e) => e.target));
+  const triggerNodes = nodes.filter(
+    (node) => node.data.type === "trigger" && !nodesWithIncoming.has(node.id)
+  );
+
+  console.log("[Executor] Found", triggerNodes.length, "trigger nodes");
+
+  /**
+   * Execute a single node and then its downstream nodes
+   */
+  async function executeNode(nodeId: string, visited: Set<string> = new Set()) {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
+    const node = nodeMap.get(nodeId);
+    if (!node) return;
+
+    // Skip disabled nodes
+    if (node.data.enabled === false) {
+      const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
+      outputs[sanitizedNodeId] = { label: node.data.label || nodeId, items: [{ json: {} }], data: null };
+      const nextEdges = edgesBySource.get(nodeId) || [];
+      await Promise.all(nextEdges.map((e) => executeNode(e.target, visited)));
+      return;
+    }
+
+    const nodeName = getNodeName(node);
+    const stepContext: StepContext = {
+      executionId,
+      nodeId: node.id,
+      nodeName,
+      nodeType: node.data.type === "trigger"
+        ? (node.data.config?.triggerType as string) || "Trigger"
+        : (node.data.config?.actionType as string) || "Action",
+    };
+
+    try {
+      let result: ExecutionResult;
+
+      if (node.data.type === "trigger") {
+        // Execute trigger
+        const config = node.data.config || {};
+        let triggerData: Record<string, unknown> = {
+          triggered: true,
+          timestamp: Date.now(),
+        };
+
+        // Handle webhook mock request for test runs
+        const triggerType = config.triggerType as string;
+        if (
+          triggerType === "Webhook" &&
+          config.webhookMockRequest &&
+          (!triggerInput || Object.keys(triggerInput).length === 0)
+        ) {
+          try {
+            const mockData = JSON.parse(config.webhookMockRequest as string);
+            triggerData = { ...triggerData, ...mockData };
+          } catch {
+            // ignore parse errors
+          }
+        } else if (triggerInput && Object.keys(triggerInput).length > 0) {
+          triggerData = { ...triggerData, ...triggerInput };
+        }
+
+        const triggerResult = await triggerStep({
+          triggerData,
+          _context: stepContext,
+        });
+
+        result = { success: triggerResult.success, data: triggerResult.data };
+      } else if (node.data.type === "action") {
+        const config = node.data.config || {};
+        const actionType = config.actionType as string | undefined;
+
+        if (!actionType) {
+          result = {
+            success: false,
+            error: `Action node "${nodeName}" has no action type configured`,
+          };
+          results[nodeId] = result;
+          return;
+        }
+
+        // Process template variables in config
+        // Code nodes need raw JSON (not double-escaped) for embedded objects
+        const codeRawKeys = actionType === "Code" ? new Set(["code"]) : undefined;
+        const processedConfig = processTemplates({ ...config }, outputs, codeRawKeys);
+
+        // Add step context
+        processedConfig._context = stepContext;
+
+        // Inject upstream data for data-aware nodes.
+        // _nodeOutputs = ALL upstream (for expression/template resolution)
+        // _nodeItems   = DIRECT predecessors only (for item flow, like n8n)
+        const DATA_AWARE_NODES = ["Code", "Filter", "Split Out", "Limit", "Aggregate", "Merge", "Sort", "Remove Duplicates", "Loop Over Batches", "Set Fields", "Respond to Webhook"];
+        if (DATA_AWARE_NODES.includes(actionType)) {
+          const nodeOutputMap: Record<string, unknown> = {};
+          for (const [_k, v] of Object.entries(outputs)) {
+            nodeOutputMap[v.label] = v.data;
+            const resolved = resolveActionType(v.label);
+            if (resolved !== v.label) {
+              nodeOutputMap[resolved] = v.data;
+            }
+            const pluginAction = findActionById(v.label);
+            if (pluginAction?.label && pluginAction.label !== v.label) {
+              nodeOutputMap[pluginAction.label] = v.data;
+            }
+          }
+          processedConfig._nodeOutputs = nodeOutputMap;
+
+          // _nodeItems: only from direct predecessors (matching n8n behavior)
+          const nodeItemsMap: Record<string, WorkflowItem[]> = {};
+          const predecessorIds = edgesByTarget.get(nodeId) || [];
+          for (const predId of predecessorIds) {
+            const sanitizedPredId = predId.replace(/[^a-zA-Z0-9]/g, "_");
+            const predOutput = outputs[sanitizedPredId];
+            if (predOutput) {
+              nodeItemsMap[predOutput.label] = predOutput.items;
+              const resolved = resolveActionType(predOutput.label);
+              if (resolved !== predOutput.label) {
+                nodeItemsMap[resolved] = predOutput.items;
+              }
+              const pluginAction = findActionById(predOutput.label);
+              if (pluginAction?.label && pluginAction.label !== predOutput.label) {
+                nodeItemsMap[pluginAction.label] = predOutput.items;
+              }
+            }
+          }
+          processedConfig._nodeItems = nodeItemsMap;
+        }
+
+        // Inject webhookType from trigger config for Respond to Webhook nodes
+        if (actionType === "Respond to Webhook" && triggerNodes.length > 0) {
+          const triggerConfig = triggerNodes[0].data.config || {};
+          processedConfig._webhookType = triggerConfig.webhookType || "";
+        }
+
+        // Execute the step
+        const stepResult = await callPluginStep(actionType, processedConfig);
+
+        // Check result format
+        const isErrorResult =
+          stepResult &&
+          typeof stepResult === "object" &&
+          "success" in (stepResult as Record<string, unknown>) &&
+          (stepResult as { success: boolean }).success === false;
+
+        if (isErrorResult) {
+          const errorResult = stepResult as {
+            success: false;
+            error?: string | { message: string };
+          };
+          const errorMessage =
+            typeof errorResult.error === "string"
+              ? errorResult.error
+              : errorResult.error?.message || `Step "${actionType}" failed`;
+          result = { success: false, error: errorMessage };
+        } else {
+          result = { success: true, data: stepResult };
+        }
+
+        // Capture webhook response from Respond to Webhook nodes
+        if (
+          stepResult &&
+          typeof stepResult === "object" &&
+          "_webhookResponse" in (stepResult as Record<string, unknown>)
+        ) {
+          webhookResponse = (stepResult as { _webhookResponse: { statusCode: number; body: unknown } })._webhookResponse;
+        }
+      } else {
+        result = { success: false, error: `Unknown node type: ${node.data.type}` };
+      }
+
+      // Store results
+      results[nodeId] = result;
+      const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
+      const normalizedItems = normalizeToItems(result.data);
+      outputs[sanitizedNodeId] = { label: node.data.label || nodeId, items: normalizedItems, data: result.data };
+
+      // Execute downstream nodes
+      if (result.success) {
+        const isConditionNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Condition";
+        const isSwitchNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Switch";
+
+        const isLoopNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Loop Over Batches";
+
+        const isFilterNode =
+          node.data.type === "action" &&
+          node.data.config?.actionType === "Filter";
+
+        if (isFilterNode) {
+          const filterResult = result.data as { rejectedItems?: unknown[] } | undefined;
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const keptEdges = allEdges.filter((e) => e.sourceHandle === "kept");
+          const rejectedEdges = allEdges.filter((e) => e.sourceHandle === "rejected");
+          // If no handles configured (legacy), send everything downstream
+          if (keptEdges.length === 0 && rejectedEdges.length === 0) {
+            await Promise.all(allEdges.map((e) => executeNode(e.target, visited)));
+          } else {
+            // Always execute kept path
+            if (keptEdges.length > 0) {
+              await Promise.all(keptEdges.map((e) => executeNode(e.target, visited)));
+            }
+            // Execute rejected path only if there are rejected items
+            if (rejectedEdges.length > 0 && filterResult?.rejectedItems && (filterResult.rejectedItems as unknown[]).length > 0) {
+              await Promise.all(rejectedEdges.map((e) => executeNode(e.target, visited)));
+            }
+          }
+        } else if (isLoopNode) {
+          // Loop Over Batches: iterate all batches, executing the batch-path
+          // nodes with a fresh visited set per iteration so they can re-run.
+          type LoopItem = { json: Record<string, unknown> };
+          const loopData = result.data as {
+            items?: LoopItem[];
+            batchSize?: number;
+            totalBatches?: number;
+          } | undefined;
+          const loopItems = loopData?.items ?? [];
+          const batchSize = loopData?.batchSize ?? 1;
+          const totalBatches = loopData?.totalBatches ?? 1;
+          const nodeLabel = node.data.label || nodeId;
+
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const batchEdges = allEdges.filter((e) => e.sourceHandle === "batch");
+          const doneEdges = allEdges.filter((e) => e.sourceHandle === "done");
+
+          // Execute each batch sequentially with fresh visited sets
+          for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+            const start = batchIdx * batchSize;
+            const batch = loopItems.slice(start, start + batchSize);
+
+            // Update this node's output to the current batch
+            const batchData = {
+              items: batch,
+              batchIndex: batchIdx,
+              totalBatches,
+              batchSize,
+              done: false,
+            };
+            outputs[sanitizedNodeId] = {
+              label: nodeLabel,
+              items: batch as WorkflowItem[],
+              data: batchData,
+            };
+
+            // Execute batch-path nodes with a fresh visited set
+            // (only the Loop node itself is marked visited to prevent re-entry)
+            if (batchEdges.length > 0) {
+              const batchVisited = new Set<string>([nodeId]);
+              for (const edge of batchEdges) {
+                await executeNode(edge.target, batchVisited);
+              }
+            }
+          }
+
+          // After all batches, update output to done state and fire done path
+          const doneData = {
+            items: loopItems,
+            batchIndex: totalBatches,
+            totalBatches,
+            batchSize,
+            done: true,
+          };
+          outputs[sanitizedNodeId] = {
+            label: nodeLabel,
+            items: loopItems as WorkflowItem[],
+            data: doneData,
+          };
+
+          if (doneEdges.length > 0) {
+            await Promise.all(doneEdges.map((e) => executeNode(e.target, visited)));
+          }
+        } else if (isSwitchNode) {
+          const matchedOutput = (result.data as { matchedOutput?: string })?.matchedOutput || "default";
+          const allEdges = edgesBySource.get(nodeId) || [];
+          const matchedEdges = allEdges.filter((e) => e.sourceHandle === matchedOutput);
+          const targetEdges = matchedEdges.length > 0 ? matchedEdges : allEdges.filter((e) => e.sourceHandle === "default");
+          await Promise.all(targetEdges.map((e) => executeNode(e.target, visited)));
+        } else if (isConditionNode) {
+          const conditionResult = (result.data as { condition?: boolean })?.condition;
+          const allEdges = edgesBySource.get(nodeId) || [];
+
+          // Route by sourceHandle: "true" handle for true path, "false" handle for false path
+          const trueEdges = allEdges.filter((e) => e.sourceHandle === "true" || (!e.sourceHandle && !allEdges.some((x) => x.sourceHandle)));
+          const falseEdges = allEdges.filter((e) => e.sourceHandle === "false");
+
+          if (conditionResult === true) {
+            await Promise.all(trueEdges.map((e) => executeNode(e.target, visited)));
+          } else {
+            await Promise.all(falseEdges.map((e) => executeNode(e.target, visited)));
+          }
+        } else {
+          const nextEdges = edgesBySource.get(nodeId) || [];
+          await Promise.all(nextEdges.map((e) => executeNode(e.target, visited)));
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("[Executor] Error executing node:", nodeId, errorMessage);
+      results[nodeId] = { success: false, error: errorMessage };
+    }
+  }
+
+  // Execute from trigger nodes
+  const workflowStartTime = Date.now();
+
+  try {
+    await Promise.all(triggerNodes.map((trigger) => executeNode(trigger.id)));
+
+    const finalSuccess = Object.values(results).every((r) => r.success);
+    const duration = Date.now() - workflowStartTime;
+
+    console.log("[Executor] Workflow completed:", {
+      success: finalSuccess,
+      duration,
+      resultCount: Object.keys(results).length,
+    });
+
+    // Update execution record
+    await supabaseAdmin
+      .from("workflow_executions")
+      .update({
+        status: finalSuccess ? "success" : "error",
+        output: Object.values(results).at(-1)?.data ?? null,
+        error: Object.values(results).find((r) => !r.success)?.error ?? null,
+        completed_at: new Date().toISOString(),
+        duration: duration.toString(),
+      })
+      .eq("id", executionId);
+
+    return { success: finalSuccess, results, outputs, webhookResponse };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("[Executor] Fatal error:", errorMessage);
+
+    await supabaseAdmin
+      .from("workflow_executions")
+      .update({
+        status: "error",
+        error: errorMessage,
+        completed_at: new Date().toISOString(),
+        duration: (Date.now() - workflowStartTime).toString(),
+      })
+      .eq("id", executionId);
+
+    return { success: false, results, outputs, error: errorMessage, webhookResponse };
+  }
+}
