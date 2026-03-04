@@ -55,6 +55,7 @@ import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
 import { useLinkedRules } from "@/hooks/use-linked-rules"
+import { useAutofillFromLinkedRecord } from "@/hooks/use-autofill-from-linked-record"
 import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
 import { evaluateExpression } from "@/lib/expression-evaluator"
 import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
@@ -1361,16 +1362,9 @@ export default function PricingEnginePage({
   // Conditional linked rules evaluation for PE inputs
   const { resolvedLinks: peResolvedLinks, getResolvedLink: getPEResolvedLink, resolvedTableColumnPairs: peResolvedTableColumnPairs } = useLinkedRules(peInputDefs, formValuesById)
 
-  // Fetch linked records for inputs with linked_table (static or resolved via rules)
+  // Fetch linked records for inputs with resolved linked rules
   useEffect(() => {
     const tableColumnPairs = peResolvedTableColumnPairs()
-
-    // Also include static links for inputs without rules
-    for (const inp of peInputDefs) {
-      if (inp.linked_table && !tableColumnPairs.has(inp.linked_table)) {
-        tableColumnPairs.set(inp.linked_table, inp.linked_column ?? null)
-      }
-    }
 
     if (tableColumnPairs.size === 0) return
     let cancelled = false
@@ -1393,6 +1387,34 @@ export default function PricingEnginePage({
     })()
     return () => { cancelled = true }
   }, [peInputDefs, peResolvedLinks, peResolvedTableColumnPairs])
+
+  // Auto-fill from linked record
+  const peRecordIds = useMemo(() => {
+    const ids: Record<string, string | undefined> = {}
+    for (const inp of peInputDefs) {
+      const key = `${inp.input_code}_record_id`
+      const val = extraFormValues[key]
+      if (val) ids[key] = String(val)
+    }
+    return ids
+  }, [peInputDefs, extraFormValues])
+  const { autofillValues: peAutofillValues, lockedInputCodes: peLockedInputCodes } = useAutofillFromLinkedRecord(peInputDefs, peRecordIds, peResolvedLinks)
+
+  // Apply auto-fill values to extraFormValues
+  useEffect(() => {
+    if (Object.keys(peAutofillValues).length === 0) return
+    setExtraFormValues((prev) => {
+      let updated = false
+      const next = { ...prev }
+      for (const [code, val] of Object.entries(peAutofillValues)) {
+        if (prev[code] !== val) {
+          next[code] = val
+          updated = true
+        }
+      }
+      return updated ? next : prev
+    })
+  }, [peAutofillValues])
 
   // Stable serialized key for formValuesById to avoid excessive refetches
   const formValuesByIdKey = useMemo(() => {
@@ -2336,7 +2358,8 @@ export default function PricingEnginePage({
 
     // Hydrate record IDs for linked inputs from legacy payload keys
     for (const inp of peInputDefs) {
-      if (!inp.linked_table) continue
+      const resolvedLink = getPEResolvedLink(String(inp.id))
+      if (!resolvedLink) continue
       const idKey = `${inp.input_code}_record_id`
       const legacyId = payload[`${inp.input_code}_id`] ?? payload[`${inp.input_code}_record_id`]
       if (typeof legacyId === "string" && legacyId) hydrated[idKey] = legacyId
@@ -2988,7 +3011,8 @@ export default function PricingEnginePage({
                                       touched={!!touched[field.input_code]}
                                       formValues={formValuesMerged}
                                       signalColor={signalColors[field.input_code] ?? null}
-                                      linkedRecords={(() => { const r = getPEResolvedLink(String(field.id)); const t = r?.linked_table ?? field.linked_table; return t ? linkedRecordsByTable[t] : undefined; })()}
+                                      linkedRecords={(() => { const r = getPEResolvedLink(String(field.id)); const t = r?.linked_table; return t ? linkedRecordsByTable[t] : undefined; })()}
+                                      isLocked={peLockedInputCodes.has(field.input_code)}
                                     />
                                   </div>
                                 )

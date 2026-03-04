@@ -41,8 +41,6 @@ export interface PEInputField {
   placeholder?: string | null
   default_value?: string | null
   config?: Record<string, unknown> | null
-  linked_table?: string | null
-  linked_column?: string | null
   layout_row: number
   layout_width: string
   require_recalculate?: boolean
@@ -71,6 +69,7 @@ interface DynamicPEInputProps {
   formValues?: Record<string, unknown>
   signalColor?: string | null
   linkedRecords?: LinkedRecord[]
+  isLocked?: boolean
 }
 
 export function DynamicPEInput({
@@ -87,6 +86,7 @@ export function DynamicPEInput({
   formValues,
   signalColor,
   linkedRecords,
+  isLocked,
 }: DynamicPEInputProps) {
   const id = `pe-${field.input_code}`
   const placeholder = field.placeholder ?? ""
@@ -167,7 +167,10 @@ export function DynamicPEInput({
         )}
       </div>
       <div
-        className={signalColor ? "rounded-md ring-2" : undefined}
+        className={cn(
+          signalColor ? "rounded-md ring-2" : undefined,
+          isLocked && "opacity-75 pointer-events-none"
+        )}
         style={signalColor ? { "--tw-ring-color": signalColor } as React.CSSProperties : undefined}
       >
         <InputControl
@@ -219,7 +222,7 @@ function InputControl({
   stepValue?: number | null
   linkedRecords?: LinkedRecord[]
 }) {
-  const hasLinkedRecords = field.linked_table && linkedRecords && linkedRecords.length > 0
+  const hasLinkedRecords = linkedRecords && linkedRecords.length > 0
 
   // When showing a default, render the value as a placeholder so the user can just start typing
   const rawVal = String(value ?? "")

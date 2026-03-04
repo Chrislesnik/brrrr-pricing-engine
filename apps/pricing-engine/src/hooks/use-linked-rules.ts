@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { evaluateCondition } from "@/lib/logic-engine";
 import type { LogicCondition } from "@/context/logic-rules-context";
 
@@ -15,8 +15,6 @@ interface LinkedRule {
 interface InputDef {
   id: string;
   input_code?: string;
-  linked_table?: string | null;
-  linked_column?: string | null;
 }
 
 interface ResolvedLink {
@@ -25,12 +23,13 @@ interface ResolvedLink {
 }
 
 /**
- * Fetches conditional linked rules for inputs that have a linked_table,
- * evaluates them against current form values, and returns
- * the resolved table + expression per input.
+ * Fetches linked rules for every input from the API, evaluates conditional
+ * rules against current form values, and returns the resolved table + column
+ * per input.
  *
- * Inputs without rules fall back to their static linked_table/linked_column
- * immediately (no API call needed).
+ * A rule with an empty conditions array is treated as "always matches" and
+ * serves as the default/fallback (migrated from the old static linked_table
+ * column).
  */
 export function useLinkedRules(
   inputs: InputDef[],
@@ -40,32 +39,14 @@ export function useLinkedRules(
   const [resolvedLinks, setResolvedLinks] = useState<Record<string, ResolvedLink | null>>({});
   const [rulesFetched, setRulesFetched] = useState(false);
 
-  // Only fetch rules for inputs that have a linked_table
-  const linkedInputIds = useMemo(
-    () => inputs.filter((inp) => inp.linked_table).map((inp) => inp.id),
-    [inputs]
-  );
+  const inputIds = useMemo(() => inputs.map((inp) => inp.id), [inputs]);
 
   // Stable key to avoid re-fetching on every render
-  const linkedIdsKey = linkedInputIds.join(",");
+  const inputIdsKey = inputIds.join(",");
 
-  // Immediately resolve static links (no API needed)
+  // Fetch linked rules for all inputs
   useEffect(() => {
-    const resolved: Record<string, ResolvedLink | null> = {};
-    for (const inp of inputs) {
-      if (inp.linked_table) {
-        resolved[inp.id] = {
-          linked_table: inp.linked_table,
-          linked_column: inp.linked_column ?? "",
-        };
-      }
-    }
-    setResolvedLinks(resolved);
-  }, [inputs]);
-
-  // Fetch conditional rules only for inputs that have a linked_table
-  useEffect(() => {
-    if (linkedInputIds.length === 0) {
+    if (inputIds.length === 0) {
       setRulesFetched(true);
       return;
     }
@@ -74,7 +55,7 @@ export function useLinkedRules(
     const fetchRules = async () => {
       const result: Record<string, LinkedRule[]> = {};
       await Promise.all(
-        linkedInputIds.map(async (id) => {
+        inputIds.map(async (id) => {
           try {
             const res = await fetch(`/api/input-linked-rules?input_id=${id}`);
             const json = await res.json();
@@ -94,9 +75,9 @@ export function useLinkedRules(
 
     fetchRules();
     return () => { cancelled = true; };
-  }, [linkedIdsKey]);
+  }, [inputIdsKey]);
 
-  // Re-evaluate conditional rules whenever values or rules change
+  // Evaluate rules whenever values or rules change
   useEffect(() => {
     if (!rulesFetched || Object.keys(rulesByInput).length === 0) return;
 
@@ -108,13 +89,15 @@ export function useLinkedRules(
         const rules = rulesByInput[inp.id];
         if (!rules || rules.length === 0) continue;
 
+        let defaultLink: ResolvedLink | null = null;
         let newLink: ResolvedLink | null = null;
 
         for (const rule of rules) {
           const conditions = (rule.conditions ?? []) as LogicCondition[];
+
           if (conditions.length === 0) {
-            newLink = { linked_table: rule.linked_table, linked_column: rule.linked_column };
-            break;
+            defaultLink = { linked_table: rule.linked_table, linked_column: rule.linked_column };
+            continue;
           }
 
           const pass =
@@ -128,9 +111,8 @@ export function useLinkedRules(
           }
         }
 
-        // Fallback to static link if no rule matched
-        if (!newLink && inp.linked_table) {
-          newLink = { linked_table: inp.linked_table, linked_column: inp.linked_column ?? "" };
+        if (!newLink) {
+          newLink = defaultLink;
         }
 
         const prevLink = prev[inp.id];

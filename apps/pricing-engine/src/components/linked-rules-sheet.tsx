@@ -81,7 +81,7 @@ interface Condition {
   value_expression?: string;
 }
 
-interface LinkedRule {
+export interface LinkedRule {
   rule_order: number;
   logic_type: "AND" | "OR";
   conditions: Condition[];
@@ -261,6 +261,8 @@ export function LinkedRulesSheet({
   inputId,
   inputLabel,
   inputsEndpoint = "/api/inputs",
+  pendingRules,
+  onPendingRulesChange,
   onSaved,
 }: {
   open: boolean;
@@ -269,6 +271,10 @@ export function LinkedRulesSheet({
   inputLabel: string;
   /** API endpoint to fetch the list of inputs for condition fields. Defaults to "/api/inputs" (deal inputs). */
   inputsEndpoint?: string;
+  /** If provided, the sheet initializes from these rules instead of fetching from the API. */
+  pendingRules?: LinkedRule[];
+  /** Called instead of the API save when in pending mode; passes the configured rules back to the parent. */
+  onPendingRulesChange?: (rules: LinkedRule[]) => void;
   onSaved?: () => void;
 }) {
   const [inputs, setInputs] = useState<InputField[]>([]);
@@ -283,6 +289,8 @@ export function LinkedRulesSheet({
   const [columnsByTable, setColumnsByTable] = useState<Record<string, { name: string; type: string }[]>>({});
   const [loadingColumnsFor, setLoadingColumnsFor] = useState<string | null>(null);
 
+  const isPending = pendingRules !== undefined;
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -290,29 +298,43 @@ export function LinkedRulesSheet({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [inputsRes, rulesRes, tablesRes] = await Promise.all([
+        const fetches: Promise<Response>[] = [
           fetch(inputsEndpoint),
-          fetch(`/api/input-linked-rules?input_id=${inputId}`),
           fetch("/api/supabase-schema?type=tables"),
-        ]);
-        const inputsJson = await inputsRes.json().catch(() => []);
-        const rulesJson = await rulesRes.json().catch(() => ({ rules: [] }));
-        const tablesJson = await tablesRes.json().catch(() => []);
+        ];
+        if (!isPending) {
+          fetches.push(fetch(`/api/input-linked-rules?input_id=${inputId}`));
+        }
+
+        const responses = await Promise.all(fetches);
+        const inputsJson = await responses[0].json().catch(() => []);
+        const tablesJson = await responses[1].json().catch(() => []);
+        const rulesJson = !isPending
+          ? await responses[2].json().catch(() => ({ rules: [] }))
+          : { rules: [] };
 
         if (!cancelled) {
           setInputs(Array.isArray(inputsJson) ? inputsJson : []);
-          const fetched = Array.isArray(rulesJson.rules) ? rulesJson.rules : [];
-          setRules(
-            fetched.length > 0
-              ? fetched.map((r: any) => ({
-                  rule_order: r.rule_order ?? 0,
-                  logic_type: r.logic_type || "AND",
-                  conditions: Array.isArray(r.conditions) ? r.conditions : [defaultCondition()],
-                  linked_table: r.linked_table ?? "",
-                  linked_column: r.linked_column ?? "",
-                }))
-              : [defaultRule()]
-          );
+
+          if (isPending) {
+            setRules(
+              pendingRules.length > 0 ? [...pendingRules] : [defaultRule()]
+            );
+          } else {
+            const fetched = Array.isArray(rulesJson.rules) ? rulesJson.rules : [];
+            setRules(
+              fetched.length > 0
+                ? fetched.map((r: any) => ({
+                    rule_order: r.rule_order ?? 0,
+                    logic_type: r.logic_type || "AND",
+                    conditions: Array.isArray(r.conditions) ? r.conditions : [defaultCondition()],
+                    linked_table: r.linked_table ?? "",
+                    linked_column: r.linked_column ?? "",
+                  }))
+                : [defaultRule()]
+            );
+          }
+
           if (tablesJson && Array.isArray(tablesJson.tables)) {
             setLinkableTables(
               tablesJson.tables
@@ -327,7 +349,7 @@ export function LinkedRulesSheet({
       } catch {
         if (!cancelled) {
           setInputs([]);
-          setRules([defaultRule()]);
+          setRules(isPending && pendingRules.length > 0 ? [...pendingRules] : [defaultRule()]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -336,7 +358,7 @@ export function LinkedRulesSheet({
 
     fetchData();
     return () => { cancelled = true; };
-  }, [open, inputId, inputsEndpoint]);
+  }, [open, inputId, inputsEndpoint, isPending]);
 
   const fetchColumnsForTable = useCallback(async (table: string) => {
     if (!table || columnsByTable[table]) return;
@@ -407,26 +429,29 @@ export function LinkedRulesSheet({
   }, []);
 
   const removeRule = useCallback((ruleIndex: number) => {
-    setRules((prev) => {
-      const updated = prev.filter((_, i) => i !== ruleIndex);
-      return updated.length === 0 ? [defaultRule()] : updated;
-    });
+    setRules((prev) => prev.filter((_, i) => i !== ruleIndex));
   }, []);
 
   const handleSave = async () => {
+    const validRules = rules
+      .filter((r) => r.linked_table)
+      .map((r, idx) => ({
+        rule_order: idx,
+        logic_type: r.logic_type,
+        conditions: r.conditions.filter((c) => c.field && c.operator),
+        linked_table: r.linked_table,
+        linked_column: r.linked_column,
+      }));
+
+    if (isPending && onPendingRulesChange) {
+      onPendingRulesChange(validRules);
+      onOpenChange(false);
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const validRules = rules
-        .filter((r) => r.linked_table)
-        .map((r, idx) => ({
-          rule_order: idx,
-          logic_type: r.logic_type,
-          conditions: r.conditions.filter((c) => c.field && c.operator),
-          linked_table: r.linked_table,
-          linked_column: r.linked_column,
-        }));
-
       const res = await fetch("/api/input-linked-rules", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -468,13 +493,18 @@ export function LinkedRulesSheet({
               <Loader2 className="size-5 animate-spin mr-2" />
               Loading...
             </div>
+          ) : rules.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                No database link rules configured. Add a rule to link this input to a database table.
+              </p>
+            </div>
           ) : (
             rules.map((rule, ruleIndex) => (
               <RuleCard
                 key={ruleIndex}
                 rule={rule}
                 ruleIndex={ruleIndex}
-                totalRules={rules.length}
                 inputs={inputs}
                 linkableTables={linkableTables}
                 loadingTables={loadingTables}
@@ -529,7 +559,6 @@ export function LinkedRulesSheet({
 function RuleCard({
   rule,
   ruleIndex,
-  totalRules,
   inputs,
   linkableTables,
   loadingTables,
@@ -544,7 +573,6 @@ function RuleCard({
 }: {
   rule: LinkedRule;
   ruleIndex: number;
-  totalRules: number;
   inputs: InputField[];
   linkableTables: { value: string; label: string }[];
   loadingTables: boolean;
@@ -586,16 +614,14 @@ function RuleCard({
             </SelectContent>
           </Select>
         </div>
-        {totalRules > 1 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-6"
-            onClick={() => removeRule(ruleIndex)}
-          >
-            <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={() => removeRule(ruleIndex)}
+        >
+          <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
+        </Button>
       </div>
 
       {/* Conditions */}

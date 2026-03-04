@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Check,
   GripVertical,
@@ -13,10 +13,10 @@ import {
   Workflow,
   X,
   Link2,
-  Unlink,
   Settings,
   PanelTopOpen,
   PanelTopClose,
+  Database,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -64,7 +64,8 @@ import {
 import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
-import { LinkedRulesSheet } from "@/components/linked-rules-sheet";
+import { LinkedRulesSheet, type LinkedRule } from "@/components/linked-rules-sheet";
+import { AutofillRulesSheet } from "@/components/autofill-rules-sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -96,18 +97,8 @@ interface InputField {
   starred: boolean;
   display_order: number;
   created_at: string;
-  linked_table?: string | null;
-  linked_column?: string | null;
   tooltip?: string | null;
   require_recalculate?: boolean;
-}
-
-/** Convert a snake_case table name to Title Case for display. */
-function formatTableLabel(name: string): string {
-  return name
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 const INPUT_TYPES = [
@@ -165,14 +156,6 @@ export function InputsSettings() {
   // Boolean display type state
   const [newBooleanDisplay, setNewBooleanDisplay] = useState("dropdown");
 
-  // Database link state
-  const [newLinkedTable, setNewLinkedTable] = useState<string>("");
-  const [newLinkedColumn, setNewLinkedColumn] = useState<string>("");
-  const [linkableColumns, setLinkableColumns] = useState<{ name: string; type: string }[]>([]);
-  const [loadingColumns, setLoadingColumns] = useState(false);
-  const [linkableTables, setLinkableTables] = useState<{ value: string; label: string }[]>([]);
-  const [loadingTables, setLoadingTables] = useState(false);
-
   // Edit category state
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState("");
@@ -187,11 +170,22 @@ export function InputsSettings() {
   const [linkedRulesInputLabel, setLinkedRulesInputLabel] = useState("");
   const [linkedRulesCounts, setLinkedRulesCounts] = useState<Record<string, number>>({});
 
+  // Pending link rules for add-input form (not yet persisted)
+  const [pendingLinkRules, setPendingLinkRules] = useState<LinkedRule[]>([]);
+  const [pendingLinkedRulesOpen, setPendingLinkedRulesOpen] = useState(false);
+
+  // Autofill rules sheet state
+  const [autofillRulesOpen, setAutofillRulesOpen] = useState(false);
+  const [autofillRulesInputId, setAutofillRulesInputId] = useState<string | null>(null);
+  const [autofillRulesInputLabel, setAutofillRulesInputLabel] = useState("");
+
+
   const openLinkedRulesSheet = useCallback((inputId: string, label: string) => {
     setLinkedRulesInputId(inputId);
     setLinkedRulesInputLabel(label);
     setLinkedRulesOpen(true);
   }, []);
+
 
   const refreshLinkedRulesCounts = useCallback(async (inputIds: string[]) => {
     if (inputIds.length === 0) return;
@@ -209,56 +203,6 @@ export function InputsSettings() {
     );
     setLinkedRulesCounts((prev) => ({ ...prev, ...counts }));
   }, []);
-
-  // Fetch all public tables for the Database Link dropdown
-  useEffect(() => {
-    let cancelled = false;
-    const fetchTables = async () => {
-      setLoadingTables(true);
-      try {
-        const res = await fetch("/api/supabase-schema?type=tables");
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data.tables)) {
-          setLinkableTables(
-            data.tables
-              .sort((a: string, b: string) => a.localeCompare(b))
-              .map((t: string) => ({ value: t, label: formatTableLabel(t) }))
-          );
-        }
-      } catch {
-        if (!cancelled) setLinkableTables([]);
-      } finally {
-        if (!cancelled) setLoadingTables(false);
-      }
-    };
-    fetchTables();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Fetch columns when linked table changes
-  useEffect(() => {
-    if (!newLinkedTable) {
-      setLinkableColumns([]);
-      return;
-    }
-    let cancelled = false;
-    const fetchColumns = async () => {
-      setLoadingColumns(true);
-      try {
-        const res = await fetch(`/api/supabase-schema?type=columns&table=${encodeURIComponent(newLinkedTable)}`);
-        const data = await res.json();
-        if (!cancelled) {
-          setLinkableColumns(Array.isArray(data.columns) ? data.columns : []);
-        }
-      } catch {
-        if (!cancelled) setLinkableColumns([]);
-      } finally {
-        if (!cancelled) setLoadingColumns(false);
-      }
-    };
-    fetchColumns();
-    return () => { cancelled = true; };
-  }, [newLinkedTable]);
 
   // Native drag-and-drop for reordering dropdown option tags
   const dragTagIdx = useRef<number | null>(null);
@@ -528,12 +472,18 @@ export function InputsSettings() {
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
           config: newInputType === "boolean" ? { boolean_display: newBooleanDisplay } : undefined,
-          linked_table: newLinkedTable || null,
-          linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
         }),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
+        if (pendingLinkRules.length > 0 && created?.id) {
+          await fetch("/api/input-linked-rules", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ input_id: Number(created.id), rules: pendingLinkRules }),
+          }).catch(() => {});
+        }
         resetInputForm();
         await fetchData();
       } else {
@@ -562,6 +512,13 @@ export function InputsSettings() {
     if (!newInputLabel.trim() || !newInputType) return;
     setSavingInput(true);
     try {
+      const baseConfig: Record<string, unknown> = { ...(input.config ?? {}) };
+      if (newInputType === "boolean") {
+        baseConfig.boolean_display = newBooleanDisplay;
+      }
+      delete baseConfig.autofill_source_input;
+      delete baseConfig.autofill_expression;
+      delete baseConfig.autofill_locked;
       const res = await fetch("/api/inputs", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -570,11 +527,7 @@ export function InputsSettings() {
           input_label: newInputLabel.trim(),
           input_type: newInputType,
           dropdown_options: newInputType === "dropdown" ? newDropdownOptions : null,
-          config: newInputType === "boolean"
-            ? { ...(input.config ?? {}), boolean_display: newBooleanDisplay }
-            : undefined,
-          linked_table: newLinkedTable || null,
-          linked_column: newLinkedColumn || null,
+          config: Object.keys(baseConfig).length > 0 ? baseConfig : undefined,
           tooltip: newTooltip.trim() || null,
         }),
       });
@@ -614,11 +567,9 @@ export function InputsSettings() {
     setNewInputLabel("");
     setNewInputType("");
     setNewDropdownOptions([]);
-    setNewLinkedTable("");
-    setNewLinkedColumn("");
-    setLinkableColumns([]);
     setNewTooltip("");
     setNewBooleanDisplay("dropdown");
+    setPendingLinkRules([]);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -1003,7 +954,7 @@ export function InputsSettings() {
                             >
                               <Settings className="size-3.5" />
                               <span className="flex-1 text-left">
-                                {(linkedRulesCounts[input.id] ?? 0) > 0 || input.linked_table
+                                {(linkedRulesCounts[input.id] ?? 0) > 0
                                   ? "Edit Database Link Rules"
                                   : "Configure Database Link"}
                               </span>
@@ -1012,18 +963,42 @@ export function InputsSettings() {
                                   {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
                                 </Badge>
                               )}
-                              {!(linkedRulesCounts[input.id] ?? 0) && input.linked_table && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                  {formatTableLabel(input.linked_table)}
-                                </Badge>
-                              )}
                             </Button>
                             <p className="text-[10px] text-muted-foreground">
                               Link this input to a database table. Configure conditions to dynamically switch tables based on other input values.
                             </p>
                           </div>
 
-                          {newInputType === "dropdown" && !newLinkedTable && (
+                          {/* Auto-Fill Rules */}
+                          {(linkedRulesCounts[input.id] ?? 0) === 0 && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs flex items-center gap-1">
+                                <Database className="size-3" />
+                                Auto-Fill Rules
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-9 justify-start gap-2"
+                                onClick={() => {
+                                  setAutofillRulesInputId(input.id);
+                                  setAutofillRulesInputLabel(input.input_label);
+                                  setAutofillRulesOpen(true);
+                                }}
+                              >
+                                <Settings className="size-3.5" />
+                                <span className="flex-1 text-left">
+                                  Configure Auto-Fill
+                                </span>
+                              </Button>
+                              <p className="text-[10px] text-muted-foreground">
+                                Populate this field with values from a linked record, with per-rule column expressions.
+                              </p>
+                            </div>
+                          )}
+
+                          {newInputType === "dropdown" && (linkedRulesCounts[editingInputId ?? ''] ?? 0) === 0 && (
                             <div className="space-y-1.5 p-2">
                               <Label className="text-xs">
                                 Dropdown Options
@@ -1113,7 +1088,7 @@ export function InputsSettings() {
                             !newInputLabel.trim() ||
                             !newInputType ||
                             (newInputType === "dropdown" &&
-                              !newLinkedTable &&
+                              (linkedRulesCounts[editingInputId ?? ''] ?? 0) === 0 &&
                               newDropdownOptions.length === 0)
                           }
                         >
@@ -1158,13 +1133,13 @@ export function InputsSettings() {
                             >
                               {input.input_type}
                             </Badge>
-                            {input.linked_table && (
+                            {linkedRulesCounts[input.id] > 0 && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
                                 variant="secondary"
                               >
                                 <Link2 className="size-2.5 mr-0.5" />
-                                {input.linked_table}
+                                {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
                               </Badge>
                             )}
                             {input.input_type === "boolean" && Boolean((input.config as Record<string, unknown>)?.boolean_display) && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
@@ -1234,8 +1209,6 @@ export function InputsSettings() {
                                 setNewDropdownOptions(
                                   input.dropdown_options ?? [],
                                 );
-                                setNewLinkedTable(input.linked_table ?? "");
-                                setNewLinkedColumn(input.linked_column ?? "");
                                 setNewTooltip(input.tooltip ?? "");
                                 if (input.input_type === "boolean" && input.config) {
                                   setNewBooleanDisplay((input.config as Record<string, unknown>).boolean_display as string ?? "dropdown");
@@ -1323,66 +1296,35 @@ export function InputsSettings() {
 
                       {/* Database Link */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs flex items-center gap-1">
-                            <Link2 className="size-3" />
-                            Database Link
-                          </Label>
-                          {newLinkedTable ? (
-                            <button
-                              type="button"
-                              className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5"
-                              onClick={() => {
-                                setNewLinkedTable("");
-                                setNewLinkedColumn("");
-                              }}
-                            >
-                              <Unlink className="size-2.5" />
-                              Remove
-                            </button>
-                          ) : null}
-                        </div>
-                        <Select
-                          value={newLinkedTable || undefined}
-                          onValueChange={(val) => {
-                            setNewLinkedTable(val);
-                            setNewLinkedColumn("");
-                          }}
+                        <Label className="text-xs flex items-center gap-1">
+                          <Link2 className="size-3" />
+                          Database Link
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs h-9 justify-start gap-2"
+                          onClick={() => setPendingLinkedRulesOpen(true)}
                         >
-                          <SelectTrigger className="h-8 text-sm">
-                            <SelectValue placeholder="None (standalone input)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {loadingTables ? (
-                              <div className="px-2 py-1.5 text-xs text-muted-foreground">Loading tables…</div>
-                            ) : linkableTables.length === 0 ? (
-                              <div className="px-2 py-1.5 text-xs text-muted-foreground">No tables found</div>
-                            ) : (
-                              linkableTables.map((t) => (
-                                <SelectItem key={t.value} value={t.value}>
-                                  {t.label}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {newLinkedTable && (
-                          <>
-                            <Label className="text-[10px] text-muted-foreground mt-1">
-                              Display Expression (shown in dropdown)
-                            </Label>
-                            <ColumnExpressionInput
-                              value={newLinkedColumn}
-                              onChange={setNewLinkedColumn}
-                              columns={linkableColumns}
-                              loading={loadingColumns}
-                              placeholder="e.g. @first_name @last_name"
-                            />
-                          </>
-                        )}
+                          <Settings className="size-3.5" />
+                          <span className="flex-1 text-left">
+                            {pendingLinkRules.length > 0
+                              ? "Edit Database Link Rules"
+                              : "Configure Database Link"}
+                          </span>
+                          {pendingLinkRules.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {pendingLinkRules.length} rule{pendingLinkRules.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground">
+                          Link this input to a database table. Configure conditions to dynamically switch tables based on other input values.
+                        </p>
                       </div>
 
-                      {newInputType === "dropdown" && !newLinkedTable && (
+                      {newInputType === "dropdown" && pendingLinkRules.length === 0 && (
                         <div className="space-y-1.5 p-2">
                           <Label className="text-xs">
                             Dropdown Options
@@ -1474,7 +1416,7 @@ export function InputsSettings() {
                             !newInputLabel.trim() ||
                             !newInputType ||
                             (newInputType === "dropdown" &&
-                              !newLinkedTable &&
+                              pendingLinkRules.length === 0 &&
                               newDropdownOptions.length === 0)
                           }
                         >
@@ -1698,6 +1640,22 @@ export function InputsSettings() {
             refreshLinkedRulesCounts([linkedRulesInputId]);
           }
         }}
+      />
+
+      <LinkedRulesSheet
+        open={pendingLinkedRulesOpen}
+        onOpenChange={setPendingLinkedRulesOpen}
+        inputId=""
+        inputLabel={newInputLabel}
+        pendingRules={pendingLinkRules}
+        onPendingRulesChange={setPendingLinkRules}
+      />
+
+      <AutofillRulesSheet
+        open={autofillRulesOpen}
+        onOpenChange={setAutofillRulesOpen}
+        targetInputId={autofillRulesInputId ?? ""}
+        targetInputLabel={autofillRulesInputLabel}
       />
     </div>
   );

@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const { category_id, input_label, input_type, dropdown_options, config, linked_table, linked_column, tooltip } = body
+    const { category_id, input_label, input_type, dropdown_options, config, tooltip } = body
 
     if (!category_id) return NextResponse.json({ error: "category_id is required" }, { status: 400 })
     if (!input_label?.trim()) return NextResponse.json({ error: "input_label is required" }, { status: 400 })
@@ -66,14 +66,6 @@ export async function POST(req: NextRequest) {
     const validTypes = ["text", "dropdown", "number", "currency", "percentage", "date", "boolean"]
     if (!validTypes.includes(input_type)) {
       return NextResponse.json({ error: `input_type must be one of: ${validTypes.join(", ")}` }, { status: 400 })
-    }
-
-    // Validate linked table if provided — ensure it exists and has a detectable PK
-    if (linked_table) {
-      const { data: pkResult, error: pkErr } = await supabaseAdmin.rpc("get_primary_key_column", { p_table_name: linked_table })
-      if (pkErr || !pkResult) {
-        return NextResponse.json({ error: `Table "${linked_table}" does not exist or has no detectable primary key` }, { status: 400 })
-      }
     }
 
     // Look up the category name
@@ -107,8 +99,6 @@ export async function POST(req: NextRequest) {
         dropdown_options: input_type === "dropdown" ? (dropdown_options ?? []) : null,
         display_order: nextOrder,
         config: config ?? {},
-        linked_table: linked_table || null,
-        linked_column: linked_column || null,
         tooltip: tooltip || null,
       })
       .select("*")
@@ -134,9 +124,9 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}))
 
-    // Single input update (edit label, type, dropdown_options, starred, linked_table, linked_column)
+    // Single input update (edit label, type, dropdown_options, starred)
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options, config, starred, linked_table, linked_column, tooltip } = body
+      const { id, input_label, input_type, dropdown_options, config, starred, tooltip } = body
       const updatePayload: Record<string, unknown> = {}
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
       if (input_type !== undefined) {
@@ -152,24 +142,6 @@ export async function PATCH(req: NextRequest) {
       if (config !== undefined) updatePayload.config = config
       if (typeof starred === "boolean") updatePayload.starred = starred
 
-      // Handle linked table/column updates
-      if (linked_table !== undefined) {
-        if (linked_table) {
-          const { data: pkResult, error: pkErr } = await supabaseAdmin.rpc("get_primary_key_column", { p_table_name: linked_table })
-          if (pkErr || !pkResult) {
-            return NextResponse.json({ error: `Table "${linked_table}" does not exist or has no detectable primary key` }, { status: 400 })
-          }
-          updatePayload.linked_table = linked_table
-          updatePayload.linked_column = linked_column || null
-        } else {
-          // Clear the link
-          updatePayload.linked_table = null
-          updatePayload.linked_column = null
-        }
-      }
-      if (linked_column !== undefined && linked_table === undefined) {
-        updatePayload.linked_column = linked_column || null
-      }
       if (tooltip !== undefined) updatePayload.tooltip = tooltip || null
       if (Object.keys(updatePayload).length === 0) {
         return NextResponse.json({ error: "No fields to update" }, { status: 400 })
