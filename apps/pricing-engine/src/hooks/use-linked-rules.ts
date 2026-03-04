@@ -13,7 +13,7 @@ interface LinkedRule {
 }
 
 interface InputDef {
-  id: string;
+  id: string | number;
   input_code?: string;
 }
 
@@ -130,14 +130,14 @@ export function useLinkedRules(
   }, [inputs, rulesByInput, currentValues, rulesFetched]);
 
   const getResolvedLink = useCallback(
-    (inputId: string): ResolvedLink | null => {
+    (inputId: string | number): ResolvedLink | null => {
       return resolvedLinks[inputId] ?? null;
     },
     [resolvedLinks]
   );
 
   const hasRules = useCallback(
-    (inputId: string): boolean => {
+    (inputId: string | number): boolean => {
       return (rulesByInput[inputId]?.length ?? 0) > 0;
     },
     [rulesByInput]

@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ value: "" });
     }
 
-    const value = evaluateExpression(expression, row as Record<string, unknown>);
+    const value = evaluateExpression(expression, row as unknown as Record<string, unknown>);
     return NextResponse.json({ value });
   } catch (error) {
     console.error("[GET /api/inputs/linked-record-fields] Unexpected error:", error);
