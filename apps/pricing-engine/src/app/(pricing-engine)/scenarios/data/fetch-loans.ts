@@ -147,30 +147,41 @@ export async function getPipelineLoansForOrg(orgId: string, userId?: string): Pr
       scenario.inputs![code] = val
     }
 
-    // Load selected rate options for scenarios that have them
-    const scenariosWithSelection = [...loanIdToScenario.values()].filter(
-      (s) => (scenarios ?? []).find((sc: any) => sc.id === s.id)?.selected_rate_option_id
-    )
-    for (const s of scenariosWithSelection) {
-      const sc = (scenarios ?? []).find((sc: any) => sc.id === s.id) as any
-      if (!sc?.selected_rate_option_id) continue
-      const { data: rateOpt } = await supabaseAdmin
+    // Load selected rate options for scenarios that have them (single batch query)
+    const rateOptIds = [...loanIdToScenario.values()]
+      .map((s) => {
+        const sc = (scenarios ?? []).find((sc: any) => sc.id === s.id) as any
+        return sc?.selected_rate_option_id as number | undefined
+      })
+      .filter((id): id is number => id != null)
+
+    if (rateOptIds.length > 0) {
+      const { data: allRateOpts } = await supabaseAdmin
         .from("scenario_rate_options")
-        .select("*, scenario_program_results!inner(program_id, program_name, loan_amount, ltv)")
-        .eq("id", sc.selected_rate_option_id)
-        .single()
-      if (rateOpt) {
-        const result = rateOpt.scenario_program_results as Record<string, unknown>
-        s.selected = {
-          program_id: result?.program_id ?? null,
-          program_name: result?.program_name ?? null,
-          row_index: rateOpt.row_index,
-          loanPrice: rateOpt.loan_price,
-          interestRate: rateOpt.interest_rate,
-          loanAmount: (result?.loan_amount as string) ?? rateOpt.total_loan_amount ?? null,
-          ltv: (result?.ltv as string) ?? null,
-          pitia: rateOpt.pitia,
-          dscr: rateOpt.dscr,
+        .select("id, row_index, loan_price, interest_rate, pitia, dscr, total_loan_amount, scenario_program_results!inner(program_id, program_name, loan_amount, ltv)")
+        .in("id", rateOptIds)
+
+      const rateOptMap = new Map(
+        (allRateOpts ?? []).map((r: any) => [r.id as number, r])
+      )
+
+      for (const s of [...loanIdToScenario.values()]) {
+        const sc = (scenarios ?? []).find((sc: any) => sc.id === s.id) as any
+        if (!sc?.selected_rate_option_id) continue
+        const rateOpt = rateOptMap.get(sc.selected_rate_option_id as number) as any
+        if (rateOpt) {
+          const result = rateOpt.scenario_program_results as Record<string, unknown>
+          s.selected = {
+            program_id: result?.program_id ?? null,
+            program_name: result?.program_name ?? null,
+            row_index: rateOpt.row_index,
+            loanPrice: rateOpt.loan_price,
+            interestRate: rateOpt.interest_rate,
+            loanAmount: (result?.loan_amount as string) ?? rateOpt.total_loan_amount ?? null,
+            ltv: (result?.ltv as string) ?? null,
+            pitia: rateOpt.pitia,
+            dscr: rateOpt.dscr,
+          }
         }
       }
     }
