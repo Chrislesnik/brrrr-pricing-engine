@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { liveblocks } from "@/lib/liveblocks";
+import { getLiveblocks } from "@/lib/liveblocks";
 import { getOrgUuidFromClerkId, getUserRoleInOrg } from "@/lib/orgs";
 import type { Database } from "@/types/database.types";
 
@@ -94,7 +94,7 @@ export async function POST() {
       "Anonymous";
     const avatar = (userResult?.image_url as string) || "";
 
-    const session = liveblocks.prepareSession(userId, {
+    const session = getLiveblocks().prepareSession(userId, {
       userInfo: { name, avatar },
     });
 
