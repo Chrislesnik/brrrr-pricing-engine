@@ -36,6 +36,8 @@ import {
 import { DatePickerField } from "@/components/date-picker-field"
 import { CalcInput } from "@/components/calc-input"
 import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input"
+import { useLinkedRules } from "@/hooks/use-linked-rules"
+import { useAutofillFromLinkedRecord } from "@/hooks/use-autofill-from-linked-record"
 import { Switch } from "@/components/ui/switch"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -57,14 +59,13 @@ interface InputField {
   category_id: number
   category: string
   input_label: string
+  input_code: string
   input_type: string
   dropdown_options: string[] | null
   config?: Record<string, unknown> | null
   starred: boolean
   display_order: number
   created_at: string
-  linked_table?: string | null
-  linked_column?: string | null
 }
 
 interface LinkedRecord {
@@ -95,6 +96,34 @@ export function NewDealSheet({
   // Linked records per table: { table_name: LinkedRecord[] }
   const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, LinkedRecord[]>>({})
   const [loadingLinkedRecords, setLoadingLinkedRecords] = useState(false)
+
+  // Conditional linked rules evaluation
+  const { resolvedLinks, getResolvedLink, resolvedTableColumnPairs } = useLinkedRules(inputs, formValues)
+
+  // Track record IDs selected from linked dropdowns
+  const [recordIds, setRecordIds] = useState<Record<string, string | undefined>>({})
+
+  // Auto-fill from linked record
+  const { autofillValues, lockedInputCodes } = useAutofillFromLinkedRecord(inputs, recordIds, resolvedLinks)
+
+  // Apply auto-fill values to formValues
+  useEffect(() => {
+    if (Object.keys(autofillValues).length === 0) return
+    setFormValues((prev) => {
+      let updated = false
+      const next = { ...prev }
+      for (const [code, val] of Object.entries(autofillValues)) {
+        const inputDef = inputs.find((i) => i.input_code === code)
+        if (!inputDef) continue
+        const key = inputDef.id
+        if (prev[key] !== val) {
+          next[key] = val
+          updated = true
+        }
+      }
+      return updated ? next : prev
+    })
+  }, [autofillValues, inputs])
 
   // Fetch categories + inputs when sheet opens
   useEffect(() => {
@@ -154,21 +183,15 @@ export function NewDealSheet({
     }
   }, [open])
 
-  // Fetch linked records for all inputs that have a linked_table
+  // Fetch linked records for all inputs that have resolved linked rules
   useEffect(() => {
     if (!open || inputs.length === 0) return
     let cancelled = false
 
-    const linkedInputs = inputs.filter((f) => f.linked_table)
-    if (linkedInputs.length === 0) return
+    // Use resolved links from conditional rules
+    const tableExprPairs = resolvedTableColumnPairs()
 
-    // Collect unique table + expression combos
-    const tableExprPairs = new Map<string, string | null>()
-    for (const inp of linkedInputs) {
-      if (!tableExprPairs.has(inp.linked_table!)) {
-        tableExprPairs.set(inp.linked_table!, inp.linked_column ?? null)
-      }
-    }
+    if (tableExprPairs.size === 0) return
 
     const fetchLinkedRecords = async () => {
       setLoadingLinkedRecords(true)
@@ -197,7 +220,7 @@ export function NewDealSheet({
 
     fetchLinkedRecords()
     return () => { cancelled = true }
-  }, [open, inputs])
+  }, [open, inputs, resolvedLinks, resolvedTableColumnPairs])
 
   const updateValue = useCallback((inputId: string, value: string | boolean) => {
     setFormValues((prev) => ({ ...prev, [inputId]: value }))
@@ -391,10 +414,18 @@ export function NewDealSheet({
                               field={field}
                               value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
                               onChange={(val) => updateValue(field.id, val)}
+                              onRecordSelect={(code, recId) => {
+                                setRecordIds((prev) => {
+                                  const key = `${code}_record_id`
+                                  if (prev[key] === (recId ?? undefined)) return prev
+                                  return { ...prev, [key]: recId ?? undefined }
+                                })
+                              }}
                               isRequired={requiredFields.has(field.id)}
                               isComputed={computedFieldIds.has(field.id)}
-                              linkedRecords={field.linked_table ? (linkedRecordsByTable[field.linked_table] ?? []) : []}
-                              loadingLinked={field.linked_table ? loadingLinkedRecords : false}
+                              isLocked={lockedInputCodes.has(field.input_code)}
+                              linkedRecords={(() => { const r = getResolvedLink(field.id); const t = r?.linked_table; return t ? (linkedRecordsByTable[t] ?? []) : []; })()}
+                              loadingLinked={getResolvedLink(field.id) ? loadingLinkedRecords : false}
                             />
                           ))}
                         </div>
@@ -445,22 +476,53 @@ function DynamicInput({
   field,
   value,
   onChange,
+  onRecordSelect,
   isRequired = false,
   isComputed = false,
+  isLocked = false,
   linkedRecords = [],
   loadingLinked = false,
 }: {
   field: InputField
   value: string | boolean
   onChange: (value: string | boolean) => void
+  onRecordSelect?: (inputCode: string, recordId: string | null) => void
   isRequired?: boolean
   isComputed?: boolean
+  isLocked?: boolean
   linkedRecords?: LinkedRecord[]
   loadingLinked?: boolean
 }) {
   const stringVal = typeof value === "string" ? value : ""
   const boolVal = typeof value === "boolean" ? value : false
   const computedClass = isComputed ? "ring-1 ring-blue-400/40 bg-blue-50/50 dark:bg-blue-950/20" : ""
+
+  // If this input has linked records, always render as linked autocomplete
+  if (linkedRecords.length > 0 || loadingLinked) {
+    return (
+      <div className="space-y-2">
+        <Label>
+          {field.input_label}
+          {isRequired && <span className="ml-1 text-destructive">*</span>}
+        </Label>
+        {loadingLinked ? (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
+            <Loader2 className="size-3 animate-spin" />
+            Loading...
+          </div>
+        ) : (
+          <LinkedAutocompleteInput
+            value={stringVal}
+            onChange={(val) => onChange(val)}
+            onRecordSelect={(rec) => onRecordSelect?.(field.input_code, rec?.id ?? null)}
+            records={linkedRecords}
+            placeholder={`Search ${field.input_label.toLowerCase()}...`}
+            className={computedClass}
+          />
+        )}
+      </div>
+    )
+  }
 
   switch (field.input_type) {
     case "text":
@@ -481,31 +543,6 @@ function DynamicInput({
       )
 
     case "dropdown": {
-      if (field.linked_table) {
-        return (
-          <div className="space-y-2">
-            <Label>
-              {field.input_label}
-              {isRequired && <span className="ml-1 text-destructive">*</span>}
-            </Label>
-            {loadingLinked ? (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
-                <Loader2 className="size-3 animate-spin" />
-                Loading...
-              </div>
-            ) : (
-              <LinkedAutocompleteInput
-                value={stringVal}
-                onChange={(val) => onChange(val)}
-                records={linkedRecords}
-                placeholder={`Search ${field.linked_table.replace(/_/g, " ")}...`}
-                className={computedClass}
-              />
-            )}
-          </div>
-        )
-      }
-
       // Static dropdown — options come from the input definition
       return (
         <div className="space-y-2">

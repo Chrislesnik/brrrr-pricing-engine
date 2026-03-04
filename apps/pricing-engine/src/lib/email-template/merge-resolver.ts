@@ -287,7 +287,7 @@ export async function resolveDealMergeValues(dealId: string): Promise<MergeValue
       .single(),
     supabaseAdmin
       .from("deal_inputs")
-      .select("input_id, input_type, value_text, value_numeric, value_date, value_bool, linked_record_id, inputs(input_code, linked_table)")
+      .select("input_id, input_type, value_text, value_numeric, value_date, value_bool, linked_record_id, inputs(input_code)")
       .eq("deal_id", dealId),
   ])
 
@@ -296,10 +296,25 @@ export async function resolveDealMergeValues(dealId: string): Promise<MergeValue
 
   if (!deal) return {}
 
+  // Fetch linked rules to determine which inputs link to which tables
+  const inputIds = (diRows ?? []).map((r) => r.input_id).filter(Boolean)
+  const { data: linkedRules } = inputIds.length > 0
+    ? await supabaseAdmin
+        .from("input_linked_rules")
+        .select("input_id, linked_table")
+        .in("input_id", inputIds)
+    : { data: [] }
+  const inputLinkedTableMap = new Map<number, string>()
+  for (const rule of (linkedRules ?? [])) {
+    if (!inputLinkedTableMap.has(rule.input_id as number)) {
+      inputLinkedTableMap.set(rule.input_id as number, rule.linked_table as string)
+    }
+  }
+
   // Flatten the joined inputs metadata
   const rows: DealInputRow[] = (diRows ?? []).map((r) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const inputMeta = (r as any).inputs as { input_code: string | null; linked_table: string | null } | null
+    const inputMeta = (r as any).inputs as { input_code: string | null } | null
     return {
       input_id: r.input_id as number,
       input_type: r.input_type as string,
@@ -309,7 +324,7 @@ export async function resolveDealMergeValues(dealId: string): Promise<MergeValue
       value_bool: r.value_bool as boolean | null,
       linked_record_id: r.linked_record_id as string | null,
       input_code: inputMeta?.input_code ?? null,
-      linked_table: inputMeta?.linked_table ?? null,
+      linked_table: inputLinkedTableMap.get(r.input_id as number) ?? null,
     }
   })
 
