@@ -80,6 +80,8 @@ export interface AutofillRulesSheetProps {
   targetInputLabel: string;
   inputsEndpoint?: string;
   onSaved?: () => void;
+  pendingRules?: AutofillRuleConfig[];
+  onPendingRulesChange?: (rules: AutofillRuleConfig[]) => void;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -139,7 +141,10 @@ export function AutofillRulesSheet({
   targetInputLabel,
   inputsEndpoint = "/api/inputs",
   onSaved,
+  pendingRules,
+  onPendingRulesChange,
 }: AutofillRulesSheetProps) {
+  const isPending = Boolean(onPendingRulesChange);
   const [inputs, setInputs] = useState<InputField[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -171,28 +176,23 @@ export function AutofillRulesSheet({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [inputsRes, existingRes] = await Promise.all([
-          fetch(inputsEndpoint),
-          fetch(`/api/input-autofill-rules?target_input_id=${targetInputId}`),
-        ]);
-
+        // Always fetch inputs list
+        const inputsRes = await fetch(inputsEndpoint);
         const inputsJson = await inputsRes.json().catch(() => []);
-        const existingJson = await existingRes.json().catch(() => ({ rules: [] }));
 
-        if (!cancelled) {
-          const inputList = Array.isArray(inputsJson) ? inputsJson : [];
-          setInputs(inputList);
+        if (cancelled) return;
+        const inputList = Array.isArray(inputsJson) ? inputsJson : [];
+        setInputs(inputList);
 
-          const existing = Array.isArray(existingJson.rules) ? existingJson.rules : [];
-          if (existing.length > 0) {
-            const firstRule = existing[0];
-            setSourceInputId(String(firstRule.source_input_id ?? ""));
-
+        // In pending mode, initialize from pendingRules prop
+        if (isPending) {
+          if (pendingRules && pendingRules.length > 0) {
+            setSourceInputId(String(pendingRules[0].source_input_id ?? ""));
             const configMap = new Map<
               string | number,
               { expression: string; locked: boolean; conditions: AutofillExtraCondition[] }
             >();
-            for (const r of existing) {
+            for (const r of pendingRules) {
               configMap.set(r.source_linked_rule_id, {
                 expression: r.expression ?? "",
                 locked: r.locked ?? false,
@@ -203,6 +203,34 @@ export function AutofillRulesSheet({
           } else {
             setSourceInputId("");
             setRuleConfigs(new Map());
+          }
+        } else {
+          // Fetch existing rules from API
+          const existingRes = await fetch(`/api/input-autofill-rules?target_input_id=${targetInputId}`);
+          const existingJson = await existingRes.json().catch(() => ({ rules: [] }));
+
+          if (!cancelled) {
+            const existing = Array.isArray(existingJson.rules) ? existingJson.rules : [];
+            if (existing.length > 0) {
+              const firstRule = existing[0];
+              setSourceInputId(String(firstRule.source_input_id ?? ""));
+
+              const configMap = new Map<
+                string | number,
+                { expression: string; locked: boolean; conditions: AutofillExtraCondition[] }
+              >();
+              for (const r of existing) {
+                configMap.set(r.source_linked_rule_id, {
+                  expression: r.expression ?? "",
+                  locked: r.locked ?? false,
+                  conditions: Array.isArray(r.conditions) ? r.conditions : [],
+                });
+              }
+              setRuleConfigs(configMap);
+            } else {
+              setSourceInputId("");
+              setRuleConfigs(new Map());
+            }
           }
         }
       } catch {
@@ -220,7 +248,7 @@ export function AutofillRulesSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, targetInputId, inputsEndpoint]);
+  }, [open, targetInputId, inputsEndpoint, isPending, pendingRules]);
 
   /* ---- Fetch linked rules when source changes ---- */
   useEffect(() => {
@@ -326,6 +354,12 @@ export function AutofillRulesSheet({
         locked: cfg.locked,
       };
     });
+
+    if (isPending && onPendingRulesChange) {
+      onPendingRulesChange(rules);
+      onOpenChange(false);
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);

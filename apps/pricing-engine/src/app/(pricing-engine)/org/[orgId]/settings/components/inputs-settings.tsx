@@ -65,7 +65,7 @@ import { LogicBuilderSheet } from "./logic-builder-sheet";
 import { InputAIOrderSheet } from "./input-ai-order-sheet";
 import { ColumnExpressionInput } from "@/components/column-expression-input";
 import { LinkedRulesSheet, type LinkedRule } from "@/components/linked-rules-sheet";
-import { AutofillRulesSheet } from "@/components/autofill-rules-sheet";
+import { AutofillRulesSheet, type AutofillRuleConfig } from "@/components/autofill-rules-sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -173,6 +173,10 @@ export function InputsSettings() {
   // Pending link rules for add-input form (not yet persisted)
   const [pendingLinkRules, setPendingLinkRules] = useState<LinkedRule[]>([]);
   const [pendingLinkedRulesOpen, setPendingLinkedRulesOpen] = useState(false);
+
+  // Pending autofill rules for add-input form (not yet persisted)
+  const [pendingAutofillRules, setPendingAutofillRules] = useState<AutofillRuleConfig[]>([]);
+  const [pendingAutofillRulesOpen, setPendingAutofillRulesOpen] = useState(false);
 
   // Autofill rules sheet state
   const [autofillRulesOpen, setAutofillRulesOpen] = useState(false);
@@ -484,6 +488,13 @@ export function InputsSettings() {
             body: JSON.stringify({ input_id: Number(created.id), rules: pendingLinkRules }),
           }).catch(() => {});
         }
+        if (pendingAutofillRules.length > 0 && created?.id) {
+          await fetch("/api/input-autofill-rules", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target_input_id: Number(created.id), rules: pendingAutofillRules }),
+          }).catch(() => {});
+        }
         resetInputForm();
         await fetchData();
       } else {
@@ -570,6 +581,7 @@ export function InputsSettings() {
     setNewTooltip("");
     setNewBooleanDisplay("dropdown");
     setPendingLinkRules([]);
+    setPendingAutofillRules([]);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -1323,7 +1335,7 @@ export function InputsSettings() {
                         </p>
                       </div>
 
-                      {/* Auto-Fill Rules (available after saving) */}
+                      {/* Auto-Fill Rules */}
                       <div className="space-y-1.5">
                         <Label className="text-xs flex items-center gap-1">
                           <Database className="size-3" />
@@ -1333,16 +1345,23 @@ export function InputsSettings() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="w-full text-xs h-9 justify-start gap-2 opacity-50"
-                          disabled
+                          className="w-full text-xs h-9 justify-start gap-2"
+                          onClick={() => setPendingAutofillRulesOpen(true)}
                         >
                           <Settings className="size-3.5" />
                           <span className="flex-1 text-left">
-                            Configure Auto-Fill
+                            {pendingAutofillRules.length > 0
+                              ? "Edit Auto-Fill Rules"
+                              : "Configure Auto-Fill"}
                           </span>
+                          {pendingAutofillRules.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {pendingAutofillRules.length} rule{pendingAutofillRules.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
                         </Button>
                         <p className="text-[10px] text-muted-foreground">
-                          Save the input first, then configure auto-fill from the edit form.
+                          Populate this field with values from a linked record, with per-rule column expressions.
                         </p>
                       </div>
 
@@ -1679,6 +1698,15 @@ export function InputsSettings() {
         onOpenChange={setAutofillRulesOpen}
         targetInputId={autofillRulesInputId ?? ""}
         targetInputLabel={autofillRulesInputLabel}
+      />
+
+      <AutofillRulesSheet
+        open={pendingAutofillRulesOpen}
+        onOpenChange={setPendingAutofillRulesOpen}
+        targetInputId=""
+        targetInputLabel={newInputLabel}
+        pendingRules={pendingAutofillRules}
+        onPendingRulesChange={setPendingAutofillRules}
       />
     </div>
   );
