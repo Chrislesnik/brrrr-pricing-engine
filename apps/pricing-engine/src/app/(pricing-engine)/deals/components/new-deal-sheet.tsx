@@ -497,6 +497,33 @@ function DynamicInput({
   const boolVal = typeof value === "boolean" ? value : false
   const computedClass = isComputed ? "ring-1 ring-blue-400/40 bg-blue-50/50 dark:bg-blue-950/20" : ""
 
+  // If this input has linked records, always render as linked autocomplete
+  if (linkedRecords.length > 0 || loadingLinked) {
+    return (
+      <div className="space-y-2">
+        <Label>
+          {field.input_label}
+          {isRequired && <span className="ml-1 text-destructive">*</span>}
+        </Label>
+        {loadingLinked ? (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
+            <Loader2 className="size-3 animate-spin" />
+            Loading...
+          </div>
+        ) : (
+          <LinkedAutocompleteInput
+            value={stringVal}
+            onChange={(val) => onChange(val)}
+            onRecordSelect={(rec) => onRecordSelect?.(field.input_code, rec?.id ?? null)}
+            records={linkedRecords}
+            placeholder={`Search ${field.input_label.toLowerCase()}...`}
+            className={computedClass}
+          />
+        )}
+      </div>
+    )
+  }
+
   switch (field.input_type) {
     case "text":
       return (
@@ -516,32 +543,6 @@ function DynamicInput({
       )
 
     case "dropdown": {
-      if (linkedRecords.length > 0 || loadingLinked) {
-        return (
-          <div className="space-y-2">
-            <Label>
-              {field.input_label}
-              {isRequired && <span className="ml-1 text-destructive">*</span>}
-            </Label>
-            {loadingLinked ? (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground py-2">
-                <Loader2 className="size-3 animate-spin" />
-                Loading...
-              </div>
-            ) : (
-              <LinkedAutocompleteInput
-                value={stringVal}
-                onChange={(val) => onChange(val)}
-                onRecordSelect={(rec) => onRecordSelect?.(field.input_code, rec?.id ?? null)}
-                records={linkedRecords}
-                placeholder={`Search ${field.input_label.toLowerCase()}...`}
-                className={computedClass}
-              />
-            )}
-          </div>
-        )
-      }
-
       // Static dropdown — options come from the input definition
       return (
         <div className="space-y-2">
