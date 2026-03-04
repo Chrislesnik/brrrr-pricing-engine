@@ -184,12 +184,15 @@ function Kanban<T>({
       );
       if (!activeItem) return;
 
+      const overItems = value[overCol];
+      if (!overItems) return;
+
       onValueChange({
         ...value,
         [activeCol]: value[activeCol]!.filter(
           (item) => getItemValue(item) !== active.id,
         ),
-        [overCol]: [...value[overCol]!, activeItem],
+        [overCol]: [...overItems, activeItem],
       });
     },
     [value, onValueChange, getItemValue],
