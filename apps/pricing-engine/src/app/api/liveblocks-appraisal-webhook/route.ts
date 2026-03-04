@@ -2,11 +2,18 @@ import { WebhookHandler } from "@liveblocks/node";
 
 export const runtime = "nodejs";
 
-const WEBHOOK_SECRET = process.env.LIVEBLOCKS_APPRAISAL_WEBHOOK_SECRET!;
 const N8N_WEBHOOK_URL =
   "https://n8n.axora.info/webhook/cc4afedd-fc2b-43fb-9913-b5e0048cc09b";
 
-const webhookHandler = new WebhookHandler(WEBHOOK_SECRET);
+let _webhookHandler: WebhookHandler | null = null;
+function getWebhookHandler() {
+  if (!_webhookHandler) {
+    const secret = process.env.LIVEBLOCKS_APPRAISAL_WEBHOOK_SECRET;
+    if (!secret) throw new Error("LIVEBLOCKS_APPRAISAL_WEBHOOK_SECRET is not configured");
+    _webhookHandler = new WebhookHandler(secret);
+  }
+  return _webhookHandler;
+}
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -14,7 +21,7 @@ export async function POST(request: Request) {
 
   let event;
   try {
-    event = webhookHandler.verifyRequest({
+    event = getWebhookHandler().verifyRequest({
       headers,
       rawBody: JSON.stringify(body),
     });
