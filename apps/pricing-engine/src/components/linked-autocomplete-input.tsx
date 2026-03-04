@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import { Input } from "@repo/ui/shadcn/input"
 import { SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -69,24 +68,6 @@ export function LinkedAutocompleteInput({
   }
 
   const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
-
-  const updateMenuPos = useCallback(() => {
-    if (!wrapperRef.current) return
-    const rect = wrapperRef.current.getBoundingClientRect()
-    setMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
-  }, [])
-
-  useEffect(() => {
-    if (!show) return
-    updateMenuPos()
-    window.addEventListener("scroll", updateMenuPos, true)
-    window.addEventListener("resize", updateMenuPos)
-    return () => {
-      window.removeEventListener("scroll", updateMenuPos, true)
-      window.removeEventListener("resize", updateMenuPos)
-    }
-  }, [show, updateMenuPos])
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -127,11 +108,10 @@ export function LinkedAutocompleteInput({
           autoComplete="off"
         />
       </div>
-      {show && filtered.length > 0 && menuPos && createPortal(
+      {show && filtered.length > 0 && (
         <div
           ref={menuRef}
-          className="fixed z-50 overflow-hidden rounded-md border bg-background shadow max-h-48 overflow-y-auto"
-          style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+          className="absolute left-0 top-full z-[200] mt-1 w-full overflow-hidden rounded-md border bg-background shadow-lg max-h-48 overflow-y-auto"
           role="listbox"
           onMouseDown={() => (pointerInMenuRef.current = true)}
           onMouseUp={() => (pointerInMenuRef.current = false)}
@@ -150,8 +130,7 @@ export function LinkedAutocompleteInput({
               <span className="truncate">{rec.label}</span>
             </button>
           ))}
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )
