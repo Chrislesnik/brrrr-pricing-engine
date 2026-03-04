@@ -121,7 +121,7 @@ export function TaskSettingsSheet({
         }
         if (actionsRes.ok) {
           const data = await actionsRes.json();
-          if (!cancelled) setAllActions((data.actions ?? []).filter((a: ActionItem & { is_active?: boolean }) => a.is_active !== false));
+          if (!cancelled) setAllActions((data.automations ?? []).filter((a: ActionItem & { is_active?: boolean }) => a.is_active !== false));
         }
         if (assignedRes.ok) {
           const data = await assignedRes.json();
