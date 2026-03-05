@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export type DealRoleTypeRow = {
   id: number;
@@ -82,7 +83,6 @@ async function requireAuthAndOrg() {
 }
 
 async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: string) {
-  // Validate that this is an organization ID, not a user ID
   if (!orgId.startsWith('org_')) {
     throw new Error(
       `Invalid organization ID: "${orgId}". ` +
@@ -91,45 +91,34 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     );
   }
 
-  // Query the existing organizations table
   const { data, error } = await supabase
     .from("organizations")
     .select("id")
     .eq("clerk_organization_id", orgId)
     .single();
 
-  // If org exists, return it
-  if (data?.id) {
-    return data.id as string;
-  }
+  if (data?.id) return data.id as string;
 
-  // If error is not "not found", throw it
   if (error && error.code !== "PGRST116") {
-    console.error("Supabase query error:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
-    throw new Error(
-      `Failed to fetch organization from Supabase: ${error.message}. ` +
-      `Error code: ${error.code}. ` +
-      `This might be a Row Level Security (RLS) policy issue. ` +
-      `Ensure the organizations table has appropriate RLS policies configured.`
+    console.warn(
+      `getOrgPk: JWT-based lookup failed for ${orgId} (${error.message}), trying service role fallback`,
     );
   }
 
-  // Org doesn't exist - this shouldn't happen in production
-  // Organizations should be synced via Clerk webhooks
-  // As a fallback, we'll try to fetch from Clerk and create it
-  console.warn(`Organization ${orgId} not found in Supabase. This org should be synced via webhooks.`);
-  
-  // Don't auto-create - instead throw helpful error
+  const { data: adminData, error: adminError } = await supabaseAdmin
+    .from("organizations")
+    .select("id")
+    .eq("clerk_organization_id", orgId)
+    .single();
+
+  if (adminData?.id) return adminData.id as string;
+
+  console.warn(`Organization ${orgId} not found in Supabase via either path.`, adminError?.message);
+
   throw new Error(
     `Organization not found in Supabase database. ` +
     `Please ensure Clerk webhooks are properly configured to sync organizations. ` +
-    `Webhook endpoint: ${process.env.NEXT_PUBLIC_APP_URL || 'your-domain'}/api/webhooks/clerk. ` +
-    `Alternatively, you can manually sync this organization using the Supabase SQL Editor.`
+    `If you just created this organization, you may need to manually sync it using the SQL script provided.`
   );
 }
 
