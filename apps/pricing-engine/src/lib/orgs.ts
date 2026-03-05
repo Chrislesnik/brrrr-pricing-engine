@@ -27,8 +27,115 @@ async function supabaseForCaller() {
 }
 
 /**
+ * Server-side policy evaluation fallback. Uses Clerk auth() context
+ * and supabaseAdmin to evaluate policies when the JWT-based RPC fails.
+ */
+async function checkPolicyServerSide(
+  resourceType: string,
+  resourceName: string,
+  action: string,
+): Promise<boolean> {
+  const { userId, orgId, orgRole } = await auth()
+  if (!userId || !orgId) return false
+
+  const orgUuid = await getOrgUuidFromClerkId(orgId)
+  if (!orgUuid) return false
+
+  const { data: orgRow } = await supabaseAdmin
+    .from("organizations")
+    .select("is_internal_yn")
+    .eq("id", orgUuid)
+    .single()
+
+  const { data: memberRow } = await supabaseAdmin
+    .from("organization_members")
+    .select("clerk_org_role,clerk_member_role")
+    .eq("organization_id", orgUuid)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  const { data: userRow } = await supabaseAdmin
+    .from("users")
+    .select("is_internal_yn")
+    .eq("clerk_user_id", userId)
+    .maybeSingle()
+
+  const isInternalOrg = Boolean(orgRow?.is_internal_yn)
+  const isInternalUser = Boolean(userRow?.is_internal_yn)
+  const rawOrgRole = memberRow?.clerk_org_role ?? orgRole ?? ""
+  const normalizedOrgRole = rawOrgRole.toLowerCase().replace(/^org:/, "")
+  const normalizedMemberRole = (memberRow?.clerk_member_role ?? "").toLowerCase().replace(/^org:/, "")
+  const orgType = isInternalOrg ? "internal" : "external"
+
+  if (normalizedOrgRole === "owner") return true
+
+  const { data: policies } = await supabaseAdmin
+    .from("organization_policies")
+    .select("compiled_config")
+    .eq("resource_type", resourceType)
+    .or(`resource_name.eq.${resourceName},resource_name.eq.*`)
+    .or(`action.eq.${action},action.eq.all`)
+    .eq("is_active", true)
+    .is("archived_at", null)
+    .or(`org_id.eq.${orgUuid},org_id.is.null`)
+    .order("org_id", { ascending: true, nullsFirst: false })
+
+  if (!policies?.length) return false
+
+  const resolveField = (field: string): string | null => {
+    switch (field) {
+      case "org_role": return normalizedOrgRole || null
+      case "member_role": return normalizedMemberRole || null
+      case "org_type": return orgType
+      case "internal_user": return isInternalUser ? "yes" : "no"
+      default: return null
+    }
+  }
+
+  const evalCondition = (cond: { field?: string; operator?: string; values?: string[] }): boolean => {
+    const fieldVal = resolveField(cond.field ?? "")
+    if (fieldVal === null) return false
+    const values = cond.values ?? []
+    if (cond.operator === "is") return values.includes(fieldVal) || values.includes("*")
+    if (cond.operator === "is_not") return !values.includes(fieldVal)
+    return false
+  }
+
+  const evalConditions = (conditions: unknown[], connector: string): boolean => {
+    const conds = conditions as { field?: string; operator?: string; values?: string[] }[]
+    if (conds.length === 0) return true
+    if (connector === "OR") return conds.some(evalCondition)
+    return conds.every(evalCondition)
+  }
+
+  for (const policy of policies) {
+    const config = policy.compiled_config as Record<string, unknown> | null
+    if (!config) continue
+
+    if (config.allow_internal_users === true && isInternalUser) return true
+
+    const version = typeof config.version === "number" ? config.version : 2
+
+    if (version >= 3 && Array.isArray(config.rules)) {
+      for (const rule of config.rules as Record<string, unknown>[]) {
+        const connector = (rule.connector as string) ?? "AND"
+        const conditions = (rule.conditions as unknown[]) ?? []
+        if (evalConditions(conditions, connector)) return true
+      }
+    } else {
+      const connector = (config.connector as string) ?? "AND"
+      const conditions = (config.conditions as unknown[]) ?? []
+      if (evalConditions(conditions, connector)) return true
+    }
+  }
+
+  return false
+}
+
+/**
  * Generic policy-engine check. Evaluates the `can_access_org_resource()`
  * RPC for any resource type (table, storage_bucket, feature).
+ * Falls back to server-side evaluation when the JWT-based RPC fails.
  *
  * @returns true if access is granted, false otherwise
  */
@@ -42,10 +149,10 @@ export async function checkPolicyAccess(
     sb = await supabaseForCaller()
   } catch (err) {
     console.error(
-      `checkPolicyAccess: failed to create authenticated Supabase client for ${action} on ${resourceType}:${resourceName}`,
+      `checkPolicyAccess: JWT unavailable for ${action} on ${resourceType}:${resourceName}, using server-side fallback`,
       err instanceof Error ? err.message : err,
     )
-    return false
+    return checkPolicyServerSide(resourceType, resourceName, action)
   }
   const { data, error } = await sb.rpc("can_access_org_resource", {
     p_resource_type: resourceType,
@@ -53,10 +160,12 @@ export async function checkPolicyAccess(
     p_action: action,
   })
   if (error) {
-    console.error("checkPolicyAccess RPC error:", error.message)
-    return false
+    console.error("checkPolicyAccess RPC error, using server-side fallback:", error.message)
+    return checkPolicyServerSide(resourceType, resourceName, action)
   }
-  return data === true
+  if (data === true) return true
+
+  return checkPolicyServerSide(resourceType, resourceName, action)
 }
 
 /**
