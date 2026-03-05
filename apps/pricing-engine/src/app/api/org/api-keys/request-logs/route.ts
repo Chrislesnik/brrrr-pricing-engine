@@ -107,6 +107,9 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
+      if (error.code === "PGRST205" || error.message?.includes("Could not find")) {
+        return NextResponse.json({ data: [] });
+      }
       console.error("Error loading API request logs:", error);
       return NextResponse.json(
         { error: "Failed to load API request logs" },
