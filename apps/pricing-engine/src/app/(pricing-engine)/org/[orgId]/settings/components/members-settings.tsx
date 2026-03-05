@@ -71,8 +71,11 @@ export function MembersSettings() {
   const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
   const [isSavingMemberRole, startMemberRoleTransition] = useTransition();
 
+  const orgId = organization?.id;
+
   useEffect(() => {
-    if (!isLoaded || !organization) return;
+    if (!isLoaded || !organization || !orgId) return;
+    const org = organization;
     let isMounted = true;
     async function loadData() {
       setIsMemberRoleLoading(true);
@@ -103,7 +106,7 @@ export function MembersSettings() {
       }
 
       try {
-        const clerkRolesResult = await organization!.getRoles({ pageSize: 100 });
+        const clerkRolesResult = await org.getRoles({ pageSize: 100 });
         if (isMounted) {
           setOrgRoleOptions(
             (clerkRolesResult?.data ?? []).map((r) => ({
@@ -125,7 +128,8 @@ export function MembersSettings() {
     return () => {
       isMounted = false;
     };
-  }, [isLoaded, organization]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, orgId]);
 
   if (!isLoaded || !organization) {
     return (

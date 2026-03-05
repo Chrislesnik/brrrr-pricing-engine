@@ -262,6 +262,20 @@ function DealRecordContent({ params }: { params: Promise<{ id: string }> }) {
       .trim();
   }, [appSettings, deal, inputsList]);
 
+  useEffect(() => {
+    const label = evaluatedHeading || (deal ? deal.id : "");
+    if (label) {
+      window.dispatchEvent(
+        new CustomEvent("app:breadcrumb:update", { detail: { label } })
+      );
+    }
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("app:breadcrumb:update", { detail: { label: "" } })
+      );
+    };
+  }, [evaluatedHeading, deal]);
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">

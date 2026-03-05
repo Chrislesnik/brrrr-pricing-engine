@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
-import { Building2, Upload, Loader2, FileText, X, Sun, Moon } from "lucide-react";
+import { Building2, Upload, Loader2, FileText, X, Sun, Moon, AlertTriangle } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
 import { Label } from "@repo/ui/shadcn/label";
@@ -16,9 +17,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/shadcn/card";
-import { getOrgInternalFlag, setOrgInternalFlag } from "./metadata-actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@repo/ui/shadcn/alert-dialog";
+import {
+  getOrgInternalFlag,
+  setOrgInternalFlag,
+  deleteOrganizationAction,
+} from "./metadata-actions";
 
 export function GeneralSettings() {
+  const router = useRouter();
   const { organization, isLoaded } = useOrganization();
   const [isUpdating, setIsUpdating] = useState(false);
   const [name, setName] = useState(organization?.name || "");
@@ -27,6 +43,11 @@ export function GeneralSettings() {
   const [isInternalLoading, setIsInternalLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
   const [isSavingInternal, startInternalTransition] = useTransition();
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Whitelabel logo state (light mode)
   const [lightLogoUrl, setLightLogoUrl] = useState<string | null>(null);
@@ -625,7 +646,7 @@ export function GeneralSettings() {
             Irreversible actions for this organization
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border border-destructive/30 p-4">
             <div>
               <p className="font-medium">Leave organization</p>
@@ -637,8 +658,109 @@ export function GeneralSettings() {
               Leave
             </Button>
           </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-destructive/30 p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="size-5 text-destructive shrink-0" />
+              <div>
+                <p className="font-medium">Delete organization</p>
+                <p className="text-sm text-muted-foreground">
+                  Permanently delete this organization, all members, and
+                  associated data. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setDeleteConfirmation("");
+                setDeleteError(null);
+                setShowDeleteDialog(true);
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete organization</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This will permanently delete{" "}
+                  <span className="font-semibold text-foreground">
+                    {organization?.name}
+                  </span>{" "}
+                  and remove all members. This action is irreversible.
+                </p>
+                <p>
+                  To confirm, type{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {organization?.name}
+                  </span>{" "}
+                  below:
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <Input
+            placeholder={organization?.name ?? "Organization name"}
+            value={deleteConfirmation}
+            onChange={(e) => setDeleteConfirmation(e.target.value)}
+            autoComplete="off"
+            autoFocus
+          />
+
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={
+                isDeleting ||
+                deleteConfirmation.trim().toLowerCase() !==
+                  (organization?.name ?? "").trim().toLowerCase()
+              }
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                setIsDeleting(true);
+                setDeleteError(null);
+                try {
+                  await deleteOrganizationAction({
+                    confirmationName: deleteConfirmation,
+                  });
+                  setShowDeleteDialog(false);
+                  router.push("/dashboard");
+                } catch (err) {
+                  setDeleteError(
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to delete organization.",
+                  );
+                  setIsDeleting(false);
+                }
+              }}
+            >
+              {isDeleting && (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              )}
+              Delete organization
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

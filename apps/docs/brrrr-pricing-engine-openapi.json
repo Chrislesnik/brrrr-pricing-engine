@@ -1,0 +1,1277 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BRRRR Pricing Engine API",
+    "version": "1.0.0",
+    "description": "REST API for managing deals, loans, borrowers, entities, scenarios, and more within the BRRRR Pricing Engine platform."
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com",
+      "description": "API server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Deals",
+      "description": "Create and manage lending deals."
+    },
+    {
+      "name": "Loans",
+      "description": "View, update, and archive loans."
+    },
+    {
+      "name": "Applications",
+      "description": "Track loan applications across the pipeline."
+    },
+    {
+      "name": "Borrowers",
+      "description": "Search, create, and manage borrower profiles."
+    },
+    {
+      "name": "Entities",
+      "description": "Manage LLCs, Trusts, and other legal entities."
+    },
+    {
+      "name": "Scenarios",
+      "description": "Model pricing scenarios for loans."
+    },
+    {
+      "name": "Programs",
+      "description": "View lending program configurations."
+    },
+    {
+      "name": "Appraisals",
+      "description": "Manage property appraisal orders."
+    },
+    {
+      "name": "Documents",
+      "description": "Work with document templates."
+    },
+    {
+      "name": "Credit Reports",
+      "description": "Pull and view credit reports."
+    },
+    {
+      "name": "Background Reports",
+      "description": "Run background checks on borrowers and entities."
+    },
+    {
+      "name": "Pipeline",
+      "description": "Retrieve pipeline-level analytics."
+    },
+    {
+      "name": "Signature Requests",
+      "description": "Track e-signature status for deals."
+    }
+  ],
+  "paths": {
+    "/api/deals": {
+      "get": {
+        "operationId": "list-deals",
+        "summary": "List deals",
+        "description": "Returns a paginated list of deals visible to the authenticated API key's organization.",
+        "tags": [
+          "Deals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "deals": [
+                      {
+                        "id": "deal_01HXYZ",
+                        "heading": "123 Main St – Purchase",
+                        "created_at": "2025-06-15T10:30:00Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create-deal",
+        "summary": "Create a deal",
+        "description": "Creates a new deal with the supplied inputs. Each input is identified by its input_id and input_type.",
+        "tags": [
+          "Deals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true,
+                    "deal": {
+                      "id": "deal_01HXYZ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "deal_inputs": [
+                    {
+                      "input_id": "property_address",
+                      "input_type": "text",
+                      "value": "123 Main St, Austin TX 78701"
+                    },
+                    {
+                      "input_id": "purchase_price",
+                      "input_type": "number",
+                      "value": 450000
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/list": {
+      "get": {
+        "operationId": "list-loans",
+        "summary": "List loans",
+        "description": "Returns all loans visible to the organization.",
+        "tags": [
+          "Loans"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "example": [
+                    {
+                      "id": "loan_01",
+                      "displayId": "LN-0042",
+                      "label": "Fix & Flip – 123 Main St"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/{id}": {
+      "patch": {
+        "operationId": "update-loan",
+        "summary": "Update a loan",
+        "description": "Updates an existing loan's status or triggers an action (e.g. submit, approve).",
+        "tags": [
+          "Loans"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Loan ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "status": "approved",
+                  "action": "approve"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "archive-loan",
+        "summary": "Archive a loan",
+        "description": "Soft-deletes a loan by moving it to the archive.",
+        "tags": [
+          "Loans"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Loan ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/applications/list": {
+      "get": {
+        "operationId": "list-applications",
+        "summary": "List applications",
+        "description": "Returns all loan applications across the organization pipeline.",
+        "tags": [
+          "Applications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "app_01",
+                        "displayId": "LN-0042",
+                        "appDisplayId": "APP-0012",
+                        "status": "in_review",
+                        "borrowerEntityName": "Acme Holdings LLC",
+                        "propertyAddress": "456 Oak Ave, Dallas TX 75201",
+                        "signingProgressPct": 75
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/applicants/borrowers": {
+      "get": {
+        "operationId": "search-borrowers",
+        "summary": "Search borrowers",
+        "description": "Full-text search across borrowers by name, email, or ID. Optionally filter by entity.",
+        "tags": [
+          "Borrowers"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "borrowers": [
+                      {
+                        "id": "brw_01",
+                        "first_name": "Jane",
+                        "last_name": "Smith",
+                        "email": "jane@example.com"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeIds",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated IDs to always include",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "create-borrower",
+        "summary": "Create a borrower",
+        "description": "Creates a new borrower profile attached to the organization.",
+        "tags": [
+          "Borrowers"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true,
+                    "borrower": {
+                      "id": "brw_01"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "first_name": "Jane",
+                  "last_name": "Smith",
+                  "email": "jane@example.com",
+                  "fico_score": 740,
+                  "phone": "+15125551234"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/applicants/borrowers/list": {
+      "get": {
+        "operationId": "list-borrowers-pipeline",
+        "summary": "List borrowers pipeline",
+        "description": "Returns a pipeline view of all borrowers with summary information.",
+        "tags": [
+          "Borrowers"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "brw_01",
+                        "first_name": "Jane",
+                        "last_name": "Smith",
+                        "deal_count": 3
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/applicants/entities": {
+      "get": {
+        "operationId": "search-entities",
+        "summary": "Search entities",
+        "description": "Full-text search across entities (LLCs, Trusts, etc.).",
+        "tags": [
+          "Entities"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "entities": [
+                      {
+                        "id": "ent_01",
+                        "entity_name": "Acme Holdings LLC",
+                        "entity_type": "llc",
+                        "ein": "12-3456789"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeIds",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated IDs to always include",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "create-entity",
+        "summary": "Create an entity",
+        "description": "Creates a new entity (LLC, Trust, Corporation, etc.) and optionally attaches owners.",
+        "tags": [
+          "Entities"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true,
+                    "entity": {
+                      "id": "ent_01"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "entity_name": "Acme Holdings LLC",
+                  "entity_type": "llc",
+                  "ein": "12-3456789",
+                  "owners": [
+                    {
+                      "borrower_id": "brw_01",
+                      "ownership_pct": 100
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/applicants/entities/list": {
+      "get": {
+        "operationId": "list-entities-pipeline",
+        "summary": "List entities pipeline",
+        "description": "Returns a pipeline view of entities with owner mapping.",
+        "tags": [
+          "Entities"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "ent_01",
+                        "entity_name": "Acme Holdings LLC",
+                        "entity_type": "llc"
+                      }
+                    ],
+                    "ownersMap": {
+                      "ent_01": [
+                        {
+                          "borrower_id": "brw_01",
+                          "ownership_pct": 100
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenarios/{id}": {
+      "get": {
+        "operationId": "get-scenario",
+        "summary": "Get a scenario",
+        "description": "Returns a single scenario by ID, including its inputs and outputs.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "scenario": {
+                      "id": "scn_01",
+                      "name": "Base Case",
+                      "loan_id": "loan_01",
+                      "primary": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Scenario ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "update-scenario",
+        "summary": "Update a scenario",
+        "description": "Updates a scenario's name, inputs, or outputs.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "scenario": {
+                      "id": "scn_01",
+                      "name": "Optimistic Case"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Scenario ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "name": "Optimistic Case",
+                  "inputs": {
+                    "ltv": 0.75,
+                    "rate": 8.5
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "archive-scenario",
+        "summary": "Archive a scenario",
+        "description": "Soft-deletes a scenario. Pass action=restore as a query param to unarchive.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "ok": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Scenario ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "description": "Pass 'restore' to unarchive",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/programs": {
+      "get": {
+        "operationId": "list-programs",
+        "summary": "List programs",
+        "description": "Returns all lending programs configured for the organization.",
+        "tags": [
+          "Programs"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "programs": [
+                      {
+                        "id": "prg_01",
+                        "loan_type": "fix_and_flip",
+                        "internal_name": "Bridge 12-mo",
+                        "status": "active"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/appraisal-orders": {
+      "get": {
+        "operationId": "list-appraisal-orders",
+        "summary": "List appraisal orders",
+        "description": "Returns all appraisal orders for the organization.",
+        "tags": [
+          "Appraisals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "orders": [
+                      {
+                        "id": "apo_01",
+                        "deal_id": "deal_01",
+                        "order_type": "full",
+                        "status": "ordered"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create-appraisal-order",
+        "summary": "Create an appraisal order",
+        "description": "Creates a new appraisal order for a deal.",
+        "tags": [
+          "Appraisals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "order": {
+                      "id": "apo_01"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "deal_id": "deal_01",
+                  "order_type": "full",
+                  "property_address": "123 Main St, Austin TX 78701",
+                  "requested_date": "2025-07-01"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/appraisal-orders/{id}": {
+      "patch": {
+        "operationId": "update-appraisal-order",
+        "summary": "Update an appraisal order",
+        "description": "Updates an existing appraisal order's status, due date, or other fields.",
+        "tags": [
+          "Appraisals"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "success": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Order ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "order_status": "completed",
+                  "date_due": "2025-07-15"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/document-templates": {
+      "get": {
+        "operationId": "list-document-templates",
+        "summary": "List document templates",
+        "description": "Returns all document templates configured for the organization.",
+        "tags": [
+          "Documents"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "templates": [
+                      {
+                        "id": "tpl_01",
+                        "name": "Loan Agreement",
+                        "created_at": "2025-01-10T08:00:00Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create-document-template",
+        "summary": "Create a document template",
+        "description": "Creates a new document template with optional HTML content.",
+        "tags": [
+          "Documents"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "template": {
+                      "id": "tpl_01"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "name": "Loan Agreement",
+                  "html_content": "<h1>Loan Agreement</h1>"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/credit-reports": {
+      "get": {
+        "operationId": "list-credit-reports",
+        "summary": "List credit reports",
+        "description": "Returns credit report documents for a specific borrower. The borrowerId query parameter is required.",
+        "tags": [
+          "Credit Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "documents": [
+                      {
+                        "id": "cr_01",
+                        "borrower_id": "brw_01",
+                        "provider": "equifax",
+                        "pulled_at": "2025-06-01T12:00:00Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "borrowerId",
+            "in": "query",
+            "required": true,
+            "description": "Borrower ID (required)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/background-reports": {
+      "get": {
+        "operationId": "list-background-reports",
+        "summary": "List background reports",
+        "description": "Returns all background check reports for the organization.",
+        "tags": [
+          "Background Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "reports": [
+                      {
+                        "id": "bg_01",
+                        "borrower_id": "brw_01",
+                        "report_type": "criminal",
+                        "status": "completed"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create-background-report",
+        "summary": "Create a background report",
+        "description": "Initiates a background check for a borrower or entity.",
+        "tags": [
+          "Background Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "report": {
+                      "id": "bg_01"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {
+                  "borrower_id": "brw_01",
+                  "entity_id": null,
+                  "report_type": "criminal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipeline": {
+      "get": {
+        "operationId": "get-pipeline",
+        "summary": "Get pipeline data",
+        "description": "Returns pipeline-view data. The shape depends on the view query parameter.",
+        "tags": [
+          "Pipeline"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "items": [
+                      {
+                        "id": "deal_01",
+                        "heading": "123 Main St",
+                        "stage": "underwriting",
+                        "updated_at": "2025-06-20T09:00:00Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "description": "Pipeline view (e.g. 'board', 'table')",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/signature-requests": {
+      "get": {
+        "operationId": "list-signature-requests",
+        "summary": "List signature requests",
+        "description": "Returns e-signature requests for a deal. The dealId query parameter is required.",
+        "tags": [
+          "Signature Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "example": {
+                    "requests": [
+                      {
+                        "id": "sig_01",
+                        "deal_id": "deal_01",
+                        "status": "pending",
+                        "signer_email": "jane@example.com"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dealId",
+            "in": "query",
+            "required": true,
+            "description": "Deal ID (required)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API Key",
+        "description": "Use your organization API key secret as the bearer token: Authorization: Bearer <api_key_secret>"
+      }
+    }
+  }
+}

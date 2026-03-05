@@ -17,6 +17,7 @@
     "@clerk/types": "^4.101.14",
     "@repo/lib": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@scalar/api-reference-react": "^0.9.1",
     "@tailwindcss/typography": "^0.5.16",
     "basehub": "^9.5.3",
     "fumadocs-core": "^16.4.9",

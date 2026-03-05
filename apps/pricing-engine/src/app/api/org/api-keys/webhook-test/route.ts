@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { checkFeatureAccess, getOrgUuidFromClerkId } from "@/lib/orgs";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { Webhook } from "svix";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -102,7 +103,28 @@ export async function POST(req: NextRequest) {
     }
 
     const requestMethod: HttpMethod = method ?? "POST";
-    const requestHeaders = headers ?? {};
+    const requestHeaders = { ...(headers ?? {}) };
+
+    const isClerkWebhook =
+      /\/api\/webhooks\/clerk\b/.test(url) && requestMethod === "POST" && body;
+
+    if (isClerkWebhook) {
+      const secret =
+        process.env.CLERK_WEBHOOK_SIGNING_SECRET ??
+        process.env.CLERK_WEBHOOK_SECRET;
+      if (secret) {
+        const wh = new Webhook(secret);
+        const msgId = `msg_test_${Date.now()}`;
+        const timestamp = new Date();
+        const signature = wh.sign(msgId, timestamp, body);
+        requestHeaders["svix-id"] = msgId;
+        requestHeaders["svix-timestamp"] = Math.floor(
+          timestamp.getTime() / 1000,
+        ).toString();
+        requestHeaders["svix-signature"] = signature;
+      }
+    }
+
     const started = performance.now();
 
     const response = await fetch(url, {
