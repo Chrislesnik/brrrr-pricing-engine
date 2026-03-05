@@ -122,7 +122,7 @@ export function SectionButtonsSheet({
       const res = await fetch("/api/automations");
       if (res.ok) {
         const data = await res.json();
-        const all = (data?.actions ?? []) as WorkflowAction[];
+        const all = (data?.automations ?? []) as WorkflowAction[];
         setAvailableActions(
           all.filter((a) => a.trigger_type === "manual" && a.webhook_type === "pricing_engine"),
         );
@@ -147,7 +147,7 @@ export function SectionButtonsSheet({
       const res = await fetch(`/api/automations/${uuid}`);
       if (res.ok) {
         const data = await res.json();
-        const detail = data.action as ActionDetail;
+        const detail = data.automation as ActionDetail;
         setActionDetails((prev) => new Map(prev).set(uuid, detail));
       }
     } catch { /* ignore */ }
