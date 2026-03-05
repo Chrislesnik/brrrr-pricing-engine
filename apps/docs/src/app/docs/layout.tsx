@@ -67,11 +67,118 @@ export default async function DocsLayout({ children }: Props) {
             };
 
             const items: PageTree.Node[] = [];
+
+            // ── Overview ─────────────────────────────────────────
+            items.push({
+              type: "folder",
+              name: "Overview",
+              children: [
+                {
+                  type: "page",
+                  name: "Getting Started",
+                  url: "/docs/getting-started",
+                } as PageTree.Item,
+                {
+                  type: "page",
+                  name: "Platform Overview",
+                  url: "/docs/platform-overview",
+                } as PageTree.Item,
+              ],
+            } as PageTree.Folder);
+
+            // ── Guides ───────────────────────────────────────────
+            items.push({
+              type: "folder",
+              name: "Guides",
+              children: [
+                {
+                  type: "page",
+                  name: "Managing Deals",
+                  url: "/docs/guides/deals",
+                } as PageTree.Item,
+                {
+                  type: "page",
+                  name: "Borrowers & Entities",
+                  url: "/docs/guides/borrowers-entities",
+                } as PageTree.Item,
+                {
+                  type: "page",
+                  name: "Document Storage",
+                  url: "/docs/guides/documents",
+                } as PageTree.Item,
+                {
+                  type: "page",
+                  name: "AI Features",
+                  url: "/docs/power-users/ai-features",
+                } as PageTree.Item,
+              ],
+            } as PageTree.Folder);
+
+            // ── Policies & Permissions ───────────────────────────
+            items.push({
+              type: "folder",
+              name: "Policies & Permissions",
+              children: [
+                {
+                  type: "page",
+                  name: "Row-Level Security",
+                  url: "/docs/power-users/rls",
+                } as PageTree.Item,
+              ],
+            } as PageTree.Folder);
+
+            // ── Features ─────────────────────────────────────────
+            items.push({
+              type: "folder",
+              name: "Features",
+              children: [
+                {
+                  type: "page",
+                  name: "REST API",
+                  url: "/docs/power-users/api-integration",
+                } as PageTree.Item,
+                {
+                  type: "page",
+                  name: "SQL & Data Access",
+                  url: "/docs/power-users/sql-data-access",
+                } as PageTree.Item,
+              ],
+            } as PageTree.Folder);
+
+            // ── Reference ────────────────────────────────────────
+            items.push({
+              type: "folder",
+              name: "Reference",
+              children: [
+                {
+                  type: "page",
+                  name: "API Reference",
+                  url: "/docs/api-reference",
+                } as PageTree.Item,
+                {
+                  type: "page",
+                  name: "Database Schema",
+                  url: "/docs/reference/database-schema",
+                } as PageTree.Item,
+              ],
+            } as PageTree.Folder);
+
+            // ── BaseHub CMS Content ──────────────────────────────
             const folderIndex = new Map<string, PageTree.Folder>();
+            const basehubItems: PageTree.Node[] = [];
+
+            const EXCLUDED_SLUGS = new Set([
+              "hello-world",
+              "supabase-storage",
+              "row-level-security",
+            ]);
 
             for (const item of documentation?.items || []) {
               const slug = item._slug?.trim() ?? "";
               if (!slug) continue;
+
+              const leafSegment = slug.split("/").pop() ?? slug;
+              if (EXCLUDED_SLUGS.has(leafSegment)) continue;
 
               const pageNode: PageTree.Item = {
                 type: "page",
@@ -79,7 +186,7 @@ export default async function DocsLayout({ children }: Props) {
                 url: `/docs/${slug}`,
               };
 
-              let container = items;
+              let container = basehubItems;
               let keyPrefix = "";
 
               if (item.category && item.category !== "Root") {
@@ -88,8 +195,8 @@ export default async function DocsLayout({ children }: Props) {
                   folderIndex,
                   keyPrefix,
                   item.category,
-                  items,
-                  true
+                  basehubItems,
+                  false
                 );
                 container = categoryFolder.children;
               }
@@ -109,6 +216,14 @@ export default async function DocsLayout({ children }: Props) {
               container.push(pageNode);
             }
 
+            if (basehubItems.length > 0) {
+              items.push({
+                type: "folder",
+                name: "Resources",
+                children: basehubItems,
+              } as PageTree.Folder);
+            }
+
             return (
               <SidebarProvider defaultOpen={!defaultClose}>
                 <DocsSidebar variant="inset" tree={items} />
@@ -117,7 +232,7 @@ export default async function DocsLayout({ children }: Props) {
                   <div
                     id="content"
                     className={cn(
-                      "flex h-full w-full min-w-0 flex-col",
+                      "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto",
                       "has-[div[data-layout=fixed]]:h-svh",
                       "group-data-[scroll-locked=1]/body:h-full",
                       "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"

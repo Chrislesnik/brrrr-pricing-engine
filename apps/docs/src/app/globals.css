@@ -1,5 +1,10 @@
 @import "@repo/ui/globals.css";
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
 /* Sidebar menu collapse animation */
 .CollapsibleContent {
   overflow: hidden;
@@ -29,7 +34,182 @@
   }
 }
 
-/* Clerk components - ensure readable text in dark mode */
+/* ── Prose / documentation content overrides ── */
+
+.prose :where(code):not(:where(pre *)) {
+  border-radius: 0.25rem;
+  background-color: hsl(var(--muted));
+  padding: 0.125rem 0.375rem;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8125rem;
+  font-weight: 450;
+}
+
+.prose :where(pre) {
+  background-color: #0d1117;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.prose :where(pre code) {
+  background-color: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: #e6edf3;
+}
+
+.prose :where(h2) {
+  margin-top: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid hsl(var(--border));
+  scroll-margin-top: 5rem;
+}
+
+.prose :where(h3),
+.prose :where(h4) {
+  scroll-margin-top: 5rem;
+}
+
+.prose :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.prose :where(th) {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.prose :where(td) {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.prose :where(tr:nth-child(even)) {
+  background-color: hsl(var(--muted) / 0.35);
+}
+
+.prose :where(blockquote) {
+  border-left-width: 3px;
+  border-left-color: hsl(var(--primary));
+  background-color: hsl(var(--muted) / 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+  font-style: normal;
+}
+
+.prose :where(blockquote p) {
+  margin: 0.25em 0;
+}
+
+.prose :where(a) {
+  color: hsl(var(--primary));
+  text-decoration-color: hsl(var(--primary) / 0.4);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 150ms;
+}
+
+.prose :where(a:hover) {
+  text-decoration-color: hsl(var(--primary));
+}
+
+.prose :where(hr) {
+  border-color: hsl(var(--border));
+}
+
+/* ── Custom scrollbar (WebKit, dark mode) ── */
+
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* ── Scalar API Reference – embedded layout overrides ── */
+
+.scalar-embedded {
+  --scalar-font: inherit;
+  --scalar-font-code: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --scalar-radius: 0.5rem;
+  --scalar-radius-lg: 0.75rem;
+  --scalar-small: 0.8125rem;
+}
+
+.scalar-embedded .scalar-app {
+  max-width: 100% !important;
+  min-height: auto !important;
+}
+
+.scalar-embedded .scalar-api-reference {
+  font-family: inherit !important;
+}
+
+.scalar-embedded .t-app__navigation {
+  display: none !important;
+}
+
+.scalar-embedded .t-app__main {
+  padding: 0 !important;
+  max-width: 100% !important;
+}
+
+.dark .scalar-embedded {
+  --scalar-background-1: hsl(var(--background));
+  --scalar-background-2: hsl(var(--muted));
+  --scalar-background-3: hsl(var(--card));
+  --scalar-color-1: hsl(var(--foreground));
+  --scalar-color-2: hsl(var(--muted-foreground));
+  --scalar-color-3: hsl(var(--muted-foreground) / 0.6);
+  --scalar-border-color: hsl(var(--border));
+  --scalar-color-accent: hsl(var(--primary));
+  --scalar-background-accent: hsl(var(--primary) / 0.12);
+  --scalar-color-green: #4ade80;
+  --scalar-color-blue: #60a5fa;
+  --scalar-color-orange: #fbbf24;
+  --scalar-color-red: #f87171;
+  --scalar-color-purple: #a78bfa;
+  --scalar-button-1: hsl(var(--primary));
+  --scalar-button-1-hover: hsl(var(--primary) / 0.9);
+  --scalar-button-1-color: hsl(var(--primary-foreground));
+}
+
+.scalar-embedded:not(.dark *) {
+  --scalar-background-1: hsl(var(--background));
+  --scalar-background-2: hsl(var(--muted));
+  --scalar-background-3: hsl(var(--card));
+  --scalar-color-1: hsl(var(--foreground));
+  --scalar-color-2: hsl(var(--muted-foreground));
+  --scalar-color-3: hsl(var(--muted-foreground) / 0.6);
+  --scalar-border-color: hsl(var(--border));
+  --scalar-color-accent: hsl(var(--primary));
+  --scalar-background-accent: hsl(var(--primary) / 0.08);
+  --scalar-button-1: hsl(var(--primary));
+  --scalar-button-1-hover: hsl(var(--primary) / 0.9);
+  --scalar-button-1-color: hsl(var(--primary-foreground));
+}
+
+/* ── Clerk components – readable text in dark mode ── */
+
 .dark .cl-root,
 .dark .cl-root * {
   color: #fff !important;
@@ -51,7 +231,7 @@
   z-index: 100000 !important;
 }
 
-/* Clerk Pro - hide branding/watermark */
+/* Clerk Pro – hide branding/watermark */
 .cl-footer,
 .cl-organizationSwitcherPopoverFooter,
 .cl-userButtonPopoverFooter {

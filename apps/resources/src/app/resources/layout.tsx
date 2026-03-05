@@ -136,9 +136,9 @@ export default async function ResourcesRouteLayout({ children }: Props) {
                     <div
                       id="content"
                       className={cn(
-                        "flex h-full w-full min-w-0 flex-col",
-                        "has-[div[data-layout=fixed]]:h-svh",
-                        "group-data-[scroll-locked=1]/body:h-full",
+                        "flex flex-1 w-full min-w-0 flex-col overflow-y-auto",
+                        "has-[div[data-layout=fixed]]:h-svh has-[div[data-layout=fixed]]:overflow-hidden",
+                        "group-data-[scroll-locked=1]/body:h-full group-data-[scroll-locked=1]/body:overflow-hidden",
                         "has-[data-layout=fixed]:group-data-[scroll-locked=1]/body:h-svh"
                       )}
                     >

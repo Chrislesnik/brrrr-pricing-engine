@@ -927,6 +927,7 @@ function ComposeEmailDialogInner({
             padding: 0.75rem 1.25rem;
             font-size: 14px;
             line-height: 1.6;
+            background: hsl(var(--background));
           }
           .compose-email-blocknote .bn-editor a {
             color: #0670DB;

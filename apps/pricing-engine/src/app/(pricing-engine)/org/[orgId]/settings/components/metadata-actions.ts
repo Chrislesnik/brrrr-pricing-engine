@@ -221,3 +221,50 @@ export async function setOrgMemberRole(input: {
 
   return { ok: true };
 }
+
+export async function deleteOrganizationAction(input: {
+  confirmationName: string;
+}): Promise<{ ok: true }> {
+  const { orgId } = await auth();
+  if (!orgId) throw new Error("No active organization selected.");
+
+  await assertPolicyAccess("table", "organizations", "delete");
+
+  const clerk = await clerkClient();
+  const clerkOrg = await clerk.organizations.getOrganization({
+    organizationId: orgId,
+  });
+
+  if (
+    input.confirmationName.trim().toLowerCase() !==
+    clerkOrg.name.trim().toLowerCase()
+  ) {
+    throw new Error(
+      "Confirmation name does not match. Please type the exact organization name.",
+    );
+  }
+
+  const { orgPk } = await getOrgPk(orgId);
+
+  // Delete from Supabase first (cascade will handle related rows)
+  const { error: membersErr } = await supabaseAdmin
+    .from("organization_members")
+    .delete()
+    .eq("organization_id", orgPk);
+  if (membersErr) {
+    console.error("deleteOrg: members delete error:", membersErr.message);
+  }
+
+  const { error: orgErr } = await supabaseAdmin
+    .from("organizations")
+    .delete()
+    .eq("id", orgPk);
+  if (orgErr) {
+    throw new Error(`Failed to delete organization from database: ${orgErr.message}`);
+  }
+
+  // Delete from Clerk
+  await clerk.organizations.deleteOrganization(orgId);
+
+  return { ok: true };
+}

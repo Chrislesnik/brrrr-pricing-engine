@@ -6,7 +6,6 @@ import { ChevronsUpDown, Plus, Building2, Settings } from "lucide-react";
 import {
   useOrganization,
   useOrganizationList,
-  CreateOrganization,
 } from "@clerk/nextjs";
 import type { OrganizationResource } from "@clerk/types";
 import Image from "next/image";
@@ -19,12 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/shadcn/dialog";
+import { CreateOrgWizard } from "./create-org-wizard";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -233,32 +227,15 @@ export function TeamSwitcherV2() {
         </SidebarMenuItem>
       </SidebarMenu>
 
-      {/* Create Organization Modal - using shadcn Dialog for proper portal cleanup */}
-      <Dialog
+      <CreateOrgWizard
         open={showCreateOrg}
         onOpenChange={(open) => {
           setShowCreateOrg(open);
-          // When dialog closes after creating an org, force a re-sync
           if (!open && organization?.id) {
             setLastSyncedOrgId(null);
           }
         }}
-      >
-        <DialogContent className="max-w-md p-0">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Create Organization</DialogTitle>
-          </DialogHeader>
-          <CreateOrganization
-            afterCreateOrganizationUrl="/dashboard"
-            appearance={{
-              elements: {
-                modalBackdrop: "hidden",
-                card: "shadow-none border-0",
-              },
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      />
 
     </>
   );

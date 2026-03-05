@@ -60,6 +60,21 @@ export function SignIn2() {
     }
   };
 
+  const handleMicrosoftSignIn = async () => {
+    if (!isLoaded || !signIn) return;
+
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_microsoft",
+        redirectUrl: "/sign-in/sso-callback",
+        redirectUrlComplete: "/dashboard",
+      });
+    } catch (err: unknown) {
+      const clerkError = err as { errors?: { message: string }[] };
+      setError(clerkError.errors?.[0]?.message || "Microsoft sign in failed");
+    }
+  };
+
   return (
     <div className="bg-background min-h-screen md:flex">
       {/* Left side: Sign-in form */}
@@ -118,6 +133,22 @@ export function SignIn2() {
               </svg>
 
               <span>Sign in with Google</span>
+            </Button>
+
+            <Button variant="outline" className="w-full" onClick={handleMicrosoftSignIn}>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 23 23"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M11 0H0V11H11V0Z" fill="#F25022" />
+                <path d="M23 0H12V11H23V0Z" fill="#7FBA00" />
+                <path d="M11 12H0V23H11V12Z" fill="#00A4EF" />
+                <path d="M23 12H12V23H23V12Z" fill="#FFB900" />
+              </svg>
+              <span>Sign in with Microsoft</span>
             </Button>
 
           </div>
