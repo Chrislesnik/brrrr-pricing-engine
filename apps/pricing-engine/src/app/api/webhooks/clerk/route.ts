@@ -268,6 +268,27 @@ export async function POST(req: NextRequest) {
       }
       break
     }
+    case "user.deleted": {
+      const deletedUserId = (data as { id?: string } | undefined)?.id
+      if (!deletedUserId) break
+
+      const { error: memDelErr } = await supabaseAdmin
+        .from("organization_members")
+        .delete()
+        .eq("user_id", deletedUserId)
+      if (memDelErr) {
+        console.error("[clerk-webhook] org_members delete on user.deleted:", memDelErr.message)
+      }
+
+      const { error: userDelErr } = await supabaseAdmin
+        .from("users")
+        .delete()
+        .eq("clerk_user_id", deletedUserId)
+      if (userDelErr) {
+        console.error("[clerk-webhook] users delete error:", userDelErr.message)
+      }
+      break
+    }
     case "organizationMembership.deleted": {
       type ClerkMembershipDeletePayload = {
         user_id?: string

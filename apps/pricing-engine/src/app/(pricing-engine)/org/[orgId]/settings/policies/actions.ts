@@ -2,8 +2,6 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-
 // Re-export types from constants (type-only re-exports are fine in "use server")
 export type {
   ConditionInput,
@@ -108,26 +106,14 @@ async function getOrgPk(
 
   if (data?.id) return data.id as string;
 
-  if (error && error.code !== "PGRST116") {
-    console.warn(
-      `getOrgPk: JWT-based lookup failed for ${orgId} (${error.message}), trying service role fallback`,
-    );
+  if (error) {
+    console.error(`getOrgPk: lookup failed for ${orgId}:`, error.message);
   }
-
-  const { data: adminData, error: adminError } = await supabaseAdmin
-    .from("organizations")
-    .select("id")
-    .eq("clerk_organization_id", orgId)
-    .single();
-
-  if (adminData?.id) return adminData.id as string;
-
-  console.warn(`Organization ${orgId} not found in Supabase via either path.`, adminError?.message);
 
   throw new Error(
     `Organization not found in Supabase database. ` +
-    `Please ensure Clerk webhooks are properly configured to sync organizations. ` +
-    `If you just created this organization, you may need to manually sync it using the SQL script provided.`
+    `This usually means Clerk webhooks haven't synced the organization or your membership. ` +
+    `Ensure your user appears in organization_members for this org.`
   );
 }
 

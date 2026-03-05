@@ -13,7 +13,7 @@ export function HomeLayoutWrapper({ children }: { children: React.ReactNode }) {
           navLabel="Documentation"
         />
       }
-      headerTitle="BRRRR Developer Docs"
+      headerTitle="dscr.ai Developer Docs"
     >
       {children}
     </UniversalLayout>

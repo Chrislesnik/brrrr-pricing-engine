@@ -74,6 +74,13 @@ import {
   ApiResponseViewer,
   type ApiResponse,
 } from "@/components/elements/api-response-viewer";
+import { APIReferenceTab } from "./api-reference-tab";
+import {
+  getEndpointsForScopes,
+  generateCurl,
+  generateFetch,
+  methodColor,
+} from "@/lib/api-endpoint-registry";
 
 interface APIKeyData {
   id: string;
@@ -106,7 +113,7 @@ interface APIToolsCapabilities {
   canRunWebhookTests: boolean;
 }
 
-type APIToolsTab = "keys" | "request-logs" | "webhook-tester";
+type APIToolsTab = "keys" | "request-logs" | "webhook-tester" | "api-reference";
 type RequestLogMethod = "ALL" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface APIRequestLogRow {
@@ -493,6 +500,30 @@ function KeyRow({
   );
 }
 
+function QuickCopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+    >
+      {copied ? (
+        <>
+          <Check className="size-3" /> Copied
+        </>
+      ) : (
+        <>
+          <Copy className="size-3" /> Copy
+        </>
+      )}
+    </button>
+  );
+}
+
 export function APIKeysSettings() {
   const { organization, isLoaded } = useOrganization();
   const [apiKeys, setApiKeys] = useState<APIKeyData[]>([]);
@@ -648,8 +679,10 @@ export function APIKeysSettings() {
     if (capabilities?.canViewKeys) tabs.push("keys");
     if (capabilities?.canViewRequestLogs) tabs.push("request-logs");
     if (capabilities?.canViewWebhookTester) tabs.push("webhook-tester");
+    if (capabilities?.canViewKeys && availableScopes.length > 0)
+      tabs.push("api-reference");
     return tabs;
-  }, [capabilities]);
+  }, [capabilities, availableScopes]);
 
   useEffect(() => {
     if (visibleTabs.length === 0) return;
@@ -865,13 +898,20 @@ export function APIKeysSettings() {
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as APIToolsTab)}
       >
-        <TabsList className="grid h-auto w-full grid-cols-3 dark:bg-muted/30">
+        <TabsList className="grid h-auto w-full grid-cols-4 dark:bg-muted/30">
           <TabsTrigger
             value="keys"
             disabled={!capabilities.canViewKeys}
             className="text-xs sm:text-sm dark:data-[state=active]:bg-background dark:data-[state=active]:border-border"
           >
             Keys
+          </TabsTrigger>
+          <TabsTrigger
+            value="api-reference"
+            disabled={!capabilities.canViewKeys || availableScopes.length === 0}
+            className="text-xs sm:text-sm dark:data-[state=active]:bg-background dark:data-[state=active]:border-border"
+          >
+            API Reference
           </TabsTrigger>
           <TabsTrigger
             value="request-logs"
@@ -1263,6 +1303,19 @@ export function APIKeysSettings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="api-reference" className="space-y-4 pt-4">
+          <APIReferenceTab
+            availableScopes={availableScopes.map((s) => s.value)}
+            apiKeys={apiKeys.map((k) => ({
+              id: k.id,
+              name: k.name,
+              scopes: k.scopes,
+              revoked: k.revoked ?? false,
+              expired: k.expired ?? false,
+            }))}
+          />
+        </TabsContent>
       </Tabs>
 
       {/* Create API Key Dialog */}
@@ -1417,7 +1470,7 @@ export function APIKeysSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Secret Display Dialog */}
+      {/* Secret Display Dialog (with Quick Start snippets) */}
       <Dialog
         open={!!createdSecret}
         onOpenChange={(open) => {
@@ -1429,7 +1482,7 @@ export function APIKeysSettings() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10">
@@ -1442,7 +1495,8 @@ export function APIKeysSettings() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          <div className="space-y-4 py-2">
+            {/* Secret display */}
             <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-3 font-mono text-sm">
               <span className="flex-1 truncate select-all">
                 {showSecret ? createdSecret : "\u2022".repeat(40)}
@@ -1472,6 +1526,7 @@ export function APIKeysSettings() {
                 )}
               </Button>
             </div>
+
             <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
               <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-700 dark:text-amber-300 font-medium leading-relaxed">
@@ -1479,6 +1534,88 @@ export function APIKeysSettings() {
                 after closing this dialog.
               </p>
             </div>
+
+            {/* Quick Start snippets */}
+            {createdSecret && newKeyScopes.length > 0 && (() => {
+              const endpoints = getEndpointsForScopes(newKeyScopes);
+              const firstReadEndpoint = endpoints.find((ep) => ep.method === "GET");
+              if (!firstReadEndpoint) return null;
+              const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://your-app.com";
+              const curlSnippet = generateCurl(firstReadEndpoint, baseUrl, createdSecret);
+              const fetchSnippet = generateFetch(firstReadEndpoint, baseUrl, createdSecret);
+              return (
+                <div className="space-y-3 border-t pt-4">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold">Quick Start</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Try your new API key with one of these examples ({endpoints.length} endpoint{endpoints.length !== 1 ? "s" : ""} available for your scopes).
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-bold font-mono tracking-wide",
+                          methodColor(firstReadEndpoint.method),
+                        )}
+                      >
+                        {firstReadEndpoint.method}
+                      </span>
+                      <code className="text-xs font-mono text-muted-foreground">
+                        {firstReadEndpoint.path}
+                      </code>
+                      <span className="text-xs text-muted-foreground">
+                        — {firstReadEndpoint.summary}
+                      </span>
+                    </div>
+
+                    {/* cURL */}
+                    <div className="rounded-lg border bg-[#0d1117] dark:bg-zinc-950">
+                      <div className="flex items-center justify-between border-b border-white/5 px-3 py-1.5">
+                        <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                          cURL
+                        </span>
+                        <QuickCopyButton text={curlSnippet} />
+                      </div>
+                      <pre className="overflow-x-auto p-3 text-[11px] leading-relaxed text-zinc-300">
+                        <code>{curlSnippet}</code>
+                      </pre>
+                    </div>
+
+                    {/* JavaScript */}
+                    <div className="rounded-lg border bg-[#0d1117] dark:bg-zinc-950">
+                      <div className="flex items-center justify-between border-b border-white/5 px-3 py-1.5">
+                        <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+                          JavaScript
+                        </span>
+                        <QuickCopyButton text={fetchSnippet} />
+                      </div>
+                      <pre className="overflow-x-auto p-3 text-[11px] leading-relaxed text-zinc-300">
+                        <code>{fetchSnippet}</code>
+                      </pre>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground/60">
+                    View all endpoints in the{" "}
+                    <button
+                      className="text-primary underline underline-offset-2 hover:text-primary/80"
+                      onClick={() => {
+                        setCreatedSecret(null);
+                        setShowSecret(false);
+                        setCopiedSecret(false);
+                        setShowCreateDialog(false);
+                        setActiveTab("api-reference");
+                      }}
+                    >
+                      API Reference
+                    </button>{" "}
+                    tab.
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           <DialogFooter>
