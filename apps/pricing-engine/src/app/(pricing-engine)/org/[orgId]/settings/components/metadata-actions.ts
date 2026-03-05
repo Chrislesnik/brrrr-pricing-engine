@@ -127,6 +127,44 @@ export async function getActiveMemberRoleOptions(): Promise<
   }
 }
 
+export async function getClerkOrgRoleOptions(): Promise<
+  { value: string; label: string }[]
+> {
+  try {
+    const { orgId } = await auth();
+    if (!orgId) return [];
+
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (!secretKey) {
+      console.error("getClerkOrgRoleOptions: CLERK_SECRET_KEY not set");
+      return [];
+    }
+
+    const res = await fetch("https://api.clerk.com/v1/organization_roles", {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+
+    if (!res.ok) {
+      console.error(
+        "getClerkOrgRoleOptions: Clerk API returned",
+        res.status,
+        await res.text(),
+      );
+      return [];
+    }
+
+    const body = await res.json();
+    const roles: { key: string; name: string }[] = body?.data ?? [];
+    return roles.map((r) => ({ value: r.key, label: r.name }));
+  } catch (err) {
+    console.error(
+      "getClerkOrgRoleOptions failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
+}
+
 export async function setOrgClerkRole(input: {
   clerkUserId: string;
   clerkOrgRole: string;
