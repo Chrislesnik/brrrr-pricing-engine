@@ -103,12 +103,22 @@ export function MembersSettings() {
       }
 
       try {
-        const clerkRoles = await getClerkOrgRoleOptions();
+        const clerkRolesResult = await organization!.getRoles({ pageSize: 100 });
         if (isMounted) {
-          setOrgRoleOptions(clerkRoles);
+          setOrgRoleOptions(
+            (clerkRolesResult?.data ?? []).map((r) => ({
+              value: r.key,
+              label: r.name,
+            })),
+          );
         }
-      } catch (error) {
-        console.error("Failed to load organization roles:", error);
+      } catch {
+        try {
+          const fallbackRoles = await getClerkOrgRoleOptions();
+          if (isMounted) setOrgRoleOptions(fallbackRoles);
+        } catch (fallbackErr) {
+          console.error("Failed to load organization roles:", fallbackErr);
+        }
       }
     }
     loadData();
