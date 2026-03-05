@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     const orgUuid = await getOrgUuidFromClerkId(orgId);
     if (orgUuid) {
-      await supabaseAdmin.from("api_request_activity_logs").insert({
+      supabaseAdmin.from("api_request_activity_logs").insert({
         org_id: orgUuid,
         actor_user_id: userId,
         source: "webhook_tester",
@@ -140,6 +140,8 @@ export async function POST(req: NextRequest) {
         request_body: parseJsonMaybe(body),
         response_headers: responseHeaders,
         response_body: responseBody,
+      }).then(({ error }) => {
+        if (error) console.error("Failed to log webhook test request:", error.message);
       });
     }
 
