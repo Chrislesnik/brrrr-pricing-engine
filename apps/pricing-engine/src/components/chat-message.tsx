@@ -24,6 +24,32 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   onPreviewTheme?: (theme: { light: any; dark: any }) => void;
 };
 
+// Strip "--" prefixes from theme token keys so they match the expected bare names
+function normalizeThemeKeys(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const bare = key.startsWith("--") ? key.slice(2) : key;
+    result[bare] = value;
+  }
+  return result;
+}
+
+// Recursively search a parsed JSON object for "light" and "dark" sub-objects,
+// handling variant nesting the AI model sometimes produces.
+function findLightDark(obj: any): { light: any; dark: any } | null {
+  if (!obj || typeof obj !== "object") return null;
+  if (obj.light && typeof obj.light === "object" && obj.dark && typeof obj.dark === "object") {
+    return { light: normalizeThemeKeys(obj.light), dark: normalizeThemeKeys(obj.dark) };
+  }
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const found = findLightDark(value as Record<string, any>);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // Try to extract JSON theme from text content
 function extractThemeFromText(text: string): {
   theme: any | null;
@@ -33,13 +59,25 @@ function extractThemeFromText(text: string): {
 
   const trimmed = text.trim();
 
+  // Helper: given a parsed JSON object, try to locate light/dark at any depth
+  function extractFromParsed(parsed: any): { theme: any; isComplete: true } | null {
+    const found = findLightDark(parsed);
+    if (found) {
+      // Carry over top-level metadata (title, concept) if present
+      return {
+        theme: { ...parsed, light: found.light, dark: found.dark },
+        isComplete: true,
+      };
+    }
+    return null;
+  }
+
   // Strategy 1: Parse as a clean JSON string
   try {
     if (trimmed.startsWith("{")) {
       const parsed = JSON.parse(trimmed);
-      if (parsed.light && parsed.dark) {
-        return { theme: parsed, isComplete: true };
-      }
+      const result = extractFromParsed(parsed);
+      if (result) return result;
     }
   } catch {
     // Not a clean JSON string
@@ -50,16 +88,14 @@ function extractThemeFromText(text: string): {
   if (codeBlockMatch) {
     try {
       const parsed = JSON.parse(codeBlockMatch[1].trim());
-      if (parsed.light && parsed.dark) {
-        return { theme: parsed, isComplete: true };
-      }
+      const result = extractFromParsed(parsed);
+      if (result) return result;
     } catch {
       // Ignore
     }
   }
 
   // Strategy 3: Find JSON by locating the outermost { ... } in the text
-  // (handles preamble text like "Here's your theme:" before the JSON)
   const firstBrace = trimmed.indexOf("{");
   const lastBrace = trimmed.lastIndexOf("}");
 
@@ -67,9 +103,8 @@ function extractThemeFromText(text: string): {
     const jsonCandidate = trimmed.substring(firstBrace, lastBrace + 1);
     try {
       const parsed = JSON.parse(jsonCandidate);
-      if (parsed.light && parsed.dark) {
-        return { theme: parsed, isComplete: true };
-      }
+      const result = extractFromParsed(parsed);
+      if (result) return result;
     } catch {
       // Extraction failed
     }
@@ -92,6 +127,10 @@ function extractThemeFromText(text: string): {
         partial += "}".repeat(Math.max(0, openCount - closeCount));
       }
       const parsed = JSON.parse(partial);
+      const found = findLightDark(parsed);
+      if (found) {
+        return { theme: { ...parsed, light: found.light, dark: found.dark }, isComplete: false };
+      }
       if (parsed.light || parsed.dark) {
         return { theme: parsed, isComplete: false };
       }
