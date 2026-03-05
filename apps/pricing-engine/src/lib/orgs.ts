@@ -37,7 +37,16 @@ export async function checkPolicyAccess(
   resourceName: string,
   action: string,
 ): Promise<boolean> {
-  const sb = await supabaseForCaller()
+  let sb
+  try {
+    sb = await supabaseForCaller()
+  } catch (err) {
+    console.error(
+      `checkPolicyAccess: failed to create authenticated Supabase client for ${action} on ${resourceType}:${resourceName}`,
+      err instanceof Error ? err.message : err,
+    )
+    return false
+  }
   const { data, error } = await sb.rpc("can_access_org_resource", {
     p_resource_type: resourceType,
     p_resource_name: resourceName,
