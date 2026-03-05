@@ -81,7 +81,7 @@ export function MembersSettings() {
           await Promise.all([
             getOrgMemberRoles(),
             getActiveMemberRoleOptions(),
-            organization.getRoles({ pageSize: 100 }),
+            organization!.getRoles({ pageSize: 100 }),
           ]);
         if (isMounted) {
           setMemberRoles(rolesResult.roles ?? {});
