@@ -1,3 +1,9 @@
 {
-  "installCommand": "pnpm install"
+  "installCommand": "pnpm install",
+  "functions": {
+    "src/app/api/pdf/render/route.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  }
 }

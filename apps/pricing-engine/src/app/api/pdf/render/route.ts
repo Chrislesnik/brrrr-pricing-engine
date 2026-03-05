@@ -3,6 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 
 export const maxDuration = 30;
 
+const CHROMIUM_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
+
 async function getBrowser() {
   const isDev = process.env.NODE_ENV === "development";
 
@@ -34,11 +37,11 @@ async function getBrowser() {
     });
   }
 
-  const chromium = (await import("@sparticuz/chromium")).default;
+  const chromium = (await import("@sparticuz/chromium-min")).default;
   const puppeteer = await import("puppeteer-core");
   return puppeteer.default.launch({
     args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
     headless: true,
   });
 }

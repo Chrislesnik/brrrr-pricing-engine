@@ -4046,7 +4046,9 @@ function ResultCard({
     try {
       const file = await renderIframeToPdfViaServer(html)
       if (file) return file
-    } catch { /* fallback to client-side */ }
+    } catch (serverErr) {
+      console.error("[generatePdfDirect] server PDF failed, falling back to client-side:", serverErr)
+    }
     const file = await renderHtmlToPdfClientSide(html)
     if (!file) throw new Error("Could not generate PDF")
     return file
@@ -5121,7 +5123,9 @@ function ResultsPanel({
     try {
       const file = await renderIframeToPdfViaServer(html)
       if (file) return file
-    } catch { /* fallback to client-side */ }
+    } catch (serverErr) {
+      console.error("[generatePdfDirectMain] server PDF failed, falling back to client-side:", serverErr)
+    }
     const file = await renderHtmlToPdfClientSide(html)
     if (!file) throw new Error("Could not generate PDF")
     return file

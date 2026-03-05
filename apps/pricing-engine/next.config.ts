@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   transpilePackages: ["@documenso/embed-react"],
   turbopack: {},
-  serverExternalPackages: ["@sparticuz/chromium"],
+  serverExternalPackages: ["@sparticuz/chromium-min"],
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",

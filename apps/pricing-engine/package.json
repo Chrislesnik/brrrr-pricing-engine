@@ -80,7 +80,7 @@
     "@repo/env": "workspace:*",
     "@repo/lib": "workspace:*",
     "@repo/ui": "workspace:*",
-    "@sparticuz/chromium": "^143.0.4",
+    "@sparticuz/chromium-min": "^143.0.4",
     "@stepperize/react": "^5.1.9",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.83.0",
