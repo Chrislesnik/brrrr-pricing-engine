@@ -41,6 +41,7 @@ import {
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import {
   getOrgMemberRoles,
+  getClerkOrgRoleOptions,
   setOrgClerkRole,
   setOrgMemberRole,
   getActiveMemberRoleOptions,
@@ -73,28 +74,21 @@ export function MembersSettings() {
   useEffect(() => {
     if (!isLoaded || !organization) return;
     let isMounted = true;
-    async function loadMemberRoles() {
+    async function loadData() {
       setIsMemberRoleLoading(true);
       setMemberRoleError(null);
+
       try {
-        const [rolesResult, roleOptionsResult, clerkRolesResult] =
-          await Promise.all([
-            getOrgMemberRoles(),
-            getActiveMemberRoleOptions(),
-            organization!.getRoles({ pageSize: 100 }),
-          ]);
+        const [rolesResult, roleOptionsResult] = await Promise.all([
+          getOrgMemberRoles(),
+          getActiveMemberRoleOptions(),
+        ]);
         if (isMounted) {
           setMemberRoles(rolesResult.roles ?? {});
           if (rolesResult.error) {
             setMemberRoleError(rolesResult.error);
           }
           setMemberRoleOptions(roleOptionsResult);
-          setOrgRoleOptions(
-            (clerkRolesResult?.data ?? []).map((r) => ({
-              value: r.key,
-              label: r.name,
-            })),
-          );
         }
       } catch (error) {
         if (isMounted) {
@@ -107,8 +101,17 @@ export function MembersSettings() {
       } finally {
         if (isMounted) setIsMemberRoleLoading(false);
       }
+
+      try {
+        const clerkRoles = await getClerkOrgRoleOptions();
+        if (isMounted) {
+          setOrgRoleOptions(clerkRoles);
+        }
+      } catch (error) {
+        console.error("Failed to load organization roles:", error);
+      }
     }
-    loadMemberRoles();
+    loadData();
     return () => {
       isMounted = false;
     };
