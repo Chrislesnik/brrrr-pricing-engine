@@ -483,7 +483,7 @@ export const userApi = {
 // Workflow API - maps to our /api/automations/ endpoints
 export const workflowApi = {
   getAll: async (): Promise<SavedWorkflow[]> => {
-    const res = await apiCall<{ actions: Array<{
+    const res = await apiCall<{ automations: Array<{
       uuid: string;
       name: string;
       description: string | null;
@@ -492,7 +492,7 @@ export const workflowApi = {
       created_at: string;
       updated_at: string;
     }> }>("/api/automations");
-    return (res.actions ?? []).map((a: (typeof res.actions)[number]) => ({
+    return (res.automations ?? []).map((a: (typeof res.automations)[number]) => ({
       id: a.uuid,
       name: a.name,
       description: a.description || undefined,
@@ -506,7 +506,7 @@ export const workflowApi = {
   },
 
   getById: async (id: string): Promise<SavedWorkflow> => {
-    const res = await apiCall<{ action: {
+    const res = await apiCall<{ automation: {
       uuid: string;
       name: string;
       description: string | null;
@@ -515,7 +515,7 @@ export const workflowApi = {
       created_at: string;
       updated_at: string;
     } }>(`/api/automations/${id}`);
-    const a = res.action;
+    const a = res.automation;
     return {
       id: a.uuid,
       name: a.name,
@@ -530,7 +530,7 @@ export const workflowApi = {
   },
 
   create: async (workflow: Omit<WorkflowData, "id">): Promise<SavedWorkflow> => {
-    const res = await apiCall<{ action: {
+    const res = await apiCall<{ automation: {
       uuid: string;
       name: string;
       description: string | null;
@@ -544,7 +544,7 @@ export const workflowApi = {
         description: workflow.description || null,
       }),
     });
-    const a = res.action;
+    const a = res.automation;
     return {
       id: a.uuid,
       name: a.name,
@@ -577,7 +577,7 @@ export const workflowApi = {
       payload.webhook_type = wt || null;
     }
 
-    const res = await apiCall<{ action: {
+    const res = await apiCall<{ automation: {
       uuid: string;
       name: string;
       description: string | null;
@@ -588,7 +588,7 @@ export const workflowApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
-    const a = res.action;
+    const a = res.automation;
     return {
       id: a.uuid,
       name: a.name,
