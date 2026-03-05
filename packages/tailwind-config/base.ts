@@ -112,7 +112,7 @@ export const baseConfig: Partial<Config> = {
           "90%": { transform: "translateX(1px)" },
         },
         "attention-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.5)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0)" },
           "50%": { boxShadow: "0 0 8px 4px hsl(var(--primary) / 0.25)" },
         },
       },
