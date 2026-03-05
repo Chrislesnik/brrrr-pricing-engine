@@ -41,6 +41,7 @@ import {
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import {
   getOrgMemberRoles,
+  setOrgClerkRole,
   setOrgMemberRole,
   getActiveMemberRoleOptions,
 } from "./metadata-actions";
@@ -61,6 +62,9 @@ export function MembersSettings() {
   const [memberRoleOptions, setMemberRoleOptions] = useState<
     { value: string; label: string }[]
   >([]);
+  const [orgRoleOptions, setOrgRoleOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
   const [memberRoleError, setMemberRoleError] = useState<string | null>(null);
   const [removalError, setRemovalError] = useState<string | null>(null);
   const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
@@ -73,13 +77,24 @@ export function MembersSettings() {
       setIsMemberRoleLoading(true);
       setMemberRoleError(null);
       try {
-        const [rolesResult, roleOptionsResult] = await Promise.all([
-          getOrgMemberRoles(),
-          getActiveMemberRoleOptions(),
-        ]);
+        const [rolesResult, roleOptionsResult, clerkRolesResult] =
+          await Promise.all([
+            getOrgMemberRoles(),
+            getActiveMemberRoleOptions(),
+            organization.getRoles({ pageSize: 100 }),
+          ]);
         if (isMounted) {
           setMemberRoles(rolesResult.roles ?? {});
+          if (rolesResult.error) {
+            setMemberRoleError(rolesResult.error);
+          }
           setMemberRoleOptions(roleOptionsResult);
+          setOrgRoleOptions(
+            (clerkRolesResult?.data ?? []).map((r) => ({
+              value: r.key,
+              label: r.name,
+            })),
+          );
         }
       } catch (error) {
         if (isMounted) {
@@ -151,7 +166,12 @@ export function MembersSettings() {
     try {
       const memberToUpdate = membersList.find((m) => m.id === membershipId);
       if (memberToUpdate) {
-        await memberToUpdate.update({ role: newRole as "org:admin" | "org:member" });
+        await memberToUpdate.update({ role: newRole });
+        const clerkUserId = memberToUpdate.publicUserData?.userId;
+        if (clerkUserId) {
+          const normalized = newRole.replace(/^org:/, "");
+          await setOrgClerkRole({ clerkUserId, clerkOrgRole: normalized });
+        }
       }
     } catch (error) {
       console.error("Failed to update role:", error);
@@ -227,7 +247,7 @@ export function MembersSettings() {
               <TableRow>
                 <TableHead className="w-[40%]">User</TableHead>
                 <TableHead className="w-[15%]">Joined</TableHead>
-                <TableHead className="w-[15%]">Role</TableHead>
+                <TableHead className="w-[15%]">Organization Role</TableHead>
                 <TableHead className="w-[15%]">Member Role</TableHead>
                 <TableHead className="w-[15%]"></TableHead>
               </TableRow>
@@ -283,12 +303,22 @@ export function MembersSettings() {
                           handleUpdateRole(member.id, value)
                         }
                       >
-                        <SelectTrigger className="w-28">
+                        <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="org:member">Member</SelectItem>
-                          <SelectItem value="org:admin">Admin</SelectItem>
+                          {orgRoleOptions.length === 0 ? (
+                            <>
+                              <SelectItem value="org:member">Member</SelectItem>
+                              <SelectItem value="org:admin">Admin</SelectItem>
+                            </>
+                          ) : (
+                            orgRoleOptions.map((role) => (
+                              <SelectItem key={role.value} value={role.value}>
+                                {role.label}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </TableCell>
