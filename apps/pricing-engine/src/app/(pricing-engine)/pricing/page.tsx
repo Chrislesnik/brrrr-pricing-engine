@@ -810,18 +810,40 @@ function ScaledHtmlPreview({
         const images = d.querySelectorAll("img")
         images.forEach((img) => {
           img.classList.add("ts-replaceable")
-          const w = img.offsetWidth
-          const h = img.offsetHeight
-          if (w > 0 && h > 0) {
-            img.setAttribute("data-orig-w", String(w))
-            img.setAttribute("data-orig-h", String(h))
-            img.setAttribute("width", String(w))
-            img.setAttribute("height", String(h))
-            img.style.cssText += `;width:${w}px !important;height:${h}px !important;max-width:${w}px !important;max-height:${h}px !important;object-fit:contain !important;display:block !important;`
-          }
           if (img.hasAttribute("data-brand-logo")) {
             img.classList.add("ts-edit")
           }
+
+          const lockDimensions = () => {
+            if (img.getAttribute("data-dims-locked") === "1") return
+            const existingStyle = img.style
+            const templateH = existingStyle.height
+            const templateMaxH = existingStyle.maxHeight
+            const hasTemplateHeight = templateH && templateH !== "auto"
+            const hasTemplateMaxHeight = templateMaxH && templateMaxH !== "none"
+
+            const w = img.offsetWidth
+            const h = img.offsetHeight
+            if (w > 0 && h > 0) {
+              img.setAttribute("data-orig-w", String(w))
+              img.setAttribute("data-orig-h", String(h))
+              img.setAttribute("width", String(w))
+              img.setAttribute("height", String(h))
+              if (hasTemplateHeight || hasTemplateMaxHeight) {
+                const constrainH = hasTemplateHeight ? templateH : templateMaxH
+                img.style.cssText += `;width:auto !important;height:${constrainH} !important;max-width:${w}px !important;max-height:${constrainH} !important;object-fit:contain !important;display:block !important;`
+              } else {
+                img.style.cssText += `;width:${w}px !important;height:${h}px !important;max-width:${w}px !important;max-height:${h}px !important;object-fit:contain !important;display:block !important;`
+              }
+              img.setAttribute("data-dims-locked", "1")
+            }
+          }
+
+          lockDimensions()
+          if (img.getAttribute("data-dims-locked") !== "1") {
+            img.addEventListener("load", lockDimensions, { once: true })
+          }
+
           img.addEventListener("click", (e) => {
             e.stopPropagation()
             showImagePopover(img)
