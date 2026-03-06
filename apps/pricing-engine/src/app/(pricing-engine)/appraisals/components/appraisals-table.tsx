@@ -584,7 +584,7 @@ export function AppraisalsTable({ actionButton }: { actionButton?: React.ReactNo
                             key={cell.id}
                             className={cn(
                               "text-left",
-                              isPinned && "bg-background group-hover/row:bg-transparent !px-1"
+                              isPinned && "bg-background group-hover/row:bg-muted !px-1"
                             )}
                             style={
                               isPinned

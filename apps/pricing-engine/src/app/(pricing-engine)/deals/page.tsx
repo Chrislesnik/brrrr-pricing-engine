@@ -3,10 +3,15 @@
 import { RouteProtection } from "@/components/auth/route-protection";
 import { useState } from "react";
 import { DealsDataTable } from "./components/deals-data-table";
-import { NewDealSheet } from "./components/new-deal-sheet";
+import { NewDealInline } from "./components/new-deal-inline";
 
 function DealsPageContent() {
   const [newDealOpen, setNewDealOpen] = useState(false);
+
+  if (newDealOpen) {
+    return <NewDealInline onClose={() => setNewDealOpen(false)} />;
+  }
+
   return (
     <div className="flex flex-1 flex-col overflow-auto p-6">
       <div className="@container/main flex flex-1 flex-col gap-2">
@@ -22,7 +27,6 @@ function DealsPageContent() {
           <DealsDataTable onNewDeal={() => setNewDealOpen(true)} />
         </div>
       </div>
-      <NewDealSheet open={newDealOpen} onOpenChange={setNewDealOpen} />
     </div>
   );
 }

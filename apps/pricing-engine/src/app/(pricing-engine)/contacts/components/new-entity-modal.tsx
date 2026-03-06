@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { MinusIcon, PlusIcon } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui/shadcn/dialog"
+import { MinusIcon, PlusIcon, XIcon } from "lucide-react"
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "@repo/ui/shadcn/dialog"
 import { Button } from "@repo/ui/shadcn/button"
 import { ShakeButton } from "@/components/ui/shake-button"
 import { Input } from "@repo/ui/shadcn/input"
@@ -25,6 +25,33 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "@/hooks/use-toast"
 import { ShareModal } from "@/components/share-modal"
+import { EntityDocumentsTab } from "./entity-documents-tab"
+
+const DOCUMENT_CATEGORIES = [
+	{ id: 1, code: "application", name: "Application" },
+	{ id: 2, code: "appraisal", name: "Appraisal" },
+	{ id: 3, code: "assets", name: "Assets" },
+	{ id: 4, code: "closing", name: "Closing" },
+	{ id: 5, code: "credit_and_background", name: "Credit & Background" },
+	{ id: 6, code: "construction", name: "Construction" },
+	{ id: 7, code: "environmental", name: "Environmental" },
+	{ id: 8, code: "experience", name: "Experience" },
+	{ id: 9, code: "id", name: "ID" },
+	{ id: 10, code: "insurance", name: "Insurance" },
+	{ id: 11, code: "pricing", name: "Pricing" },
+	{ id: 12, code: "property", name: "Property" },
+	{ id: 13, code: "seasoning", name: "Seasoning" },
+	{ id: 14, code: "servicing", name: "Servicing" },
+	{ id: 15, code: "title", name: "Title" },
+	{ id: 16, code: "entity", name: "Entity" },
+	{ id: 17, code: "statements", name: "Statements" },
+	{ id: 18, code: "payments", name: "Payments" },
+	{ id: 19, code: "agreements", name: "Agreements" },
+	{ id: 20, code: "draw_requests", name: "Draw Requests" },
+	{ id: 21, code: "internal_notes", name: "Internal Notes" },
+] as const
+
+const ENTITY_DOC_CATEGORY_IDS = [16, 17, 19, 5] as const
 
 const schema = z.object({
 	legal_name: z.string().min(1, "Legal name is required"),
@@ -197,6 +224,8 @@ export function NewEntityModal({
 	const [shareUrl, setShareUrl] = useState<string | null>(null)
 	const [shareLoading, setShareLoading] = useState<boolean>(false)
 	const shareBaseUrl = "http://apply.whitelabellender.com/entity"
+	const [tab, setTab] = useState<string>("details")
+	const [availableCategories, setAvailableCategories] = useState<Array<{ id: number; name: string }>>([])
 
 	// Preload share URL for new entity (not edit) using current org member id
 	useEffect(() => {
@@ -333,6 +362,7 @@ export function NewEntityModal({
 	// Reset all fields when the modal opens; if initial is provided, preload values for edit
 	useEffect(() => {
 		if (open) {
+			setTab("details")
 			if (initial && Object.keys(initial).length > 0) {
 				reset({
 					legal_name: (initial as any).legal_name ?? "",
@@ -370,6 +400,22 @@ export function NewEntityModal({
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open, reset, initKey, ownersKey])
+
+	useEffect(() => {
+		if (!open || !entityId) {
+			setAvailableCategories([])
+			return
+		}
+		const cats = ENTITY_DOC_CATEGORY_IDS
+			.map((id) => {
+				const cat = DOCUMENT_CATEGORIES.find((c) => c.id === id)
+				if (!cat) return null
+				if (id === 5) return { id: cat.id, name: "Background" }
+				return { id: cat.id, name: cat.name }
+			})
+			.filter(Boolean) as Array<{ id: number; name: string }>
+		setAvailableCategories(cats)
+	}, [open, entityId])
 
 	const membersReg = register("members")
 	const zipReg = register("zip")
@@ -460,40 +506,35 @@ export function NewEntityModal({
 			.finally(() => setBorrowerLoading(false))
 	}, [open, ownersInitial, entityId])
 
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent
-				className="max-w-3xl h-[80vh]"
-				hideClose
-				onPointerDownOutside={(event) => {
-					// Only allow overlay clicks to close; ignore stray clicks on portalled children.
-					const target = event.target as HTMLElement | null
-					if (!target?.closest("[data-slot='dialog-overlay']")) {
-						event.preventDefault()
-					}
-				}}
-			>
-				<DialogHeader className="flex flex-row items-center justify-between gap-3">
-					<DialogTitle>Borrowing Entity</DialogTitle>
-					{!entityId ? (
-						<ShareModal
-							disabled={shareLoading || !shareUrl}
-							trigger={
-								<Button
-									variant="ghost"
-									size="icon"
-									disabled={shareLoading || !shareUrl}
-									className="h-9 w-9"
-									aria-label="Share entity invite link"
-								>
-									<IconShare className="h-4 w-4" />
-								</Button>
-							}
-						/>
-					) : null}
-				</DialogHeader>
-				<div className="max-h-[calc(80vh-4rem)] overflow-y-auto pr-1">
-				<form id={formId} onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6 pb-3">
+	const isEditMode = !!entityId
+
+	const NavItem = ({ id, label }: { id: string; label: string }) => (
+		<button
+			type="button"
+			onClick={() => setTab(id)}
+			className={cn(
+				"w-full rounded-md px-2.5 py-1.5 text-left text-sm font-medium",
+				tab === id ? "bg-muted" : "hover:bg-muted/60",
+			)}
+			aria-current={tab === id ? "page" : undefined}
+		>
+			{label}
+		</button>
+	)
+
+	const tabTitle = (() => {
+		if (tab === "details") return "Borrowing Entity"
+		const tabId = tab.replace("doc_", "")
+		const avail = availableCategories.find((c) => String(c.id) === tabId)
+		if (avail) return avail.name
+		const cat = DOCUMENT_CATEGORIES.find((c) => `doc_${c.id}` === tab)
+		return cat?.name ?? "Documents"
+	})()
+
+	const formContent = (
+		<>
+			<div className={isEditMode ? "flex-1 overflow-y-auto p-6 max-h-[calc(85vh-7rem)]" : "max-h-[calc(80vh-4rem)] overflow-y-auto pr-1"}>
+			<form id={formId} onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6 pb-3">
 					{/* Watch address to control street-only display */}
 					{ }
 					{null}
@@ -1124,19 +1165,117 @@ export function NewEntityModal({
 							</div>
 						</div>
 					</section>
-				</form>
-				</div>
-				<div className="mt-3 flex items-center justify-end gap-2 border-t pt-3">
-					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-					<ShakeButton
-						form={formId}
-						type="submit"
-						disabled={isSubmitting}
-						shake={shakeError}
-						onShakeEnd={() => setShakeError(false)}
-					>
-						Save
-					</ShakeButton>
+			</form>
+			</div>
+			<div className={isEditMode ? "border-t px-6 py-3 flex justify-end gap-2" : "mt-3 flex items-center justify-end gap-2 border-t pt-3"}>
+				<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+				<ShakeButton
+					form={formId}
+					type="submit"
+					disabled={isSubmitting}
+					shake={shakeError}
+					onShakeEnd={() => setShakeError(false)}
+				>
+					Save
+				</ShakeButton>
+			</div>
+		</>
+	)
+
+	if (!isEditMode) {
+		return (
+			<Dialog open={open} onOpenChange={onOpenChange}>
+				<DialogContent
+					className="max-w-3xl h-[80vh]"
+					hideClose
+					onPointerDownOutside={(event) => {
+						const target = event.target as HTMLElement | null
+						if (!target?.closest("[data-slot='dialog-overlay']")) {
+							event.preventDefault()
+						}
+					}}
+				>
+					<DialogHeader className="flex flex-row items-center justify-between gap-3">
+						<DialogTitle>Borrowing Entity</DialogTitle>
+						<ShareModal
+							disabled={shareLoading || !shareUrl}
+							trigger={
+								<Button
+									variant="ghost"
+									size="icon"
+									disabled={shareLoading || !shareUrl}
+									className="h-9 w-9"
+									aria-label="Share entity invite link"
+								>
+									<IconShare className="h-4 w-4" />
+								</Button>
+							}
+						/>
+					</DialogHeader>
+					{formContent}
+				</DialogContent>
+			</Dialog>
+		)
+	}
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent
+				hideClose
+				className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]"
+				onPointerDownOutside={(event) => {
+					const target = event.target as HTMLElement | null
+					if (!target?.closest("[data-slot='dialog-overlay']")) {
+						event.preventDefault()
+					}
+				}}
+			>
+				<DialogTitle className="sr-only">Entity Settings</DialogTitle>
+				<div className="grid grid-cols-[220px_1fr] h-full">
+					<aside className="border-r bg-muted/40 p-4 overflow-y-auto max-h-[85vh]">
+						<div className="mb-3 px-1">
+							<div className="text-lg font-semibold">Entity Settings</div>
+							<div className="text-xs text-muted-foreground">
+								Manage entity details and documents.
+							</div>
+						</div>
+						<nav className="space-y-1">
+							<div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+								General
+							</div>
+							<NavItem id="details" label="Details" />
+
+							{availableCategories.length > 0 && (
+								<>
+									<div className="px-1 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+										Documents
+									</div>
+									{availableCategories.map((cat) => (
+										<NavItem key={cat.id} id={`doc_${cat.id}`} label={cat.name} />
+									))}
+								</>
+							)}
+						</nav>
+					</aside>
+					<section className="bg-background flex flex-col">
+						<header className="flex h-12 shrink-0 items-center justify-between border-b px-6 text-sm font-semibold">
+							<span>{tabTitle}</span>
+							<DialogClose className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground">
+								<XIcon className="size-4" />
+								<span className="sr-only">Close</span>
+							</DialogClose>
+						</header>
+						{tab === "details" ? (
+							formContent
+						) : tab.startsWith("doc_") ? (
+							<div className="flex-1 overflow-y-auto p-6 max-h-[calc(85vh-3rem)]">
+								<EntityDocumentsTab
+									entityId={entityId!}
+									categoryId={parseInt(tab.replace("doc_", ""), 10)}
+								/>
+							</div>
+						) : null}
+					</section>
 				</div>
 			</DialogContent>
 		</Dialog>

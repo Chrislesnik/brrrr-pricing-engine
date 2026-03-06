@@ -16,7 +16,7 @@ import {
   IconMessages,
 } from "@tabler/icons-react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { MinusIcon, PlusIcon } from "lucide-react"
+import { MinusIcon, PlusIcon, XIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   Button as AriaButton,
@@ -29,6 +29,7 @@ import { Button } from "@repo/ui/shadcn/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -57,6 +58,34 @@ import {
 } from "@repo/ui/shadcn/select"
 import { AddressAutocomplete } from "@/components/address-autocomplete"
 import { DateInput } from "@/components/date-input"
+import { BorrowerDocumentsTab } from "./borrower-documents-tab"
+import { BorrowerCreditReportsTab } from "./borrower-credit-reports-tab"
+import { BorrowerBackgroundReportsTab } from "./borrower-background-reports-tab"
+
+const DOCUMENT_CATEGORIES = [
+  { id: 1, code: "application", name: "Application" },
+  { id: 2, code: "appraisal", name: "Appraisal" },
+  { id: 3, code: "assets", name: "Assets" },
+  { id: 4, code: "closing", name: "Closing" },
+  { id: 5, code: "credit", name: "Credit" },
+  { id: 22, code: "background", name: "Background" },
+  { id: 6, code: "construction", name: "Construction" },
+  { id: 7, code: "environmental", name: "Environmental" },
+  { id: 8, code: "experience", name: "Experience" },
+  { id: 9, code: "id", name: "ID" },
+  { id: 10, code: "insurance", name: "Insurance" },
+  { id: 11, code: "pricing", name: "Pricing" },
+  { id: 12, code: "property", name: "Property" },
+  { id: 13, code: "seasoning", name: "Seasoning" },
+  { id: 14, code: "servicing", name: "Servicing" },
+  { id: 15, code: "title", name: "Title" },
+  { id: 16, code: "entity", name: "Entity" },
+  { id: 17, code: "statements", name: "Statements" },
+  { id: 18, code: "payments", name: "Payments" },
+  { id: 19, code: "agreements", name: "Agreements" },
+  { id: 20, code: "draw_requests", name: "Draw Requests" },
+  { id: 21, code: "internal_notes", name: "Internal Notes" },
+] as const
 
 const schema = z.object({
   first_name: z.string().min(1),
@@ -189,6 +218,8 @@ export function NewBorrowerModal({
   const [shareLoading, setShareLoading] = useState<boolean>(false)
   const [copied, setCopied] = useState<boolean>(false)
   const shareBaseUrl = "http://apply.whitelabellender.com/guarantor"
+  const [tab, setTab] = useState<string>("details")
+  const [availableCategories, setAvailableCategories] = useState<Array<{ id: number; name: string }>>([])
   // Keep calendar view in sync with a picked date, otherwise keep placeholder month
   useEffect(() => {
     if (dob) setDobCalMonth(dob)
@@ -258,6 +289,7 @@ export function NewBorrowerModal({
   useEffect(() => {
     if (!open) return
     setShowSsn(false)
+    setTab("details")
     if (initial && Object.keys(initial).length > 0) {
       reset({
         first_name: initial.first_name ?? "",
@@ -322,6 +354,32 @@ export function NewBorrowerModal({
     setSsnRaw("")
     setDobCalMonth(new Date(2000, 0, 1))
   }, [open, reset, initial])
+
+  useEffect(() => {
+    if (!open || !borrowerId) {
+      setAvailableCategories([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/borrowers/${encodeURIComponent(borrowerId)}/documents`,
+          { cache: "no-store" },
+        )
+        if (!res.ok || cancelled) return
+        const j = await res.json()
+        const ids: number[] = j.categoryIds ?? []
+        const expandedIds = ids.includes(5) ? [...ids, 22] : ids
+        const withId = expandedIds.includes(9) ? expandedIds : [...expandedIds, 9]
+        const cats = DOCUMENT_CATEGORIES.filter((c) => withId.includes(c.id))
+        if (!cancelled) setAvailableCategories(cats)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open, borrowerId])
 
   // If editing and SSN exists, preload full SSN on open so the field starts populated (hidden)
   useEffect(() => {
@@ -433,125 +491,36 @@ export function NewBorrowerModal({
     }
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[80vh] max-w-3xl" hideClose>
-        <DialogHeader className="flex flex-row items-center justify-between gap-3">
-          <DialogTitle>Borrower Information</DialogTitle>
-          {!borrowerId ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={shareLoading || !shareUrl}
-                  className="h-9 w-9"
-                  aria-label="Share borrower invite link"
-                >
-                  <IconShare className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    copyShareUrl()
-                  }}
-                >
-                  <IconCopy className="mr-2 h-4 w-4" />
-                  <span>{copied ? "Copied" : "Copy URL"}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Share via</DropdownMenuLabel>
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    if (!shareUrl) return
-                    openShareLink(
-                      `mailto:?subject=${encodeURIComponent("Guarantor invite")}&body=${encodeURIComponent(
-                        `Please complete this guarantor form: ${shareUrl}`
-                      )}`
-                    )
-                  }}
-                >
-                  <IconMail className="mr-2 h-4 w-4" />
-                  <span>Email</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    if (!shareUrl) return
-                    openShareLink(`sms:?&body=${encodeURIComponent(shareUrl)}`)
-                  }}
-                >
-                  <IconMessages className="mr-2 h-4 w-4" />
-                  <span>SMS</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    if (!shareUrl) return
-                    openShareLink(
-                      `https://wa.me/?text=${encodeURIComponent(shareUrl)}`
-                    )
-                  }}
-                >
-                  <IconBrandWhatsapp className="mr-2 h-4 w-4" />
-                  <span>WhatsApp</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    if (!shareUrl) return
-                    openShareLink(
-                      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
-                    )
-                  }}
-                >
-                  <IconBrandFacebook className="mr-2 h-4 w-4" />
-                  <span>Facebook</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    if (!shareUrl) return
-                    openShareLink(
-                      `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`
-                    )
-                  }}
-                >
-                  <IconBrandTwitter className="mr-2 h-4 w-4" />
-                  <span>Twitter</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={shareLoading || !shareUrl}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    if (!shareUrl) return
-                    openShareLink(
-                      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
-                    )
-                  }}
-                >
-                  <IconBrandLinkedin className="mr-2 h-4 w-4" />
-                  <span>LinkedIn</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </DialogHeader>
-        <div className="max-h-[calc(80vh-4rem)] overflow-y-auto pr-1">
-          <form
-            id={formId}
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-6 pb-3"
-          >
+  const isEditMode = !!borrowerId
+
+  const NavItem = ({ id, label }: { id: string; label: string }) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      className={cn(
+        "w-full rounded-md px-2.5 py-1.5 text-left text-sm font-medium",
+        tab === id ? "bg-muted" : "hover:bg-muted/60",
+      )}
+      aria-current={tab === id ? "page" : undefined}
+    >
+      {label}
+    </button>
+  )
+
+  const tabTitle = (() => {
+    if (tab === "details") return "Borrower Information"
+    const cat = DOCUMENT_CATEGORIES.find((c) => `doc_${c.id}` === tab)
+    return cat?.name ?? "Documents"
+  })()
+
+  const formContent = (
+    <>
+      <div className={isEditMode ? "flex-1 overflow-y-auto p-6 max-h-[calc(85vh-7rem)]" : "max-h-[calc(80vh-4rem)] overflow-y-auto pr-1"}>
+        <form
+          id={formId}
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-6 pb-3"
+        >
             {/* Personal Information */}
             <section>
               <div className="mb-2 text-sm font-semibold">
@@ -1207,7 +1176,7 @@ export function NewBorrowerModal({
             </section>
           </form>
         </div>
-        <div className="mt-3 flex items-center justify-end gap-2 border-t pt-3">
+        <div className={isEditMode ? "border-t px-6 py-3 flex justify-end gap-2" : "mt-3 flex items-center justify-end gap-2 border-t pt-3"}>
           <Button
             type="button"
             variant="outline"
@@ -1218,6 +1187,185 @@ export function NewBorrowerModal({
           <Button form={formId} type="submit" disabled={isSubmitting}>
             Save
           </Button>
+        </div>
+      </>
+    )
+
+  if (!isEditMode) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="h-[80vh] max-w-3xl" hideClose>
+          <DialogHeader className="flex flex-row items-center justify-between gap-3">
+            <DialogTitle>Borrower Information</DialogTitle>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={shareLoading || !shareUrl}
+                  className="h-9 w-9"
+                  aria-label="Share borrower invite link"
+                >
+                  <IconShare className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    copyShareUrl()
+                  }}
+                >
+                  <IconCopy className="mr-2 h-4 w-4" />
+                  <span>{copied ? "Copied" : "Copy URL"}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Share via</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    if (!shareUrl) return
+                    openShareLink(
+                      `mailto:?subject=${encodeURIComponent("Guarantor invite")}&body=${encodeURIComponent(
+                        `Please complete this guarantor form: ${shareUrl}`
+                      )}`
+                    )
+                  }}
+                >
+                  <IconMail className="mr-2 h-4 w-4" />
+                  <span>Email</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    if (!shareUrl) return
+                    openShareLink(`sms:?&body=${encodeURIComponent(shareUrl)}`)
+                  }}
+                >
+                  <IconMessages className="mr-2 h-4 w-4" />
+                  <span>SMS</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    if (!shareUrl) return
+                    openShareLink(
+                      `https://wa.me/?text=${encodeURIComponent(shareUrl)}`
+                    )
+                  }}
+                >
+                  <IconBrandWhatsapp className="mr-2 h-4 w-4" />
+                  <span>WhatsApp</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    if (!shareUrl) return
+                    openShareLink(
+                      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
+                    )
+                  }}
+                >
+                  <IconBrandFacebook className="mr-2 h-4 w-4" />
+                  <span>Facebook</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    if (!shareUrl) return
+                    openShareLink(
+                      `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`
+                    )
+                  }}
+                >
+                  <IconBrandTwitter className="mr-2 h-4 w-4" />
+                  <span>Twitter</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={shareLoading || !shareUrl}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    if (!shareUrl) return
+                    openShareLink(
+                      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
+                    )
+                  }}
+                >
+                  <IconBrandLinkedin className="mr-2 h-4 w-4" />
+                  <span>LinkedIn</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </DialogHeader>
+          {formContent}
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent hideClose className="sm:max-w-[920px] p-0 overflow-hidden max-h-[85vh] min-h-[560px]">
+        <DialogTitle className="sr-only">Borrower Settings</DialogTitle>
+        <div className="grid grid-cols-[220px_1fr] h-full">
+          <aside className="border-r bg-muted/40 p-4 overflow-y-auto max-h-[85vh]">
+            <div className="mb-3 px-1">
+              <div className="text-lg font-semibold">Borrower Settings</div>
+              <div className="text-xs text-muted-foreground">
+                Manage borrower details and documents.
+              </div>
+            </div>
+            <nav className="space-y-1">
+              <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                General
+              </div>
+              <NavItem id="details" label="Details" />
+
+              {availableCategories.length > 0 && (
+                <>
+                  <div className="px-1 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Documents
+                  </div>
+                  {availableCategories.map((cat) => (
+                    <NavItem key={cat.id} id={`doc_${cat.id}`} label={cat.name} />
+                  ))}
+                </>
+              )}
+            </nav>
+          </aside>
+          <section className="bg-background flex flex-col">
+            <header className="flex h-12 shrink-0 items-center justify-between border-b px-6 text-sm font-semibold">
+              <span>{tabTitle}</span>
+              <DialogClose className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground">
+                <XIcon className="size-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
+            </header>
+            {tab === "details" ? (
+              formContent
+            ) : tab === "doc_5" ? (
+              <div className="flex-1 overflow-y-auto p-6 max-h-[calc(85vh-3rem)]">
+                <BorrowerCreditReportsTab borrowerId={borrowerId!} />
+              </div>
+            ) : tab === "doc_22" ? (
+              <div className="flex-1 overflow-y-auto p-6 max-h-[calc(85vh-3rem)]">
+                <BorrowerBackgroundReportsTab borrowerId={borrowerId!} />
+              </div>
+            ) : tab.startsWith("doc_") ? (
+              <div className="flex-1 overflow-y-auto p-6 max-h-[calc(85vh-3rem)]">
+                <BorrowerDocumentsTab
+                  borrowerId={borrowerId!}
+                  categoryId={parseInt(tab.replace("doc_", ""), 10)}
+                />
+              </div>
+            ) : null}
+          </section>
         </div>
       </DialogContent>
     </Dialog>
