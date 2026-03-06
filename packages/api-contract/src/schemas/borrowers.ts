@@ -1,6 +1,6 @@
-import { z } from '../zod-setup.js';
+import { z } from '../zod-setup';
 
-import { PaginationParams, TimestampFields } from './common.js';
+import { PaginationParams, TimestampFields } from './common';
 
 export const Borrower = z
   .object({

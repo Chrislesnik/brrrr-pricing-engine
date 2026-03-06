@@ -1,19 +1,19 @@
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 
-import { z } from '../zod-setup.js';
+import { z } from '../zod-setup';
 import {
   CreateDealRequest,
   CreateDealResponse,
   ListDealsQuery,
   ListDealsResponse,
-} from '../schemas/deals.js';
+} from '../schemas/deals';
 import {
   ListLoansQuery,
   ListLoansResponse,
   Loan,
   UpdateLoanRequest,
   UpdateLoanResponse,
-} from '../schemas/loans.js';
+} from '../schemas/loans';
 import {
   CreateBorrowerRequest,
   CreateBorrowerResponse,
@@ -21,59 +21,59 @@ import {
   ListBorrowersResponse,
   SearchBorrowersQuery,
   SearchBorrowersResponse,
-} from '../schemas/borrowers.js';
+} from '../schemas/borrowers';
 import {
   CreateEntityRequest,
   CreateEntityResponse,
   ListEntitiesResponse,
   SearchEntitiesQuery,
   SearchEntitiesResponse,
-} from '../schemas/entities.js';
+} from '../schemas/entities';
 import {
   ArchiveScenarioQuery,
   GetScenarioResponse,
   UpdateScenarioRequest,
   UpdateScenarioResponse,
-} from '../schemas/scenarios.js';
+} from '../schemas/scenarios';
 import {
   ListProgramsQuery,
   ListProgramsResponse,
-} from '../schemas/programs.js';
+} from '../schemas/programs';
 import {
   CreateAppraisalOrderRequest,
   CreateAppraisalOrderResponse,
   ListAppraisalOrdersResponse,
   UpdateAppraisalOrderRequest,
   UpdateAppraisalOrderResponse,
-} from '../schemas/appraisals.js';
+} from '../schemas/appraisals';
 import {
   CreateDocumentTemplateRequest,
   CreateDocumentTemplateResponse,
   ListDocumentTemplatesResponse,
-} from '../schemas/documents.js';
+} from '../schemas/documents';
 import {
   ListCreditReportsQuery,
   ListCreditReportsResponse,
-} from '../schemas/credit-reports.js';
+} from '../schemas/credit-reports';
 import {
   CreateBackgroundReportRequest,
   CreateBackgroundReportResponse,
   ListBackgroundReportsResponse,
-} from '../schemas/background-reports.js';
+} from '../schemas/background-reports';
 import {
   GetPipelineQuery,
   GetPipelineResponse,
-} from '../schemas/pipeline.js';
+} from '../schemas/pipeline';
 import {
   ListSignatureRequestsQuery,
   ListSignatureRequestsResponse,
-} from '../schemas/signature-requests.js';
+} from '../schemas/signature-requests';
 import {
   ListApplicationsQuery,
   ListApplicationsResponse,
-} from '../schemas/applications.js';
-import { ErrorResponse, ValidationErrorResponse } from '../schemas/errors.js';
-import { SuccessResponse } from '../schemas/common.js';
+} from '../schemas/applications';
+import { ErrorResponse, ValidationErrorResponse } from '../schemas/errors';
+import { SuccessResponse } from '../schemas/common';
 
 export const registry = new OpenAPIRegistry();
 

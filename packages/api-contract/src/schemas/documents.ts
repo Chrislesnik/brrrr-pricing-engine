@@ -1,6 +1,6 @@
-import { z } from '../zod-setup.js';
+import { z } from '../zod-setup';
 
-import { TimestampFields } from './common.js';
+import { TimestampFields } from './common';
 
 export const DocumentTemplate = z
   .object({

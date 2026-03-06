@@ -1,4 +1,4 @@
-import { z } from '../zod-setup.js';
+import { z } from '../zod-setup';
 
 export const PipelineItem = z
   .object({
