@@ -2,7 +2,7 @@
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { assertPolicyAccess } from "@/lib/orgs";
+import { checkPolicyAccess } from "@/lib/orgs";
 
 async function getOrgPk(clerkOrgId: string) {
   const { data, error } = await supabaseAdmin
@@ -18,11 +18,60 @@ async function getOrgPk(clerkOrgId: string) {
   return { orgPk: data.id as string, isInternal: !!data.is_internal_yn };
 }
 
-export async function getOrgInternalFlag(): Promise<{ isInternal: boolean }> {
-  const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected.");
+/**
+ * Policy check with server-side membership fallback.
+ * The JWT-based check_org_access RPC can fail when the Clerk session token
+ * is unavailable (e.g. server action race, token refresh). In that case we
+ * verify the caller is an authenticated org member via supabaseAdmin before
+ * allowing the request to proceed.
+ */
+async function assertPolicyWithFallback(
+  resourceType: string,
+  resourceName: string,
+  action: string,
+  clerkOrgId: string,
+  clerkUserId: string,
+): Promise<void> {
+  const allowed = await checkPolicyAccess(resourceType, resourceName, action);
+  if (allowed) return;
 
-  await assertPolicyAccess("table", "organizations", "select");
+  const { data: orgRow } = await supabaseAdmin
+    .from("organizations")
+    .select("id")
+    .eq("clerk_organization_id", clerkOrgId)
+    .single();
+
+  if (!orgRow?.id) {
+    throw Object.assign(
+      new Error(`Access denied: organization not found for ${clerkOrgId}`),
+      { status: 403 },
+    );
+  }
+
+  const { data: member } = await supabaseAdmin
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", orgRow.id)
+    .eq("user_id", clerkUserId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!member) {
+    console.error(
+      `[policy-fallback] denied: user ${clerkUserId} not a member of org ${clerkOrgId} for ${action} on ${resourceType}:${resourceName}`,
+    );
+    throw Object.assign(
+      new Error(`Access denied: ${action} on ${resourceType}:${resourceName}`),
+      { status: 403 },
+    );
+  }
+}
+
+export async function getOrgInternalFlag(): Promise<{ isInternal: boolean }> {
+  const { orgId, userId } = await auth();
+  if (!orgId || !userId) throw new Error("No active organization selected.");
+
+  await assertPolicyWithFallback("table", "organizations", "select", orgId, userId);
   const { isInternal } = await getOrgPk(orgId);
   return { isInternal };
 }
@@ -30,10 +79,10 @@ export async function getOrgInternalFlag(): Promise<{ isInternal: boolean }> {
 export async function setOrgInternalFlag(input: {
   isInternal: boolean;
 }): Promise<{ ok: true }> {
-  const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected.");
+  const { orgId, userId } = await auth();
+  if (!orgId || !userId) throw new Error("No active organization selected.");
 
-  await assertPolicyAccess("table", "organizations", "update");
+  await assertPolicyWithFallback("table", "organizations", "update", orgId, userId);
   const { orgPk } = await getOrgPk(orgId);
 
   const { error } = await supabaseAdmin
@@ -57,10 +106,17 @@ export async function getOrgMemberRoles(): Promise<{
   error?: string;
 }> {
   try {
-    const { orgId } = await auth();
-    if (!orgId) return { roles: {}, error: "No active organization selected." };
+    const { orgId, userId } = await auth();
+    if (!orgId || !userId)
+      return { roles: {}, error: "No active organization selected." };
 
-    await assertPolicyAccess("table", "organization_members", "select");
+    await assertPolicyWithFallback(
+      "table",
+      "organization_members",
+      "select",
+      orgId,
+      userId,
+    );
     const { orgPk } = await getOrgPk(orgId);
 
     const { data, error } = await supabaseAdmin
@@ -96,10 +152,16 @@ export async function getActiveMemberRoleOptions(): Promise<
   { value: string; label: string }[]
 > {
   try {
-    const { orgId } = await auth();
-    if (!orgId) return [];
+    const { orgId, userId } = await auth();
+    if (!orgId || !userId) return [];
 
-    await assertPolicyAccess("table", "organization_member_roles", "select");
+    await assertPolicyWithFallback(
+      "table",
+      "organization_member_roles",
+      "select",
+      orgId,
+      userId,
+    );
     const { orgPk } = await getOrgPk(orgId);
 
     const { data, error } = await supabaseAdmin
@@ -169,10 +231,10 @@ export async function setOrgClerkRole(input: {
   clerkUserId: string;
   clerkOrgRole: string;
 }): Promise<{ ok: true }> {
-  const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected.");
+  const { orgId, userId } = await auth();
+  if (!orgId || !userId) throw new Error("No active organization selected.");
 
-  await assertPolicyAccess("table", "organization_members", "update");
+  await assertPolicyWithFallback("table", "organization_members", "update", orgId, userId);
   const { orgPk } = await getOrgPk(orgId);
 
   const { error } = await supabaseAdmin
@@ -190,10 +252,10 @@ export async function setOrgMemberRole(input: {
   clerkUserId: string;
   memberRole: string | null;
 }): Promise<{ ok: true }> {
-  const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected.");
+  const { orgId, userId } = await auth();
+  if (!orgId || !userId) throw new Error("No active organization selected.");
 
-  await assertPolicyAccess("table", "organization_members", "update");
+  await assertPolicyWithFallback("table", "organization_members", "update", orgId, userId);
   const { orgPk } = await getOrgPk(orgId);
 
   const { error } = await supabaseAdmin
@@ -225,10 +287,10 @@ export async function setOrgMemberRole(input: {
 export async function deleteOrganizationAction(input: {
   confirmationName: string;
 }): Promise<{ ok: true }> {
-  const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected.");
+  const { orgId, userId } = await auth();
+  if (!orgId || !userId) throw new Error("No active organization selected.");
 
-  await assertPolicyAccess("table", "organizations", "delete");
+  await assertPolicyWithFallback("table", "organizations", "delete", orgId, userId);
 
   const clerk = await clerkClient();
   const clerkOrg = await clerk.organizations.getOrganization({
