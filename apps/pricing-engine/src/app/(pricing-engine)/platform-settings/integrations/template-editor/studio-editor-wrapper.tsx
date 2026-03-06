@@ -752,38 +752,36 @@ export function StudioEditorWrapper({
 
           injectLeftPanelFixes()
 
-          // Remove unwanted blocks from Basic category (keep only Text, Image, Link)
-          // Ensure layout blocks exist regardless of flexComponent license tier
-          const hasLayoutCategory = editor.Blocks.getAll().some((b: any) => {
-            const cat = (typeof b.getCategoryLabel === "function"
-              ? b.getCategoryLabel()
-              : b.get?.("category") || "").toString()
-            return cat === "Layout"
+          // Remove any flexComponent layout blocks (license-gated, may not render)
+          // and replace with our own HTML-based layout blocks that always work.
+          const flexLayoutIds: string[] = []
+          editor.Blocks.getAll().forEach((b: any) => {
+            const id = b.getId?.() || b.get?.("id") || ""
+            if (id.startsWith("flex-row-")) flexLayoutIds.push(id)
           })
+          flexLayoutIds.forEach(id => { try { editor.Blocks.remove(id) } catch { /* ok */ } })
 
-          if (!hasLayoutCategory) {
-            const layoutStyle = "display:flex;width:100%;gap:8px;"
-            const colStyle = "flex:1;min-height:50px;border:1px dashed #ccc;padding:8px;"
-            const layouts: { id: string; label: string; cols: number[]; media: string }[] = [
-              { id: "layout-1col", label: "1 Column", cols: [100], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:100%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
-              { id: "layout-2col", label: "2 Columns", cols: [50, 50], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:50%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:50%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
-              { id: "layout-2col-25-75", label: "2 Columns 25/75", cols: [25, 75], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:75%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
-              { id: "layout-2col-75-25", label: "2 Columns 75/25", cols: [75, 25], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:75%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
-              { id: "layout-3col", label: "3 Columns", cols: [33, 33, 33], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:33%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:33%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:33%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
-              { id: "layout-4col", label: "4 Columns", cols: [25, 25, 25, 25], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
-            ]
+          const layoutStyle = "display:flex;width:100%;gap:8px;"
+          const colStyle = "flex:1;min-height:50px;border:1px dashed #ccc;padding:8px;"
+          const layouts: { id: string; label: string; cols: number[]; media: string }[] = [
+            { id: "layout-1col", label: "1 Column", cols: [100], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:100%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
+            { id: "layout-2col", label: "2 Columns", cols: [50, 50], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:50%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:50%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
+            { id: "layout-2col-25-75", label: "2 Columns 25/75", cols: [25, 75], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:75%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
+            { id: "layout-2col-75-25", label: "2 Columns 75/25", cols: [75, 25], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:75%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
+            { id: "layout-3col", label: "3 Columns", cols: [33, 33, 33], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:33%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:33%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:33%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
+            { id: "layout-4col", label: "4 Columns", cols: [25, 25, 25, 25], media: '<div style="display:flex;height:1.75rem;width:100%;gap:0.5rem;"><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div><div style="flex-basis:25%;border:2px solid currentColor;border-radius:2px;"></div></div>' },
+          ]
 
-            layouts.forEach(({ id, label, cols, media }) => {
-              const inner = cols.map(pct => `<div style="${colStyle}flex-basis:${pct}%;"></div>`).join("")
-              editor.Blocks.add(id, {
-                label,
-                category: "Layout",
-                select: true,
-                media,
-                content: `<div style="${layoutStyle}">${inner}</div>`,
-              })
+          layouts.forEach(({ id, label, cols, media }) => {
+            const inner = cols.map(pct => `<div style="${colStyle}flex-basis:${pct}%;"></div>`).join("")
+            editor.Blocks.add(id, {
+              label,
+              category: "Layout",
+              select: true,
+              media,
+              content: `<div style="${layoutStyle}">${inner}</div>`,
             })
-          }
+          })
 
           const keepBasic = ["text", "image", "link"]
           const toRemove: string[] = []
