@@ -11,11 +11,11 @@ import { liveblocks } from "@/lib/liveblocks"
 import {
   fetchDealContext,
   buildDealSystemPrompt,
+  type DealAgentContext,
 } from "@/lib/ai/deal-context"
 import { getDealInputsTool } from "@/lib/ai/tools/deal-inputs-tool"
 import { generateLoanPricingTool } from "@/lib/ai/tools/generate-pricing-tool"
 import { generateTermSheetTool } from "@/lib/ai/tools/generate-term-sheet-tool"
-import type { DealAgentContext } from "@/lib/ai/deal-context"
 
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

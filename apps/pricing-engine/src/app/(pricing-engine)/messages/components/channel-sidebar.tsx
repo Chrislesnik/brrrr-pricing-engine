@@ -274,7 +274,10 @@ export function ChannelSidebar({
     { revalidateOnFocus: false }
   );
 
-  const channels = channelsData?.channels ?? [];
+  const channels = useMemo(
+    () => channelsData?.channels ?? [],
+    [channelsData?.channels]
+  );
   const automatedThreads = threadsData?.threads ?? [];
 
   // Toggle group collapse
