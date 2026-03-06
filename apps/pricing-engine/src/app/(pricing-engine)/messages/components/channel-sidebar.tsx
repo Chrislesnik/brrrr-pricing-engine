@@ -194,7 +194,11 @@ function ChannelItem({
       )}
     >
       {(channel.unread_count ?? 0) > 0 && (
-        <span className="h-2 w-2 shrink-0 rounded-full bg-info" />
+        <span
+          className="h-2 w-2 shrink-0 rounded-full bg-info"
+          role="status"
+          aria-label={`${channel.unread_count} unread messages`}
+        />
       )}
       <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate">{channel.display_name}</span>
@@ -217,6 +221,8 @@ function GroupHeader({
   return (
     <button
       onClick={onToggle}
+      aria-expanded={!collapsed}
+      aria-label={`${group.label} group, ${group.channels.length} channels`}
       className="flex w-full items-center gap-1.5 px-1 py-1.5 cursor-pointer group"
     >
       <Icon className="h-3 w-3 text-muted-foreground/70 group-hover:text-muted-foreground transition-colors" />
@@ -334,6 +340,7 @@ export function ChannelSidebar({
               placeholder="Search channels..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search channels"
               className="h-8 w-full rounded-md border border-border bg-muted/30 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             />
           </div>

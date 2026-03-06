@@ -69,7 +69,14 @@ export function DealInputsSummary({ output }: DealInputsSummaryProps) {
       </div>
 
       {/* Progress bar */}
-      <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
+      <div
+        className="mt-2 h-1 rounded-full bg-muted overflow-hidden"
+        role="progressbar"
+        aria-valuenow={filled}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-label={`${filled} of ${total} deal fields filled`}
+      >
         <div
           className={cn(
             "h-full rounded-full transition-all",
@@ -106,6 +113,8 @@ export function DealInputsSummary({ output }: DealInputsSummaryProps) {
       {(output.mappedFields ?? []).length > 0 && (
         <button
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "Hide field details" : "Show all deal fields"}
           className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
         >
           {expanded ? (

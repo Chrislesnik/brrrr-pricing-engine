@@ -115,10 +115,18 @@ export function PricingArtifactV2({
 
       {/* Tabs */}
       {programs.length > 1 && (
-        <div className="flex border-b border-border overflow-x-auto">
+        <div
+          className="flex border-b border-border overflow-x-auto"
+          role="tablist"
+          aria-label="Pricing programs"
+        >
           {programs.map((p, i) => (
             <button
               key={p.id}
+              role="tab"
+              aria-selected={i === activeTab}
+              aria-controls={`panel-${p.id}`}
+              id={`tab-${p.id}`}
               onClick={() => setActiveTab(i)}
               className={cn(
                 "h-8 px-3 text-[12px] whitespace-nowrap transition-colors",
@@ -137,7 +145,11 @@ export function PricingArtifactV2({
 
       {/* Content */}
       {activeProgram && (
-        <>
+        <div
+          role="tabpanel"
+          id={`panel-${activeProgram.id}`}
+          aria-labelledby={`tab-${activeProgram.id}`}
+        >
           {!activeProgram.pass ? (
             <div className="p-3">
               <div className="flex items-center gap-2 text-destructive">
@@ -172,19 +184,21 @@ export function PricingArtifactV2({
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="bg-muted/20">
-                      <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
+                      <th scope="col" className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
                         Rate
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
+                      <th scope="col" className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
                         Price
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
+                      <th scope="col" className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
                         PITIA
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
+                      <th scope="col" className="px-3 py-1.5 text-left text-[11px] font-medium uppercase text-muted-foreground">
                         DSCR
                       </th>
-                      <th className="px-3 py-1.5 w-8" />
+                      <th scope="col" className="px-3 py-1.5 w-8">
+                        <span className="sr-only">Actions</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -198,7 +212,7 @@ export function PricingArtifactV2({
                           className={cn(
                             "h-8 hover:bg-accent/30 transition-colors",
                             isStarred &&
-                              "bg-blue-500/5 border-l-2 border-blue-500"
+                              "bg-info/5 border-l-2 border-info"
                           )}
                         >
                           <td className="px-3 tabular-nums">
@@ -265,7 +279,7 @@ export function PricingArtifactV2({
               )}
             </>
           )}
-        </>
+        </div>
       )}
     </div>
   );

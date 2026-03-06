@@ -57,7 +57,7 @@ export function TermSheetResult({
     <div className="rounded-md border border-border bg-card p-3">
       {/* Title */}
       <div className="flex items-center gap-2">
-        <FileText className="h-5 w-5 text-blue-500" />
+        <FileText className="h-5 w-5 text-info" />
         <span className="text-[13px] font-medium text-foreground">
           {templates.length > 0
             ? "Term Sheet Templates Available"
@@ -90,6 +90,7 @@ export function TermSheetResult({
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-[11px]"
+                    aria-label={`Open ${tmpl.templateName} in new tab`}
                     onClick={() =>
                       window.open(
                         `/deals/${output.dealId}?tab=documents&templateId=${tmpl.templateId}`,
@@ -106,6 +107,7 @@ export function TermSheetResult({
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-[11px]"
+                    aria-label={`Share ${tmpl.templateName} to chat`}
                     onClick={() => onShareToChat(tmpl.id)}
                   >
                     <MessageSquare className="mr-1 h-3 w-3" />
