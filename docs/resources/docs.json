@@ -1,0 +1,98 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "dscr.ai Resources",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "appearance": {
+    "default": "dark"
+  },
+  "colors": {
+    "primary": "#8ab4f8",
+    "light": "#8ab4f8",
+    "dark": "#8ab4f8"
+  },
+  "styling": {
+    "codeblocks": {
+      "theme": "css-variables"
+    }
+  },
+  "api": {
+    "playground": {
+      "mode": "interactive"
+    },
+    "auth": {
+      "method": "bearer",
+      "name": "Authorization"
+    }
+  },
+  "tabs": [
+    { "name": "Resources", "url": "resources" },
+    { "name": "API Reference", "url": "api-reference" }
+  ],
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Overview",
+            "icon": "house",
+            "pages": ["resources/introduction"]
+          },
+          {
+            "group": "Loan Programs",
+            "icon": "building-columns",
+            "pages": [
+              "resources/loan-programs/dscr",
+              "resources/loan-programs/fix-and-flip",
+              "resources/loan-programs/bridge",
+              "resources/loan-programs/ground-up"
+            ]
+          },
+          {
+            "group": "Underwriting",
+            "icon": "clipboard-check",
+            "pages": [
+              "resources/underwriting/property-requirements",
+              "resources/underwriting/borrower-qualifications",
+              "resources/underwriting/documentation-checklist"
+            ]
+          },
+          {
+            "group": "Platform Guides",
+            "icon": "compass",
+            "pages": [
+              "resources/platform-guides/getting-started",
+              "resources/platform-guides/submission-process"
+            ]
+          },
+          {
+            "group": "Partners",
+            "icon": "handshake",
+            "pages": ["resources/partners/broker-guide", "resources/partners/compensation"]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "openapi.json"
+      }
+    ]
+  },
+  "topbar": {
+    "links": [
+      {
+        "name": "Document Library",
+        "url": "https://files.dscr.ai"
+      },
+      {
+        "name": "Dashboard",
+        "url": "https://pricingengine.pro"
+      }
+    ]
+  }
+}

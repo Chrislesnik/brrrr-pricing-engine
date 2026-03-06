@@ -25,7 +25,7 @@ async function getDbSchema(projectRef: string) {
   })
 
   if (error) throw error
-  return data as unknown[]
+  return (data ?? []) as unknown as unknown[]
 }
 
 function formatSchemaForPrompt(schema: unknown[]) {

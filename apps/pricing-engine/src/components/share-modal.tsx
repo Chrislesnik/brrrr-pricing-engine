@@ -3,8 +3,6 @@
 import { useState } from "react";
 import {
   Share2,
-  Check,
-  Copy,
   Mail,
   MessageSquare,
   Facebook,
@@ -12,206 +10,143 @@ import {
   Linkedin,
   MessageCircle,
   FileDown,
+  LoaderCircle,
 } from "lucide-react";
-import {
-  EmailShareButton,
-  FacebookShareButton,
-  LinkedinShareButton,
-  TwitterShareButton,
-  WhatsappShareButton,
-} from "react-share";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/shadcn/popover";
 import { Button } from "@repo/ui/shadcn/button";
+import { toast } from "@/hooks/use-toast";
 
 interface ShareModalProps {
-  url?: string;
-  title?: string;
-  description?: string;
   disabled?: boolean;
   trigger?: React.ReactNode;
-  onPdfShare?: () => void | Promise<void>;
+  onPdfShare?: () => Promise<File>;
+}
+
+function downloadFile(file: File) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name || `term-sheet-${Date.now()}.pdf`;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
+}
+
+async function nativeShareFile(file: File): Promise<boolean> {
+  try {
+    const nav = navigator as any;
+    if (!nav?.share) return false;
+    if (nav.canShare && !nav.canShare({ files: [file] })) return false;
+    await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." });
+    return true;
+  } catch (e) {
+    const name = (e as any)?.name ?? "";
+    if (name === "AbortError" || name === "NotAllowedError") return true;
+    return false;
+  }
 }
 
 export function ShareModal({
-  url,
-  title = "Share this page",
-  description,
   disabled = false,
   trigger,
   onPdfShare,
 }: ShareModalProps) {
-  const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
-  const shareTitle = title;
-  const shareDescription = description ?? "";
-
-  const copyToClipboard = async () => {
+  const sharePdfVia = async (channel: string) => {
+    if (!onPdfShare || busy) return;
+    setBusy(channel);
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => {
-        setCopied(false);
-        setOpen(false);
-      }, 2000);
-    } catch (err) {
-      console.error("Failed to copy URL:", err);
-    }
-  };
+      const file = await onPdfShare();
+      if (!file) throw new Error("PDF generation returned empty result");
 
-  const shareNative = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: shareTitle,
-          text: shareDescription,
-          url: shareUrl,
-        });
-        setOpen(false);
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          console.error("Error sharing:", err);
-        }
+      const shared = await nativeShareFile(file);
+      if (!shared) {
+        downloadFile(file);
+        toast({ title: "PDF Downloaded", description: "The term sheet PDF has been saved to your device." });
       }
-    } else {
-      copyToClipboard();
-    }
-  };
-
-  const handlePdfShare = async () => {
-    if (!onPdfShare) return;
-    setPdfLoading(true);
-    try {
-      await onPdfShare();
-    } finally {
-      setPdfLoading(false);
       setOpen(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to generate PDF";
+      toast({ title: "Share failed", description: msg, variant: "destructive" });
+    } finally {
+      setBusy(null);
     }
   };
 
-  const handleShareClick = () => {
-    setTimeout(() => setOpen(false), 100);
-  };
-
-  const defaultTrigger = (
-    <Button variant="outline" size="icon" className="rounded-full" disabled={disabled}>
-      <Share2 className="h-4 w-4" />
-      <span className="sr-only">Share</span>
-    </Button>
-  );
+  const btnClass =
+    "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted w-full disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(v) => { if (!busy) setOpen(v); }}>
       <PopoverTrigger asChild disabled={disabled}>
-        {trigger || defaultTrigger}
+        {trigger || (
+          <Button variant="outline" size="icon" className="rounded-full" disabled={disabled}>
+            <Share2 className="h-4 w-4" />
+            <span className="sr-only">Share</span>
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3" align="end">
         <div className="space-y-3">
-          <h4 className="font-medium text-sm text-center">{shareTitle}</h4>
+          <h4 className="font-medium text-sm text-center">Share Term Sheet</h4>
 
-          {onPdfShare && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start"
-              disabled={pdfLoading}
-              onClick={handlePdfShare}
-            >
-              <FileDown className="mr-2 h-4 w-4" />
-              {pdfLoading ? "Preparing…" : "Share / Download PDF"}
-            </Button>
-          )}
-
-          {typeof window !== "undefined" && "share" in navigator && (
-            <Button variant="ghost" size="sm" className="w-full justify-start" onClick={shareNative}>
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-          )}
-
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={copyToClipboard}>
-            {copied ? (
-              <>
-                <Check className="mr-2 h-4 w-4 text-green-600" />
-                <span className="text-green-600">Copied!</span>
-              </>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            disabled={!!busy}
+            onClick={() => sharePdfVia("pdf")}
+          >
+            {busy === "pdf" ? (
+              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy URL
-              </>
+              <FileDown className="mr-2 h-4 w-4" />
             )}
+            {busy === "pdf" ? "Preparing PDF…" : "Share / Download PDF"}
           </Button>
 
           <div className="border-t pt-3">
             <p className="text-xs text-muted-foreground mb-2">Share via:</p>
-
             <div className="grid grid-cols-2 gap-2">
-              <EmailShareButton
-                url={shareUrl}
-                subject={shareTitle}
-                body={shareDescription}
-                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                onClick={handleShareClick}
-              >
-                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button type="button" className={btnClass} disabled={!!busy} onClick={() => sharePdfVia("email")}>
+                {busy === "email" ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" /> : <Mail className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <span className="font-medium">Email</span>
-              </EmailShareButton>
+              </button>
 
-              <WhatsappShareButton
-                url={shareUrl}
-                title={shareTitle}
-                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                onClick={handleShareClick}
-              >
-                <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button type="button" className={btnClass} disabled={!!busy} onClick={() => sharePdfVia("whatsapp")}>
+                {busy === "whatsapp" ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" /> : <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <span className="font-medium">WhatsApp</span>
-              </WhatsappShareButton>
+              </button>
 
-              <FacebookShareButton
-                url={shareUrl}
-                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                onClick={handleShareClick}
-              >
-                <Facebook className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button type="button" className={btnClass} disabled={!!busy} onClick={() => sharePdfVia("facebook")}>
+                {busy === "facebook" ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" /> : <Facebook className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <span className="font-medium">Facebook</span>
-              </FacebookShareButton>
+              </button>
 
-              <TwitterShareButton
-                url={shareUrl}
-                title={shareTitle}
-                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                onClick={handleShareClick}
-              >
-                <Twitter className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button type="button" className={btnClass} disabled={!!busy} onClick={() => sharePdfVia("twitter")}>
+                {busy === "twitter" ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" /> : <Twitter className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <span className="font-medium">Twitter</span>
-              </TwitterShareButton>
+              </button>
 
-              <LinkedinShareButton
-                url={shareUrl}
-                title={shareTitle}
-                summary={shareDescription}
-                className="!flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                onClick={handleShareClick}
-              >
-                <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button type="button" className={btnClass} disabled={!!busy} onClick={() => sharePdfVia("linkedin")}>
+                {busy === "linkedin" ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" /> : <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <span className="font-medium">LinkedIn</span>
-              </LinkedinShareButton>
+              </button>
 
-              <a
-                href={`sms:?body=${encodeURIComponent(shareUrl)}`}
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                onClick={handleShareClick}
-              >
-                <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+              <button type="button" className={btnClass} disabled={!!busy} onClick={() => sharePdfVia("sms")}>
+                {busy === "sms" ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" /> : <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <span className="font-medium">SMS</span>
-              </a>
+              </button>
             </div>
           </div>
         </div>

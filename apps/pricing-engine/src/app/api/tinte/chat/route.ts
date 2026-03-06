@@ -159,6 +159,8 @@ export async function POST(req: Request) {
         model: "gpt-4o-mini",
         messages: openaiMessages,
         stream: true,
+        max_tokens: 4096,
+        response_format: { type: "json_object" },
       }),
     })
 

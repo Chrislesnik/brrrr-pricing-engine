@@ -1,0 +1,31 @@
+---
+title: "Python SDK"
+description: "Python client for the dscr.ai API with async support."
+---
+
+The official Python SDK provides both sync and async clients for the dscr.ai API.
+
+## Installation
+
+```bash
+pip install dscr-sdk
+```
+
+## Quick Start
+
+```python
+from dscr import DscrClient
+
+client = DscrClient(api_key="your-api-key")
+
+deals = client.deals.list()
+```
+
+## Async Support
+
+```python
+from dscr import AsyncDscrClient
+
+client = AsyncDscrClient(api_key="your-api-key")
+deals = await client.deals.list()
+```

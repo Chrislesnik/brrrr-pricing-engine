@@ -202,4 +202,60 @@ export async function deleteDocument(documentId: string): Promise<void> {
   })
 }
 
+/**
+ * Get a template's details including its pre-configured recipients.
+ * Endpoint: GET /api/v1/templates/{templateId}
+ */
+export async function getTemplate(templateId: number): Promise<{
+  id: number
+  title: string
+  recipients: Array<{
+    id: number
+    email: string
+    name: string
+    role: string
+    signingOrder: number
+  }>
+}> {
+  return documensoFetch(`/templates/${templateId}`)
+}
+
+/**
+ * Create a document from an existing template, optionally overriding
+ * recipient details and auto-sending for signature.
+ *
+ * Endpoint: POST /api/v1/templates/{templateId}/create-document
+ */
+export async function createDocumentFromTemplate(
+  templateId: number,
+  options: {
+    recipients: Array<{
+      id: number
+      name: string
+      email: string
+      role?: string
+      signingOrder?: number
+    }>
+    sendDocument?: boolean
+  },
+): Promise<{
+  documentId: number
+  recipients: Array<{
+    recipientId: number
+    name: string
+    email: string
+    token: string
+    role: string
+    signingUrl: string
+  }>
+}> {
+  return documensoFetch(`/templates/${templateId}/create-document`, {
+    method: "POST",
+    body: {
+      recipients: options.recipients,
+      ...(options.sendDocument !== undefined && { sendDocument: options.sendDocument }),
+    },
+  })
+}
+
 export { DOCUMENSO_API_URL, DOCUMENSO_API_KEY }

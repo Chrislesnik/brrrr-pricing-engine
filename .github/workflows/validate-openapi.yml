@@ -1,0 +1,41 @@
+name: Validate OpenAPI Spec
+
+on:
+  pull_request:
+    paths:
+      - 'packages/api-contract/src/**'
+      - 'docs/developer/docs.json'
+      - 'docs/resources/docs.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate OpenAPI spec
+        run: pnpm --filter @repo/api-contract build:openapi
+
+      - name: Copy spec to docs directories
+        run: pnpm copy:spec
+
+      - name: Validate spec structure
+        run: |
+          node -e "
+            const spec = JSON.parse(require('fs').readFileSync('packages/api-contract/dist/openapi.json', 'utf8'));
+            const paths = Object.keys(spec.paths).length;
+            const ops = Object.values(spec.paths).reduce((n, p) => n + Object.keys(p).length, 0);
+            console.log('Paths:', paths, 'Operations:', ops);
+            if (ops < 20) { console.error('Expected at least 20 operations'); process.exit(1); }
+            if (!spec.components?.securitySchemes?.bearerAuth) { console.error('Missing bearerAuth'); process.exit(1); }
+            console.log('OpenAPI spec validation passed');
+          "

@@ -1,0 +1,33 @@
+---
+title: Row-Level Security
+description: Understand how data is isolated between organizations using RLS policies.
+---
+
+dscr.ai uses Supabase row-level security (RLS) to enforce data isolation between organizations. Every table with tenant data has RLS policies that ensure users can only access data belonging to their organization.
+
+## How It Works
+
+RLS policies are enforced at the database level, meaning even direct SQL access respects organization boundaries. API keys inherit the permissions of the organization they belong to.
+
+### Policy Structure
+
+Every tenant-scoped table includes an `org_id` column and a policy like:
+
+```sql
+CREATE POLICY "org_isolation" ON deals
+  USING (org_id = current_setting('app.current_org_id')::uuid);
+```
+
+## Custom Roles
+
+Within an organization, role-based access controls layer on top of RLS to provide granular read/write permissions for different user types.
+
+| Role | Deals | Borrowers | Documents | Settings |
+|------|-------|-----------|-----------|----------|
+| Admin | Full | Full | Full | Full |
+| Member | Read/Write | Read/Write | Read/Write | Read |
+| Viewer | Read | Read | Read | None |
+
+## Direct Database Access
+
+When connecting via SQL clients, the same RLS policies apply. Your connection is automatically scoped to your organization, so all queries return only your data.

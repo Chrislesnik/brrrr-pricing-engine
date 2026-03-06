@@ -64,6 +64,22 @@ export function SignUp2() {
 
               <span>Sign in with Google</span>
             </Button>
+
+            <Button variant="outline" className="w-full">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 23 23"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M11 0H0V11H11V0Z" fill="#F25022" />
+                <path d="M23 0H12V11H23V0Z" fill="#7FBA00" />
+                <path d="M11 12H0V23H11V12Z" fill="#00A4EF" />
+                <path d="M23 12H12V23H23V12Z" fill="#FFB900" />
+              </svg>
+              <span>Sign in with Microsoft</span>
+            </Button>
           </div>
 
           {/* Separator */}

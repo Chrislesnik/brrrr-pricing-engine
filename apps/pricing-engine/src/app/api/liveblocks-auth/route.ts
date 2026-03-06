@@ -1,7 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { liveblocks } from "@/lib/liveblocks";
+import { getLiveblocks } from "@/lib/liveblocks";
+import { getOrgUuidFromClerkId, getUserRoleInOrg } from "@/lib/orgs";
+import type { Database } from "@/types/database.types";
 
 type LiveblocksPermission =
   | ["room:write"]
@@ -22,7 +24,7 @@ const ROOM_POLICY_MAP: Array<{ pattern: string; resource: string }> = [
 ];
 
 function supabaseForUser(token: string) {
-  return createClient(
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -42,7 +44,7 @@ function supabaseForUser(token: string) {
  * via the user's Supabase JWT claims.
  */
 async function resolveRoomPermission(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseForUser>,
   resource: string,
 ): Promise<LiveblocksPermission | null> {
   const [writeRes, readRes, presenceRes] = await Promise.all([
@@ -93,7 +95,7 @@ export async function POST() {
       "Anonymous";
     const avatar = (userResult?.image_url as string) || "";
 
-    const session = liveblocks.prepareSession(userId, {
+    const session = getLiveblocks().prepareSession(userId, {
       userInfo: { name, avatar },
     });
 
@@ -120,9 +122,19 @@ export async function POST() {
             session.allow(pattern, permission);
           }
         }
-      }
 
-      session.allow(`org:${orgId}:*`, session.FULL_ACCESS);
+        const orgUuid = await getOrgUuidFromClerkId(orgId);
+        if (orgUuid) {
+          const role = await getUserRoleInOrg(orgUuid, userId);
+          const normRole = (role ?? "").toLowerCase().replace(/^org:/, "");
+
+          if (normRole === "admin" || normRole === "owner") {
+            for (const { pattern } of ROOM_POLICY_MAP) {
+              session.allow(pattern, ["room:read", "room:presence:write"]);
+            }
+          }
+        }
+      }
     }
 
     const { status, body } = await session.authorize();

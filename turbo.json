@@ -5,7 +5,28 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": [
+        "CLERK_SECRET_KEY",
+        "CLERK_WEBHOOK_SECRET",
+        "CLERK_WEBHOOK_SIGNING_SECRET",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_MANAGEMENT_API_TOKEN",
+        "BASEHUB_TOKEN",
+        "BORROWER_SSN_ENC_KEY",
+        "N8N_SSN_KEY",
+        "OPENAI_API_KEY",
+        "AI_GATEWAY_API_KEY",
+        "LIVEBLOCKS_SECRET_KEY",
+        "LIVEBLOCKS_WEBHOOK_SECRET",
+        "LIVEBLOCKS_APPRAISAL_WEBHOOK_SECRET",
+        "TIPTAP_PRO_TOKEN",
+        "V0_API_KEY",
+        "DOCUMENSO_API_KEY",
+        "RESEND_API_KEY",
+        "APPRAISAL_CHAT_API_KEY"
+      ]
     },
     "dev": {
       "cache": false,
@@ -22,6 +43,30 @@
     "test:e2e": {
       "cache": false
     },
-    "clean": {}
+    "clean": {},
+    "build:openapi": {
+      "inputs": ["packages/api-contract/src/**"],
+      "outputs": ["packages/api-contract/dist/**"]
+    },
+    "copy:spec": {
+      "dependsOn": ["build:openapi"],
+      "inputs": ["packages/api-contract/dist/openapi.json"],
+      "outputs": [
+        "docs/developer/openapi.json",
+        "docs/resources/openapi.json"
+      ],
+      "cache": false
+    },
+    "build:sdk": {
+      "dependsOn": ["build:openapi"],
+      "inputs": ["packages/api-contract/dist/openapi.json"],
+      "outputs": [
+        "packages/sdk-typescript/src/**",
+        "packages/sdk-python/src/**"
+      ]
+    },
+    "build:docs": {
+      "dependsOn": ["copy:spec"]
+    }
   }
 }

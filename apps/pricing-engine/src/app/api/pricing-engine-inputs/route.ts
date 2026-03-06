@@ -58,7 +58,7 @@ export async function GET() {
 /**
  * POST /api/pricing-engine-inputs
  * Create a new pricing engine input.
- * Body: { category_id, input_label, input_type, dropdown_options?, config?, linked_table?, linked_column? }
+ * Body: { category_id, input_label, input_type, dropdown_options?, config? }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const { category_id, input_label, input_type, dropdown_options, config, linked_table, linked_column, tooltip, placeholder, default_value } = body
+    const { category_id, input_label, input_type, dropdown_options, config, tooltip, placeholder, default_value, input_code } = body
 
     if (!category_id) return NextResponse.json({ error: "category_id is required" }, { status: 400 })
     if (!input_label?.trim()) return NextResponse.json({ error: "input_label is required" }, { status: 400 })
@@ -74,13 +74,6 @@ export async function POST(req: NextRequest) {
 
     if (!VALID_TYPES.includes(input_type)) {
       return NextResponse.json({ error: `input_type must be one of: ${VALID_TYPES.join(", ")}` }, { status: 400 })
-    }
-
-    if (linked_table) {
-      const { data: pkResult, error: pkErr } = await supabaseAdmin.rpc("get_primary_key_column", { p_table_name: linked_table })
-      if (pkErr || !pkResult) {
-        return NextResponse.json({ error: `Table "${linked_table}" does not exist or has no detectable primary key` }, { status: 400 })
-      }
     }
 
     const { data: catRow } = await supabaseAdmin
@@ -107,13 +100,11 @@ export async function POST(req: NextRequest) {
         category_id,
         category: catRow.category,
         input_label: input_label.trim(),
-        input_code: generateInputCode(input_label),
+        input_code: (typeof input_code === "string" && input_code.trim()) ? input_code.trim() : generateInputCode(input_label),
         input_type,
         dropdown_options: input_type === "dropdown" || input_type === "tags" ? (dropdown_options ?? []) : null,
         config: config ?? {},
         display_order: nextOrder,
-        linked_table: linked_table || null,
-        linked_column: linked_column || null,
         tooltip: tooltip || null,
         placeholder: placeholder || null,
         default_value: default_value || null,
@@ -141,10 +132,11 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
 
     if (body.id && !Array.isArray(body.reorder)) {
-      const { id, input_label, input_type, dropdown_options, config, starred, linked_table, linked_column, tooltip, placeholder, default_value } = body
+      const { id, input_label, input_type, dropdown_options, config, starred, tooltip, placeholder, default_value, input_code } = body
       const updatePayload: Record<string, unknown> = {}
 
       if (input_label !== undefined) updatePayload.input_label = String(input_label).trim()
+      if (typeof input_code === "string" && input_code.trim()) updatePayload.input_code = input_code.trim()
       if (input_type !== undefined) {
         if (!VALID_TYPES.includes(input_type)) {
           return NextResponse.json({ error: `input_type must be one of: ${VALID_TYPES.join(", ")}` }, { status: 400 })
@@ -158,22 +150,6 @@ export async function PATCH(req: NextRequest) {
       if (config !== undefined) updatePayload.config = config
       if (typeof starred === "boolean") updatePayload.starred = starred
 
-      if (linked_table !== undefined) {
-        if (linked_table) {
-          const { data: pkResult, error: pkErr } = await supabaseAdmin.rpc("get_primary_key_column", { p_table_name: linked_table })
-          if (pkErr || !pkResult) {
-            return NextResponse.json({ error: `Table "${linked_table}" does not exist or has no detectable primary key` }, { status: 400 })
-          }
-          updatePayload.linked_table = linked_table
-          updatePayload.linked_column = linked_column || null
-        } else {
-          updatePayload.linked_table = null
-          updatePayload.linked_column = null
-        }
-      }
-      if (linked_column !== undefined && linked_table === undefined) {
-        updatePayload.linked_column = linked_column || null
-      }
       if (tooltip !== undefined) updatePayload.tooltip = tooltip || null
       if (placeholder !== undefined) updatePayload.placeholder = placeholder || null
       if (default_value !== undefined) updatePayload.default_value = default_value || null

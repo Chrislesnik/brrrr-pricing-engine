@@ -1,0 +1,15 @@
+---
+title: "Authentication"
+description: "How to authenticate with the dscr.ai API using Bearer tokens."
+---
+
+All API requests require a Bearer token. Generate API keys from your organization settings.
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://pricingengine.pro/api/deals
+```
+
+<Note>
+API keys are scoped to your organization. Each key can have specific read/write permissions.
+</Note>

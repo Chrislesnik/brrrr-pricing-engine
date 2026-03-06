@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { type StepInput, withStepLogging } from "@/components/workflow-builder/lib/steps/step-handler";
 import { getErrorMessage } from "@/components/workflow-builder/lib/utils";
 import { getSupabaseClient } from "./_client";
@@ -30,8 +29,9 @@ export type SupabaseGetManyInput = StepInput & {
 /**
  * Apply a single filter condition to a query
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyFilter(
-  query: ReturnType<SupabaseClient["from"]>,
+  query: any,
   cond: FilterCondition
 ) {
   const col = cond.column.trim();
@@ -127,7 +127,8 @@ async function stepHandler(input: SupabaseGetManyInput): Promise<GetManyResult> 
     }
 
     // AND logic (default): chain .eq/.gt/etc. filters
-    let query = client.from(input.table.trim()).select(columns) as ReturnType<SupabaseClient["from"]>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = client.from(input.table.trim()).select(columns) as any;
 
     for (const cond of conditions) {
       query = applyFilter(query, cond);

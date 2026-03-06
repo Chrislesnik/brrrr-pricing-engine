@@ -16,6 +16,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  SidebarSeparator,
 } from "@repo/ui/shadcn/sidebar";
 import { useUser } from "@clerk/nextjs";
 import { WorkspaceSwitcher } from "@repo/ui/custom/workspace-switcher";
@@ -25,8 +26,53 @@ import { NavUser } from "./nav-user";
 import type * as PageTree from "fumadocs-core/page-tree";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@repo/ui/shadcn/collapsible";
+import {
+  BookOpen,
+  ChevronRight,
+  Code,
+  Database,
+  FileText,
+  FolderOpen,
+  LayoutDashboard,
+  Rocket,
+  Shield,
+  Sparkles,
+  Terminal,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@repo/ui/shadcn/collapsible";
+
+const GROUP_ICONS: Record<string, LucideIcon> = {
+  Overview: LayoutDashboard,
+  Guides: BookOpen,
+  "Policies & Permissions": Shield,
+  Features: Terminal,
+  Reference: Database,
+  Resources: FileText,
+};
+
+const PAGE_ICONS: Record<string, LucideIcon> = {
+  "/docs/getting-started": Rocket,
+  "/docs/platform-overview": LayoutDashboard,
+  "/docs/guides/deals": FileText,
+  "/docs/guides/borrowers-entities": Users,
+  "/docs/guides/documents": FolderOpen,
+  "/docs/power-users/ai-features": Sparkles,
+  "/docs/power-users/rls": Shield,
+  "/docs/power-users/api-integration": Code,
+  "/docs/power-users/sql-data-access": Database,
+  "/docs/api-reference": Code,
+  "/docs/reference/database-schema": Database,
+};
+
+function getPageIcon(url: string): LucideIcon {
+  return PAGE_ICONS[url] || FileText;
+}
 
 interface DocsSidebarProps extends React.ComponentProps<typeof Sidebar> {
   tree: PageTree.Node[];
@@ -34,7 +80,7 @@ interface DocsSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
 
   const hasActiveDescendant = (node: PageTree.Node): boolean => {
     if (node.type === "page") return pathname === node.url;
@@ -63,7 +109,10 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
         const hasActive = hasActiveDescendant(child);
         return (
           <SidebarMenuSubItem key={childIndex}>
-            <Collapsible defaultOpen={hasActive} className="group/collapsible">
+            <Collapsible
+              defaultOpen={hasActive}
+              className="group/collapsible"
+            >
               <CollapsibleTrigger asChild>
                 <SidebarMenuSubButton>
                   {child.index ? (
@@ -90,14 +139,17 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
     });
 
   const renderNode = (node: PageTree.Node, index: number) => {
-    const tooltipLabel = typeof node.name === "string" ? node.name : undefined;
+    const tooltipLabel =
+      typeof node.name === "string" ? node.name : undefined;
+
     if (node.type === "page") {
       const isActive = pathname === node.url;
+      const Icon = getPageIcon(node.url);
       return (
         <SidebarMenuItem key={index}>
           <SidebarMenuButton asChild isActive={isActive} tooltip={tooltipLabel}>
             <Link href={node.url}>
-              <BookOpen className="h-4 w-4" />
+              <Icon className="h-4 w-4" />
               <span>{node.name}</span>
             </Link>
           </SidebarMenuButton>
@@ -108,11 +160,15 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
     if (node.type === "folder") {
       const hasActive = hasActiveDescendant(node);
       return (
-        <Collapsible key={index} defaultOpen={hasActive} className="group/collapsible">
+        <Collapsible
+          key={index}
+          defaultOpen={hasActive}
+          className="group/collapsible"
+        >
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip={tooltipLabel}>
-                <BookOpen className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
                 {node.index ? (
                   <Link href={node.index.url} className="flex-1">
                     <span>{node.name}</span>
@@ -124,59 +180,46 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
               </SidebarMenuButton>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <SidebarMenuSub>{node.children && renderChildren(node.children)}</SidebarMenuSub>
+              <SidebarMenuSub>
+                {node.children && renderChildren(node.children)}
+              </SidebarMenuSub>
             </CollapsibleContent>
           </SidebarMenuItem>
         </Collapsible>
       );
     }
 
-    if (node.type === "separator") {
-      return <SidebarGroupLabel key={index}>{node.name}</SidebarGroupLabel>;
-    }
-
     return null;
   };
 
   const renderGroupedContent = () => {
-    const groups: { title?: string; indexUrl?: string; nodes: PageTree.Node[] }[] = [];
-    const rootNodes: PageTree.Node[] = [];
+    return tree.map((node, index) => {
+      if (node.type !== "folder") return null;
 
-    for (const node of tree) {
-      if (node.type === "folder") {
-        const title = typeof node.name === "string" ? node.name : undefined;
-        groups.push({
-          title,
-          indexUrl: node.index?.url,
-          nodes: node.children || [],
-        });
-      } else {
-        rootNodes.push(node);
-      }
-    }
+      const title = typeof node.name === "string" ? node.name : undefined;
+      const GroupIcon = title ? GROUP_ICONS[title] || FileText : FileText;
 
-    if (rootNodes.length > 0) {
-      groups.unshift({ nodes: rootNodes });
-    }
-
-    return groups.map((group, groupIndex) => (
-      <SidebarGroup key={groupIndex}>
-        {group.title && (
-          <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-            {group.indexUrl ? (
-              <Link href={group.indexUrl} className="hover:text-sidebar-foreground transition-colors">
-                {group.title}
-              </Link>
-            ) : (
-              group.title
+      return (
+        <React.Fragment key={index}>
+          {index > 0 && <SidebarSeparator className="mx-3" />}
+          <SidebarGroup>
+            {title && (
+              <SidebarGroupLabel className="gap-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+                <GroupIcon className="h-3.5 w-3.5" />
+                {title}
+              </SidebarGroupLabel>
             )}
-          </SidebarGroupLabel>
-        )}
-        <SidebarGroupContent className="flex flex-col gap-2">
-          <SidebarMenu>{group.nodes.map((node, index) => renderNode(node, index))}</SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    ));
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {(node.children || []).map((child, childIdx) =>
+                  renderNode(child, childIdx)
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </React.Fragment>
+      );
+    });
   };
 
   return (
@@ -188,7 +231,7 @@ export function DocsSidebar({ tree, ...props }: DocsSidebarProps) {
       </SidebarHeader>
       <SidebarContent>{renderGroupedContent()}</SidebarContent>
       <SidebarFooter>
-        {user && (
+        {isLoaded && user && (
           <NavUser
             user={{
               name: user.fullName || user.username || "User",

@@ -12,10 +12,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Lender Resources | BRRRR Pricing Engine",
-    template: "%s | Lender Resources",
+    default: "Resource Hub | DSCR Loan Funder",
+    template: "%s | DSCR Loan Funder Resources",
   },
-  description: "Underwriting guidelines, document templates, and help guides",
+  description:
+    "Loan program guides, underwriting guidelines, document templates, rate sheets, and training resources for the DSCR Loan Funder team and lending partners.",
 };
 
 export default function RootLayout({

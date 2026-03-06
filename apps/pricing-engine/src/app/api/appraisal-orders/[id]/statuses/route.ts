@@ -38,7 +38,7 @@ export async function GET(
       return NextResponse.json({ error: "Appraisal not found" }, { status: 404 })
     }
 
-    const setup = appraisal.integration_setup as { id: string; integration_settings_id: number | null } | null
+    const setup = appraisal.integration_setup as unknown as { id: string; integration_settings_id: number | null } | null
     const integrationSettingsId = setup?.integration_settings_id
 
     if (!integrationSettingsId) {

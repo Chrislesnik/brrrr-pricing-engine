@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { nanoid } from "nanoid";
 import { Provider as JotaiProvider, useSetAtom, useAtom, useAtomValue } from "jotai";
@@ -29,10 +29,20 @@ import {
 } from "@/components/workflow-builder/lib/workflow-store";
 import { api } from "@/components/workflow-builder/lib/api-client";
 
-function AutomationBuilderInner() {
+function getSearchParam(
+  sp: { [key: string]: string | string[] | undefined },
+  key: string
+): string | null {
+  const v = sp?.[key];
+  return Array.isArray(v) ? v[0] ?? null : (v ?? null);
+}
+
+function AutomationBuilderInner({
+  automationId,
+}: {
+  automationId: string | null;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const automationId = searchParams.get("automation");
 
   const setNodes = useSetAtom(nodesAtom);
   const setEdges = useSetAtom(edgesAtom);
@@ -241,12 +251,19 @@ function AutomationBuilderInner() {
   );
 }
 
-export default function AutomationBuilderPage() {
+export default function AutomationBuilderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const resolvedSearchParams = use(searchParams);
+  const automationId = getSearchParam(resolvedSearchParams, "automation");
+
   return (
     <JotaiProvider>
       <ReactFlowProvider>
         <OverlayProvider>
-          <AutomationBuilderInner />
+          <AutomationBuilderInner automationId={automationId} />
         </OverlayProvider>
       </ReactFlowProvider>
     </JotaiProvider>

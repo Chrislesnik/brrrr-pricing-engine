@@ -1,9 +1,15 @@
 import { Liveblocks } from "@liveblocks/node";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export const liveblocks = new Liveblocks({
-  secret: process.env.LIVEBLOCKS_SECRET_KEY!,
-});
+let _liveblocks: Liveblocks | null = null;
+export function getLiveblocks(): Liveblocks {
+  if (!_liveblocks) {
+    const secret = process.env.LIVEBLOCKS_SECRET_KEY;
+    if (!secret) throw new Error("LIVEBLOCKS_SECRET_KEY is not configured");
+    _liveblocks = new Liveblocks({ secret });
+  }
+  return _liveblocks;
+}
 
 type RoomType = "deal" | "deal_task" | "email_template" | "deal_chat";
 
@@ -172,7 +178,7 @@ export async function ensureLiveblocksRoom(opts: {
   }
 
   try {
-    await liveblocks.getOrCreateRoom(roomId, {
+    await getLiveblocks().getOrCreateRoom(roomId, {
       defaultAccesses: [],
       usersAccesses,
       metadata: {
@@ -203,7 +209,7 @@ export async function grantLiveblocksRoomAccess(opts: {
       : ["room:write"];
 
   try {
-    await liveblocks.updateRoom(roomId, {
+    await getLiveblocks().updateRoom(roomId, {
       usersAccesses: { [opts.userId]: access },
     });
   } catch (error) {
@@ -222,7 +228,7 @@ export async function revokeLiveblocksRoomAccess(opts: {
   const roomId = `${opts.roomType}:${opts.entityId}`;
 
   try {
-    await liveblocks.updateRoom(roomId, {
+    await getLiveblocks().updateRoom(roomId, {
       usersAccesses: { [opts.userId]: null },
     });
   } catch (error) {
@@ -343,7 +349,7 @@ export async function syncDealRoomPermissions(opts: {
 
       if ((count ?? 0) === 0) {
         try {
-          await liveblocks.updateRoom(roomId, {
+          await getLiveblocks().updateRoom(roomId, {
             usersAccesses: { [clerkUserId]: null },
           });
         } catch {
@@ -368,7 +374,7 @@ export async function syncDealRoomPermissions(opts: {
       : null;
 
   try {
-    await liveblocks.updateRoom(roomId, {
+    await getLiveblocks().updateRoom(roomId, {
       usersAccesses: { [clerkUserId]: resolvedAccess },
     });
   } catch {
@@ -460,7 +466,7 @@ export async function syncOrgAdminDealRoomPermissions(opts: {
   if (Object.keys(usersAccesses).length === 0) return;
 
   try {
-    await liveblocks.updateRoom(roomId, { usersAccesses });
+    await getLiveblocks().updateRoom(roomId, { usersAccesses });
   } catch {
     /* Room may not exist yet */
   }
@@ -482,7 +488,7 @@ export async function syncDealTaskRoomPermissions(opts: {
 
   if (!assigned) {
     try {
-      await liveblocks.updateRoom(roomId, {
+      await getLiveblocks().updateRoom(roomId, {
         usersAccesses: { [clerkUserId]: null },
       });
     } catch {
@@ -505,7 +511,7 @@ export async function syncDealTaskRoomPermissions(opts: {
       : null;
 
   try {
-    await liveblocks.updateRoom(roomId, {
+    await getLiveblocks().updateRoom(roomId, {
       usersAccesses: { [clerkUserId]: resolvedAccess },
     });
   } catch {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   RoomProvider,
   ClientSideSuspense,
@@ -8,9 +8,37 @@ import {
 import { useThreads } from "@liveblocks/react/suspense";
 import { Thread, Comment, Composer } from "@liveblocks/react-ui";
 import { Button } from "@repo/ui/shadcn/button";
-import { MessageSquare, X, Loader2, ArrowLeft, MessageCircle } from "lucide-react";
+import { MessageSquare, X, Loader2, ArrowLeft, MessageCircle, FileText } from "lucide-react";
 import type { ThreadData } from "@liveblocks/client";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+
+type ThreadSource = {
+  source: string;
+  documentId?: string;
+  documentName?: string;
+  reportId?: string;
+  reportName?: string;
+  appraisalId?: string;
+  appraisalName?: string;
+};
+
+function getThreadSourceLabel(thread: ThreadData): string | null {
+  const meta = thread.metadata as ThreadSource | undefined;
+  if (!meta?.source || meta.source === "general") return null;
+
+  switch (meta.source) {
+    case "document":
+      return meta.documentName || "Document";
+    case "credit_report":
+      return meta.reportName || "Credit Report";
+    case "background_report":
+      return meta.reportName || "Background Report";
+    case "appraisal":
+      return meta.appraisalName || "Appraisal";
+    default:
+      return meta.source;
+  }
+}
+import { useSupabaseBrowser } from "@/lib/supabase-browser";
 
 const COMPOSER_OVERRIDES = {
   COMPOSER_PLACEHOLDER: "Write a message...",
@@ -155,6 +183,8 @@ function ThreadDetailView({
     if (el) el.scrollTop = el.scrollHeight;
   }, [thread.comments.length]);
 
+  const sourceLabel = getThreadSourceLabel(thread);
+
   return (
     <div ref={threadContainerRef} className="flex flex-col h-full">
       {/* Thread header */}
@@ -168,6 +198,12 @@ function ThreadDetailView({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <span className="text-sm font-medium">Thread</span>
+        {sourceLabel && (
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <FileText className="h-3 w-3" />
+            {sourceLabel}
+          </span>
+        )}
       </div>
 
       {/* Full thread with all replies */}
@@ -220,8 +256,20 @@ function ChatListView({
 
             if (!rootComment) return null;
 
+            const sourceLabel = getThreadSourceLabel(thread);
+
             return (
               <div key={thread.id} className="group relative">
+                {/* Source badge for document-linked threads */}
+                {sourceLabel && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 ml-10 mb-0.5">
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      on {sourceLabel}
+                    </span>
+                  </div>
+                )}
+
                 {/* Root comment only — no reply composer */}
                 <div className="[&_.lb-comment]:mb-0 [&_.lb-comment]:pb-1 [&_.lb-comment-reactions]:relative [&_.lb-comment-reactions]:z-20">
                   <Comment
@@ -308,7 +356,7 @@ interface CommentsPanelProps {
 
 function useDealUsersVersion(dealId: string, enabled: boolean) {
   const [version, setVersion] = useState(0);
-  const supabase = useMemo(() => createSupabaseBrowser(), []);
+  const supabase = useSupabaseBrowser();
 
   useEffect(() => {
     if (!enabled) return;

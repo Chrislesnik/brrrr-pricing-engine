@@ -41,6 +41,8 @@ import {
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 import {
   getOrgMemberRoles,
+  getClerkOrgRoleOptions,
+  setOrgClerkRole,
   setOrgMemberRole,
   getActiveMemberRoleOptions,
 } from "./metadata-actions";
@@ -61,24 +63,24 @@ export function MembersSettings() {
   const [memberRoleOptions, setMemberRoleOptions] = useState<
     { value: string; label: string }[]
   >([]);
+  const [orgRoleOptions, setOrgRoleOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
   const [memberRoleError, setMemberRoleError] = useState<string | null>(null);
   const [removalError, setRemovalError] = useState<string | null>(null);
   const [isMemberRoleLoading, setIsMemberRoleLoading] = useState(true);
   const [isSavingMemberRole, startMemberRoleTransition] = useTransition();
 
-  if (!isLoaded || !organization) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const orgId = organization?.id;
 
   useEffect(() => {
+    if (!isLoaded || !organization || !orgId) return;
+    const org = organization;
     let isMounted = true;
-    async function loadMemberRoles() {
+    async function loadData() {
       setIsMemberRoleLoading(true);
       setMemberRoleError(null);
+
       try {
         const [rolesResult, roleOptionsResult] = await Promise.all([
           getOrgMemberRoles(),
@@ -86,6 +88,9 @@ export function MembersSettings() {
         ]);
         if (isMounted) {
           setMemberRoles(rolesResult.roles ?? {});
+          if (rolesResult.error) {
+            setMemberRoleError(rolesResult.error);
+          }
           setMemberRoleOptions(roleOptionsResult);
         }
       } catch (error) {
@@ -99,12 +104,40 @@ export function MembersSettings() {
       } finally {
         if (isMounted) setIsMemberRoleLoading(false);
       }
+
+      try {
+        const clerkRolesResult = await org.getRoles({ pageSize: 100 });
+        if (isMounted) {
+          setOrgRoleOptions(
+            (clerkRolesResult?.data ?? []).map((r) => ({
+              value: r.key,
+              label: r.name,
+            })),
+          );
+        }
+      } catch {
+        try {
+          const fallbackRoles = await getClerkOrgRoleOptions();
+          if (isMounted) setOrgRoleOptions(fallbackRoles);
+        } catch (fallbackErr) {
+          console.error("Failed to load organization roles:", fallbackErr);
+        }
+      }
     }
-    loadMemberRoles();
+    loadData();
     return () => {
       isMounted = false;
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, orgId]);
+
+  if (!isLoaded || !organization) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const membersList = memberships?.data || [];
   const filteredMembers = membersList.filter((m) => {
@@ -150,7 +183,12 @@ export function MembersSettings() {
     try {
       const memberToUpdate = membersList.find((m) => m.id === membershipId);
       if (memberToUpdate) {
-        await memberToUpdate.update({ role: newRole as "org:admin" | "org:member" });
+        await memberToUpdate.update({ role: newRole });
+        const clerkUserId = memberToUpdate.publicUserData?.userId;
+        if (clerkUserId) {
+          const normalized = newRole.replace(/^org:/, "");
+          await setOrgClerkRole({ clerkUserId, clerkOrgRole: normalized });
+        }
       }
     } catch (error) {
       console.error("Failed to update role:", error);
@@ -194,7 +232,7 @@ export function MembersSettings() {
         <InviteMemberDialog
           open={showInviteDialog}
           onOpenChange={setShowInviteDialog}
-          onSuccess={() => memberships?.revalidate()}
+          onSuccess={() => memberships?.revalidate?.()}
           orgName={organization.name}
           orgReadOnly
         />
@@ -226,7 +264,7 @@ export function MembersSettings() {
               <TableRow>
                 <TableHead className="w-[40%]">User</TableHead>
                 <TableHead className="w-[15%]">Joined</TableHead>
-                <TableHead className="w-[15%]">Role</TableHead>
+                <TableHead className="w-[15%]">Organization Role</TableHead>
                 <TableHead className="w-[15%]">Member Role</TableHead>
                 <TableHead className="w-[15%]"></TableHead>
               </TableRow>
@@ -282,12 +320,22 @@ export function MembersSettings() {
                           handleUpdateRole(member.id, value)
                         }
                       >
-                        <SelectTrigger className="w-28">
+                        <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="org:member">Member</SelectItem>
-                          <SelectItem value="org:admin">Admin</SelectItem>
+                          {orgRoleOptions.length === 0 ? (
+                            <>
+                              <SelectItem value="org:member">Member</SelectItem>
+                              <SelectItem value="org:admin">Admin</SelectItem>
+                            </>
+                          ) : (
+                            orgRoleOptions.map((role) => (
+                              <SelectItem key={role.value} value={role.value}>
+                                {role.label}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </TableCell>

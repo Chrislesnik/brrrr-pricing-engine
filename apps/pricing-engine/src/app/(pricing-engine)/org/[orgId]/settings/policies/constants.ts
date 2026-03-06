@@ -188,6 +188,18 @@ export const FEATURE_RESOURCES: Array<{
     description: "Manage organization API keys for third-party integrations",
     actions: ["view", "insert", "delete"],
   },
+  {
+    name: "settings_api_request_logs",
+    label: "Settings — API Request Logs",
+    description: "View organization API request activity logs",
+    actions: ["view"],
+  },
+  {
+    name: "settings_webhook_tester",
+    label: "Settings — Webhook Tester",
+    description: "Run mock webhook requests and inspect payloads/responses",
+    actions: ["view", "submit"],
+  },
 ];
 
 /**

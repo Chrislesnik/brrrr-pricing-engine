@@ -1,0 +1,38 @@
+---
+title: API Integration
+description: Build custom integrations with the dscr.ai API.
+---
+
+The dscr.ai API enables deep integrations with your existing systems — CRMs, loan origination systems, accounting platforms, and more.
+
+## Integration Patterns
+
+Common integration patterns include:
+
+- **CRM Sync** — Push deal data to Salesforce, HubSpot, or custom CRMs.
+- **Document Automation** — Trigger document generation from external workflows.
+- **Rate Feed Integration** — Ingest pricing updates from third-party rate providers.
+- **Reporting** — Pull deal and portfolio data into BI tools.
+
+## API Clients
+
+Use the official [TypeScript SDK](/docs/sdks/typescript) or [Python SDK](/docs/sdks/python) for type-safe API access, or call the REST API directly from any language.
+
+## Example: List Deals
+
+```typescript
+import { DscrClient } from "@dscr/sdk";
+
+const client = new DscrClient({
+  apiKey: process.env.DSCR_API_KEY,
+});
+
+const { data: deals } = await client.deals.list({
+  limit: 25,
+  stage: "underwriting",
+});
+```
+
+## Webhook Integration
+
+Combine API calls with [webhooks](/docs/guides/webhooks) for event-driven architectures. React to deal changes, document uploads, and task completions in real time.

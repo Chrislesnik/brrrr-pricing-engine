@@ -2,7 +2,6 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-
 // Re-export types from constants (type-only re-exports are fine in "use server")
 export type {
   ConditionInput,
@@ -91,7 +90,6 @@ async function getOrgPk(
   supabase: ReturnType<typeof supabaseForUser>,
   orgId: string
 ) {
-  // Validate that this is an organization ID, not a user ID
   if (!orgId.startsWith('org_')) {
     throw new Error(
       `Invalid organization ID: "${orgId}". ` +
@@ -108,19 +106,14 @@ async function getOrgPk(
 
   if (data?.id) return data.id as string;
 
-  if (error && error.code !== "PGRST116") {
-    throw new Error(
-      `Failed to fetch organization from Supabase: ${error.message}.`
-    );
+  if (error) {
+    console.error(`getOrgPk: lookup failed for ${orgId}:`, error.message);
   }
 
-  // Org doesn't exist - should be synced via Clerk webhooks
-  console.warn(`Organization ${orgId} not found in Supabase. Should be synced via webhooks.`);
-  
   throw new Error(
     `Organization not found in Supabase database. ` +
-    `Please ensure Clerk webhooks are properly configured to sync organizations. ` +
-    `If you just created this organization, you may need to manually sync it using the SQL script provided.`
+    `This usually means Clerk webhooks haven't synced the organization or your membership. ` +
+    `Ensure your user appears in organization_members for this org.`
   );
 }
 
@@ -145,7 +138,13 @@ function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
   return "all";
 }
 
-function compilePolicy(definition: PolicyDefinitionInput) {
+type CompiledCondition = { field: string; operator: string; values: string[] };
+
+function compilePolicy(definition: PolicyDefinitionInput): {
+  allow_internal_users: boolean;
+  conditions: CompiledCondition[];
+  [key: string]: unknown;
+} {
   const legacyScope = deriveLegacyScope(definition);
   const conditions = (definition.conditions ?? []).map((c) => ({
     field: c.field,
@@ -191,7 +190,11 @@ function compilePolicy(definition: PolicyDefinitionInput) {
     };
   }
 
-  const compiled: Record<string, unknown> = {
+  const compiled: {
+    allow_internal_users: boolean;
+    conditions: CompiledCondition[];
+    [key: string]: unknown;
+  } = {
     version: 3,
     allow_internal_users: !!definition.allowInternalUsers,
     rules: [ruleObj],

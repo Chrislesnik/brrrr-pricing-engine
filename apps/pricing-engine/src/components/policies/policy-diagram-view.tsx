@@ -34,6 +34,7 @@ import {
   Globe,
   User,
   Building2,
+  Key,
 } from "lucide-react";
 
 // ============================================================================
@@ -102,6 +103,7 @@ const RESOURCE_ICONS: Record<ResourceType, React.ElementType> = {
   feature: Zap,
   route: Route,
   liveblocks: Blocks,
+  api_key: Key,
 };
 
 const RESOURCE_COLORS: Record<
@@ -132,6 +134,11 @@ const RESOURCE_COLORS: Record<
     border: "border-pink-500/40",
     bg: "bg-pink-500/10",
     text: "text-pink-500",
+  },
+  api_key: {
+    border: "border-orange-500/40",
+    bg: "bg-orange-500/10",
+    text: "text-orange-500",
   },
 };
 

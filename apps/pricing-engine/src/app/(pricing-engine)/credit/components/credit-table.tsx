@@ -4,6 +4,7 @@ import * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
+  ColumnFiltersState,
   ColumnOrderState,
   VisibilityState,
   flexRender,
@@ -36,8 +37,6 @@ import {
   Download,
   MoreHorizontal,
   Archive,
-  Columns2,
-  ChevronDown,
 } from "lucide-react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Button } from "@repo/ui/shadcn/button";
@@ -52,7 +51,6 @@ import {
 } from "@repo/ui/shadcn/table";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -60,7 +58,10 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
 import { cn } from "@repo/lib/cn";
+import { DataGridFilterMenu } from "@/components/data-grid/data-grid-filter-menu";
 import { DraggableTableHeader, PINNED_RIGHT_SET, FIXED_COLUMNS } from "@/components/data-table/draggable-table-header";
+import { TableDisplaySettings } from "@/components/data-table/table-display-settings";
+import { getFilterFn } from "@/lib/data-grid-filters";
 import { DealsStylePagination } from "@/components/data-table/data-table-pagination";
 import { ArchiveConfirmDialog } from "@/components/archive/archive-confirm-dialog";
 import { CreditDetailSheet } from "./credit-detail-sheet";
@@ -286,6 +287,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "report_id_col",
       accessorKey: "report_id",
       header: "Report ID",
+      meta: { label: "Report ID", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => (
         <span className="font-mono text-xs text-muted-foreground">
           {row.original.report_id || row.original.id.slice(0, 12) + "..."}
@@ -296,6 +299,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "borrower",
       accessorFn: (row) => getBorrowerName(row),
       header: "Borrower",
+      meta: { label: "Borrower", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => (
         <span className="font-medium truncate">{getBorrowerName(row.original)}</span>
       ),
@@ -304,6 +309,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "status",
       accessorFn: (row) => getReportStatus(row).label,
       header: "Status",
+      meta: { label: "Status", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => {
         const { label, colorVar, bgVar } = getReportStatus(row.original);
         return (
@@ -323,6 +330,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "aggregator",
       accessorFn: (row) => row.aggregator_link?.aggregator || row.aggregator || "—",
       header: "Aggregator",
+      meta: { label: "Aggregator", cell: { variant: "short-text" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => {
         const agg = row.original.aggregator_link?.aggregator || row.original.aggregator;
         return agg ? (
@@ -336,6 +345,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "transunion",
       accessorKey: "transunion_score",
       header: "TU",
+      meta: { label: "TU", cell: { variant: "number" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => <ScoreWidget score={row.original.transunion_score} />,
       enableSorting: true,
     },
@@ -343,6 +354,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "experian",
       accessorKey: "experian_score",
       header: "EX",
+      meta: { label: "EX", cell: { variant: "number" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => <ScoreWidget score={row.original.experian_score} />,
       enableSorting: true,
     },
@@ -350,6 +363,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "equifax",
       accessorKey: "equifax_score",
       header: "EQ",
+      meta: { label: "EQ", cell: { variant: "number" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => <ScoreWidget score={row.original.equifax_score} />,
       enableSorting: true,
     },
@@ -357,6 +372,8 @@ function getColumns(onArchived: (id: string) => void): ColumnDef<CreditReport>[]
       id: "report_date",
       accessorKey: "report_date",
       header: "Report Date",
+      meta: { label: "Report Date", cell: { variant: "date" as const } },
+      filterFn: getFilterFn<CreditReport>(),
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatDate(row.original.report_date ?? row.original.created_at)}</span>
       ),
@@ -384,6 +401,7 @@ export function CreditTable({ actionButton }: { actionButton?: React.ReactNode }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
@@ -424,8 +442,9 @@ export function CreditTable({ actionButton }: { actionButton?: React.ReactNode }
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, columnVisibility, rowSelection, columnOrder },
+    state: { sorting, columnFilters, globalFilter, columnVisibility, rowSelection, columnOrder },
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
@@ -509,29 +528,8 @@ export function CreditTable({ actionButton }: { actionButton?: React.ReactNode }
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 bg-background">
-                  <Columns2 className="w-4 h-4 mr-2" />
-                  <span className="text-xs font-medium">Customize Columns</span>
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                {table
-                  .getAllColumns()
-                  .filter((col) => col.getCanHide())
-                  .map((col) => (
-                    <DropdownMenuCheckboxItem
-                      key={col.id}
-                      checked={col.getIsVisible()}
-                      onCheckedChange={(value) => col.toggleVisibility(!!value)}
-                    >
-                      {formatColumnName(col.id)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DataGridFilterMenu table={table} align="end" />
+            <TableDisplaySettings table={table} formatColumnName={formatColumnName} />
             {actionButton}
           </div>
         </div>

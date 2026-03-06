@@ -1,8 +1,7 @@
 "use client"
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import React, { use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useSearchParams } from "next/navigation"
 import { IconDeviceFloppy, IconFileExport, IconStar, IconStarFilled, IconCheck, IconX, IconGripVertical, IconPencil, IconTrash, IconEye, IconDownload, IconFileCheck, IconShare3, IconInfoCircle } from "@tabler/icons-react"
 import { SearchIcon, LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
 import { Button as AriaButton, Group, Input as AriaInput, NumberField } from "react-aria-components"
@@ -55,6 +54,8 @@ import { ensureGoogleMaps } from "@/lib/google-maps"
 import { toast } from "@/hooks/use-toast"
 import { CalcInput } from "@/components/calc-input"
 import { DynamicPEInput, type PEInputField, type AddressFields } from "@/components/pricing/dynamic-pe-input"
+import { useLinkedRules } from "@/hooks/use-linked-rules"
+import { useAutofillFromLinkedRecord } from "@/hooks/use-autofill-from-linked-record"
 import { usePELogicEngine } from "@/hooks/use-pe-logic-engine"
 import { evaluateExpression } from "@/lib/expression-evaluator"
 import { ConfigurableGrid } from "@/components/pricing/configurable-grid"
@@ -69,28 +70,6 @@ import { GoogleMap, Marker } from "@react-google-maps/api"
 
 type SaveFileHandle = {
   createWritable: () => Promise<{ write: (data: Blob | BufferSource) => Promise<void>; close: () => Promise<void> }>
-}
-
-// Open the native Save dialog immediately (must be called during a user gesture).
-// Returns a file handle to write to later, or null if unsupported / cancelled.
-function openSaveDialog(suggestedName: string): Promise<SaveFileHandle | null> {
-  const w = window as unknown as {
-    showSaveFilePicker?: (options: {
-      suggestedName?: string
-      types?: Array<{ description?: string; accept?: Record<string, string[]> }>
-    }) => Promise<SaveFileHandle>
-  }
-  if (!w?.showSaveFilePicker) return Promise.resolve(null)
-  return w.showSaveFilePicker({
-    suggestedName,
-    types: [{ description: "PDF Document", accept: { "application/pdf": [".pdf"] } }],
-  }).catch((e) => {
-    const name = (e as any)?.name ?? ""
-    if (name === "AbortError" || /cancel/i.test(String((e as any)?.message ?? ""))) {
-      throw e
-    }
-    return null
-  })
 }
 
 // Write a blob to a previously opened save handle, or fall back to auto-download.
@@ -262,7 +241,7 @@ function serializeOutputs(results: ProgramResult[]): Array<Record<string, unknow
         : null
     )
     .filter(Boolean)
-  return out.length > 0 ? out : null
+  return out.length > 0 ? out as Array<Record<string, unknown>> : null
 }
 
 function normalizeOutputs(
@@ -687,7 +666,7 @@ function ScaledHtmlPreview({
     const doc = iframe.contentDocument || iframe.contentWindow?.document
     if (!doc) return
     const embeddedStyles: string[] = []
-    let stripped = html.replace(/<style>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
+    const stripped = html.replace(/<style>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
       embeddedStyles.push(css)
       return ""
     })
@@ -712,8 +691,9 @@ function ScaledHtmlPreview({
 
     if (isEditable) {
       requestAnimationFrame(() => {
-        if (!doc.body) return
-        const textEls = doc.querySelectorAll("h1,h2,h3,h4,h5,h6,p,span,td,th,div,b,em,i,strong")
+        if (!doc || !doc.body) return
+        const d = doc
+        const textEls = d.querySelectorAll("h1,h2,h3,h4,h5,h6,p,span,td,th,div,b,em,i,strong")
         textEls.forEach((el) => {
           const htmlEl = el as HTMLElement
           if (htmlEl.childElementCount !== 0) return
@@ -736,34 +716,34 @@ function ScaledHtmlPreview({
         })
 
         function showImagePopover(img: HTMLImageElement) {
-          doc.querySelector(".ts-img-popover")?.remove()
-          const popover = doc.createElement("div")
+          d.querySelector(".ts-img-popover")?.remove()
+          const popover = d.createElement("div")
           popover.className = "ts-img-popover"
           const rect = img.getBoundingClientRect()
-          const scrollY = doc.documentElement.scrollTop || doc.body.scrollTop
-          const scrollX = doc.documentElement.scrollLeft || doc.body.scrollLeft
+          const scrollY = d.documentElement.scrollTop || d.body.scrollTop
+          const scrollX = d.documentElement.scrollLeft || d.body.scrollLeft
           popover.style.cssText = `position:absolute;top:${rect.bottom + scrollY + 6}px;left:${rect.left + scrollX}px;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);width:220px;font-family:Arial,sans-serif;`
-          const preview = doc.createElement("div")
+          const preview = d.createElement("div")
           preview.style.cssText = "display:flex;justify-content:center;padding:8px;background:#f9fafb;border-radius:6px;margin-bottom:8px;"
-          const previewImg = doc.createElement("img")
+          const previewImg = d.createElement("img")
           previewImg.src = img.src
           previewImg.style.cssText = "max-height:50px;max-width:100%;object-fit:contain;"
           preview.appendChild(previewImg)
           popover.appendChild(preview)
 
-          const dropZone = doc.createElement("div")
+          const dropZone = d.createElement("div")
           dropZone.style.cssText = "border:2px dashed #d1d5db;border-radius:6px;padding:12px;text-align:center;transition:all 0.15s;margin-bottom:8px;"
-          const dropText = doc.createElement("div")
+          const dropText = d.createElement("div")
           dropText.textContent = "Drag & drop to replace"
           dropText.style.cssText = "font-size:11px;color:#6b7280;margin-bottom:6px;"
           dropZone.appendChild(dropText)
 
-          const fileInput = doc.createElement("input")
+          const fileInput = d.createElement("input")
           fileInput.type = "file"
           fileInput.accept = "image/*"
           fileInput.style.display = "none"
 
-          const chooseBtn = doc.createElement("button")
+          const chooseBtn = d.createElement("button")
           chooseBtn.textContent = "Choose File"
           chooseBtn.style.cssText = "background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;color:#000;"
           chooseBtn.addEventListener("click", () => fileInput.click())
@@ -771,7 +751,7 @@ function ScaledHtmlPreview({
           dropZone.appendChild(fileInput)
           popover.appendChild(dropZone)
 
-          const removeBtn = doc.createElement("button")
+          const removeBtn = d.createElement("button")
           removeBtn.textContent = "Remove Image"
           removeBtn.style.cssText = "width:100%;background:#ef4444;color:#fff;border:none;border-radius:4px;padding:6px;font-size:12px;cursor:pointer;"
           removeBtn.addEventListener("click", () => {
@@ -784,12 +764,17 @@ function ScaledHtmlPreview({
           })
           popover.appendChild(removeBtn)
 
+          const origW = img.getAttribute("data-orig-w")
+          const origH = img.getAttribute("data-orig-h")
+
           function handleFile(file: File) {
             if (!file.type.startsWith("image/")) return
             const reader = new FileReader()
             reader.onload = () => {
               if (typeof reader.result === "string") {
                 img.src = reader.result
+                if (origW) img.setAttribute("width", origW)
+                if (origH) img.setAttribute("height", origH)
                 previewImg.src = reader.result
               }
             }
@@ -812,26 +797,53 @@ function ScaledHtmlPreview({
             if (f) handleFile(f)
           })
 
-          doc.body.appendChild(popover)
+          d.body.appendChild(popover)
           const closeOnOutside = (e: MouseEvent) => {
             if (!popover.contains(e.target as Node) && e.target !== img) {
               popover.remove()
-              doc.removeEventListener("click", closeOnOutside)
+              d.removeEventListener("click", closeOnOutside)
             }
           }
-          setTimeout(() => doc.addEventListener("click", closeOnOutside), 10)
+          setTimeout(() => d.addEventListener("click", closeOnOutside), 10)
         }
 
-        const images = doc.querySelectorAll("img")
+        const images = d.querySelectorAll("img")
         images.forEach((img) => {
           img.classList.add("ts-replaceable")
           if (img.hasAttribute("data-brand-logo")) {
-            const w = img.offsetWidth
-            const h = img.offsetHeight
-            if (w > 0) img.style.minWidth = `${w}px`
-            if (h > 0) img.style.minHeight = `${h}px`
             img.classList.add("ts-edit")
           }
+
+          const lockDimensions = () => {
+            if (img.getAttribute("data-dims-locked") === "1") return
+            const existingStyle = img.style
+            const templateH = existingStyle.height
+            const templateMaxH = existingStyle.maxHeight
+            const hasTemplateHeight = templateH && templateH !== "auto"
+            const hasTemplateMaxHeight = templateMaxH && templateMaxH !== "none"
+
+            const w = img.offsetWidth
+            const h = img.offsetHeight
+            if (w > 0 && h > 0) {
+              img.setAttribute("data-orig-w", String(w))
+              img.setAttribute("data-orig-h", String(h))
+              img.setAttribute("width", String(w))
+              img.setAttribute("height", String(h))
+              if (hasTemplateHeight || hasTemplateMaxHeight) {
+                const constrainH = hasTemplateHeight ? templateH : templateMaxH
+                img.style.cssText += `;width:auto !important;height:${constrainH} !important;max-width:${w}px !important;max-height:${constrainH} !important;object-fit:contain !important;display:block !important;`
+              } else {
+                img.style.cssText += `;width:${w}px !important;height:${h}px !important;max-width:${w}px !important;max-height:${h}px !important;object-fit:contain !important;display:block !important;`
+              }
+              img.setAttribute("data-dims-locked", "1")
+            }
+          }
+
+          lockDimensions()
+          if (img.getAttribute("data-dims-locked") !== "1") {
+            img.addEventListener("load", lockDimensions, { once: true })
+          }
+
           img.addEventListener("click", (e) => {
             e.stopPropagation()
             showImagePopover(img)
@@ -963,8 +975,12 @@ const getPlaces = (): GPlaces | undefined => {
   return win.google?.maps?.places
 }
 
-export default function PricingEnginePage() {
-  const searchParams = useSearchParams()
+export default function PricingEnginePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const resolvedSearchParams = use(searchParams)
   const { orgRole } = useAuth()
   const [isBrokerMember, setIsBrokerMember] = useState<boolean>(false)
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null)
@@ -1011,7 +1027,10 @@ export default function PricingEnginePage() {
   const isBroker = orgRole === "org:broker" || orgRole === "broker" || isBrokerMember
   const [isInternalOrg, setIsInternalOrg] = useState<boolean>(false)
 
-  const initialLoanId = searchParams.get("loanId") ?? undefined
+  const initialLoanId =
+    (Array.isArray(resolvedSearchParams?.loanId)
+      ? resolvedSearchParams?.loanId?.[0]
+      : resolvedSearchParams?.loanId) ?? undefined
   const [scenariosList, setScenariosList] = useState<{ id: string; name?: string; primary?: boolean; created_at?: string }[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
   // Collapse the left app sidebar by default when entering this page.
@@ -1301,37 +1320,6 @@ export default function PricingEnginePage() {
     return () => { active = false }
   }, [initialLoanId])
 
-  // Fetch linked records for inputs with linked_table
-  useEffect(() => {
-    const linkedInputs = peInputDefs.filter((inp) => inp.linked_table)
-    if (linkedInputs.length === 0) return
-    let cancelled = false
-    const tableColumnPairs = new Map<string, string | null>()
-    for (const inp of linkedInputs) {
-      if (!tableColumnPairs.has(inp.linked_table!)) {
-        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null)
-      }
-    }
-    ;(async () => {
-      const results: Record<string, { id: string; label: string }[]> = {}
-      await Promise.all(
-        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
-          try {
-            const params = new URLSearchParams({ table })
-            if (column) params.set("expression", column)
-            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
-            const data = await res.json()
-            if (!cancelled && Array.isArray(data.records)) {
-              results[table] = data.records
-            }
-          } catch { /* ignore */ }
-        }),
-      )
-      if (!cancelled) setLinkedRecordsByTable(results)
-    })()
-    return () => { cancelled = true }
-  }, [peInputDefs])
-
   // Map input_code → input_id for the logic engine
   const codeToIdMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -1393,6 +1381,63 @@ export default function PricingEnginePage() {
     return byId
   }, [formValues, codeToIdMap])
 
+  // Conditional linked rules evaluation for PE inputs
+  const { resolvedLinks: peResolvedLinks, getResolvedLink: getPEResolvedLink, resolvedTableColumnPairs: peResolvedTableColumnPairs } = useLinkedRules(peInputDefs, formValuesById)
+
+  // Fetch linked records for inputs with resolved linked rules
+  useEffect(() => {
+    const tableColumnPairs = peResolvedTableColumnPairs()
+
+    if (tableColumnPairs.size === 0) return
+    let cancelled = false
+    ;(async () => {
+      const results: Record<string, { id: string; label: string }[]> = {}
+      await Promise.all(
+        Array.from(tableColumnPairs.entries()).map(async ([table, column]) => {
+          try {
+            const params = new URLSearchParams({ table })
+            if (column) params.set("expression", column)
+            const res = await fetch(`/api/inputs/linked-records?${params.toString()}`)
+            const data = await res.json()
+            if (!cancelled && Array.isArray(data.records)) {
+              results[table] = data.records
+            }
+          } catch { /* ignore */ }
+        }),
+      )
+      if (!cancelled) setLinkedRecordsByTable(results)
+    })()
+    return () => { cancelled = true }
+  }, [peInputDefs, peResolvedLinks, peResolvedTableColumnPairs])
+
+  // Auto-fill from linked record
+  const peRecordIds = useMemo(() => {
+    const ids: Record<string, string | undefined> = {}
+    for (const inp of peInputDefs) {
+      const key = `${inp.input_code}_record_id`
+      const val = extraFormValues[key]
+      if (val) ids[key] = String(val)
+    }
+    return ids
+  }, [peInputDefs, extraFormValues])
+  const { autofillValues: peAutofillValues, lockedInputCodes: peLockedInputCodes } = useAutofillFromLinkedRecord(peInputDefs, peRecordIds, peResolvedLinks)
+
+  // Apply auto-fill values to extraFormValues
+  useEffect(() => {
+    if (Object.keys(peAutofillValues).length === 0) return
+    setExtraFormValues((prev) => {
+      let updated = false
+      const next = { ...prev }
+      for (const [code, val] of Object.entries(peAutofillValues)) {
+        if (prev[code] !== val) {
+          next[code] = val
+          updated = true
+        }
+      }
+      return updated ? next : prev
+    })
+  }, [peAutofillValues])
+
   // Stable serialized key for formValuesById to avoid excessive refetches
   const formValuesByIdKey = useMemo(() => {
     try { return JSON.stringify(formValuesById) } catch { return "" }
@@ -1420,6 +1465,8 @@ export default function PricingEnginePage() {
       }
     })()
     return () => { active = false }
+    // formValuesByIdKey is stable serialized form of formValuesById to avoid excessive refetches
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formValuesByIdKey])
 
   // Evaluate expression-based defaults from current form values
@@ -1504,7 +1551,6 @@ export default function PricingEnginePage() {
     setTouched((prev) => prev[code] ? prev : { ...prev, [code]: true })
     clearSignalColor(code)
     setExtraFormValues((prev) => prev[code] === value ? prev : { ...prev, [code]: value })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleApplyFees = useCallback((lo?: string, la?: string) => {
@@ -2201,12 +2247,16 @@ export default function PricingEnginePage() {
 
   const recalcPayloadKey = useMemo(() => {
     if (recalcRequiredCodes.size === 0) return null
-    const subset: Record<string, unknown> = {}
-    for (const code of recalcRequiredCodes) {
-      subset[code] = formValues[code] ?? computedDefaults[code]
-    }
-    return JSON.stringify(subset)
-  }, [formValues, computedDefaults, recalcRequiredCodes])
+    try {
+      const payload = buildPayload()
+      const subset: Record<string, unknown> = {}
+      for (const code of recalcRequiredCodes) {
+        subset[code] = payload[code]
+      }
+      return JSON.stringify(subset)
+    } catch { return null }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues, extraFormValues, computedDefaults, peInputDefs, recalcRequiredCodes])
 
   const [lastRecalcKey, setLastRecalcKey] = useState<string | null>(null)
 
@@ -2334,7 +2384,8 @@ export default function PricingEnginePage() {
 
     // Hydrate record IDs for linked inputs from legacy payload keys
     for (const inp of peInputDefs) {
-      if (!inp.linked_table) continue
+      const resolvedLink = getPEResolvedLink(String(inp.id))
+      if (!resolvedLink) continue
       const idKey = `${inp.input_code}_record_id`
       const legacyId = payload[`${inp.input_code}_id`] ?? payload[`${inp.input_code}_record_id`]
       if (typeof legacyId === "string" && legacyId) hydrated[idKey] = legacyId
@@ -2986,7 +3037,8 @@ export default function PricingEnginePage() {
                                       touched={!!touched[field.input_code]}
                                       formValues={formValuesMerged}
                                       signalColor={signalColors[field.input_code] ?? null}
-                                      linkedRecords={field.linked_table ? linkedRecordsByTable[field.linked_table] : undefined}
+                                      linkedRecords={(() => { const r = getPEResolvedLink(String(field.id)); const t = r?.linked_table; return t ? linkedRecordsByTable[t] : undefined; })()}
+                                      isLocked={peLockedInputCodes.has(field.input_code)}
                                     />
                                   </div>
                                 )
@@ -3372,6 +3424,7 @@ function ResultCard({
   const [activeSheetIdx, setActiveSheetIdx] = useState<number>(0)
   const [isInternalOrg, setIsInternalOrg] = useState(false)
   const [sheetProps, setSheetProps] = useState<DSCRTermSheetData>({})
+  const [pdfBusy, setPdfBusy] = useState<number | null>(null)
   const previewRef = useRef<HTMLDivElement | null>(null)
 
   // Live Active/Inactive status via server-side API + polling
@@ -3957,6 +4010,72 @@ function ResultCard({
     }
   }
 
+  async function generatePdfDirect(rowIndex?: number): Promise<File> {
+    const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
+    const idx = rowIndex ?? Number(d?.highlight_display ?? 0)
+    const payloadRow: Record<string, unknown> = {
+      loan_price: pick<string | number>(d?.loan_price, idx),
+      interest_rate: pick<string | number>(d?.interest_rate, idx),
+    }
+    if (isBridgeResp) {
+      payloadRow["initial_loan_amount"] = pick<string | number>(d?.initial_loan_amount, idx)
+      const ip = pick<string | number>(d?.initial_pitia as any, idx)
+      payloadRow["initial_pitia"] = ip ?? (r as any)?.initial_pitia_cache?.[idx]
+      payloadRow["rehab_holdback"] = pick<string | number>(d?.rehab_holdback, idx)
+      payloadRow["total_loan_amount"] = pick<string | number>(d?.total_loan_amount, idx)
+      payloadRow["funded_pitia"] = pick<string | number>(d?.funded_pitia, idx)
+    } else {
+      payloadRow["loan_amount"] = loanAmount
+      payloadRow["ltv"] = ltv
+      payloadRow["pitia"] = pick<string | number>(d?.pitia, idx)
+      payloadRow["dscr"] = pick<string | number>(d?.dscr, idx)
+    }
+    const inputs = toYesNoDeep(rawInputs) as Record<string, unknown>
+    const normalizedRow = toYesNoDeep(payloadRow) as Record<string, unknown>
+
+    const evalRes = await fetch("/api/pe-term-sheets/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input_values: inputs }),
+    })
+    const evalJson = await evalRes.json().catch(() => ({ term_sheets: [], org_logos: null }))
+    const matchingSheets = evalJson.term_sheets as Array<{
+      id: string; template_name: string; html_content: string;
+      variables: TemplateVariable[]
+    }>
+    const evalOrgLogos = (evalJson.org_logos ?? { light: null, dark: null }) as OrgLogos
+    if (!matchingSheets || matchingSheets.length === 0) throw new Error("No matching term sheets")
+
+    const webhookBody = {
+      program: isInternal ? (r.internal_name ?? r.external_name ?? "Program") : (r.external_name ?? "Program"),
+      program_id: r.id ?? null,
+      row_index: idx,
+      inputs,
+      row: normalizedRow,
+      organization_member_id: memberId ?? null,
+    }
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const webhookRes = await fetch(`${TERMSHEET_WEBHOOK_NEW}?_=${encodeURIComponent(nonce)}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": nonce },
+      body: JSON.stringify(webhookBody),
+    })
+    const webhookRaw = await webhookRes.json().catch(() => ({}))
+    const webhookData: Record<string, string> = Array.isArray(webhookRaw) ? (webhookRaw[0] ?? {}) : (webhookRaw ?? {})
+
+    const html = resolveTemplateVariables(matchingSheets[0].html_content, matchingSheets[0].variables, webhookData, evalOrgLogos)
+    try {
+      const file = await renderIframeToPdfViaServer(html)
+      if (file) return file
+    } catch (serverErr) {
+      console.error("[generatePdfDirect] server PDF failed, falling back to client-side:", serverErr)
+    }
+    const file = await renderHtmlToPdfClientSide(html)
+    if (!file) throw new Error("Could not generate PDF")
+    return file
+  }
+
   return (
     <div className="mb-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
@@ -3994,7 +4113,7 @@ function ResultCard({
           </TooltipProvider>
           <ShareModal
             disabled={cardDisabled}
-            onPdfShare={() => openTermSheetPreview(undefined, { autoShare: true })}
+            onPdfShare={() => generatePdfDirect()}
             trigger={
               <Button size="icon" variant="ghost" aria-label="Share" disabled={cardDisabled}>
                 <IconShare3 className="h-4 w-4" />
@@ -4009,10 +4128,19 @@ function ResultCard({
                     size="icon"
                     variant="ghost"
                     aria-label="Download"
-                    disabled={cardDisabled}
-                    onClick={() => openTermSheetPreview(undefined, { autoDownloadPdf: true })}
+                    disabled={cardDisabled || pdfBusy !== null}
+                    onClick={async () => {
+                      setPdfBusy(-1)
+                      try {
+                        const file = await generatePdfDirect()
+                        await saveFileWithPrompt(file)
+                        void logCardTermSheetActivity("downloaded", file)
+                      } catch (e) {
+                        toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                      } finally { setPdfBusy(null) }
+                    }}
                   >
-                    <IconDownload className="h-4 w-4" />
+                    {pdfBusy === -1 ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -4215,15 +4343,15 @@ function ResultCard({
                                 >
                                   <IconEye className="h-4 w-4" />
                                 </Button>
-                              <ShareModal
-                                disabled={cardDisabled}
-                                onPdfShare={() => openTermSheetPreview(i, { autoShare: true })}
-                                trigger={
-                                  <Button size="icon" variant="ghost" aria-label="Share row" disabled={cardDisabled}>
-                                    <IconShare3 className="h-4 w-4" />
-                                  </Button>
-                                }
-                              />
+                                <ShareModal
+                                  disabled={cardDisabled}
+                                  onPdfShare={() => generatePdfDirect(i)}
+                                  trigger={
+                                    <Button size="icon" variant="ghost" aria-label="Share row" disabled={cardDisabled}>
+                                      <IconShare3 className="h-4 w-4" />
+                                    </Button>
+                                  }
+                                />
                                 <TooltipProvider delayDuration={0}>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -4232,10 +4360,19 @@ function ResultCard({
                                           size="icon"
                                           variant="ghost"
                                           aria-label="Download row"
-                                          disabled={cardDisabled}
-                                          onClick={() => openTermSheetPreview(i, { autoDownloadPdf: true })}
+                                          disabled={cardDisabled || pdfBusy !== null}
+                                          onClick={async () => {
+                                            setPdfBusy(i)
+                                            try {
+                                              const file = await generatePdfDirect(i)
+                                              await saveFileWithPrompt(file)
+                                              void logCardTermSheetActivity("downloaded", file)
+                                            } catch (e) {
+                                              toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                                            } finally { setPdfBusy(null) }
+                                          }}
                                         >
-                                          <IconDownload className="h-4 w-4" />
+                                          {pdfBusy === i ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
                                         </Button>
                                       </span>
                                     </TooltipTrigger>
@@ -4262,29 +4399,9 @@ function ResultCard({
             <ShareModal
               disabled={cardDisabled}
               onPdfShare={async () => {
-                try {
-                  const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
-                  const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                  const file = await renderPreviewToPdf()
-                  if (!file) throw new Error("Could not render PDF")
-                  const canShareFiles =
-                    hasShareApi &&
-                    "canShare" in navigator &&
-                    (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                  const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                  if (nav?.share && canShareFiles) {
-                    await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                    void logCardTermSheetActivity("shared", file)
-                  } else {
-                    await saveFileWithPrompt(file, handle)
-                    toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
-                    void logCardTermSheetActivity("downloaded", file)
-                  }
-                } catch (e) {
-                  if ((e as any)?.name === "AbortError") return
-                  const message = e instanceof Error ? e.message : "Unable to share"
-                  toast({ title: "Share failed", description: message, variant: "destructive" })
-                }
+                const file = await renderPreviewToPdf()
+                if (!file) throw new Error("Could not render PDF")
+                return file
               }}
               trigger={
                 <button
@@ -4297,36 +4414,25 @@ function ResultCard({
                 </button>
               }
             />
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <button
-                      type="button"
-                      aria-label="Download term sheet"
-                      disabled={cardDisabled}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-                      onClick={async () => {
-                        try {
-                          const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                          const file = await renderPreviewToPdf()
-                          if (!file) throw new Error("Could not render PDF")
-                          await saveFileWithPrompt(file, handle)
-                          void logCardTermSheetActivity("downloaded", file)
-                        } catch (e) {
-                          if ((e as any)?.name === "AbortError") return
-                          const message = e instanceof Error ? e.message : "Unknown error"
-                          toast({ title: "Download failed", description: message, variant: "destructive" })
-                        }
-                      }}
-                    >
-                      <IconDownload />
-                    </button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{cardDisabled ? (cardDisabledTooltip || "Unavailable") : "Download"}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <button
+              type="button"
+              aria-label="Download term sheet"
+              disabled={cardDisabled}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              onClick={async () => {
+                try {
+                  const file = await renderPreviewToPdf()
+                  if (!file) throw new Error("Could not render PDF")
+                  await saveFileWithPrompt(file)
+                  void logCardTermSheetActivity("downloaded", file)
+                } catch (e) {
+                  if ((e as any)?.name === "AbortError") return
+                  toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                }
+              }}
+            >
+              <IconDownload />
+            </button>
             <button
               type="button"
               aria-label="Close"
@@ -4455,6 +4561,7 @@ function ResultsPanel({
   const { orgRole } = useAuth()
   const isBroker = orgRole === "org:broker" || orgRole === "broker"
   const [selected, setSelected] = React.useState<SelectedRow | null>(null)
+  const [pdfBusyMain, setPdfBusyMain] = useState(false)
   useEffect(() => {
     onSelectedChange?.(selected)
   }, [selected, onSelectedChange])
@@ -4553,6 +4660,8 @@ function ResultsPanel({
         setSelected(selectedFromProps)
       }
     }
+    // selected used only for guard to avoid redundant setState; intentionally exclude to run only when props/results change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFromProps, results])
 
   const [mcpOpenMain, setMcpOpenMain] = useState<boolean>(false)
@@ -4970,6 +5079,80 @@ function ResultsPanel({
     }
   }
 
+  async function generatePdfDirectMain(): Promise<File> {
+    if (!selected) throw new Error("No program selected")
+    const d = (results?.[selected.programIdx]?.data ?? {}) as ProgramResponseData
+    const isBridgeResp =
+      Array.isArray(d?.total_loan_amount) ||
+      Array.isArray(d?.initial_loan_amount) ||
+      Array.isArray(d?.funded_pitia)
+    const idx = selected.rowIdx ?? Number(d?.highlight_display ?? 0)
+    const loanAmountM = isBridgeResp ? (Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[idx] : undefined) : d?.loan_amount
+    const ltvM = d?.ltv
+    const payloadRow: Record<string, unknown> = {
+      loan_price: Array.isArray(d?.loan_price) ? d.loan_price[idx] : undefined,
+      interest_rate: Array.isArray(d?.interest_rate) ? d.interest_rate[idx] : undefined,
+    }
+    if (isBridgeResp) {
+      payloadRow["initial_loan_amount"] = Array.isArray(d?.initial_loan_amount) ? d.initial_loan_amount[idx] : undefined
+      payloadRow["initial_pitia"] = Array.isArray(d?.initial_pitia) ? d.initial_pitia[idx] : (results?.[selected.programIdx] as any)?.initial_pitia_cache?.[idx]
+      payloadRow["rehab_holdback"] = Array.isArray(d?.rehab_holdback) ? d.rehab_holdback[idx] : undefined
+      payloadRow["total_loan_amount"] = Array.isArray(d?.total_loan_amount) ? d.total_loan_amount[idx] : undefined
+      payloadRow["funded_pitia"] = Array.isArray(d?.funded_pitia) ? d.funded_pitia[idx] : undefined
+    } else {
+      payloadRow["loan_amount"] = loanAmountM
+      payloadRow["ltv"] = ltvM
+      payloadRow["pitia"] = Array.isArray(d?.pitia) ? d.pitia[idx] : undefined
+      payloadRow["dscr"] = Array.isArray(d?.dscr) ? d.dscr[idx] : undefined
+    }
+    const rawInputs = (typeof getInputs === "function" ? getInputs() : {}) as Record<string, unknown>
+    const inputs = toYesNoDeepGlobal(rawInputs) as Record<string, unknown>
+    const normalizedRow = toYesNoDeepGlobal(payloadRow) as Record<string, unknown>
+
+    const evalRes = await fetch("/api/pe-term-sheets/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input_values: inputs }),
+    })
+    const evalJson = await evalRes.json().catch(() => ({ term_sheets: [], org_logos: null }))
+    const matchingSheets = evalJson.term_sheets as Array<{
+      id: string; template_name: string; html_content: string;
+      variables: TemplateVariable[]
+    }>
+    const evalOrgLogos = (evalJson.org_logos ?? { light: null, dark: null }) as OrgLogos
+    if (!matchingSheets || matchingSheets.length === 0) throw new Error("No matching term sheets")
+
+    const r = results?.[selected.programIdx]
+    const webhookBody = {
+      program: (isInternalOrg ? (r?.internal_name ?? r?.external_name ?? "Program") : (r?.external_name ?? "Program")),
+      program_id: r?.id ?? null,
+      row_index: idx,
+      inputs,
+      row: normalizedRow,
+      organization_member_id: memberId ?? null,
+    }
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const res = await fetch(`${TERMSHEET_WEBHOOK_MAIN}?_=${encodeURIComponent(nonce)}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "Pragma": "no-cache", "X-Client-Request-Id": nonce },
+      body: JSON.stringify(webhookBody),
+    })
+    const webhookRaw = await res.json().catch(() => ({}))
+    const webhookData: Record<string, string> = Array.isArray(webhookRaw) ? (webhookRaw[0] ?? {}) : (webhookRaw ?? {})
+
+    const html = resolveTemplateVariables(matchingSheets[0].html_content, matchingSheets[0].variables, webhookData, evalOrgLogos)
+    try {
+      const file = await renderIframeToPdfViaServer(html)
+      if (file) return file
+    } catch (serverErr) {
+      console.error("[generatePdfDirectMain] server PDF failed, falling back to client-side:", serverErr)
+    }
+    const file = await renderHtmlToPdfClientSide(html)
+    if (!file) throw new Error("Could not generate PDF")
+    return file
+  }
+
   // Compute ordered list: PASS first, then highest loan amount, then lowest rate (must be called unconditionally).
   const orderedResults = React.useMemo(() => {
     const parseNum = (v: unknown): number => {
@@ -5165,6 +5348,22 @@ function ResultsPanel({
                     return `Selected: ${name}`
                   })()}
                 </div>
+                {(() => {
+                  const md = (results?.[selected.programIdx ?? 0]?.data ?? {}) as any
+                  const rsDate = md?.rate_sheet_date
+                  const rsActive = md?.rate_sheet_active
+                  if (!rsDate && rsActive == null) return null
+                  return (
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                      {rsDate && <span>Rate Sheet Date: {new Date(rsDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                      {rsActive != null && (
+                        <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", rsActive ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                          {rsActive ? "Active" : "Inactive"}
+                        </Badge>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
@@ -5179,7 +5378,7 @@ function ResultsPanel({
               </TooltipProvider>
               <ShareModal
                 disabled={!!resultsStale}
-                onPdfShare={() => openMainTermSheetPreview({ autoShare: true })}
+                onPdfShare={() => generatePdfDirectMain()}
                 trigger={
                   <Button size="icon" variant="ghost" aria-label="Share main" disabled={!!resultsStale}>
                     <IconShare3 className="h-4 w-4" />
@@ -5189,17 +5388,26 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Download main"
-                  disabled={!!resultsStale}
-                  onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
-                >
-                  <IconDownload className="h-4 w-4" />
-                </Button>
-              </span>
+                    <span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Download main"
+                        disabled={!!resultsStale || pdfBusyMain}
+                        onClick={async () => {
+                          setPdfBusyMain(true)
+                          try {
+                            const file = await generatePdfDirectMain()
+                            await saveFileWithPrompt(file)
+                            void logPanelTermSheetActivity("downloaded", file)
+                          } catch (e) {
+                            toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                          } finally { setPdfBusyMain(false) }
+                        }}
+                      >
+                        {pdfBusyMain ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
                 </Tooltip>
@@ -5235,29 +5443,9 @@ function ResultsPanel({
                 <ShareModal
                   disabled={!!resultsStale}
                   onPdfShare={async () => {
-                    try {
-                      const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
-                      const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                      const file = await renderPreviewToPdfMain()
-                      if (!file) throw new Error("Could not render PDF")
-                      const canShareFiles =
-                        hasShareApi &&
-                        "canShare" in navigator &&
-                        (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                      const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                      if (nav?.share && canShareFiles) {
-                        await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                        void logPanelTermSheetActivity("shared", file)
-                      } else {
-                        await saveFileWithPrompt(file, handle)
-                        toast({ title: "PDF Downloaded", description: "You can now share the downloaded file." })
-                        void logPanelTermSheetActivity("downloaded", file)
-                      }
-                    } catch (e) {
-                      if ((e as any)?.name === "AbortError") return
-                      const message = e instanceof Error ? e.message : "Unable to share"
-                      toast({ title: "Share failed", description: message, variant: "destructive" })
-                    }
+                    const file = await renderPreviewToPdfMain()
+                    if (!file) throw new Error("Could not render PDF")
+                    return file
                   }}
                   trigger={
                     <button
@@ -5270,36 +5458,25 @@ function ResultsPanel({
                     </button>
                   }
                 />
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <button
-                          type="button"
-                          aria-label="Download term sheet"
-                          disabled={!!resultsStale}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-                          onClick={async () => {
-                            try {
-                              const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                              const file = await renderPreviewToPdfMain()
-                              if (!file) throw new Error("Could not render PDF")
-                              await saveFileWithPrompt(file, handle)
-                              void logPanelTermSheetActivity("downloaded", file)
-                            } catch (e) {
-                              if ((e as any)?.name === "AbortError") return
-                              const message = e instanceof Error ? e.message : "Unknown error"
-                              toast({ title: "Download failed", description: message, variant: "destructive" })
-                            }
-                          }}
-                        >
-                          <IconDownload />
-                        </button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <button
+                  type="button"
+                  aria-label="Download term sheet"
+                  disabled={!!resultsStale}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                  onClick={async () => {
+                    try {
+                      const file = await renderPreviewToPdfMain()
+                      if (!file) throw new Error("Could not render PDF")
+                      await saveFileWithPrompt(file)
+                      void logPanelTermSheetActivity("downloaded", file)
+                    } catch (e) {
+                      if ((e as any)?.name === "AbortError") return
+                      toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                    }
+                  }}
+                >
+                  <IconDownload />
+                </button>
                 <button
                   type="button"
                   aria-label="Close"
@@ -5378,6 +5555,22 @@ function ResultsPanel({
                   return `Selected: ${name}`
                 })()}
               </div>
+              {(() => {
+                const md = (results?.[selected.programIdx]?.data ?? {}) as any
+                const rsDate = md?.rate_sheet_date
+                const rsActive = md?.rate_sheet_active
+                if (!rsDate && rsActive == null) return null
+                return (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                    {rsDate && <span>Rate Sheet Date: {new Date(rsDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                    {rsActive != null && (
+                      <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", rsActive ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                        {rsActive ? "Active" : "Inactive"}
+                      </Badge>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
@@ -5392,7 +5585,7 @@ function ResultsPanel({
               </TooltipProvider>
               <ShareModal
                 disabled={!!resultsStale}
-                onPdfShare={() => openMainTermSheetPreview({ autoShare: true })}
+                onPdfShare={() => generatePdfDirectMain()}
                 trigger={
                   <Button size="icon" variant="ghost" aria-label="Share main" disabled={!!resultsStale}>
                     <IconShare3 className="h-4 w-4" />
@@ -5402,17 +5595,26 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Download main"
-                  disabled={!!resultsStale}
-                  onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
-                >
-                  <IconDownload className="h-4 w-4" />
-                </Button>
-              </span>
+                    <span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Download main"
+                        disabled={!!resultsStale || pdfBusyMain}
+                        onClick={async () => {
+                          setPdfBusyMain(true)
+                          try {
+                            const file = await generatePdfDirectMain()
+                            await saveFileWithPrompt(file)
+                            void logPanelTermSheetActivity("downloaded", file)
+                          } catch (e) {
+                            toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                          } finally { setPdfBusyMain(false) }
+                        }}
+                      >
+                        {pdfBusyMain ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
                 </Tooltip>
@@ -5463,6 +5665,22 @@ function ResultsPanel({
                   return `Selected: ${name}`
                 })()}
               </div>
+              {(() => {
+                const md = (results?.[selected.programIdx]?.data ?? {}) as any
+                const rsDate = md?.rate_sheet_date
+                const rsActive = md?.rate_sheet_active
+                if (!rsDate && rsActive == null) return null
+                return (
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                    {rsDate && <span>Rate Sheet Date: {new Date(rsDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>}
+                    {rsActive != null && (
+                      <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] capitalize", rsActive ? "bg-success-muted text-success border-success/30" : "bg-danger-muted text-danger border-danger/30")}>
+                        {rsActive ? "Active" : "Inactive"}
+                      </Badge>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
@@ -5477,7 +5695,7 @@ function ResultsPanel({
               </TooltipProvider>
               <ShareModal
                 disabled={!!resultsStale}
-                onPdfShare={() => openMainTermSheetPreview({ autoShare: true })}
+                onPdfShare={() => generatePdfDirectMain()}
                 trigger={
                   <Button size="icon" variant="ghost" aria-label="Share main" disabled={!!resultsStale}>
                     <IconShare3 className="h-4 w-4" />
@@ -5487,17 +5705,26 @@ function ResultsPanel({
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Download main"
-                  disabled={!!resultsStale}
-                  onClick={() => openMainTermSheetPreview({ autoDownloadPdf: true })}
-                >
-                  <IconDownload className="h-4 w-4" />
-                </Button>
-              </span>
+                    <span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Download main"
+                        disabled={!!resultsStale || pdfBusyMain}
+                        onClick={async () => {
+                          setPdfBusyMain(true)
+                          try {
+                            const file = await generatePdfDirectMain()
+                            await saveFileWithPrompt(file)
+                            void logPanelTermSheetActivity("downloaded", file)
+                          } catch (e) {
+                            toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                          } finally { setPdfBusyMain(false) }
+                        }}
+                      >
+                        {pdfBusyMain ? <LoaderCircleIcon className="h-4 w-4 animate-spin" /> : <IconDownload className="h-4 w-4" />}
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
                 </Tooltip>
@@ -5549,29 +5776,9 @@ function ResultsPanel({
               <ShareModal
                 disabled={!!resultsStale}
                 onPdfShare={async () => {
-                  try {
-                    const hasShareApi = typeof navigator !== "undefined" && "share" in navigator
-                    const handle = hasShareApi ? null : await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                    const file = await renderPreviewToPdfMain()
-                    if (!file) throw new Error("Could not render PDF")
-                    const canShareFiles =
-                      hasShareApi &&
-                      "canShare" in navigator &&
-                      (navigator as unknown as { canShare: (data: { files: File[] }) => boolean }).canShare?.({ files: [file] })
-                    const nav = navigator as unknown as { share?: (data: { files?: File[]; title?: string; text?: string }) => Promise<void> }
-                    if (nav?.share && canShareFiles) {
-                      await nav.share({ files: [file], title: "Term Sheet", text: "See attached term sheet PDF." })
-                      void logPanelTermSheetActivity("shared", file)
-                    } else {
-                      await saveFileWithPrompt(file, handle)
-                      toast({ title: "Saved", description: "PDF saved to your device." })
-                      void logPanelTermSheetActivity("downloaded", file)
-                    }
-                  } catch (e) {
-                    if ((e as any)?.name === "AbortError") return
-                    const message = e instanceof Error ? e.message : "Unable to share"
-                    toast({ title: "Share failed", description: message, variant: "destructive" })
-                  }
+                  const file = await renderPreviewToPdfMain()
+                  if (!file) throw new Error("Could not render PDF")
+                  return file
                 }}
                 trigger={
                   <button
@@ -5584,36 +5791,25 @@ function ResultsPanel({
                   </button>
                 }
               />
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <button
-                        type="button"
-                        aria-label="Download term sheet"
-                        disabled={!!resultsStale}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-                        onClick={async () => {
-                          try {
-                            const handle = await openSaveDialog(`term-sheet-${Date.now()}.pdf`)
-                            const file = await renderPreviewToPdfMain()
-                            if (!file) throw new Error("Could not render PDF")
-                            await saveFileWithPrompt(file, handle)
-                            void logPanelTermSheetActivity("downloaded", file)
-                          } catch (e) {
-                            if ((e as any)?.name === "AbortError") return
-                            const message = e instanceof Error ? e.message : "Unknown error"
-                            toast({ title: "Download failed", description: message, variant: "destructive" })
-                          }
-                        }}
-                      >
-                        <IconDownload />
-                      </button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{resultsStale ? "Recalculate to download term sheet" : "Download"}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <button
+                type="button"
+                aria-label="Download term sheet"
+                disabled={!!resultsStale}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                onClick={async () => {
+                  try {
+                    const file = await renderPreviewToPdfMain()
+                    if (!file) throw new Error("Could not render PDF")
+                    await saveFileWithPrompt(file)
+                    void logPanelTermSheetActivity("downloaded", file)
+                  } catch (e) {
+                    if ((e as any)?.name === "AbortError") return
+                    toast({ title: "Download failed", description: (e as Error)?.message || "Unknown error", variant: "destructive" })
+                  }
+                }}
+              >
+                <IconDownload />
+              </button>
               <button
                 type="button"
                 aria-label="Close"

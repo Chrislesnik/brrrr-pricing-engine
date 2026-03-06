@@ -53,6 +53,9 @@ public/grapesjs-style.css
 # Turborepo
 .turbo
 
+# Fumadocs MDX generated
+.source
+
 # Apps
 apps/*/node_modules
 apps/*/.next
@@ -77,3 +80,9 @@ packages/*/.turbo
 
 # Vapi voice context (runtime temp file)
 .vapi-voice-context.json
+
+# Claude Code
+.claude/
+
+# MCP config (contains secrets)
+.mcp.json

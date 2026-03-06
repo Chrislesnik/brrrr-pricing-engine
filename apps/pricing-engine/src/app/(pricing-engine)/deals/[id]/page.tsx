@@ -1,8 +1,8 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { use, useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@repo/ui/shadcn/button";
@@ -26,10 +26,10 @@ interface DealData {
   updated_at?: string;
 }
 
-function DealRecordContent() {
-  const params = useParams();
+function DealRecordContent({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
-  const dealId = params.id as string;
+  const dealId = resolvedParams.id;
   
   const [deal, setDeal] = useState<DealData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -261,6 +261,20 @@ function DealRecordContent() {
       .replace(/\s+/g, " ")
       .trim();
   }, [appSettings, deal, inputsList]);
+
+  useEffect(() => {
+    const label = evaluatedHeading || (deal ? deal.id : "");
+    if (label) {
+      window.dispatchEvent(
+        new CustomEvent("app:breadcrumb:update", { detail: { label } })
+      );
+    }
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("app:breadcrumb:update", { detail: { label: "" } })
+      );
+    };
+  }, [evaluatedHeading, deal]);
 
   if (loading) {
     return (
@@ -550,10 +564,14 @@ function DealRecordContent() {
   );
 }
 
-export default function DealRecordPage() {
+export default function DealRecordPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   return (
     <RouteProtection>
-      <DealRecordContent />
+      <DealRecordContent params={params} />
     </RouteProtection>
   );
 }

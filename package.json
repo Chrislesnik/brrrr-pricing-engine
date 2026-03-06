@@ -24,7 +24,10 @@
     "ios:add": "pnpm exec cap add ios",
     "ios:open": "pnpm exec cap open ios",
     "ios:sync:dev": "pnpm exec cap sync ios",
-    "ios:sync:prod": "APP_URL=https://www.pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios"
+    "ios:sync:prod": "APP_URL=https://www.pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios",
+    "build:openapi": "turbo run build:openapi --filter=@repo/api-contract",
+    "copy:spec": "cp packages/api-contract/dist/openapi.json apps/docs/public/openapi.json",
+    "predev:docs": "pnpm build:openapi && pnpm copy:spec"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
@@ -39,6 +42,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@ai-sdk/azure": "^3.0.38",
+    "@ai-sdk/google": "^3.0.34",
     "@grapesjs/studio-sdk-plugins": "^1.0.33",
     "@tiptap/core": "^3.20.0",
     "@tiptap/extension-color": "^3.20.0",
@@ -47,6 +52,7 @@
     "@tiptap/extension-typography": "^3.20.0",
     "@tiptap/pm": "^3.20.0",
     "@tiptap/react": "^3.20.0",
-    "@tiptap/starter-kit": "^3.20.0"
+    "@tiptap/starter-kit": "^3.20.0",
+    "jszip": "^3.10.1"
   }
 }

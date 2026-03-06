@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
 import { ensureLiveblocksRoom, ensureDealChatRoom } from "@/lib/liveblocks"
+import { CreateDealRequest, ListDealsQuery } from "@repo/api-contract"
 
 /* -------------------------------------------------------------------------- */
 /*  GET /api/deals — list deals for current user's org                         */
@@ -259,6 +260,14 @@ export async function POST(req: Request) {
     const json = await req.json().catch(() => null)
     if (!json) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    }
+
+    const contractResult = CreateDealRequest.safeParse(json)
+    if (!contractResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: contractResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
     }
 
     const parsed = createDealSchema.parse(json)

@@ -109,7 +109,7 @@ export function CodeEditor({ currentNodeId, ...props }: CodeEditorProps) {
       jsCompletionsRegistered = true;
       disposableRef.current = monaco.languages.registerCompletionItemProvider("javascript", {
         triggerCharacters: ["$", "."],
-        provideCompletionItems: (model, position) => {
+        provideCompletionItems: (model: any, position: any) => {
           const word = model.getWordUntilPosition(position);
           const range = {
             startLineNumber: position.lineNumber,
@@ -176,7 +176,7 @@ export function CodeEditor({ currentNodeId, ...props }: CodeEditorProps) {
       const language = props.defaultLanguage || "json";
       templateDisposableRef.current = monaco.languages.registerCompletionItemProvider(language, {
         triggerCharacters: ["@"],
-        provideCompletionItems: (model, position) => {
+        provideCompletionItems: (model: any, position: any) => {
           const nodeId = currentNodeIdRef.current;
           if (!nodeId) return { suggestions: [] };
 

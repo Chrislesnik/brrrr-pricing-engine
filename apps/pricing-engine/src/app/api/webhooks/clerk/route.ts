@@ -174,17 +174,119 @@ export async function POST(req: NextRequest) {
     }
     case "user.updated":
     case "user.created": {
-      const u = (data ?? {}) as { id?: string; first_name?: string | null; last_name?: string | null }
+      type ClerkEmailAddress = {
+        id?: string
+        email_address?: string
+        verification?: { status?: string }
+      }
+      type ClerkPhoneNumber = {
+        id?: string
+        phone_number?: string
+      }
+      type ClerkUserPayload = {
+        id?: string
+        first_name?: string | null
+        last_name?: string | null
+        email_addresses?: ClerkEmailAddress[]
+        primary_email_address_id?: string
+        phone_numbers?: ClerkPhoneNumber[]
+        primary_phone_number_id?: string
+        image_url?: string | null
+        has_image?: boolean
+        username?: string | null
+        last_sign_in_at?: number | null
+      }
+
+      const u = (data ?? {}) as ClerkUserPayload
       const userId = u.id as string | undefined
       if (!userId) break
+
+      const primaryEmail =
+        u.email_addresses?.find((e) => e.id === u.primary_email_address_id)
+          ?.email_address ?? null
+      const primaryEmailVerified =
+        u.email_addresses?.find((e) => e.id === u.primary_email_address_id)
+          ?.verification?.status === "verified"
+      const primaryPhone =
+        u.phone_numbers?.find((p) => p.id === u.primary_phone_number_id)
+          ?.phone_number ?? null
+
+      const firstName = u.first_name ?? null
+      const lastName = u.last_name ?? null
+      const fullName =
+        [firstName, lastName].filter(Boolean).join(" ") || null
+
+      const userPayload = {
+        clerk_user_id: userId,
+        first_name: firstName,
+        last_name: lastName,
+        full_name: fullName,
+        email: primaryEmail,
+        email_verified: primaryEmailVerified,
+        image_url: u.image_url ?? null,
+        avatar_url: u.image_url ?? null,
+        has_image: u.has_image ?? false,
+        clerk_username: u.username ?? null,
+        phone_number: primaryPhone,
+        last_sign_in_at: u.last_sign_in_at
+          ? new Date(u.last_sign_in_at).toISOString()
+          : null,
+      }
+
+      const { data: existingUser } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("clerk_user_id", userId)
+        .maybeSingle()
+
+      if (existingUser) {
+        const { error: userErr } = await supabaseAdmin
+          .from("users")
+          .update(userPayload)
+          .eq("id", existingUser.id)
+        if (userErr) {
+          console.error("[clerk-webhook] users update error:", userErr.message)
+        }
+      } else {
+        const { error: userErr } = await supabaseAdmin
+          .from("users")
+          .insert({ ...userPayload, is_internal_yn: false })
+        if (userErr) {
+          console.error("[clerk-webhook] users insert error:", userErr.message)
+        }
+      }
+
       const { error } = await supabaseAdmin
         .from("organization_members")
         .update({
-          first_name: (u.first_name ?? "") || null,
-          last_name: (u.last_name ?? "") || null,
+          first_name: firstName || null,
+          last_name: lastName || null,
         })
         .eq("user_id", userId)
-      if (error) return new Response(error.message, { status: 500 })
+      if (error) {
+        console.error("[clerk-webhook] organization_members update error:", error.message)
+      }
+      break
+    }
+    case "user.deleted": {
+      const deletedUserId = (data as { id?: string } | undefined)?.id
+      if (!deletedUserId) break
+
+      const { error: memDelErr } = await supabaseAdmin
+        .from("organization_members")
+        .delete()
+        .eq("user_id", deletedUserId)
+      if (memDelErr) {
+        console.error("[clerk-webhook] org_members delete on user.deleted:", memDelErr.message)
+      }
+
+      const { error: userDelErr } = await supabaseAdmin
+        .from("users")
+        .delete()
+        .eq("clerk_user_id", deletedUserId)
+      if (userDelErr) {
+        console.error("[clerk-webhook] users delete error:", userDelErr.message)
+      }
       break
     }
     case "organizationMembership.deleted": {

@@ -2,7 +2,6 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-
 export type DealRoleTypeRow = {
   id: number;
   name: string;
@@ -82,7 +81,6 @@ async function requireAuthAndOrg() {
 }
 
 async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: string) {
-  // Validate that this is an organization ID, not a user ID
   if (!orgId.startsWith('org_')) {
     throw new Error(
       `Invalid organization ID: "${orgId}". ` +
@@ -91,45 +89,22 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     );
   }
 
-  // Query the existing organizations table
   const { data, error } = await supabase
     .from("organizations")
     .select("id")
     .eq("clerk_organization_id", orgId)
     .single();
 
-  // If org exists, return it
-  if (data?.id) {
-    return data.id as string;
+  if (data?.id) return data.id as string;
+
+  if (error) {
+    console.error(`getOrgPk: lookup failed for ${orgId}:`, error.message);
   }
 
-  // If error is not "not found", throw it
-  if (error && error.code !== "PGRST116") {
-    console.error("Supabase query error:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
-    throw new Error(
-      `Failed to fetch organization from Supabase: ${error.message}. ` +
-      `Error code: ${error.code}. ` +
-      `This might be a Row Level Security (RLS) policy issue. ` +
-      `Ensure the organizations table has appropriate RLS policies configured.`
-    );
-  }
-
-  // Org doesn't exist - this shouldn't happen in production
-  // Organizations should be synced via Clerk webhooks
-  // As a fallback, we'll try to fetch from Clerk and create it
-  console.warn(`Organization ${orgId} not found in Supabase. This org should be synced via webhooks.`);
-  
-  // Don't auto-create - instead throw helpful error
   throw new Error(
     `Organization not found in Supabase database. ` +
-    `Please ensure Clerk webhooks are properly configured to sync organizations. ` +
-    `Webhook endpoint: ${process.env.NEXT_PUBLIC_APP_URL || 'your-domain'}/api/webhooks/clerk. ` +
-    `Alternatively, you can manually sync this organization using the Supabase SQL Editor.`
+    `This usually means Clerk webhooks haven't synced the organization or your membership. ` +
+    `Ensure your user appears in organization_members for this org.`
   );
 }
 

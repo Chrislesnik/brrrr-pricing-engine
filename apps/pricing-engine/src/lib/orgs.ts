@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 export { isPrivilegedRole } from "@/lib/utils"
@@ -9,12 +10,12 @@ export { isPrivilegedRole } from "@/lib/utils"
  * RPC calls through this client carry the org_id/org_role/member_role
  * claims that the can_access_org_resource() function needs.
  */
-async function supabaseForCaller(): Promise<ReturnType<typeof createClient>> {
+async function supabaseForCaller() {
   const { getToken } = await auth()
   const token = await getToken({ template: "supabase" })
   if (!token) throw new Error("Missing Supabase JWT from Clerk session")
 
-  return createClient(
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -27,7 +28,8 @@ async function supabaseForCaller(): Promise<ReturnType<typeof createClient>> {
 
 /**
  * Generic policy-engine check. Evaluates the `can_access_org_resource()`
- * RPC for any resource type (table, storage_bucket, feature).
+ * RPC using the caller's Clerk JWT. The JWT carries org_id, org_role,
+ * and org_member_role claims that the DB function uses.
  *
  * @returns true if access is granted, false otherwise
  */
@@ -36,14 +38,26 @@ export async function checkPolicyAccess(
   resourceName: string,
   action: string,
 ): Promise<boolean> {
-  const sb = await supabaseForCaller()
+  let sb
+  try {
+    sb = await supabaseForCaller()
+  } catch (err) {
+    console.error(
+      `checkPolicyAccess: JWT unavailable for ${action} on ${resourceType}:${resourceName}`,
+      err instanceof Error ? err.message : err,
+    )
+    return false
+  }
   const { data, error } = await sb.rpc("can_access_org_resource", {
     p_resource_type: resourceType,
     p_resource_name: resourceName,
     p_action: action,
   })
   if (error) {
-    console.error("checkPolicyAccess RPC error:", error.message)
+    console.error(
+      `checkPolicyAccess RPC error for ${action} on ${resourceType}:${resourceName}:`,
+      error.message,
+    )
     return false
   }
   return data === true

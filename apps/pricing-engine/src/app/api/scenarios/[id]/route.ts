@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 import { authForApiRoute } from "@/lib/orgs"
 import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 import { writeScenarioInputs, writeScenarioOutputs, readScenarioInputs, readScenarioOutputs } from "@/lib/scenario-helpers"
+import { UpdateScenarioRequest } from "@repo/api-contract"
 
 export const runtime = "nodejs"
 
@@ -96,6 +97,14 @@ export async function POST(
       loanId?: string
     }
 
+    const contractResult = UpdateScenarioRequest.safeParse(body)
+    if (!contractResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: contractResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
+    }
+
     // Fetch previous state for comparison
     const { data: previousScenario } = await supabaseAdmin
       .from("loan_scenarios")
@@ -129,9 +138,6 @@ export async function POST(
       if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
       data = existing as Record<string, unknown>
     }
-    const error = null
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
     // Write to normalized tables
     if (body.inputs !== undefined) {
       await writeScenarioInputs(id, body.inputs as Record<string, unknown>)

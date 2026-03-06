@@ -570,7 +570,7 @@ function ComposeEmailDialogInner({
       try {
         const cursor = editor.getTextCursorPosition()
         const current = cursor.block
-        const content = current.content
+        const content: any = current.content
         const isEmpty =
           Array.isArray(content) &&
           (content.length === 0 ||
@@ -642,7 +642,7 @@ function ComposeEmailDialogInner({
       try {
         const cursor = editor.getTextCursorPosition()
         const current = cursor.block
-        const content = current.content
+        const content: any = current.content
         const isSlash =
           Array.isArray(content) &&
           content.length === 1 &&
@@ -840,7 +840,7 @@ function ComposeEmailDialogInner({
             onFocusCapture={() => setActiveField(null)}
             onClick={() => {
               setActiveField(null)
-              editor.focus("end")
+              editor.focus()
             }}
           >
           <BlockNoteView
@@ -927,6 +927,7 @@ function ComposeEmailDialogInner({
             padding: 0.75rem 1.25rem;
             font-size: 14px;
             line-height: 1.6;
+            background: hsl(var(--background));
           }
           .compose-email-blocknote .bn-editor a {
             color: #0670DB;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Check,
   GripVertical,
@@ -18,6 +18,7 @@ import {
   PanelTopClose,
   Settings,
   Users,
+  Database,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -55,7 +56,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ColumnExpressionInput } from "@/components/column-expression-input";
+import { LinkedRulesSheet, type LinkedRule } from "@/components/linked-rules-sheet";
+import { AutofillRulesSheet, type AutofillRuleConfig } from "@/components/autofill-rules-sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -98,20 +100,12 @@ interface InputField {
   starred: boolean;
   display_order: number;
   created_at: string;
-  linked_table?: string | null;
-  linked_column?: string | null;
   tooltip?: string | null;
   placeholder?: string | null;
   default_value?: string | null;
   require_recalculate?: boolean;
 }
 
-function formatTableLabel(name: string): string {
-  return name
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 const INPUT_TYPES = [
   { value: "text", label: "Text" },
@@ -163,6 +157,19 @@ const COLUMN_ROLES = [
 ] as const;
 
 /* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function slugifyCode(label: string, prefix = "pe_"): string {
+  const slug = label.toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  return slug ? `${prefix}${slug}` : "";
+}
+
+const INPUT_CODE_PATTERN = /^[a-z0-9_]+$/;
+
+/* -------------------------------------------------------------------------- */
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
@@ -184,6 +191,13 @@ export function PricingEngineLayoutSettings() {
   const [newDropdownOptions, setNewDropdownOptions] = useState<string[]>([]);
   const [savingInput, setSavingInput] = useState(false);
 
+  // Input code state
+  const [newInputCode, setNewInputCode] = useState("");
+  const [inputCodeManuallyEdited, setInputCodeManuallyEdited] = useState(false);
+  const [inputCodeTaken, setInputCodeTaken] = useState(false);
+  const [inputCodeInvalidFormat, setInputCodeInvalidFormat] = useState(false);
+  const inputCodeCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Tooltip / placeholder / default value state
   const [newTooltip, setNewTooltip] = useState("");
   const [newPlaceholder, setNewPlaceholder] = useState("");
@@ -197,13 +211,6 @@ export function PricingEngineLayoutSettings() {
   const [newAddressGroup, setNewAddressGroup] = useState("property");
   const [newColumnRole, setNewColumnRole] = useState("");
 
-  // Database link state
-  const [newLinkedTable, setNewLinkedTable] = useState<string>("");
-  const [newLinkedColumn, setNewLinkedColumn] = useState<string>("");
-  const [linkableColumns, setLinkableColumns] = useState<{ name: string; type: string }[]>([]);
-  const [loadingColumns, setLoadingColumns] = useState(false);
-  const [linkableTables, setLinkableTables] = useState<{ value: string; label: string }[]>([]);
-  const [loadingTables, setLoadingTables] = useState(false);
 
   // Edit category state
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
@@ -212,6 +219,49 @@ export function PricingEngineLayoutSettings() {
 
   // Edit input state
   const [editingInputId, setEditingInputId] = useState<string | null>(null);
+
+  // Linked rules sheet state
+  const [linkedRulesOpen, setLinkedRulesOpen] = useState(false);
+  const [linkedRulesInputId, setLinkedRulesInputId] = useState<string | null>(null);
+  const [linkedRulesInputLabel, setLinkedRulesInputLabel] = useState("");
+  const [linkedRulesCounts, setLinkedRulesCounts] = useState<Record<string, number>>({});
+
+  // Pending link rules for add-input form (not yet persisted)
+  const [pendingLinkRules, setPendingLinkRules] = useState<LinkedRule[]>([]);
+  const [pendingLinkedRulesOpen, setPendingLinkedRulesOpen] = useState(false);
+
+  // Pending autofill rules for add-input form (not yet persisted)
+  const [pendingAutofillRules, setPendingAutofillRules] = useState<AutofillRuleConfig[]>([]);
+  const [pendingAutofillRulesOpen, setPendingAutofillRulesOpen] = useState(false);
+
+  // Autofill rules sheet state
+  const [autofillRulesOpen, setAutofillRulesOpen] = useState(false);
+  const [autofillRulesInputId, setAutofillRulesInputId] = useState<string | null>(null);
+  const [autofillRulesInputLabel, setAutofillRulesInputLabel] = useState("");
+
+  const openLinkedRulesSheet = useCallback((inputId: string, label: string) => {
+    setLinkedRulesInputId(inputId);
+    setLinkedRulesInputLabel(label);
+    setLinkedRulesOpen(true);
+  }, []);
+
+
+  const refreshLinkedRulesCounts = useCallback(async (inputIds: string[]) => {
+    if (inputIds.length === 0) return;
+    const counts: Record<string, number> = {};
+    await Promise.all(
+      inputIds.map(async (id) => {
+        try {
+          const res = await fetch(`/api/input-linked-rules?input_id=${id}`);
+          const json = await res.json();
+          counts[id] = Array.isArray(json.rules) ? json.rules.length : 0;
+        } catch {
+          counts[id] = 0;
+        }
+      })
+    );
+    setLinkedRulesCounts((prev) => ({ ...prev, ...counts }));
+  }, []);
 
   // Logic Builder sheet state
   const [logicBuilderOpen, setLogicBuilderOpen] = useState(false);
@@ -236,55 +286,32 @@ export function PricingEngineLayoutSettings() {
   const [sectionButtonsOpen, setSectionButtonsOpen] = useState(false);
   const [sectionButtonsCategoryId, setSectionButtonsCategoryId] = useState<number | null>(null);
 
-  // Fetch linkable tables
-  useEffect(() => {
-    let cancelled = false;
-    const fetchTables = async () => {
-      setLoadingTables(true);
-      try {
-        const res = await fetch("/api/supabase-schema?type=tables");
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data.tables)) {
-          setLinkableTables(
-            data.tables
-              .sort((a: string, b: string) => a.localeCompare(b))
-              .map((t: string) => ({ value: t, label: formatTableLabel(t) }))
-          );
-        }
-      } catch {
-        if (!cancelled) setLinkableTables([]);
-      } finally {
-        if (!cancelled) setLoadingTables(false);
-      }
-    };
-    fetchTables();
-    return () => { cancelled = true; };
-  }, []);
 
-  // Fetch columns when linked table changes
-  useEffect(() => {
-    if (!newLinkedTable) {
-      setLinkableColumns([]);
+  // Debounced input code uniqueness check
+  const checkInputCodeAvailability = useCallback((code: string, excludeId?: string) => {
+    if (inputCodeCheckRef.current) clearTimeout(inputCodeCheckRef.current);
+    if (!code.trim()) {
+      setInputCodeTaken(false);
       return;
     }
-    let cancelled = false;
-    const fetchColumns = async () => {
-      setLoadingColumns(true);
+    if (!INPUT_CODE_PATTERN.test(code)) {
+      setInputCodeInvalidFormat(true);
+      setInputCodeTaken(false);
+      return;
+    }
+    setInputCodeInvalidFormat(false);
+    inputCodeCheckRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/supabase-schema?type=columns&table=${encodeURIComponent(newLinkedTable)}`);
-        const data = await res.json();
-        if (!cancelled) {
-          setLinkableColumns(Array.isArray(data.columns) ? data.columns : []);
-        }
+        const params = new URLSearchParams({ code, table: "pricing_engine_inputs" });
+        if (excludeId) params.set("exclude_id", excludeId);
+        const res = await fetch(`/api/input-code-check?${params.toString()}`);
+        const json = await res.json();
+        setInputCodeTaken(!json.available);
       } catch {
-        if (!cancelled) setLinkableColumns([]);
-      } finally {
-        if (!cancelled) setLoadingColumns(false);
+        setInputCodeTaken(false);
       }
-    };
-    fetchColumns();
-    return () => { cancelled = true; };
-  }, [newLinkedTable]);
+    }, 300);
+  }, []);
 
   const dragTagIdx = useRef<number | null>(null);
 
@@ -312,6 +339,12 @@ export function PricingEngineLayoutSettings() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (inputs.length > 0) {
+      refreshLinkedRulesCounts(inputs.map((i) => i.id));
+    }
+  }, [inputs, refreshLinkedRulesCounts]);
 
   useEffect(() => {
     async function checkAccessAndFetch() {
@@ -427,6 +460,7 @@ export function PricingEngineLayoutSettings() {
         body: JSON.stringify({
           category_id: categoryId,
           input_label: newInputLabel.trim(),
+          input_code: newInputCode.trim() || undefined,
           input_type: newInputType,
           dropdown_options: TYPES_WITH_OPTIONS.has(newInputType) ? newDropdownOptions : null,
           config: (() => {
@@ -449,14 +483,27 @@ export function PricingEngineLayoutSettings() {
             }
             return Object.keys(c).length > 0 ? c : undefined;
           })(),
-          linked_table: newLinkedTable || null,
-          linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
           placeholder: newPlaceholder.trim() || null,
           default_value: newDefaultValue.trim() || null,
         }),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
+        if (pendingLinkRules.length > 0 && created?.id) {
+          await fetch("/api/input-linked-rules", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ input_id: Number(created.id), rules: pendingLinkRules }),
+          }).catch(() => {});
+        }
+        if (pendingAutofillRules.length > 0 && created?.id) {
+          await fetch("/api/input-autofill-rules", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target_input_id: Number(created.id), rules: pendingAutofillRules }),
+          }).catch(() => {});
+        }
         resetInputForm();
         await fetchData();
       } else {
@@ -503,9 +550,13 @@ export function PricingEngineLayoutSettings() {
         if (newColumnRole) {
           base.column_role = newColumnRole;
         }
+        delete base.autofill_source_input;
+        delete base.autofill_expression;
+        delete base.autofill_locked;
         const hadAddress = !!(input.config as Record<string, unknown> | undefined)?.address_role;
         const hadColumnRole = !!(input.config as Record<string, unknown> | undefined)?.column_role;
-        const needsClear = (hadAddress && !newAddressRole) || (hadColumnRole && !newColumnRole);
+        const hadAutofill = !!(input.config as Record<string, unknown> | undefined)?.autofill_source_input;
+        const needsClear = (hadAddress && !newAddressRole) || (hadColumnRole && !newColumnRole) || hadAutofill;
         return Object.keys(base).length > 0 || needsClear ? base : undefined;
       })();
       const res = await fetch("/api/pricing-engine-inputs", {
@@ -514,11 +565,10 @@ export function PricingEngineLayoutSettings() {
         body: JSON.stringify({
           id: input.id,
           input_label: newInputLabel.trim(),
+          input_code: newInputCode.trim() || undefined,
           input_type: newInputType,
           dropdown_options: TYPES_WITH_OPTIONS.has(newInputType) ? newDropdownOptions : null,
           config: configPayload,
-          linked_table: newLinkedTable || null,
-          linked_column: newLinkedColumn || null,
           tooltip: newTooltip.trim() || null,
           placeholder: newPlaceholder.trim() || null,
           default_value: newDefaultValue.trim() || null,
@@ -559,9 +609,6 @@ export function PricingEngineLayoutSettings() {
     setNewInputLabel("");
     setNewInputType("");
     setNewDropdownOptions([]);
-    setNewLinkedTable("");
-    setNewLinkedColumn("");
-    setLinkableColumns([]);
     setNewTooltip("");
     setNewPlaceholder("");
     setNewDefaultValue("");
@@ -572,6 +619,12 @@ export function PricingEngineLayoutSettings() {
     setPendingTableConfig(null);
     setPendingNumberConfig(null);
     setPendingDateConfig(null);
+    setPendingLinkRules([]);
+    setPendingAutofillRules([]);
+    setNewInputCode("");
+    setInputCodeManuallyEdited(false);
+    setInputCodeTaken(false);
+    setInputCodeInvalidFormat(false);
   };
 
   /* ---- Drag and drop handlers ---- */
@@ -635,7 +688,7 @@ export function PricingEngineLayoutSettings() {
 
   /* ---- Shared form fragment for dropdown/tags options ---- */
 
-  const optionsNeedSetting = TYPES_WITH_OPTIONS.has(newInputType) && !newLinkedTable;
+  const optionsNeedSetting = TYPES_WITH_OPTIONS.has(newInputType) && pendingLinkRules.length === 0;
 
   const renderOptionsEditor = () => {
     if (!optionsNeedSetting) return null;
@@ -678,6 +731,7 @@ export function PricingEngineLayoutSettings() {
               >
                 <span
                   draggable
+                  onPointerDown={(e) => e.stopPropagation()}
                   onDragStart={(e) => {
                     dragTagIdx.current = idx;
                     e.dataTransfer.effectAllowed = "move";
@@ -714,63 +768,32 @@ export function PricingEngineLayoutSettings() {
 
   const renderDatabaseLink = () => (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs flex items-center gap-1">
-          <Link2 className="size-3" />
-          Database Link
-        </Label>
-        {newLinkedTable ? (
-          <button
-            type="button"
-            className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-0.5"
-            onClick={() => {
-              setNewLinkedTable("");
-              setNewLinkedColumn("");
-            }}
-          >
-            <Unlink className="size-2.5" />
-            Remove
-          </button>
-        ) : null}
-      </div>
-      <Select
-        value={newLinkedTable || undefined}
-        onValueChange={(val) => {
-          setNewLinkedTable(val);
-          setNewLinkedColumn("");
-        }}
+      <Label className="text-xs flex items-center gap-1">
+        <Link2 className="size-3" />
+        Database Link
+      </Label>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full text-xs h-9 justify-start gap-2"
+        onClick={() => setPendingLinkedRulesOpen(true)}
       >
-        <SelectTrigger className="h-8 text-sm">
-          <SelectValue placeholder="None (standalone input)" />
-        </SelectTrigger>
-        <SelectContent>
-          {loadingTables ? (
-            <div className="px-2 py-1.5 text-xs text-muted-foreground">Loading tables…</div>
-          ) : linkableTables.length === 0 ? (
-            <div className="px-2 py-1.5 text-xs text-muted-foreground">No tables found</div>
-          ) : (
-            linkableTables.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))
-          )}
-        </SelectContent>
-      </Select>
-      {newLinkedTable && (
-        <>
-          <Label className="text-[10px] text-muted-foreground mt-1">
-            Display Expression (shown in dropdown)
-          </Label>
-          <ColumnExpressionInput
-            value={newLinkedColumn}
-            onChange={setNewLinkedColumn}
-            columns={linkableColumns}
-            loading={loadingColumns}
-            placeholder="e.g. @first_name @last_name"
-          />
-        </>
-      )}
+        <Settings className="size-3.5" />
+        <span className="flex-1 text-left">
+          {pendingLinkRules.length > 0
+            ? "Edit Database Link Rules"
+            : "Configure Database Link"}
+        </span>
+        {pendingLinkRules.length > 0 && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {pendingLinkRules.length} rule{pendingLinkRules.length !== 1 ? "s" : ""}
+          </Badge>
+        )}
+      </Button>
+      <p className="text-[10px] text-muted-foreground">
+        Link this input to a database table. Configure conditions to dynamically switch tables based on other input values.
+      </p>
     </div>
   );
 
@@ -1024,7 +1047,7 @@ export function PricingEngineLayoutSettings() {
   const isFormValid =
     newInputLabel.trim() &&
     newInputType &&
-    !(TYPES_WITH_OPTIONS.has(newInputType) && !newLinkedTable && newDropdownOptions.length === 0);
+    !(TYPES_WITH_OPTIONS.has(newInputType) && pendingLinkRules.length === 0 && newDropdownOptions.length === 0);
 
   /* ---- Render ---- */
 
@@ -1286,10 +1309,38 @@ export function PricingEngineLayoutSettings() {
                             <Input
                               placeholder="e.g. Loan Amount"
                               value={newInputLabel}
-                              onChange={(e) => setNewInputLabel(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewInputLabel(val);
+                                if (!inputCodeManuallyEdited) {
+                                  const code = slugifyCode(val);
+                                  setNewInputCode(code);
+                                  checkInputCodeAvailability(code, input.id);
+                                }
+                              }}
                               className="h-8 text-sm"
                               autoFocus
                             />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Input Code</Label>
+                            <Input
+                              placeholder="e.g. pe_loan_amount"
+                              value={newInputCode}
+                              onChange={(e) => {
+                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                                setNewInputCode(val);
+                                setInputCodeManuallyEdited(true);
+                                checkInputCodeAvailability(val, input.id);
+                              }}
+                              className={`h-8 text-sm font-mono ${inputCodeTaken || inputCodeInvalidFormat ? "border-destructive ring-1 ring-destructive" : ""}`}
+                            />
+                            {inputCodeTaken && (
+                              <p className="text-[10px] text-destructive">This code is already in use.</p>
+                            )}
+                            {inputCodeInvalidFormat && newInputCode && (
+                              <p className="text-[10px] text-destructive">Only lowercase letters, numbers, and underscores allowed.</p>
+                            )}
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-xs">Type</Label>
@@ -1403,7 +1454,64 @@ export function PricingEngineLayoutSettings() {
                           {renderAddressConfig()}
                           {renderColumnRole()}
 
-                          {newInputType !== "table" && renderDatabaseLink()}
+                          {newInputType !== "table" && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs flex items-center gap-1">
+                                <Link2 className="size-3" />
+                                Database Link
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-9 justify-start gap-2"
+                                onClick={() => openLinkedRulesSheet(input.id, input.input_label)}
+                              >
+                                <Settings className="size-3.5" />
+                                <span className="flex-1 text-left">
+                                  {(linkedRulesCounts[input.id] ?? 0) > 0
+                                    ? "Edit Database Link Rules"
+                                    : "Configure Database Link"}
+                                </span>
+                                {(linkedRulesCounts[input.id] ?? 0) > 0 && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
+                                  </Badge>
+                                )}
+                              </Button>
+                              <p className="text-[10px] text-muted-foreground">
+                                Link this input to a database table. Configure conditions to dynamically switch tables based on other input values.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Auto-Fill Rules */}
+                          <div className="space-y-1.5">
+                              <Label className="text-xs flex items-center gap-1">
+                                <Database className="size-3" />
+                                Auto-Fill Rules
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-9 justify-start gap-2"
+                                onClick={() => {
+                                  setAutofillRulesInputId(input.id);
+                                  setAutofillRulesInputLabel(input.input_label);
+                                  setAutofillRulesOpen(true);
+                                }}
+                              >
+                                <Settings className="size-3.5" />
+                                <span className="flex-1 text-left">
+                                  Configure Auto-Fill
+                                </span>
+                              </Button>
+                              <p className="text-[10px] text-muted-foreground">
+                                Populate this field with values from a linked record, with per-rule column expressions.
+                              </p>
+                            </div>
+
                           {renderOptionsEditor()}
 
                           <div className="space-y-1.5">
@@ -1433,7 +1541,7 @@ export function PricingEngineLayoutSettings() {
                               size="sm"
                               className="h-7 text-xs"
                               onClick={() => handleSaveInputEdit(input)}
-                              disabled={savingInput || !isFormValid}
+                              disabled={savingInput || !isFormValid || inputCodeTaken || inputCodeInvalidFormat}
                             >
                               {savingInput ? (
                                 <Loader2 className="size-3 animate-spin mr-1" />
@@ -1476,32 +1584,32 @@ export function PricingEngineLayoutSettings() {
                             >
                               {input.input_type === "calc_currency" ? "Calc $" : input.input_type}
                             </Badge>
-                            {input.linked_table && (
+                            {(linkedRulesCounts[input.id] ?? 0) > 0 && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
                                 variant="secondary"
                               >
                                 <Link2 className="size-2.5 mr-0.5" />
-                                {input.linked_table}
+                                {linkedRulesCounts[input.id]} rule{linkedRulesCounts[input.id] !== 1 ? "s" : ""}
                               </Badge>
                             )}
-                            {input.input_type === "boolean" && (input.config as Record<string, unknown>)?.boolean_display && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
+                            {input.input_type === "boolean" && Boolean((input.config as Record<string, unknown>)?.boolean_display) && (input.config as Record<string, unknown>).boolean_display !== "dropdown" && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                                 variant="secondary"
                               >
-                                {String((input.config as Record<string, unknown>).boolean_display)}
+                                {String((input.config as Record<string, unknown>).boolean_display ?? "")}
                               </Badge>
                             )}
-                            {input.config && (input.config as Record<string, unknown>).address_role && (
+                            {input.config && Boolean((input.config as Record<string, unknown>).address_role) && (
                               <Badge
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
                                 variant="secondary"
                               >
                                 <MapPin className="size-2.5 mr-0.5" />
-                                {String((input.config as Record<string, unknown>).address_role)}
+                                {String((input.config as Record<string, unknown>).address_role ?? "")}
                                 {(input.config as Record<string, unknown>).address_group && (input.config as Record<string, unknown>).address_group !== "property"
-                                  ? ` (${(input.config as Record<string, unknown>).address_group})`
+                                  ? ` (${String((input.config as Record<string, unknown>).address_group)})`
                                   : ""}
                               </Badge>
                             )}
@@ -1510,7 +1618,7 @@ export function PricingEngineLayoutSettings() {
                                 className="pointer-events-none rounded-sm text-[10px] px-1.5 h-5 bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
                                 variant="secondary"
                               >
-                                {String((input.config as Record<string, unknown>).group)}
+                                {String((input.config as Record<string, unknown>).group ?? "")}
                               </Badge>
                             )}
                             {input.input_type === "table" && Array.isArray((input.config as Record<string, unknown>)?.columns) && (
@@ -1574,12 +1682,12 @@ export function PricingEngineLayoutSettings() {
                                   resetInputForm();
                                   setEditingInputId(input.id);
                                   setNewInputLabel(input.input_label);
+                                  setNewInputCode(input.input_code);
+                                  setInputCodeManuallyEdited(true);
                                   setNewInputType(input.input_type);
                                   setNewDropdownOptions(
                                     input.dropdown_options ?? [],
                                   );
-                                  setNewLinkedTable(input.linked_table ?? "");
-                                  setNewLinkedColumn(input.linked_column ?? "");
                                   setNewTooltip(input.tooltip ?? "");
                                   setNewPlaceholder(input.placeholder ?? "");
                                   setNewDefaultValue(input.default_value ?? "");
@@ -1642,10 +1750,39 @@ export function PricingEngineLayoutSettings() {
                         <Input
                           placeholder="e.g. Loan Amount"
                           value={newInputLabel}
-                          onChange={(e) => setNewInputLabel(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewInputLabel(val);
+                            if (!inputCodeManuallyEdited) {
+                              const code = slugifyCode(val);
+                              setNewInputCode(code);
+                              checkInputCodeAvailability(code);
+                            }
+                          }}
                           className="h-8 text-sm"
                           autoFocus
                         />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Input Code</Label>
+                        <Input
+                          placeholder="e.g. pe_loan_amount"
+                          value={newInputCode}
+                          onChange={(e) => {
+                            const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                            setNewInputCode(val);
+                            setInputCodeManuallyEdited(true);
+                            checkInputCodeAvailability(val);
+                          }}
+                          className={`h-8 text-sm font-mono ${inputCodeTaken || inputCodeInvalidFormat ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        />
+                        {inputCodeTaken && (
+                          <p className="text-[10px] text-destructive">This code is already in use.</p>
+                        )}
+                        {inputCodeInvalidFormat && newInputCode && (
+                          <p className="text-[10px] text-destructive">Only lowercase letters, numbers, and underscores allowed.</p>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -1756,6 +1893,37 @@ export function PricingEngineLayoutSettings() {
                       {renderColumnRole()}
 
                       {newInputType !== "table" && renderDatabaseLink()}
+
+                      {/* Auto-Fill Rules */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs flex items-center gap-1">
+                          <Database className="size-3" />
+                          Auto-Fill Rules
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs h-9 justify-start gap-2"
+                          onClick={() => setPendingAutofillRulesOpen(true)}
+                        >
+                          <Settings className="size-3.5" />
+                          <span className="flex-1 text-left">
+                            {pendingAutofillRules.length > 0
+                              ? "Edit Auto-Fill Rules"
+                              : "Configure Auto-Fill"}
+                          </span>
+                          {pendingAutofillRules.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {pendingAutofillRules.length} rule{pendingAutofillRules.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground">
+                          Populate this field with values from a linked record, with per-rule column expressions.
+                        </p>
+                      </div>
+
                       {renderOptionsEditor()}
 
                       <div className="space-y-1.5">
@@ -1785,7 +1953,7 @@ export function PricingEngineLayoutSettings() {
                           size="sm"
                           className="h-7 text-xs"
                           onClick={() => handleAddInput(cat.id)}
-                          disabled={savingInput || !isFormValid}
+                          disabled={savingInput || !isFormValid || inputCodeTaken || inputCodeInvalidFormat}
                         >
                           {savingInput ? (
                             <Loader2 className="size-3 animate-spin mr-1" />
@@ -2007,6 +2175,47 @@ export function PricingEngineLayoutSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LinkedRulesSheet
+        open={linkedRulesOpen}
+        onOpenChange={setLinkedRulesOpen}
+        inputId={linkedRulesInputId ?? ""}
+        inputLabel={linkedRulesInputLabel}
+        inputsEndpoint="/api/pricing-engine-inputs"
+        onSaved={() => {
+          if (linkedRulesInputId) {
+            refreshLinkedRulesCounts([linkedRulesInputId]);
+          }
+        }}
+      />
+
+      <LinkedRulesSheet
+        open={pendingLinkedRulesOpen}
+        onOpenChange={setPendingLinkedRulesOpen}
+        inputId=""
+        inputLabel={newInputLabel}
+        inputsEndpoint="/api/pricing-engine-inputs"
+        pendingRules={pendingLinkRules}
+        onPendingRulesChange={setPendingLinkRules}
+      />
+
+      <AutofillRulesSheet
+        open={autofillRulesOpen}
+        onOpenChange={setAutofillRulesOpen}
+        targetInputId={autofillRulesInputId ?? ""}
+        targetInputLabel={autofillRulesInputLabel}
+        inputsEndpoint="/api/pricing-engine-inputs"
+      />
+
+      <AutofillRulesSheet
+        open={pendingAutofillRulesOpen}
+        onOpenChange={setPendingAutofillRulesOpen}
+        targetInputId=""
+        targetInputLabel={newInputLabel}
+        inputsEndpoint="/api/pricing-engine-inputs"
+        pendingRules={pendingAutofillRules}
+        onPendingRulesChange={setPendingAutofillRules}
+      />
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { ChevronsUpDown, Plus, Building2, Settings } from "lucide-react";
 import {
   useOrganization,
   useOrganizationList,
-  CreateOrganization,
 } from "@clerk/nextjs";
 import type { OrganizationResource } from "@clerk/types";
 import Image from "next/image";
@@ -19,12 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/shadcn/dialog";
+import { CreateOrgWizard } from "./create-org-wizard";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -116,11 +110,10 @@ export function TeamSwitcherV2() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            size="lg"
-            className="h-12 rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            size={isCollapsed ? "default" : "lg"}
+            className={`rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isCollapsed ? "justify-center !p-0" : ""}`}
             onClick={handleCreateOrganization}
           >
-            {/* Same structure as nav-user.tsx but for "Create Organization" */}
             <div className="size-8 flex items-center justify-center rounded-lg border shrink-0 overflow-hidden">
               <Building2 className="size-5" />
             </div>
@@ -147,14 +140,11 @@ export function TeamSwitcherV2() {
           <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
-                size="lg"
-                className="h-12 rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                size={isCollapsed ? "default" : "lg"}
+                className={`rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isCollapsed ? "justify-center !p-0" : ""}`}
                 data-testid="org-switcher"
               >
-                {/* EXACT same structure as nav-user.tsx - just with organization data */}
-
-                {/* Organization icon - same size as nav-user avatar */}
-                <div className="h-8 w-8 flex items-center justify-center rounded-lg border shrink-0 overflow-hidden">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg shrink-0 overflow-hidden border">
                   {currentOrg.imageUrl ? (
                     <Image
                       src={currentOrg.imageUrl}
@@ -237,32 +227,15 @@ export function TeamSwitcherV2() {
         </SidebarMenuItem>
       </SidebarMenu>
 
-      {/* Create Organization Modal - using shadcn Dialog for proper portal cleanup */}
-      <Dialog
+      <CreateOrgWizard
         open={showCreateOrg}
         onOpenChange={(open) => {
           setShowCreateOrg(open);
-          // When dialog closes after creating an org, force a re-sync
           if (!open && organization?.id) {
             setLastSyncedOrgId(null);
           }
         }}
-      >
-        <DialogContent className="max-w-md p-0">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Create Organization</DialogTitle>
-          </DialogHeader>
-          <CreateOrganization
-            afterCreateOrganizationUrl="/dashboard"
-            appearance={{
-              elements: {
-                modalBackdrop: "hidden",
-                card: "shadow-none border-0",
-              },
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      />
 
     </>
   );

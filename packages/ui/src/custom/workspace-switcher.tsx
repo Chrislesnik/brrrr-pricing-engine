@@ -103,7 +103,7 @@ export function WorkspaceSwitcher() {
   };
 
   return (
-    <div className="w-fit px-2">
+    <div className="w-full px-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className={`inline-flex items-center rounded-md border border-sidebar-border bg-sidebar-accent/10 text-xs font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-sidebar-ring ${isCollapsed ? "size-8 justify-center p-0" : "gap-1.5 px-2.5 py-1"}`}>
@@ -117,7 +117,7 @@ export function WorkspaceSwitcher() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="w-56 rounded-lg"
+          className="w-56 rounded-lg z-[200]"
           side={isMobile ? "bottom" : "right"}
           align="start"
           sideOffset={4}

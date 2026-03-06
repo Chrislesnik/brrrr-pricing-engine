@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import useSWR from "swr"
 import { PipelineTable } from "./components/pipeline-table"
 import { PageSkeleton } from "@/components/ui/table-skeleton"
-import { createSupabaseBrowser } from "@/lib/supabase-browser"
+import { useSupabaseBrowser } from "@/lib/supabase-browser"
 import type { LoanRow } from "./data/fetch-loans"
 import type { StarredInput, AddressInput, ColumnRoleInput, PEInputMeta } from "./components/pipeline-columns"
 
@@ -32,7 +32,7 @@ export default function PipelinePage() {
   const columnRoleInputs = data?.columnRoleInputs ?? []
   const allInputs = data?.allInputs ?? []
 
-  const supabase = useMemo(() => createSupabaseBrowser(), [])
+  const supabase = useSupabaseBrowser()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import {
   KeyRound,
   Lightbulb,
   ScrollText,
+  Shield,
   ShieldAlert,
 } from "lucide-react"
 import Link from "next/link"

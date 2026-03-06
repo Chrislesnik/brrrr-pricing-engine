@@ -550,8 +550,9 @@ function DealsDisplaySettings({
       <Button
         ref={btnRef}
         variant="outline"
+        size="default"
         onClick={() => setOpen(!open)}
-        className="h-8 font-normal"
+        className="font-normal"
       >
         <SlidersHorizontal className="text-muted-foreground" />
         Display
@@ -665,7 +666,7 @@ function DealsDisplaySettings({
                       className={cn(
                         "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
                         visible
-                          ? "border-primary/30 bg-primary/10 text-foreground"
+                          ? "border-border text-foreground"
                           : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
                       )}
                     >
@@ -1098,8 +1099,7 @@ export function DealsDataTable({
               onSetSubGroupBy={setSubGroupBy}
             />
             <Button
-              size="sm"
-              className="h-8"
+              size="default"
               onClick={() =>
                 onNewDeal
                   ? onNewDeal()

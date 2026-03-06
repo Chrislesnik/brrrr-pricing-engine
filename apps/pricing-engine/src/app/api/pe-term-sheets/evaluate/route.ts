@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Build response
     const result = matchingSheets.map((ts) => {
-      const tmpl = ts.document_templates as { id: string; name: string; html_content: string } | null;
+      const tmpl = ts.document_templates as unknown as { id: string; name: string; html_content: string } | null;
       const tmplVars = tmpl ? (varsByTemplate.get(tmpl.id) ?? []) : [];
 
       return {

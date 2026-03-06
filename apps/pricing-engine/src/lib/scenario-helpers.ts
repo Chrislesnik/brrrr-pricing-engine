@@ -8,22 +8,29 @@ export async function writeScenarioInputs(
   scenarioId: string,
   inputs: Record<string, unknown>
 ) {
-  // Fetch PE input map: input_code -> { id, input_type, linked_table }
+  // Fetch PE input map: input_code -> { id, input_type }
   const { data: peInputs } = await supabaseAdmin
     .from("pricing_engine_inputs")
-    .select("id, input_code, input_type, linked_table")
+    .select("id, input_code, input_type")
     .is("archived_at", null)
 
   if (!peInputs || peInputs.length === 0) return
 
-  const codeMap = new Map<string, { id: number; input_type: string; linked_table: string | null }>()
+  const codeMap = new Map<string, { id: number; input_type: string }>()
   for (const inp of peInputs) {
     codeMap.set(inp.input_code, {
       id: inp.id as number,
       input_type: inp.input_type as string,
-      linked_table: (inp.linked_table as string | null) ?? null,
     })
   }
+
+  // Fetch linked rules for all PE inputs to know which ones are linked
+  const allInputIds = peInputs.map((inp) => inp.id)
+  const { data: linkedRules } = await supabaseAdmin
+    .from("input_linked_rules")
+    .select("input_id")
+    .in("input_id", allInputIds)
+  const linkedInputIds = new Set((linkedRules ?? []).map((r) => r.input_id as number))
 
   // Delete existing rows for this scenario
   await supabaseAdmin
@@ -61,6 +68,7 @@ export async function writeScenarioInputs(
     max_leverage_requested: "request_max_leverage",
     closing_date: "projected_closing_date",
     projected_note_date: "projected_closing_date",
+    target_closing_date: "projected_closing_date",
     hoi_effective_date: "hoi_effective",
     flood_effective_date: "flood_effective",
     unit_data: "leased_units",
@@ -97,7 +105,7 @@ export async function writeScenarioInputs(
     }
 
     // Populate linked_record_id for inputs that reference another table
-    if (pe.linked_table) {
+    if (linkedInputIds.has(pe.id)) {
       const recordId = inputs[`${code}_record_id`] ?? inputs[`${code}_id`]
       if (typeof recordId === "string" && recordId) {
         row.linked_record_id = recordId
@@ -170,7 +178,7 @@ export async function writeScenarioOutputs(
         loan_amount: o.loan_amount != null ? String(o.loan_amount) : null,
         ltv: o.ltv != null ? String(o.ltv) : null,
         validations: Array.isArray(o.validations) ? o.validations.filter(Boolean).map(String) : null,
-        warnings: Array.isArray(o.warnings ?? o.warning) ? (o.warnings ?? o.warning as unknown[]).filter(Boolean).map(String) : null,
+        warnings: Array.isArray(o.warnings ?? o.warning) ? ((o.warnings ?? o.warning) as unknown[]).filter(Boolean).map(String) : null,
         raw_response: o,
       })
       .select("id")
@@ -374,16 +382,21 @@ export async function readScenarioInputs(
   const inputIds = rows.map((r) => r.pricing_engine_input_id)
   const { data: readPeInputs } = await supabaseAdmin
     .from("pricing_engine_inputs")
-    .select("id, input_code, input_type, linked_table")
+    .select("id, input_code, input_type")
     .in("id", inputIds)
 
   if (!readPeInputs) return {}
 
+  // Check which inputs have linked rules
+  const { data: readLinkedRules } = await supabaseAdmin
+    .from("input_linked_rules")
+    .select("input_id")
+    .in("input_id", inputIds)
+  const linkedIds = new Set((readLinkedRules ?? []).map((r) => r.input_id as number))
+
   const idToCode = new Map<number, string>()
-  const idToLinkedTable = new Map<number, string | null>()
   for (const inp of readPeInputs) {
     idToCode.set(inp.id as number, inp.input_code as string)
-    idToLinkedTable.set(inp.id as number, (inp.linked_table as string | null) ?? null)
   }
 
   const result: Record<string, unknown> = {}
@@ -406,7 +419,7 @@ export async function readScenarioInputs(
 
     // Restore linked record ID for linked inputs
     const linkedRecordId = row.linked_record_id as string | null
-    if (linkedRecordId && idToLinkedTable.get(row.pricing_engine_input_id as number)) {
+    if (linkedRecordId && linkedIds.has(row.pricing_engine_input_id as number)) {
       result[`${code}_record_id`] = linkedRecordId
     }
   }

@@ -1,0 +1,59 @@
+---
+title: Python SDK
+description: Python client for the dscr.ai API with async support.
+---
+
+The official Python SDK provides both sync and async clients for the dscr.ai API.
+
+## Installation
+
+```bash
+pip install dscr-sdk
+```
+
+## Quick Start
+
+```python
+from dscr import DscrClient
+
+client = DscrClient(api_key="your-api-key")
+
+deals = client.deals.list()
+```
+
+## Async Support
+
+```python
+from dscr import AsyncDscrClient
+
+client = AsyncDscrClient(api_key="your-api-key")
+deals = await client.deals.list()
+```
+
+## Configuration
+
+```python
+client = DscrClient(
+    api_key="sk_live_...",
+    base_url="https://pricingengine.pro",
+)
+```
+
+## Available Methods
+
+### Deals
+
+```python
+client.deals.list(limit=25)        # List deals
+client.deals.get(deal_id)          # Get a deal by ID
+client.deals.create(data)          # Create a new deal
+client.deals.update(deal_id, data) # Update a deal
+```
+
+### Borrowers
+
+```python
+client.borrowers.list()            # List borrowers
+client.borrowers.get(borrower_id)  # Get a borrower by ID
+client.borrowers.create(data)      # Create a new borrower
+```

@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { liveblocks } from "@/lib/liveblocks"
+import { getLiveblocks } from "@/lib/liveblocks"
 import { getOrgUuidFromClerkId } from "@/lib/orgs"
 
 /**
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const templateUuid = row.uuid as string
     const newRoomId = `email_template:${templateUuid}`
 
-    await liveblocks.getOrCreateRoom(newRoomId, {
+    await getLiveblocks().getOrCreateRoom(newRoomId, {
       defaultAccesses: ["room:write"],
       usersAccesses: { [userId]: ["room:write"] },
       metadata: {
@@ -85,9 +85,9 @@ export async function POST(req: NextRequest) {
     })
 
     try {
-      const yjsBinary = await liveblocks.getYjsDocumentAsBinaryUpdate(sourceRoomId)
+      const yjsBinary = await getLiveblocks().getYjsDocumentAsBinaryUpdate(sourceRoomId)
       if (yjsBinary && yjsBinary.byteLength > 0) {
-        await liveblocks.sendYjsBinaryUpdate(newRoomId, new Uint8Array(yjsBinary))
+        await getLiveblocks().sendYjsBinaryUpdate(newRoomId, new Uint8Array(yjsBinary))
       }
     } catch (yjsErr) {
       console.warn("[duplicate] Could not copy Yjs document, will fall back to DB content:", yjsErr)

@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "getting-started",
+    "platform-overview",
+    "authentication",
+    "api-overview",
+    "concepts",
+    "guides",
+    "power-users",
+    "reference",
+    "sdks",
+    "changelog"
+  ]
+}

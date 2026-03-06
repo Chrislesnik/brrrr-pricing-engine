@@ -22,7 +22,6 @@ export async function getOrgInternalFlag(): Promise<{ isInternal: boolean }> {
   const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  // Policy-engine check: read access on organizations table
   await assertPolicyAccess("table", "organizations", "select");
   const { isInternal } = await getOrgPk(orgId);
   return { isInternal };
@@ -34,7 +33,6 @@ export async function setOrgInternalFlag(input: {
   const { orgId } = await auth();
   if (!orgId) throw new Error("No active organization selected.");
 
-  // Policy-engine check: write access on organizations table
   await assertPolicyAccess("table", "organizations", "update");
   const { orgPk } = await getOrgPk(orgId);
 
@@ -56,29 +54,38 @@ export async function setOrgInternalFlag(input: {
 
 export async function getOrgMemberRoles(): Promise<{
   roles: Record<string, string | null>;
+  error?: string;
 }> {
-  const { orgId } = await auth();
-  if (!orgId) throw new Error("No active organization selected.");
+  try {
+    const { orgId } = await auth();
+    if (!orgId) return { roles: {}, error: "No active organization selected." };
 
-  // Policy-engine check: read access on organization_members table
-  await assertPolicyAccess("table", "organization_members", "select");
-  const { orgPk } = await getOrgPk(orgId);
+    await assertPolicyAccess("table", "organization_members", "select");
+    const { orgPk } = await getOrgPk(orgId);
 
-  const { data, error } = await supabaseAdmin
-    .from("organization_members")
-    .select("user_id,clerk_member_role")
-    .eq("organization_id", orgPk);
+    const { data, error } = await supabaseAdmin
+      .from("organization_members")
+      .select("user_id,clerk_member_role")
+      .eq("organization_id", orgPk);
 
-  if (error) throw new Error(error.message);
-
-  const roles: Record<string, string | null> = {};
-  for (const row of data ?? []) {
-    if (row.user_id) {
-      roles[row.user_id] = row.clerk_member_role ?? null;
+    if (error) {
+      console.error("getOrgMemberRoles query error:", error.message);
+      return { roles: {}, error: error.message };
     }
-  }
 
-  return { roles };
+    const roles: Record<string, string | null> = {};
+    for (const row of data ?? []) {
+      if (row.user_id) {
+        roles[row.user_id] = row.clerk_member_role ?? null;
+      }
+    }
+
+    return { roles };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("getOrgMemberRoles failed:", msg);
+    return { roles: {}, error: msg };
+  }
 }
 
 /**
@@ -88,29 +95,95 @@ export async function getOrgMemberRoles(): Promise<{
 export async function getActiveMemberRoleOptions(): Promise<
   { value: string; label: string }[]
 > {
-  const { orgId } = await auth();
-  if (!orgId) return [];
+  try {
+    const { orgId } = await auth();
+    if (!orgId) return [];
 
-  // Policy-engine check: read access on organization_member_roles table
-  await assertPolicyAccess("table", "organization_member_roles", "select");
-  const { orgPk } = await getOrgPk(orgId);
+    await assertPolicyAccess("table", "organization_member_roles", "select");
+    const { orgPk } = await getOrgPk(orgId);
 
-  const { data, error } = await supabaseAdmin
-    .from("organization_member_roles")
-    .select("role_code, role_name")
-    .or(`organization_id.is.null,organization_id.eq.${orgPk}`)
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
+    const { data, error } = await supabaseAdmin
+      .from("organization_member_roles")
+      .select("role_code, role_name")
+      .or(`organization_id.is.null,organization_id.eq.${orgPk}`)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
 
-  if (error) {
-    console.error("getActiveMemberRoleOptions error:", error.message);
+    if (error) {
+      console.error("getActiveMemberRoleOptions query error:", error.message);
+      return [];
+    }
+
+    return (data ?? []).map((r) => ({
+      value: r.role_code as string,
+      label: r.role_name as string,
+    }));
+  } catch (err) {
+    console.error(
+      "getActiveMemberRoleOptions failed:",
+      err instanceof Error ? err.message : err,
+    );
     return [];
   }
+}
 
-  return (data ?? []).map((r) => ({
-    value: r.role_code as string,
-    label: r.role_name as string,
-  }));
+export async function getClerkOrgRoleOptions(): Promise<
+  { value: string; label: string }[]
+> {
+  try {
+    const { orgId } = await auth();
+    if (!orgId) return [];
+
+    const secretKey = process.env.CLERK_SECRET_KEY;
+    if (!secretKey) {
+      console.error("getClerkOrgRoleOptions: CLERK_SECRET_KEY not set");
+      return [];
+    }
+
+    const res = await fetch("https://api.clerk.com/v1/organization_roles", {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+
+    if (!res.ok) {
+      console.error(
+        "getClerkOrgRoleOptions: Clerk API returned",
+        res.status,
+        await res.text(),
+      );
+      return [];
+    }
+
+    const body = await res.json();
+    const roles: { key: string; name: string }[] = body?.data ?? [];
+    return roles.map((r) => ({ value: r.key, label: r.name }));
+  } catch (err) {
+    console.error(
+      "getClerkOrgRoleOptions failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
+}
+
+export async function setOrgClerkRole(input: {
+  clerkUserId: string;
+  clerkOrgRole: string;
+}): Promise<{ ok: true }> {
+  const { orgId } = await auth();
+  if (!orgId) throw new Error("No active organization selected.");
+
+  await assertPolicyAccess("table", "organization_members", "update");
+  const { orgPk } = await getOrgPk(orgId);
+
+  const { error } = await supabaseAdmin
+    .from("organization_members")
+    .update({ clerk_org_role: input.clerkOrgRole })
+    .eq("organization_id", orgPk)
+    .eq("user_id", input.clerkUserId);
+
+  if (error) throw new Error(error.message);
+
+  return { ok: true };
 }
 
 export async function setOrgMemberRole(input: {
@@ -131,29 +204,67 @@ export async function setOrgMemberRole(input: {
 
   if (error) throw new Error(error.message);
 
-  // Sync updated role to Clerk metadata so the user's JWT is refreshed
-  // with the new claim on the next token rotation.
+  // Sync updated role to Clerk membership metadata so the user's JWT
+  // includes the new org_member_role claim on the next token rotation.
   try {
     const clerk = await clerkClient();
-    const memberships = await clerk.organizations.getOrganizationMembershipList({
+    await clerk.organizations.updateOrganizationMembershipMetadata({
       organizationId: orgId,
+      userId: input.clerkUserId,
+      publicMetadata: {
+        org_member_role: input.memberRole,
+      },
     });
-    const membership = memberships.data?.find(
-      (m) => m.publicUserData?.userId === input.clerkUserId
-    );
-    if (membership) {
-      await clerk.organizations.updateOrganizationMembership({
-        organizationId: orgId,
-        userId: input.clerkUserId,
-        publicMetadata: {
-          ...(membership.publicMetadata ?? {}),
-          org_member_role: input.memberRole,
-        },
-      });
-    }
   } catch (syncErr) {
     console.error("Failed to sync member role to Clerk metadata:", syncErr);
   }
+
+  return { ok: true };
+}
+
+export async function deleteOrganizationAction(input: {
+  confirmationName: string;
+}): Promise<{ ok: true }> {
+  const { orgId } = await auth();
+  if (!orgId) throw new Error("No active organization selected.");
+
+  await assertPolicyAccess("table", "organizations", "delete");
+
+  const clerk = await clerkClient();
+  const clerkOrg = await clerk.organizations.getOrganization({
+    organizationId: orgId,
+  });
+
+  if (
+    input.confirmationName.trim().toLowerCase() !==
+    clerkOrg.name.trim().toLowerCase()
+  ) {
+    throw new Error(
+      "Confirmation name does not match. Please type the exact organization name.",
+    );
+  }
+
+  const { orgPk } = await getOrgPk(orgId);
+
+  // Delete from Supabase first (cascade will handle related rows)
+  const { error: membersErr } = await supabaseAdmin
+    .from("organization_members")
+    .delete()
+    .eq("organization_id", orgPk);
+  if (membersErr) {
+    console.error("deleteOrg: members delete error:", membersErr.message);
+  }
+
+  const { error: orgErr } = await supabaseAdmin
+    .from("organizations")
+    .delete()
+    .eq("id", orgPk);
+  if (orgErr) {
+    throw new Error(`Failed to delete organization from database: ${orgErr.message}`);
+  }
+
+  // Delete from Clerk
+  await clerk.organizations.deleteOrganization(orgId);
 
   return { ok: true };
 }

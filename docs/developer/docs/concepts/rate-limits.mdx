@@ -1,0 +1,14 @@
+---
+title: "Rate Limits"
+description: "Understand API rate limits and how to handle throttled requests."
+---
+
+The dscr.ai API enforces rate limits to ensure fair usage and platform stability. Rate limits are applied per API key and vary by endpoint.
+
+## Default Limits
+
+Most endpoints allow 100 requests per minute per API key. Bulk operations and report generation endpoints may have lower limits.
+
+## Handling Rate Limits
+
+When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.

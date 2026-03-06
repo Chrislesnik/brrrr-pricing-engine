@@ -31,8 +31,8 @@ export default async function PoliciesPage({
   }
 
   return (
-    <div className="w-full min-h-full flex justify-center px-6 py-6 md:px-8 md:py-8">
-      <div className="w-full max-w-6xl space-y-8">
+    <div className="w-full min-h-full px-4 pt-3 pb-3 mx-7 md:px-8 md:pt-8 md:pb-8">
+      <div className="w-full max-w-6xl mx-auto space-y-8">
         <div>
           <Link
             href={`/org/${orgId}/settings`}

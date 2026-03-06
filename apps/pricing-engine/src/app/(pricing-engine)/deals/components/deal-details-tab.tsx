@@ -28,6 +28,8 @@ import {
 import { DatePickerField } from "@/components/date-picker-field";
 import { CalcInput } from "@/components/calc-input";
 import { LinkedAutocompleteInput } from "@/components/linked-autocomplete-input";
+import { useLinkedRules } from "@/hooks/use-linked-rules";
+import { useAutofillFromLinkedRecord } from "@/hooks/use-autofill-from-linked-record";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,14 +59,13 @@ interface InputField {
   category_id: number;
   category: string;
   input_label: string;
+  input_code: string;
   input_type: string;
   dropdown_options: string[] | null;
   config?: Record<string, unknown> | null;
   starred: boolean;
   display_order: number;
   created_at: string;
-  linked_table?: string | null;
-  linked_column?: string | null;
 }
 
 interface LinkedRecord {
@@ -120,6 +121,34 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const [linkedRecordsByTable, setLinkedRecordsByTable] = useState<Record<string, LinkedRecord[]>>({});
   const [loadingLinkedRecords, setLoadingLinkedRecords] = useState(false);
 
+  // Conditional linked rules evaluation
+  const { resolvedLinks, getResolvedLink, resolvedTableColumnPairs } = useLinkedRules(inputFields, editedValues);
+
+  // Track record IDs selected from linked dropdowns
+  const [recordIds, setRecordIds] = useState<Record<string, string | undefined>>({});
+
+  // Auto-fill from linked record
+  const { autofillValues, lockedInputCodes } = useAutofillFromLinkedRecord(inputFields, recordIds, resolvedLinks);
+
+  // Apply auto-fill values to editedValues
+  useEffect(() => {
+    if (Object.keys(autofillValues).length === 0) return;
+    setEditedValues((prev) => {
+      let updated = false;
+      const next = { ...prev };
+      for (const [code, val] of Object.entries(autofillValues)) {
+        const inputDef = inputFields.find((i) => i.input_code === code);
+        if (!inputDef) continue;
+        const key = inputDef.id;
+        if (prev[key] !== val) {
+          next[key] = val;
+          updated = true;
+        }
+      }
+      return updated ? next : prev;
+    });
+  }, [autofillValues, inputFields]);
+
   // Sync editable values from the deal prop
   useEffect(() => {
     setEditedValues(deal.inputs ?? {});
@@ -161,22 +190,15 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     };
   }, []);
 
-  // Fetch linked records for all linked tables used by inputs
-  // This endpoint now applies org + role scoping server-side
+  // Fetch linked records for all resolved linked tables
   useEffect(() => {
     if (!deal.id || inputFields.length === 0) return;
     let cancelled = false;
 
-    // Collect unique table + column combos needed
-    const linkedInputs = inputFields.filter((f) => f.linked_table);
-    if (linkedInputs.length === 0) return;
+    // Use resolved links (from conditional rules) to build table/column pairs
+    const tableColumnPairs = resolvedTableColumnPairs();
 
-    const tableColumnPairs = new Map<string, string | null>();
-    for (const inp of linkedInputs) {
-      if (!tableColumnPairs.has(inp.linked_table!)) {
-        tableColumnPairs.set(inp.linked_table!, inp.linked_column ?? null);
-      }
-    }
+    if (tableColumnPairs.size === 0) return;
 
     const fetchLinkedRecords = async () => {
       setLoadingLinkedRecords(true);
@@ -210,7 +232,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [deal.id, inputFields]);
+  }, [deal.id, inputFields, resolvedLinks, resolvedTableColumnPairs]);
 
   // Group inputs by category_id
   const inputsByCategory = useMemo(
@@ -357,12 +379,14 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const renderReadValue = (field: InputField, rawValue: unknown): React.ReactNode => {
     if (rawValue === null || rawValue === undefined || rawValue === "") return "—";
 
-    // For linked inputs, show the record label instead of the raw PK
-    if (field.linked_table) {
-      const records = linkedRecordsByTable[field.linked_table] ?? [];
-      const match = records.find((r) => r.id === String(rawValue));
-      if (match) return match.label;
-      // Fall back to PK display if no match
+    const resolvedLink = getResolvedLink(field.id);
+    if (resolvedLink) {
+      const table = resolvedLink.linked_table;
+      if (table) {
+        const records = linkedRecordsByTable[table] ?? [];
+        const match = records.find((r) => r.id === String(rawValue));
+        if (match) return match.label;
+      }
       return String(rawValue);
     }
 
@@ -387,9 +411,10 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
 
   /** Render an edit control based on input_type */
   const renderEditControl = (field: InputField, rawValue: unknown) => {
-    // For linked inputs: render a searchable text input with autocomplete from linked records
-    if (field.linked_table) {
-      const records = linkedRecordsByTable[field.linked_table] ?? [];
+    const resolvedLink = getResolvedLink(field.id);
+    if (resolvedLink) {
+      const table = resolvedLink.linked_table;
+      const records = table ? (linkedRecordsByTable[table] ?? []) : [];
       const currentVal = rawValue !== null && rawValue !== undefined ? String(rawValue) : "";
 
       if (loadingLinkedRecords) {
@@ -405,8 +430,16 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         <LinkedAutocompleteInput
           value={currentVal}
           onChange={(val) => updateValue(field.id, val)}
+          onRecordSelect={(rec) => {
+            setRecordIds((prev) => {
+              const key = `${field.input_code}_record_id`;
+              const newId = rec?.id ?? undefined;
+              if (prev[key] === newId) return prev;
+              return { ...prev, [key]: newId };
+            });
+          }}
           records={records}
-          placeholder={`Search ${field.linked_table.replace(/_/g, " ")}...`}
+          placeholder={`Search ${table ? table.replace(/_/g, " ") : field.input_label.toLowerCase()}...`}
           className="text-sm"
         />
       );
@@ -636,6 +669,7 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   /** Render a category column */
   const renderCategory = ({ category, fields }: { category: InputCategory; fields: InputField[] }) => {
     const visibleFields = fields.filter((f) => !hiddenFields.has(f.id));
+    if (visibleFields.length === 0) return null;
     return (
       <Accordion
         key={category.id}
@@ -651,17 +685,12 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
             <span>{category.category}</span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 pt-0">
-            {visibleFields.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No inputs in this category.
-              </p>
-            ) : (
               <div className="space-y-1">
                 {visibleFields.map((field) => {
                   const rawValue = editedValues[field.id] ?? null;
                   const reqd = requiredFields.has(field.id);
                   const comp = computedFieldIds.has(field.id);
-                  const isLinked = Boolean(field.linked_table);
+                  const isLinked = Boolean(getResolvedLink(field.id));
                   if (!isEditing) {
                     return (
                       <DetailRow
@@ -690,7 +719,6 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
                   );
                 })}
               </div>
-            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>

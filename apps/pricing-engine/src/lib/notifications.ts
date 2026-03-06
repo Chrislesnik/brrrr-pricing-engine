@@ -1,15 +1,21 @@
 import { Liveblocks } from "@liveblocks/node";
 
-const liveblocks = new Liveblocks({
-  secret: process.env.LIVEBLOCKS_SECRET_KEY!,
-});
+let _liveblocks: Liveblocks | null = null;
+function getLiveblocks() {
+  if (!_liveblocks) {
+    const secret = process.env.LIVEBLOCKS_SECRET_KEY;
+    if (!secret) throw new Error("LIVEBLOCKS_SECRET_KEY is not configured");
+    _liveblocks = new Liveblocks({ secret });
+  }
+  return _liveblocks;
+}
 
 export async function notifyDealAssignment(
   userId: string,
   data: { dealId: string; dealName: string; assignerName: string }
 ) {
   try {
-    await liveblocks.triggerInboxNotification({
+    await getLiveblocks().triggerInboxNotification({
       userId,
       kind: "$dealAssignment",
       subjectId: `deal-assign-${data.dealId}`,
@@ -26,7 +32,7 @@ export async function notifyTaskAssignment(
   data: { dealId: string; taskName: string; assignerName: string }
 ) {
   try {
-    await liveblocks.triggerInboxNotification({
+    await getLiveblocks().triggerInboxNotification({
       userId,
       kind: "$taskAssignment",
       subjectId: `task-assign-${data.dealId}-${data.taskName}`,
@@ -43,7 +49,7 @@ export async function notifyLoanAssignment(
   data: { loanId: string; dealId: string; assignerName: string }
 ) {
   try {
-    await liveblocks.triggerInboxNotification({
+    await getLiveblocks().triggerInboxNotification({
       userId,
       kind: "$loanAssignment",
       subjectId: `loan-assign-${data.loanId}`,
@@ -65,7 +71,7 @@ export async function notifyDealStatusChange(
   }
 ) {
   try {
-    await liveblocks.triggerInboxNotification({
+    await getLiveblocks().triggerInboxNotification({
       userId,
       kind: "$dealStatusChange",
       subjectId: `deal-status-${data.dealId}`,
@@ -82,7 +88,7 @@ export async function notifyApplicationCompleted(
   data: { loanId: string; dealId: string; borrowerName: string }
 ) {
   try {
-    await liveblocks.triggerInboxNotification({
+    await getLiveblocks().triggerInboxNotification({
       userId,
       kind: "$applicationCompleted",
       subjectId: `app-completed-${data.loanId}`,

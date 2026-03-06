@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { RouteProtection } from "@/components/auth/route-protection"
 import { Button } from "@repo/ui/shadcn/button"
@@ -24,10 +24,14 @@ interface ApplicationData {
   guarantors: Array<{ id: string; name: string; email: string | null }>
 }
 
-function ApplicationWorkflowContent() {
-  const params = useParams()
+function ApplicationWorkflowContent({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const resolvedParams = use(params)
   const router = useRouter()
-  const applicationId = params.id as string
+  const applicationId = resolvedParams.id
 
   const [application, setApplication] = useState<ApplicationData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -160,10 +164,14 @@ function ApplicationWorkflowContent() {
   )
 }
 
-export default function ApplicationWorkflowPage() {
+export default function ApplicationWorkflowPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   return (
     <RouteProtection>
-      <ApplicationWorkflowContent />
+      <ApplicationWorkflowContent params={params} />
     </RouteProtection>
   )
 }

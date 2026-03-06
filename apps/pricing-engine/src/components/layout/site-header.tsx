@@ -66,8 +66,15 @@ interface SiteHeaderProps {
   dealName?: string;
 }
 
-function generateBreadcrumbs(pathname: string, orgName?: string | null): React.ReactNode {
+function generateBreadcrumbs(pathname: string, orgName?: string | null, lastSegmentOverride?: string | null): React.ReactNode {
   const segments = getBreadcrumbSegments(pathname, orgName);
+
+  if (lastSegmentOverride && segments.length > 1) {
+    segments[segments.length - 1] = {
+      ...segments[segments.length - 1],
+      label: lastSegmentOverride,
+    };
+  }
 
   // Handle simple single-segment breadcrumbs (like Dashboard)
   if (segments.length === 1) {
@@ -135,12 +142,24 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const searchParams = useSearchParams();
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [breadcrumbOverride, setBreadcrumbOverride] = React.useState<string | null>(null);
   const { user } = useUser();
   const { organization } = useOrganization();
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  React.useEffect(() => {
+    setBreadcrumbOverride(null);
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ label: string }>).detail;
+      setBreadcrumbOverride(detail?.label || null);
+    };
+    window.addEventListener("app:breadcrumb:update", handler);
+    return () => window.removeEventListener("app:breadcrumb:update", handler);
+  }, [pathname]);
 
   // Check if user is admin
   const isAdmin =
@@ -153,14 +172,14 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
 
   return (
     <>
-      <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 rounded-tl-xl rounded-tr-xl">
+      <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-11 md:px-6 sticky top-0 rounded-tl-xl rounded-tr-xl">
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"
           className="bg-border shrink-0 w-[1px] mr-2 h-4"
         />
         {mounted ? (
-          breadcrumb || generateBreadcrumbs(pathname, organization?.name)
+          breadcrumb || generateBreadcrumbs(pathname, organization?.name, breadcrumbOverride)
         ) : (
           <div className="h-4 w-32 bg-muted/50 animate-pulse rounded" />
         )}
@@ -211,7 +230,7 @@ export function SiteHeader({ breadcrumb, dealName }: SiteHeaderProps) {
   return (
     <Suspense
       fallback={
-        <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 rounded-tl-xl rounded-tr-xl">
+        <header className="bg-background flex h-16 shrink-0 items-center gap-2 border-b px-11 md:px-6 sticky top-0 rounded-tl-xl rounded-tr-xl">
           <SidebarTrigger className="-ml-1" />
           <Separator
             orientation="vertical"

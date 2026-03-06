@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@repo/ui/shadcn/badge";
 import { Users } from "lucide-react";
 import { RoleAssignmentDialog } from "@/components/role-assignment-dialog";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { useSupabaseBrowser } from "@/lib/supabase-browser";
 
 type RoleAssignment = {
   id: number;
@@ -46,7 +46,7 @@ export function DealAssignedToRoster({ dealId }: DealAssignedToRosterProps) {
     void load();
   }, [load]);
 
-  const supabase = useMemo(() => createSupabaseBrowser(), []);
+  const supabase = useSupabaseBrowser();
 
   useEffect(() => {
     const channel = supabase

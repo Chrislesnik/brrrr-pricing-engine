@@ -5,11 +5,12 @@ import { Toaster as SonnerToaster } from "sonner"
 import "./globals.css"
 import { Providers } from "./providers"
 import { LinkInAppFix } from "./LinkInAppFix"
+import { MaintenanceBanner } from "@/components/maintenance-banner"
 
 const inter = localFont({
   src: "./fonts/InterVariable.woff2",
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-sans",
 })
 
 export const metadata: Metadata = {
@@ -41,7 +42,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
-      <body className={`${inter.className} group/body antialiased h-full overflow-hidden`}>
+      <body className={`${inter.variable} ${inter.className} group/body antialiased h-full overflow-hidden`}>
+        <MaintenanceBanner />
         <Providers>
           <LinkInAppFix />
           {children}
