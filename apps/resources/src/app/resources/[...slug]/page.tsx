@@ -6,11 +6,23 @@ import { RichText } from "basehub/react-rich-text";
 import Link from "next/link";
 import {
   ChevronRight,
-  Calendar,
   Tag,
   ArrowLeft,
-  Clock,
 } from "lucide-react";
+
+function sanitizeRichTextContent(content: any[]): any[] {
+  return content
+    .filter(
+      (node): node is Record<string, unknown> =>
+        node != null && typeof node === "object" && "type" in node
+    )
+    .map((node) => {
+      if (Array.isArray(node.content)) {
+        return { ...node, content: sanitizeRichTextContent(node.content) };
+      }
+      return node;
+    });
+}
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -104,15 +116,21 @@ export default async function ResourcePage({ params }: PageProps) {
 
                 {/* Content */}
                 <article className="prose prose-gray dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-headings:font-semibold prose-h2:text-2xl prose-h2:border-b prose-h2:pb-2 prose-h2:mt-10 prose-h3:text-xl prose-h3:mt-8 prose-p:leading-7 prose-li:leading-7 prose-code:rounded prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:border prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg prose-img:border">
-                  {item.richText?.json?.content ? (
-                    <RichText>{item.richText.json.content}</RichText>
-                  ) : (
-                    <div className="rounded-lg border bg-muted/30 p-8 text-center">
-                      <p className="text-muted-foreground">
-                        No content available for this resource yet.
-                      </p>
-                    </div>
-                  )}
+                  {(() => {
+                    const raw = item.richText?.json?.content;
+                    const safe = Array.isArray(raw)
+                      ? sanitizeRichTextContent(raw)
+                      : null;
+                    return safe && safe.length > 0 ? (
+                      <RichText>{safe}</RichText>
+                    ) : (
+                      <div className="rounded-lg border bg-muted/30 p-8 text-center">
+                        <p className="text-muted-foreground">
+                          No content available for this resource yet.
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </article>
 
                 {/* Back link */}

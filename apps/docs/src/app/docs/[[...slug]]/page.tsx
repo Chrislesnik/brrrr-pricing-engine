@@ -328,8 +328,26 @@ function DocsIndexContent({ data }: { data: any }) {
   );
 }
 
+function sanitizeRichTextContent(content: any[]): any[] {
+  return content
+    .filter(
+      (node): node is Record<string, unknown> =>
+        node != null && typeof node === "object" && "type" in node
+    )
+    .map((node) => {
+      if (Array.isArray(node.content)) {
+        return { ...node, content: sanitizeRichTextContent(node.content) };
+      }
+      return node;
+    });
+}
+
 function DocsContent({ item }: { item: any }) {
   const toc: TocEntry[] = item.richText?.json?.toc ?? [];
+  const rawContent = item.richText?.json?.content;
+  const safeContent = Array.isArray(rawContent)
+    ? sanitizeRichTextContent(rawContent)
+    : null;
 
   return (
     <div className="flex w-full flex-1 gap-10 px-4 py-10 md:px-8 lg:px-12">
@@ -341,8 +359,8 @@ function DocsContent({ item }: { item: any }) {
           </p>
         ) : null}
         <div className="prose prose-neutral dark:prose-invert mt-8 max-w-none">
-          {item.richText?.json?.content ? (
-            <RichText>{item.richText.json.content}</RichText>
+          {safeContent && safeContent.length > 0 ? (
+            <RichText>{safeContent}</RichText>
           ) : (
             <p className="text-muted-foreground">
               No content available for this document.
