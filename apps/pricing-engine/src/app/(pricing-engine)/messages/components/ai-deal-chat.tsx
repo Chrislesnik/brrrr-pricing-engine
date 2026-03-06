@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { X, Sparkles, Send, Square } from "lucide-react";
+import { X, Sparkles, Send, Square, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -49,6 +49,12 @@ export function AiDealChat({
     });
 
   const isLoading = status === "submitted" || status === "streaming";
+
+  // Command-specific labels for initial loading state
+  const COMMAND_LOADING_LABELS: Record<string, string> = {
+    "get-loan-pricing": "Initializing loan pricing...",
+    "generate-term-sheet": "Preparing term sheet generator...",
+  };
 
   // Auto-send initial command
   useEffect(() => {
@@ -128,7 +134,12 @@ export function AiDealChat({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-4"
+        role="log"
+        aria-label="AI agent conversation"
+        aria-busy={isLoading}
+      >
         {messages.map((message) => (
           <div key={message.id}>
             {message.role === "user" && (
@@ -178,10 +189,17 @@ export function AiDealChat({
                           return (
                             <div
                               key={part.toolCallId}
-                              className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-[12px] text-destructive"
+                              className="rounded-md border border-destructive/20 bg-destructive/5 p-3"
                             >
-                              Error fetching deal inputs:{" "}
-                              {part.errorText}
+                              <p className="text-[12px] font-medium text-destructive">
+                                Error fetching deal inputs
+                              </p>
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                {part.errorText || "Could not retrieve deal data."}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground/70 mt-2">
+                                Ask the agent to try again or check that all deal fields are saved.
+                              </p>
                             </div>
                           );
                       }
@@ -210,10 +228,17 @@ export function AiDealChat({
                           return (
                             <div
                               key={part.toolCallId}
-                              className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-[12px] text-destructive"
+                              className="rounded-md border border-destructive/20 bg-destructive/5 p-3"
                             >
-                              Pricing generation failed:{" "}
-                              {part.errorText}
+                              <p className="text-[12px] font-medium text-destructive">
+                                Pricing generation failed
+                              </p>
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                {part.errorText || "The pricing engine did not respond."}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground/70 mt-2">
+                                This may be temporary. Ask the agent to retry pricing.
+                              </p>
                             </div>
                           );
                       }
@@ -240,10 +265,17 @@ export function AiDealChat({
                           return (
                             <div
                               key={part.toolCallId}
-                              className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-[12px] text-destructive"
+                              className="rounded-md border border-destructive/20 bg-destructive/5 p-3"
                             >
-                              Term sheet generation failed:{" "}
-                              {part.errorText}
+                              <p className="text-[12px] font-medium text-destructive">
+                                Term sheet generation failed
+                              </p>
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                {part.errorText || "Could not generate the term sheet."}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground/70 mt-2">
+                                Try selecting a different rate or ask the agent to retry.
+                              </p>
                             </div>
                           );
                       }
@@ -267,20 +299,48 @@ export function AiDealChat({
           </div>
         ))}
 
-        {/* Submitted state */}
+        {/* Submitted state — command-specific label */}
         {status === "submitted" && messages.length === 0 && (
-          <ToolLoadingIndicator toolName="" />
+          <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/20 px-3 py-2.5">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-info shrink-0" />
+            <span className="text-[12px] font-medium text-foreground">
+              {(initialCommand && COMMAND_LOADING_LABELS[initialCommand]) ??
+                "Processing..."}
+            </span>
+          </div>
         )}
 
-        {/* Error */}
+        {/* Error with retry */}
         {error && (
-          <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3">
+          <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 space-y-2">
             <p className="text-[12px] font-medium text-destructive">
               Something went wrong
             </p>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              {error.message}
+            <p className="text-[11px] text-muted-foreground">
+              {error.message || "The agent encountered an error. Please try again."}
             </p>
+            <button
+              onClick={() => {
+                if (initialCommand) {
+                  const commandPrompts: Record<string, string> = {
+                    "get-loan-pricing":
+                      "Get loan pricing for this deal. First fetch the deal inputs, then generate pricing for all eligible programs.",
+                    "generate-term-sheet":
+                      "Help me generate a term sheet for this deal.",
+                  };
+                  sendMessage({
+                    text:
+                      commandPrompts[initialCommand] ??
+                      `Run command: ${initialCommand}`,
+                  });
+                }
+              }}
+              className="flex items-center gap-1 text-[11px] text-destructive hover:text-destructive/80 transition-colors"
+              disabled={!initialCommand || isLoading}
+            >
+              <RotateCcw className="h-3 w-3" />
+              Retry
+            </button>
           </div>
         )}
 
@@ -295,9 +355,15 @@ export function AiDealChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about pricing, inputs, or term sheets..."
+            placeholder={
+              isLoading
+                ? "Agent is working..."
+                : "Ask about pricing, inputs, or term sheets..."
+            }
             rows={1}
-            className="w-full resize-none rounded-lg border border-border bg-muted/30 px-3 py-2 pr-10 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+            disabled={isLoading}
+            aria-label="Message the AI agent"
+            className="w-full resize-none rounded-lg border border-border bg-muted/30 px-3 py-2 pr-10 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ maxHeight: "120px" }}
           />
           {isLoading ? (
@@ -323,6 +389,16 @@ export function AiDealChat({
             </Button>
           )}
         </form>
+        <div className="flex items-center justify-between mt-1.5 px-0.5">
+          <span className="text-[10px] text-muted-foreground/50">
+            Shift+Enter for new line
+          </span>
+          {isLoading && status === "streaming" && (
+            <span className="text-[10px] text-muted-foreground/50 animate-pulse">
+              streaming...
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

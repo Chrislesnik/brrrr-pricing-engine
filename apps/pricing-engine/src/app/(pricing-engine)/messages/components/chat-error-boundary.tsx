@@ -12,15 +12,16 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  retryCount: number;
 }
 
 export class ChatErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, retryCount: 0 };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
@@ -29,7 +30,11 @@ export class ChatErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState((prev) => ({
+      hasError: false,
+      error: null,
+      retryCount: prev.retryCount + 1,
+    }));
   };
 
   render() {
@@ -48,19 +53,33 @@ export class ChatErrorBoundary extends Component<Props, State> {
                     "The chat encountered an error. Try refreshing."}
                 </p>
                 {this.state.error && (
-                  <p className="text-[11px] text-muted-foreground/70 mt-1.5 font-mono truncate">
-                    {this.state.error.message}
+                  <div className="mt-1.5 max-h-[80px] overflow-y-auto rounded bg-destructive/5 px-2 py-1">
+                    <p className="text-[11px] text-muted-foreground/70 font-mono whitespace-pre-wrap break-all">
+                      {this.state.error.message}
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px]"
+                    onClick={this.handleRetry}
+                  >
+                    <RefreshCw className="mr-1.5 h-3 w-3" />
+                    Try again
+                  </Button>
+                  {this.state.retryCount > 0 && (
+                    <span className="text-[10px] text-muted-foreground/60">
+                      Attempt {this.state.retryCount + 1}
+                    </span>
+                  )}
+                </div>
+                {this.state.retryCount >= 2 && (
+                  <p className="text-[11px] text-muted-foreground/60 mt-2">
+                    Persistent errors? Try reloading the page or selecting a different channel.
                   </p>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 h-8 text-[12px]"
-                  onClick={this.handleRetry}
-                >
-                  <RefreshCw className="mr-1.5 h-3 w-3" />
-                  Try again
-                </Button>
               </div>
             </div>
           </div>

@@ -5,8 +5,9 @@ import {
   RoomProvider,
   ClientSideSuspense,
 } from "@liveblocks/react/suspense";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, RefreshCw } from "lucide-react";
 import { Skeleton } from "@repo/ui/shadcn/skeleton";
+import { Button } from "@repo/ui/shadcn/button";
 import { ChatHeader } from "./chat-header";
 import { ChatErrorBoundary } from "./chat-error-boundary";
 import { EnhancedCommentsContent } from "./enhanced-comments-content";
@@ -91,13 +92,22 @@ function LoadingState() {
 function RoomError() {
   return (
     <div className="flex flex-1 items-center justify-center px-6">
-      <div className="rounded-md bg-destructive/10 px-4 py-3 text-center">
+      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-4 text-center max-w-sm w-full">
         <p className="text-sm font-medium text-destructive">
-          Unable to connect to this channel.
+          Unable to connect to this channel
         </p>
-        <p className="mt-1 text-xs text-destructive/80">
-          Please try again or select a different channel.
+        <p className="mt-1 text-xs text-muted-foreground">
+          The real-time connection could not be established. This may be a temporary issue.
         </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 h-8 text-[12px]"
+          onClick={() => window.location.reload()}
+        >
+          <RefreshCw className="mr-1.5 h-3 w-3" />
+          Reload page
+        </Button>
       </div>
     </div>
   );
