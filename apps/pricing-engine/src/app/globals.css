@@ -750,6 +750,18 @@ button.lb-composer-action:last-child:hover,
   color: hsl(var(--accent-foreground)) !important;
 }
 
+/* ── Chat typing indicator animation ──────────────────────────────────────── */
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 /* ── GrapesJS left panel: overflow + z-index fixes are applied via
    JavaScript in studio-editor-wrapper.tsx onReady, because the SDK's
    internal Tailwind utilities and inline styles defeat external CSS. ────── */

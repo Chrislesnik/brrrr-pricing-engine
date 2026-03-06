@@ -5,8 +5,6 @@ import {
   useEffect,
   useRef,
   useCallback,
-  forwardRef,
-  useImperativeHandle,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -27,6 +25,7 @@ interface SlashCommandItem {
   description: string;
   icon: React.ReactNode;
   section: string;
+  hint?: string;
 }
 
 interface ChatSlashCommandsProps {
@@ -74,6 +73,7 @@ const COMMANDS: SlashCommandItem[] = [
     description: "Pull deal inputs and generate pricing",
     icon: <DollarSign className="h-4 w-4" />,
     section: "LOAN",
+    hint: "Agent",
   },
   {
     id: "generate-term-sheet",
@@ -81,6 +81,7 @@ const COMMANDS: SlashCommandItem[] = [
     description: "Create a term sheet for this deal",
     icon: <FileText className="h-4 w-4" />,
     section: "LOAN",
+    hint: "Agent",
   },
   // Actions Section
   {
@@ -89,15 +90,44 @@ const COMMANDS: SlashCommandItem[] = [
     description: "Tag a team member in this channel",
     icon: <AtSign className="h-4 w-4" />,
     section: "ACTIONS",
+    hint: "@",
   },
   {
     id: "share-link",
     title: "Share Deal Link",
-    description: "Share a link to this deal",
+    description: "Copy a link to this deal channel",
     icon: <Link2 className="h-4 w-4" />,
     section: "ACTIONS",
   },
 ];
+
+// ─── Highlight Helper ────────────────────────────────────────────────
+function HighlightText({
+  text,
+  highlight,
+}: {
+  text: string;
+  highlight: string;
+}) {
+  if (!highlight) return <>{text}</>;
+
+  const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-warning/30 text-inherit rounded-sm px-[1px]">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
 
 // ─── Component ───────────────────────────────────────────────────────
 export function ChatSlashCommands({
@@ -199,8 +229,9 @@ export function ChatSlashCommands({
     >
       {/* Filter hint */}
       {filter && (
-        <div className="px-2.5 py-1 text-[10px] text-muted-foreground">
-          Filter: {filter}
+        <div className="px-2.5 py-1 text-[10px] text-muted-foreground flex items-center gap-1">
+          <span className="text-muted-foreground/60">Filter:</span>
+          <span className="font-medium">{filter}</span>
         </div>
       )}
 
@@ -236,14 +267,19 @@ export function ChatSlashCommands({
                     <span className="text-muted-foreground shrink-0">
                       {cmd.icon}
                     </span>
-                    <div className="flex-1 text-left">
+                    <div className="flex-1 text-left min-w-0">
                       <div className="text-[13px] font-medium">
-                        {cmd.title}
+                        <HighlightText text={cmd.title} highlight={filter} />
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {cmd.description}
+                      <div className="text-xs text-muted-foreground truncate">
+                        <HighlightText text={cmd.description} highlight={filter} />
                       </div>
                     </div>
+                    {cmd.hint && (
+                      <span className="shrink-0 text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
+                        {cmd.hint}
+                      </span>
+                    )}
                   </button>
                 );
               })}

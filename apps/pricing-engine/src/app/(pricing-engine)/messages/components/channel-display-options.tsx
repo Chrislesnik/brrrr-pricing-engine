@@ -155,22 +155,40 @@ export function ChannelDisplayOptions({
     settings.showArchived !== DEFAULT_DISPLAY_SETTINGS.showArchived ||
     settings.showEmptyGroups !== DEFAULT_DISPLAY_SETTINGS.showEmptyGroups;
 
+  // Count active modifications for badge
+  const modifiedCount = [
+    settings.groupBy !== DEFAULT_DISPLAY_SETTINGS.groupBy,
+    settings.sortBy !== DEFAULT_DISPLAY_SETTINGS.sortBy,
+    settings.sortAscending !== DEFAULT_DISPLAY_SETTINGS.sortAscending,
+    settings.showArchived !== DEFAULT_DISPLAY_SETTINGS.showArchived,
+    settings.showEmptyGroups !== DEFAULT_DISPLAY_SETTINGS.showEmptyGroups,
+  ].filter(Boolean).length;
+
   return (
     <>
       <button
         ref={btnRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center justify-center rounded-md transition-colors shrink-0",
+          "relative flex items-center justify-center rounded-md transition-colors shrink-0",
           "h-8 w-8",
           open
             ? "bg-accent text-accent-foreground"
             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
           isModified && !open && "text-primary"
         )}
-        title="Display options"
+        title={
+          isModified
+            ? `Display options (${modifiedCount} active)`
+            : "Display options"
+        }
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />
+        {isModified && !open && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground px-[3px]">
+            {modifiedCount}
+          </span>
+        )}
       </button>
 
       {open &&
