@@ -16,6 +16,7 @@ const ROOM_POLICY_MAP: Array<{ pattern: string; resource: string }> = [
   { pattern: "deal:*", resource: "room:deal" },
   { pattern: "deal_task:*", resource: "room:deal_task" },
   { pattern: "task:*", resource: "room:deal_task" },
+  { pattern: "deal_chat:*", resource: "room:deal_chat" },
   { pattern: "email_template:*", resource: "room:email_template" },
   { pattern: "appraisal:*", resource: "room:appraisal" },
 ];

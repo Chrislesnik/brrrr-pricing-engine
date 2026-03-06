@@ -9,7 +9,11 @@ declare global {
     }
 
     // Required for useThreads, FloatingComposer, FloatingThreads, AnchoredThreads
-    ThreadMetadata: {}
+    ThreadMetadata: {
+      source?: "user" | "agent" | "system" | "slack" | "teams"
+      agentCommand?: string
+      artifactType?: string
+    }
 
     ActivitiesData: {
       $taskAssignment: {

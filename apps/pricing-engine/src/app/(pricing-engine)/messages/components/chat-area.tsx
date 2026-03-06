@@ -1,0 +1,144 @@
+"use client";
+
+import { Suspense } from "react";
+import {
+  RoomProvider,
+  ClientSideSuspense,
+} from "@liveblocks/react/suspense";
+import { MessageSquare } from "lucide-react";
+import { Skeleton } from "@repo/ui/shadcn/skeleton";
+import { ChatHeader } from "./chat-header";
+import { ChatErrorBoundary } from "./chat-error-boundary";
+import { EnhancedCommentsContent } from "./enhanced-comments-content";
+
+// ─── Types ───────────────────────────────────────────────────────────
+interface ChatAreaProps {
+  roomId: string | null;
+  dealId: string | null;
+  activeThreadId: string | null;
+  onToggleAiPanel: () => void;
+  aiPanelOpen: boolean;
+  isPopout: boolean;
+  onOpenPopout: () => void;
+  onTriggerAiCommand?: (commandId: string) => void;
+  onAgentMention?: (content: string) => void;
+}
+
+// ─── Empty State ─────────────────────────────────────────────────────
+function EmptyState() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
+        <MessageSquare className="h-6 w-6 text-muted-foreground/40" />
+      </div>
+      <div className="space-y-1">
+        <h3 className="text-sm font-medium text-foreground">
+          Select a channel
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Choose a deal channel from the sidebar to start messaging.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Loading State ───────────────────────────────────────────────────
+function LoadingState() {
+  return (
+    <div className="flex flex-1 flex-col">
+      {/* Header skeleton */}
+      <div className="flex h-12 items-center justify-between border-b border-border px-4">
+        <Skeleton className="h-5 w-32" />
+        <div className="flex items-center -space-x-1.5">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-6 w-6 rounded-md" />
+          ))}
+        </div>
+      </div>
+      {/* Message skeletons */}
+      <div className="flex-1 px-4 py-3 space-y-4">
+        {[80, 45, 90, 60].map((w, i) => (
+          <div key={i} className="flex gap-2.5">
+            <Skeleton className="h-7 w-7 rounded-md shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-3 w-12" />
+              </div>
+              <Skeleton className="h-4" style={{ width: `${w}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Composer skeleton */}
+      <div className="border-t border-border px-4 py-3">
+        <Skeleton className="h-9 w-full rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+// ─── Room Connection Error ───────────────────────────────────────────
+function RoomError() {
+  return (
+    <div className="flex flex-1 items-center justify-center px-6">
+      <div className="rounded-md bg-destructive/10 px-4 py-3 text-center">
+        <p className="text-sm font-medium text-destructive">
+          Unable to connect to this channel.
+        </p>
+        <p className="mt-1 text-xs text-destructive/80">
+          Please try again or select a different channel.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────
+export function ChatArea({
+  roomId,
+  dealId,
+  activeThreadId,
+  onToggleAiPanel,
+  aiPanelOpen,
+  isPopout,
+  onOpenPopout,
+  onTriggerAiCommand,
+  onAgentMention,
+}: ChatAreaProps) {
+  if (!roomId || !dealId) {
+    return (
+      <div className="flex flex-1 flex-col bg-background">
+        <EmptyState />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col bg-background min-w-0">
+      <RoomProvider
+        id={roomId}
+        initialPresence={{ isTyping: false, cursor: null }}
+      >
+        <ChatErrorBoundary>
+          <ClientSideSuspense fallback={<LoadingState />}>
+            <ChatHeader
+              dealId={dealId}
+              onToggleAiPanel={onToggleAiPanel}
+              aiPanelOpen={aiPanelOpen}
+              isPopout={isPopout}
+              onOpenPopout={onOpenPopout}
+            />
+            <EnhancedCommentsContent
+              dealId={dealId}
+              activeThreadId={activeThreadId}
+              onTriggerAiCommand={onTriggerAiCommand}
+              onAgentMention={onAgentMention}
+            />
+          </ClientSideSuspense>
+        </ChatErrorBoundary>
+      </RoomProvider>
+    </div>
+  );
+}

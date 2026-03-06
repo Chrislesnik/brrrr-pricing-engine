@@ -294,6 +294,35 @@ button.lb-composer-action:last-child:hover,
 }
 
 /* -----------------------------------------------------------------------
+   Linear-esque chat refinements — compact density + rounded-md avatars
+   ----------------------------------------------------------------------- */
+
+/* Square-ish avatars (Linear style) instead of circles */
+.lb-root .lb-avatar,
+.lb-avatar[class] {
+  border-radius: 0.375rem !important;
+}
+
+/* Tighter comment spacing for chat density */
+.lb-root .lb-comment {
+  padding-top: 0.375rem !important;
+  padding-bottom: 0.375rem !important;
+}
+
+/* Compact reactions */
+.lb-root .lb-comment-reaction {
+  height: 1.5rem !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.6875rem !important;
+  padding: 0 0.375rem !important;
+}
+
+/* Thread dividers instead of gaps */
+.lb-root .lb-thread-comments > * + * {
+  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+}
+
+/* -----------------------------------------------------------------------
    BlockNote email builder overrides
    Theme-aware slash menu styling to match card-based policy toolbar surface.
    ----------------------------------------------------------------------- */

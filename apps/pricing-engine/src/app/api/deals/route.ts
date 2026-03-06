@@ -2,7 +2,7 @@ import { z } from "zod"
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { authForApiRoute, getOrgUuidFromClerkId } from "@/lib/orgs"
-import { ensureLiveblocksRoom } from "@/lib/liveblocks"
+import { ensureLiveblocksRoom, ensureDealChatRoom } from "@/lib/liveblocks"
 
 /* -------------------------------------------------------------------------- */
 /*  GET /api/deals — list deals for current user's org                         */
@@ -317,10 +317,17 @@ export async function POST(req: Request) {
       // deal_users sync is non-critical
     }
 
-    // Step 3b: Create Liveblocks room for real-time collaboration
+    // Step 3b: Create Liveblocks rooms for real-time collaboration
     ensureLiveblocksRoom({
       roomType: "deal",
       entityId: dealId,
+      organizationId: orgId!,
+      creatorUserId: userId,
+    }).catch(() => {})
+
+    // Step 3c: Create deal_chat room for messaging
+    ensureDealChatRoom({
+      dealId,
       organizationId: orgId!,
       creatorUserId: userId,
     }).catch(() => {})

@@ -5,7 +5,7 @@ export const liveblocks = new Liveblocks({
   secret: process.env.LIVEBLOCKS_SECRET_KEY!,
 });
 
-type RoomType = "deal" | "deal_task" | "email_template";
+type RoomType = "deal" | "deal_task" | "email_template" | "deal_chat";
 
 type LiveblocksPermission =
   | ["room:write"]
@@ -497,6 +497,89 @@ export async function syncDealTaskRoomPermissions(opts: {
   ]);
 
   const permission = resolveEffectivePermission(policies, claims, false);
+
+  type LbAccess = ["room:write"] | ["room:read", "room:presence:write"] | null;
+  const resolvedAccess: LbAccess =
+    permission.length > 0
+      ? (permission as ["room:write"] | ["room:read", "room:presence:write"])
+      : null;
+
+  try {
+    await liveblocks.updateRoom(roomId, {
+      usersAccesses: { [clerkUserId]: resolvedAccess },
+    });
+  } catch {
+    /* Room may not exist yet */
+  }
+}
+
+// ============================================================================
+// Ensure deal_chat room exists (idempotent — safe for lazy creation)
+// ============================================================================
+
+export async function ensureDealChatRoom(opts: {
+  dealId: string;
+  organizationId: string;
+  creatorUserId: string;
+  assignedUserIds?: string[];
+}) {
+  return ensureLiveblocksRoom({
+    roomType: "deal_chat",
+    entityId: opts.dealId,
+    organizationId: opts.organizationId,
+    creatorUserId: opts.creatorUserId,
+    assignedUserIds: opts.assignedUserIds,
+  });
+}
+
+// ============================================================================
+// Sync: deal_chat rooms (room:deal_chat)
+// Called when a deal role is assigned or removed.
+// Mirrors syncDealRoomPermissions but for the chat room.
+// ============================================================================
+
+export async function syncDealChatRoomPermissions(opts: {
+  clerkUserId: string;
+  dealId: string;
+  orgUuid: string;
+  assigned: boolean;
+}) {
+  const { clerkUserId, dealId, orgUuid, assigned } = opts;
+  const roomId = `deal_chat:${dealId}`;
+
+  if (!assigned) {
+    const { data: userData } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("clerk_user_id", clerkUserId)
+      .maybeSingle();
+
+    if (userData) {
+      const { count } = await supabaseAdmin
+        .from("deal_roles")
+        .select("id", { count: "exact", head: true })
+        .eq("deal_id", dealId)
+        .eq("users_id", userData.id);
+
+      if ((count ?? 0) === 0) {
+        try {
+          await liveblocks.updateRoom(roomId, {
+            usersAccesses: { [clerkUserId]: null },
+          });
+        } catch {
+          /* Room may not exist */
+        }
+      }
+    }
+    return;
+  }
+
+  const [claims, policies] = await Promise.all([
+    getUserClaims(clerkUserId, orgUuid),
+    fetchRoomPolicies("room:deal_chat", orgUuid),
+  ]);
+
+  const permission = resolveEffectivePermission(policies, claims, true);
 
   type LbAccess = ["room:write"] | ["room:read", "room:presence:write"] | null;
   const resolvedAccess: LbAccess =

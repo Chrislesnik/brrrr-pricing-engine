@@ -20,6 +20,13 @@ export async function GET(request: NextRequest) {
     const userIds = searchParams.get("userIds");
     const search = searchParams.get("search");
 
+    // System user definitions for virtual participants
+    const SYSTEM_USERS: Record<string, { name: string; avatar: string }> = {
+      agent: { name: "AI Agent", avatar: "/icons/ai-sparkles.svg" },
+      "ai-assistant": { name: "AI Assistant", avatar: "/icons/ai-sparkles.svg" },
+      "system-bridge-bot": { name: "System", avatar: "" },
+    };
+
     // Resolve specific users by IDs
     if (userIds) {
       const ids = userIds.split(",").filter(Boolean);
@@ -27,10 +34,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ users: [] });
       }
 
-      const { data: users } = await supabaseAdmin
-        .from("users")
-        .select("clerk_user_id, full_name, first_name, last_name, image_url")
-        .in("clerk_user_id", ids);
+      // Separate system users from real users
+      const realIds = ids.filter((id) => !SYSTEM_USERS[id]);
+      const { data: users } = realIds.length > 0
+        ? await supabaseAdmin
+            .from("users")
+            .select("clerk_user_id, full_name, first_name, last_name, image_url")
+            .in("clerk_user_id", realIds)
+        : { data: [] };
 
       const userMap = new Map(
         (users ?? []).map((u) => [
@@ -45,8 +56,10 @@ export async function GET(request: NextRequest) {
         ])
       );
 
-      // Return in the same order as requested, with fallbacks
-      const resolved = ids.map((id) => userMap.get(id) ?? { name: "Anonymous", avatar: "" });
+      // Return in the same order as requested, with system user fallbacks
+      const resolved = ids.map((id) =>
+        SYSTEM_USERS[id] ?? userMap.get(id) ?? { name: "Anonymous", avatar: "" }
+      );
       return NextResponse.json({ users: resolved });
     }
 

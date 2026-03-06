@@ -225,6 +225,12 @@ export const LIVEBLOCKS_RESOURCES: Array<{
     description: "Real-time collaboration rooms for appraisal orders (comments, presence)",
     actions: ["room_write", "room_read", "room_presence_write", "room_private"],
   },
+  {
+    name: "room:deal_chat",
+    label: "Deal Chat Rooms",
+    description: "Real-time messaging channels for deals",
+    actions: ["room_write", "room_read", "room_presence_write"],
+  },
 ];
 
 /**
