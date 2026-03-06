@@ -43,6 +43,30 @@
     "test:e2e": {
       "cache": false
     },
-    "clean": {}
+    "clean": {},
+    "build:openapi": {
+      "inputs": ["packages/api-contract/src/**"],
+      "outputs": ["packages/api-contract/dist/**"]
+    },
+    "copy:spec": {
+      "dependsOn": ["build:openapi"],
+      "inputs": ["packages/api-contract/dist/openapi.json"],
+      "outputs": [
+        "docs/developer/openapi.json",
+        "docs/resources/openapi.json"
+      ],
+      "cache": false
+    },
+    "build:sdk": {
+      "dependsOn": ["build:openapi"],
+      "inputs": ["packages/api-contract/dist/openapi.json"],
+      "outputs": [
+        "packages/sdk-typescript/src/**",
+        "packages/sdk-python/src/**"
+      ]
+    },
+    "build:docs": {
+      "dependsOn": ["copy:spec"]
+    }
   }
 }

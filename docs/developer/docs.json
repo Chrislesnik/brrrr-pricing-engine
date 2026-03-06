@@ -1,0 +1,128 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "dscr.ai Docs",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "appearance": {
+    "default": "dark"
+  },
+  "colors": {
+    "primary": "#8ab4f8",
+    "primaryDark": "#8ab4f8",
+    "background": {
+      "light": "#FFFFFF",
+      "dark": "#0A0A0A"
+    }
+  },
+  "styling": {
+    "codeblocks": {
+      "theme": "css-variables"
+    }
+  },
+  "openapi": "openapi.json",
+  "api": {
+    "playground": {
+      "mode": "interactive"
+    },
+    "auth": {
+      "method": "bearer",
+      "name": "Authorization"
+    }
+  },
+  "tabs": [
+    { "name": "Documentation", "url": "docs" },
+    { "name": "API Reference", "url": "api-reference" },
+    { "name": "SDKs", "url": "sdks" },
+    { "name": "Changelog", "url": "changelog" }
+  ],
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "icon": "rocket",
+            "pages": ["docs/introduction", "docs/quickstart", "docs/authentication"]
+          },
+          {
+            "group": "Platform",
+            "icon": "grid-2",
+            "pages": ["docs/platform-overview", "docs/api-overview"]
+          },
+          {
+            "group": "Concepts",
+            "icon": "book-open",
+            "pages": [
+              "docs/concepts/rate-limits",
+              "docs/concepts/errors",
+              "docs/concepts/versioning"
+            ]
+          },
+          {
+            "group": "Guides",
+            "icon": "map",
+            "pages": [
+              "docs/guides/deals",
+              "docs/guides/borrowers-entities",
+              "docs/guides/documents",
+              "docs/guides/webhooks"
+            ]
+          },
+          {
+            "group": "Power Users",
+            "icon": "terminal",
+            "pages": [
+              "docs/power-users/ai-features",
+              "docs/power-users/api-integration",
+              "docs/power-users/row-level-security",
+              "docs/power-users/sql-data-access"
+            ]
+          },
+          {
+            "group": "Reference",
+            "icon": "database",
+            "pages": ["docs/reference/database-schema"]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "openapi.json"
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": "SDKs",
+            "pages": ["sdks/typescript", "sdks/python"]
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": ["changelog/2026-03"]
+          }
+        ]
+      }
+    ]
+  },
+  "topbar": {
+    "links": [
+      {
+        "name": "Dashboard",
+        "url": "https://pricingengine.pro"
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/your-org"
+  }
+}

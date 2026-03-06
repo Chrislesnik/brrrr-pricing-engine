@@ -11,13 +11,11 @@ import { ThemeSwitch } from "@/components/theme-switch";
 interface ResourcesHeaderProps {
   breadcrumb?: React.ReactNode;
   title?: string;
-  toolbarComponent?: React.ReactNode;
 }
 
 export function ResourcesHeader({
   breadcrumb,
   title,
-  toolbarComponent,
 }: ResourcesHeaderProps) {
   return (
     <Suspense
@@ -46,7 +44,6 @@ export function ResourcesHeader({
         <div className="flex items-center gap-2 ml-auto flex-shrink-0">
           <SearchForm className="w-full max-w-48 xl:max-w-56" />
           <ResourcesSettingsPopover
-            toolbarComponent={toolbarComponent}
             trigger={
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <Settings className="h-4 w-4" />

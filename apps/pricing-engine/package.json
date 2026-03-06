@@ -76,6 +76,7 @@
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-google-maps/api": "^2.20.8",
+    "@repo/api-contract": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/env": "workspace:*",
     "@repo/lib": "workspace:*",

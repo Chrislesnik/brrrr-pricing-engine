@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 import { authForApiRoute } from "@/lib/orgs"
 import { archiveRecord, restoreRecord } from "@/lib/archive-helpers"
 import { writeScenarioInputs, writeScenarioOutputs, readScenarioInputs, readScenarioOutputs } from "@/lib/scenario-helpers"
+import { UpdateScenarioRequest } from "@repo/api-contract"
 
 export const runtime = "nodejs"
 
@@ -94,6 +95,14 @@ export async function POST(
       outputs?: unknown[] | null
       selected?: unknown
       loanId?: string
+    }
+
+    const contractResult = UpdateScenarioRequest.safeParse(body)
+    if (!contractResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: contractResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
     }
 
     // Fetch previous state for comparison

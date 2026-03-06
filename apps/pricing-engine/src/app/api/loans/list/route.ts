@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { authForApiRoute } from "@/lib/orgs"
+import { ListLoansQuery } from "@repo/api-contract"
 
 export const runtime = "nodejs"
 

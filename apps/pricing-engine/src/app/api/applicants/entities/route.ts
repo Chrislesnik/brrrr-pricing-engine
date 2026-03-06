@@ -8,6 +8,7 @@ import {
   isPrivilegedRole,
 } from "@/lib/orgs"
 import { buildOwnerRows } from "./owner-helpers"
+import { CreateEntityRequest, SearchEntitiesQuery } from "@repo/api-contract"
 
 const ownerSchema = z.object({
   name: z.string().optional().or(z.literal("")),
@@ -57,6 +58,15 @@ export async function POST(req: NextRequest) {
     const reqId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     const json = await req.json()
+
+    const contractResult = CreateEntityRequest.safeParse(json)
+    if (!contractResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: contractResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
+    }
+
     const parsed = schema.parse(json)
     // Preserve raw owners from the request to avoid losing camelCase fields during validation
     const ownersRaw: any[] = Array.isArray((json as any)?.owners) ? ((json as any).owners as any[]) : []
@@ -244,6 +254,17 @@ export async function GET(req: NextRequest) {
         .eq("user_id", userId)
         .maybeSingle()
       currentUserOrgMemberId = memberRow?.id as string | undefined
+    }
+
+    const queryResult = SearchEntitiesQuery.safeParse({
+      q: req.nextUrl.searchParams.get("q") ?? undefined,
+      includeIds: req.nextUrl.searchParams.get("includeIds") ?? undefined,
+    })
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Invalid query parameters", details: queryResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
     }
 
     const search = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? ""

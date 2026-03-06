@@ -1,12 +1,9 @@
 import {
   Home,
-  Landmark,
-  ClipboardCheck,
   FolderArchive,
   Handshake,
   LifeBuoy,
   FileText,
-  Building2,
   GraduationCap,
   BookOpen,
   Shield,
@@ -35,38 +32,6 @@ export interface NavItem {
   badge?: string;
   external?: boolean;
 }
-
-export const CATEGORY_CONFIG: Record<
-  string,
-  { icon: LucideIcon; label: string; order: number; description: string }
-> = {
-  "Loan Programs": {
-    icon: Landmark,
-    label: "Loan Programs",
-    order: 1,
-    description: "Product guides, program matrices, and eligibility details",
-  },
-  Underwriting: {
-    icon: ClipboardCheck,
-    label: "Underwriting",
-    order: 2,
-    description: "Guidelines, checklists, and qualification requirements",
-  },
-  Documentation: {
-    icon: BookOpen,
-    label: "Documentation",
-    order: 3,
-    description: "Platform documentation and reference materials",
-  },
-  "Lender Platform": {
-    icon: Building2,
-    label: "Platform Guides",
-    order: 4,
-    description: "How to use the DSCR Loan Funder platform",
-  },
-};
-
-export const DEFAULT_CATEGORY_ICON = FileText;
 
 export const STATIC_NAV_SECTIONS: NavSection[] = [
   {
@@ -171,41 +136,3 @@ export const QUICK_ACTIONS: NavItem[] = [
   },
 ];
 
-export const HOMEPAGE_CATEGORIES = [
-  {
-    title: "Loan Programs",
-    description:
-      "Explore our product lineup including DSCR, Fix & Flip, Bridge, and Ground Up Construction loans.",
-    icon: Landmark,
-    href: "/resources#loan-programs",
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-  },
-  {
-    title: "Underwriting",
-    description:
-      "Property requirements, borrower qualifications, and documentation checklists.",
-    icon: ClipboardCheck,
-    href: "/resources#underwriting",
-    color: "text-emerald-500",
-    bgColor: "bg-emerald-500/10",
-  },
-  {
-    title: "Documents & Forms",
-    description:
-      "Download application forms, disclosures, rate sheets, and closing documents.",
-    icon: FolderArchive,
-    href: "/resources/documents",
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-  },
-  {
-    title: "Partner Resources",
-    description:
-      "Broker guides, submission workflows, compensation details, and marketing tools.",
-    icon: Handshake,
-    href: "/resources#partners",
-    color: "text-violet-500",
-    bgColor: "bg-violet-500/10",
-  },
-];

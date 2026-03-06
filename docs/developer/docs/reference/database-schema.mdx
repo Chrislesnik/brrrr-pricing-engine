@@ -1,0 +1,14 @@
+---
+title: "Database Schema"
+description: "Reference documentation for the dscr.ai database tables and relationships."
+---
+
+This page documents the core database tables, their columns, and relationships. The schema is managed through Supabase migrations.
+
+## Core Tables
+
+The primary tables include `deals`, `borrowers`, `entities`, `documents`, `applications`, `loans`, and `scenarios`. Each table includes standard audit columns (`created_at`, `updated_at`) and organization scoping via `org_id`.
+
+## Entity Relationships
+
+Deals connect to borrowers through applications. Each deal can have multiple scenarios for pricing analysis. Documents are linked to deals and organized by document type.

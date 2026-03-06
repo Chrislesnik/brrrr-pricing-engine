@@ -8,6 +8,7 @@ import {
   isPrivilegedRole,
 } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { CreateBorrowerRequest, SearchBorrowersQuery } from "@repo/api-contract"
 
 const schema = z.object({
   first_name: z.string().min(1),
@@ -73,6 +74,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No organization" }, { status: 401 })
     }
     const json = await req.json()
+
+    const contractResult = CreateBorrowerRequest.safeParse(json)
+    if (!contractResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: contractResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
+    }
+
     const parsed = schema.parse(json)
 
     const primary = toE164(parsed.primary_phone)
@@ -219,6 +229,18 @@ export const GET = async (req: NextRequest) => {
         .eq("user_id", userId)
         .maybeSingle()
       currentUserOrgMemberId = memberRow?.id as string | undefined
+    }
+
+    const queryResult = SearchBorrowersQuery.safeParse({
+      q: req.nextUrl.searchParams.get("q") ?? undefined,
+      entityId: req.nextUrl.searchParams.get("entityId") ?? undefined,
+      includeIds: req.nextUrl.searchParams.get("includeIds") ?? undefined,
+    })
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Invalid query parameters", details: queryResult.error.flatten().fieldErrors },
+        { status: 422 },
+      )
     }
 
     const search = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? ""

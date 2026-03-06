@@ -24,7 +24,13 @@
     "ios:add": "pnpm exec cap add ios",
     "ios:open": "pnpm exec cap open ios",
     "ios:sync:dev": "pnpm exec cap sync ios",
-    "ios:sync:prod": "APP_URL=https://www.pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios"
+    "ios:sync:prod": "APP_URL=https://www.pricingengine.pro CAP_SERVER_URL=$APP_URL pnpm exec cap sync ios",
+    "build:openapi": "turbo run build:openapi --filter=@repo/api-contract",
+    "copy:spec": "cp packages/api-contract/dist/openapi.json docs/developer/openapi.json && cp packages/api-contract/dist/openapi.json docs/resources/openapi.json",
+    "predev:docs-site": "pnpm build:openapi && pnpm copy:spec",
+    "dev:docs-site": "cd docs/developer && npx mintlify dev",
+    "predev:resources-site": "pnpm build:openapi && pnpm copy:spec",
+    "dev:resources-site": "cd docs/resources && npx mintlify dev"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

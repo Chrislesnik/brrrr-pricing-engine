@@ -1,0 +1,28 @@
+---
+title: "TypeScript SDK"
+description: "Type-safe TypeScript client for the dscr.ai API."
+---
+
+The official TypeScript SDK provides type-safe access to the dscr.ai API with full IntelliSense support.
+
+## Installation
+
+```bash
+npm install @dscr/sdk
+```
+
+## Quick Start
+
+```typescript
+import { DscrClient } from "@dscr/sdk";
+
+const client = new DscrClient({
+  apiKey: process.env.DSCR_API_KEY,
+});
+
+const deals = await client.deals.list();
+```
+
+## Configuration
+
+The client accepts an API key and optional base URL override for development environments.

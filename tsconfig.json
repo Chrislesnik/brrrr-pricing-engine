@@ -3,7 +3,9 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./apps/pricing-engine/src/*"],
-      "@repo/*": ["./packages/*/src/*"]
+      "@repo/ui/*": ["./packages/ui/src/*"],
+      "@repo/lib/*": ["./packages/lib/src/*"],
+      "@repo/api-contract": ["./packages/api-contract/src/index.ts"]
     }
   }
 }
