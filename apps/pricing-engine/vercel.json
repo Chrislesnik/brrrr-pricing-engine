@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "_comment": "Replace [docs-subdomain] and [resources-subdomain] with values from dashboard.mintlify.com/.../your-subdomain",
   "installCommand": "pnpm install",
   "functions": {
     "src/app/api/pdf/render/route.ts": {
@@ -11,19 +10,19 @@
   "rewrites": [
     {
       "source": "/docs",
-      "destination": "https://[docs-subdomain].mintlify.dev/docs"
+      "destination": "https://brrrrloans.mintlify.dev/docs"
     },
     {
       "source": "/docs/:match*",
-      "destination": "https://[docs-subdomain].mintlify.dev/docs/:match*"
+      "destination": "https://brrrrloans.mintlify.dev/docs/:match*"
     },
     {
       "source": "/resources",
-      "destination": "https://[resources-subdomain].mintlify.dev/resources"
+      "destination": "https://brrrrloans.mintlify.dev/resources"
     },
     {
       "source": "/resources/:match*",
-      "destination": "https://[resources-subdomain].mintlify.dev/resources/:match*"
+      "destination": "https://brrrrloans.mintlify.dev/resources/:match*"
     }
   ]
 }
