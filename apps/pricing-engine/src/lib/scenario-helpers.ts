@@ -155,15 +155,22 @@ export async function writeScenarioOutputs(
     if (!output || typeof output !== "object") continue
     const o = output as Record<string, unknown>
 
+    // The output may be a wrapper { id, ok, status, data: {...} } or a flat object.
+    // Normalize so we always read program fields from the correct level.
+    const inner = (o.data && typeof o.data === "object" && !Array.isArray(o.data) ? o.data : o) as Record<string, unknown>
+
     // Determine program_id - try to match from selected or from output itself
     let programId: string | null = null
     if (typeof o.program_id === "string") programId = o.program_id
+    else if (typeof (o.id as string) === "string") programId = o.id as string
+    else if (typeof inner.program_id === "string") programId = inner.program_id as string
     // Validate UUID format
     if (programId && !/^[0-9a-f-]{36}$/i.test(programId)) programId = null
 
     let programVersionId: number | null = null
-    if (o.program_version_id != null) {
-      const n = Number(o.program_version_id)
+    const pvid = inner.program_version_id ?? o.program_version_id
+    if (pvid != null) {
+      const n = Number(pvid)
       if (Number.isFinite(n)) programVersionId = n
     }
 
@@ -173,12 +180,12 @@ export async function writeScenarioOutputs(
         loan_scenario_id: scenarioId,
         program_id: programId,
         program_version_id: programVersionId,
-        program_name: typeof o.program_name === "string" ? o.program_name : null,
-        pass: typeof o.pass === "boolean" ? o.pass : null,
-        loan_amount: o.loan_amount != null ? String(o.loan_amount) : null,
-        ltv: o.ltv != null ? String(o.ltv) : null,
-        validations: Array.isArray(o.validations) ? o.validations.filter(Boolean).map(String) : null,
-        warnings: Array.isArray(o.warnings ?? o.warning) ? ((o.warnings ?? o.warning) as unknown[]).filter(Boolean).map(String) : null,
+        program_name: typeof o.internal_name === "string" ? o.internal_name : (typeof inner.program_name === "string" ? inner.program_name : null),
+        pass: typeof inner.pass === "boolean" ? inner.pass : (typeof o.pass === "boolean" ? o.pass : null),
+        loan_amount: (inner.loan_amount ?? o.loan_amount) != null ? String(inner.loan_amount ?? o.loan_amount) : null,
+        ltv: (inner.ltv ?? o.ltv) != null ? String(inner.ltv ?? o.ltv) : null,
+        validations: Array.isArray(inner.validations ?? o.validations) ? ((inner.validations ?? o.validations) as unknown[]).filter(Boolean).map(String) : null,
+        warnings: Array.isArray(inner.warnings ?? inner.warning ?? o.warnings) ? ((inner.warnings ?? inner.warning ?? o.warnings) as unknown[]).filter(Boolean).map(String) : null,
         raw_response: o,
       })
       .select("id")
@@ -189,15 +196,15 @@ export async function writeScenarioOutputs(
     const resultId = resultRow.id as number
 
     // Extract rate option arrays and create rows
-    const loanPrices = Array.isArray(o.loan_price) ? o.loan_price : []
-    const interestRates = Array.isArray(o.interest_rate) ? o.interest_rate : []
-    const pitias = Array.isArray(o.pitia) ? o.pitia : []
-    const dscrs = Array.isArray(o.dscr) ? o.dscr : []
-    const initialAmounts = Array.isArray(o.initial_loan_amount) ? o.initial_loan_amount : []
-    const rehabHoldbacks = Array.isArray(o.rehab_holdback) ? o.rehab_holdback : []
-    const totalAmounts = Array.isArray(o.total_loan_amount) ? o.total_loan_amount : []
-    const initialPitias = Array.isArray(o.initial_pitia) ? o.initial_pitia : []
-    const fundedPitias = Array.isArray(o.funded_pitia) ? o.funded_pitia : []
+    const loanPrices = Array.isArray(inner.loan_price) ? inner.loan_price : (Array.isArray(o.loan_price) ? o.loan_price : [])
+    const interestRates = Array.isArray(inner.interest_rate) ? inner.interest_rate : (Array.isArray(o.interest_rate) ? o.interest_rate : [])
+    const pitias = Array.isArray(inner.pitia) ? inner.pitia : (Array.isArray(o.pitia) ? o.pitia : [])
+    const dscrs = Array.isArray(inner.dscr) ? inner.dscr : (Array.isArray(o.dscr) ? o.dscr : [])
+    const initialAmounts = Array.isArray(inner.initial_loan_amount) ? inner.initial_loan_amount : (Array.isArray(o.initial_loan_amount) ? o.initial_loan_amount : [])
+    const rehabHoldbacks = Array.isArray(inner.rehab_holdback) ? inner.rehab_holdback : (Array.isArray(o.rehab_holdback) ? o.rehab_holdback : [])
+    const totalAmounts = Array.isArray(inner.total_loan_amount) ? inner.total_loan_amount : (Array.isArray(o.total_loan_amount) ? o.total_loan_amount : [])
+    const initialPitias = Array.isArray(inner.initial_pitia) ? inner.initial_pitia : (Array.isArray(o.initial_pitia) ? o.initial_pitia : [])
+    const fundedPitias = Array.isArray(inner.funded_pitia) ? inner.funded_pitia : (Array.isArray(o.funded_pitia) ? o.funded_pitia : [])
 
     const maxLen = Math.max(
       loanPrices.length, interestRates.length, pitias.length, dscrs.length,
@@ -313,16 +320,19 @@ export async function readScenarioOutputs(
     // Prefer raw_response when available since it preserves the exact original shape
     if (r.raw_response && typeof r.raw_response === "object") {
       const raw = r.raw_response as Record<string, unknown>
+      // raw_response may be the full output wrapper { id, ok, status, data: {...} }
+      // or just the inner data object. Normalize so `data` always holds the inner values.
+      const innerData = (raw.data && typeof raw.data === "object" ? raw.data : raw) as Record<string, unknown>
       out.push({
-        id: r.program_id ?? undefined,
-        internal_name: prog?.internal_name ?? r.program_name ?? undefined,
-        external_name: prog?.external_name ?? r.program_name ?? undefined,
-        ok: true,
-        status: 200,
+        id: r.program_id ?? (raw.id as string | undefined) ?? undefined,
+        internal_name: prog?.internal_name ?? r.program_name ?? (raw.internal_name as string | undefined) ?? undefined,
+        external_name: prog?.external_name ?? r.program_name ?? (raw.external_name as string | undefined) ?? undefined,
+        ok: (raw.ok as boolean | undefined) ?? true,
+        status: (raw.status as number | undefined) ?? 200,
         data: {
-          ...raw,
-          program_id: r.program_id ?? raw.program_id ?? null,
-          program_name: r.program_name ?? raw.program_name ?? null,
+          ...innerData,
+          program_id: r.program_id ?? innerData.program_id ?? raw.id ?? null,
+          program_name: r.program_name ?? innerData.program_name ?? (raw.internal_name as string | undefined) ?? null,
         },
       })
       continue
