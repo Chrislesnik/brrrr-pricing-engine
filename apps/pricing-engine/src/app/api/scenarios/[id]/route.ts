@@ -48,7 +48,11 @@ export async function GET(
         const innerData = (raw.data && typeof raw.data === "object" ? raw.data : raw) as Record<string, unknown>
         const rowIdx = rateOpt.row_index ?? 0
         const pickFromArray = (arr: unknown, idx: number) => {
-          if (Array.isArray(arr) && idx < arr.length && arr[idx] != null) return String(arr[idx])
+          if (!Array.isArray(arr)) return null
+          if (idx < arr.length && arr[idx] != null && String(arr[idx]).trim() !== "") return String(arr[idx])
+          for (const v of arr) {
+            if (v != null && String(v).trim() !== "") return String(v)
+          }
           return null
         }
         selected = {
