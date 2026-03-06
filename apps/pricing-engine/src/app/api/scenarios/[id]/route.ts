@@ -38,21 +38,29 @@ export async function GET(
     if (data?.selected_rate_option_id) {
       const { data: rateOpt } = await supabaseAdmin
         .from("scenario_rate_options")
-        .select("*, scenario_program_results!inner(program_id, program_name, loan_amount, ltv)")
+        .select("*, scenario_program_results!inner(program_id, program_name, loan_amount, ltv, raw_response)")
         .eq("id", data.selected_rate_option_id)
         .single()
       if (rateOpt) {
         const result = rateOpt.scenario_program_results as Record<string, unknown>
+        // raw_response may contain { id, ok, data: {...}, internal_name, ... }
+        const raw = (result?.raw_response ?? {}) as Record<string, unknown>
+        const innerData = (raw.data && typeof raw.data === "object" ? raw.data : raw) as Record<string, unknown>
+        const rowIdx = rateOpt.row_index ?? 0
+        const pickFromArray = (arr: unknown, idx: number) => {
+          if (Array.isArray(arr) && idx < arr.length && arr[idx] != null) return String(arr[idx])
+          return null
+        }
         selected = {
-          program_id: result?.program_id ?? null,
-          program_name: result?.program_name ?? null,
-          row_index: rateOpt.row_index,
-          loanPrice: rateOpt.loan_price,
-          interestRate: rateOpt.interest_rate,
-          loanAmount: (result?.loan_amount as string) ?? rateOpt.total_loan_amount ?? null,
-          ltv: (result?.ltv as string) ?? null,
-          pitia: rateOpt.pitia,
-          dscr: rateOpt.dscr,
+          program_id: result?.program_id ?? raw.id ?? innerData.program_id ?? null,
+          program_name: result?.program_name ?? (raw.internal_name as string) ?? innerData.program_name ?? null,
+          row_index: rowIdx,
+          loanPrice: rateOpt.loan_price ?? pickFromArray(innerData.loan_price, rowIdx),
+          interestRate: rateOpt.interest_rate ?? pickFromArray(innerData.interest_rate, rowIdx),
+          loanAmount: (result?.loan_amount as string) ?? rateOpt.total_loan_amount ?? (innerData.loan_amount as string) ?? null,
+          ltv: (result?.ltv as string) ?? (innerData.ltv as string) ?? null,
+          pitia: rateOpt.pitia ?? pickFromArray(innerData.pitia, rowIdx),
+          dscr: rateOpt.dscr ?? pickFromArray(innerData.dscr, rowIdx),
         }
       }
     }
