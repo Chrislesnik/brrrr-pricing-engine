@@ -5153,24 +5153,19 @@ function ResultsPanel({
     return file
   }
 
-  // Compute ordered list: PASS first, then highest loan amount, then lowest rate (must be called unconditionally).
+  // Compute ordered list: PASS first, then highest LTV, then lowest rate, then highest loan price (must be called unconditionally).
   const orderedResults = React.useMemo(() => {
     const parseNum = (v: unknown): number => {
       const n = Number(String(v ?? "").toString().replace(/[^0-9.-]/g, ""))
       return Number.isFinite(n) ? n : NaN
     }
-    const pickLoanAndRate = (r: ProgramResult): { loan: number; rate: number } => {
+    const pickSortFields = (r: ProgramResult): { ltv: number; rate: number; loanPrice: number } => {
       const d = (r?.data ?? {}) as ProgramResponseData
       const hi = Number(d?.highlight_display ?? 0)
-      const isBridgeResp =
-        Array.isArray(d?.total_loan_amount) ||
-        Array.isArray(d?.initial_loan_amount) ||
-        Array.isArray(d?.funded_pitia)
-      const loan = isBridgeResp
-        ? parseNum(pick<string | number>(d?.total_loan_amount as (string | number)[] | undefined, hi))
-        : parseNum(d?.loan_amount)
+      const ltv = parseNum(d?.ltv)
       const rate = parseNum(pick<string | number>(d?.interest_rate as (string | number)[] | undefined, hi))
-      return { loan, rate }
+      const loanPrice = parseNum(pick<string | number>(d?.loan_price as (string | number)[] | undefined, hi))
+      return { ltv, rate, loanPrice }
     }
     const arr = (results ?? []).slice()
     arr.sort((a, b) => {
@@ -5178,10 +5173,11 @@ function ResultsPanel({
       const scoreB = b?.data ? (b.data?.pass ? 2 : 1) : 0
       if (scoreA !== scoreB) return scoreB - scoreA
       if (scoreA === 0 && scoreB === 0) return 0
-      const { loan: loanA, rate: rateA } = pickLoanAndRate(a)
-      const { loan: loanB, rate: rateB } = pickLoanAndRate(b)
-      if (!Number.isNaN(loanA) && !Number.isNaN(loanB) && loanA !== loanB) return loanB - loanA
-      if (!Number.isNaN(rateA) && !Number.isNaN(rateB) && rateA !== rateB) return rateA - rateB
+      const fa = pickSortFields(a)
+      const fb = pickSortFields(b)
+      if (!Number.isNaN(fa.ltv) && !Number.isNaN(fb.ltv) && fa.ltv !== fb.ltv) return fb.ltv - fa.ltv
+      if (!Number.isNaN(fa.rate) && !Number.isNaN(fb.rate) && fa.rate !== fb.rate) return fa.rate - fb.rate
+      if (!Number.isNaN(fa.loanPrice) && !Number.isNaN(fb.loanPrice) && fa.loanPrice !== fb.loanPrice) return fb.loanPrice - fa.loanPrice
       return 0
     })
     return arr
