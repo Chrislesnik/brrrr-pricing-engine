@@ -35,7 +35,7 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import { ChevronDown, Plus, Settings2, Trash2, Upload } from "lucide-react"
+import { ChevronDown, Download, Plus, Settings2 } from "lucide-react"
 import { cn } from "@repo/lib/cn"
 import MultiStepForm from "@/components/shadcn-studio/blocks/multi-step-form-03/MultiStepForm"
 import { Button } from "@repo/ui/shadcn/button"
@@ -61,19 +61,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@repo/ui/shadcn/dropdown-menu"
-import {
-  FileUpload,
-  FileUploadClear,
-  FileUploadDropzone,
-  FileUploadItem,
-  FileUploadItemDelete,
-  FileUploadItemMetadata,
-  FileUploadItemPreview,
-  FileUploadItemProgress,
-  FileUploadList,
-  FileUploadTrigger,
-  useFileUpload,
-} from "@/components/ui/file-upload"
+import { Separator } from "@repo/ui/shadcn/separator"
 import { Input } from "@repo/ui/shadcn/input"
 import { Label } from "@repo/ui/shadcn/label"
 import { Progress } from "@repo/ui/shadcn/progress"
@@ -112,9 +100,14 @@ export function ApplicationsTable({ data }: Props) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [linkedRows, setLinkedRows] = useState<Record<string, boolean>>({})
   const [statusFilter, setStatusFilter] = useState<string[]>([])
-  const [uploadContext, setUploadContext] = useState<{
+  const [downloadContext, setDownloadContext] = useState<{
     id: string
     borrower?: string | null
+    entityId?: string | null
+    documensoDocumentId?: string | null
+    guarantors?: Array<{ id: string; name: string; email: string | null }> | null
+    status?: string | null
+    signingProgressPct?: number
   } | null>(null)
   const [liveData, setLiveData] = useState<
     Record<
@@ -372,16 +365,21 @@ export function ApplicationsTable({ data }: Props) {
               size="icon"
               variant="outline"
               className="h-9 w-9"
-              aria-label="Upload documents"
+              aria-label="Download documents"
               onClick={(e) => {
                 e.stopPropagation()
-                setUploadContext({
+                setDownloadContext({
                   id: row.id,
                   borrower: row.original.borrowerEntityName,
+                  entityId: row.original.entityId,
+                  documensoDocumentId: row.original.documensoDocumentId,
+                  guarantors: row.original.guarantors,
+                  status: row.original.status,
+                  signingProgressPct: row.original.signingProgressPct,
                 })
               }}
             >
-              <Upload className="h-4 w-4" aria-hidden="true" />
+              <Download className="h-4 w-4" aria-hidden="true" />
             </Button>
             <Button
               size="sm"
@@ -666,15 +664,20 @@ export function ApplicationsTable({ data }: Props) {
                         size="icon"
                         variant="outline"
                         className="h-9 w-9"
-                        aria-label="Upload documents"
+                        aria-label="Download documents"
                         onClick={() =>
-                          setUploadContext({
+                          setDownloadContext({
                             id: row.id,
                             borrower: app.borrowerEntityName,
+                            entityId: app.entityId,
+                            documensoDocumentId: app.documensoDocumentId,
+                            guarantors: app.guarantors,
+                            status: app.status,
+                            signingProgressPct: app.signingProgressPct,
                           })
                         }
                       >
-                        <Upload className="h-4 w-4" aria-hidden="true" />
+                        <Download className="h-4 w-4" aria-hidden="true" />
                       </Button>
                       <Button
                         size="sm"
@@ -697,21 +700,29 @@ export function ApplicationsTable({ data }: Props) {
       </div>
       <DealsStylePagination table={table} />
       <Dialog
-        open={!!uploadContext}
+        open={!!downloadContext}
         onOpenChange={(open) => {
-          if (!open) setUploadContext(null)
+          if (!open) setDownloadContext(null)
         }}
       >
-        <DialogContent className="w-[65vw] max-w-[900px] sm:max-w-[1000px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Upload documents</DialogTitle>
+            <DialogTitle>Download Application</DialogTitle>
             <DialogDescription>
-              {uploadContext?.borrower
-                ? `Attach files for ${uploadContext.borrower}.`
-                : "Attach files to this application."}
+              {downloadContext?.borrower
+                ? `Download documents for ${downloadContext.borrower}.`
+                : "Download documents for this application."}
             </DialogDescription>
           </DialogHeader>
-          <UploadWidget />
+          {downloadContext && (
+            <DownloadDialogBody
+              loanId={downloadContext.id}
+              entityId={downloadContext.entityId}
+              documensoDocumentId={downloadContext.documensoDocumentId}
+              guarantors={downloadContext.guarantors}
+              isCompleted={downloadContext.signingProgressPct != null && downloadContext.signingProgressPct >= 1}
+            />
+          )}
         </DialogContent>
       </Dialog>
       <style jsx global>{`
@@ -851,76 +862,167 @@ function formatColumnName(columnId: string): string {
   return map[columnId] ?? columnId.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())
 }
 
-function UploadWidget() {
-  return (
-    <FileUpload
-      className="space-y-4"
-      maxFiles={2}
-      maxSize={5 * 1024 * 1024}
-      accept="image/*,application/pdf"
-    >
-      <FileUploadDropzone className="w-full border-dashed">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="text-muted-foreground flex h-10 w-10 items-center justify-center rounded-full border border-dashed">
-            <Upload className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-foreground text-sm font-medium">
-              Drag & drop files here
-            </span>
-            <span className="text-muted-foreground text-xs">
-              Or click to browse (max 2 files, up to 5MB each)
-            </span>
-          </div>
-          <FileUploadTrigger asChild>
-            <Button size="sm" variant="secondary">
-              Browse files
-            </Button>
-          </FileUploadTrigger>
-        </div>
-      </FileUploadDropzone>
-      <UploadList />
-      <div className="flex justify-end">
-        <FileUploadClear asChild>
-          <Button variant="ghost" size="sm">
-            Clear
-          </Button>
-        </FileUploadClear>
-      </div>
-    </FileUpload>
-  )
+interface DownloadDialogBodyProps {
+  loanId: string
+  entityId?: string | null
+  documensoDocumentId?: string | null
+  guarantors?: Array<{ id: string; name: string; email: string | null }> | null
+  isCompleted: boolean
 }
 
-function UploadList() {
-  const files = useFileUpload((state) => Array.from(state.files.values()))
+function DownloadDialogBody({ loanId, entityId, documensoDocumentId, guarantors, isCompleted }: DownloadDialogBodyProps) {
+  const visibleGuarantors = (guarantors ?? []).slice(0, 4)
+  const hasEntity = !!entityId
+  const [downloading, setDownloading] = useState(false)
 
-  if (!files.length) {
-    return (
-      <div className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
-        No files added yet.
-      </div>
-    )
+  const [sections, setSections] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {}
+    if (hasEntity) init.entity = true
+    visibleGuarantors.forEach((_, i) => { init[`guarantor${i + 1}`] = true })
+    init.property = true
+    init.loan = true
+    return init
+  })
+
+  const allKeys = Object.keys(sections)
+  const allChecked = allKeys.length > 0 && allKeys.every((k) => sections[k])
+  const someChecked = allKeys.some((k) => sections[k])
+
+  const toggleAll = () => {
+    const next = !allChecked
+    setSections((prev) => {
+      const updated = { ...prev }
+      for (const k of Object.keys(updated)) updated[k] = next
+      return updated
+    })
+  }
+
+  const toggle = (key: string) => {
+    setSections((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const handleDownloadCompleted = async () => {
+    if (!documensoDocumentId) return
+    setDownloading(true)
+    try {
+      const res = await fetch(`/api/applications/${loanId}/download`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as any).error || "Download failed")
+      }
+      const blob = await res.blob()
+      const disposition = res.headers.get("Content-Disposition")
+      const filenameMatch = disposition?.match(/filename="(.+?)"/)
+      const filename = filenameMatch?.[1] ?? "application-signed.pdf"
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Download completed document error:", err)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
-    <FileUploadList>
-      {files.map(({ file }) => (
-        <FileUploadItem
-          key={`${file.name}-${file.lastModified}`}
-          value={file}
-          className="items-center gap-3"
+    <div className="space-y-5">
+      {/* Completed document */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Completed Document</p>
+        <Button
+          className="w-full"
+          disabled={!isCompleted || !documensoDocumentId || downloading}
+          onClick={handleDownloadCompleted}
         >
-          <FileUploadItemPreview />
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <FileUploadItemMetadata />
-            <FileUploadItemProgress />
-          </div>
-          <FileUploadItemDelete className="text-muted-foreground hover:text-destructive ml-auto">
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-          </FileUploadItemDelete>
-        </FileUploadItem>
-      ))}
-    </FileUploadList>
+          <Download className="mr-2 h-4 w-4" />
+          {downloading ? "Downloading..." : "Download Completed Document"}
+        </Button>
+        {!isCompleted && (
+          <p className="text-xs text-muted-foreground">
+            Available once all parties have signed.
+          </p>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Unsigned version */}
+      <div className="space-y-3">
+        <p className="text-sm font-medium">Download Unsigned Version</p>
+
+        <div className="space-y-2 rounded-md border p-3">
+          {/* Select / Deselect All */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={allChecked || (someChecked && "indeterminate")}
+              onCheckedChange={toggleAll}
+            />
+            <span className="text-sm font-medium">Select / Deselect All</span>
+          </label>
+
+          <Separator className="my-1" />
+
+          {hasEntity && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={!!sections.entity}
+                onCheckedChange={() => toggle("entity")}
+              />
+              <span className="text-sm">With entity information</span>
+            </label>
+          )}
+
+          {visibleGuarantors.map((g, i) => (
+            <label key={g.id} className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={!!sections[`guarantor${i + 1}`]}
+                onCheckedChange={() => toggle(`guarantor${i + 1}`)}
+              />
+              <span className="text-sm">
+                With guarantor {i + 1} information{g.name ? ` (${g.name})` : ""}
+              </span>
+            </label>
+          ))}
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={!!sections.property}
+              onCheckedChange={() => toggle("property")}
+            />
+            <span className="text-sm">With property information</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={!!sections.loan}
+              onCheckedChange={() => toggle("loan")}
+            />
+            <span className="text-sm">With loan information</span>
+          </label>
+        </div>
+
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={() => {
+            const selected = Object.entries(sections)
+              .filter(([, v]) => v)
+              .map(([k]) => k)
+            // TODO: call download unsigned document API with selected sections
+            console.log("Download unsigned version with sections:", selected)
+          }}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download Unsigned Version
+        </Button>
+      </div>
+    </div>
   )
 }
 

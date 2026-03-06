@@ -6,6 +6,7 @@ export type ApplicationRow = {
   displayId: string | null
   appDisplayId: string | null
   entityId: string | null
+  documensoDocumentId: string | null
   propertyAddress: string | null
   borrowerEntityName: string | null
   showBorrowerEntity: boolean
@@ -55,7 +56,7 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
     const result = await supabaseAdmin
       .from("applications")
       .select(
-        "loan_id, display_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
+        "loan_id, display_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids, documenso_document_id"
       )
       .eq("organization_id", orgUuid)
       .order("updated_at", { ascending: false })
@@ -86,7 +87,7 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
     const result = await supabaseAdmin
       .from("applications")
       .select(
-        "loan_id, display_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids"
+        "loan_id, display_id, organization_id, property_street, property_city, property_state, property_zip, borrower_name, guarantor_names, guarantor_emails, status, updated_at, entity_id, guarantor_ids, documenso_document_id"
       )
       .eq("organization_id", orgUuid)
       .in("loan_id", assignedLoanIds)
@@ -285,6 +286,7 @@ export async function getApplicationsForOrg(orgUuid: string, userId?: string): P
       displayId: displayIdMap[r.loan_id] ?? null,
       appDisplayId: (r.display_id as string) ?? null,
       entityId: (r.entity_id as string | null) ?? null,
+      documensoDocumentId: (r.documenso_document_id as string | null) ?? null,
       propertyAddress: address,
       borrowerEntityName,
       showBorrowerEntity,
