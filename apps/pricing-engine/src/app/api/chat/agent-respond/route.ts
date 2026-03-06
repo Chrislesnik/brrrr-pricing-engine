@@ -7,7 +7,7 @@ import { generateText, stepCountIs } from "ai"
 import { createAnthropic } from "@ai-sdk/anthropic"
 import { getOrgUuidFromClerkId, checkDealAccess } from "@/lib/orgs"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { liveblocks } from "@/lib/liveblocks"
+import { getLiveblocks } from "@/lib/liveblocks"
 import {
   fetchDealContext,
   buildDealSystemPrompt,
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     // Post the agent's text response back to the Liveblocks thread
     if (result.text) {
-      await liveblocks.createComment({
+      await getLiveblocks().createComment({
         roomId,
         threadId,
         data: {
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
           toolResult.output as Record<string, unknown>
         )
         if (summary) {
-          await liveblocks.createComment({
+          await getLiveblocks().createComment({
             roomId,
             threadId,
             data: {
