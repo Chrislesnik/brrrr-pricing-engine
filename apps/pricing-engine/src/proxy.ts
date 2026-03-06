@@ -11,7 +11,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/workflows/:workflowId/webhook",
 ])
 
-const middleware = clerkMiddleware(async (auth, req) => {
+const proxy = clerkMiddleware(async (auth, req) => {
   const isPublic = isPublicRoute(req)
 
   const a = await auth()
@@ -32,7 +32,7 @@ const middleware = clerkMiddleware(async (auth, req) => {
   return NextResponse.next()
 })
 
-export default middleware
+export default proxy
 
 export const config = {
   matcher: [
