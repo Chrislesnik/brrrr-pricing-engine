@@ -36,7 +36,7 @@ export default middleware
 
 export const config = {
   matcher: [
-    "/((?!.+\\.[\\w]+$|_next|docs(?:/.*)?$|resources(?:/.*)?$).*)",
+    "/((?!.+\\.[\\w]+$|_next).*)",
     "/",
     "/(api|trpc)(.*)",
   ],

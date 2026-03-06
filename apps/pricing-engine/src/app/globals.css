@@ -46,7 +46,7 @@ button.lb-composer-action:last-child,
   background: hsl(var(--primary)) !important;
   color: hsl(var(--primary-foreground)) !important;
   border: none !important;
-  border-radius: 0.5rem !important;
+  border-radius: var(--radius) !important;
 }
 
 .lb-composer-action[type="submit"]:hover,
@@ -81,7 +81,7 @@ button.lb-composer-action:last-child:hover,
   background: hsl(var(--muted) / 0.3) !important;
   border: 1px solid hsl(var(--border)) !important;
   box-shadow: none !important;
-  border-radius: 0.75rem !important;
+  border-radius: var(--radius-lg) !important;
 }
 
 .lb-composer:focus-within {
@@ -115,7 +115,7 @@ button.lb-composer-action:last-child:hover,
 .lb-toolbar {
   background: hsl(var(--popover)) !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 0.5rem !important;
+  border-radius: var(--radius) !important;
   box-shadow: 0 2px 8px hsl(0 0% 0% / 0.25) !important;
 }
 
@@ -128,8 +128,8 @@ button.lb-composer-action:last-child:hover,
    wrapper (px-3 py-3 = 0.75rem). Adds margin around the form so the
    composer box has the same distance from the panel walls. */
 .lb-thread-composer {
-  margin: 0.75rem !important;
-  margin-top: 2px !important;
+  margin: 12px !important;
+  margin-top: 4px !important;
 }
 
 /* Composer formatting toolbar */
@@ -189,7 +189,7 @@ button.lb-composer-action:last-child:hover,
   background: hsl(var(--popover)) !important;
   color: hsl(var(--popover-foreground)) !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 0.5rem !important;
+  border-radius: var(--radius) !important;
   box-shadow:
     0 0 0 1px hsl(var(--border) / 0.5),
     0 4px 16px hsl(0 0% 0% / 0.35),
@@ -207,7 +207,7 @@ button.lb-composer-action:last-child:hover,
   padding: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 2px !important;
+  gap: 4px !important;
 }
 
 /* ── Individual suggestion row ──────────────────────────────────────── */
@@ -217,14 +217,14 @@ button.lb-composer-action:last-child:hover,
 .lb-composer-mention-suggestion[class] {
   display: flex !important;
   align-items: center !important;
-  gap: 0.625rem !important;
-  padding: 8px 10px !important;
-  border-radius: 0.375rem !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-radius: var(--radius-sm) !important;
   font-size: 0.8125rem !important;
   line-height: 1.35 !important;
   color: hsl(var(--foreground)) !important;
   cursor: pointer !important;
-  transition: background 0.12s ease !important;
+  transition: background var(--transition-fast) !important;
   background: transparent !important;
 }
 
@@ -243,9 +243,9 @@ button.lb-composer-action:last-child:hover,
 .lb-root .lb-composer-suggestions-list-item .lb-avatar,
 .lb-composer-mention-suggestion-avatar[class],
 .lb-composer-suggestions-list-item .lb-avatar[class] {
-  width: 26px !important;
-  height: 26px !important;
-  min-width: 26px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
   border-radius: 50% !important;
   font-size: 10px !important;
   font-weight: 600 !important;
@@ -269,7 +269,7 @@ button.lb-composer-action:last-child:hover,
 .lb-composer-mention-suggestion-group-description[class] {
   font-size: 0.6875rem !important;
   color: hsl(var(--muted-foreground)) !important;
-  padding: 6px 10px 2px !important;
+  padding: 8px 12px 4px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
   font-weight: 600 !important;
@@ -282,7 +282,7 @@ button.lb-composer-action:last-child:hover,
 .lb-composer-mention[class] {
   background: hsl(var(--primary) / 0.12) !important;
   color: hsl(var(--primary)) !important;
-  border-radius: 0.25rem !important;
+  border-radius: var(--radius-xs) !important;
   padding: 0.1em 0.3em !important;
   font-weight: 500 !important;
   font-size: inherit !important;
@@ -337,14 +337,14 @@ button.lb-composer-action:last-child:hover,
 
 .email-blocknote-surface .bn-editor p,
 .email-blocknote-surface .bn-editor li {
-  margin: 0.35rem 0;
+  margin: 4px 0;
 }
 
 .email-blocknote-surface .bn-editor h1,
 .email-blocknote-surface .bn-editor h2,
 .email-blocknote-surface .bn-editor h3 {
-  margin-top: 0.85rem;
-  margin-bottom: 0.45rem;
+  margin-top: 12px;
+  margin-bottom: 8px;
   line-height: 1.3;
 }
 
@@ -360,8 +360,8 @@ button.lb-composer-action:last-child:hover,
 .email-blocknote-surface .bn-editor code {
   background: hsl(var(--muted));
   color: hsl(var(--foreground));
-  border-radius: 0.25rem;
-  padding: 0.08rem 0.32rem;
+  border-radius: var(--radius-xs);
+  padding: 0 4px;
 }
 
 /* HTML embed block: fill parent width, never clip selection border */
@@ -389,23 +389,23 @@ button.lb-composer-action:last-child:hover,
 /* ── HTML embed toolbar ─────────────────────────────────────────────────── */
 .html-embed-toolbar {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 8px;
+  right: 8px;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   background: hsl(var(--popover) / 0.88);
   -webkit-backdrop-filter: blur(10px) saturate(1.6);
   backdrop-filter: blur(10px) saturate(1.6);
-  border-radius: 8px;
+  border-radius: var(--radius);
   border: 1px solid hsl(var(--border) / 0.45);
-  padding: 3px 4px;
+  padding: 4px;
   box-shadow:
     0 1px 3px hsl(0 0% 0% / 0.12),
     0 4px 12px hsl(0 0% 0% / 0.08);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.18s ease;
+  transition: opacity var(--transition-normal);
 }
 
 .html-embed-container:hover .html-embed-toolbar,
@@ -430,7 +430,7 @@ button.lb-composer-action:last-child:hover,
 
 /* Icon buttons */
 .html-embed-icon-btn {
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .html-embed-icon-btn:hover {
@@ -448,7 +448,7 @@ button.lb-composer-action:last-child:hover,
 /* Resize handles: only show on hover */
 .html-embed-container > [style*="cursor"][style*="resize"] {
   opacity: 0;
-  transition: opacity 0.18s ease;
+  transition: opacity var(--transition-normal);
 }
 
 .html-embed-container:hover > [style*="cursor"][style*="resize"] {
@@ -490,12 +490,12 @@ button.lb-composer-action:last-child:hover,
 .email-blocknote-surface [data-file-block] .bn-file-name-with-icon {
   align-items: center;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: hsl(var(--foreground));
   min-height: 40px;
   padding: 8px 12px;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .email-blocknote-surface .bn-editor[contenteditable="true"] [data-file-block] .bn-file-name-with-icon:hover,
@@ -529,7 +529,7 @@ button.lb-composer-action:last-child:hover,
 /* Embed/file panel popover */
 .email-blocknote-surface .bn-popover-content.bn-panel-popover {
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 10px !important;
+  border-radius: var(--radius-lg) !important;
   background: hsl(var(--card)) !important;
   color: hsl(var(--card-foreground)) !important;
   box-shadow:
@@ -537,20 +537,20 @@ button.lb-composer-action:last-child:hover,
     0 4px 6px -4px hsl(0 0% 0% / 0.1) !important;
   min-width: 280px;
   max-width: 340px;
-  padding: 0.35rem;
+  padding: 4px;
 }
 
 .email-blocknote-surface .bn-popover-content.bn-panel-popover button,
 .email-blocknote-surface .bn-popover-content.bn-panel-popover [role="button"],
 .email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-UnstyledButton-root {
   width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: hsl(var(--foreground));
   min-height: 36px;
   justify-content: flex-start;
-  padding: 0.45rem 0.6rem;
+  padding: 8px 12px;
   font-size: 0.875rem;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   border: 1px solid transparent;
 }
 
@@ -590,9 +590,9 @@ button.lb-composer-action:last-child:hover,
   width: max-content !important;
   min-width: 0 !important;
   border: 1px solid hsl(var(--border));
-  border-radius: calc(var(--radius) - 1px);
+  border-radius: var(--radius-sm);
   background: hsl(var(--muted));
-  padding: 0.2rem;
+  padding: 4px;
 }
 
 .email-blocknote-surface .bn-popover-content.bn-panel-popover .mantine-Tabs-tab {
@@ -600,11 +600,11 @@ button.lb-composer-action:last-child:hover,
   min-width: 0 !important;
   min-height: 28px;
   flex: 0 0 auto !important;
-  border-radius: calc(var(--radius) - 3px);
+  border-radius: var(--radius-xs);
   border: 1px solid transparent;
   background: transparent;
   color: hsl(var(--muted-foreground));
-  padding: 0.35rem 0.7rem;
+  padding: 4px 12px;
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1;
@@ -646,8 +646,8 @@ button.lb-composer-action:last-child:hover,
   color: hsl(var(--foreground)) !important;
   background: hsl(var(--background) / 0.7) !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 6px !important;
-  padding: 2px 8px !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 4px 8px !important;
 }
 
 .email-blocknote-surface .bn-suggestion-menu {
@@ -658,13 +658,13 @@ button.lb-composer-action:last-child:hover,
   max-height: 427px !important;
   overflow-y: auto !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: calc(var(--radius) + 2px) !important;
+  border-radius: var(--radius-lg) !important;
   background: hsl(var(--card)) !important;
   color: hsl(var(--card-foreground)) !important;
   box-shadow:
     0 10px 15px -3px hsl(0 0% 0% / 0.1),
     0 4px 6px -4px hsl(0 0% 0% / 0.1) !important;
-  padding: 0.375rem !important;
+  padding: 8px !important;
 }
 
 .email-blocknote-surface .bn-suggestion-menu-label {
@@ -672,14 +672,14 @@ button.lb-composer-action:last-child:hover,
   font-size: 10px !important;
   font-weight: 600 !important;
   letter-spacing: 0.08em !important;
-  padding: 0.4rem 0.55rem 0.2rem !important;
+  padding: 8px 8px 4px !important;
 }
 
 .email-blocknote-surface .bn-suggestion-menu-item {
-  border-radius: calc(var(--radius) - 2px) !important;
+  border-radius: var(--radius-sm) !important;
   color: hsl(var(--foreground)) !important;
   min-height: 44px !important;
-  padding: 0.45rem 0.5rem !important;
+  padding: 8px !important;
 }
 
 .email-blocknote-surface .bn-suggestion-menu-item[aria-selected="true"],

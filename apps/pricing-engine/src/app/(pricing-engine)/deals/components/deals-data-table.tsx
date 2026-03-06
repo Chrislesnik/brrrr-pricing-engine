@@ -666,7 +666,7 @@ function DealsDisplaySettings({
                       className={cn(
                         "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
                         visible
-                          ? "border-primary/30 bg-primary/10 text-foreground"
+                          ? "border-border text-foreground"
                           : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
                       )}
                     >

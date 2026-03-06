@@ -1,0 +1,44 @@
+---
+title: SQL Data Access
+description: Query your data directly using SQL through the Supabase connection.
+---
+
+Power users can connect directly to their organization's data using standard SQL clients. This enables custom reporting, data analysis, and integration with BI tools.
+
+## Connecting
+
+Use the Supabase connection string from your organization settings to connect with any PostgreSQL-compatible client. All queries are automatically scoped to your organization via RLS.
+
+### Supported Clients
+
+- **psql** — PostgreSQL command-line client
+- **pgAdmin** — Desktop GUI for PostgreSQL
+- **DBeaver** — Universal database tool
+- **Metabase / Superset** — BI and visualization platforms
+
+## Common Queries
+
+### Active Deals by Stage
+
+```sql
+SELECT stage, COUNT(*) as deal_count
+FROM deals
+WHERE status = 'active'
+GROUP BY stage
+ORDER BY deal_count DESC;
+```
+
+### Deals with Borrower Details
+
+```sql
+SELECT d.id, d.property_address, d.loan_amount,
+       b.first_name, b.last_name, b.email
+FROM deals d
+JOIN applications a ON d.id = a.deal_id
+JOIN borrowers b ON a.borrower_id = b.id
+WHERE d.stage = 'underwriting';
+```
+
+## Schema Reference
+
+See the [Database Schema](/docs/reference/database-schema) reference for complete table definitions, column types, and relationship mappings.

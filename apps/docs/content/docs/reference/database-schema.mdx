@@ -1,0 +1,84 @@
+---
+title: Database Schema
+description: Reference documentation for the dscr.ai database tables and relationships.
+---
+
+This page documents the core database tables, their columns, and relationships. The schema is managed through Supabase migrations.
+
+## Core Tables
+
+The primary tables include `deals`, `borrowers`, `entities`, `documents`, `applications`, `loans`, and `scenarios`. Each table includes standard audit columns (`created_at`, `updated_at`) and organization scoping via `org_id`.
+
+## deals
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | Yes | Primary key |
+| `organization_id` | uuid | Yes | FK → organizations |
+| `property_address` | text | Yes | Property street address |
+| `loan_amount` | numeric | | Requested loan amount |
+| `stage` | text | Yes | Current pipeline stage |
+| `status` | text | Yes | Deal status (active, closed, archived) |
+| `created_at` | timestamptz | Yes | Row creation timestamp |
+| `updated_at` | timestamptz | Yes | Last-modified timestamp |
+
+## borrowers
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | Yes | Primary key |
+| `organization_id` | uuid | Yes | FK → organizations |
+| `first_name` | text | Yes | Borrower first name |
+| `last_name` | text | Yes | Borrower last name |
+| `email` | text | | Contact email |
+| `phone` | text | | Contact phone |
+| `created_at` | timestamptz | Yes | Row creation timestamp |
+| `updated_at` | timestamptz | Yes | Last-modified timestamp |
+
+## entities
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | Yes | Primary key |
+| `organization_id` | uuid | Yes | FK → organizations |
+| `name` | text | Yes | Entity legal name |
+| `entity_type` | text | Yes | LLC, Corporation, Trust, etc. |
+| `state_of_formation` | text | | US state of formation |
+| `ein` | text | | Employer Identification Number |
+| `created_at` | timestamptz | Yes | Row creation timestamp |
+| `updated_at` | timestamptz | Yes | Last-modified timestamp |
+
+## applications
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | Yes | Primary key |
+| `deal_id` | uuid | Yes | FK → deals |
+| `borrower_id` | uuid | Yes | FK → borrowers |
+| `entity_id` | uuid | | FK → entities (optional) |
+| `role` | text | Yes | Borrower role in the deal |
+| `created_at` | timestamptz | Yes | Row creation timestamp |
+
+## Entity Relationships
+
+| From | To | Type | Via |
+|------|----|------|-----|
+| organizations | deals | one-to-many | `deals.organization_id` |
+| deals | applications | one-to-many | `applications.deal_id` |
+| deals | borrowers | many-to-many | `applications` |
+| deals | entities | many-to-many | `applications` |
+| borrowers | credit_reports | one-to-many | `credit_reports.borrower_id` |
+
+## Enums
+
+### entity_type
+
+`llc`, `corporation`, `trust`, `partnership`, `individual`
+
+### us_states
+
+All 50 US states plus DC, as two-letter abbreviations.
+
+## Security
+
+All tables with tenant data have RLS policies enforcing organization isolation. See [Row-Level Security](/docs/power-users/row-level-security) for details.

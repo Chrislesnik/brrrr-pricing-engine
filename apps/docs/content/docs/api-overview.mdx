@@ -1,0 +1,36 @@
+---
+title: API Overview
+description: Overview of the dscr.ai REST API surface and conventions.
+---
+
+The dscr.ai API is a RESTful JSON API served at `https://pricingengine.pro/api`. All endpoints require Bearer token authentication and return standard JSON responses.
+
+## Base URL
+
+```
+https://pricingengine.pro/api
+```
+
+## Request Format
+
+All request bodies use JSON. Set the `Content-Type: application/json` header for POST, PUT, and PATCH requests.
+
+## Response Format
+
+Responses follow a consistent envelope structure with data, pagination metadata, and error details when applicable. See the [Errors](/docs/concepts/errors) page for error response schemas.
+
+## Pagination
+
+List endpoints support cursor-based pagination with `limit` and `cursor` query parameters. The response includes `has_more` and `next_cursor` fields for traversing results.
+
+```json
+{
+  "data": [...],
+  "has_more": true,
+  "next_cursor": "abc123"
+}
+```
+
+## Rate Limiting
+
+See [Rate Limits](/docs/concepts/rate-limits) for details on request quotas and throttling behavior.

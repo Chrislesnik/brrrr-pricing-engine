@@ -7,22 +7,5 @@
       "maxDuration": 30
     }
   },
-  "rewrites": [
-    {
-      "source": "/docs",
-      "destination": "https://brrrrloans.mintlify.dev/docs"
-    },
-    {
-      "source": "/docs/:match*",
-      "destination": "https://brrrrloans.mintlify.dev/docs/:match*"
-    },
-    {
-      "source": "/resources",
-      "destination": "https://brrrrloans.mintlify.dev/resources"
-    },
-    {
-      "source": "/resources/:match*",
-      "destination": "https://brrrrloans.mintlify.dev/resources/:match*"
-    }
-  ]
+  "rewrites": []
 }

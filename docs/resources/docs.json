@@ -12,18 +12,14 @@
   },
   "colors": {
     "primary": "#8ab4f8",
-    "primaryDark": "#8ab4f8",
-    "background": {
-      "light": "#FFFFFF",
-      "dark": "#0A0A0A"
-    }
+    "light": "#8ab4f8",
+    "dark": "#8ab4f8"
   },
   "styling": {
     "codeblocks": {
       "theme": "css-variables"
     }
   },
-  "openapi": "openapi.json",
   "api": {
     "playground": {
       "mode": "interactive"

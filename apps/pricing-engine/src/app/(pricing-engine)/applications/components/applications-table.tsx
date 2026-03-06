@@ -310,15 +310,15 @@ export function ApplicationsTable({ data }: Props) {
         cell: ({ getValue }) => {
           const derivedStatus = (getValue() as string) ?? "draft"
           const badgeClasses: Record<string, string> = {
-            draft: "bg-gray-100 text-gray-700 border-transparent",
-            pending: "bg-amber-100 text-amber-700 border-transparent",
-            received: "bg-green-100 text-green-700 border-transparent",
-            default: "bg-muted text-muted-foreground border-transparent",
+            draft: "bg-muted text-muted-foreground",
+            pending: "bg-warning/10 text-warning-foreground border-warning/30",
+            received: "bg-success/10 text-success border-success/30",
+            default: "bg-muted text-muted-foreground",
           }
           return (
             <span
               className={cn(
-                "inline-flex min-w-[70px] items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold capitalize",
+                "inline-flex items-center justify-center rounded-sm border border-transparent px-2 py-0.5 text-xs font-medium capitalize",
                 badgeClasses[derivedStatus] || badgeClasses.default
               )}
             >

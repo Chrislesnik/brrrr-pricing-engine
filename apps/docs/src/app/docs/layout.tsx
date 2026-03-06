@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarInset } from "@repo/ui/shadcn/sidebar";
 import { DocsSidebar } from "@/components/layout/docs-sidebar";
 import { DocsHeader } from "@/components/layout/docs-header";
 import { SWRProvider } from "@/components/providers/swr-provider";
+import { source } from "@/lib/source";
 import type * as PageTree from "fumadocs-core/page-tree";
 
 interface Props {
@@ -12,55 +13,52 @@ interface Props {
 }
 
 function buildSidebarTree(): PageTree.Node[] {
-  const items: PageTree.Node[] = [];
+  const tree = source.getPageTree();
+  const rootPages: PageTree.Node[] = [];
+  const folders: PageTree.Node[] = [];
 
-  items.push({
-    type: "folder",
-    name: "Overview",
-    children: [
-      { type: "page", name: "Getting Started", url: "/docs/getting-started" } as PageTree.Item,
-      { type: "page", name: "Platform Overview", url: "/docs/platform-overview" } as PageTree.Item,
-    ],
-  } as PageTree.Folder);
+  for (const node of tree.children) {
+    if (node.type === "page") {
+      rootPages.push(node);
+    } else {
+      folders.push(node);
+    }
+  }
 
-  items.push({
-    type: "folder",
-    name: "Guides",
-    children: [
-      { type: "page", name: "Managing Deals", url: "/docs/guides/deals" } as PageTree.Item,
-      { type: "page", name: "Borrowers & Entities", url: "/docs/guides/borrowers-entities" } as PageTree.Item,
-      { type: "page", name: "Document Storage", url: "/docs/guides/documents" } as PageTree.Item,
-      { type: "page", name: "AI Features", url: "/docs/power-users/ai-features" } as PageTree.Item,
-    ],
-  } as PageTree.Folder);
+  const result: PageTree.Node[] = [];
 
-  items.push({
-    type: "folder",
-    name: "Policies & Permissions",
-    children: [
-      { type: "page", name: "Row-Level Security", url: "/docs/power-users/rls" } as PageTree.Item,
-    ],
-  } as PageTree.Folder);
+  if (rootPages.length > 0) {
+    result.push({
+      type: "folder",
+      name: "Get Started",
+      children: rootPages,
+    } as PageTree.Folder);
+  }
 
-  items.push({
-    type: "folder",
-    name: "Features",
-    children: [
-      { type: "page", name: "REST API", url: "/docs/power-users/api-integration" } as PageTree.Item,
-      { type: "page", name: "SQL & Data Access", url: "/docs/power-users/sql-data-access" } as PageTree.Item,
-    ],
-  } as PageTree.Folder);
+  result.push(...folders);
 
-  items.push({
-    type: "folder",
-    name: "Reference",
-    children: [
-      { type: "page", name: "API Reference", url: "/docs/api-reference" } as PageTree.Item,
-      { type: "page", name: "Database Schema", url: "/docs/reference/database-schema" } as PageTree.Item,
-    ],
-  } as PageTree.Folder);
+  // Append API Reference link to the Reference folder, or as a standalone
+  const refFolder = result.find(
+    (n) => n.type === "folder" && n.name === "Reference"
+  ) as PageTree.Folder | undefined;
 
-  return items;
+  const apiRefItem: PageTree.Item = {
+    type: "page",
+    name: "API Reference",
+    url: "/docs/api-reference",
+  };
+
+  if (refFolder) {
+    refFolder.children = [apiRefItem, ...refFolder.children];
+  } else {
+    result.push({
+      type: "folder",
+      name: "Reference",
+      children: [apiRefItem],
+    } as PageTree.Folder);
+  }
+
+  return result;
 }
 
 export default async function DocsLayout({ children }: Props) {

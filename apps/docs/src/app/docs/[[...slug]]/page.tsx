@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
+import { type ReactNode, type ReactElement, isValidElement } from "react";
 import { cn } from "@repo/lib/cn";
+import { source } from "@/lib/source";
+import { getMDXComponents } from "../../../../mdx-components";
+import { PageShell } from "@/components/docs/page-shell";
 import {
   ArrowRight,
   BookOpen,
@@ -10,6 +15,18 @@ import {
   Rocket,
   Shield,
 } from "lucide-react";
+
+function extractText(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (node == null || typeof node === "boolean") return "";
+  if (Array.isArray(node)) return node.map(extractText).join("");
+  if (isValidElement(node)) {
+    const el = node as ReactElement<{ children?: ReactNode }>;
+    return extractText(el.props.children);
+  }
+  return "";
+}
 
 interface PageProps {
   params: Promise<{
@@ -49,7 +66,7 @@ const quickLinks = [
     title: "RLS & Permissions",
     description:
       "Row-Level Security policies, client configuration, and data isolation.",
-    href: "/docs/power-users/rls",
+    href: "/docs/power-users/row-level-security",
     icon: Shield,
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
@@ -81,7 +98,50 @@ export default async function DocsSlugPage({ params }: PageProps) {
     return <DocsIndexPage />;
   }
 
-  notFound();
+  const page = source.getPage(slug);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+  const toc = page.data.toc.map((item) => ({
+    id: item.url.slice(1),
+    title: extractText(item.title),
+    level: item.depth,
+  }));
+
+  return (
+    <PageShell
+      title={page.data.title}
+      description={page.data.description}
+      toc={toc}
+    >
+      <div className="prose dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-headings:font-semibold prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-code:before:content-none prose-code:after:content-none">
+        <MDX components={getMDXComponents()} />
+      </div>
+    </PageShell>
+  );
+}
+
+export function generateStaticParams() {
+  return source.generateParams();
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug = [] } = await params;
+  if (slug.length === 0) {
+    return {
+      title: "Documentation",
+      description:
+        "Everything you need to build, configure, and scale your lending operations.",
+    };
+  }
+  const page = source.getPage(slug);
+  if (!page) return {};
+  return {
+    title: page.data.title,
+    description: page.data.description,
+  };
 }
 
 function DocsIndexPage() {

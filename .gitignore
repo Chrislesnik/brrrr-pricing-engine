@@ -53,6 +53,9 @@ public/grapesjs-style.css
 # Turborepo
 .turbo
 
+# Fumadocs MDX generated
+.source
+
 # Apps
 apps/*/node_modules
 apps/*/.next

@@ -25,7 +25,7 @@ export function ApiReferencePage() {
     <div className="scalar-embedded flex-1">
       <ApiReferenceReact
         configuration={{
-          url: "/api/openapi",
+          url: "/openapi.json",
           darkMode: isDark,
           forceDarkModeState: isDark ? "dark" : "light",
           hideDarkModeToggle: true,

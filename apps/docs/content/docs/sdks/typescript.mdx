@@ -1,0 +1,61 @@
+---
+title: TypeScript SDK
+description: Type-safe TypeScript client for the dscr.ai API.
+---
+
+The official TypeScript SDK provides type-safe access to the dscr.ai API with full IntelliSense support.
+
+## Installation
+
+```bash
+npm install @dscr/sdk
+```
+
+## Quick Start
+
+```typescript
+import { DscrClient } from "@dscr/sdk";
+
+const client = new DscrClient({
+  apiKey: process.env.DSCR_API_KEY,
+});
+
+const deals = await client.deals.list();
+```
+
+## Configuration
+
+The client accepts an API key and optional base URL override for development environments.
+
+```typescript
+const client = new DscrClient({
+  apiKey: "sk_live_...",
+  baseUrl: "https://pricingengine.pro",
+});
+```
+
+## Available Methods
+
+### Deals
+
+```typescript
+client.deals.list(params?)    // List deals
+client.deals.get(id)          // Get a deal by ID
+client.deals.create(data)     // Create a new deal
+client.deals.update(id, data) // Update a deal
+```
+
+### Borrowers
+
+```typescript
+client.borrowers.list(params?)    // List borrowers
+client.borrowers.get(id)          // Get a borrower by ID
+client.borrowers.create(data)     // Create a new borrower
+```
+
+### Documents
+
+```typescript
+client.documents.list(dealId)     // List documents for a deal
+client.documents.upload(dealId, file) // Upload a document
+```

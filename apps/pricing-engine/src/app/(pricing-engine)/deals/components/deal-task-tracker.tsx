@@ -888,31 +888,32 @@ function ViewToolbar({
   }, [settingsOpen]);
 
   return (
-    <div className="flex items-center justify-between border-b px-4 py-2">
+    <div className="flex h-[39px] items-center justify-between border-b px-5 pl-6">
       <div className="flex items-center gap-1">
         {/* Display popover */}
         <div className="relative">
-          <button
+          <Button
             ref={settingsBtnRef}
+            variant="ghost"
+            size="xs"
             onClick={() => setSettingsOpen(!settingsOpen)}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-              settingsOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              settingsOpen && "bg-accent text-accent-foreground"
             )}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Display</span>
-          </button>
+          </Button>
 
           {settingsOpen && createPortal(
             <div
               ref={settingsPopoverRef}
-              className="fixed z-[9999] w-[320px] rounded-lg border bg-card shadow-lg"
+              className="fixed z-[9999] w-[300px] rounded-lg border bg-card shadow-lg"
               style={{ top: popoverPos.top, left: popoverPos.left }}
             >
               {/* Layout switcher */}
-              <div className="p-3 pb-0">
-                <div className="flex rounded-lg bg-muted/60 p-0.5">
+              <div className="px-4 pt-3 pb-0">
+                <div className="flex rounded-md bg-muted/60 p-0.5">
                   {VIEW_OPTIONS.map((opt) => {
                     const active = viewSettings.currentView === opt.value;
                     return (
@@ -920,7 +921,7 @@ function ViewToolbar({
                         key={opt.value}
                         onClick={() => onSetView(opt.value)}
                         className={cn(
-                          "flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs font-medium transition-all",
+                          "flex flex-1 flex-col items-center gap-0.5 rounded-[5px] py-1.5 text-xs font-medium transition-all",
                           active
                             ? "bg-background text-foreground shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
@@ -935,14 +936,14 @@ function ViewToolbar({
               </div>
 
               {/* Grouping / Ordering */}
-              <div className="px-3 py-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="px-4 py-2 space-y-0">
+                <div className="flex h-8 items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-medium text-ghost-foreground">
                     <Kanban className="h-3.5 w-3.5" />
                     <span>{viewSettings.currentView === "board" ? "Columns" : "Grouping"}</span>
                   </div>
                   <Select value={viewSettings.groupBy} onValueChange={(v) => onUpdateViewSettings({ groupBy: v as ViewSettings["groupBy"] })}>
-                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                    <SelectTrigger className="h-[26px] w-auto min-w-0 rounded-[5px] border px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[10000]">
@@ -953,8 +954,8 @@ function ViewToolbar({
                   </Select>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex h-8 items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-medium text-ghost-foreground">
                     <ArrowUpDown className="h-3.5 w-3.5" />
                     <span>Ordering</span>
                   </div>
@@ -969,7 +970,7 @@ function ViewToolbar({
                         }
                       }}
                     >
-                      <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                      <SelectTrigger className="h-[26px] w-auto min-w-0 rounded-[5px] border px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="z-[10000]">
@@ -980,17 +981,19 @@ function ViewToolbar({
                         <SelectItem value="dueDate" className="text-xs">Due date</SelectItem>
                       </SelectContent>
                     </Select>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-[26px] rounded-[5px] border"
                       onClick={() => {
                         if (sortRules[0]) {
                           onUpdateSortRule(sortRules[0].id, { ascending: !sortRules[0].ascending });
                         }
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
                       title={sortRules[0]?.ascending ? "Ascending" : "Descending"}
                     >
                       <ArrowUpDown className="h-3 w-3" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -998,11 +1001,11 @@ function ViewToolbar({
               <div className="border-t" />
 
               {/* Completed tasks */}
-              <div className="px-3 py-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Completed tasks</span>
+              <div className="px-4 py-2">
+                <div className="flex h-8 items-center justify-between">
+                  <span className="text-xs font-medium text-ghost-foreground">Completed tasks</span>
                   <Select value={viewSettings.showCompletedTasks ? "all" : "hidden"} onValueChange={(v) => onUpdateViewSettings({ showCompletedTasks: v === "all" })}>
-                    <SelectTrigger className="h-7 w-auto min-w-0 rounded-md border bg-muted/60 px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
+                    <SelectTrigger className="h-[26px] w-auto min-w-0 rounded-[5px] border px-2 text-xs [&>svg]:h-3 [&>svg]:w-3 gap-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[10000]">
@@ -1016,23 +1019,23 @@ function ViewToolbar({
               <div className="border-t" />
 
               {/* View-specific options */}
-              <div className="px-3 py-3">
-                <p className="text-[11px] font-semibold text-muted-foreground mb-2">
+              <div className="px-4 py-2">
+                <p className="text-xs font-medium text-foreground mb-1 mt-1">
                   {viewSettings.currentView === "board" ? "Board" : viewSettings.currentView === "table" ? "Table" : "Checklist"} options
                 </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Show empty groups</span>
+                <div className="flex h-8 items-center justify-between">
+                  <span className="text-xs font-medium text-ghost-foreground">Show empty groups</span>
                   <button
                     title="Toggle show empty groups"
                     onClick={() => onUpdateViewSettings({ showEmptyGroups: !viewSettings.showEmptyGroups })}
                     className={cn(
-                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors",
-                      viewSettings.showEmptyGroups ? "bg-primary" : "bg-muted"
+                      "relative inline-flex h-3.5 w-[22px] shrink-0 cursor-pointer rounded-full transition-[background-color] duration-100 ease-out",
+                      viewSettings.showEmptyGroups ? "bg-primary" : "bg-muted-foreground/30"
                     )}
                   >
                     <span className={cn(
-                      "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform mt-0.5",
-                      viewSettings.showEmptyGroups ? "translate-x-4 ml-0.5" : "translate-x-0 ml-0.5"
+                      "pointer-events-none inline-block h-2.5 w-2.5 rounded-full bg-background shadow-sm ring-0 transition-transform duration-100 ease-out mt-0.5",
+                      viewSettings.showEmptyGroups ? "translate-x-[9px] ml-px" : "translate-x-0 ml-px"
                     )} />
                   </button>
                 </div>
@@ -1041,8 +1044,8 @@ function ViewToolbar({
               <div className="border-t" />
 
               {/* Display properties */}
-              <div className="px-3 py-3">
-                <p className="text-[11px] font-semibold text-muted-foreground mb-2">Display properties</p>
+              <div className="px-4 py-2">
+                <p className="text-xs font-medium text-foreground mb-2 mt-1">Display properties</p>
                 <div className="flex flex-wrap gap-1.5">
                   {DISPLAY_PROPERTIES.map((prop) => {
                     const active = viewSettings.displayProperties?.[prop.key] !== false;
@@ -1056,9 +1059,9 @@ function ViewToolbar({
                           },
                         })}
                         className={cn(
-                          "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          "rounded-[5px] border px-2 py-0.5 text-xs font-medium transition-colors",
                           active
-                            ? "border-primary/30 bg-primary/10 text-foreground"
+                            ? "border-border text-foreground"
                             : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
                         )}
                       >
@@ -1070,7 +1073,7 @@ function ViewToolbar({
               </div>
 
               {/* Reset */}
-              <div className="border-t px-3 py-2 flex justify-center">
+              <div className="border-t px-4 py-2 flex justify-center">
                 <button
                   onClick={() => onUpdateViewSettings({
                     groupBy: "status",
@@ -1090,13 +1093,10 @@ function ViewToolbar({
       </div>
 
       {/* Add task */}
-      <button
-        onClick={onAddTask}
-        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-      >
+      <Button size="xs" onClick={onAddTask}>
         <Plus className="h-3.5 w-3.5" />
         <span>New task</span>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1207,13 +1207,15 @@ function BoardColumn({
             {tasks.length}
           </span>
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
           onClick={() => onAddTask(groupBy === "status" ? (groupKey as TaskStatus) : "todo")}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           aria-label={`Add task to ${label}`}
         >
           <Plus className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
 
       {/* Cards */}
@@ -1909,13 +1911,12 @@ function FilterPopover({
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-          open || activeFilterCount > 0
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          (open || activeFilterCount > 0) && "bg-accent text-accent-foreground"
         )}
       >
         <Filter className="h-3.5 w-3.5" />
@@ -1925,7 +1926,7 @@ function FilterPopover({
             {activeFilterCount}
           </span>
         )}
-      </button>
+      </Button>
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1.5 w-[560px] rounded-xl border bg-card shadow-lg">
@@ -2230,16 +2231,17 @@ function SortPopover({
 
   return (
     <div className="relative" ref={popoverRef}>
-      <button
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-          hasRules ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          hasRules && "bg-primary/10 text-primary"
         )}
       >
         <ArrowUpDown className="h-3.5 w-3.5" />
         <span>{hasRules ? `Sorted by ${sortRules.length} rule${sortRules.length > 1 ? "s" : ""}` : "Sort"}</span>
-      </button>
+      </Button>
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1.5 w-[420px] rounded-lg border bg-card shadow-lg">
@@ -2287,17 +2289,15 @@ function SortPopover({
 
             <div className="flex items-center justify-between border-t border-dashed pt-3">
               <div className="relative" ref={pickerRef}>
-                <button
+                <Button
+                  variant="outline"
+                  size="xs"
                   onClick={() => { if (availableColumns.length > 0) setPickerOpen(!pickerOpen); }}
                   disabled={availableColumns.length === 0}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors",
-                    availableColumns.length === 0 ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  )}
                 >
                   <span>Pick a column to sort by</span>
                   <ChevronDown className="h-3 w-3" />
-                </button>
+                </Button>
                 {pickerOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-[200px] rounded-md border bg-card shadow-lg p-1">
                     {availableColumns.map((col) => (
@@ -2399,29 +2399,35 @@ function TaskDetailSheetHeader({ task, onClose, onDelete }: { task: Task; onClos
         <span className="text-xs font-mono text-muted-foreground">{task.identifier}</span>
       </div>
       <div className="flex items-center gap-1">
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
           onClick={onClose}
-          className="rounded p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
           title="Save and close"
         >
           <Save className="h-3.5 w-3.5" />
-        </button>
+        </Button>
         {onDelete && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={() => onDelete(task.id)}
-            className="rounded p-1.5 text-destructive hover:bg-destructive/10 transition-colors"
             title="Archive task"
           >
             <Archive className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         )}
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
           onClick={onClose}
-          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           title="Close panel"
         >
           <X className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -2956,19 +2962,23 @@ function TaskFilesSection({ taskId }: { taskId: string }) {
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6"
             title="Link existing file"
           >
             <Link2 className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             title="Upload file"
           >
             <Upload className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 

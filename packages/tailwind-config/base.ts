@@ -70,6 +70,10 @@ export const baseConfig: Partial<Config> = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        canvas: "hsl(var(--canvas-background))",
+        ghost: {
+          foreground: "hsl(var(--ghost-foreground))",
+        },
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",
@@ -88,10 +92,14 @@ export const baseConfig: Partial<Config> = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
+      },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "var(--radius-lg)",
+        md: "var(--radius)",
+        sm: "var(--radius-sm)",
+        xs: "var(--radius-xs)",
       },
       keyframes: {
         "accordion-down": {
@@ -115,12 +123,23 @@ export const baseConfig: Partial<Config> = {
           "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0)" },
           "50%": { boxShadow: "0 0 8px 4px hsl(var(--primary) / 0.25)" },
         },
+        "bounce-click": {
+          "0%": { transform: "scale(1)" },
+          "20%": { transform: "scale(0.9)" },
+          "40%": { transform: "scale(1.15)" },
+          "60%": { transform: "scale(0.95)" },
+          "80%": { transform: "scale(1.05)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         shake: "shake 0.4s ease-in-out",
         "attention-glow": "attention-glow 2s ease-in-out infinite",
+        "bounce-click-subtle": "bounce-click 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "bounce-click": "bounce-click 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "bounce-click-playful": "bounce-click 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
       },
     },
   },

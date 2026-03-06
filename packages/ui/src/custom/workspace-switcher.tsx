@@ -117,7 +117,7 @@ export function WorkspaceSwitcher() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="w-56 rounded-lg"
+          className="w-56 rounded-lg z-[200]"
           side={isMobile ? "bottom" : "right"}
           align="start"
           sideOffset={4}

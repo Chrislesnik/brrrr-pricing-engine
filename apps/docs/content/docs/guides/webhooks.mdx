@@ -1,0 +1,45 @@
+---
+title: Webhooks
+description: Receive real-time notifications when events occur in your organization.
+---
+
+Webhooks allow you to receive HTTP callbacks when events occur in dscr.ai, such as deal stage changes, document uploads, or task completions.
+
+## Setting Up Webhooks
+
+Configure webhook endpoints in your organization settings. Each endpoint can subscribe to specific event types and includes signature verification for security.
+
+1. Navigate to **Settings → Webhooks**.
+2. Click **Add Endpoint** and enter your URL.
+3. Select the events you want to subscribe to.
+4. Copy the signing secret for signature verification.
+
+## Event Types
+
+| Event | Description |
+|-------|-------------|
+| `deal.created` | A new deal was created |
+| `deal.stage_changed` | A deal moved to a new pipeline stage |
+| `deal.updated` | Deal details were modified |
+| `document.uploaded` | A document was uploaded to a deal |
+| `task.completed` | A task was marked as complete |
+| `borrower.created` | A new borrower was added |
+
+## Signature Verification
+
+Every webhook request includes an `X-Webhook-Signature` header. Verify this signature using your signing secret to ensure the request originated from dscr.ai.
+
+```typescript
+import { createHmac } from "crypto";
+
+function verifyWebhook(payload: string, signature: string, secret: string) {
+  const expected = createHmac("sha256", secret)
+    .update(payload)
+    .digest("hex");
+  return signature === expected;
+}
+```
+
+## Retry Policy
+
+Failed webhook deliveries are retried up to 5 times with exponential backoff. After all retries are exhausted, the event is logged and can be manually re-sent from the dashboard.

@@ -1,0 +1,28 @@
+---
+title: Versioning
+description: How the dscr.ai API is versioned and how to handle breaking changes.
+---
+
+The dscr.ai API uses URL-based versioning. The current stable version is `v1`. Breaking changes are introduced in new major versions, and previous versions receive security patches for a deprecation period.
+
+## Version Lifecycle
+
+New features are added to the current version as non-breaking additions. When breaking changes are necessary, a new version is released with a migration guide and a minimum 6-month deprecation window for the previous version.
+
+## Non-Breaking Changes
+
+The following are considered non-breaking and may be added at any time:
+
+- New optional request parameters
+- New response fields
+- New API endpoints
+- New webhook event types
+
+## Breaking Changes
+
+The following require a new API version:
+
+- Removing or renaming existing fields
+- Changing field types
+- Modifying authentication requirements
+- Changing error response formats

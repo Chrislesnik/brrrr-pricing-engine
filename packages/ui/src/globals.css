@@ -56,7 +56,28 @@
   --resource-feature: hsl(160 84% 28%);
   --resource-route: hsl(38 90% 34%);
   --resource-liveblocks: hsl(330 72% 42%);
-  --radius: 0.625rem;
+  /* Border-radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Transition & animation */
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-normal: var(--duration-normal) var(--ease-out);
+
+  /* Focus ring */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: hsl(var(--ring));
+
+  /* Ghost / toolbar button text — Linear #5C5C5C equivalent */
+  --ghost-foreground: 0 0% 36%;
+
   --sidebar-background: 0 0% 98%;
   --sidebar-foreground: 0 0% 4%;
   --sidebar-primary: 240 5.9% 10%;
@@ -130,6 +151,9 @@
   --chart-3: 30 80% 55%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
+  /* Ghost / toolbar button text — lighter for dark surfaces */
+  --ghost-foreground: 0 0% 72%;
+
   --sidebar-background: 0 0% 9%;
   --sidebar-foreground: 0 0% 98%;
   --sidebar-primary: 224.3 76.3% 48%;
@@ -177,7 +201,7 @@
   }
   body {
     @apply bg-background text-foreground min-h-screen w-full;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
     /* Respect iPhone safe area when running inside WKWebView */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
@@ -196,56 +220,26 @@
     cursor: pointer;
   }
 
-  /* Remove focus rings from inputs - prevent gold/warning rings */
+  /* Accessible focus rings — themed, consistent */
   input:focus-visible,
   textarea:focus-visible,
-  select:focus-visible {
-    --tw-ring-color: transparent !important;
-    --tw-ring-shadow: none !important;
-    --tw-ring-offset-shadow: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+  select:focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
   }
-  
-  /* Remove rings from input group wrappers */
-  [data-slot="input-group"],
-  [data-slot="input-group"]:has(:focus-visible),
-  [data-slot="input-group"]:focus-within {
-    --tw-ring-color: transparent !important;
-    --tw-ring-shadow: none !important;
-    --tw-ring-offset-shadow: none !important;
-    --tw-shadow: none !important;
-    box-shadow: none !important;
-  }
-  
-  /* Remove rings from dropdown/select items */
-  [role="option"]:focus,
+
+  /* Radix menu items use data-highlighted for keyboard focus;
+     keep native outline suppressed so it doesn't double-up */
   [role="option"]:focus-visible,
-  [role="menuitem"]:focus,
   [role="menuitem"]:focus-visible,
-  [role="menuitemcheckbox"]:focus,
   [role="menuitemcheckbox"]:focus-visible,
-  [role="menuitemradio"]:focus,
   [role="menuitemradio"]:focus-visible,
-  [data-radix-collection-item]:focus,
   [data-radix-collection-item]:focus-visible {
-    --tw-ring-color: transparent !important;
-    --tw-ring-shadow: none !important;
-    --tw-ring-offset-shadow: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
-  
-  /* Remove rings from dropdown menu trigger buttons */
-  button[aria-haspopup="menu"]:focus,
-  button[aria-haspopup="menu"]:focus-visible,
-  button[data-state="open"]:focus,
-  button[data-state="open"]:focus-visible {
-    --tw-ring-color: transparent !important;
-    --tw-ring-shadow: none !important;
-    --tw-ring-offset-shadow: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+    outline: none;
   }
 }
 
@@ -407,6 +401,97 @@
 }
 
 /* ========================================================================== */
+/*  Badge family design tokens                                                 */
+/*  BG = very light tint · Border = medium tint · FG = darkest hue            */
+/* ========================================================================== */
+
+:root {
+  /* Task status badges */
+  --badge-task-todo-bg: hsl(220 9% 46% / 0.1);
+  --badge-task-todo-fg: var(--task-status-todo);
+  --badge-task-todo-border: hsl(220 9% 46% / 0.3);
+  --badge-task-in-progress-bg: hsl(217 91% 60% / 0.1);
+  --badge-task-in-progress-fg: var(--task-status-in-progress);
+  --badge-task-in-progress-border: hsl(217 91% 60% / 0.3);
+  --badge-task-in-review-bg: hsl(38 92% 50% / 0.1);
+  --badge-task-in-review-fg: var(--task-status-in-review);
+  --badge-task-in-review-border: hsl(38 92% 50% / 0.3);
+  --badge-task-blocked-bg: hsl(0 84% 60% / 0.1);
+  --badge-task-blocked-fg: var(--task-status-blocked);
+  --badge-task-blocked-border: hsl(0 84% 60% / 0.3);
+  --badge-task-done-bg: hsl(160 84% 39% / 0.1);
+  --badge-task-done-fg: var(--task-status-done);
+  --badge-task-done-border: hsl(160 84% 39% / 0.3);
+
+  /* Priority badges */
+  --badge-priority-urgent-bg: hsl(0 84% 60% / 0.1);
+  --badge-priority-urgent-fg: var(--task-priority-urgent);
+  --badge-priority-urgent-border: hsl(0 84% 60% / 0.3);
+  --badge-priority-high-bg: hsl(25 95% 53% / 0.1);
+  --badge-priority-high-fg: var(--task-priority-high);
+  --badge-priority-high-border: hsl(25 95% 53% / 0.3);
+  --badge-priority-medium-bg: hsl(38 92% 50% / 0.1);
+  --badge-priority-medium-fg: var(--task-priority-medium);
+  --badge-priority-medium-border: hsl(38 92% 50% / 0.3);
+  --badge-priority-low-bg: hsl(220 9% 46% / 0.1);
+  --badge-priority-low-fg: var(--task-priority-low);
+  --badge-priority-low-border: hsl(220 9% 46% / 0.3);
+  --badge-priority-none-bg: hsl(216 12% 84% / 0.1);
+  --badge-priority-none-fg: var(--task-priority-none);
+  --badge-priority-none-border: hsl(216 12% 84% / 0.3);
+
+  /* Resource badges */
+  --badge-resource-table-bg: hsl(217 85% 52% / 0.12);
+  --badge-resource-table-fg: var(--resource-table);
+  --badge-resource-table-border: hsl(217 85% 52% / 0.30);
+  --badge-resource-storage-bg: hsl(271 68% 52% / 0.12);
+  --badge-resource-storage-fg: var(--resource-storage);
+  --badge-resource-storage-border: hsl(271 68% 52% / 0.30);
+  --badge-resource-feature-bg: hsl(160 84% 36% / 0.12);
+  --badge-resource-feature-fg: var(--resource-feature);
+  --badge-resource-feature-border: hsl(160 84% 36% / 0.30);
+  --badge-resource-route-bg: hsl(38 90% 48% / 0.12);
+  --badge-resource-route-fg: var(--resource-route);
+  --badge-resource-route-border: hsl(38 90% 48% / 0.30);
+  --badge-resource-liveblocks-bg: hsl(330 72% 52% / 0.12);
+  --badge-resource-liveblocks-fg: var(--resource-liveblocks);
+  --badge-resource-liveblocks-border: hsl(330 72% 52% / 0.30);
+}
+
+/* ========================================================================== */
+/*  Badge base structural styles                                               */
+/* ========================================================================== */
+
+.badge-base,
+[class^="badge-task-"],
+[class^="badge-priority-"],
+[class^="badge-resource-"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 1.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.badge-base svg,
+[class^="badge-task-"] svg,
+[class^="badge-priority-"] svg,
+[class^="badge-resource-"] svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ========================================================================== */
 /*  Task status & priority utility classes                                     */
 /* ========================================================================== */
 
@@ -424,12 +509,12 @@
 .bg-task-blocked { background-color: var(--task-status-blocked); }
 .bg-task-done { background-color: var(--task-status-done); }
 
-/* Task status badge styles (muted bg, text color, 30% alpha border) */
-.badge-task-todo { background-color: hsl(220 9% 46% / 0.1); color: var(--task-status-todo); border-color: hsl(220 9% 46% / 0.3); }
-.badge-task-in-progress { background-color: hsl(217 91% 60% / 0.1); color: var(--task-status-in-progress); border-color: hsl(217 91% 60% / 0.3); }
-.badge-task-in-review { background-color: hsl(38 92% 50% / 0.1); color: var(--task-status-in-review); border-color: hsl(38 92% 50% / 0.3); }
-.badge-task-blocked { background-color: hsl(0 84% 60% / 0.1); color: var(--task-status-blocked); border-color: hsl(0 84% 60% / 0.3); }
-.badge-task-done { background-color: hsl(160 84% 39% / 0.1); color: var(--task-status-done); border-color: hsl(160 84% 39% / 0.3); }
+/* Task status badge styles — token-driven */
+.badge-task-todo { background-color: var(--badge-task-todo-bg); color: var(--badge-task-todo-fg); border-color: var(--badge-task-todo-border); }
+.badge-task-in-progress { background-color: var(--badge-task-in-progress-bg); color: var(--badge-task-in-progress-fg); border-color: var(--badge-task-in-progress-border); }
+.badge-task-in-review { background-color: var(--badge-task-in-review-bg); color: var(--badge-task-in-review-fg); border-color: var(--badge-task-in-review-border); }
+.badge-task-blocked { background-color: var(--badge-task-blocked-bg); color: var(--badge-task-blocked-fg); border-color: var(--badge-task-blocked-border); }
+.badge-task-done { background-color: var(--badge-task-done-bg); color: var(--badge-task-done-fg); border-color: var(--badge-task-done-border); }
 
 /* Task priority text colors */
 .text-priority-urgent { color: var(--task-priority-urgent); }
@@ -445,12 +530,12 @@
 .bg-priority-low { background-color: var(--task-priority-low); }
 .bg-priority-none { background-color: var(--task-priority-none); }
 
-/* Task priority badge styles (muted bg, text color, 30% alpha border) */
-.badge-priority-urgent { background-color: hsl(0 84% 60% / 0.1); color: var(--task-priority-urgent); border-color: hsl(0 84% 60% / 0.3); }
-.badge-priority-high { background-color: hsl(25 95% 53% / 0.1); color: var(--task-priority-high); border-color: hsl(25 95% 53% / 0.3); }
-.badge-priority-medium { background-color: hsl(38 92% 50% / 0.1); color: var(--task-priority-medium); border-color: hsl(38 92% 50% / 0.3); }
-.badge-priority-low { background-color: hsl(220 9% 46% / 0.1); color: var(--task-priority-low); border-color: hsl(220 9% 46% / 0.3); }
-.badge-priority-none { background-color: hsl(216 12% 84% / 0.1); color: var(--task-priority-none); border-color: hsl(216 12% 84% / 0.3); }
+/* Task priority badge styles — token-driven */
+.badge-priority-urgent { background-color: var(--badge-priority-urgent-bg); color: var(--badge-priority-urgent-fg); border-color: var(--badge-priority-urgent-border); }
+.badge-priority-high { background-color: var(--badge-priority-high-bg); color: var(--badge-priority-high-fg); border-color: var(--badge-priority-high-border); }
+.badge-priority-medium { background-color: var(--badge-priority-medium-bg); color: var(--badge-priority-medium-fg); border-color: var(--badge-priority-medium-border); }
+.badge-priority-low { background-color: var(--badge-priority-low-bg); color: var(--badge-priority-low-fg); border-color: var(--badge-priority-low-border); }
+.badge-priority-none { background-color: var(--badge-priority-none-bg); color: var(--badge-priority-none-fg); border-color: var(--badge-priority-none-border); }
 
 /* ========================================================================== */
 /*  Resource type utility classes (policy builder)                             */
@@ -470,13 +555,12 @@
 .bg-resource-route { background-color: var(--resource-route); }
 .bg-resource-liveblocks { background-color: var(--resource-liveblocks); }
 
-/* Resource type badge styles — bg/border use mid-range hue values that blend
-   well in both light and dark mode; text uses the themed CSS variable */
-.badge-resource-table      { background-color: hsl(217 85% 52% / 0.12); color: var(--resource-table);      border-color: hsl(217 85% 52% / 0.30); }
-.badge-resource-storage    { background-color: hsl(271 68% 52% / 0.12); color: var(--resource-storage);    border-color: hsl(271 68% 52% / 0.30); }
-.badge-resource-feature    { background-color: hsl(160 84% 36% / 0.12); color: var(--resource-feature);    border-color: hsl(160 84% 36% / 0.30); }
-.badge-resource-route      { background-color: hsl(38  90% 48% / 0.12); color: var(--resource-route);      border-color: hsl(38  90% 48% / 0.30); }
-.badge-resource-liveblocks { background-color: hsl(330 72% 52% / 0.12); color: var(--resource-liveblocks); border-color: hsl(330 72% 52% / 0.30); }
+/* Resource type badge styles — token-driven */
+.badge-resource-table      { background-color: var(--badge-resource-table-bg);      color: var(--badge-resource-table-fg);      border-color: var(--badge-resource-table-border); }
+.badge-resource-storage    { background-color: var(--badge-resource-storage-bg);    color: var(--badge-resource-storage-fg);    border-color: var(--badge-resource-storage-border); }
+.badge-resource-feature    { background-color: var(--badge-resource-feature-bg);    color: var(--badge-resource-feature-fg);    border-color: var(--badge-resource-feature-border); }
+.badge-resource-route      { background-color: var(--badge-resource-route-bg);      color: var(--badge-resource-route-fg);      border-color: var(--badge-resource-route-border); }
+.badge-resource-liveblocks { background-color: var(--badge-resource-liveblocks-bg); color: var(--badge-resource-liveblocks-fg); border-color: var(--badge-resource-liveblocks-border); }
 
 /* Resource type group header tints (5% alpha) */
 .bg-resource-table-tint { background-color: hsl(217 91% 60% / 0.05); }

@@ -1,0 +1,39 @@
+---
+title: Document Management
+description: Generate, collect, and manage loan documents with template-driven workflows.
+---
+
+The document management system handles the full lifecycle of loan documents — from template-driven generation to collection, review, and e-signature.
+
+## Document Templates
+
+Create reusable templates for term sheets, loan agreements, and disclosure packages. Templates support dynamic field insertion from deal, borrower, and property data.
+
+### Template Variables
+
+Templates use `{{variable}}` syntax for dynamic fields:
+
+```
+Borrower Name: {{borrower.full_name}}
+Property Address: {{deal.property_address}}
+Loan Amount: {{deal.loan_amount}}
+```
+
+## Document Collection
+
+Track required documents per deal with automated checklists. Upload documents directly or request them from borrowers via secure links.
+
+### Document Categories
+
+Organize documents into categories for easier management:
+
+- Loan Applications
+- Appraisals
+- Title Reports
+- Insurance Documents
+- Financial Statements
+- Entity Documents
+
+## AI-Powered Extraction
+
+Upload documents and let AI extract structured data automatically. Supported document types include rent rolls, operating statements, and appraisals.

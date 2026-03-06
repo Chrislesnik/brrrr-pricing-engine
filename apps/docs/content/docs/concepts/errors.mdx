@@ -1,0 +1,35 @@
+---
+title: Errors
+description: Error response formats and common error codes in the dscr.ai API.
+---
+
+The dscr.ai API uses standard HTTP status codes to indicate the success or failure of requests. Error responses include a consistent JSON body with a machine-readable error code and a human-readable message.
+
+## Error Response Format
+
+All error responses follow this structure:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The request body is invalid.",
+    "details": []
+  }
+}
+```
+
+## Common Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `UNAUTHORIZED` | 401 | Missing or invalid API key |
+| `FORBIDDEN` | 403 | Insufficient permissions |
+| `NOT_FOUND` | 404 | Resource not found |
+| `VALIDATION_ERROR` | 422 | Request validation failed |
+| `RATE_LIMITED` | 429 | Too many requests |
+| `INTERNAL_ERROR` | 500 | Unexpected server error |
+
+## Handling Errors
+
+Always check the HTTP status code first, then inspect the `error.code` field for programmatic error handling. The `error.details` array may contain field-level validation errors for `422` responses.
