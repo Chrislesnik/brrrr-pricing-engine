@@ -16,6 +16,7 @@ import {
   Plug,
   Sparkles,
   Inbox,
+  MessageCircle,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -73,6 +74,7 @@ export const ROUTES = {
   pricingEngine: {
     pipeline: "/scenarios",
     deals: "/deals",
+    messages: "/messages",
     new: "/pricing/new",
     pricing: "/pricing",
   },
@@ -141,6 +143,12 @@ export const NAVIGATION_CONFIG: NavItem[] = [
         url: ROUTES.pricingEngine.deals,
         icon: IconFilter,
         shortcut: ["D"],
+      },
+      {
+        title: "Messages",
+        url: ROUTES.pricingEngine.messages,
+        icon: MessageCircle,
+        shortcut: ["M"],
       },
     ],
   },
