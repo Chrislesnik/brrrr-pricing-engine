@@ -532,8 +532,71 @@ export function StudioEditorWrapper({
                 }),
             onSave: async ({ project, editor }: { project: object; editor: any }) => {
               try {
-                const html = editor.getHtml() ?? ""
+                let html = editor.getHtml() ?? ""
                 const css = editor.getCss?.() ?? ""
+
+                // dataSourceHandlebars is license-gated; when it's inactive,
+                // editor.getHtml() outputs plain-text defaults instead of
+                // Handlebars expressions. Re-inject them from the component tree.
+                const wrapper = editor.DomComponents.getWrapper()
+                const dvComps = wrapper?.findType?.("data-variable") || []
+                if (dvComps.length > 0) {
+                  const hasHandlebars = /\{\{[#/]?[^}]+\}\}/.test(html)
+                  if (!hasHandlebars) {
+                    for (const comp of dvComps) {
+                      const resolver = comp.get?.("dataResolver") || {}
+                      const varPath = resolver.path || resolver.defaultValue || ""
+                      if (!varPath) continue
+                      const el = comp.getEl?.()
+                      if (!el) continue
+                      const outerHtml = el.outerHTML
+                      if (outerHtml && html.includes(outerHtml)) {
+                        html = html.replace(
+                          outerHtml,
+                          `{{#if ${varPath}}}{{{${varPath}}}}{{else}}${varPath}{{/if}}`
+                        )
+                      } else {
+                        const textContent = el.textContent?.trim()
+                        if (textContent === varPath) {
+                          const parent = el.parentElement
+                          if (parent) {
+                            const parentHtml = parent.innerHTML
+                            const escaped = varPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+                            const regex = new RegExp(
+                              `(<[^>]*data-gjs-type="data-variable"[^>]*>)${escaped}(</[^>]*>)`,
+                              "g"
+                            )
+                            if (regex.test(parentHtml)) {
+                              const fixed = parentHtml.replace(
+                                regex,
+                                `{{#if ${varPath}}}{{{${varPath}}}}{{else}}${varPath}{{/if}}`
+                              )
+                              html = html.replace(parentHtml, fixed)
+                            }
+                          }
+                        }
+                      }
+                    }
+                    // Final pass: replace any remaining bare variable names that
+                    // match known variables with handlebars syntax
+                    for (const comp of dvComps) {
+                      const resolver = comp.get?.("dataResolver") || {}
+                      const varPath = resolver.path || resolver.defaultValue || ""
+                      if (!varPath) continue
+                      if (html.includes(`{{{${varPath}}}}`)) continue
+                      const escaped = varPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+                      const bareRegex = new RegExp(
+                        `(?<!\\{)(?<!\\w)${escaped}(?!\\w)(?!\\})`,
+                        "g"
+                      )
+                      html = html.replace(
+                        bareRegex,
+                        `{{#if ${varPath}}}{{{${varPath}}}}{{else}}${varPath}{{/if}}`
+                      )
+                    }
+                  }
+                }
+
                 const fullHtml = css ? `<style>${css}</style>${html}` : html
                 onSave?.(fullHtml, project)
               } catch (e) {
