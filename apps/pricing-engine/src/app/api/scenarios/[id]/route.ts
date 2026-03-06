@@ -143,24 +143,36 @@ export async function POST(
       // Update selection on existing rate options without re-writing outputs
       const sel = body.selected as Record<string, unknown>
       const programId = sel.program_id ?? sel.programId
+      const programIndex = sel.program_index ?? sel.programIdx
       const rowIdx = sel.row_index ?? sel.rowIdx
 
       const { data: existingResults } = await supabaseAdmin
         .from("scenario_program_results")
         .select("id, program_id")
         .eq("loan_scenario_id", id)
+        .order("id", { ascending: true })
 
       if (existingResults?.length) {
-        const matchResult = programId
-          ? existingResults.find(r => String(r.program_id) === String(programId))
-          : existingResults[0]
+        // Try matching by program_id first, then fall back to index
+        let matchResult = programId
+          ? existingResults.find(r => r.program_id && String(r.program_id) === String(programId))
+          : null
+        if (!matchResult && programIndex != null) {
+          const idx = Number(programIndex)
+          if (idx >= 0 && idx < existingResults.length) {
+            matchResult = existingResults[idx]
+          }
+        }
+        if (!matchResult) {
+          matchResult = existingResults[0]
+        }
 
         if (matchResult) {
           const { data: rateOpt } = await supabaseAdmin
             .from("scenario_rate_options")
             .select("id")
             .eq("scenario_program_result_id", matchResult.id)
-            .eq("row_index", Number(rowIdx))
+            .eq("row_index", Number(rowIdx ?? 0))
             .single()
 
           if (rateOpt) {
