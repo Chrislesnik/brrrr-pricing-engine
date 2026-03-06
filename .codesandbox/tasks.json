@@ -1,0 +1,19 @@
+{
+  "$schema": "https://codesandbox.io/schemas/tasks.json",
+  "setupTasks": [
+    {
+      "name": "Install dependencies",
+      "command": "pnpm install"
+    }
+  ],
+  "tasks": {
+    "dev": {
+      "name": "pricing-engine dev",
+      "command": "pnpm --filter pricing-engine exec next dev --port 3004",
+      "runAtStart": true,
+      "preview": {
+        "port": 3004
+      }
+    }
+  }
+}
