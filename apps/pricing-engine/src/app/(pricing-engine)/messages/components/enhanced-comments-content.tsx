@@ -139,14 +139,26 @@ function ChatListView({
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
         {threads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
               <MessageSquare className="h-6 w-6 text-muted-foreground/40" />
             </div>
-            <p className="text-sm text-muted-foreground">No messages yet.</p>
-            <p className="text-xs text-muted-foreground">
-              Start the conversation below.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                No messages yet
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Start the conversation below.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-[11px] text-muted-foreground">
+                Type <kbd className="bg-muted rounded px-1 font-mono">/</kbd> for commands
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-[11px] text-muted-foreground">
+                Mention <kbd className="bg-muted rounded px-1 font-mono">@agent</kbd> for AI
+              </span>
+            </div>
           </div>
         ) : (
           threads.map((thread) => {

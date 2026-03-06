@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { ChannelSidebar } from "./components/channel-sidebar";
 import { ChatArea } from "./components/chat-area";
 import { PrivateAiPanel } from "./components/private-ai-panel";
@@ -23,14 +23,26 @@ function MessagesContent() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [activeAiCommand, setActiveAiCommand] = useState<string | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
 
-  // Fetch channels for command palette
+  // Fetch channels for command palette + deal name resolution
   const { data: channelsData } = useSWR<{
     channels: Array<{ id: string; display_name: string }>;
   }>("/api/chat/channels", (url: string) => fetch(url).then((r) => r.json()), {
     revalidateOnFocus: false,
     dedupingInterval: 30000,
   });
+
+  // Resolve selected deal name from channels data
+  const selectedDealName = useMemo(() => {
+    if (!selectedDealId || !channelsData?.channels) return undefined;
+    const channel = channelsData.channels.find(
+      (ch) => ch.id === selectedDealId
+    );
+    return channel?.display_name;
+  }, [selectedDealId, channelsData]);
 
   // Parse channel param on mount and when it changes
   useEffect(() => {
@@ -61,12 +73,15 @@ function MessagesContent() {
     [router, isPopout]
   );
 
-  // Handle @agent mention — post to agent-respond API
+  // Handle @agent mention — post to agent-respond API with visual feedback
   const handleAgentMention = useCallback(
     async (content: string) => {
       if (!selectedDealId) return;
+
+      setAgentStatus("sending");
+
       try {
-        await fetch("/api/chat/agent-respond", {
+        const res = await fetch("/api/chat/agent-respond", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -75,8 +90,25 @@ function MessagesContent() {
             roomId: `deal_chat:${selectedDealId}`,
           }),
         });
+
+        if (res.status === 429) {
+          setAgentStatus("error");
+          setTimeout(() => setAgentStatus("idle"), 3000);
+          return;
+        }
+
+        if (!res.ok) {
+          setAgentStatus("error");
+          setTimeout(() => setAgentStatus("idle"), 3000);
+          return;
+        }
+
+        setAgentStatus("sent");
+        setTimeout(() => setAgentStatus("idle"), 3000);
       } catch (err) {
         console.error("[agent-mention] Failed to invoke agent:", err);
+        setAgentStatus("error");
+        setTimeout(() => setAgentStatus("idle"), 3000);
       }
     },
     [selectedDealId]
@@ -127,11 +159,11 @@ function MessagesContent() {
   // Update document title for pop-out mode
   useEffect(() => {
     if (isPopout) {
-      document.title = selectedDealId
-        ? `Messages — Deal Channel`
+      document.title = selectedDealName
+        ? `Messages — ${selectedDealName}`
         : "Messages — Pop-out window";
     }
-  }, [isPopout, selectedDealId]);
+  }, [isPopout, selectedDealName]);
 
   const roomId = selectedDealId ? `deal:${selectedDealId}` : null;
 
@@ -140,7 +172,9 @@ function MessagesContent() {
       {/* Pop-out header bar */}
       {isPopout && (
         <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between bg-muted/20 px-3 py-1 text-xs text-muted-foreground border-b border-border">
-          <span>Messages — Pop-out window</span>
+          <span>
+            Messages{selectedDealName ? ` — ${selectedDealName}` : " — Pop-out window"}
+          </span>
           <a
             href="/messages"
             target="_blank"
@@ -165,6 +199,7 @@ function MessagesContent() {
         <ChatArea
           roomId={roomId}
           dealId={selectedDealId}
+          dealName={selectedDealName}
           activeThreadId={activeThreadId}
           onToggleAiPanel={() => setAiPanelOpen(!aiPanelOpen)}
           aiPanelOpen={aiPanelOpen}
@@ -204,6 +239,34 @@ function MessagesContent() {
         )}
       </div>
 
+      {/* Agent status toast */}
+      {agentStatus !== "idle" && (
+        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow-lg ${
+              agentStatus === "sending"
+                ? "border-info/30 bg-info/10 text-info"
+                : agentStatus === "sent"
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+            }`}
+          >
+            {agentStatus === "sending" && (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Agent is processing...</span>
+              </>
+            )}
+            {agentStatus === "sent" && (
+              <span>Agent response posted to chat</span>
+            )}
+            {agentStatus === "error" && (
+              <span>Agent failed — please try again</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Command Palette (Cmd+K) */}
       <MessageCommandPalette
         open={commandPaletteOpen}
@@ -217,6 +280,7 @@ function MessagesContent() {
         }}
         onSelectChannel={handleSelectDeal}
         channels={channelsData?.channels ?? []}
+        selectedDealId={selectedDealId}
       />
     </div>
   );

@@ -290,20 +290,29 @@ export function ChatAiToolbar({
       {/* Result View */}
       {view === "result" && (
         <div className="p-3 space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            {selectedAction?.icon}
-            <span>{selectedAction?.title}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              {selectedAction?.icon}
+              <span>{selectedAction?.title}</span>
+            </div>
+            {isLoading && (
+              <span className="text-[10px] text-muted-foreground animate-pulse">
+                streaming...
+              </span>
+            )}
           </div>
 
-          {/* Response area */}
-          <div className="max-h-[200px] overflow-y-auto rounded-md bg-muted/20 p-3 text-sm">
+          {/* Response area — expanded max height */}
+          <div className="max-h-[320px] overflow-y-auto rounded-md bg-muted/20 p-3 text-[13px] leading-relaxed">
             {status === "submitted" && !result ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>AI is thinking...</span>
+              <div className="flex items-center gap-2 text-muted-foreground py-4 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">AI is thinking...</span>
               </div>
             ) : displayError ? (
-              <p className="text-destructive">{displayError}</p>
+              <div className="flex flex-col gap-2">
+                <p className="text-destructive text-sm">{displayError}</p>
+              </div>
             ) : (
               <p className="whitespace-pre-wrap text-foreground">
                 {result}
@@ -316,19 +325,38 @@ export function ChatAiToolbar({
 
           {/* Action buttons */}
           {!isLoading && result && (
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                <X className="mr-1 h-3 w-3" />
-                Discard
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleCopy}>
-                <Copy className="mr-1 h-3 w-3" />
-                Copy
-              </Button>
-              <Button size="sm" onClick={handlePostToChat}>
-                <Check className="mr-1 h-3 w-3" />
-                Post to Chat
-              </Button>
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[10px] text-muted-foreground/60">
+                {result.split(/\s+/).length} words
+              </span>
+              <div className="flex gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={onClose}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Discard
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={handleCopy}
+                >
+                  <Copy className="mr-1 h-3 w-3" />
+                  Copy
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={handlePostToChat}
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Post to Chat
+                </Button>
+              </div>
             </div>
           )}
 
@@ -338,6 +366,7 @@ export function ChatAiToolbar({
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-7 text-xs"
                 onClick={() => {
                   if (selectedAction)
                     executeAiAction(selectedAction.id, prompt);

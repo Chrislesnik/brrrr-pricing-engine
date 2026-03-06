@@ -163,9 +163,29 @@ export function ComposerWithAi({
         commandId === "translate"
       ) {
         handleToggleAiToolbar();
+        return;
+      }
+
+      // Mention command — focus composer for @mention
+      if (commandId === "mention") {
+        const editorEl = composerRef.current?.querySelector<HTMLElement>(
+          '[data-slate-editor="true"]'
+        );
+        if (editorEl) {
+          editorEl.focus();
+          // Insert @ to trigger Liveblocks mention suggestions
+          document.execCommand("insertText", false, "@");
+        }
+        return;
+      }
+
+      // Share deal link — copy to clipboard
+      if (commandId === "share-link") {
+        const url = `${window.location.origin}/messages?channel=deal:${dealId}`;
+        navigator.clipboard.writeText(url);
       }
     },
-    [handleToggleAiToolbar, onTriggerAiCommand]
+    [handleToggleAiToolbar, onTriggerAiCommand, dealId]
   );
 
   return (

@@ -15,6 +15,7 @@ import { EnhancedCommentsContent } from "./enhanced-comments-content";
 interface ChatAreaProps {
   roomId: string | null;
   dealId: string | null;
+  dealName?: string;
   activeThreadId: string | null;
   onToggleAiPanel: () => void;
   aiPanelOpen: boolean;
@@ -27,7 +28,7 @@ interface ChatAreaProps {
 // ─── Empty State ─────────────────────────────────────────────────────
 function EmptyState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
         <MessageSquare className="h-6 w-6 text-muted-foreground/40" />
       </div>
@@ -35,10 +36,17 @@ function EmptyState() {
         <h3 className="text-sm font-medium text-foreground">
           Select a channel
         </h3>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           Choose a deal channel from the sidebar to start messaging.
         </p>
       </div>
+      <p className="text-[11px] text-muted-foreground/70 mt-1">
+        Press{" "}
+        <kbd className="bg-muted rounded px-1.5 py-0.5 font-mono text-[10px]">
+          ⌘K
+        </kbd>{" "}
+        to search channels
+      </p>
     </div>
   );
 }
@@ -99,6 +107,7 @@ function RoomError() {
 export function ChatArea({
   roomId,
   dealId,
+  dealName,
   activeThreadId,
   onToggleAiPanel,
   aiPanelOpen,
@@ -125,6 +134,7 @@ export function ChatArea({
           <ClientSideSuspense fallback={<LoadingState />}>
             <ChatHeader
               dealId={dealId}
+              dealName={dealName}
               onToggleAiPanel={onToggleAiPanel}
               aiPanelOpen={aiPanelOpen}
               isPopout={isPopout}

@@ -1,12 +1,13 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useOthers } from "@liveblocks/react/suspense";
 import {
   Sparkles,
-  PanelRight,
   ExternalLink,
   Copy,
-  Users,
+  Check,
+  Hash,
 } from "lucide-react";
 import { Button } from "@repo/ui/shadcn/button";
 import {
@@ -19,6 +20,7 @@ import {
 // ─── Types ───────────────────────────────────────────────────────────
 interface ChatHeaderProps {
   dealId: string;
+  dealName?: string;
   onToggleAiPanel: () => void;
   aiPanelOpen: boolean;
   isPopout: boolean;
@@ -28,6 +30,7 @@ interface ChatHeaderProps {
 // ─── Component ───────────────────────────────────────────────────────
 export function ChatHeader({
   dealId,
+  dealName,
   onToggleAiPanel,
   aiPanelOpen,
   isPopout,
@@ -35,29 +38,35 @@ export function ChatHeader({
 }: ChatHeaderProps) {
   const others = useOthers();
   const onlineCount = others.length;
+  const [copied, setCopied] = useState(false);
 
-  const handleCopyLink = () => {
+  const handleCopyLink = useCallback(() => {
     const url = `${window.location.origin}/messages?channel=deal:${dealId}`;
     navigator.clipboard.writeText(url);
-  };
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [dealId]);
 
   return (
     <TooltipProvider>
       <div className="flex h-12 items-center justify-between border-b border-border bg-background px-4">
         {/* Left: Channel info */}
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold text-foreground">
-            # Deal Channel
-          </h2>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <h2 className="text-[13px] font-semibold text-foreground truncate">
+              {dealName || `Deal ${dealId.slice(0, 8)}`}
+            </h2>
+          </div>
 
-          {/* Presence avatars */}
+          {/* Presence indicators */}
           {onlineCount > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <div className="flex -space-x-1.5">
                 {others.slice(0, 3).map((other) => (
                   <div
                     key={other.connectionId}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground"
+                    className="flex h-6 w-6 items-center justify-center rounded-md border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground"
                     title={
                       (other.info as { name?: string } | undefined)?.name ??
                       "User"
@@ -70,66 +79,63 @@ export function ChatHeader({
                 ))}
               </div>
               {onlineCount > 3 && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground">
                   +{onlineCount - 3}
                 </span>
               )}
+              <div className="h-3 border-l border-border" />
+              <span className="text-[11px] text-muted-foreground">
+                {onlineCount + 1} online
+              </span>
             </div>
           )}
-
-          <span className="text-xs text-muted-foreground">
-            <Users className="mr-1 inline h-3 w-3" />
-            {onlineCount + 1} online
-          </span>
         </div>
 
         {/* Right: Action buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           {/* Copy link */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
                 onClick={handleCopyLink}
               >
-                <Copy className="h-4 w-4" />
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Copy channel link</TooltipContent>
-          </Tooltip>
-
-          {/* AI toolbar trigger */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={onToggleAiPanel}
-              >
-                <Sparkles className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {aiPanelOpen ? "Close AI panel" : "Open AI panel"}
+            <TooltipContent side="bottom">
+              {copied ? "Copied!" : "Copy channel link"}
             </TooltipContent>
           </Tooltip>
 
-          {/* Toggle AI Panel */}
+          {/* AI panel toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className={`h-8 w-8 ${aiPanelOpen ? "bg-accent" : ""}`}
+                className={`h-8 w-8 ${
+                  aiPanelOpen
+                    ? "bg-info/10 text-info hover:bg-info/20"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
                 onClick={onToggleAiPanel}
               >
-                <PanelRight className="h-4 w-4" />
+                <Sparkles className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Toggle AI panel</TooltipContent>
+            <TooltipContent side="bottom">
+              {aiPanelOpen ? "Close AI panel" : "Open AI panel"}
+              <kbd className="ml-2 text-[10px] bg-muted/60 rounded px-1 py-0.5">
+                ⌘⇧A
+              </kbd>
+            </TooltipContent>
           </Tooltip>
 
           {/* Pop-out button (only in main window) */}
@@ -139,13 +145,13 @@ export function ChatHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
                   onClick={onOpenPopout}
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open in new window</TooltipContent>
+              <TooltipContent side="bottom">Open in new window</TooltipContent>
             </Tooltip>
           )}
         </div>
