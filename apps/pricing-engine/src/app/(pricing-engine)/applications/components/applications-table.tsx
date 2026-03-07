@@ -874,6 +874,7 @@ function DownloadDialogBody({ loanId, entityId, documensoDocumentId, guarantors,
   const visibleGuarantors = (guarantors ?? []).slice(0, 4)
   const hasEntity = !!entityId
   const [downloading, setDownloading] = useState(false)
+  const [downloadingUnsigned, setDownloadingUnsigned] = useState(false)
 
   const [sections, setSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
@@ -1010,16 +1011,44 @@ function DownloadDialogBody({ loanId, entityId, documensoDocumentId, guarantors,
         <Button
           className="w-full"
           variant="outline"
-          onClick={() => {
+          disabled={downloadingUnsigned}
+          onClick={async () => {
             const selected = Object.entries(sections)
               .filter(([, v]) => v)
               .map(([k]) => k)
-            // TODO: call download unsigned document API with selected sections
-            console.log("Download unsigned version with sections:", selected)
+            setDownloadingUnsigned(true)
+            try {
+              const res = await fetch(`/api/applications/${loanId}/download-unsigned`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sections: selected }),
+              })
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}))
+                throw new Error((body as any).error || "Download failed")
+              }
+              const blob = await res.blob()
+              const disposition = res.headers.get("Content-Disposition")
+              const filenameMatch = disposition?.match(/filename="(.+?)"/)
+              const filename = filenameMatch?.[1] ?? "application-unsigned.pdf"
+
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement("a")
+              a.href = url
+              a.download = filename
+              document.body.appendChild(a)
+              a.click()
+              a.remove()
+              URL.revokeObjectURL(url)
+            } catch (err) {
+              console.error("Download unsigned document error:", err)
+            } finally {
+              setDownloadingUnsigned(false)
+            }
           }}
         >
           <Download className="mr-2 h-4 w-4" />
-          Download Unsigned Version
+          {downloadingUnsigned ? "Downloading..." : "Download Unsigned Version"}
         </Button>
       </div>
     </div>
