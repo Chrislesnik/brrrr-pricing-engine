@@ -1087,6 +1087,12 @@ const CartStep = ({
         }
         toast({ title: "Appraisal order sent", description: "Order submitted successfully." })
       } else if (isBackground) {
+        if (isEntity && !currentEntityId) {
+          throw new Error("No entity selected for background check")
+        }
+        if (!isEntity && !currentBorrowerId) {
+          throw new Error("No borrower selected for background check")
+        }
         const dobStr = dob
           ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, "0")}-${String(dob.getDate()).padStart(2, "0")}`
           : null
@@ -1137,6 +1143,9 @@ const CartStep = ({
           description: "The request has been sent for processing.",
         })
       } else {
+        if (!currentBorrowerId) {
+          throw new Error("No borrower selected for credit pull")
+        }
         const digits = ssn.replace(/\D+/g, "").slice(0, 9)
         const inputs = {
           first_name: firstName || undefined,
@@ -1163,7 +1172,7 @@ const CartStep = ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            borrowerId: currentBorrowerId ?? null,
+            borrowerId: currentBorrowerId,
             inputs,
             aggregator: null,
           }),

@@ -71,6 +71,12 @@ export async function POST(req: NextRequest) {
     }
 
     const borrowerId = (body?.borrowerId ?? null) as string | null
+    if (!borrowerId) {
+      return NextResponse.json(
+        { error: "borrowerId is required" },
+        { status: 400 }
+      )
+    }
     const aggregator = (body?.aggregator ?? null) as string | null
     const inputs: Inputs = body?.inputs ?? {}
 

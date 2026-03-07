@@ -64,6 +64,19 @@ export async function POST(req: NextRequest) {
     const body: BodyShape = await req.json().catch(() => ({}))
     const isEntity = Boolean(body.is_entity)
 
+    if (isEntity && !body.entity_id) {
+      return NextResponse.json(
+        { error: "entity_id is required for entity background checks" },
+        { status: 400 },
+      )
+    }
+    if (!isEntity && !body.borrower_id) {
+      return NextResponse.json(
+        { error: "borrower_id is required for individual background checks" },
+        { status: 400 },
+      )
+    }
+
     // --- SSN encryption (individual only) ---
     let ssnEncrypted: string | null = null
     let ssnParts: { ciphertext_b64: string; iv_b64: string; algo: string } | null = null

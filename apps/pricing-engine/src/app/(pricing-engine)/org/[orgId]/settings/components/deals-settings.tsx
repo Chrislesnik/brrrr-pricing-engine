@@ -5,8 +5,9 @@ import { cn } from "@repo/lib/cn";
 import { InputsSettings } from "./inputs-settings";
 import { DocumentsSettings } from "./documents-settings";
 import { TasksSettings } from "./tasks-settings";
+import { DealGridLayout } from "./deal-grid-layout";
 
-type SubTab = "inputs" | "documents" | "tasks";
+type SubTab = "inputs" | "layout" | "documents" | "tasks";
 
 export function DealsSettings() {
   const [subTab, setSubTab] = useState<SubTab>("inputs");
@@ -35,6 +36,18 @@ export function DealsSettings() {
         </button>
         <button
           type="button"
+          onClick={() => setSubTab("layout")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+            subTab === "layout"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          )}
+        >
+          Layout
+        </button>
+        <button
+          type="button"
           onClick={() => setSubTab("documents")}
           className={cn(
             "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
@@ -60,6 +73,8 @@ export function DealsSettings() {
       </div>
 
       {subTab === "inputs" && <InputsSettings />}
+
+      {subTab === "layout" && <DealGridLayout />}
 
       {subTab === "documents" && <DocumentsSettings />}
 

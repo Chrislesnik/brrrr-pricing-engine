@@ -57,6 +57,8 @@ interface InputField {
   config?: Record<string, unknown> | null
   starred: boolean
   display_order: number
+  layout_row?: number
+  layout_width?: string
   created_at: string
 }
 
@@ -300,7 +302,7 @@ export function NewDealInline({ onClose }: { onClose: () => void }) {
     category: cat,
     fields: inputs
       .filter((inp) => inp.category_id === cat.id)
-      .sort((a, b) => a.display_order - b.display_order),
+      .sort((a, b) => (a.layout_row ?? 0) - (b.layout_row ?? 0) || a.display_order - b.display_order),
   }))
 
   return (
@@ -373,28 +375,84 @@ export function NewDealInline({ onClose }: { onClose: () => void }) {
                     <span>{category.category}</span>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {visibleFields.map((field) => (
-                        <DynamicInput
-                          key={field.id}
-                          field={field}
-                          value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
-                          onChange={(val) => updateValue(field.id, val)}
-                          onRecordSelect={(code, recId) => {
-                            setRecordIds((prev) => {
-                              const key = `${code}_record_id`
-                              if (prev[key] === (recId ?? undefined)) return prev
-                              return { ...prev, [key]: recId ?? undefined }
-                            })
-                          }}
-                          isRequired={requiredFields.has(field.id)}
-                          isComputed={computedFieldIds.has(field.id)}
-                          isLocked={lockedInputCodes.has(field.input_code)}
-                          linkedRecords={(() => { const r = getResolvedLink(field.id); const t = r?.linked_table; return t ? (linkedRecordsByTable[t] ?? []) : []; })()}
-                          loadingLinked={getResolvedLink(field.id) ? loadingLinkedRecords : false}
-                        />
-                      ))}
-                    </div>
+                    {(() => {
+                      const hasLayout = visibleFields.some((f) => (f.layout_row ?? 0) > 0 || (f.layout_width && f.layout_width !== "20"));
+                      if (!hasLayout) {
+                        return (
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                            {visibleFields.map((field) => (
+                              <DynamicInput
+                                key={field.id}
+                                field={field}
+                                value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
+                                onChange={(val) => updateValue(field.id, val)}
+                                onRecordSelect={(code, recId) => {
+                                  setRecordIds((prev) => {
+                                    const key = `${code}_record_id`
+                                    if (prev[key] === (recId ?? undefined)) return prev
+                                    return { ...prev, [key]: recId ?? undefined }
+                                  })
+                                }}
+                                isRequired={requiredFields.has(field.id)}
+                                isComputed={computedFieldIds.has(field.id)}
+                                isLocked={lockedInputCodes.has(field.input_code)}
+                                linkedRecords={(() => { const r = getResolvedLink(field.id); const t = r?.linked_table; return t ? (linkedRecordsByTable[t] ?? []) : []; })()}
+                                loadingLinked={getResolvedLink(field.id) ? loadingLinkedRecords : false}
+                              />
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      const rowMap = new Map<number, typeof visibleFields>();
+                      for (const f of visibleFields) {
+                        const row = f.layout_row ?? 0;
+                        const existing = rowMap.get(row) ?? [];
+                        existing.push(f);
+                        rowMap.set(row, existing);
+                      }
+                      const sortedRows = [...rowMap.entries()].sort(([a], [b]) => a - b);
+
+                      const colSpanClass = (w: string | undefined) => {
+                        switch (w) {
+                          case "100": return "col-span-5";
+                          case "80": return "col-span-4";
+                          case "60": return "col-span-3";
+                          case "40": return "col-span-2";
+                          case "20": default: return "col-span-1";
+                        }
+                      };
+
+                      return (
+                        <div className="space-y-4">
+                          {sortedRows.map(([rowIdx, rowFields]) => (
+                            <div key={rowIdx} className="grid grid-cols-5 gap-4">
+                              {rowFields.map((field) => (
+                                <div key={field.id} className={colSpanClass(field.layout_width)}>
+                                  <DynamicInput
+                                    field={field}
+                                    value={formValues[field.id] ?? (field.input_type === "boolean" ? false : "")}
+                                    onChange={(val) => updateValue(field.id, val)}
+                                    onRecordSelect={(code, recId) => {
+                                      setRecordIds((prev) => {
+                                        const key = `${code}_record_id`
+                                        if (prev[key] === (recId ?? undefined)) return prev
+                                        return { ...prev, [key]: recId ?? undefined }
+                                      })
+                                    }}
+                                    isRequired={requiredFields.has(field.id)}
+                                    isComputed={computedFieldIds.has(field.id)}
+                                    isLocked={lockedInputCodes.has(field.input_code)}
+                                    linkedRecords={(() => { const r = getResolvedLink(field.id); const t = r?.linked_table; return t ? (linkedRecordsByTable[t] ?? []) : []; })()}
+                                    loadingLinked={getResolvedLink(field.id) ? loadingLinkedRecords : false}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </AccordionContent>
                 </AccordionItem>
               );

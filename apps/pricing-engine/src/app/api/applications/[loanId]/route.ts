@@ -37,7 +37,7 @@ export async function GET(req: Request, context: { params: Promise<{ loanId?: st
   // Pull the applications row for this loan
   const { data: appRow, error: appErr } = await supabaseAdmin
     .from("applications")
-    .select("loan_id, entity_id, borrower_name, guarantor_ids, guarantor_names, guarantor_emails, property_street, property_city, property_state, property_zip")
+    .select("loan_id, entity_id, borrower_name, guarantor_ids, guarantor_names, guarantor_emails, property_street, property_city, property_state, property_zip, merged_data, form_data")
     .eq("loan_id", loanId)
     .maybeSingle<AppRow & { property_street?: string | null; property_city?: string | null; property_state?: string | null; property_zip?: string | null }>()
 
@@ -113,5 +113,9 @@ export async function GET(req: Request, context: { params: Promise<{ loanId?: st
     entityName,
     propertyAddress,
     guarantors: resolved,
+    merged_data: (appRow as any).merged_data ?? null,
+    form_data: (appRow as any).form_data ?? null,
+    guarantor_ids: ids,
+    guarantor_names: names,
   })
 }

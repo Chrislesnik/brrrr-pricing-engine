@@ -871,19 +871,79 @@ interface DownloadDialogBodyProps {
 }
 
 function DownloadDialogBody({ loanId, entityId, documensoDocumentId, guarantors, isCompleted }: DownloadDialogBodyProps) {
-  const visibleGuarantors = (guarantors ?? []).slice(0, 4)
-  const hasEntity = !!entityId
+  const [resolvedGuarantors, setResolvedGuarantors] = useState(guarantors ?? [])
+  const [resolvedHasEntity, setResolvedHasEntity] = useState(!!entityId)
+  const [loadingMeta, setLoadingMeta] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [downloadingUnsigned, setDownloadingUnsigned] = useState(false)
 
   const [sections, setSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
-    if (hasEntity) init.entity = true
-    visibleGuarantors.forEach((_, i) => { init[`guarantor${i + 1}`] = true })
+    if (entityId) init.entity = true
+    ;(guarantors ?? []).slice(0, 4).forEach((_, i) => { init[`guarantor${i + 1}`] = true })
     init.property = true
     init.loan = true
     return init
   })
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/applications/${encodeURIComponent(loanId)}`)
+        if (!res.ok || cancelled) { setLoadingMeta(false); return }
+        const j = await res.json()
+        const merged = (j.merged_data ?? j.form_data ?? {}) as Record<string, unknown>
+        const app = j as Record<string, unknown>
+
+        const hasEnt = !!(app.entity_id || merged.legalBusinessName)
+        if (!cancelled) setResolvedHasEntity(hasEnt)
+
+        let builtGuarantors: Array<{ id: string; name: string; email: string | null }> = []
+
+        if ((guarantors ?? []).length === 0) {
+          const count = Number(merged.numberOfGuarantors) || 0
+          const gIds = Array.isArray(app.guarantor_ids) ? (app.guarantor_ids as string[]) : []
+          const gNames = Array.isArray(app.guarantor_names) ? (app.guarantor_names as string[]) : []
+
+          for (let i = 0; i < Math.max(count, gIds.length, gNames.length); i++) {
+            const first = merged[`firstName${i}`] ?? ""
+            const last = merged[`lastName${i}`] ?? ""
+            const fullName = [first, last].filter(Boolean).join(" ") || gNames[i] || `Guarantor ${i + 1}`
+            builtGuarantors.push({
+              id: gIds[i] ?? `g-${i}`,
+              name: fullName,
+              email: (merged[`emailAddress${i}`] as string) ?? null,
+            })
+          }
+          if (!cancelled && builtGuarantors.length > 0) setResolvedGuarantors(builtGuarantors)
+        } else {
+          builtGuarantors = (guarantors ?? []).slice(0, 4)
+        }
+
+        if (!cancelled) {
+          setSections((prev) => {
+            const next = { ...prev }
+            if (hasEnt && !("entity" in next)) next.entity = true
+            builtGuarantors.slice(0, 4).forEach((_, i) => {
+              const key = `guarantor${i + 1}`
+              if (!(key in next)) next[key] = true
+            })
+            return next
+          })
+        }
+      } catch {
+        // use defaults
+      } finally {
+        if (!cancelled) setLoadingMeta(false)
+      }
+    })()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loanId])
+
+  const visibleGuarantors = resolvedGuarantors.slice(0, 4)
+  const hasEntity = resolvedHasEntity
 
   const allKeys = Object.keys(sections)
   const allChecked = allKeys.length > 0 && allKeys.every((k) => sections[k])

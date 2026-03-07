@@ -186,6 +186,34 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    // Batch layout update (used by deal layout settings)
+    if (Array.isArray(body.layout)) {
+      const updates = body.layout as { id: string; layout_row: number; layout_width: string; category_id: number }[]
+
+      const categoryIds = [...new Set(updates.map((u) => u.category_id))]
+      const { data: cats } = await supabaseAdmin
+        .from("input_categories")
+        .select("id, category")
+        .in("id", categoryIds)
+      const catMap = new Map((cats ?? []).map((c: { id: number; category: string }) => [c.id, c.category]))
+
+      for (const item of updates) {
+        const updatePayload: Record<string, unknown> = {
+          layout_row: item.layout_row,
+          layout_width: item.layout_width,
+          category_id: item.category_id,
+        }
+        const catName = catMap.get(item.category_id)
+        if (catName) updatePayload.category = catName
+
+        await supabaseAdmin
+          .from("inputs")
+          .update(updatePayload)
+          .eq("id", item.id)
+      }
+      return NextResponse.json({ ok: true })
+    }
+
     // Batch reorder (used after drag-and-drop)
     if (Array.isArray(body.reorder)) {
       const updates = body.reorder as { id: string; category_id: number; display_order: number }[]

@@ -39,9 +39,10 @@ import {
   Loader2,
   User,
   ChevronsUpDown,
-  Check,
   Eye,
   EyeOff,
+  X,
+  Plus,
 } from "lucide-react";
 import { DateInput } from "@/components/date-input";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
@@ -76,9 +77,17 @@ const formatDob = (date: Date | undefined): string => {
   return `${y}-${m}-${d}`;
 };
 
+const maskSSN = (ssn: string): string => {
+  const digits = ssn.replace(/\D+/g, "");
+  if (digits.length < 4) return ssn;
+  return `***-**-${digits.slice(-4)}`;
+};
+
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
+
+type SheetMode = "idle" | "quick-add" | "selected";
 
 interface BorrowerOption {
   id: string;
@@ -98,19 +107,21 @@ interface RunCreditSheetProps {
 /* -------------------------------------------------------------------------- */
 
 export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheetProps) {
+  const [mode, setMode] = useState<SheetMode>("idle");
+
   // Borrower search
   const [borrowers, setBorrowers] = useState<BorrowerOption[]>([]);
   const [selectedBorrowerId, setSelectedBorrowerId] = useState<string>("");
   const [borrowerSearchOpen, setBorrowerSearchOpen] = useState(false);
 
-  // Personal info
+  // Read-only borrower display (populated when selected)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [ssn, setSsn] = useState("");
   const [showSsn, setShowSsn] = useState(false);
   const [dob, setDob] = useState<Date | undefined>(undefined);
-
-  // Address
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [stateCode, setStateCode] = useState("");
@@ -125,6 +136,7 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
 
   // UI
   const [saving, setSaving] = useState(false);
+  const [creatingBorrower, setCreatingBorrower] = useState(false);
   const [loadingContact, setLoadingContact] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
@@ -153,6 +165,21 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
     fetchBorrowers();
   }, [open]);
 
+  const clearBorrowerFields = useCallback(() => {
+    setFirstName("");
+    setLastName("");
+    setSsn("");
+    setShowSsn(false);
+    setDob(undefined);
+    setEmail("");
+    setPhone("");
+    setStreet("");
+    setCity("");
+    setStateCode("");
+    setZip("");
+    setCounty("");
+  }, []);
+
   // Populate from borrower
   const handleSelectBorrower = useCallback(async (borrowerId: string) => {
     setSelectedBorrowerId(borrowerId);
@@ -167,6 +194,8 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
         const b = json.borrower ?? json;
         setFirstName((b.first_name as string) ?? "");
         setLastName((b.last_name as string) ?? "");
+        setEmail((b.email as string) ?? "");
+        setPhone((b.primary_phone as string) ?? "");
         if (b.date_of_birth) {
           const [y, m, d] = String(b.date_of_birth).split(/[-T]/);
           setDob(new Date(Number(y), Number(m) - 1, Number(d)));
@@ -193,6 +222,8 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
         } catch {
           // ignore
         }
+
+        setMode("selected");
       }
     } catch {
       // ignore
@@ -201,25 +232,23 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
     }
   }, []);
 
+  const handleClearSelection = useCallback(() => {
+    setSelectedBorrowerId("");
+    clearBorrowerFields();
+    setMode("idle");
+  }, [clearBorrowerFields]);
+
   // Reset
   const resetForm = useCallback(() => {
+    setMode("idle");
     setSelectedBorrowerId("");
-    setFirstName("");
-    setLastName("");
-    setSsn("");
-    setShowSsn(false);
-    setDob(undefined);
-    setStreet("");
-    setCity("");
-    setStateCode("");
-    setZip("");
-    setCounty("");
+    clearBorrowerFields();
     setPullType("soft");
     setIncludeTU(true);
     setIncludeEX(true);
     setIncludeEQ(true);
     setResultMessage(null);
-  }, []);
+  }, [clearBorrowerFields]);
 
   const handleOpenChange = useCallback(
     (val: boolean) => {
@@ -229,8 +258,61 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
     [onOpenChange, resetForm]
   );
 
-  // Submit
+  // Quick-add borrower submit
+  const handleCreateBorrower = async () => {
+    if (!firstName.trim() || !lastName.trim()) return;
+    setCreatingBorrower(true);
+    setResultMessage(null);
+    try {
+      const ssnDigits = ssn.replace(/\D+/g, "");
+      const payload: Record<string, unknown> = {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        date_of_birth: formatDob(dob) || undefined,
+        email: email.trim() || undefined,
+        primary_phone: phone.trim() || undefined,
+        address_line1: street.trim() || undefined,
+        city: city.trim() || undefined,
+        state: stateCode || undefined,
+        zip: zip.trim() || undefined,
+        county: county.trim() || undefined,
+      };
+      if (ssnDigits.length === 9) {
+        payload.ssn = ssnDigits;
+      }
+
+      const res = await fetch("/api/borrowers/quick-add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        const newBorrower = json.borrower;
+        setSelectedBorrowerId(newBorrower.id);
+        setBorrowers((prev) => [
+          {
+            id: newBorrower.id,
+            first_name: newBorrower.first_name,
+            last_name: newBorrower.last_name,
+            email: newBorrower.email ?? "",
+          },
+          ...prev,
+        ]);
+        setMode("selected");
+      } else {
+        setResultMessage(json.error || "Failed to create borrower.");
+      }
+    } catch {
+      setResultMessage("An unexpected error occurred creating the borrower.");
+    } finally {
+      setCreatingBorrower(false);
+    }
+  };
+
+  // Submit credit run
   const handleSubmit = async () => {
+    if (!selectedBorrowerId) return;
     setSaving(true);
     setResultMessage(null);
     try {
@@ -239,7 +321,7 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          borrowerId: selectedBorrowerId || null,
+          borrowerId: selectedBorrowerId,
           inputs: {
             first_name: firstName,
             last_name: lastName,
@@ -273,6 +355,7 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
   };
 
   const selectedBorrower = borrowers.find((b) => b.id === selectedBorrowerId);
+  const canRunCredit = mode === "selected" && !!selectedBorrowerId;
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -280,60 +363,67 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
         <SheetHeader className="pb-4">
           <SheetTitle>Run Credit Pull</SheetTitle>
           <SheetDescription>
-            Search for an existing borrower or fill in details manually.
+            Select an existing borrower or quick-add a new one to run a credit pull.
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6 pb-6">
           {/* Borrower Search */}
           <div>
-            <Label className="text-sm font-semibold mb-2 block">Search Existing Borrower</Label>
-            <Popover open={borrowerSearchOpen} onOpenChange={setBorrowerSearchOpen}>
-              <PopoverTrigger asChild>
+            <Label className="text-sm font-semibold mb-2 block">Select Borrower</Label>
+            <div className="flex items-center gap-2">
+              <Popover open={borrowerSearchOpen} onOpenChange={setBorrowerSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    disabled={mode === "quick-add"}
+                    className="w-full justify-between font-normal h-9"
+                  >
+                    <span className={cn("truncate", !selectedBorrower && "text-muted-foreground")}>
+                      {selectedBorrower
+                        ? `${selectedBorrower.first_name} ${selectedBorrower.last_name}`
+                        : "Select a borrower..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search borrowers..." />
+                    <CommandList className="max-h-48">
+                      <CommandEmpty>No borrowers found.</CommandEmpty>
+                      <CommandGroup>
+                        {borrowers.map((b) => (
+                          <CommandItem
+                            key={b.id}
+                            value={`${b.first_name} ${b.last_name} ${b.email}`}
+                            onSelect={() => handleSelectBorrower(b.id)}
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm">{b.first_name} {b.last_name}</span>
+                              {b.email && (
+                                <span className="text-xs text-muted-foreground">{b.email}</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {mode === "selected" && (
                 <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between font-normal h-9"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={handleClearSelection}
                 >
-                  <span className={cn("truncate", !selectedBorrower && "text-muted-foreground")}>
-                    {selectedBorrower
-                      ? `${selectedBorrower.first_name} ${selectedBorrower.last_name}`
-                      : "Select borrower or leave blank..."}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <X className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search borrowers..." />
-                  <CommandList className="max-h-48">
-                    <CommandEmpty>No borrowers found.</CommandEmpty>
-                    <CommandGroup>
-                      {borrowers.map((b) => (
-                        <CommandItem
-                          key={b.id}
-                          value={`${b.first_name} ${b.last_name} ${b.email}`}
-                          onSelect={() => handleSelectBorrower(b.id)}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedBorrowerId === b.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span className="text-sm">{b.first_name} {b.last_name}</span>
-                            {b.email && (
-                              <span className="text-xs text-muted-foreground">{b.email}</span>
-                            )}
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+              )}
+            </div>
           </div>
 
           {loadingContact && (
@@ -343,129 +433,279 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
             </div>
           )}
 
-          <Separator />
+          {/* Quick Add link (idle mode only) */}
+          {mode === "idle" && !loadingContact && (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              onClick={() => {
+                clearBorrowerFields();
+                setMode("quick-add");
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Quick Add New Borrower
+            </button>
+          )}
 
-          {/* Personal Information */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Personal Information</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">First Name</Label>
-                  <Input
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="First Name"
-                    name="credit-order-given"
-                    autoComplete="one-time-code"
-                    data-1p-ignore
-                    data-lpignore="true"
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Last Name</Label>
-                  <Input
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Last Name"
-                    name="credit-order-surname"
-                    autoComplete="one-time-code"
-                    data-1p-ignore
-                    data-lpignore="true"
-                    className="h-9"
-                  />
+          {/* Read-only borrower info (selected mode) */}
+          {mode === "selected" && !loadingContact && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Personal Information</h3>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">First Name</Label>
+                      <p className="text-sm mt-0.5">{firstName || "—"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Last Name</Label>
+                      <p className="text-sm mt-0.5">{lastName || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Date of Birth</Label>
+                      <p className="text-sm mt-0.5">{formatDob(dob) || "—"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">SSN</Label>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm mt-0.5">
+                          {ssn ? (showSsn ? ssn : maskSSN(ssn)) : "—"}
+                        </p>
+                        {ssn && (
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowSsn(!showSsn)}
+                          >
+                            {showSsn ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {(email || phone) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {email && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Email</Label>
+                          <p className="text-sm mt-0.5">{email}</p>
+                        </div>
+                      )}
+                      {phone && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Phone</Label>
+                          <p className="text-sm mt-0.5">{phone}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Date of Birth</Label>
-                  <DateInput
-                    value={dob}
-                    onChange={setDob}
-                    emptyOnMount
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">SSN</Label>
-                  <div className="relative">
-                    <Input
-                      type={showSsn ? "text" : "password"}
-                      value={ssn}
-                      onChange={(e) => setSsn(formatSSN(e.target.value))}
-                      placeholder="123-45-6789"
-                      inputMode="numeric"
-                      name="credit-order-tin"
-                      autoComplete="one-time-code"
-                      data-1p-ignore
-                      data-lpignore="true"
-                      className="h-9 pr-9"
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowSsn(!showSsn)}
-                    >
-                      {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Address</h3>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Street</Label>
+                    <p className="text-sm mt-0.5">{street || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">City</Label>
+                      <p className="text-sm mt-0.5">{city || "—"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">State</Label>
+                      <p className="text-sm mt-0.5">{stateCode || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Zip Code</Label>
+                      <p className="text-sm mt-0.5">{zip || "—"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">County</Label>
+                      <p className="text-sm mt-0.5">{county || "—"}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
-          <Separator />
-
-          {/* Address */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Address</h3>
-            <div className="space-y-3">
+          {/* Quick-add editable form */}
+          {mode === "quick-add" && (
+            <>
+              <Separator />
               <div>
-                <Label className="text-xs">Street</Label>
-                <AddressAutocomplete
-                  value={street}
-                  onChange={(addr) => {
-                    if (addr.raw) setStreet(addr.raw);
-                    else if (addr.address_line1) setStreet(addr.address_line1);
-                    if (addr.city) setCity(addr.city);
-                    if (addr.state) setStateCode(addr.state);
-                    if (addr.zip) setZip(addr.zip);
-                    if (addr.county) setCounty(addr.county);
-                  }}
-                  placeholder="123 Main St"
-                  className="h-9"
-                />
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">New Borrower</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={() => {
+                      clearBorrowerFields();
+                      setMode("idle");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">First Name <span className="text-red-500">*</span></Label>
+                      <Input
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="First Name"
+                        name="credit-order-given"
+                        autoComplete="one-time-code"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Last Name <span className="text-red-500">*</span></Label>
+                      <Input
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Last Name"
+                        name="credit-order-surname"
+                        autoComplete="one-time-code"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Email</Label>
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Phone</Label>
+                      <Input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="(555) 555-5555"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Date of Birth</Label>
+                      <DateInput
+                        value={dob}
+                        onChange={setDob}
+                        emptyOnMount
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">SSN</Label>
+                      <div className="relative">
+                        <Input
+                          type={showSsn ? "text" : "password"}
+                          value={ssn}
+                          onChange={(e) => setSsn(formatSSN(e.target.value))}
+                          placeholder="123-45-6789"
+                          inputMode="numeric"
+                          name="credit-order-tin"
+                          autoComplete="one-time-code"
+                          data-1p-ignore
+                          data-lpignore="true"
+                          className="h-9 pr-9"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setShowSsn(!showSsn)}
+                        >
+                          {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <Label className="text-xs">Street</Label>
+                    <AddressAutocomplete
+                      value={street}
+                      onChange={(addr) => {
+                        if (addr.raw) setStreet(addr.raw);
+                        else if (addr.address_line1) setStreet(addr.address_line1);
+                        if (addr.city) setCity(addr.city);
+                        if (addr.state) setStateCode(addr.state);
+                        if (addr.zip) setZip(addr.zip);
+                        if (addr.county) setCounty(addr.county);
+                      }}
+                      placeholder="123 Main St"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">City</Label>
+                      <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="h-9" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">State</Label>
+                      <Select value={stateCode} onValueChange={setStateCode}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="State" /></SelectTrigger>
+                        <SelectContent>
+                          {STATE_OPTIONS.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Zip Code</Label>
+                      <Input value={zip} onChange={(e) => setZip(e.target.value)} placeholder="12345" className="h-9" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">County</Label>
+                      <Input value={county} onChange={(e) => setCounty(e.target.value)} placeholder="County" className="h-9" />
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full mt-2"
+                    onClick={handleCreateBorrower}
+                    disabled={creatingBorrower || !firstName.trim() || !lastName.trim()}
+                  >
+                    {creatingBorrower && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <User className="mr-2 h-4 w-4" />
+                    Create Borrower
+                  </Button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">City</Label>
-                  <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="h-9" />
-                </div>
-                <div>
-                  <Label className="text-xs">State</Label>
-                  <Select value={stateCode} onValueChange={setStateCode}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="State" /></SelectTrigger>
-                    <SelectContent>
-                      {STATE_OPTIONS.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Zip Code</Label>
-                  <Input value={zip} onChange={(e) => setZip(e.target.value)} placeholder="12345" className="h-9" />
-                </div>
-                <div>
-                  <Label className="text-xs">County</Label>
-                  <Input value={county} onChange={(e) => setCounty(e.target.value)} placeholder="County" className="h-9" />
-                </div>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
 
           <Separator />
 
@@ -523,6 +763,13 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
             </div>
           </div>
 
+          {/* Hint when no borrower is selected */}
+          {!canRunCredit && mode !== "quick-add" && !loadingContact && (
+            <p className="text-xs text-muted-foreground text-center">
+              Select or add a borrower above to run a credit pull.
+            </p>
+          )}
+
           {/* Result message */}
           {resultMessage && (
             <div className={cn(
@@ -540,7 +787,7 @@ export function RunCreditSheet({ open, onOpenChange, onCreated }: RunCreditSheet
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button onClick={handleSubmit} disabled={saving || !canRunCredit}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Run Credit
           </Button>
