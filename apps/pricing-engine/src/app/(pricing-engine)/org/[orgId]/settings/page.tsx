@@ -20,6 +20,7 @@ import {
   Workflow,
   Plug,
   Key,
+  Bot,
 } from "lucide-react";
 import { cn } from "@repo/lib/cn";
 
@@ -34,8 +35,9 @@ import { AutomationsSettings } from "./components/automations-settings";
 import { IntegrationsSettings } from "./components/integrations-settings";
 import { DashboardSettings } from "./components/dashboard-settings";
 import { APIKeysSettings } from "./components/api-keys-settings";
+import { AIAgentsSettings } from "./components/ai-agents-settings";
 
-type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "dashboard" | "automations" | "integrations" | "api-keys";
+type SettingsTab = "general" | "members" | "domains" | "pricing-engine" | "themes" | "deals" | "dashboard" | "automations" | "integrations" | "api-keys" | "ai-agents";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -101,6 +103,12 @@ const settingsNavItems: NavItem[] = [
     label: "Automations",
     icon: Workflow,
     description: "Manage workflow automations",
+  },
+  {
+    id: "ai-agents",
+    label: "AI Agents",
+    icon: Bot,
+    description: "Configure AI agent workflows",
   },
   {
     id: "api-keys",
@@ -305,6 +313,7 @@ export default function OrganizationSettingsPage({
             {activeTab === "deals" && <DealsSettings />}
             {activeTab === "dashboard" && <DashboardSettings />}
             {activeTab === "automations" && <AutomationsSettings />}
+            {activeTab === "ai-agents" && <AIAgentsSettings />}
             {activeTab === "integrations" && <IntegrationsSettings />}
             {activeTab === "api-keys" && <APIKeysSettings />}
           </div>
