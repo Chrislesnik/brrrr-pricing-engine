@@ -1,17 +1,12 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { startParse } from "@/lib/parse-document";
 
 /* -------------------------------------------------------------------------- */
 /*  POST /api/deals/[id]/deal-documents/[docId]/retry-parse                    */
-/*  Re-triggers the n8n document parsing webhook with the same payload that    */
-/*  the notify_n8n_on_document_file_insert DB trigger sends.                   */
+/*  Re-triggers the document parsing pipeline for a given deal document.       */
 /* -------------------------------------------------------------------------- */
-
-const N8N_DOCUMENT_PARSE_WEBHOOK =
-  "https://n8n.axora.info/webhook/3c632f17-df80-4bdf-923f-bf3f13d7ca2f";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 export async function POST(
   _request: Request,
@@ -47,50 +42,10 @@ export async function POST(
       );
     }
 
-    // 2. Fetch the full document_files row
-    const { data: docFile, error: docFileError } = await supabaseAdmin
-      .from("document_files")
-      .select("*")
-      .eq("id", dealDoc.document_file_id)
-      .single();
+    // 2. Start parse (uploads to LlamaParse with webhook callback)
+    const { jobId } = await startParse(dealDoc.document_file_id);
 
-    if (docFileError || !docFile) {
-      return NextResponse.json(
-        { error: "Document file not found" },
-        { status: 404 }
-      );
-    }
-
-    // 3. Construct the same payload as the DB trigger
-    //    trigger builds: to_jsonb(NEW) || jsonb_build_object('file_download_url', file_url)
-    //    where file_url = SUPABASE_URL/storage/v1/object/{bucket}/{path}
-    const fileDownloadUrl = `${SUPABASE_URL}/storage/v1/object/${docFile.storage_bucket ?? ""}/${docFile.storage_path ?? ""}`;
-
-    const payload = {
-      ...docFile,
-      file_download_url: fileDownloadUrl,
-    };
-
-    // 4. POST to the n8n webhook
-    const webhookRes = await fetch(N8N_DOCUMENT_PARSE_WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!webhookRes.ok) {
-      console.error(
-        "n8n webhook error:",
-        webhookRes.status,
-        await webhookRes.text().catch(() => "")
-      );
-      return NextResponse.json(
-        { error: "Failed to trigger document processing" },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, jobId });
   } catch (error) {
     console.error(
       "[POST /api/deals/[id]/deal-documents/[docId]/retry-parse]",

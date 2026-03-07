@@ -13,6 +13,7 @@ import { DealDocumentsTab } from "../components/deal-documents-tab";
 import { DealSignatureRequestsTab } from "../components/deal-signature-requests-tab";
 import { DealCalendarTab } from "../components/deal-calendar-tab";
 import { DealTasksTab } from "../components/deal-tasks-tab";
+import { DealConditionsTab } from "../components/deal-conditions-tab";
 import { DealAssignedToRoster } from "../components/deal-assigned-to-tab";
 import { CommentsPanel } from "@/components/liveblocks/comments-panel";
 import { ComposeEmailDialog, type ComposeEmailData } from "@/components/email-builder/compose-email-dialog";
@@ -83,6 +84,7 @@ function DealRecordContent({ params }: { params: Promise<{ id: string }> }) {
   const dealTabs = [
     { name: "Details", value: "details" },
     { name: "Documents", value: "documents" },
+    { name: "Conditions", value: "conditions" },
     { name: "Tasks", value: "tasks" },
     { name: "Signature Requests", value: "signature-requests" },
     { name: "Calendar", value: "calendar" },
@@ -518,6 +520,10 @@ function DealRecordContent({ params }: { params: Promise<{ id: string }> }) {
 
               <TabsContent value="documents" className="mt-0">
                 <DealDocumentsTab dealId={dealId} dealInputs={deal.inputs ?? {}} />
+              </TabsContent>
+
+              <TabsContent value="conditions" className="mt-0">
+                <DealConditionsTab dealId={dealId} />
               </TabsContent>
 
               <TabsContent value="signature-requests" className="mt-0">

@@ -168,6 +168,7 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
   const [documentStatuses, setDocumentStatuses] = useState<DocumentStatusItem[]>([]);
   const [isInternalOrg, setIsInternalOrg] = useState(false);
   const [statusFilters, setStatusFilters] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
   /* ----- Document logic engine ----- */
   const { hiddenDocTypes, requiredDocTypes, loading: logicLoading } =
@@ -494,6 +495,31 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
     [dealId]
   );
 
+  /* ----- Export all documents as ZIP ----- */
+  const handleExportAll = useCallback(async () => {
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/deals/${dealId}/deal-documents/export`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Export failed");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${dealId}-documents.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export documents:", error);
+    } finally {
+      setExporting(false);
+    }
+  }, [dealId]);
+
   /* ----- Rename document handler ----- */
   const handleRenameDocument = useCallback(
     async (docId: number, newName: string) => {
@@ -634,6 +660,21 @@ export function DealDocumentsTab({ dealId, dealInputs }: DealDocumentsTabProps) 
               </button>
             )}
           </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            disabled={exporting || dealDocuments.filter((d) => d.has_file).length === 0}
+            onClick={handleExportAll}
+          >
+            {exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Export
+          </Button>
 
           <Popover>
             <PopoverTrigger asChild>

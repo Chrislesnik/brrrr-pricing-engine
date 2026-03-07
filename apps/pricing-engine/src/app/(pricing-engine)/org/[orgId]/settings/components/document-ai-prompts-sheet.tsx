@@ -388,16 +388,16 @@ export function DocumentAIPromptsSheet({
           onValueChange={setActiveTab}
           className="flex-1 flex flex-col mt-4"
         >
-          <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto shrink-0">
+          <TabsList variant="line" className="w-full justify-start border-b p-0 h-auto shrink-0">
             <TabsTrigger
               value="inputs"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+              className="px-4 py-3"
             >
               Inputs
             </TabsTrigger>
             <TabsTrigger
               value="conditions"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+              className="px-4 py-3"
             >
               Conditions
             </TabsTrigger>

@@ -7,7 +7,7 @@ import {
   Input as AriaInput,
   NumberField,
 } from "react-aria-components";
-import { Loader2, MinusIcon, PlusIcon, Pencil, Save, X, Link2 } from "lucide-react";
+import { Loader2, MinusIcon, PlusIcon, Pencil, Save, X, Link2, Download } from "lucide-react";
 import { useLogicEngine } from "@/hooks/use-logic-engine";
 import { Button } from "@repo/ui/shadcn/button";
 import { Input } from "@repo/ui/shadcn/input";
@@ -52,6 +52,7 @@ interface InputCategory {
   display_order: number;
   created_at: string;
   default_open?: boolean;
+  is_ai_only?: boolean;
 }
 
 interface InputField {
@@ -110,6 +111,7 @@ const formatEnum = (value: unknown) => {
 export function DealDetailsTab({ deal }: DealDetailsTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoPulling, setIsAutoPulling] = useState(false);
   const [categories, setCategories] = useState<InputCategory[]>([]);
   const [inputFields, setInputFields] = useState<InputField[]>([]);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -169,9 +171,11 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
         if (cancelled) return;
 
         setCategories(
-          (Array.isArray(catsJson) ? catsJson : []).sort(
-            (a: InputCategory, b: InputCategory) => a.display_order - b.display_order
-          )
+          (Array.isArray(catsJson) ? catsJson : [])
+            .filter((c: InputCategory) => !c.is_ai_only)
+            .sort(
+              (a: InputCategory, b: InputCategory) => a.display_order - b.display_order
+            )
         );
         setInputFields(Array.isArray(inputsJson) ? inputsJson : []);
       } catch {
@@ -294,6 +298,25 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
       userEditedRef.current = new Set();
     }
   }, [isEditing]);
+
+  // Pull all AI-extracted values into deal inputs based on priority hierarchy
+  const handleAutoPull = useCallback(async () => {
+    setIsAutoPulling(true);
+    try {
+      const res = await fetch(`/api/deals/${deal.id}/auto-pull`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Reload the page to reflect new values
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("Auto-pull failed:", err);
+    } finally {
+      setIsAutoPulling(false);
+    }
+  }, [deal.id]);
 
   // Build the changed values diff for save
   const handleSave = useCallback(async () => {
@@ -758,10 +781,25 @@ export function DealDetailsTab({ deal }: DealDetailsTabProps) {
             </Button>
           </div>
         ) : (
-          <Button size="sm" onClick={() => setIsEditing(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Details
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAutoPull}
+              disabled={isAutoPulling}
+            >
+              {isAutoPulling ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              {isAutoPulling ? "Pulling..." : "Pull AI Values"}
+            </Button>
+            <Button size="sm" onClick={() => setIsEditing(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Details
+            </Button>
+          </div>
         )}
       </div>
 

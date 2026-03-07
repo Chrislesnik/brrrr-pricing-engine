@@ -83,6 +83,7 @@ interface InputCategory {
   display_order: number;
   created_at: string;
   default_open: boolean;
+  is_ai_only?: boolean;
 }
 
 interface InputField {
@@ -338,7 +339,23 @@ export function InputsSettings() {
         fetch("/api/input-categories"),
         fetch("/api/inputs"),
       ]);
-      if (catsRes.ok) setCategories(await catsRes.json());
+      if (catsRes.ok) {
+        const cats = await catsRes.json();
+        // Auto-create the AI Extraction category if it doesn't exist
+        const hasAiOnly = (cats as any[]).some((c: any) => c.is_ai_only);
+        if (!hasAiOnly) {
+          const createRes = await fetch("/api/input-categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: "AI Extraction", is_ai_only: true }),
+          });
+          if (createRes.ok) {
+            const newCat = await createRes.json();
+            cats.push(newCat);
+          }
+        }
+        setCategories(cats);
+      }
       if (inputsRes.ok) setInputs(await inputsRes.json());
     } catch (err) {
       console.error("Failed to fetch inputs data:", err);
@@ -872,6 +889,14 @@ export function InputsSettings() {
                           <span className="font-semibold text-sm uppercase tracking-wide">
                             {cat.category}
                           </span>
+                          {cat.is_ai_only && (
+                            <Badge
+                              variant="secondary"
+                              className="pointer-events-none rounded-sm text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                            >
+                              AI Only
+                            </Badge>
+                          )}
                           <Badge
                             variant="secondary"
                             className="pointer-events-none rounded-sm text-xs"
@@ -921,29 +946,33 @@ export function InputsSettings() {
                         >
                           <Workflow className="size-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleStartEditCategory(cat)}
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground hover:text-destructive"
-                          onClick={() =>
-                            setDeleteDialog({
-                              open: true,
-                              type: "category",
-                              id: cat.id,
-                              name: cat.category,
-                            })
-                          }
+                        {!cat.is_ai_only && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleStartEditCategory(cat)}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                setDeleteDialog({
+                                  open: true,
+                                  type: "category",
+                                  id: cat.id,
+                                  name: cat.category,
+                                })
+                              }
                         >
                           <Archive className="size-3.5" />
                         </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

@@ -13,6 +13,7 @@ import {
   RefreshCw,
   AlertTriangle,
   FileSearch,
+  Download,
 } from "lucide-react"
 import { CheckIcon, PlusCircledIcon } from "@radix-ui/react-icons"
 import { cn } from "@repo/lib/cn"
@@ -115,9 +116,6 @@ interface TestChatPanelProps {
   onRetry?: () => void
   isRetrying?: boolean
 }
-
-const DETAILS_WEBHOOK_URL =
-  "https://n8n.axora.info/webhook/33ca257e-24a2-483a-88c5-5d2fa7d8865f"
 
 // DetailItem component for the Details tab
 function DetailItem({
@@ -703,12 +701,15 @@ export function TestChatPanel({
       )
       if (!dealDocument) throw new Error("Deal document not found")
 
-      // 2. POST the deal_document row to the webhook
-      const webhookRes = await fetch(DETAILS_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dealDocument),
-      })
+      // 2. POST to the in-app AI extraction endpoint
+      const webhookRes = await fetch(
+        `/api/deals/${dealId}/deal-documents/${dealDocumentId}/ai-extract`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dealDocument),
+        }
+      )
       const webhookText = await webhookRes.text()
       let webhookData: unknown
       try {
@@ -762,6 +763,39 @@ export function TestChatPanel({
     }
   }, [parseStatus, fetchDetails])
 
+  // Auto-pull: commit all extracted values to deal inputs based on priority
+  const [autoPulling, setAutoPulling] = React.useState(false)
+  const [autoPullResult, setAutoPullResult] = React.useState<{
+    pulled: number
+    skipped: number
+    no_value: number
+  } | null>(null)
+
+  const handleAutoPull = React.useCallback(async () => {
+    if (!dealId || !dealDocumentId) return
+    setAutoPulling(true)
+    setAutoPullResult(null)
+    try {
+      const res = await fetch(
+        `/api/deals/${dealId}/deal-documents/${dealDocumentId}/auto-pull`,
+        { method: "POST" }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setAutoPullResult({
+          pulled: data.pulled ?? 0,
+          skipped: data.skipped ?? 0,
+          no_value: data.no_value ?? 0,
+        })
+        await loadSavedResults()
+      }
+    } catch (err) {
+      console.error("Auto-pull failed:", err)
+    } finally {
+      setAutoPulling(false)
+    }
+  }, [dealId, dealDocumentId, loadSavedResults])
+
   // Refresh a single detail item via webhook — upserts the existing row, reloads
   const handleRefreshItem = React.useCallback(
     async (item: DetailItemData): Promise<DetailItemData | null> => {
@@ -777,9 +811,9 @@ export function TestChatPanel({
       )
       if (!dealDocument) throw new Error("Deal document not found")
 
-      // 2. POST item + dealDocument to the single-item refresh webhook
+      // 2. POST item + dealDocument to the single-item refresh endpoint
       const webhookRes = await fetch(
-        "https://n8n.axora.info/webhook/ee4a312e-d700-462b-a222-163df28563f5",
+        `/api/deals/${dealId}/deal-documents/${dealDocumentId}/ai-extract-item`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1266,22 +1300,59 @@ export function TestChatPanel({
                 </PopoverContent>
               </Popover>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={fetchDetails}
-              disabled={detailsLoading}
-            >
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5",
-                  detailsLoading && "animate-spin"
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={handleAutoPull}
+                disabled={autoPulling || detailsLoading || detailsData.length === 0}
+              >
+                {autoPulling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
                 )}
-              />
-              <span className="sr-only">Refresh details</span>
-            </Button>
+                Pull Values
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={fetchDetails}
+                disabled={detailsLoading}
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    detailsLoading && "animate-spin"
+                  )}
+                />
+                <span className="sr-only">Refresh details</span>
+              </Button>
+            </div>
           </div>
+
+          {/* Auto-pull result banner */}
+          {autoPullResult && (
+            <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-1.5 text-xs">
+              <span>
+                <strong>{autoPullResult.pulled}</strong> pulled
+                {autoPullResult.skipped > 0 && (
+                  <>, <strong>{autoPullResult.skipped}</strong> skipped</>
+                )}
+                {autoPullResult.no_value > 0 && (
+                  <>, <strong>{autoPullResult.no_value}</strong> no value</>
+                )}
+              </span>
+              <button
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setAutoPullResult(null)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
 
           {/* Content */}
           {detailsLoading ? (

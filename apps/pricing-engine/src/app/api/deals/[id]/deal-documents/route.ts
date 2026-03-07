@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { nanoid } from "nanoid";
 import { checkRouteAccess, getOrgUuidFromClerkId } from "@/lib/orgs";
+import { startParse } from "@/lib/parse-document";
 
 type DocumentStatusDetail = {
   id: number;
@@ -339,7 +340,6 @@ export async function POST(
     }
 
     // ---- Step 1: Upload to Supabase Storage FIRST ----
-    // (must happen before the DB insert so the trigger's file_download_url is valid)
     const fileBuffer = await file.arrayBuffer();
     const { error: uploadError } = await supabaseAdmin.storage
       .from("deals")
@@ -357,7 +357,6 @@ export async function POST(
     }
 
     // ---- Step 2: Insert document_files row ----
-    // (trigger fires here to notify n8n — file already exists in storage)
     const { data: docFile, error: docFileError } = await supabaseAdmin
       .from("document_files")
       .insert({
@@ -383,6 +382,11 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    // Fire-and-forget: kick off document parsing pipeline (uploads to LlamaParse with webhook)
+    startParse(docFile.id).catch((e) =>
+      console.error("[deal-documents POST] startParse failed:", e)
+    );
 
     // ---- Step 3: Insert deal_documents row (typed placement) ----
     const { data: dealDoc, error: dealDocError } = await supabaseAdmin

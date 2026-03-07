@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("input_categories")
-      .insert({ category, display_order: nextOrder })
+      .insert({ category, display_order: nextOrder, is_ai_only: body.is_ai_only === true })
       .select("*")
       .single()
 
@@ -105,6 +105,16 @@ export async function PATCH(req: NextRequest) {
       const { error } = await supabaseAdmin
         .from("input_categories")
         .update({ default_open: body.default_open })
+        .eq("id", body.id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
+    // Toggle is_ai_only
+    if (body.id && typeof body.is_ai_only === "boolean") {
+      const { error } = await supabaseAdmin
+        .from("input_categories")
+        .update({ is_ai_only: body.is_ai_only })
         .eq("id", body.id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
